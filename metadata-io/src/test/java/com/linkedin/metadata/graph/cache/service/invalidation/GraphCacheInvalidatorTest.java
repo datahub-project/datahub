@@ -60,7 +60,8 @@ public class GraphCacheInvalidatorTest {
             registry,
             distributedStore,
             localViews,
-            TestOperationContexts.systemContextNoSearchAuthorization());
+            TestOperationContexts.systemContextNoSearchAuthorization(),
+            IndexVisibilityEstimator.DISABLED);
   }
 
   @Test

@@ -15,6 +15,7 @@ import com.hazelcast.config.SerializerConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
+import com.linkedin.metadata.cache.visibility.IndexVisibilityEstimator;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
 import com.linkedin.metadata.graph.cache.CacheStatus;
@@ -127,7 +128,8 @@ public class EntityGraphCacheHazelcastIntegrationTest {
             localViews,
             snapshotBuilder,
             systemOperationContext,
-            Executors.newSingleThreadExecutor());
+            Executors.newSingleThreadExecutor(),
+            IndexVisibilityEstimator.DISABLED);
   }
 
   @AfterMethod
@@ -349,7 +351,8 @@ public class EntityGraphCacheHazelcastIntegrationTest {
             localViews,
             snapshotBuilder,
             systemOperationContext,
-            deferredExecutor);
+            deferredExecutor,
+            IndexVisibilityEstimator.DISABLED);
 
     Set<String> cold =
         expandCached(

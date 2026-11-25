@@ -38,19 +38,6 @@ public class GraphCacheInvalidator {
       @Nonnull EntityGraphRegistry registry,
       @Nonnull EntityGraphDistributedStore distributedStore,
       @Nonnull EntityGraphLocalViewCache localViews,
-      @Nonnull OperationContext systemOperationContext) {
-    this(
-        registry,
-        distributedStore,
-        localViews,
-        systemOperationContext,
-        IndexVisibilityEstimator.DISABLED);
-  }
-
-  public GraphCacheInvalidator(
-      @Nonnull EntityGraphRegistry registry,
-      @Nonnull EntityGraphDistributedStore distributedStore,
-      @Nonnull EntityGraphLocalViewCache localViews,
       @Nonnull OperationContext systemOperationContext,
       @Nonnull IndexVisibilityEstimator visibilityEstimator) {
     this.registry = registry;

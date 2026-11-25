@@ -14,6 +14,7 @@ import com.hazelcast.config.Config;
 import com.hazelcast.config.SerializerConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.linkedin.metadata.cache.visibility.IndexVisibilityEstimator;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.InvalidationVisibility;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
@@ -149,7 +150,8 @@ public class EntityGraphFullWalkWriteBackTest {
             localViews,
             snapshotBuilder,
             operationContext,
-            rebuildExecutor);
+            rebuildExecutor,
+            IndexVisibilityEstimator.DISABLED);
   }
 
   @AfterMethod
@@ -754,7 +756,8 @@ public class EntityGraphFullWalkWriteBackTest {
                             .tracer(OpenTelemetry.noop().getTracer("test"))
                             .build())
                 .buildSystemContext(),
-            rebuildExecutor);
+            rebuildExecutor,
+            IndexVisibilityEstimator.DISABLED);
     assertEquals(
         disabled.publishFullWalk(
             writeBack(GLOSSARY, Set.of(SEED), List.of(walkEdge(CHILD, SEED)), false, 0L)),
@@ -919,7 +922,8 @@ public class EntityGraphFullWalkWriteBackTest {
         otherViews,
         snapshotBuilder,
         TestOperationContexts.Builder.builder().buildSystemContext(),
-        rebuildExecutor);
+        rebuildExecutor,
+        IndexVisibilityEstimator.DISABLED);
   }
 
   private GraphReadResult expand(

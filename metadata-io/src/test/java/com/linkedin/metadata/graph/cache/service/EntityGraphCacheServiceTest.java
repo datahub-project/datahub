@@ -16,6 +16,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.linkedin.metadata.cache.visibility.IndexVisibilityEstimator;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.RebuildExecution;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
@@ -118,7 +119,8 @@ public class EntityGraphCacheServiceTest {
             localViews,
             snapshotBuilder,
             systemOperationContext,
-            rebuildExecutor);
+            rebuildExecutor,
+            IndexVisibilityEstimator.DISABLED);
   }
 
   @Test

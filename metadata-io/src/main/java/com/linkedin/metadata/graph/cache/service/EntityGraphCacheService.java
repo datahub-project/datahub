@@ -59,25 +59,6 @@ public class EntityGraphCacheService implements EntityGraphCache {
       @Nonnull EntityGraphLocalViewCache localViews,
       @Nonnull EntityGraphSnapshotBuilder snapshotBuilder,
       @Nonnull OperationContext systemOperationContext,
-      @Nonnull ExecutorService rebuildExecutor) {
-    this(
-        properties,
-        registry,
-        distributedStore,
-        localViews,
-        snapshotBuilder,
-        systemOperationContext,
-        rebuildExecutor,
-        IndexVisibilityEstimator.DISABLED);
-  }
-
-  public EntityGraphCacheService(
-      @Nonnull EntityGraphCacheProperties properties,
-      @Nonnull EntityGraphRegistry registry,
-      @Nonnull EntityGraphDistributedStore distributedStore,
-      @Nonnull EntityGraphLocalViewCache localViews,
-      @Nonnull EntityGraphSnapshotBuilder snapshotBuilder,
-      @Nonnull OperationContext systemOperationContext,
       @Nonnull ExecutorService rebuildExecutor,
       @Nonnull IndexVisibilityEstimator visibilityEstimator) {
     this.properties = properties;
