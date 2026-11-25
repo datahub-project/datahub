@@ -97,6 +97,29 @@ pytest tests/path/to/file.py::TestClass::test_method  # Single test
 - **Security**: Use `SecretStr` for passwords, auth tokens, etc.
 - **Deprecation**: Use `pydantic_removed_field` helper for field deprecations
 
+### Keeping credentials out of reports and logs
+
+A credential embedded in a plain `str` config field — a URL with `user:pass@`, a presigned query,
+a connection string — is invisible to `_register_secret_fields`, so `SecretStr` alone does not
+cover it.
+
+- **Strategic: register the secret.** Register it by hand from a `model_validator(mode="after")`,
+  as `SQLAlchemyConnectionConfig.register_sqlalchemy_uri_secrets` does
+  (`source/sql/sql_config.py`, helper in `source/sql/sqlalchemy_uri.py`). Registration masks the
+  value wherever it surfaces, including in strings built by code we do not own. Register the whole
+  query string rather than individual parameters — enumerating every presigning scheme's signature
+  parameter does not scale, and a presigned signature is a bearer credential in its own right.
+- **Tactical: redact at the call site.** A `redact_*` helper on a specific `report.*` call is a
+  deterministic floor for the strings we build, and the only thing that keeps the _in-memory_
+  report clean, since `mask_structure()` runs at serialization and `source.get_report()` is never
+  masked. Use it in addition to registration, never instead of it.
+- **`exc=` defeats a redacted `context=`.** `StructuredLogs.report_log` appends
+  `f"{context} {type(exc)}: {exc}"` after the `context` argument is built, so sanitizing `context`
+  alone does nothing for the exception text. `requests` keeps userinfo in `PreparedRequest.url`, so
+  `raise_for_status()` names the password verbatim. Only registration covers this.
+- **Test with a realistic exception.** A test asserting "no password in the report" while mocking a
+  credential-free `ValueError` passes against a broken fix.
+
 ## Connector Conventions
 
 - **Structure**: Split connector code by duty: `constants.py`, `models.py`, `config.py`, `client.py`, `source.py`, plus `lineage.py`, `mapper.py`, and `usage.py` as needed. Match the quality and structure of existing connectors like Power BI, Airbyte, Redshift, BigID, and Grafana.
