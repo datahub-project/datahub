@@ -66,9 +66,6 @@ def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
                         "type": "file",
                         "config": {"filename": json_file},
                         "extractor": "generic",
-                        "extractor_config": {
-                            "unpack_mces_into_mcps": unpack_mces,
-                        },
                     },
                     "flags": {"set_system_metadata": False},
                     "sink": {
