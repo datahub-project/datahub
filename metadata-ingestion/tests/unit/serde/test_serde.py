@@ -100,7 +100,7 @@ def test_file_source_converts_mces_to_mcps(
     assert [list(w.context) for w in source.report.warnings] == [[str(mce_file)]]
 
 
-def test_file_source_reports_mce_without_aspects(tmp_path: pathlib.Path) -> None:
+def test_file_source_skips_mce_without_aspects(tmp_path: pathlib.Path) -> None:
     json_path = tmp_path / "empty_mce.json"
     write_metadata_file(
         json_path,
@@ -118,7 +118,9 @@ def test_file_source_reports_mce_without_aspects(tmp_path: pathlib.Path) -> None
     )
 
     assert list(source.get_workunits_internal()) == []
-    assert len(source.report.failures) == 1
+    assert not source.report.failures
+    assert len(source.report.warnings) == 1
+    assert "no aspects" in check_mce_file(str(json_path))
 
 
 def test_file_source_aspect_filter_applies_to_mces(tmp_path: pathlib.Path) -> None:
