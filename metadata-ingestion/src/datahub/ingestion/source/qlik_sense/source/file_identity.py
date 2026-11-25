@@ -34,6 +34,20 @@ from datahub.ingestion.source.qlik_sense.source_utils import _is_qvd
 
 
 class FileIdentityMixin(DashboardMixin):
+    """How this run names a file a load script reads or stores into. There is
+    no single resolver; the current precedence is:
+
+    1. A file Qlik catalogues as a dataset this run ingests is that Qlik
+       dataset, and is not linked on storage.
+    2. A file on a connection whose storage is known, from the connection's
+       properties or `file_connection_to_storage`, is named on that storage.
+    3. A file on a connection of unknown storage is named by its space,
+       connection and path, and gets a dataset only when lineage links it.
+
+    For a file in an app's lineage graph, a connection whose properties
+    match the file's QRI wins over one whose storage is only mapped, and the
+    file is named only when one URN remains."""
+
     @functools.cached_property
     def _dataset_urns_by_secure_qri(self) -> Optional[Dict[str, str]]:
         """Dataset URNs by secure QRI, or None when the datasets could not be

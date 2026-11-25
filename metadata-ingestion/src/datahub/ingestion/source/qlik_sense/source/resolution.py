@@ -26,6 +26,21 @@ logger = logging.getLogger(__name__)
 
 
 class SourceResolutionMixin(FileIdentityMixin):
+    """Resolves a source node of Qlik's lineage graph to a dataset URN, in
+    this order:
+
+    1. A table of another app resolves only to a table of an app this run
+       read or kept.
+    2. Any other node resolves to the Qlik dataset listed with its secure QRI.
+    3. A file node that isn't listed resolves through the reading app's load
+       script, to the file on known storage or to an unmapped `lib://` path.
+    4. Failing that, a node only the app's upstream lineage graph names
+       becomes a graph-named dataset, unless the file is on known storage.
+
+    A source this run can't tell, as when the datasets, the data connections
+    or the upstream graph could not be read, comes with the reason, so the
+    table's lineage is only added to."""
+
     def _resolve_lineage_sources(
         self, source_qris: List[str], dataset_urn: str, own_app_id: Optional[str]
     ) -> "_ResolvedSources":
