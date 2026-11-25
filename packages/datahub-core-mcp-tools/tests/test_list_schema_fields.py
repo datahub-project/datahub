@@ -10,7 +10,7 @@ from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError, ValidationError
 from fastmcp.tools import Tool
 
-from datahub_core_mcp_tools import entity_cleaning, mcp_server
+from datahub_core_mcp_tools import entity_cleaning, graphql_helpers, mcp_server
 from datahub_core_mcp_tools.schema_matching import FieldText, SubstringMatcher
 from datahub_core_mcp_tools.tools import entities
 
@@ -248,6 +248,23 @@ async def test_structured_properties_are_returned_bounded_and_matched_whole(
     assert properties["tiers"] == ["a", "b"]
     assert properties["steward"] == [STEWARD]
     assert properties["owner_team"] == ["urn:li:corpGroup:data"]
+
+
+async def test_propagated_documentation_matches_past_the_preview_cut(
+    schema_tool: Tool, fields: list[dict]
+) -> None:
+    padding = "word " * graphql_helpers.SCHEMA_FIELD_TEXT_LENGTH_LIMIT
+    fields[3]["schemaFieldEntity"] = {
+        "documentation": {
+            "documentations": [{"documentation": f"{padding} never sum refunds"}]
+        }
+    }
+
+    data = await _run(schema_tool, keywords=["refunds"])
+
+    assert data["fields"][0]["fieldPath"] == "c_other"
+    assert data["matchingCount"] == 1
+    assert data["fields"][0]["documentation"][0]["text"].endswith("refunds")
 
 
 async def test_the_dataset_siblings_are_named(schema_tool: Tool, backend: Mock) -> None:

@@ -273,14 +273,15 @@ def grep_entities(
 
     backend = get_read_backend()
 
-    if not backend.exists(urn):
-        raise ToolError(f"Entity {urn} not found")
-
+    # aspects() answers existence itself (None), inside the same error handling as
+    # the read.
     try:
         aspects = backend.aspects(urn)
     except (OSError, ConnectionError, TimeoutError) as e:
         raise ToolError("Failed to fetch entity metadata. Retry the request.") from e
 
+    if aspects is None:
+        raise ToolError(f"Entity {urn} not found")
     if not aspects:
         return label_reader_response(
             {

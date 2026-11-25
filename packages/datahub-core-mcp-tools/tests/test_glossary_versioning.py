@@ -5,6 +5,7 @@ GraphQLReadBackend as well as the tools.
 """
 
 import os
+import re
 from typing import Callable, Iterator, List, Optional, cast
 from unittest import mock
 from unittest.mock import MagicMock
@@ -112,6 +113,16 @@ def test_versions_by_version_set_urn(graph: MagicMock) -> None:
     assert graph.execute_graphql.call_args.kwargs["operation_name"] == (
         "getVersionSetHistory"
     )
+
+
+def test_version_history_includes_unpublished_drafts(graph: MagicMock) -> None:
+    # A new version starts in the hidden DRAFT stage, which search skips by default.
+    graph.execute_graphql.return_value = VERSIONS_SEARCH_RESPONSE
+
+    get_glossary_term_versions(VERSION_SET_URN)
+
+    query = graph.execute_graphql.call_args.kwargs["query"]
+    assert re.search(r"includeHiddenLifecycleStages:\s*true", query)
 
 
 def test_versions_by_term_urn_look_up_its_version_set(graph: MagicMock) -> None:

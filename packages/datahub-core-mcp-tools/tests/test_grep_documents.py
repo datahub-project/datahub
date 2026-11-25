@@ -193,6 +193,21 @@ def test_bad_and_unknown_urns_are_skipped_not_fatal() -> None:
     ]
 
 
+def test_a_non_document_urn_is_skipped_as_not_greppable() -> None:
+    dataset = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)"
+    )
+    backend = FakeBackend({DOC1: DEPLOY_GUIDE, dataset: "kubectl"})
+
+    result = _grep(backend, urns=[DOC1, dataset], pattern="kubectl")
+
+    assert [doc["urn"] for doc in result["results"]] == [DOC1]
+    (skipped,) = result["skipped_urns"]
+    assert skipped["urn"] == dataset
+    assert "grep_entities" in skipped["error"]
+    assert backend.reads == [[DOC1]]
+
+
 def test_no_usable_urns_is_a_tool_error() -> None:
     with pytest.raises(ToolError, match="none of the 2 values"):
         _grep(FakeBackend({}), urns=["runbook", ""], pattern="x")

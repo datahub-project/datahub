@@ -201,6 +201,27 @@ def test_direct_schema_field_keeps_its_aspects():
     assert "omittedFields" not in out
 
 
+def test_schema_field_lookup_names_its_column_dataset_and_deprecation():
+    dataset = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.orders,PROD)"
+    raw = {
+        "urn": f"urn:li:schemaField:({dataset},user_id)",
+        "type": "SCHEMA_FIELD",
+        "fieldPath": "user_id",
+        "parent": {"urn": dataset, "type": "DATASET"},
+        "deprecation": {"deprecated": True, "note": "Use account_id."},
+        "businessAttributes": {
+            "businessAttribute": {"urn": "urn:li:businessAttribute:a"}
+        },
+    }
+
+    out = project_entity(clean_get_entities_response(raw), [])
+
+    assert out["fieldPath"] == "user_id"
+    assert out["parent"]["urn"] == dataset
+    assert out["deprecation"]["deprecated"] is True
+    assert "businessAttributes" not in out
+
+
 def test_document_body_omission_points_to_grep_documents():
     document = {
         "urn": "urn:li:document:doc1",

@@ -89,6 +89,7 @@ _IDENTIFIER_PREFIXES = ("urn:", "s3://", "gs://", "hdfs://", "abfss://")
 
 _SYSTEM_EXCLUSION = "sourceType != SYSTEM"
 _BRIDGE_DOCUMENT_EXCLUSION = 'subtype != "Bridge Document"'
+_DOCUMENT_URN_PREFIX = "urn:li:document:"
 
 
 class SearchResult(TypedDict, total=False):
@@ -759,6 +760,18 @@ def grep_documents(
         if is_configuration(urn, decisions)
     )
     urns = [urn for urn in urns if not is_configuration(urn, decisions)]
+    # Any entity can come back from entities(urns:), but only a document has a body:
+    # another type would read as "no matches" instead of as not greppable.
+    skipped_urns.extend(
+        {
+            "urn": urn,
+            "error": "Not a document URN: grep_documents reads document bodies. "
+            "Use get_entities or grep_entities for another entity's metadata.",
+        }
+        for urn in urns
+        if not urn.startswith(_DOCUMENT_URN_PREFIX)
+    )
+    urns = [urn for urn in urns if urn.startswith(_DOCUMENT_URN_PREFIX)]
     entities = [
         e for e in (get_read_backend().document_contents(urns) if urns else []) if e
     ]

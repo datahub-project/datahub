@@ -32,7 +32,16 @@ query getTermVersionSetUrn($urn: String!) {
 query getVersionSetHistory($urn: String!, $start: Int, $count: Int) {
   versionSet(urn: $urn) {
     urn
-    versionsSearch(input: { query: "*", start: $start, count: $count }) {
+    # A new version starts in the hidden DRAFT lifecycle stage, which search leaves
+    # out unless asked; the UI's version list asks too.
+    versionsSearch(
+      input: {
+        query: "*"
+        start: $start
+        count: $count
+        searchFlags: { includeHiddenLifecycleStages: true }
+      }
+    ) {
       total
       searchResults {
         entity {

@@ -906,3 +906,54 @@ def test_a_missing_entity_is_an_error_not_a_missing_path() -> None:
 def test_a_name_instead_of_a_urn_is_rejected() -> None:
     with pytest.raises(ToolError, match="target_urn"):
         _run(FakeBackend(), source_urn=SOURCE, target_urn="orders")
+
+
+def test_column_paths_keep_only_those_ending_at_the_requested_column() -> None:
+    target_column = f"urn:li:schemaField:({TARGET},customer_id)"
+    wanted = f"urn:li:schemaField:({SOURCE},user_id)"
+    sibling = f"urn:li:schemaField:({SOURCE},account_id)"
+    backend = FakeBackend(
+        {
+            "searchAcrossLineage": {
+                "total": 1,
+                "searchResults": [
+                    {
+                        "entity": {"urn": SOURCE, "type": "DATASET"},
+                        "paths": [
+                            {"path": [{"urn": target_column}, {"urn": wanted}]},
+                            {"path": [{"urn": target_column}, {"urn": sibling}]},
+                        ],
+                        "degree": 1,
+                    }
+                ],
+            }
+        }
+    )
+
+    result = _run(
+        backend,
+        source_urn=SOURCE,
+        target_urn=TARGET,
+        source_column="user_id",
+        target_column="customer_id",
+        direction="downstream",
+    )
+
+    assert result["pathCount"] == 1
+    assert [node["urn"] for node in result["paths"][0]["path"]] == [
+        wanted,
+        target_column,
+    ]
+
+
+def test_the_search_asks_for_every_degree_and_claims_no_hop_bound() -> None:
+    # searchAcrossLineage bounds hops only at 1, 2 or GMS's maximum ("3+").
+    backend = FakeBackend(_upstream_response([OTHER], total=1))
+
+    result = _run(backend, source_urn=SOURCE, target_urn=TARGET, direction="upstream")
+
+    (clause,) = backend.sent[0]["orFilters"]
+    degrees = [rule["values"] for rule in clause["and"] if rule["field"] == "degree"]
+    assert degrees == [["1", "2", "3+"]]
+    assert result["metadata"]["noPath"]["searchComplete"] is True
+    assert "hops" not in result["metadata"]["noPath"]["reason"]

@@ -614,7 +614,11 @@ def _clean_schema_metadata(
     schema_token_budget: Optional[int],
 ) -> None:
     platform_schema = schema_metadata.get("platformSchema")
-    if isinstance(platform_schema, dict) and not platform_schema.get("schema"):
+    # A TableSchema carries `schema`; a KeyValueSchema (Kafka) carries the key and
+    # value definitions instead.
+    if isinstance(platform_schema, dict) and not any(
+        platform_schema.get(key) for key in ("schema", "keySchema", "valueSchema")
+    ):
         del schema_metadata["platformSchema"]
 
     fields = schema_metadata.get("fields")
@@ -729,9 +733,11 @@ def clean_get_entities_response(
             text_max_length=DESCRIPTION_LENGTH_HARD_LIMIT,
             dropped_count=True,
         )
+        # fieldPath, parent and deprecation stay: they say which column came back
+        # and whether to use it.
         drop = ["documentation", "structuredProperties", "semanticFieldAnnotation"]
         if not include_schema_field_entity_attrs:
-            drop += ["fieldPath", "parent", "businessAttributes", "deprecation"]
+            drop.append("businessAttributes")
         for key in drop:
             response.pop(key, None)
         response.update(compacted)

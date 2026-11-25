@@ -38,8 +38,10 @@ DEFAULT_LINEAGE_SEARCH_FLAGS: JsonObject = {
 
 # Bounds of the upstream search behind get_lineage_paths_between. When the result
 # cap cuts the search short, a "no path" answer says so instead of claiming the
-# entities are unconnected.
-PATH_SEARCH_MAX_HOPS = 10
+# entities are unconnected. searchAcrossLineage bounds a walk only at 1 or 2 hops or,
+# with degree "3+", at GMS's own configured maximum, so the search asks for every
+# degree and the hop limit is GMS's.
+PATH_SEARCH_ALL_DEGREES = 3
 PATH_SEARCH_MAX_RESULTS = 100
 
 # Kept on a column-lineage node when its paths are folded into lineageColumns.
@@ -299,13 +301,14 @@ def get_lineage(
     except ValueError as e:
         raise ToolError(f"Invalid filter {filter!r}: {e}") from e
 
-    # Column lineage only resolves to datasets, so a column= query filtered to
-    # charts/dashboards always returns 0. Reject it with the two-hop recipe rather
-    # than return a misleading empty result.
-    if column is not None and _filter_restricts_to_non_datasets(parsed_filter):
+    # Column lineage (column= or a schemaField urn) only resolves to datasets, so
+    # filtered to charts/dashboards it always returns 0. Reject it with the two-hop
+    # recipe rather than return a misleading empty result.
+    is_column_lineage = column is not None or urn.startswith("urn:li:schemaField:")
+    if is_column_lineage and _filter_restricts_to_non_datasets(parsed_filter):
         raise ToolError(
-            "Column lineage only resolves to datasets, so a column= query filtered to "
-            "charts/dashboards always returns 0. Call get_lineage(column=...) without an "
+            "Column lineage only resolves to datasets, so filtered to charts/dashboards "
+            "it always returns 0. Call get_lineage for the column without an "
             "entity_type filter to get the downstream datasets, then follow those to the "
             "charts/dashboards."
         )
@@ -355,6 +358,11 @@ get_lineage.__doc__ = string.Template(inspect.cleandoc(get_lineage.__doc__)).sub
 )
 
 
+def _path_ends_at(path_obj: Optional[dict], urn: str) -> bool:
+    path = (path_obj or {}).get("path") or []
+    return bool(path) and (path[-1] or {}).get("urn") == urn
+
+
 def _find_result_with_target_urn(
     search_results: List[dict], target_urn: str, is_column_level: bool
 ) -> Optional[dict]:
@@ -365,10 +373,8 @@ def _find_result_with_target_urn(
     """
     for result in search_results:
         if is_column_level:
-            for path_obj in result.get("paths") or []:
-                path = (path_obj or {}).get("path") or []
-                if path and (path[-1] or {}).get("urn") == target_urn:
-                    return result
+            if any(_path_ends_at(p, target_urn) for p in result.get("paths") or []):
+                return result
         elif (result.get("entity") or {}).get("urn") == target_urn:
             return result
     return None
@@ -426,10 +432,7 @@ def _no_path_reason(upstreams: dict, queried: str, sought: str) -> Dict[str, Any
     elif searched == 0:
         reason = f"The {queried} has no upstream lineage."
     else:
-        reason = (
-            f"The {sought} is not upstream of the {queried} "
-            f"within {PATH_SEARCH_MAX_HOPS} hops."
-        )
+        reason = f"The {sought} is not upstream of the {queried}."
     return {"reason": reason, "searchComplete": not partial and total <= searched}
 
 
@@ -487,7 +490,7 @@ def _find_upstream_lineage_path(
             lineage_variables(
                 LineageQuery(
                     urn=query_urn,
-                    max_hops=PATH_SEARCH_MAX_HOPS,
+                    max_hops=PATH_SEARCH_ALL_DEGREES,
                     max_results=PATH_SEARCH_MAX_RESULTS,
                 ),
                 upstream=True,
@@ -522,6 +525,10 @@ def _find_upstream_lineage_path(
         )
 
     paths = target_result.get("paths") or []
+    if target_column is not None:
+        # GMS groups column results by dataset, so the result also carries paths to
+        # its other columns: keep only those that end at the requested one.
+        paths = [p for p in paths if _path_ends_at(p, search_for_urn)]
     if not paths:
         degree = target_result.get("degree")
         return _path_trace_response(

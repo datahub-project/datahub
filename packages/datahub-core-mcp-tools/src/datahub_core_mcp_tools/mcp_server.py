@@ -226,7 +226,7 @@ def register_tools(
             schema_tools.list_schema_fields if schema_tools else list_schema_fields,
             ToolType.SEARCH,
         )
-    # Up to two 10-hop upstream searches when the direction is not given.
+    # Up to two full-depth upstream searches when the direction is not given.
     add(
         "get_lineage_paths_between",
         get_lineage_paths_between,

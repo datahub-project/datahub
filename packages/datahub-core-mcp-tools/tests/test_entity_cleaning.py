@@ -111,6 +111,18 @@ def test_columns_are_ordered_by_usefulness_and_ui_edits_are_merged() -> None:
     assert "platformSchema" not in schema
 
 
+def test_a_key_value_platform_schema_is_kept() -> None:
+    entity = _schema_entity([{"fieldPath": "id"}])
+    entity["schemaMetadata"]["platformSchema"] = {
+        "keySchema": '{"type": "string"}',
+        "valueSchema": '{"type": "record", "name": "Order"}',
+    }
+
+    schema = clean_get_entities_response(entity)["schemaMetadata"]
+
+    assert schema["platformSchema"] == entity["schemaMetadata"]["platformSchema"]
+
+
 def test_column_text_is_a_preview_unless_the_column_was_targeted() -> None:
     long_text = "word " * 100
     entity = _schema_entity([{"fieldPath": "notes", "description": long_text}])

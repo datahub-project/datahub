@@ -411,8 +411,10 @@ def project_entity(
         # A query's SQL is in `properties.statement`: that block is the entity.
         keep = keep | {"properties"}
     if urn.startswith("urn:li:schemaField:"):
-        # A column read by its own URN is read for these.
+        # A column read by its own URN is read for these, and named by the first two.
         keep = keep | {
+            "fieldPath",
+            "parent",
             "structuredProperties",
             _DOCUMENTATION_KEY,
             "semanticFieldAnnotation",
@@ -710,9 +712,11 @@ class SchemaFieldsTool:
             # A column documented only by propagation or AI has no `description`.
             texts.extend(
                 entity_cleaning.documentation_text_of(
+                    # The length a matched column returns, not the preview cap, so
+                    # a keyword past the preview still matches.
                     entity_cleaning.documentation_entries(
                         schema_field_entity.get("documentation"),
-                        max_length=graphql_helpers.SCHEMA_FIELD_TEXT_LENGTH_LIMIT,
+                        max_length=graphql_helpers.DESCRIPTION_LENGTH_HARD_LIMIT,
                     )
                 )
             )

@@ -177,15 +177,22 @@ def test_column_on_a_non_dataset_is_a_tool_error() -> None:
         )
 
 
-def test_column_with_dashboard_filter_is_rejected() -> None:
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"urn": DATASET_URN, "column": "order_status"},
+        {"urn": SCHEMA_FIELD_URN},
+    ],
+    ids=["column", "schema_field_urn"],
+)
+def test_column_with_dashboard_filter_is_rejected(kwargs: Dict[str, Any]) -> None:
     # Column lineage only resolves to datasets, so this filter always returns 0.
     backend = FakeBackend()
 
     with pytest.raises(ToolError, match="without an entity_type filter"):
         _run(
             backend,
-            urn=DATASET_URN,
-            column="order_status",
+            **kwargs,
             upstream=False,
             filter="entity_type IN (dashboard, chart)",
         )

@@ -5,6 +5,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     GlobalTagsClass,
@@ -21,6 +22,7 @@ from fastmcp.tools import Tool
 
 from datahub_core_mcp_tools.graphql_helpers import with_datahub_client
 from datahub_core_mcp_tools.mcp_server import async_background, register_tools
+from datahub_core_mcp_tools.read_backend import GraphQLReadBackend
 from datahub_core_mcp_tools.tools.grep_entities import grep_entities
 
 pytestmark = pytest.mark.anyio
@@ -56,7 +58,7 @@ class _FakeReadBackend:
 
     def aspects(self, urn: str) -> dict | None:
         self.aspects_called = True
-        return self._aspects
+        return self._aspects if self._exists else None
 
 
 DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.wide_table,PROD)"
@@ -164,6 +166,27 @@ class TestGrepEntities:
         mock_get_backend.return_value.aspects.side_effect = failure
         with pytest.raises(ToolError) as exc:
             await async_background(grep_entities)(urn=DATASET_URN, pattern="needle")
+        assert exc.value.__cause__ is failure
+
+    @patch("datahub_core_mcp_tools.tools.grep_entities.get_read_backend")
+    async def test_entity_gone_by_the_aspect_read_raises(
+        self, mock_get_backend: MagicMock
+    ) -> None:
+        mock_get_backend.return_value.exists.return_value = True
+        mock_get_backend.return_value.aspects.return_value = None
+        with pytest.raises(ToolError, match="not found"):
+            await async_background(grep_entities)(urn=DATASET_URN, pattern="x")
+
+    async def test_existence_check_failure_raises_tool_error(self) -> None:
+        graph = MagicMock()
+        failure = requests.ConnectionError("GMS unreachable")
+        graph.exists.side_effect = failure
+        with patch(
+            "datahub_core_mcp_tools.tools.grep_entities.get_read_backend",
+            return_value=GraphQLReadBackend(graph),
+        ):
+            with pytest.raises(ToolError) as exc:
+                await async_background(grep_entities)(urn=DATASET_URN, pattern="x")
         assert exc.value.__cause__ is failure
 
     @patch("datahub_core_mcp_tools.tools.grep_entities.get_read_backend")
