@@ -6,7 +6,11 @@ import pytest
 
 import datahub.ingestion.source.dbt.dbt_artifacts as dbt_artifacts_module
 from datahub.ingestion.source.common.object_store_files import ObjectNotFoundError
-from datahub.ingestion.source.dbt.dbt_artifacts import ArtifactReader, is_glob_pattern
+from datahub.ingestion.source.dbt.dbt_artifacts import (
+    ArtifactReader,
+    is_glob_pattern,
+    redact_url_credentials,
+)
 
 
 def _reader(concurrency: int = 2) -> ArtifactReader:
@@ -142,3 +146,35 @@ def test_load_optional_json_ambiguous_failure_raises() -> None:
 )
 def test_is_glob_pattern(path: str, is_glob: bool) -> None:
     assert is_glob_pattern(path) == is_glob
+
+
+@pytest.mark.parametrize(
+    "url, redacted",
+    [
+        (
+            "https://host.example/dbt/manifest.json?X-Amz-Signature=sig",
+            "https://host.example/dbt/manifest.json",
+        ),
+        (
+            "https://my_user@host.example/dbt/manifest.json",
+            "https://host.example/dbt/manifest.json",
+        ),
+        (
+            "https://my_user:my_password@host.example/dbt/*/manifest.json?sig=abc",
+            "https://host.example/dbt/*/manifest.json",
+        ),
+        (
+            "http://my_user:my_password@host.example:8443/manifest.json",
+            "http://host.example:8443/manifest.json",
+        ),
+        (
+            "https://my_user:my_password@[2001:db8::1]:8443/manifest.json",
+            "https://[2001:db8::1]:8443/manifest.json",
+        ),
+        ("s3://bucket/dbt/manifest.json", "s3://bucket/dbt/manifest.json"),
+    ],
+)
+def test_redact_url_credentials_drops_userinfo_and_query(
+    url: str, redacted: str
+) -> None:
+    assert redact_url_credentials(url) == redacted

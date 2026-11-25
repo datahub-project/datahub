@@ -55,6 +55,10 @@ class AppCheckpoint(BaseModel):
     # Files on a connection of unknown storage that the app's lineage reads,
     # so a run that keeps the app still counts it as their reader.
     read_unmapped_file_urns: List[str] = []
+    # Datasets only Qlik's lineage graph names that the app's lineage reads,
+    # recorded even when a dataset is left out for lack of a certain path, so a
+    # run that keeps the app still counts its reload toward that path.
+    read_graph_named_urns: List[str] = []
     # Field names of the app's tables, so a renamed load from a kept app still
     # names its source field. None in older state.
     field_names: Optional[List[str]] = None
@@ -217,6 +221,16 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
         if checkpoint is not None:
             checkpoint.read_unmapped_file_urns = sorted(
                 set(checkpoint.read_unmapped_file_urns).union(urns)
+            )
+
+    def add_read_graph_named(self, app_id: str, urns: Iterable[str]) -> None:
+        if not self.is_checkpointing_enabled():
+            return
+        current = self.state_provider.get_current_checkpoint(self.job_id)
+        checkpoint = current.state.apps.get(app_id) if current is not None else None
+        if checkpoint is not None:
+            checkpoint.read_graph_named_urns = sorted(
+                set(checkpoint.read_graph_named_urns).union(urns)
             )
 
     def add_stored_files(self, app_id: str, file_urns: List[str]) -> None:

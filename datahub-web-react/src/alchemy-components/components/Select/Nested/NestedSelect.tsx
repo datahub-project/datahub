@@ -59,8 +59,8 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     shouldAlwaysSyncParentValues?: boolean;
     hideParentCheckbox?: boolean;
     implicitlySelectChildren?: boolean;
-    // With implicitlySelectChildren, also implicitly select nested parents and their descendants.
-    implicitlySelectAllDescendants?: boolean;
+    // Overrides implicitlySelectChildren: options it returns true for show as checked and disabled.
+    isOptionImplicitlySelected?: (option: OptionType, selectedOptions: OptionType[]) => boolean;
     selectChildrenWithParent?: boolean;
     shouldDisplayConfirmationFooter?: boolean;
     selectLabelProps?: SelectLabelProps;
@@ -68,8 +68,6 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     renderCustomSelectedValue?: (option: OptionType) => React.ReactNode;
     // Rendered inside the dropdown, pinned above the options as they scroll.
     dropdownHeader?: React.ReactNode;
-    // Applied to every selection change before it is stored, e.g. to drop redundant options.
-    normalizeSelection?: (options: OptionType[]) => OptionType[];
     dataTestId?: string;
 }
 
@@ -109,33 +107,20 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     shouldAlwaysSyncParentValues = false,
     hideParentCheckbox = false,
     implicitlySelectChildren = true,
-    implicitlySelectAllDescendants = false,
+    isOptionImplicitlySelected,
     selectChildrenWithParent = true,
     shouldDisplayConfirmationFooter = selectDefaults.shouldDisplayConfirmationFooter,
     selectLabelProps,
     renderCustomOptionText,
     renderCustomSelectedValue,
     dropdownHeader,
-    normalizeSelection,
     dataTestId,
     ...props
 }: SelectProps<OptionType>) => {
     const { t } = useTranslation('alchemy');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedOptions, setSelectedOptions] = useState<OptionType[]>(initialValues);
-    const [stagedOptions, setRawStagedOptions] = useState<OptionType[]>(initialValues);
-    // A ref keeps setStagedOptions stable (it is used in callbacks that don't list it as a
-    // dependency) while still applying the latest normalizeSelection.
-    const normalizeSelectionRef = useRef(normalizeSelection);
-    normalizeSelectionRef.current = normalizeSelection;
-    const setStagedOptions: React.Dispatch<React.SetStateAction<OptionType[]>> = useCallback(
-        (value) =>
-            setRawStagedOptions((previous) => {
-                const next = typeof value === 'function' ? value(previous) : value;
-                return normalizeSelectionRef.current ? normalizeSelectionRef.current(next) : next;
-            }),
-        [],
-    );
+    const [stagedOptions, setStagedOptions] = useState<OptionType[]>(initialValues);
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const previousInitialValueKeysRef = useRef<string>(
@@ -167,7 +152,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
         previousInitialValueKeysRef.current = initialValueKeys;
         setSelectedOptions(initialValues ?? []);
         setStagedOptions(initialValues ?? []);
-    }, [initialValues, shouldAlwaysSyncParentValues, setStagedOptions]);
+    }, [initialValues, shouldAlwaysSyncParentValues]);
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {
@@ -212,7 +197,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
         setStagedOptions(selectedOptions); // reset staged options
         closeDropdown();
         handleSearch('');
-    }, [closeDropdown, selectedOptions, handleSearch, setStagedOptions]);
+    }, [closeDropdown, selectedOptions, handleSearch]);
 
     const handleOptionChange = useCallback(
         (option: OptionType) => {
@@ -231,7 +216,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                 closeDropdown();
             }
         },
-        [closeDropdown, stagedOptions, isMultiSelect, shouldDisplayConfirmationFooter, setStagedOptions],
+        [closeDropdown, stagedOptions, isMultiSelect, shouldDisplayConfirmationFooter],
     );
 
     const addOptions = useCallback(
@@ -252,7 +237,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                 }
             }
         },
-        [stagedOptions, isMultiSelect, setStagedOptions],
+        [stagedOptions, isMultiSelect],
     );
 
     const removeOptions = useCallback(
@@ -263,7 +248,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
             setStagedOptions(newValues);
             if (syncWithSelectedOptions) setSelectedOptions(newValues);
         },
-        [stagedOptions, setStagedOptions],
+        [stagedOptions],
     );
 
     const handleClearSelection = useCallback(() => {
@@ -273,7 +258,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
         if (onUpdate) {
             onUpdate([]);
         }
-    }, [closeDropdown, onUpdate, setStagedOptions]);
+    }, [closeDropdown, onUpdate]);
 
     const onDropdownOpenChange = useCallback(
         (open: boolean) => {
@@ -282,7 +267,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                 setStagedOptions(selectedOptions);
             }
         },
-        [selectedOptions, shouldDisplayConfirmationFooter, setStagedOptions],
+        [selectedOptions, shouldDisplayConfirmationFooter],
     );
 
     useEffect(() => {
@@ -349,7 +334,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                                             hideParentCheckbox={hideParentCheckbox}
                                             isParentOptionLabelExpanded={!!isParentOptionLabelExpanded}
                                             implicitlySelectChildren={implicitlySelectChildren}
-                                            implicitlySelectAllDescendants={implicitlySelectAllDescendants}
+                                            isOptionImplicitlySelected={isOptionImplicitlySelected}
                                             selectChildrenWithParent={selectChildrenWithParent}
                                             renderCustomOptionText={renderCustomOptionText}
                                         />
