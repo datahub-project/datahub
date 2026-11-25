@@ -1604,6 +1604,14 @@ class PowerBiAPI:
                 self._report_definition_unsupported(context)
             else:
                 self._report_definition_failure(e, context, FABRIC_KIND_SEMANTIC_MODELS)
+                # A refused call (missing Contributor role) fails on every run;
+                # withholding then would leave the model with no lineage at all,
+                # so only a transient failure keeps the stored lineage.
+                if (
+                    self.__config.enrich_from_item_definitions
+                    and not data_resolver.is_permission_error(e)
+                ):
+                    dataset.definition_fetch_failed = True
             return None
         self.reporter.fabric_definitions_fetched += 1
         self.reporter.semantic_model_definitions_fetched += 1

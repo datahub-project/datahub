@@ -403,6 +403,9 @@ def test_definition_failure_is_a_warning_and_keeps_scan_tables(status: int) -> N
         Constant.ITEM_DEFINITION_NOT_FETCHED,
         "No Item Definitions Fetched",
     ]
+    # Only a transient failure keeps stored lineage: a refused call recurs on
+    # every run, and withholding then would leave the model with no lineage.
+    assert dataset.definition_fetch_failed == (status != 403)
 
 
 def test_unparsed_table_part_is_a_warning_not_a_failure() -> None:

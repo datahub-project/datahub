@@ -439,6 +439,9 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # table absent from the source model, or resolved to the remote table's
     # own URN; mirrored columns absent from the source table are counted per
     # column.
+    # enrich_from_item_definitions: tables whose lineage was not emitted
+    # because their model's definition failed transiently this run.
+    definition_lineage_withheld: int = 0
     composite_model_sources_resolved: int = 0
     composite_model_sources_not_ingested: int = 0
     composite_model_sources_ambiguous: int = 0

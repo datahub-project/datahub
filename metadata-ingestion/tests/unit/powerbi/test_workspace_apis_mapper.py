@@ -987,6 +987,29 @@ def test_model_internal_lineage_withheld_when_m_source_unresolved() -> None:
     assert mapper._Mapper__reporter.model_internal_lineage_withheld == 1  # type: ignore[attr-defined]
 
 
+def test_lineage_withheld_when_model_definition_fetch_failed() -> None:
+    """enrich_from_item_definitions: lineage from the bare scan would replace
+    the sourceColumn, DAX and composite edges an earlier enriched run stored."""
+    mapper = _mapper()
+    _, orders = _fact_with_measure()
+    assert orders.dataset is not None
+    orders.dataset.definition_fetch_failed = True
+    lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(SupportedDataPlatform.SNOWFLAKE.value, SNOWFLAKE_A)
+        ],
+        column_lineage=[],
+    )
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
+        return_value=[lineage],
+    ):
+        mcps = mapper.extract_lineage(orders, _urn(mapper, orders), _workspace())
+
+    assert _lineage_aspect(mcps) is None
+    assert mapper._Mapper__reporter.definition_lineage_withheld == 1  # type: ignore[attr-defined]
+
+
 def test_model_internal_lineage_merged_with_resolved_m_source() -> None:
     mapper = _mapper()
     policies, orders = _fact_with_measure()

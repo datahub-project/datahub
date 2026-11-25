@@ -800,6 +800,14 @@ class Mapper:
             # its whole lineage.
             self.__reporter.model_internal_lineage_withheld += 1
             return mcps
+        if (upstream or cll_lineage) and (
+            table.dataset is not None and table.dataset.definition_fetch_failed
+        ):
+            # The definition did not load this run (enrich_from_item_definitions):
+            # lineage from the bare scan lacks sourceColumn, DAX and composite
+            # edges and would replace what an earlier enriched run stored.
+            self.__reporter.definition_lineage_withheld += 1
+            return mcps
         if (upstream or cll_lineage) and not composite_resolved:
             # The remote table's source model did not resolve this run. An
             # aspect with only the model-internal edges would replace the
