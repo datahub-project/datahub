@@ -28,6 +28,11 @@ public class DataHubUsageEventTypeTest {
         DataHubUsageEventType.getType("producttourButtonClickEvent"),
         DataHubUsageEventType.PRODUCT_TOUR_BUTTON_CLICK_EVENT);
 
+    // Posted by datahub-ai-service for each MCP tool call; unknown types are never indexed.
+    assertEquals(
+        DataHubUsageEventType.getType("ToolInvocation"),
+        DataHubUsageEventType.TOOL_INVOCATION_EVENT);
+
     // Test non-existent event type
     assertNull(DataHubUsageEventType.getType("NonExistentEvent"));
   }

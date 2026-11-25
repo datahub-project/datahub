@@ -11,6 +11,7 @@ from datahub_ai_service.mcp.client_factory import (
     CallerClientFactory,
     ToolDeadlineExceeded,
 )
+from datahub_ai_service.metrics import ServiceMetrics
 
 
 class _Gms(http.server.BaseHTTPRequestHandler):
@@ -124,3 +125,38 @@ def test_a_rejected_request_is_reported(gms: str) -> None:
     with pytest.raises(OperationalError):
         client._graph.execute_graphql("query q { me { corpUser { urn } } }")
     assert rejected == [True]
+
+
+def test_gms_requests_are_measured(gms: str) -> None:
+    metrics = ServiceMetrics()
+    factory = CallerClientFactory(gms, timeout_seconds=0.3, metrics=metrics)
+
+    _Gms.script = [(200, 0)]
+    _me(factory)
+    _Gms.script, _Gms.requests = [(500, 0)], 0
+    with pytest.raises(OperationalError):
+        _me(factory)
+    _Gms.script, _Gms.requests = [(200, 1.0)], 0
+    with pytest.raises(requests.RequestException):
+        _me(factory)
+
+    def sample(name: str, **labels: str) -> float | None:
+        return metrics.registry.get_sample_value(name, labels)
+
+    assert (
+        sample("datahub_ai_gms_request_duration_seconds_count", endpoint="graphql") == 3
+    )
+    assert (
+        sample(
+            "datahub_ai_gms_request_errors_total",
+            endpoint="graphql",
+            kind="server_error",
+        )
+        == 1
+    )
+    assert (
+        sample(
+            "datahub_ai_gms_request_errors_total", endpoint="graphql", kind="timeout"
+        )
+        == 1
+    )

@@ -39,6 +39,8 @@ load_dotenv()
 
 # Event name constant
 EVENT_NAME = "PageViewEvent"
+# Events claim this actor, but GMS records whoever authenticated the request instead.
+CLAIMED_ACTOR_URN = "urn:li:corpuser:test_user"
 
 
 def test_tracking_api_mixpanel(auth_session, graph_client):
@@ -65,12 +67,13 @@ def test_tracking_api_mixpanel(auth_session, graph_client):
         "type": EVENT_NAME,
         "entityType": "dataset",
         "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,example_dataset,PROD)",
-        "actorUrn": "urn:li:corpuser:test_user",
+        "actorUrn": CLAIMED_ACTOR_URN,
         "timestamp": int(now.timestamp() * 1000),  # Unix epoch milliseconds
         "customField": unique_id,  # Use unique ID to identify our test event
     }
 
     # Post the event to the tracking endpoint
+    actor_urn = _session_actor_urn(auth_session)
     response = auth_session.post(
         f"{base_url}/openapi/v1/tracking/track", json=test_event
     )
@@ -160,7 +163,7 @@ def test_tracking_api_mixpanel(auth_session, graph_client):
                     properties.get("entityUrn")
                     == "urn:li:dataset:(urn:li:dataPlatform:bigquery,example_dataset,PROD)"
                 ), "Mixpanel entity URN doesn't match"
-                assert properties.get("actorUrn") == "urn:li:corpuser:test_user", (
+                assert properties.get("actorUrn") == actor_urn, (
                     "Mixpanel actor URN doesn't match"
                 )
                 assert properties.get("customField") == unique_id, (
@@ -183,13 +186,22 @@ def test_tracking_api_mixpanel(auth_session, graph_client):
     raise Exception("Failed to verify event in Mixpanel")
 
 
+def _session_actor_urn(auth_session) -> str:
+    response = auth_session.post(
+        f"{auth_session.gms_url()}/api/graphql",
+        json={"query": "{ me { corpUser { urn } } }"},
+    )
+    response.raise_for_status()
+    return response.json()["data"]["me"]["corpUser"]["urn"]
+
+
 def _build_tracking_test_event(unique_id: str) -> dict:
     now = datetime.now(timezone.utc)
     return {
         "type": EVENT_NAME,
         "entityType": "dataset",
         "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,example_dataset,PROD)",
-        "actorUrn": "urn:li:corpuser:test_user",
+        "actorUrn": CLAIMED_ACTOR_URN,
         "timestamp": int(now.timestamp() * 1000),
         "customField": unique_id,
     }
@@ -205,7 +217,7 @@ def _search_until_hits(es_url: str, es_index: str, es_query: dict) -> requests.R
 
 
 @with_test_retry()
-def _assert_tracking_event_in_elasticsearch(unique_id: str) -> None:
+def _assert_tracking_event_in_elasticsearch(unique_id: str, actor_urn: str) -> None:
     es_url = env_vars.get_elasticsearch_url()
     es_index = env_vars.get_elasticsearch_index()
     es_query = {
@@ -226,7 +238,7 @@ def _assert_tracking_event_in_elasticsearch(unique_id: str) -> None:
     assert len(hits) > 0, "No matching tracking events found in Elasticsearch"
     event = hits[0].get("_source", {})
     assert event.get("type") == EVENT_NAME
-    assert event.get("actorUrn") == "urn:li:corpuser:test_user"
+    assert event.get("actorUrn") == actor_urn
     assert event.get("customField") == unique_id
 
 
@@ -272,6 +284,7 @@ def test_tracking_api_kafka(auth_session):
     logger.info(f"Starting timestamp: {start_time}")
 
     # Post the event to the tracking endpoint
+    actor_urn = _session_actor_urn(auth_session)
     response = auth_session.post(
         f"{base_url}/openapi/v1/tracking/track", json=test_event
     )
@@ -348,9 +361,7 @@ def test_tracking_api_kafka(auth_session):
                     message.get("entityUrn")
                     == "urn:li:dataset:(urn:li:dataPlatform:bigquery,example_dataset,PROD)"
                 ), "Entity URN doesn't match"
-                assert message.get("actorUrn") == "urn:li:corpuser:test_user", (
-                    "Actor URN doesn't match"
-                )
+                assert message.get("actorUrn") == actor_urn, "Actor URN doesn't match"
                 break
 
     assert found_event, "Test event not found in Kafka messages"
@@ -365,13 +376,14 @@ def test_tracking_api_pgqueue(auth_session):
     logger.info("Posting tracking event for pgQueue verification: %s", unique_id)
     test_event = _build_tracking_test_event(unique_id)
 
+    actor_urn = _session_actor_urn(auth_session)
     response = auth_session.post(
         f"{auth_session.gms_url()}/openapi/v1/tracking/track", json=test_event
     )
     assert response.status_code == 200, f"Failed to post event: {response.text}"
 
     logger.info("Waiting for pgQueue publication and Elasticsearch indexing...")
-    _assert_tracking_event_in_elasticsearch(unique_id)
+    _assert_tracking_event_in_elasticsearch(unique_id, actor_urn)
 
 
 def test_tracking_api_elasticsearch(auth_session):
@@ -396,7 +408,7 @@ def test_tracking_api_elasticsearch(auth_session):
         "height": 1272,
         "prevPathname": "",
         "type": "PageViewEvent",
-        "actorUrn": "urn:li:corpuser:test_user",
+        "actorUrn": CLAIMED_ACTOR_URN,
         "timestamp": int(now.timestamp() * 1000),  # Unix epoch milliseconds
         "date": now.strftime("%a %b %d %Y %H:%M:%S GMT%z"),
         "userAgent": "Mozilla/5.0 (Test Browser)",
@@ -410,6 +422,7 @@ def test_tracking_api_elasticsearch(auth_session):
     }
 
     # Post the event to the tracking endpoint
+    actor_urn = _session_actor_urn(auth_session)
     response = auth_session.post(
         f"{base_url}/openapi/v1/tracking/track", json=test_event
     )
@@ -456,7 +469,7 @@ def test_tracking_api_elasticsearch(auth_session):
             assert event.get("type") == "PageViewEvent", (
                 "Elasticsearch event type doesn't match"
             )
-            assert event.get("actorUrn") == "urn:li:corpuser:test_user", (
+            assert event.get("actorUrn") == actor_urn, (
                 "Elasticsearch actor URN doesn't match"
             )
             assert event.get("browserId") == unique_id, (

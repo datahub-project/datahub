@@ -180,7 +180,9 @@ public enum DataHubUsageEventType {
   GO_TO_PHYSICAL_CHILD_COLUMN_EVENT("GoToPhysicalChildColumnEvent"),
   LANGUAGE_CHANGE_EVENT("LanguageChangeEvent"),
   MFE_PAGE_VIEW_EVENT("MfePageViewEvent"),
-  MFE_LOAD_EVENT("MfeLoadEvent");
+  MFE_LOAD_EVENT("MfeLoadEvent"),
+  // A tool call served by an agent surface (e.g. surface "mcp" for DataHub's MCP server).
+  TOOL_INVOCATION_EVENT("ToolInvocation");
 
   private final String type;
 
