@@ -42,7 +42,7 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
             try {
               // Capture members BEFORE the delete. deleteReferencesThenEntity removes the graph
               // references first, but only up to graph-reference-cleanup-limit, and not at all
-              // when the limit is 0. The key delete's MCL then leads to
+              // over it when the deployment skips them. The key delete's MCL then leads to
               // graphService.removeNode(urn), which reaps incoming IsMemberOfNativeGroup edges
               // even though each edge is owned by a member's nativeGroupMembership aspect.
               // Discovering referrers afterwards races that removal and loses, stranding a
@@ -59,9 +59,10 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
               final var references =
                   _entityClient.deleteReferencesThenEntity(context.getOperationContext(), urn);
 
-              // The graph references are removed and the group is deleted: a failure of either was
-              // thrown above and left the group in place. This removes the references that are not
-              // graph edges, then sweeps the members' links.
+              // The group is deleted, and its graph references are removed unless the delete went
+              // over the limit and they were skipped: a failure was thrown above and left the group
+              // in place. This removes the references that are not graph edges, then sweeps the
+              // members' links.
               CompletableFuture.runAsync(
                   () -> {
                     try {

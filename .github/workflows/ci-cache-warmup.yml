@@ -395,3 +395,31 @@ jobs:
         with:
           path: ~/.cache/yarn
           key: docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./datahub-web-react/yarn.lock') }}
+
+  # Single writer of the Gradle User Home that metadata-io.yml's seed and test legs
+  # restore (setup-gradle's basic provider, read-only there). The basic provider
+  # keys one entry on the Gradle build-file hash with no fallback, so a push that
+  # leaves the build files alone restores the exact entry and skips the save.
+  # Resolve-only: downloads every metadata-io configuration, test runtime included,
+  # without compiling.
+  warm-metadata-io-gradle-home:
+    name: Warm metadata-io Gradle User Home (${{ matrix.runner }})
+    if: |
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+      startsWith(github.ref, 'refs/heads/releases/')
+    # One leg per cache backend (see top).
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, depot-ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        with:
+          python: false
+          gradle-cache-provider: basic
+      - name: Resolve metadata-io dependencies
+        run: ./gradlew :metadata-io:resolveAndLockAllForProject

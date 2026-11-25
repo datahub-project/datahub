@@ -297,6 +297,7 @@ def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
 
     mock_exp_run = MagicMock(spec=ExperimentRun)
     mock_exp_run.name = "test_run_none_timestamps"
+    mock_exp_run._is_legacy_experiment_run.return_value = False
     mock_exp_run.create_time = datetime(2022, 3, 21, 10, 0, 0, tzinfo=timezone.utc)
     mock_exp_run.update_time = datetime(2022, 3, 21, 10, 0, 0, tzinfo=timezone.utc)
     mock_exp_run.get_state.return_value = "COMPLETE"
@@ -566,9 +567,11 @@ def test_list_experiments_excludes_tensorboard_and_wraps_the_rest(
     experiment_extractor: VertexAIExperimentExtractor,
 ) -> None:
     regular_ctx = MagicMock()
-    regular_ctx.metadata = {}
+    regular_ctx.gca_resource.metadata = {}
     tb_ctx = MagicMock()
-    tb_ctx.metadata = {metadata_constants.TENSORBOARD_CUSTOM_JOB_EXPERIMENT_FIELD: True}
+    tb_ctx.gca_resource.metadata = {
+        metadata_constants.TENSORBOARD_CUSTOM_JOB_EXPERIMENT_FIELD: True
+    }
 
     with (
         patch(

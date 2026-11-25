@@ -256,11 +256,12 @@ input SearchFlags {
   minSimilarity: Float
 
   """
-  Semantic search through the semantic search template, and searchAcrossEntities and search through
-  a template named in searchTemplate, such as semantic, answer a query they could not embed with an
-  error naming why: timeout, rejected, reserveExhausted, budgetExhausted, or failed. With this flag
-  set they serve keyword search results for the same request instead, without the named template,
-  and SearchResults.keywordFallback marks them with that reason. Those results cover every requested
+  Semantic search through the semantic search template, and searchAcrossEntities, search and
+  searchDocuments through a template named in searchTemplate, such as semantic, answer a query they
+  could not embed with an error naming why: timeout, rejected, reserveExhausted, budgetExhausted, or
+  failed. With this flag set they serve keyword search results for the same request instead,
+  without the named template, and SearchResults.keywordFallback marks them with that reason; the
+  searchDocuments result carries no such mark. Those results cover every requested
   entity type, not only the ones semantic search covers. Only a failed query embedding falls back:
   a failed kNN or facet request, and similarity, still fail. Semantic search on its legacy path
   fails as it does without the flag.

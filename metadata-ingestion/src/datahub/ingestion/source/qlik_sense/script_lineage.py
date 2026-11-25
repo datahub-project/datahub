@@ -52,7 +52,21 @@ FROM_TABLE_RE = re.compile(
     re.IGNORECASE,
 )
 QLIK_TABLE_NAME_LENGTH = 32
-INCLUDE_RE = re.compile(r"\$\(\s*(?:Must_)?Include\s*=[^)]*\)", re.IGNORECASE)
+# Parentheses nested up to three deep, such as `$(v$(x))` or `loads (v2).qvs`.
+_BALANCED_PARENS = r"[^()]*"
+for _ in range(3):
+    _BALANCED_PARENS = rf"(?:[^()]|\({_BALANCED_PARENS}\))*"
+# The path may be built from variables, such as lib://$(vPrefix)Common/x.qvs,
+# and runs to the matching parenthesis; with unbalanced ones, to the first.
+INCLUDE_PATH_RE = re.compile(
+    rf"\$\(\s*(?:Must_)?Include\s*=(?P<path>{_BALANCED_PARENS}|[^)]*)\)",
+    re.IGNORECASE,
+)
+# Includes nested deeper than this are left unread.
+_MAX_INCLUDE_DEPTH = 10
+# Includes that would grow the script past this many characters are left
+# unread, as a file included many times at each level grows it exponentially.
+_MAX_INLINED_LENGTH = 5_000_000
 VARIABLE_RE = re.compile(
     r"^(?P<kind>SET|LET)\s+(?P<name>[^\s=]+)\s*=(?P<value>.*)$",
     re.IGNORECASE | re.DOTALL,
@@ -60,8 +74,10 @@ VARIABLE_RE = re.compile(
 EXPRESSION_NAME_RE = re.compile(r"[^\W\d]\w*")
 STRING_LITERAL_RE = re.compile(r"'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"")
 VARIABLE_REFERENCE_RE = re.compile(r"\$\((?P<name>[^()=]+)\)")
+# A label can be a variable the parser can't expand, kept as `$(name)`.
 LABEL_RE = re.compile(
-    r"^(?:\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|(?P<bare>[^\W\d][\w.\-]*))\s*:(?!/)"
+    r"^(?:\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|(?P<bare>[^\W\d][\w.\-]*)"
+    r"|(?P<variable>\$\([^()]*\)))\s*:(?!/)"
 )
 # A prefix's arguments, where a quoted or bracketed name may hold a `)`.
 _PREFIX_ARGS = r"\((?:[^()\[\]'\"]|\[[^\]]*\]|'[^']*'|\"[^\"]*\")*\)"
@@ -115,6 +131,18 @@ STORE_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 STORE_FROM_RE = re.compile(r"\bFROM\s+", re.IGNORECASE)
+BINARY_RE = re.compile(rf"^BINARY\s+{_FILE_PATH}\s*$", re.IGNORECASE)
+DROP_TABLES_RE = re.compile(
+    r"^DROP\s+TABLES?\s+(?P<names>.+?)\s*$", re.IGNORECASE | re.DOTALL
+)
+TABLE_NAME_RE = re.compile(r"\[[^\]]*\]|'[^']*'|\"[^\"]*\"|[^,\s][^,]*")
+_RENAMED_NAME = r"(?:\[[^\]]*\]|'[^']*'|\"[^\"]*\"|[^\s,]+)"
+RENAME_TABLES_RE = re.compile(
+    r"^RENAME\s+TABLES?\s+(?P<pairs>.+)$", re.IGNORECASE | re.DOTALL
+)
+RENAME_PAIR_RE = re.compile(
+    rf"{_RENAMED_NAME}\s+TO\s+(?P<new>{_RENAMED_NAME})", re.IGNORECASE
+)
 # What may follow a LOAD's file source and its format spec.
 LOAD_SOURCE_END_RE = re.compile(
     r"\s*(?:;|$|(?:WHERE|WHILE|GROUP\s+BY|ORDER\s+BY)\b)", re.IGNORECASE
@@ -185,6 +213,10 @@ MAPPING_PREFIX_RE = re.compile(r"\bMapping\b", re.IGNORECASE)
 # CrossTable and Generic turn columns into attribute and value fields, so the
 # field names are not the column names.
 RESHAPE_PREFIX_RE = re.compile(r"\b(?:CrossTable|Generic)\b", re.IGNORECASE)
+# A Generic load creates a table per attribute value, not one its label names.
+GENERIC_PREFIX_RE = re.compile(r"\bGeneric\b", re.IGNORECASE)
+# In a full reload, Replace drops the table and loads it again.
+REPLACE_PREFIX_RE = re.compile(r"\bReplace\b", re.IGNORECASE)
 CROSSTABLE_RE = re.compile(r"\bCrossTable\s*\(", re.IGNORECASE)
 # Single-quoted text is a string literal in a chart expression, not a field.
 # A quoted field can carry a derived-field suffix, as in [Date].autoCalendar.Year.
@@ -276,6 +308,11 @@ PLATFORM_KEYWORD_RES: Dict[str, "re.Pattern[str]"] = {
 }
 
 
+class IncludeRead(BaseModel):
+    content: Optional[str] = None
+    error: Optional[str] = None
+
+
 class LoadField(BaseModel):
     name: str
     # Names the field's expression reads from the statement below it.
@@ -346,17 +383,34 @@ class ScriptTable(BaseModel):
 
 
 class QvdReference(BaseModel):
-    """A QVD file a script names: a path in a folder data connection, as in
+    """A file a script names, such as a QVD or the .qvf app file a BINARY
+    statement loads: a path in a folder data connection, as in
     `lib://<connection>/<path>`, or, in legacy mode, a file system path."""
 
     connection: Optional[str] = None
     path: str
 
     @property
+    def as_written(self) -> str:
+        return f"lib://{self.connection}/{self.path}" if self.connection else self.path
+
+    @property
     def key(self) -> str:
         # Paths compare as the file datasets name them; connection names
         # resolve whatever their case.
         return f"{(self.connection or '').lower()}#{normalized_file_path(self.path)}"
+
+
+class BinaryStatement(BaseModel):
+    """The app file a BINARY statement loads the data model of."""
+
+    # The path as the script names it.
+    written: str
+    # None when the path names no single file the connector can resolve.
+    file: Optional[QvdReference] = None
+    # The path uses a variable, so it may name another file once the app's
+    # variables are read.
+    uses_variables: bool = False
 
 
 class QvdLoad(BaseModel):
@@ -446,6 +500,17 @@ class ParsedScript(BaseModel):
     # The script includes other scripts, or calls a SUB it doesn't define,
     # whose loads are not read.
     has_includes: bool = False
+    binary: Optional[BinaryStatement] = None
+    # Labels of the tables the script's own loads create, and whether a load
+    # creates a table Qlik names, so the script's tables are not all known.
+    table_labels: List[str] = []
+    has_unnamed_tables: bool = False
+    # Labels of the tables the script drops, and whether it drops, replaces or
+    # renames to a table it doesn't name.
+    dropped_tables: List[str] = []
+    drops_unnamed_tables: bool = False
+    # Names the script renames tables to, which are never a BINARY load's.
+    renamed_tables: List[str] = []
 
 
 class ScriptTableLineage(BaseModel):
@@ -508,6 +573,18 @@ def _strip_comments(script: str, expression: bool = False) -> str:
         if closing:
             if char == closing:
                 closing = None
+        elif (
+            not expression
+            and char == "$"
+            and (include := INCLUDE_PATH_RE.match(script, i))
+        ):
+            # Qlik expands an include before reading quotes, so an apostrophe
+            # in its path, as in O'Brien.qvs, opens no quote.
+            kept.extend(include.group(0))
+            i = include.end()
+            # An include is a whole statement and often has no semicolon.
+            statement_start = True
+            continue
         # A REM comment runs to the next semicolon, and an apostrophe in it
         # does not open a quote.
         elif not expression and statement_start and REM_RE.match(script, i):
@@ -563,7 +640,16 @@ def _split_statements(script: str) -> List[str]:
     statements: List[str] = []
     current: List[str] = []
     closing: Optional[str] = None
-    for char in script:
+    i = 0
+    while i < len(script):
+        char = script[i]
+        include = (
+            INCLUDE_PATH_RE.match(script, i) if not closing and char == "$" else None
+        )
+        if include:
+            current.append(include.group(0))
+            i = include.end()
+            continue
         current.append(char)
         if closing:
             if char == closing:
@@ -573,6 +659,7 @@ def _split_statements(script: str) -> List[str]:
         elif char == STATEMENT_SEPARATOR:
             statements.append("".join(current[:-1]).strip())
             current = []
+        i += 1
     statements.append("".join(current).strip())
     return [statement for statement in statements if statement]
 
@@ -813,6 +900,27 @@ def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
     )
 
 
+def merged_variables(
+    recipe: Dict[str, str], app_variables: Dict[str, str]
+) -> Dict[str, str]:
+    """The recipe's `script_variables` with the app's own values, as its last
+    reload left them, on top."""
+    return {**recipe, **app_own_variables(recipe, app_variables)}
+
+
+def app_own_variables(
+    recipe: Dict[str, str], app_variables: Dict[str, str]
+) -> Dict[str, str]:
+    """The app's values that beat the recipe's. An expression definition
+    (`=...`) the connector can't evaluate, or an empty one such as a variable
+    cleared at the end of the script, leaves the recipe's value in place."""
+    return {
+        name: value
+        for name, value in app_variables.items()
+        if not value.lstrip().startswith("=") and (value.strip() or name not in recipe)
+    }
+
+
 def unquoted_values(variables: Dict[str, str]) -> Dict[str, str]:
     """A variable set with SET keeps the quotes around its value, which a path
     built from it, such as $(vFolder)orders.qvd, must not hold. A value that
@@ -854,6 +962,12 @@ def _load_source(statement: str) -> Optional["re.Match[str]"]:
 def _load_path(statement: str) -> Optional[str]:
     source = _load_source(statement)
     return _unquote(source.group("path").strip()).strip() if source else None
+
+
+def _named_by(label: Optional[str]) -> Optional[str]:
+    """The table name a label gives, or None when a variable the parser
+    couldn't expand names it."""
+    return None if label is None or "$(" in label else label
 
 
 def _unquote(name: str) -> str:
@@ -1010,6 +1124,12 @@ class _ScriptParser(BaseModel):
     unlabelled_qvd_loads: List[str] = []
     file_loads: List[FileLoad] = []
     has_includes: bool = False
+    binary: Optional[BinaryStatement] = None
+    table_labels: List[str] = []
+    has_unnamed_tables: bool = False
+    dropped_tables: List[str] = []
+    drops_unnamed_tables: bool = False
+    renamed_tables: List[str] = []
     # The current statement before the script's variables are expanded.
     raw_statement: str = ""
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
@@ -1017,6 +1137,11 @@ class _ScriptParser(BaseModel):
     pending_loads: List[PrecedingLoad] = []
     pending_mapping: bool = False
     pending_reshaped: bool = False
+    # A preceding LOAD is a Generic load, which creates tables Qlik names.
+    pending_generic: bool = False
+    # The top preceding LOAD adds to an existing table, or replaces it.
+    pending_merge: bool = False
+    pending_replace: bool = False
     pending_crosstable: Optional[CrossTable] = None
     # A SELECT under a preceding LOAD that adds to an unknown table.
     pending_skip: bool = False
@@ -1042,6 +1167,9 @@ class _ScriptParser(BaseModel):
     def _clear_pending(self) -> None:
         self.pending_mapping = False
         self.pending_reshaped = False
+        self.pending_generic = False
+        self.pending_merge = False
+        self.pending_replace = False
         self.pending_crosstable = None
         self.pending_label = None
         self.pending_loads = []
@@ -1087,7 +1215,7 @@ class _ScriptParser(BaseModel):
                 state.set_variable(param, value)
 
     def _statement(self, statement: str) -> None:
-        statement, includes = INCLUDE_RE.subn("", statement)
+        statement, includes = INCLUDE_PATH_RE.subn("", statement)
         if includes:
             # The included script is not read, so it could have set anything.
             self.has_includes = True
@@ -1123,9 +1251,7 @@ class _ScriptParser(BaseModel):
             self.flow.state.connection = None
             self._clear_pending()
             return
-        store = STORE_RE.match(statement)
-        if store:
-            self._store(store)
+        if self._statement_without_lineage(statement):
             self._clear_pending()
             return
 
@@ -1140,6 +1266,8 @@ class _ScriptParser(BaseModel):
         keywords = re.sub(_PREFIX_ARGS, "", prefix.group(0)) if prefix else ""
         mapping = bool(MAPPING_PREFIX_RE.search(keywords))
         reshaped = bool(RESHAPE_PREFIX_RE.search(keywords))
+        generic = bool(GENERIC_PREFIX_RE.search(keywords))
+        replace = bool(REPLACE_PREFIX_RE.search(keywords))
         if prefix:
             statement = statement[prefix.end() :]
         skip = False
@@ -1150,16 +1278,35 @@ class _ScriptParser(BaseModel):
 
         sql = SQL_RE.match(statement)
         if sql:
-            if not (skip or self.pending_skip):
+            if skip or self.pending_skip:
+                # Not read for lineage, but a Replace still drops a table.
+                self._record_table(
+                    None,
+                    merged=bool(merge),
+                    mapping=mapping,
+                    generic=generic,
+                    replace=replace,
+                )
+            else:
                 if not self.pending_loads:
                     crosstable = _crosstable(prefix.group(0) if prefix else "")
                 else:
                     # A reshaping under the preceding loads hides the fields.
                     crosstable = None if reshaped else self.pending_crosstable
+                written_label = label or self.pending_label
                 known_label = (
-                    label or self.pending_label or _from_table_name(sql.group("sql"))
+                    _named_by(written_label)
+                    if written_label
+                    else _from_table_name(sql.group("sql"))
                 )
                 table_label = known_label or f"table_{len(self.tables) + 1}"
+                self._record_table(
+                    known_label,
+                    merged=bool(merge),
+                    mapping=mapping,
+                    generic=generic,
+                    replace=replace,
+                )
                 self.tables.append(
                     ScriptTable(
                         label=table_label,
@@ -1191,24 +1338,70 @@ class _ScriptParser(BaseModel):
             if not self.pending_loads:
                 self.pending_label = label
                 self.pending_skip = skip
+                self.pending_merge = bool(merge)
+                self.pending_replace = replace
                 self.pending_mapping = mapping
                 self.pending_crosstable = _crosstable(prefix.group(0) if prefix else "")
             elif reshaped:
                 # Reshaped below the top, so the top's fields are not known.
                 self.pending_crosstable = None
             self.pending_reshaped = self.pending_reshaped or reshaped
+            self.pending_generic = self.pending_generic or generic
             self.pending_loads.append(_parse_load_fields(statement))
         else:
             if LOAD_RE.match(statement):
+                self._record_table(
+                    label or self.pending_label,
+                    merged=bool(merge),
+                    mapping=mapping,
+                    generic=generic,
+                    replace=replace,
+                )
                 # Every file a LOAD reads is in Qlik's lineage graph, mapping
                 # loads included.
                 self._record_file_load(statement)
                 if not (skip or mapping or self.pending_skip or self.pending_mapping):
-                    self._qvd_load(label or self.pending_label, statement)
+                    self._qvd_load(_named_by(label or self.pending_label), statement)
                 # A preceding LOAD's label names the table a later Concatenate
                 # or Join without a target adds to.
-                self.last_label = label or self.pending_label
+                self.last_label = _named_by(label or self.pending_label)
             self._clear_pending()
+
+    def _statement_without_lineage(self, statement: str) -> bool:
+        """Reads a STORE, BINARY, DROP TABLE or RENAME TABLE statement, or a
+        load labelled with a variable the parser can't expand."""
+        if self._variable_labelled(statement):
+            return True
+        store = STORE_RE.match(statement)
+        if store:
+            self._store(store)
+            return True
+        binary = BINARY_RE.match(statement)
+        if binary:
+            self._binary(binary.group("path"))
+            return True
+        drop = DROP_TABLES_RE.match(statement)
+        if drop:
+            for name in TABLE_NAME_RE.findall(drop.group("names")):
+                dropped = _named_by(_unquote(name.strip()))
+                if dropped is None:
+                    self.drops_unnamed_tables = True
+                else:
+                    self.dropped_tables.append(dropped)
+            return True
+        rename = RENAME_TABLES_RE.match(statement)
+        if rename:
+            for pair in RENAME_PAIR_RE.finditer(rename.group("pairs")):
+                renamed = _named_by(_unquote(pair.group("new").strip()))
+                if renamed is None:
+                    # The new name could be one a BINARY table was dropped from.
+                    self.has_unnamed_tables = True
+                    self.drops_unnamed_tables = True
+                else:
+                    self._record_created(renamed)
+                    self.renamed_tables.append(renamed)
+            return True
+        return False
 
     def _fallback_variables(self) -> Dict[str, str]:
         # Unquoted, as the script's own quoted SET values are, and without
@@ -1253,8 +1446,8 @@ class _ScriptParser(BaseModel):
     def _file_reference(
         self, path: str, unresolved: List[str]
     ) -> Optional[QvdReference]:
-        """The single file a path names, or None, adding the path to
-        `unresolved`, when it names none the connector can resolve."""
+        """The file an expanded path names, or None, added to `unresolved`, when
+        it names no single resolvable file."""
         if any(
             reference.group("name").strip() in self.flow.state.unknown
             for reference in VARIABLE_REFERENCE_RE.finditer(path)
@@ -1285,6 +1478,77 @@ class _ScriptParser(BaseModel):
         unresolved.append(path)
         return None
 
+    def _binary(self, path: str) -> None:
+        path = _unquote(path.strip()).strip()
+        # Before expansion, as a path built from the app's variables changes
+        # when they can't be read.
+        uses_variables = "$(" in self.raw_statement
+        if "$(" in path:
+            path = self._expand_app_variables(path)
+        self.binary = BinaryStatement(
+            written=path,
+            file=self._file_reference(path, []),
+            uses_variables=uses_variables,
+        )
+
+    def _record_table(
+        self,
+        label: Optional[str],
+        merged: bool,
+        mapping: bool,
+        generic: bool,
+        replace: bool,
+    ) -> None:
+        """Notes the table a load creates, with the top preceding load's
+        prefixes. A mapping table is dropped at the end of the reload, and
+        Concatenate or Join add to another table, unless Replace drops it
+        first."""
+        replaced = replace or self.pending_replace
+        if mapping or self.pending_mapping:
+            return
+        if (merged or self.pending_merge) and not replaced:
+            return
+        name = _named_by(label)
+        if name is None or generic or self.pending_generic:
+            # Qlik names the table, or the tables, or a variable the parser
+            # can't expand does.
+            self.has_unnamed_tables = True
+            if replaced:
+                self.drops_unnamed_tables = True
+            return
+        self._record_created(name)
+        if replaced:
+            self.dropped_tables.append(name)
+
+    def _variable_labelled(self, statement: str) -> bool:
+        label = LABEL_RE.match(statement)
+        if label is None or label.group("variable") is None:
+            return False
+        # Only noted as a table it can't name: as before such labels were read,
+        # the statement gets no lineage, so later tables keep their table_<n>.
+        statement = statement[label.end() :].lstrip()
+        prefix = PREFIX_RE.match(statement)
+        if prefix:
+            keywords = re.sub(_PREFIX_ARGS, "", prefix.group(0))
+            statement = statement[prefix.end() :]
+        else:
+            keywords = ""
+        if SQL_RE.match(statement) or LOAD_RE.match(statement):
+            # Kept until recorded, as a preceding load's Replace or Generic
+            # applies to this table; the caller clears them.
+            self._record_table(
+                None,
+                merged=bool(prefix and MERGE_PREFIX_RE.search(prefix.group(0))),
+                mapping=bool(MAPPING_PREFIX_RE.search(keywords)),
+                generic=bool(GENERIC_PREFIX_RE.search(keywords)),
+                replace=bool(REPLACE_PREFIX_RE.search(keywords)),
+            )
+        return True
+
+    def _record_created(self, name: str) -> None:
+        if name.lower() not in (known.lower() for known in self.table_labels):
+            self.table_labels.append(name)
+
     def _record_file_load(self, statement: str) -> None:
         expanded = _load_path(statement)
         if expanded is None:
@@ -1311,9 +1575,7 @@ class _ScriptParser(BaseModel):
         if file is None:
             return
         if not label:
-            self.unlabelled_qvd_loads.append(
-                f"lib://{file.connection}/{file.path}" if file.connection else file.path
-            )
+            self.unlabelled_qvd_loads.append(file.as_written)
             return
         # The file's columns go through the statement's own field list and
         # then every preceding load above it.
@@ -1358,6 +1620,144 @@ class _ScriptParser(BaseModel):
         )
 
 
+def _varying_variables(script: str) -> Set[str]:
+    """Variables the script assigns more than once, or in an IF, SWITCH, loop
+    or SUB, and SUB parameters, so their value where the script reads them need not be the one
+    the app's last reload left."""
+    counts: Counter[str] = Counter()
+    varying: Set[str] = set()
+    depth = 0
+    # An include left in place has no semicolon of its own, so it would hide
+    # the start of the statement after it.
+    text = INCLUDE_PATH_RE.sub(";", _strip_comments(script))
+    for statement in _split_statements(text):
+        while (control := CONTROL_RE.match(statement)) and control.end():
+            if control.group("forloop"):
+                variable = FOR_VARIABLE_RE.match(control.group("forloop"))
+                if variable:
+                    varying.add(variable.group("name"))
+            if control.group("sub"):
+                header = SUB_NAME_RE.match(control.group("sub"))
+                if header:
+                    varying.update(
+                        param.strip()
+                        for param in _split_top_level(header.group("params") or "")
+                        if param.strip()
+                    )
+            if any(
+                control.group(group)
+                for group in ("if", "switch", "sub", "forloop", "doloop")
+            ):
+                depth += 1
+            elif any(
+                control.group(group)
+                for group in ("endif", "endswitch", "endsub", "loopend")
+            ):
+                depth = max(depth - 1, 0)
+            statement = statement[control.end() :]
+        variable = VARIABLE_RE.match(statement)
+        if variable:
+            counts[variable.group("name")] += 1
+            if depth:
+                varying.add(variable.group("name"))
+    return varying | {name for name, count in counts.items() if count > 1}
+
+
+def _path_variables(path: str, variables: Dict[str, str]) -> Set[str]:
+    """The variables a path reads, also through the values of others and
+    through names built from them, such as `vF` in `$(v$(x))` when x is F, at
+    each step of the expansion `_expand_nested_variables` makes."""
+    names: Set[str] = set()
+    for _ in range(_MAX_VARIABLE_DEPTH + 1):
+        names.update(
+            reference.group("name").strip()
+            for reference in VARIABLE_REFERENCE_RE.finditer(path)
+        )
+        expanded = _expand_variables(path, variables)
+        if expanded == path:
+            break
+        path = expanded
+    return names
+
+
+def inline_includes(
+    script: str,
+    app_variables: Dict[str, str],
+    read: Callable[[str], IncludeRead],
+    report_unread: Optional[Callable[[str, str], None]] = None,
+) -> str:
+    """The script with each $(Include) and $(Must_Include) replaced by the
+    script of the file it names, as Qlik splices it in at reload, including
+    the includes of that file. The path is expanded with `app_variables`, the
+    values the app's last reload left merged over the recipe's. An include
+    whose path doesn't expand, reads a variable the script varies, or that
+    `read` can't read, stays, so the script still counts as including scripts
+    that are not read. `report_unread` gets the path and reason of an include
+    left unread as a cycle, too deep, over the size limit, or by a read error.
+    Only the final pass reports, as a pass whose includes vary a path variable
+    is discarded."""
+    variables = unquoted_values(app_variables)
+    varying = _varying_variables(script)
+    used: Set[str] = set()
+    unread: Dict[str, str] = {}
+    remaining = _MAX_INLINED_LENGTH
+
+    def inline(text: str, chain: List[str]) -> str:
+        def replace(match: "re.Match[str]") -> str:
+            nonlocal remaining
+            raw_path = match.group("path").strip()
+            names = _path_variables(raw_path, variables)
+            # Scripts often bracket or quote the path, as in [lib://Conn/x.qvs].
+            path = _unquote(
+                _expand_nested_variables(raw_path, variables).strip()
+            ).strip()
+            if (
+                not LIB_PATH_RE.match(path)
+                or "$(" in path
+                or not names.isdisjoint(varying)
+            ):
+                return match.group(0)
+            if path in chain:
+                unread[path] = "include cycle"
+                return match.group(0)
+            if len(chain) >= _MAX_INCLUDE_DEPTH:
+                unread[path] = f"nested more than {_MAX_INCLUDE_DEPTH} levels deep"
+                return match.group(0)
+            result = read(path)
+            content = result.content
+            if content is None:
+                if result.error is not None:
+                    unread[path] = result.error
+                return match.group(0)
+            if len(content) > remaining:
+                unread[path] = (
+                    f"the script with its includes is over "
+                    f"{_MAX_INLINED_LENGTH} characters"
+                )
+                return match.group(0)
+            remaining -= len(content)
+            used.update(names)
+            return f"\n{inline(content, [*chain, path])}\n"
+
+        # A commented-out include is not run.
+        return INCLUDE_PATH_RE.sub(replace, _strip_comments(text))
+
+    while True:
+        used.clear()
+        unread.clear()
+        remaining = _MAX_INLINED_LENGTH
+        inlined = inline(script, [])
+        # Included scripts can vary a variable too, as can an include in a
+        # loop, so the variables read are checked again on the whole script.
+        newly_varying = (used & _varying_variables(inlined)) - varying
+        if not newly_varying:
+            if report_unread:
+                for path, reason in unread.items():
+                    report_unread(path, reason)
+            return inlined
+        varying |= newly_varying
+
+
 def parse_script(
     script: str,
     app_variables: Optional[Dict[str, str]] = None,
@@ -1387,6 +1787,12 @@ def parse_script(
         unlabelled_qvd_loads=parser.unlabelled_qvd_loads,
         file_loads=parser.file_loads,
         has_includes=parser.has_includes,
+        binary=parser.binary,
+        table_labels=parser.table_labels,
+        has_unnamed_tables=parser.has_unnamed_tables,
+        dropped_tables=parser.dropped_tables,
+        drops_unnamed_tables=parser.drops_unnamed_tables,
+        renamed_tables=parser.renamed_tables,
     )
 
 
@@ -1791,12 +2197,6 @@ def app_table_identifier(app_id: str, table_name: str) -> str:
     """The dataset name of an app's table, however the table was found: its
     URN must not change between a script, data model and lineage graph read."""
     return f"{app_id}.{table_name}".lower()
-
-
-def connection_lookup_names(name: str) -> List[str]:
-    # Qlik Cloud scripts reference connections as `<space>:<connection>`.
-    short_name = name.rsplit(SPACE_SEPARATOR, 1)[-1]
-    return [name] if short_name == name else [name, short_name]
 
 
 def brackets_to_backticks(sql: str) -> str:

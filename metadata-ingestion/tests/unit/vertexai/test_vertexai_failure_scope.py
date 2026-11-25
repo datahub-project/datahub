@@ -32,7 +32,7 @@ from google.auth.exceptions import (
     TransportError,
 )
 from google.cloud import aiplatform
-from google.cloud.aiplatform import ModelEvaluation
+from google.cloud.aiplatform import ExperimentRun, ModelEvaluation
 from google.cloud.location import locations_pb2
 from google.protobuf.struct_pb2 import Value
 from google.rpc.error_details_pb2 import ErrorInfo
@@ -50,12 +50,14 @@ from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAIS
 from datahub.ingestion.source.vertexai.vertexai_builder import VertexAIURIParser
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     EVALUATIONS_KEPT_PROJECT_WIDE,
+    LEGACY_RUN_EXECUTIONS,
     LOCATIONS_SKIPPED,
     LOCATIONS_SKIPPED_TITLE,
     PIPELINE_LINKS_ELSEWHERE,
     PLATFORM,
     REGION_DISCOVERY_FAILED,
     REGION_UNCHECKED,
+    REGION_UNCHECKED_AFTER_DISCOVERY_NONE_READ,
     REGION_UNCHECKED_TITLE,
     REGION_UNKNOWN,
     REGION_UNKNOWN_TITLE,
@@ -288,6 +290,7 @@ def _real_carry(source: VertexAISource, previous: List[str]) -> GenericCheckpoin
         source.model_extractor,
         source.training_extractor,
         source.pipeline_extractor,
+        source.experiment_extractor,
     ):
         extractor._carry = carry
     return current
@@ -599,7 +602,7 @@ def test_project_region_discovery_uses_recipe_credentials() -> None:
 # The single-region fallback is the deprecated `region` field.
 @pytest.mark.filterwarnings("ignore:.*region.*deprecated")
 def test_project_region_discovery_failure_falls_back_and_keeps_project() -> None:
-    source = _region_source(discover_regions=True, region=REGION)
+    source = _region_source(discover_regions=True, region=REGION, regions=[])
 
     with _locations_client(_iam_denied()):
         run = _run_regions(source, {}, previous=_EVERY_URN)
@@ -618,7 +621,7 @@ def test_project_region_discovery_failure_falls_back_and_keeps_project() -> None
 
 
 def test_project_region_discovery_failure_without_fallback_is_project_failure() -> None:
-    source = _make_source(discover_regions=True)
+    source = _make_source(discover_regions=True, regions=[])
 
     with _locations_client(_iam_denied()):
         source._discover_regions_for_project("proj-one")
@@ -627,7 +630,7 @@ def test_project_region_discovery_failure_without_fallback_is_project_failure() 
 
 
 def test_project_region_discovery_service_disabled_discovered_is_warning() -> None:
-    source = _make_source(project_ids=["proj-one"], discover_regions=True)
+    source = _make_source(project_ids=["proj-one"], discover_regions=True, regions=[])
     source.config.project_ids = []
     source._carry = MagicMock()
 
@@ -666,7 +669,7 @@ def test_project_discovered_no_role_is_warning_and_kept() -> None:
 
 
 def test_project_region_discovery_refused_discovered_is_warning() -> None:
-    source = _make_source(project_ids=["proj-one"], discover_regions=True)
+    source = _make_source(project_ids=["proj-one"], discover_regions=True, regions=[])
     source.config.project_ids = []
     source._carry = MagicMock()
 
@@ -2471,7 +2474,7 @@ def test_m1_region_discovery_refused_discovered_keeps_only_own_containers(
     region: Optional[str], error: Exception, kept_everywhere: bool
 ) -> None:
     source, current = _m1_source(
-        _M1_PREVIOUS, discovered=True, discover_regions=True, region=region
+        _M1_PREVIOUS, discovered=True, discover_regions=True, region=region, regions=[]
     )
 
     with _locations_client(error):
@@ -2804,7 +2807,7 @@ def test_m1_automl_job_with_unreadable_config_is_written_without_links() -> None
 
 
 def test_m1_region_discovery_with_no_usable_region_is_reported() -> None:
-    source = _make_source(project_ids=["proj-one"], discover_regions=True)
+    source = _make_source(project_ids=["proj-one"], discover_regions=True, regions=[])
     source._carry = MagicMock()
 
     with _locations_client(locations_pb2.ListLocationsResponse()):
@@ -2947,18 +2950,31 @@ def test_experiment_sdk_type_error_writes_run_without_logged_jobs() -> None:
     assert f"item={_EXPERIMENT_NAME}/{run.name}" in contexts[0]
 
 
-def test_experiment_legacy_run_not_implemented_writes_run_without_executions() -> None:
-    source = _experiment_source()
+def _legacy_mock_run() -> ExperimentRun:
     run = gen_mock_experiment_run()
-    _mock(run.get_executions).side_effect = NotImplementedError("legacy run")
+    _mock(run._is_legacy_experiment_run).return_value = True
+    run._metadata_metric_artifact = MagicMock()
+    run._metadata_node = MagicMock()
+    run._metadata_node.to_dict.return_value = {}
+    return run
+
+
+def test_experiment_legacy_run_skips_executions_with_shared_info() -> None:
+    source = _experiment_source()
+    run = _legacy_mock_run()
 
     workunits = _read_experiment_runs(source, [run])
 
     urns = {wu.get_urn() for wu in workunits}
     assert len(urns) == 1
     assert next(iter(urns)).startswith(_RUN_URN_PREFIX)
+    _mock(run.get_executions).assert_not_called()
     assert not source._stopped._stopped
-    contexts = _warning_contexts(source)
+    assert not source.report.warnings
+    (legacy_info,) = [
+        i for i in source.report.infos if i.message == LEGACY_RUN_EXECUTIONS
+    ]
+    contexts = list(legacy_info.context)
     assert len(contexts) == 1
     assert f"item={_EXPERIMENT_NAME}/{run.name}" in contexts[0]
 
@@ -4290,7 +4306,7 @@ def test_discovery_failure_with_a_refused_fallback_is_one_unchecked_loss(
     assert regions == {"proj-one": []}
     reported = source.report.failures if listed else _warnings_but_notes(source)
     assert [(r.title, r.message) for r in reported] == [
-        (REGION_UNCHECKED_TITLE, REGION_UNCHECKED)
+        (REGION_UNCHECKED_TITLE, REGION_UNCHECKED_AFTER_DISCOVERY_NONE_READ)
     ]
     assert source.report.lost_reads == {
         "proj-one": [f"project=proj-one, regions=['{region}'], loss=temporary"]

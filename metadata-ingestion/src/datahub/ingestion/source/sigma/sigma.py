@@ -1,3 +1,4 @@
+import heapq
 import logging
 import re
 from dataclasses import dataclass, field
@@ -10,6 +11,7 @@ from typing import (
     Iterable,
     List,
     Literal,
+    NamedTuple,
     Optional,
     Set,
     Tuple,
@@ -81,6 +83,7 @@ from datahub.ingestion.source.sigma.formula_parser import (
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.ingestion.source.sigma.spec_parser import (
     DataModelSpecIndex,
+    SpecColumnRef,
     parse_data_model_spec,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -158,6 +161,14 @@ _FGL_CONFIDENCE_ORPHAN_RECOVERED: float = 0.8
 # Confidence that a union branch feeds the output column, which /spec states;
 # not that the values are equal, since a branch may transform its column.
 _FGL_CONFIDENCE_UNION_BRANCH: float = 1.0
+# A join predicate says two key columns are equal on matched rows, not that one
+# copies the other, so its edges score below a formula's; under an outer join
+# the equality holds on fewer rows still.
+_FGL_CONFIDENCE_JOIN_KEY: float = 0.7
+_FGL_CONFIDENCE_JOIN_KEY_OUTER: float = 0.6
+# GraphQL's FineGrainedLineage carries no confidence; this marks the edge so
+# consumers can tell a join-key edge from a formula's.
+_JOIN_KEY_TRANSFORM = "JOIN_KEY"
 # How a union element's column names the union's output: `[Union of 2
 # Sources/Out]`, whatever the element is called. On our dev tenant a bare
 # `[Out]` fails to type-check (bare refs name the element's own columns), and
@@ -536,6 +547,21 @@ class _ColumnLookup:
         return matches[0] if len(matches) == 1 else None
 
 
+def _is_bare_column(side: SpecColumnRef) -> bool:
+    """Whether a join side is exactly ``[Col]``, not a function of it."""
+    refs = extract_bracket_refs(side.expression)
+    return len(refs) == 1 and refs[0].raw == side.expression.strip()
+
+
+class _JoinPartner(NamedTuple):
+    """The other side of a join predicate, and the join that states it."""
+
+    join_element_id: str
+    urn: str
+    field_urn: str
+    is_outer: bool
+
+
 def _cross_dm_source_url_ids(element: SigmaDataModelElement) -> Set[str]:
     """The url ids of other Data Models this element reads.
 
@@ -743,6 +769,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._dm_spec_drift_logged = False
         # (data model id, element id -> column lookup) for the model in hand.
         self._dm_column_lookup_cache: Optional[Tuple[str, Dict[str, _ColumnLookup]]] = (
+            None
+        )
+        # (data model id, schemaField urn -> join partners) for the model in hand.
+        self._join_partner_cache: Optional[Tuple[str, Dict[str, Set[_JoinPartner]]]] = (
             None
         )
         # chart_urn → formula-derived InputField list stashed at emit time.
@@ -2696,6 +2726,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None
         discovered_upstreams: Set[str] = set()
         union_upstreams: Set[str] = set()
+        join_key_upstreams: Set[str] = set()
         fine_grained = self._build_dm_element_fine_grained_lineages(
             element=element,
             element_dataset_urn=element_dataset_urn,
@@ -2706,6 +2737,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             warehouse_url_id_map=warehouse_url_id_map,
             discovered_upstreams=discovered_upstreams,
             union_upstreams=union_upstreams,
+            join_key_upstreams=join_key_upstreams,
         )
         # An edge to a Dataset missing from ``upstreams`` is not rendered.
         listed = set(upstream_urns)
@@ -2715,7 +2747,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter.data_model_element_union_upstreams_added += len(
             union_upstreams - listed - discovered_upstreams
         )
-        upstream_urns = sorted(listed | discovered_upstreams | union_upstreams)
+        self.reporter.data_model_element_join_key_upstreams_added += len(
+            join_key_upstreams - listed - discovered_upstreams - union_upstreams
+        )
+        upstream_urns = sorted(
+            listed | discovered_upstreams | union_upstreams | join_key_upstreams
+        )
         return UpstreamLineage(
             upstreams=[
                 Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
@@ -3371,6 +3408,146 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.data_model_element_fgl_union_unresolved += 1
         return True
 
+    def _join_partners(
+        self,
+        *,
+        index: DataModelSpecIndex,
+        data_model: SigmaDataModel,
+        elementId_to_dataset_urn: Dict[str, str],
+    ) -> Dict[str, Set[_JoinPartner]]:
+        """schemaField urn -> the other side of every join predicate naming
+        it, built once per Data Model."""
+        dm_id = data_model.dataModelId
+        cached = self._join_partner_cache
+        if cached is not None and cached[0] == dm_id:
+            return cached[1]
+        lookups = self._dm_column_lookups(data_model)
+
+        def resolve(side: SpecColumnRef) -> Optional[Tuple[str, str]]:
+            assert side.element_id is not None
+            urn = elementId_to_dataset_urn.get(side.element_id)
+            lookup = lookups.get(side.element_id)
+            name = lookup.resolve(side.column) if lookup else None
+            return (urn, name) if urn is not None and name is not None else None
+
+        partners: Dict[str, Set[_JoinPartner]] = {}
+        repeating = set(index.repeated_side_join_element_ids)
+        self.reporter.data_model_join_key_repeated_side_skipped += len(repeating)
+        for predicate in index.pairs:
+            if predicate.join_element_id in repeating:
+                continue
+            sides = (predicate.left, predicate.right)
+            if any(s.element_id is None or s.data_model_id for s in sides):
+                # A warehouse table or another Data Model's element.
+                self.reporter.data_model_join_key_partner_unmapped += 1
+                continue
+            if not all(_is_bare_column(s) for s in sides):
+                # Left([Zip], 3) = [Zip3] matches values, but Zip is not Zip3.
+                self.reporter.data_model_join_key_partner_transformed += 1
+                continue
+            a, b = resolve(predicate.left), resolve(predicate.right)
+            if a is None or b is None:
+                self.reporter.data_model_join_key_partner_unresolved += 1
+                continue
+            join_id, outer = predicate.join_element_id, predicate.is_outer
+            a_field = builder.make_schema_field_urn(*a)
+            b_field = builder.make_schema_field_urn(*b)
+            partners.setdefault(a_field, set()).add(
+                _JoinPartner(join_id, b[0], b_field, outer)
+            )
+            partners.setdefault(b_field, set()).add(
+                _JoinPartner(join_id, a[0], a_field, outer)
+            )
+        self._join_partner_cache = (dm_id, partners)
+        return partners
+
+    def _add_join_key_fgls(
+        self,
+        *,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        data_model: SigmaDataModel,
+        elementId_to_dataset_urn: Dict[str, str],
+        fgls: List[FineGrainedLineageClass],
+        emitted_pairs: Set[Tuple[str, str]],
+        join_key_upstreams: Set[str],
+    ) -> None:
+        """Add every key column an edge's upstream is joined to as equal.
+
+        A join's output column has a formula naming one side, so the other
+        key column is reachable only from the ON clause. Only the element's
+        own join is read: a descendant names the join, not its sides, and an
+        earlier join's rule does not hold for this join's rows. A column
+        reached through any outer entry scores as outer; the best score over
+        every edge's walk wins.
+        """
+        index = self._get_dm_spec_index(data_model)
+        if not index.pairs or not index.is_supported_schema:
+            return
+        partners = self._join_partners(
+            index=index,
+            data_model=data_model,
+            elementId_to_dataset_urn=elementId_to_dataset_urn,
+        )
+        if not partners:
+            return
+        existing = {
+            (fgl.downstreams[0], upstream)
+            for fgl in fgls
+            if fgl.downstreams
+            for upstream in fgl.upstreams or []
+        }
+        # (downstream, upstream) -> (is_outer, upstream's dataset urn)
+        best: Dict[Tuple[str, str], Tuple[bool, str]] = {}
+        for fgl in fgls:
+            if not fgl.upstreams or not fgl.downstreams:
+                continue
+            downstream_field = fgl.downstreams[0]
+            # Best-first, so an inner path settles a column before an outer one.
+            heap: List[Tuple[bool, str, str]] = [(False, fgl.upstreams[0], "")]
+            settled: Set[str] = set()
+            while heap:
+                is_outer, field_urn, owner = heapq.heappop(heap)
+                if field_urn in settled:
+                    continue
+                settled.add(field_urn)
+                pair = (downstream_field, field_urn)
+                if owner and pair not in existing:
+                    best[pair] = min(best.get(pair, (True, owner)), (is_outer, owner))
+                for partner in partners.get(field_urn, ()):
+                    if (
+                        partner.join_element_id == element.elementId
+                        and partner.urn != element_dataset_urn
+                    ):
+                        heapq.heappush(
+                            heap,
+                            (
+                                is_outer or partner.is_outer,
+                                partner.field_urn,
+                                partner.urn,
+                            ),
+                        )
+        for pair, (is_outer, owner) in sorted(best.items()):
+            if pair in emitted_pairs:
+                continue
+            emitted_pairs.add(pair)
+            fgls.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[pair[0]],
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[pair[1]],
+                    confidenceScore=(
+                        _FGL_CONFIDENCE_JOIN_KEY_OUTER
+                        if is_outer
+                        else _FGL_CONFIDENCE_JOIN_KEY
+                    ),
+                    transformOperation=_JOIN_KEY_TRANSFORM,
+                )
+            )
+            join_key_upstreams.add(owner)
+            self.reporter.data_model_element_fgl_join_key_resolved += 1
+
     def _warn_upstream_schema_unavailable(
         self,
         upstream_urn: str,
@@ -3438,13 +3615,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         warehouse_url_id_map: Dict[str, _WarehouseTableRef],
         discovered_upstreams: Set[str],
         union_upstreams: Optional[Set[str]] = None,
+        join_key_upstreams: Optional[Set[str]] = None,
     ) -> List[FineGrainedLineageClass]:
         """Build FineGrainedLineage entries for a Data Model element's columns.
 
-        ``discovered_upstreams`` and ``union_upstreams`` are out-parameters:
-        siblings an edge points at that Sigma's /lineage did not list, found by
-        orphan recovery and by /spec union branches respectively, for the
-        caller to add to the entity-level upstreams.
+        ``discovered_upstreams``, ``union_upstreams`` and ``join_key_upstreams``
+        are out-parameters: siblings an edge points at that Sigma's /lineage
+        did not list, found by orphan recovery, by /spec union branches and by
+        /spec join keys respectively, for the caller to add to the entity-level
+        upstreams.
 
         element_name_to_eids maps lowercased element name → list of elementIds.
         Self-references are stripped before resolution: when a DM element is named
@@ -3629,8 +3808,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             emitted_pairs=emitted_pairs,
             union_upstreams=set() if union_upstreams is None else union_upstreams,
         )
-        # fgl_emitted is the umbrella count for intra-DM, warehouse-passthrough
-        # and union FGL (all appended to `fgls`). Cross-DM is tracked separately via
+        self._add_join_key_fgls(
+            element=element,
+            element_dataset_urn=element_dataset_urn,
+            data_model=data_model,
+            elementId_to_dataset_urn=elementId_to_dataset_urn,
+            fgls=fgls,
+            emitted_pairs=emitted_pairs,
+            join_key_upstreams=set()
+            if join_key_upstreams is None
+            else join_key_upstreams,
+        )
+        # fgl_emitted is the umbrella count for intra-DM, warehouse-passthrough,
+        # union and join-key FGL (all appended to `fgls`). Cross-DM is tracked separately via
         # fgl_cross_dm_resolved. Warehouse-passthrough is also sub-counted in
         # fgl_warehouse_resolved (overlap intentional for independent triage).
         self.reporter.data_model_element_fgl_emitted += len(fgls)
@@ -5942,6 +6132,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._dm_spec_index_cache.clear()
         self._dm_spec_drift_logged = False
         self._dm_column_lookup_cache = None
+        self._join_partner_cache = None
         self._workbook_customsql_formula_fields.clear()
         self._dm_element_field_paths.clear()
         self._dm_key_by_element_urn.clear()

@@ -1,5 +1,5 @@
 import threading
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
@@ -14,6 +14,12 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.state.use_case_handler import (
     StatefulIngestionUsecaseHandlerBase,
 )
+
+
+class UnmappedFileStore(BaseModel):
+    # The file's `lib://` path, as reported when no app reads it.
+    path: str
+    table_urns: List[str]
 
 
 class AppCheckpoint(BaseModel):
@@ -33,8 +39,26 @@ class AppCheckpoint(BaseModel):
     graph_tables_unresolved: bool = False
     # The QVDs the app writes and reads, on-prem. None in older state.
     qvds: Optional[AppQvds] = None
+    # Table name, in lower case -> fields of the app's data model, kept for
+    # apps that `binary_file_to_app` names, so apps loading them with BINARY
+    # link their columns while the app is kept.
+    data_model_fields: Optional[Dict[str, List[str]]] = None
+    # The read ingested tables the app's BINARY statement brought in, so a
+    # later read that can't find them keeps them. None in older state.
+    binary_tables: Optional[bool] = None
     # The files on storage the app stores into, on Qlik Cloud.
     stored_file_urns: List[str] = []
+    # File URN -> the app's tables stored into a file on a connection of
+    # unknown storage, so a run that keeps the app still links them when
+    # another app reads the file.
+    unmapped_file_stores: Dict[str, UnmappedFileStore] = {}
+    # Files on a connection of unknown storage that the app's lineage reads,
+    # so a run that keeps the app still counts it as their reader.
+    read_unmapped_file_urns: List[str] = []
+    # Datasets only Qlik's lineage graph names that the app's lineage reads,
+    # recorded even when a dataset is left out for lack of a certain path, so a
+    # run that keeps the app still counts its reload toward that path.
+    read_graph_named_urns: List[str] = []
     # Field names of the app's tables, so a renamed load from a kept app still
     # names its source field. None in older state.
     field_names: Optional[List[str]] = None
@@ -177,6 +201,37 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
         if self.stale_job_id and (stale is None or stale.run_id != last.run_id):
             return None
         return last.state.apps
+
+    def add_urns(self, app_id: str, urns: Iterable[str]) -> None:
+        """Adds entities emitted at the end of the run to the checkpoint this
+        run recorded for the app, if any."""
+        if not self.is_checkpointing_enabled():
+            return
+        current = self.state_provider.get_current_checkpoint(self.job_id)
+        checkpoint = current.state.apps.get(app_id) if current is not None else None
+        if checkpoint is not None:
+            known = set(checkpoint.urns)
+            checkpoint.urns.extend(urn for urn in sorted(urns) if urn not in known)
+
+    def add_read_unmapped_files(self, app_id: str, urns: Iterable[str]) -> None:
+        if not self.is_checkpointing_enabled():
+            return
+        current = self.state_provider.get_current_checkpoint(self.job_id)
+        checkpoint = current.state.apps.get(app_id) if current is not None else None
+        if checkpoint is not None:
+            checkpoint.read_unmapped_file_urns = sorted(
+                set(checkpoint.read_unmapped_file_urns).union(urns)
+            )
+
+    def add_read_graph_named(self, app_id: str, urns: Iterable[str]) -> None:
+        if not self.is_checkpointing_enabled():
+            return
+        current = self.state_provider.get_current_checkpoint(self.job_id)
+        checkpoint = current.state.apps.get(app_id) if current is not None else None
+        if checkpoint is not None:
+            checkpoint.read_graph_named_urns = sorted(
+                set(checkpoint.read_graph_named_urns).union(urns)
+            )
 
     def add_stored_files(self, app_id: str, file_urns: List[str]) -> None:
         """Adds files to the stored files of an app this run recorded."""

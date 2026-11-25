@@ -14,6 +14,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import file_storage_of_uri
+from datahub.ingestion.source.qlik_sense.qvd_lineage import canonical_path
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -71,6 +72,7 @@ class Constant:
     EDGES = "edges"
     SOURCE = "source"
     TARGET = "target"
+    STORE = "store"
     RESOURCEATTRIBUTES = "resourceAttributes"
     RESOURCES = "resources"
     LINEAGE = "lineage"
@@ -141,6 +143,21 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     number_of_spaces: int = 0
     script_tables_found: int = 0
     script_tables_with_lineage: int = 0
+    # Lineage graph tables linked to the database tables the SQL of the app's
+    # last reload reads.
+    reload_sql_tables_with_lineage: int = 0
+    ambiguous_reload_sql_sources: LossyList[str] = field(default_factory=LossyList)
+    unmatched_reload_sql_sources: LossyList[str] = field(default_factory=LossyList)
+    database_label_read_failures: LossyList[str] = field(default_factory=LossyList)
+    reload_sql_tables_not_in_datahub: LossyList[str] = field(default_factory=LossyList)
+    # Apps whose last reload's file paths could not be read, so the datasets
+    # only their upstream graph names may have no path.
+    apps_without_reload_paths: LossyList[str] = field(default_factory=LossyList)
+    # Datasets Qlik's lineage graph names but no reload gives one path for,
+    # which are not ingested.
+    graph_named_datasets_without_path: LossyList[str] = field(default_factory=LossyList)
+    # Reload statements naming a `lib://` path in a form the connector doesn't read.
+    unrecognised_reload_files: LossyList[str] = field(default_factory=LossyList)
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     qvds_found: int = 0
     # QVDs on connections in file_connection_to_storage, linked as storage files.
@@ -150,6 +167,9 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     unresolved_qvd_paths: LossyList[str] = field(default_factory=LossyList)
     # QVDs loaded without a table label, which Qlik names itself.
     unlabelled_qvd_loads: LossyList[str] = field(default_factory=LossyList)
+    binary_loads_found: int = 0
+    # BINARY loads whose tables get no lineage, with the reason.
+    binary_loads_without_lineage: LossyList[str] = field(default_factory=LossyList)
     # Apps Qlik Cloud has no lineage graph for whose last read had no tables
     # with a QRI, so their tables get none and use load script lineage.
     apps_without_lineage_graph: LossyList[str] = field(default_factory=LossyList)
@@ -159,6 +179,9 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # known: add them to file_connection_to_storage. Kept whole, since there are
     # only as many as the tenant has connections and each needs mapping.
     unresolved_file_connections: List[str] = field(default_factory=list)
+    # Files on connections of unknown storage that apps store into but no
+    # app's lineage graph reads, so they may not exist and are left out.
+    unread_stored_files: LossyList[str] = field(default_factory=LossyList)
     # Cloud STOREs of a table into different files from competing IF or SWITCH
     # branches, which are not linked.
     qvd_stores_in_competing_branches: LossyList[str] = field(default_factory=LossyList)
@@ -320,6 +343,48 @@ class QlikOnPremConfig(ConfigModel):
         description="Folder data connections whose QVDs are not ingested. By "
         "default the connections the monitoring apps read their logs through.",
     )
+    binary_file_to_app: Dict[str, str] = Field(
+        default={},
+        description="App files that BINARY statements load -> the id of the app "
+        "each file was exported from, for example "
+        "`{'lib://Apps/Sales Model.qvf': '<app id>'}`. Qlik Sense Enterprise "
+        "only loads BINARY from a .qvf file, which doesn't say which app it "
+        "holds. A mapped BINARY load links the app's tables to that app's "
+        "tables of the same name, with column lineage between their fields; "
+        "when the script includes other scripts, that lineage is only added "
+        "to. An unmapped one links them to the file instead. When the tables "
+        "a BINARY load brings in can't be told apart, for example because the "
+        "script also creates tables it doesn't name, they are not ingested. "
+        "Paths match as the script names them, or as the file path they "
+        "resolve to. App ids match whatever their case. Needs "
+        "`read_data_model`, as the load script doesn't name the tables a "
+        "BINARY load brings in.",
+    )
+
+    @field_validator("binary_file_to_app")
+    @classmethod
+    def canonical_binary_files(cls, value: Dict[str, str]) -> Dict[str, str]:
+        apps: Dict[str, str] = {}
+        for path, written_id in value.items():
+            canonical = canonical_path(path)
+            # App ids are lower-case GUIDs in QRS.
+            app_id = written_id.strip().lower()
+            if apps.get(canonical, app_id) != app_id:
+                raise ValueError(
+                    f"binary_file_to_app maps {path!r} to more than one app: "
+                    "paths match without regard to case or slash direction"
+                )
+            apps[canonical] = app_id
+        return apps
+
+    @model_validator(mode="after")
+    def warn_unused_binary_file_to_app(self) -> "QlikOnPremConfig":
+        if self.binary_file_to_app and not self.read_data_model:
+            logger.warning(
+                "binary_file_to_app needs read_data_model: the tables a BINARY "
+                "load brings in are only known from the app's data model."
+            )
+        return self
 
     @model_validator(mode="after")
     def warn_unused_server_cert_hostname(self) -> "QlikOnPremConfig":
@@ -418,7 +483,7 @@ class QlikSourceConfig(
     data_connection_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
         description="Platform, database, schema and platform instance of the tables "
-        "that load script `SELECT`s read, keyed by data connection name. Set `platform`, "
+        "that load script `SELECT`s read, keyed by data connection name in any case. Set `platform`, "
         "`database` and `default_schema` when they cannot be inferred from the data "
         "connection.",
     )
@@ -436,7 +501,7 @@ class QlikSourceConfig(
         description="Where the files of Azure Storage, Amazon S3 and Google Cloud "
         "Storage data connections are in DataHub, for lineage from the files apps "
         "load and the QVDs they store. Use the data connection name as key, as load "
-        "scripts write it (`<space>:<connection>` or `<connection>`). Set "
+        "scripts write it (`<space>:<connection>` or `<connection>`), in any case. Set "
         "`storage_uri` when the API key's user cannot see the connection, and "
         "always on-prem, and `platform_instance` and `env` to match the source that "
         "ingests the storage. On-prem, QVDs of these connections take the same "

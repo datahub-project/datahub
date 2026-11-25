@@ -508,8 +508,8 @@ public interface EntityClient {
    * has no graph scroll: it deletes the entity before returning and throws that failure here, and
    * the cleanup it returns only removes references. An implementation that counts incoming graph
    * edges removes them, then deletes the entity, before returning. When the count is over its limit
-   * it refuses the delete with an {@link IllegalArgumentException} and removes nothing; a limit of
-   * 0 turns the graph cleanup off and hard-deletes the entity only. {@link
+   * it either hard-deletes the entity without the graph references, or, when configured to refuse,
+   * throws an {@link IllegalArgumentException} and removes nothing. {@link
    * ReferencesCleanup#choice()} reports which path ran and is known when this returns. A failure of
    * the count, the graph pages or the entity delete is thrown here and leaves the entity in place.
    * {@link ReferencesCleanup#run()} only removes the references that are not graph edges.
@@ -541,9 +541,9 @@ public interface EntityClient {
        */
       REFERENCES_THEN_ENTITY,
       /**
-       * Graph reference cleanup is turned off (limit 0): only the entity was hard-deleted, and its
-       * referrers were left. {@link #run()} still cleans the references that are not graph edges. A
-       * delete over a limit above 0 is refused instead.
+       * More graph references pointed at the entity than the limit allows and the deployment skips
+       * them: only the entity was hard-deleted, and its referrers were left. {@link #run()} still
+       * cleans the references that are not graph edges. A deployment that refuses instead throws.
        */
       ENTITY_ONLY,
       /** The delete was handed to another process, which also cleans the references. */

@@ -93,7 +93,7 @@ class QvdPathResolver:
         else:
             folder = self._by_connection(self.folders, file.connection)
             if folder is None:
-                self.unresolved.append(f"lib://{file.connection}/{file.path}")
+                self.unresolved.append(file.as_written)
                 return None
             path = canonical_path(f"{folder}/{file.path}")
         for alias, target in self.folder_aliases:

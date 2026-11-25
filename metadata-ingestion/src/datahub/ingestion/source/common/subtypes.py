@@ -23,6 +23,7 @@ class DatasetSubTypes(StrEnum):
     QLIK_DATASET = "Qlik Dataset"
     QLIK_TABLE = "Qlik Table"
     QLIK_QVD = "QVD"
+    QLIK_APP_FILE = "Qlik App File"
     GRAFANA_DATASET = "Grafana Dataset"
     QUICKSIGHT_DATASET = "Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"

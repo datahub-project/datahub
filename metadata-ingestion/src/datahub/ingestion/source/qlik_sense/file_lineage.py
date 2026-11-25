@@ -219,6 +219,9 @@ class FileSourceResolver:
                     FileReference(connection=reference.connection, path=path)
                 )
 
+    def references(self) -> List[FileReference]:
+        return [ref for refs in self._by_path_id.values() for ref in refs]
+
     def candidates(self, file_qri: str) -> FileCandidates:
         match = FILE_QRI_RE.match(file_qri)
         if not match:

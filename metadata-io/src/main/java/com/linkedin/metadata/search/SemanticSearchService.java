@@ -7,33 +7,26 @@ import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.config.ConfigUtils;
-import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.SearchClients;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateEngineSupport;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
-import java.io.IOException;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -55,15 +48,21 @@ public class SemanticSearchService {
   private final SearchServiceConfiguration searchServiceConfig;
   private final SemanticEntitySearch semanticEntitySearchService;
 
-  // An unreadable engine version is read again after this, as the OpenSearch shim retries one for
-  // nested expansion: each failed read is a cluster request and a logged warning
-  private static final Duration ENGINE_READ_RETRY = Duration.ofMinutes(1);
-
   // Whether the Search V3 engine can serve the semantic search template, once a read decides it
   @Nullable private volatile Boolean templateEngineSupported;
-  // Guarded by this
-  private long nextEngineReadMillis;
-  private final Set<String> warnedEngineReasons = new HashSet<>();
+
+  private final SearchTemplateEngineSupport templateEngineSupport =
+      new SearchTemplateEngineSupport(
+          "The semantic search surface's template rollout is on, but the Search V3 cluster runs"
+              + " OpenSearch {}. The semantic search template needs OpenSearch 3.5 or later, so"
+              + " semantic search stays on its own kNN search.",
+          "The semantic search surface's template rollout is on, but the Search V3 engine reads as"
+              + " {}, so GMS cannot tell whether it can serve the semantic search template, which"
+              + " needs OpenSearch 3.5 or later. Semantic search stays on its own kNN search until a"
+              + " later read, at most once a minute, succeeds. Reading the OpenSearch version needs"
+              + " the cluster:monitor/main permission, and a cluster in compatibility mode reports"
+              + " 7.10.2 whatever it runs.",
+          this::currentTimeMillis);
 
   public SemanticSearchService(
       EntityDocCountCache entityDocCountCache,
@@ -147,78 +146,22 @@ public class SemanticSearchService {
   }
 
   /**
-   * True only on Elasticsearch or OpenSearch 3.5 or later. Before 3.5 the k-NN plugin applies a
-   * nested kNN pre-filter in the chunk scope when it names an underscore-prefixed field such as
-   * {@code _entityType}, which the template's filter always does, and there it matches nothing. The
-   * engine is read on the first request the rollout serves, so the warnings are logged only with
-   * the rollout on, once for each reason. Only a decision from Elasticsearch or a version that
-   * parses is kept. An engine type or version that cannot be read or parsed, as restricted cluster
-   * info leaves the version, keeps the request on the legacy search, which works on every engine,
-   * and the engine is read again after {@link #ENGINE_READ_RETRY}.
+   * True only when {@link SearchTemplateEngineSupport} reads the engine as supported: Elasticsearch
+   * or OpenSearch 3.5 or later. The engine is read on the first request the rollout serves, so the
+   * warnings are logged only with the rollout on. An engine it reads as unsupported or cannot read
+   * keeps the request on the legacy search, which works on every engine. A decided answer is kept.
    */
-  private synchronized boolean readTemplateEngineSupport(@Nonnull OperationContext opContext) {
-    if (templateEngineSupported != null) {
-      return templateEngineSupported;
+  private boolean readTemplateEngineSupport(@Nonnull OperationContext opContext) {
+    final SearchTemplateEngineSupport.Support support = templateEngineSupport.read(opContext);
+    if (support != SearchTemplateEngineSupport.Support.UNKNOWN) {
+      templateEngineSupported = support == SearchTemplateEngineSupport.Support.SUPPORTED;
     }
-    final long now = currentTimeMillis();
-    if (now < nextEngineReadMillis) {
-      return false;
-    }
-    final SearchClientShim<?> client =
-        SearchClients.forComponent(opContext, SearchComponent.SEARCH_V3);
-    final SearchClientShim.SearchEngineType engine = client.getEngineType();
-    if (engine != null && engine.isElasticsearch()) {
-      templateEngineSupported = true;
-      return true;
-    }
-    // The version is read on the request thread while holding this service's lock, so a cluster
-    // info call that hangs holds up the other semantic searches the rollout serves while the
-    // engine is undecided, for up to the client's socket timeout, at most once a minute. The read
-    // could move off the lock, sending concurrent callers to the legacy search meanwhile.
-    // On a cluster that blocks the version read, the shim logs the failure with a stack trace each
-    // time it is asked, so this retry repeats those log entries on each GMS instance about once a
-    // minute until a read succeeds.
-    final String version = engine != null && engine.isOpenSearch() ? engineVersion(client) : null;
-    if (OpenSearchSearchClientShim.isParseableVersion(version)) {
-      final boolean supported =
-          OpenSearchSearchClientShim.supportsUnderscoreFieldsInNestedKnnFilter(version);
-      if (!supported) {
-        log.warn(
-            "The semantic search surface's template rollout is on, but the Search V3 cluster runs"
-                + " OpenSearch {}. The semantic search template needs OpenSearch 3.5 or later, so"
-                + " semantic search stays on its own kNN search.",
-            version);
-      }
-      templateEngineSupported = supported;
-      return supported;
-    }
-    nextEngineReadMillis = now + ENGINE_READ_RETRY.toMillis();
-    final String reason =
-        engine + " version " + (version == null || version.isBlank() ? "unknown" : version);
-    if (warnedEngineReasons.add(reason)) {
-      log.warn(
-          "The semantic search surface's template rollout is on, but the Search V3 engine reads as"
-              + " {}, so GMS cannot tell whether it can serve the semantic search template, which"
-              + " needs OpenSearch 3.5 or later. Semantic search stays on its own kNN search until a"
-              + " later read, at most once a minute, succeeds. Reading the OpenSearch version needs"
-              + " the cluster:monitor/main permission.",
-          reason);
-    }
-    return false;
+    return support == SearchTemplateEngineSupport.Support.SUPPORTED;
   }
 
   @VisibleForTesting
   long currentTimeMillis() {
     return System.currentTimeMillis();
-  }
-
-  @Nullable
-  private static String engineVersion(@Nonnull SearchClientShim<?> client) {
-    try {
-      return client.getEngineVersion();
-    } catch (IOException e) {
-      return null;
-    }
   }
 
   /**
