@@ -58,3 +58,9 @@ services:
   datahub-mce-consumer-debug-consumers:
     volumes:
       - ${DATAHUB_MCE_BIN_HOST_DIR:-../../metadata-jobs/mce-consumer-job/build/libs/}:/datahub/datahub-mce-consumer/bin
+
+  # ZDU does not exercise the MCP/AI service, and its image has no `head` tag
+  # on Docker Hub for the workflow's DATAHUB_VERSION=head to pull. `!override`
+  # replaces the base profile list instead of merging into it.
+  datahub-ai-service-debug:
+    profiles: !override ["zdu-disabled"]
