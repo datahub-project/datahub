@@ -7,7 +7,6 @@ import posixpath
 import re
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 from functools import partial
 from typing import (
     Callable,
@@ -82,14 +81,12 @@ from datahub.ingestion.source.qlik_sense.constants import (
 )
 from datahub.ingestion.source.qlik_sense.data_classes import (
     DATABASE_QRI_PREFIX,
-    FIELD_TYPE_MAPPING,
     KNOWN_DATA_PLATFORM_MAPPING,
     QLIK_DATASET_QRI_PREFIX,
     UPSTREAM_RESOURCE_QRI_PREFIXES,
     App,
     AppField,
     AppFieldIndex,
-    AppKey,
     BoxType,
     Chart,
     ChartInputs,
@@ -101,8 +98,6 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     ReloadStatement,
     SchemaField as QlikDatasetSchemaField,
     Sheet,
-    Space,
-    SpaceKey,
     UnchangedApp,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import (
@@ -199,7 +194,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     stores_in_competing_branches,
     unquoted_values,
 )
-from datahub.ingestion.source.qlik_sense.source.base import QlikSourceBase
+from datahub.ingestion.source.qlik_sense.source.entities import EntityEmitMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
     PendingStoredFile,
     PendingTableLineage,
@@ -216,8 +211,6 @@ from datahub.ingestion.source.qlik_sense.source_utils import (
     MappingT,
     _app_field_names,
     _bounded_list,
-    _dataset_display_name,
-    _dataset_subtype,
     _error_type,
     _get_ignoring_case,
     _is_qvd,
@@ -246,7 +239,6 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
     SubTypes,
-    TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
@@ -259,26 +251,18 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
-    NullType,
-    SchemaField,
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     BrowsePathEntryClass,
     BrowsePathsV2Class,
     ChangeAuditStampsClass,
     ChartInfoClass,
     ContainerPropertiesClass,
     DashboardInfoClass,
-    DataPlatformInstanceClass,
     EdgeClass,
     InputFieldClass,
     InputFieldsClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
-    SchemaFieldDataTypeClass,
 )
 from datahub.metadata.urns import DatasetUrn
 from datahub.specific.chart import ChartPatchBuilder
@@ -315,7 +299,7 @@ logger = logging.getLogger(__name__)
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-class QlikSenseSource(QlikSourceBase, StatefulIngestionSourceBase, TestableSource):
+class QlikSenseSource(EntityEmitMixin, StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
     - Qlik Sense Spaces (Cloud) or Streams (Enterprise on Windows) and Apps as Container.
@@ -876,87 +860,6 @@ class QlikSenseSource(QlikSourceBase, StatefulIngestionSourceBase, TestableSourc
                 field_names=_app_field_names(app),
             ),
         )
-
-    def _gen_space_key(self, space_id: str) -> SpaceKey:
-        return SpaceKey(
-            space=space_id,
-            platform=self.platform,
-            instance=self.config.platform_instance,
-        )
-
-    def _gen_app_key(self, app_id: str) -> AppKey:
-        return AppKey(
-            app=app_id,
-            platform=self.platform,
-            instance=self.config.platform_instance,
-        )
-
-    def _get_audit_stamp(
-        self, date: datetime, username: Optional[str]
-    ) -> AuditStampClass:
-        return AuditStampClass(
-            time=int(date.timestamp() * 1000),
-            actor=builder.make_user_urn(username) if username else builder.UNKNOWN_USER,
-        )
-
-    def _get_owner_name(self, owner_id: Optional[str]) -> Optional[str]:
-        return self.qlik_api.get_user_name(owner_id) if owner_id else None
-
-    def _get_allowed_spaces(self) -> List[Space]:
-        all_spaces = self.qlik_api.get_spaces()
-        allowed_spaces = [
-            space
-            for space in all_spaces
-            if self.config.space_pattern.allowed(space.name)
-        ]
-        logger.info(f"Number of spaces = {len(all_spaces)}")
-        self.reporter.report_number_of_spaces(len(all_spaces))
-        logger.info(f"Number of allowed spaces = {len(allowed_spaces)}")
-        return allowed_spaces
-
-    def _gen_space_workunit(self, space: Space) -> Iterable[MetadataWorkUnit]:
-        """
-        Map Qlik space to Datahub container
-        """
-        owner_username = self._get_owner_name(space.ownerId)
-        yield from gen_containers(
-            container_key=self._gen_space_key(space.id),
-            name=space.name,
-            description=space.description,
-            sub_types=[BIContainerSubTypes.QLIK_SPACE],
-            extra_properties={Constant.TYPE: str(space.type)},
-            owner_urn=(
-                builder.make_user_urn(owner_username)
-                if self.config.ingest_owner and owner_username
-                else None
-            ),
-            external_url=f"https://{self.ui_host}/hub/stream/{space.id}"
-            if self.config.on_prem
-            else f"https://{self.ui_host}/catalog?space_filter={space.id}",
-            created=int(space.createdAt.timestamp() * 1000),
-            last_modified=int(space.updatedAt.timestamp() * 1000),
-        )
-
-    def _gen_entity_status_aspect(self, entity_urn: str) -> MetadataWorkUnit:
-        return MetadataChangeProposalWrapper(
-            entityUrn=entity_urn, aspect=Status(removed=False)
-        ).as_workunit()
-
-    def _gen_entity_owner_aspect(
-        self, entity_urn: str, user_name: str
-    ) -> MetadataWorkUnit:
-        aspect = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=builder.make_user_urn(user_name),
-                    type=OwnershipTypeClass.DATAOWNER,
-                )
-            ]
-        )
-        return MetadataChangeProposalWrapper(
-            entityUrn=entity_urn,
-            aspect=aspect,
-        ).as_workunit()
 
     def _gen_dashboard_urn(self, dashboard_identifier: str) -> str:
         return builder.make_dashboard_urn(
@@ -2786,10 +2689,6 @@ class QlikSenseSource(QlikSourceBase, StatefulIngestionSourceBase, TestableSourc
         for app_id, urns in self._app_read_graph_named.items():
             self.app_state.add_read_graph_named(app_id, urns)
 
-    def _learn_field_names(self, names: Iterable[str]) -> None:
-        for name in names:
-            self._field_names_by_id.setdefault(_qlik_field_id(name), name)
-
     def _graph_column_lineage(
         self,
         dataset_urn: str,
@@ -3689,141 +3588,6 @@ class QlikSenseSource(QlikSourceBase, StatefulIngestionSourceBase, TestableSourc
             id=f"{urn}-fingerprint",
             mcp=MetadataChangeProposalWrapper(entityUrn=urn, aspect=stamped),
         )
-
-    def _gen_qlik_dataset_urn(self, dataset_identifier: str) -> str:
-        return builder.make_dataset_urn_with_platform_instance(
-            name=dataset_identifier,
-            env=self.config.env,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-        )
-
-    def _gen_dataplatform_instance_aspect(
-        self, entity_urn: str
-    ) -> Optional[MetadataWorkUnit]:
-        if self.config.platform_instance:
-            aspect = DataPlatformInstanceClass(
-                platform=builder.make_data_platform_urn(self.platform),
-                instance=builder.make_dataplatform_instance_urn(
-                    self.platform, self.config.platform_instance
-                ),
-            )
-            return MetadataChangeProposalWrapper(
-                entityUrn=entity_urn, aspect=aspect
-            ).as_workunit()
-        else:
-            return None
-
-    @staticmethod
-    def _gen_schema_field(field: QlikDatasetSchemaField) -> SchemaField:
-        return SchemaField(
-            fieldPath=field.name,
-            type=SchemaFieldDataTypeClass(
-                type=(
-                    FIELD_TYPE_MAPPING.get(field.dataType, NullType)()
-                    if field.dataType
-                    else NullType()
-                )
-            ),
-            nativeDataType=field.dataType if field.dataType else "",
-            nullable=field.nullable,
-            isPartOfKey=field.primaryKey,
-        )
-
-    def _gen_schema_fields(
-        self, schema: List[QlikDatasetSchemaField]
-    ) -> List[SchemaField]:
-        return [self._gen_schema_field(field) for field in schema]
-
-    def _gen_schema_metadata(
-        self, dataset_identifier: str, dataset_schema: List[QlikDatasetSchemaField]
-    ) -> MetadataWorkUnit:
-        dataset_urn = self._gen_qlik_dataset_urn(dataset_identifier)
-
-        schema_metadata = SchemaMetadata(
-            schemaName=dataset_identifier,
-            platform=builder.make_data_platform_urn(self.platform),
-            version=0,
-            hash="",
-            platformSchema=MySqlDDL(tableSchema=""),
-            fields=self._gen_schema_fields(dataset_schema),
-        )
-
-        return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=schema_metadata
-        ).as_workunit()
-
-    def _gen_dataset_properties(
-        self, dataset_urn: str, dataset: QlikDataset
-    ) -> MetadataWorkUnit:
-        dataset_properties = DatasetProperties(
-            name=_dataset_display_name(dataset),
-            description=dataset.description,
-            qualifiedName=dataset.name,
-            externalUrl=f"https://{self.ui_host}/dataset/{dataset.itemId}",
-            created=TimeStamp(time=int(dataset.createdAt.timestamp() * 1000)),
-            lastModified=TimeStamp(time=int(dataset.updatedAt.timestamp() * 1000)),
-        )
-        dataset_properties.customProperties.update(
-            {
-                Constant.QRI: dataset.secureQri,
-                Constant.SPACEID: dataset.spaceId,
-                Constant.TYPE: _dataset_subtype(dataset),
-                Constant.DATASETTYPE: dataset.type,
-                Constant.SIZE: str(dataset.size),
-                Constant.ROWCOUNT: str(dataset.rowCount),
-            }
-        )
-
-        return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=dataset_properties
-        ).as_workunit()
-
-    @staticmethod
-    def _qlik_dataset_identifier(space_id: str, name: str) -> str:
-        return f"{space_id}.{name}".lower()
-
-    def _gen_dataset_workunit(self, dataset: QlikDataset) -> Iterable[MetadataWorkUnit]:
-        dataset_identifier = self._qlik_dataset_identifier(
-            dataset.spaceId, dataset.name
-        )
-        dataset_urn = self._gen_qlik_dataset_urn(dataset_identifier)
-        if dataset.stored_from_qris is not None:
-            self._dataset_store_sources[dataset_urn] = dataset.stored_from_qris
-            self._dataset_store_field_sources[dataset_urn] = (
-                dataset.stored_field_source_qris
-            )
-            if dataset.stored_field_lineage_failed:
-                self._dataset_store_fields_unknown.add(dataset_urn)
-        self._learn_field_names(field.name for field in dataset.datasetSchema)
-        self._dataset_field_types[dataset_urn] = {
-            field.name: field.dataType for field in dataset.datasetSchema
-        }
-
-        yield self._gen_entity_status_aspect(dataset_urn)
-
-        yield self._gen_schema_metadata(dataset_identifier, dataset.datasetSchema)
-
-        yield self._gen_dataset_properties(dataset_urn, dataset)
-
-        yield from add_entity_to_container(
-            container_key=self._gen_space_key(dataset.spaceId),
-            entity_type="dataset",
-            entity_urn=dataset_urn,
-        )
-
-        dpi_aspect = self._gen_dataplatform_instance_aspect(dataset_urn)
-        if dpi_aspect:
-            yield dpi_aspect
-
-        owner_username = self._get_owner_name(dataset.ownerId)
-        if self.config.ingest_owner and owner_username:
-            yield self._gen_entity_owner_aspect(dataset_urn, owner_username)
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=SubTypes(typeNames=[_dataset_subtype(dataset)]),
-        ).as_workunit()
 
     def _app_qvd_lineage(
         self, app: App, parsed: ParsedScript, script_tables: List[ScriptTableLineage]
