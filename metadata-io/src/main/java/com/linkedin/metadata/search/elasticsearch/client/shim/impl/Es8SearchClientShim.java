@@ -2010,7 +2010,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   private ElasticsearchClient withTransportOptions(RequestOptions requestOptions) {
-    if (RequestOptions.DEFAULT.equals(requestOptions)) {
+    // RequestOptions#equals ignores the request config, so per-request timeouts must be checked
+    // separately or they would be dropped.
+    if (RequestOptions.DEFAULT.equals(requestOptions)
+        && requestOptions.getRequestConfig() == null) {
       return client;
     }
     TransportOptions transportOptions =

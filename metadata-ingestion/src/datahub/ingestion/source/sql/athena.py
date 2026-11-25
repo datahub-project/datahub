@@ -274,6 +274,15 @@ class CustomAthenaRestDialect(AthenaRestDialect):
             else:
                 raise RuntimeError(f"Unsupported array definition: {type_}")
 
+            if isinstance(array_type, types.ARRAY):
+                # SQLAlchemy refuses ARRAY(ARRAY(...)) ("Do not nest ARRAY
+                # types"); an array of arrays is one ARRAY with one more
+                # dimension, e.g. array<array<string>> -> ARRAY(String, dimensions=2)
+                return types.ARRAY(
+                    array_type.item_type,
+                    dimensions=(array_type.dimensions or 1) + 1,
+                )
+
             args = [array_type]
 
         elif type_name in ["struct", "record", "row"]:

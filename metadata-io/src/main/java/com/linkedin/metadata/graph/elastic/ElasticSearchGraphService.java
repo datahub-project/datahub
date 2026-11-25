@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
@@ -235,7 +236,8 @@ public class ElasticSearchGraphService implements GraphService, MigratableIndexe
         .setStart(offset)
         .setCount(count)
         .setTotal(lineageResponse.getTotal())
-        .setPartial(lineageResponse.isPartial());
+        .setPartial(lineageResponse.isPartial())
+        .setPartialReason(lineageResponse.getPartialReason(), SetMode.REMOVE_IF_NULL);
   }
 
   @Nonnull
@@ -264,7 +266,8 @@ public class ElasticSearchGraphService implements GraphService, MigratableIndexe
         .setStart(0)
         .setCount(lineageResponse.getLineageRelationships().size())
         .setTotal(lineageResponse.getTotal())
-        .setPartial(lineageResponse.isPartial());
+        .setPartial(lineageResponse.isPartial())
+        .setPartialReason(lineageResponse.getPartialReason(), SetMode.REMOVE_IF_NULL);
   }
 
   private static Filter createUrnFilter(@Nonnull final Urn urn) {
@@ -437,6 +440,34 @@ public class ElasticSearchGraphService implements GraphService, MigratableIndexe
         .numResults(totalCount)
         .scrollId(nextScrollId)
         .build();
+  }
+
+  /**
+   * {@inheritDoc} The point-in-time stays open until its keep-alive when a caller reads one page
+   * and stops, so a count closes it here. A close that fails is logged: the keep-alive still
+   * expires it, and the count that opened it has already been read.
+   */
+  @Override
+  public void closeRelatedEntitiesScroll(
+      @Nonnull final OperationContext opContext, @Nullable final String scrollId) {
+    if (scrollId == null) {
+      return;
+    }
+    final String pitId;
+    try {
+      pitId = SearchAfterWrapper.fromScrollId(scrollId).getPitId();
+    } catch (RuntimeException e) {
+      log.warn("Could not read graph scroll to close its point-in-time", e);
+      return;
+    }
+    if (pitId == null) {
+      return;
+    }
+    try {
+      graphReadDAO.cleanupPointInTime(opContext, pitId);
+    } catch (RuntimeException e) {
+      log.warn("Could not close the graph point-in-time opened to count referrers", e);
+    }
   }
 
   /**

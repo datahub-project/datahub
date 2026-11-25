@@ -32,7 +32,12 @@ public final class SearchTemplateKeywordRerank {
   /** The resolved profile is not the one the query embedding service embeds. */
   public static final String PROFILE_NOT_EMBEDDABLE = "profileNotEmbeddable";
 
+  /**
+   * The hybrid read executor was full, or the provider throttled the query embedding, which a
+   * vector rung reports as rejected too.
+   */
   public static final String REJECTED = "rejected";
+
   public static final String FAILED = "failed";
   public static final String TIMEOUT = "timeout";
   public static final String PAUSED = "paused";

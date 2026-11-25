@@ -44,6 +44,7 @@
     "inviteToken.copyTooltip": "招待リンクをコピー。",
     "inviteToken.createError": "ロール{{roleName}}の招待トークンの作成に失敗しました: \n {{error}}",
     "inviteToken.footerText": "ユーザーに送信する招待リンクをコピーします。参加すると、ユーザーは選択したロールに自動的に割り当てられます。",
+    "inviteToken.footerTextNoRole": "ユーザーに送信する招待リンクをコピーします。ユーザーはアカウントを作成できますが、ロールは割り当てられません。",
     "inviteToken.generateNewLinkTooltip": "新しいリンクを生成します。以前のリンクは無効になります。",
     "inviteToken.generateSuccess": "新しい招待リンクを生成しました",
     "inviteToken.modalTitle": "招待リンクを共有",

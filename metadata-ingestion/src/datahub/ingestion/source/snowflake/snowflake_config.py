@@ -15,6 +15,7 @@ from datahub.configuration.common import (
     ConfigModel,
     Filters,
     HiddenFromDocs,
+    SupportedSources,
 )
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.source_common import (
@@ -35,6 +36,10 @@ from datahub.ingestion.glossary.classification_mixin import (
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.data_lake_common.config import (
     DataLakeLineageProviderConfigBase,
+)
+from datahub.ingestion.source.profiling.config import (
+    ProfilingConfig,
+    coerce_profiling_config_instance,
 )
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
@@ -479,6 +484,18 @@ class SnowflakeConfig(
     upstream_lineage_in_report: bool = False
 
 
+class SnowflakeProfilingConfig(ProfilingConfig):
+    # Redeclared with Annotated[...] so schema_extra.supported_sources survives
+    # on the subclass -- a plain redeclaration drops it.
+    use_sampling: Annotated[bool, SupportedSources(["snowflake"])] = Field(
+        # On by default here, unlike the shared config: Snowflake implements
+        # sampling (TABLESAMPLE materialized into a temp table).
+        default=True,
+        description="Whether to profile column level stats on a sample of the table rather "
+        "than all of it. Smaller tables are not sampled.",
+    )
+
+
 class SnowflakeV2Config(
     SnowflakeConfig,
     SnowflakeUsageConfig,
@@ -490,6 +507,18 @@ class SnowflakeV2Config(
     IncrementalPropertiesConfigMixin,
     DataLakeLineageProviderConfigBase,
 ):
+    # Redeclared so Snowflake picks up its own profiling defaults; SQLCommonConfig
+    # declares the shared ProfilingConfig, which does not sample.
+    profiling: SnowflakeProfilingConfig = Field(
+        default_factory=SnowflakeProfilingConfig,
+        description="Configuration for profiling",
+    )
+
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def coerce_profiling_config(cls, v: object) -> object:
+        return coerce_profiling_config_instance(v)
+
     include_usage_stats: bool = Field(
         default=True,
         description="If enabled, populates the snowflake usage statistics. Requires appropriate grants given to the role.",

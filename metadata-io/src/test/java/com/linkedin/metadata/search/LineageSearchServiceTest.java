@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -49,6 +50,7 @@ import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageGraphFilters;
+import com.linkedin.metadata.graph.LineagePartialReason;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.models.registry.LineageRegistry;
@@ -61,6 +63,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
@@ -138,6 +141,7 @@ public class LineageSearchServiceTest {
                     .lineage(
                         SearchLineageCacheConfiguration.builder()
                             .ttlSeconds(600L) // 10 minutes
+                            .partialTtlSeconds(300L)
                             .lightningThreshold(1000L)
                             .build())
                     .build())
@@ -1691,6 +1695,109 @@ public class LineageSearchServiceTest {
             anyInt(),
             nullable(Integer.class));
     assertNull(captor.getValue().getSearchContext().getSearchSurface());
+  }
+
+  @Test
+  public void testFreshPartialResultIsServedFromCache() throws Exception {
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:partial-fresh");
+    when(_graphService.getImpactLineage(any(), eq(sourceUrn), any(), anyInt()))
+        .thenReturn(
+            createMockEntityLineageResult()
+                .setPartial(true)
+                .setPartialReason(LineagePartialReason.INCOMPLETE_FETCH));
+
+    searchDownstream(sourceUrn);
+    searchDownstream(sourceUrn);
+
+    verify(_graphService, times(1)).getImpactLineage(any(), eq(sourceUrn), any(), anyInt());
+  }
+
+  @Test
+  public void testExpiredPartialResultIsWalkedAgain() throws Exception {
+    SearchLineageCacheConfiguration lineageCacheConfig =
+        _appConfig.getCache().getSearch().getLineage();
+    long partialTtlSeconds = lineageCacheConfig.getPartialTtlSeconds();
+    lineageCacheConfig.setPartialTtlSeconds(0);
+    try {
+      Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:partial-expired");
+      when(_graphService.getImpactLineage(any(), eq(sourceUrn), any(), anyInt()))
+          .thenReturn(
+              createMockEntityLineageResult()
+                  .setPartial(true)
+                  .setPartialReason(LineagePartialReason.INCOMPLETE_FETCH));
+
+      searchDownstream(sourceUrn);
+      searchDownstream(sourceUrn);
+
+      verify(_graphService, times(2)).getImpactLineage(any(), eq(sourceUrn), any(), anyInt());
+    } finally {
+      lineageCacheConfig.setPartialTtlSeconds(partialTtlSeconds);
+    }
+  }
+
+  @Test
+  public void testLimitTruncatedPartialResultKeepsFullTtl() throws Exception {
+    SearchLineageCacheConfiguration lineageCacheConfig =
+        _appConfig.getCache().getSearch().getLineage();
+    long partialTtlSeconds = lineageCacheConfig.getPartialTtlSeconds();
+    lineageCacheConfig.setPartialTtlSeconds(0);
+    try {
+      Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:partial-limit");
+      when(_graphService.getImpactLineage(any(), eq(sourceUrn), any(), anyInt()))
+          .thenReturn(
+              createMockEntityLineageResult()
+                  .setPartial(true)
+                  .setPartialReason(LineagePartialReason.MAX_RELATIONS));
+
+      searchDownstream(sourceUrn);
+      searchDownstream(sourceUrn);
+
+      // Walking again would return the same truncation, so the short partial TTL does not apply.
+      verify(_graphService, times(1)).getImpactLineage(any(), eq(sourceUrn), any(), anyInt());
+    } finally {
+      lineageCacheConfig.setPartialTtlSeconds(partialTtlSeconds);
+    }
+  }
+
+  @Test
+  public void testCacheRefillStoresReadableEntry() throws Exception {
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:refill");
+    searchDownstream(sourceUrn);
+    java.util.concurrent.ConcurrentMap<Object, Object> entries =
+        ((org.springframework.cache.concurrent.ConcurrentMapCache)
+                _cacheManager.getCache("test-cache"))
+            .getNativeCache();
+    assertEquals(entries.size(), 1);
+    Object cacheKey = entries.keySet().iterator().next();
+    CachedEntityLineageResult stale =
+        new CachedEntityLineageResult(createMockEntityLineageResult(), 0L);
+    entries.put(cacheKey, stale);
+
+    searchDownstream(sourceUrn);
+
+    long waitUntil = System.currentTimeMillis() + 5000;
+    while (entries.get(cacheKey) == stale && System.currentTimeMillis() < waitUntil) {
+      Thread.sleep(20);
+    }
+    Object refilled = entries.get(cacheKey);
+    assertTrue(refilled != stale, "The stale entry should have been refilled");
+    assertTrue(
+        refilled instanceof CachedEntityLineageResult,
+        "Refill must store an entry that cache reads accept, not " + refilled);
+  }
+
+  private void searchDownstream(Urn sourceUrn) throws Exception {
+    _lineageSearchService.searchAcrossLineage(
+        _operationContext,
+        sourceUrn,
+        LineageDirection.DOWNSTREAM,
+        Collections.singletonList(DATASET_ENTITY_NAME),
+        null,
+        3,
+        null,
+        null,
+        0,
+        10);
   }
 
   private EntityLineageResult createMockEntityLineageResult() {

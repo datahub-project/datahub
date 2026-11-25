@@ -339,6 +339,38 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testRetrievalTotalFacetsPageAndAuthorizationTakeOnlyTheDefinedValues() {
+    SearchTemplateChecks.check(
+        rung(r -> r.setCombine("vector").setTotal("candidates").setFacets("candidateUrns")), 1024);
+    // Blank is unset
+    SearchTemplateChecks.check(
+        rung(
+            r ->
+                r.setCombine("vector")
+                    .setTotal(" ")
+                    .setFacets("")
+                    .setPage(" ")
+                    .setAuthorization("")),
+        1024);
+
+    // Page and authorization define no value yet
+    List<Consumer<SearchTemplateRetrieval>> unknown =
+        List.of(
+            r -> r.setCombine("vector").setTotal("exact"),
+            r -> r.setCombine("vector").setFacets("candidates"),
+            r -> r.setCombine("vector").setPage("window"),
+            r -> r.setCombine("vector").setAuthorization("preFilter"));
+    for (Consumer<SearchTemplateRetrieval> rule : unknown) {
+      SearchTemplateProperties properties = rung(rule);
+      assertRejects(
+          properties.getRetrieval().toString(), () -> SearchTemplateChecks.check(properties, 1024));
+    }
+
+    // Only writes are checked: a template stored with such a value still loads and binds
+    assertNull(rejectionOf("storedTotal", rung(r -> r.setCombine("vector").setTotal("exact"))));
+  }
+
+  @Test
   public void testMergedSectionsRules() {
     SearchTemplateProperties similarityKnn = similarity();
     similarityKnn.setKnn(BLEND);

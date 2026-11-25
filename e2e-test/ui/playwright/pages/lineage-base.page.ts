@@ -26,14 +26,7 @@ import * as fs from 'fs';
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
-
-/**
- * How long the graph viewport must hold still to count as settled: longer than the graph's own
- * deferred fitView (a 1s timer once entity data loads, then a 1s pan/zoom animation — see
- * useFitView in LineageDisplay.tsx), so a pending fit that has not visibly started yet is waited
- * out rather than declared settled.
- */
-const VIEWPORT_SETTLE_MS = 2200;
+import { TIMEOUTS } from '../utils/constants';
 
 /** Toggles in the graph's filters panel, keyed by the suffix of their test id. */
 export type LineageFilterToggle =
@@ -62,6 +55,8 @@ export class LineageBasePage extends BasePage {
   readonly downloadCsvInput: Locator;
   readonly csvModalDownloadButton: Locator;
   readonly lineageEditSearchInput: Locator;
+  readonly setUpstreamsButton: Locator;
+  readonly setDownstreamsButton: Locator;
   readonly lineageTabDirectionSelect: Locator;
   readonly lineageTabDownstreamOption: Locator;
   readonly lineageTabUpstreamOption: Locator;
@@ -93,6 +88,8 @@ export class LineageBasePage extends BasePage {
     this.downloadCsvInput = page.getByTestId('download-as-csv-input');
     this.csvModalDownloadButton = page.getByTestId('csv-modal-download-button');
     this.lineageEditSearchInput = page.getByRole('dialog').getByTestId('search-input');
+    this.setUpstreamsButton = page.getByRole('button', { name: /Set Upstreams/i });
+    this.setDownstreamsButton = page.getByRole('button', { name: /Set Downstreams/i });
     this.lineageTabDirectionSelect = page.getByTestId('lineage-tab-direction-select');
     this.lineageTabDownstreamOption = page.getByTestId('lineage-tab-direction-select-option-downstream');
     this.lineageTabUpstreamOption = page.getByTestId('lineage-tab-direction-select-option-upstream');
@@ -181,6 +178,12 @@ export class LineageBasePage extends BasePage {
     });
   }
 
+  async checkEdgeNotExists(node1Urn: string, node2Urn: string): Promise<void> {
+    await expect(this.page.getByTestId(`rf__edge-${node1Urn}-:-${node2Urn}`)).toHaveCount(0, {
+      timeout: TIMEOUTS.MEDIUM,
+    });
+  }
+
   /** Column-level lineage edge between two rendered columns, e.g. drawn on column hover/select. */
   getColumnEdge(node1Urn: string, col1Name: string, node2Urn: string, col2Name: string): Locator {
     return this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`);
@@ -255,7 +258,8 @@ export class LineageBasePage extends BasePage {
   }
 
   /**
-   * Wait for the graph viewport to stop moving before hover-driven interactions.
+   * Wait for the graph to finish loading and its viewport to stop moving before hover-driven
+   * interactions.
    *
    * The graph pans/zooms itself well after it looks ready: a deferred fitView fires up to a
    * second after all entity data loads and animates for another second. If that lands after a
@@ -264,20 +268,9 @@ export class LineageBasePage extends BasePage {
    * lineage controls) unmounts mid-assertion.
    */
   async waitForViewportToSettle(): Promise<void> {
-    await this.page.waitForFunction(
-      (settleMs) => {
-        const viewport = document.querySelector<HTMLElement>('.react-flow__viewport');
-        const transform = viewport?.style.transform ?? '';
-        const holder = window as { __viewportSettle?: { transform: string; since: number } };
-        if (holder.__viewportSettle?.transform !== transform) {
-          holder.__viewportSettle = { transform, since: Date.now() };
-          return false;
-        }
-        return Date.now() - holder.__viewportSettle.since >= settleMs;
-      },
-      VIEWPORT_SETTLE_MS,
-      { polling: 200, timeout: 15000 },
-    );
+    await expect(this.page.getByTestId('lineage-state')).toHaveAttribute('data-state', 'settled', {
+      timeout: 15000,
+    });
   }
 
   // ── Node interactions ───────────────────────────────────────────────────────
@@ -557,6 +550,21 @@ export class LineageBasePage extends BasePage {
     await this.lineageEditSearchInput.clear();
     await this.lineageEditSearchInput.fill(text);
     await this.lineageEditSearchInput.press('Enter');
+  }
+
+  /** Tick or untick a search result in the Edit Lineage modal. */
+  async toggleLineageEditResult(urn: string): Promise<void> {
+    await this.page.getByTestId(`checkbox-${urn}`).click();
+  }
+
+  /** Save the Edit Lineage modal's upstream selection. */
+  async clickSetUpstreams(): Promise<void> {
+    await this.setUpstreamsButton.click();
+  }
+
+  /** Save the Edit Lineage modal's downstream selection. */
+  async clickSetDownstreams(): Promise<void> {
+    await this.setDownstreamsButton.click();
   }
 
   async getSetUpstreamsButton(): Promise<Locator> {

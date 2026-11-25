@@ -40,7 +40,7 @@ public class DeleteFormResolverTest {
 
     // Validate that we called delete, then the references in the background
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .deleteEntityThenReferences(any(), Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)));
+        .deleteReferencesThenEntity(any(), Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)));
   }
 
   @Test
@@ -58,7 +58,7 @@ public class DeleteFormResolverTest {
 
     // Validate that we did NOT call delete and delete references
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .deleteEntityThenReferences(any(), Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)));
+        .deleteReferencesThenEntity(any(), Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)));
     Mockito.verify(mockEntityClient, Mockito.times(0))
         .deleteEntityReferences(any(), Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)));
   }
@@ -78,18 +78,18 @@ public class DeleteFormResolverTest {
 
     // Validate that deleteEntity was called, but since it failed, delete references was not called
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .deleteEntityThenReferences(any(), Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)));
+        .deleteReferencesThenEntity(any(), Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)));
     Mockito.verify(mockEntityClient, Mockito.times(0))
         .deleteEntityReferences(any(), Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)));
   }
 
   private EntityClient initMockEntityClient(boolean shouldSucceed) throws Exception {
     EntityClient client = Mockito.mock(EntityClient.class);
-    Mockito.when(client.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    Mockito.when(client.deleteReferencesThenEntity(any(), any())).thenReturn(references);
     if (!shouldSucceed) {
       Mockito.doThrow(new RemoteInvocationException())
           .when(client)
-          .deleteEntityThenReferences(any(), any());
+          .deleteReferencesThenEntity(any(), any());
     }
     return client;
   }

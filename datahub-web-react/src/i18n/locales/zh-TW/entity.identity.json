@@ -44,6 +44,7 @@
     "inviteToken.copyTooltip": "複製邀請連結。",
     "inviteToken.createError": "無法為角色 {{roleName}} 建立邀請權杖：\n {{error}}",
     "inviteToken.footerText": "複製邀請連結並傳送給你的使用者。使用者加入後，將自動被指派到所選的角色。",
+    "inviteToken.footerTextNoRole": "複製邀請連結並傳送給你的使用者。他們可以建立帳號，但不會被指派任何角色。",
     "inviteToken.generateNewLinkTooltip": "產生新的連結。所有舊連結都將失效。",
     "inviteToken.generateSuccess": "已產生新的邀請連結",
     "inviteToken.modalTitle": "分享邀請連結",

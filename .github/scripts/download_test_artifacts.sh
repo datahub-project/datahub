@@ -243,6 +243,10 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
             # per-shard subdirectory here, every shard after the first overwrites the last
             # extracted into the shared "other" dir, silently dropping 7/8 shards' data.
             artifact_subdir="$RUN_DIR/playwright-${BASH_REMATCH[1]}"
+        elif [[ $artifact_name =~ ^metadata-ingestion-test-results-([0-9]+)$ ]]; then
+            # Same problem for metadata-ingestion: every unit test shard writes
+            # test-results/junit.quick.xml, so a shared dir keeps one shard's timings.
+            artifact_subdir="$RUN_DIR/metadata-ingestion-${BASH_REMATCH[1]}"
         else
             artifact_subdir="$RUN_DIR/other"
         fi

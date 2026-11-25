@@ -572,3 +572,66 @@ describe('useSelectChildren - selectChildrenWithParent is false (granular select
         expect(mockRemoveOptions).toHaveBeenCalledWith([option]);
     });
 });
+
+describe('useSelectChildren - isOptionImplicitlySelected', () => {
+    it('uses the predicate instead of implicitlySelectChildren', () => {
+        const isOptionImplicitlySelected = vi.fn(() => true);
+        const { result } = renderHook(() =>
+            useNestedOption({ ...defaultProps, implicitlySelectChildren: false, isOptionImplicitlySelected }),
+        );
+
+        expect(result.current.isImplicitlySelected).toBe(true);
+        expect(isOptionImplicitlySelected).toHaveBeenCalledWith(option, defaultProps.selectedOptions);
+    });
+
+    it('does not fall back to implicitlySelectChildren when the predicate returns false', () => {
+        const { result } = renderHook(() =>
+            useNestedOption({
+                ...defaultProps,
+                option: children[0],
+                selectedOptions: [option],
+                implicitlySelectChildren: true,
+                isOptionImplicitlySelected: () => false,
+            }),
+        );
+
+        expect(result.current.isImplicitlySelected).toBe(false);
+    });
+});
+
+describe('useSelectChildren - parents selected independently of their children', () => {
+    const independentProps = { ...defaultProps, selectChildrenWithParent: false };
+
+    it('does not show an unselected parent as partial when some of its children are selected', () => {
+        const mockAddOptions = vi.fn();
+        const { result } = renderHook(() =>
+            useNestedOption({ ...independentProps, selectedOptions: [children[0]], addOptions: mockAddOptions }),
+        );
+
+        expect(result.current.isSelected).toBe(false);
+        expect(result.current.isPartialSelected).toBe(false);
+        result.current.selectOption();
+        expect(mockAddOptions).toHaveBeenCalledWith([option]);
+    });
+
+    it('shows a selected parent as fully checked when none of its children are selected', () => {
+        const { result } = renderHook(() => useNestedOption({ ...independentProps, selectedOptions: [option] }));
+
+        expect(result.current.isSelected).toBe(true);
+        expect(result.current.isPartialSelected).toBe(false);
+    });
+
+    it('shows a selected parent as fully checked before its children have loaded', () => {
+        const { result } = renderHook(() =>
+            useNestedOption({
+                ...independentProps,
+                children: [],
+                selectableChildren: [],
+                selectedOptions: [option],
+            }),
+        );
+
+        expect(result.current.isParentMissingChildren).toBe(true);
+        expect(result.current.isPartialSelected).toBe(false);
+    });
+});

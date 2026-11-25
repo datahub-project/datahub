@@ -4,11 +4,15 @@ import pydantic
 from pydantic import field_validator
 
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.fs.fs_base import get_path_schema
+
+SUPPORTED_FILENAME_SCHEMAS = {"file", "http", "https", "s3"}
 
 
 class CSVEnricherConfig(ConfigModel):
     filename: str = pydantic.Field(
-        description="File path or URL of CSV file to ingest."
+        description="Local path, http(s) URL, or s3:// path of the CSV file to ingest. "
+        "s3:// paths use the default AWS credential chain; presigned URLs work via https."
     )
     write_semantics: str = pydantic.Field(
         default="PATCH",
@@ -28,6 +32,17 @@ class CSVEnricherConfig(ConfigModel):
             "Example: {'classification': 'urn:li:structuredProperty:io.acryl.privacy.classification'}"
         ),
     )
+
+    @field_validator("filename", mode="after")
+    @classmethod
+    def validate_filename_scheme(cls, filename: str) -> str:
+        schema = get_path_schema(filename)
+        if schema not in SUPPORTED_FILENAME_SCHEMAS:
+            raise ValueError(
+                f"Unsupported filename scheme '{schema}'. Supported schemes: "
+                f"{', '.join(sorted(SUPPORTED_FILENAME_SCHEMAS))}."
+            )
+        return filename
 
     @field_validator("write_semantics", mode="after")
     @classmethod
