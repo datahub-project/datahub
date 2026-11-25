@@ -149,6 +149,21 @@ class ResourceKinds:
     MODEL_EVALUATION = "model_evaluation"
 
 
+class PipelineSpecKeys:
+    """Keys of the compiled pipeline spec that the step tree reads."""
+
+    ROOT = "root"
+    DAG = "dag"
+    TASKS = "tasks"
+    COMPONENTS = "components"
+    COMPONENT_REF = "componentRef"
+    NAME = "name"
+    DEPENDENT_TASKS = "dependentTasks"
+    TASK_INFO = "taskInfo"
+    PARAMETER_ITERATOR = "parameterIterator"
+    ARTIFACT_ITERATOR = "artifactIterator"
+
+
 # Type for external data platforms referenced in Vertex AI lineage
 ExternalPlatform = Literal["gcs", "bigquery", "s3", "abs", "snowflake"]
 

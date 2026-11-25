@@ -1,0 +1,208 @@
+{
+ "createTime": "2026-11-23T10:22:41.089712Z",
+ "displayName": "demo-failure",
+ "endTime": "2026-11-23T10:27:19.437807Z",
+ "error": {
+  "message": " The DAG failed because some tasks failed. The failed tasks are: [boom].; Job (project_id = my-project, j"
+ },
+ "jobDetail": {
+  "taskDetails": [
+   {
+    "createTime": "2026-11-23T10:22:42.218367Z",
+    "endTime": "2026-11-23T10:27:19.222103Z",
+    "parentTaskId": "-1000000000000000014",
+    "pipelineTaskStatus": [
+     {
+      "error": {
+       "message": "The task is not triggered because there are unsuccessful upstream tasks: [boom]"
+      },
+      "state": 9,
+      "updateTime": "2026-11-23T10:27:19.215582948Z"
+     }
+    ],
+    "state": 9,
+    "taskId": "-1000000000000000013",
+    "taskName": "emit-3",
+    "taskUniqueName": "emit-3"
+   },
+   {
+    "createTime": "2026-11-23T10:22:41.788927Z",
+    "endTime": "2026-11-23T10:27:19.423963Z",
+    "error": {
+     "message": " The DAG failed because some tasks failed. The failed tasks are: [boom]."
+    },
+    "execution": {
+     "state": 4
+    },
+    "parentTaskId": "0",
+    "pipelineTaskStatus": [
+     {
+      "error": {
+       "message": " The DAG failed because some tasks failed. The failed tasks are: [boom]."
+      },
+      "state": 7,
+      "updateTime": "2026-11-23T10:27:19.274416585Z"
+     }
+    ],
+    "startTime": "2026-11-23T10:22:42.218367Z",
+    "state": 7,
+    "taskId": "-1000000000000000014",
+    "taskName": "demo-failure-20261123155239",
+    "taskUniqueName": "demo-failure-20261123155239"
+   },
+   {
+    "createTime": "2026-11-23T10:22:42.218367Z",
+    "endTime": "2026-11-23T10:25:05.925121Z",
+    "execution": {
+     "state": 3
+    },
+    "parentTaskId": "-1000000000000000014",
+    "pipelineTaskStatus": [
+     {
+      "error": {
+       "message": "The task is not triggered because the TriggerPolicy.condition evaluate to false."
+      },
+      "state": 9,
+      "updateTime": "2026-11-23T10:25:05.824318327Z"
+     }
+    ],
+    "startTime": "2026-11-23T10:25:05.925121Z",
+    "state": 9,
+    "taskId": "-1000000000000000015",
+    "taskName": "condition-1",
+    "taskUniqueName": "condition-1"
+   },
+   {
+    "createTime": "2026-11-23T10:22:42.218367Z",
+    "endTime": "2026-11-23T10:25:05.706273Z",
+    "execution": {
+     "state": 3
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/1000000000000000017"
+     }
+    },
+    "parentTaskId": "-1000000000000000014",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-23T10:25:05.601473790Z"
+     }
+    ],
+    "startTime": "2026-11-23T10:22:42.566274Z",
+    "state": 3,
+    "taskId": "1000000000000000016",
+    "taskName": "emit",
+    "taskUniqueName": "emit"
+   },
+   {
+    "createTime": "2026-11-23T10:22:42.218367Z",
+    "endTime": "2026-11-23T10:27:19.184769Z",
+    "error": {
+     "message": "The replica workerpool0-0 exited with a non-zero status of 1. To find out more about why your job exited please check th"
+    },
+    "execution": {
+     "state": 4
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/1000000000000000019"
+     }
+    },
+    "parentTaskId": "-1000000000000000014",
+    "pipelineTaskStatus": [
+     {
+      "state": 7,
+      "updateTime": "2026-11-23T10:27:19.028627054Z"
+     }
+    ],
+    "startTime": "2026-11-23T10:25:06.015657Z",
+    "state": 7,
+    "taskId": "1000000000000000018",
+    "taskName": "boom",
+    "taskUniqueName": "boom"
+   }
+  ]
+ },
+ "labels": {
+  "vertex-ai-pipelines-run-billing-id": "1000000000000000012"
+ },
+ "name": "projects/123456789012/locations/us-central1/pipelineJobs/demo-failure-20261123155239",
+ "pipelineSpec": {
+  "components": {
+   "comp-condition-1": {
+    "dag": {
+     "tasks": {
+      "emit-2": {
+       "componentRef": {
+        "name": "comp-emit-2"
+       },
+       "taskInfo": {
+        "name": "emit-2"
+       }
+      }
+     }
+    }
+   }
+  },
+  "pipelineInfo": {
+   "name": "demo-failure"
+  },
+  "root": {
+   "dag": {
+    "tasks": {
+     "boom": {
+      "componentRef": {
+       "name": "comp-boom"
+      },
+      "dependentTasks": [
+       "emit"
+      ],
+      "taskInfo": {
+       "name": "boom"
+      }
+     },
+     "condition-1": {
+      "componentRef": {
+       "name": "comp-condition-1"
+      },
+      "dependentTasks": [
+       "emit"
+      ],
+      "taskInfo": {
+       "name": "never-true"
+      },
+      "triggerPolicy": {
+       "condition": "inputs.parameter_values['pipelinechannel--emit-Output'] == 'never'"
+      }
+     },
+     "emit": {
+      "componentRef": {
+       "name": "comp-emit"
+      },
+      "taskInfo": {
+       "name": "emit"
+      }
+     },
+     "emit-3": {
+      "componentRef": {
+       "name": "comp-emit-3"
+      },
+      "dependentTasks": [
+       "boom"
+      ],
+      "taskInfo": {
+       "name": "emit-3"
+      }
+     }
+    }
+   }
+  }
+ },
+ "startTime": "2026-11-23T10:22:41.788927Z",
+ "state": 5,
+ "updateTime": "2026-11-23T10:27:19.437807Z"
+}

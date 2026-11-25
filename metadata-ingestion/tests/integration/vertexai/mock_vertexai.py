@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, List, Optional
 from unittest.mock import MagicMock, Mock, PropertyMock
 
@@ -21,6 +22,7 @@ from google.cloud.aiplatform_v1.types import (
     PipelineJob as PipelineJobType,
 )
 
+PIPELINE_TASKS_FIXTURE_DIR = Path(__file__).parent / "pipeline_tasks"
 MOCK_CREATE_TIME = datetime(2022, 3, 21, 16, 0, 0, tzinfo=timezone.utc)
 MOCK_UPDATE_TIME = datetime(2022, 3, 21, 16, 1, 40, tzinfo=timezone.utc)
 MOCK_TASK_START_TIME = datetime(2022, 3, 21, 16, 0, 0, tzinfo=timezone.utc)
