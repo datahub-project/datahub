@@ -34,15 +34,16 @@ public class DeleteCustomFabricTypeResolver implements DataFetcher<CompletableFu
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!CUSTOM_FABRIC_TYPE_ENTITY_NAME.equals(urn.getEntityType())) {
-            throw new DataHubGraphQLException(
-                String.format("%s is not an environment.", urn),
-                DataHubGraphQLErrorCode.BAD_REQUEST);
-          }
+          // Authorize first so a caller without the privilege learns nothing about the URN's type.
           if (!AuthorizationUtils.canManageCustomFabricType(context, ApiOperation.DELETE, urn)) {
             throw new AuthorizationException(
                 "Unauthorized to delete environments. Please contact your DataHub"
                     + " administrator.");
+          }
+          if (!CUSTOM_FABRIC_TYPE_ENTITY_NAME.equals(urn.getEntityType())) {
+            throw new DataHubGraphQLException(
+                String.format("%s is not an environment.", urn),
+                DataHubGraphQLErrorCode.BAD_REQUEST);
           }
           try {
             entityClient.deleteEntity(context.getOperationContext(), urn);
