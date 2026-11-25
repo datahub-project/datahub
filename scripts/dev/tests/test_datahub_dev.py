@@ -556,6 +556,7 @@ def test_frontend_local_reuses_running_hmr_server(tmp_path, monkeypatch):
 
 def test_docker_frontend_uses_gradle_preparation(tmp_path, monkeypatch):
     monkeypatch.setattr(datahub_dev, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(datahub_dev, "_frontend_url", lambda: "http://localhost:10002")
     captured = {}
 
     def fake_run(command, **kwargs):
@@ -566,6 +567,8 @@ def test_docker_frontend_uses_gradle_preparation(tmp_path, monkeypatch):
 
     assert datahub_dev.cmd_frontend(argparse.Namespace(local=False, preview=False)) == 0
     assert captured["command"][0:2] == ["./gradlew", ":datahub-web-react:yarnServe"]
+    # Vite proxies to this worktree's mapped Play port, not yarnServe's default.
+    assert "-Pproxy=http://localhost:10002" in captured["command"]
 
 
 def test_preview_without_build_requires_existing_bundle(tmp_path, monkeypatch):

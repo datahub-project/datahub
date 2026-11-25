@@ -2279,6 +2279,7 @@ def cmd_frontend(args: argparse.Namespace) -> int:
             _log("\nFrontend stopped.")
             return 0
     else:
+        command.append(f"-Pproxy={_frontend_url()}")
         mode_label = "production preview" if preview else "HMR dev server"
         _log(f"Starting frontend {mode_label} with Gradle-managed dependencies...")
         try:
