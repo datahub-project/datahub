@@ -25,6 +25,8 @@ from datahub.ingestion.source.dbt.dbt_common import (
 )
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest
+from datahub.masking.masking_filter import SecretMaskingFilter
+from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionRunEventClass,
@@ -141,6 +143,60 @@ def test_http_glob_report_entries_omit_url_credentials(
         assert "https://host.example/dbt/*/manifest.json" in text
         assert _URL_PASSWORD not in text
         assert _URL_SIGNATURE not in text
+
+
+def test_artifact_url_credentials_are_registered_for_masking() -> None:
+    """Credentials in an artifact URL reach strings this source does not build,
+    such as an HTTP library's error, so the config registers them and the masking
+    layer hides them wherever they surface."""
+    run_results_url = (
+        f"https://my_user:{_URL_PASSWORD}@host.example/dbt/run_results.json"
+        f"?X-Amz-Signature={_URL_SIGNATURE}"
+    )
+    _make_source(
+        manifest_path="https://host.example/dbt/manifest.json",
+        run_results_paths=[run_results_url],
+    )
+    library_error = f"404 Client Error: Not Found for url: {run_results_url}"
+
+    masked = SecretMaskingFilter(SecretRegistry.get_instance()).mask_text(library_error)
+
+    assert "host.example/dbt/run_results.json" in masked
+    assert _URL_PASSWORD not in masked
+    assert _URL_SIGNATURE not in masked
+
+
+def test_run_results_paths_in_the_report_omit_url_credentials(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "a"}]
+    )
+    run_results_file = tmp_path / "run_results.json"
+    _write_run_results(run_results_file, "model.project_a.orders", "inv-a")
+    run_results_url = (
+        f"https://my_user:{_URL_PASSWORD}@host.example/dbt/run_results.json"
+        f"?X-Amz-Signature={_URL_SIGNATURE}"
+    )
+    source = _make_source(
+        manifest_path=str(tmp_path / "project_a" / "manifest.json"),
+        run_results_paths=[run_results_url],
+    )
+    real_read = dbt_artifacts_module.read_file_as_bytes
+
+    def fake_read(uri: str, *args: Any, **kwargs: Any) -> bytes:
+        if uri == run_results_url:
+            return run_results_file.read_bytes()
+        return real_read(uri, *args, **kwargs)
+
+    with mock.patch.object(
+        dbt_artifacts_module, "read_file_as_bytes", side_effect=fake_read
+    ):
+        _load_projects(source)
+
+    assert list(source.report.run_results_paths_expanded) == [
+        "https://host.example/dbt/run_results.json"
+    ]
 
 
 def test_refused_cloud_listing_is_reported_once(tmp_path: pathlib.Path) -> None:

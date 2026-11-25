@@ -12,6 +12,8 @@ from datahub.ingestion.source.common.object_store_files import (
     expand_local_glob,
     expand_object_store_glob,
     has_glob_characters,
+    http_url_secrets,
+    http_url_userinfo,
     is_http_uri,
     read_file_as_bytes,
 )
@@ -19,6 +21,8 @@ from datahub.ingestion.source.dbt.dbt_common import DBTSourceReport
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 logger = logging.getLogger(__name__)
+
+_REDACTED = "***"
 
 
 def is_glob_pattern(path: str) -> bool:
@@ -34,17 +38,29 @@ def is_glob_pattern(path: str) -> bool:
     return has_glob_characters(path)
 
 
-def redact_url_query(path: str) -> str:
-    """Drop an HTTP(S) URL's query string, where a presigned URL carries its
-    signature, and any `user:password@` embedded in its authority."""
+def redact_url_credentials(path: str) -> str:
+    """An HTTP(S) URL without its embedded `user:password@` and without its query
+    string, where a presigned URL carries its signature. Other paths are returned
+    unchanged."""
     if not is_http_uri(path):
         return path
     parsed = urlparse(path)
-    # Split on the last "@" as urlparse does for .hostname, but keep the
-    # authority's own text so an IPv6 host stays bracketed and a malformed
-    # port cannot raise on the error path that calls this.
+    # The text after the last "@" is the host and port exactly as written, so an
+    # IPv6 host keeps its brackets and an unparseable port is passed through.
     host_and_port = parsed.netloc.rpartition("@")[2]
     return f"{parsed.scheme}://{host_and_port}{parsed.path}"
+
+
+def redact_url_credentials_in_text(text: str, url: str) -> str:
+    """Remove the credentials embedded in `url` from text that may quote it, such
+    as an exception message built by an HTTP library."""
+    userinfo = http_url_userinfo(url)
+    if userinfo:
+        text = text.replace(f"{userinfo}@", "")
+    secrets = sorted(set(http_url_secrets("url", url).values()), key=len, reverse=True)
+    for secret in secrets:
+        text = text.replace(secret, _REDACTED)
+    return text
 
 
 def sibling_artifact_path(manifest_path: str, filename: str) -> str:
@@ -149,7 +165,7 @@ def expand_glob_path(
         report.warning(
             title="Glob patterns not supported for HTTP(S) URIs",
             message="Glob patterns are not supported for HTTP(S) URIs, please provide explicit file paths",
-            context=redact_url_query(path),
+            context=redact_url_credentials(path),
         )
         return []
     else:

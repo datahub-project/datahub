@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from unittest import mock
 
 import pytest
+import requests
 
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter import mce_builder
@@ -13,6 +14,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.openapi import RelatedEntity
+from datahub.ingestion.source.common.object_store_files import FileSizeExceededError
 from datahub.ingestion.source.dbt.dbt_cloud import (
     DBTCloudConfig,
     DBTCloudSource,
@@ -1182,18 +1184,45 @@ _CREDENTIALED_RUN_RESULTS_URL = (
 )
 
 
+def _http_error_naming(url: str) -> requests.HTTPError:
+    response = requests.Response()
+    response.status_code = 404
+    response.reason = "Not Found"
+    response.url = url
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as e:
+        return e
+    raise AssertionError("raise_for_status did not raise")
+
+
 @pytest.mark.parametrize(
-    "multi_project, load_fails",
+    "multi_project, load_error",
     [
-        pytest.param(False, False, id="run_results_without_a_dbt_command"),
-        pytest.param(True, True, id="failed_to_load_run_results_file"),
+        pytest.param(False, None, id="run_results_without_a_dbt_command"),
+        pytest.param(
+            True,
+            _http_error_naming(_CREDENTIALED_RUN_RESULTS_URL),
+            id="http_error_loading_run_results",
+        ),
+        pytest.param(
+            True,
+            FileSizeExceededError(
+                f"{_CREDENTIALED_RUN_RESULTS_URL} is 999 bytes, over the configured "
+                "max_bytes limit of 1"
+            ),
+            id="oversized_run_results",
+        ),
     ],
 )
 def test_run_results_report_entries_omit_url_credentials(
-    multi_project: bool, load_fails: bool, caplog: pytest.LogCaptureFixture
+    multi_project: bool,
+    load_error: Optional[Exception],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Basic-auth credentials and a presigned query in a run_results URL are kept
-    out of the report and the log, which still name the host and path."""
+    out of the report and the log, which still name the host and path, also when
+    the failure's own message quotes the URL."""
     fixture = json.loads(
         (
             Path(__file__).parent / "artifacts" / "run_results_contract_preflight.json"
@@ -1204,7 +1233,7 @@ def test_run_results_report_entries_omit_url_credentials(
     load_json = mock.patch.object(
         source._artifacts,
         "load_json",
-        side_effect=ValueError("unreadable") if load_fails else None,
+        side_effect=load_error,
         return_value=fixture,
     )
     with load_json, caplog.at_level(logging.WARNING):

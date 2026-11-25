@@ -9,7 +9,7 @@ from datahub.ingestion.source.common.object_store_files import ObjectNotFoundErr
 from datahub.ingestion.source.dbt.dbt_artifacts import (
     ArtifactReader,
     is_glob_pattern,
-    redact_url_query,
+    redact_url_credentials,
 )
 
 
@@ -174,5 +174,7 @@ def test_is_glob_pattern(path: str, is_glob: bool) -> None:
         ("s3://bucket/dbt/manifest.json", "s3://bucket/dbt/manifest.json"),
     ],
 )
-def test_redact_url_query_drops_credentials_and_query(url: str, redacted: str) -> None:
-    assert redact_url_query(url) == redacted
+def test_redact_url_credentials_drops_userinfo_and_query(
+    url: str, redacted: str
+) -> None:
+    assert redact_url_credentials(url) == redacted
