@@ -15,6 +15,7 @@ import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.AuthorizationContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextAuthorizer;
+import io.datahubproject.metadata.context.PolicyEvaluationOrder;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -61,6 +62,13 @@ public class DataHubAuthorizer
      */
     ALLOW_ALL
   }
+
+  /**
+   * A single policy evaluation above this is reported. Normal evaluations take microseconds; one
+   * that needs a hierarchy walk or ownership fetch for every checked entity is what turns a policy
+   * edit into a platform-wide slowdown, so it should be visible per policy.
+   */
+  private static final long SLOW_POLICY_EVALUATION_NANOS = TimeUnit.MILLISECONDS.toNanos(50);
 
   // Maps privilege name to the associated set of policies for fast access.
   // Not concurrent data structure because writes are always against the entire thing.
@@ -185,14 +193,18 @@ public class DataHubAuthorizer
 
     // 2. Evaluate each policy.
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
-      if (isRequestGranted(
-          policy,
-          request,
-          resolvedActorSpec,
-          resolvedResourceSpec,
-          resolvedSubResources,
-          sharedEvaluationContext,
-          opContext)) {
+      final long startNanos = System.nanoTime();
+      final boolean granted =
+          isRequestGranted(
+              policy,
+              request,
+              resolvedActorSpec,
+              resolvedResourceSpec,
+              resolvedSubResources,
+              sharedEvaluationContext,
+              opContext);
+      recordSlowPolicyEvaluation(opContext, policy, request, System.nanoTime() - startNanos);
+      if (granted) {
         // Short circuit if policy has granted privileges to this actor.
         return new AuthorizationResult(
             request,
@@ -201,6 +213,33 @@ public class DataHubAuthorizer
       }
     }
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
+  }
+
+  private static void recordSlowPolicyEvaluation(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final DataHubPolicyInfo policy,
+      @Nonnull final AuthorizationRequest request,
+      final long elapsedNanos) {
+    if (elapsedNanos < SLOW_POLICY_EVALUATION_NANOS) {
+      return;
+    }
+    opContext
+        .getMetricUtils()
+        .ifPresent(
+            metrics ->
+                metrics.incrementMicrometer(
+                    "authorization.policy.evaluation.slow",
+                    1,
+                    "privilege",
+                    request.getPrivilege()));
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Slow policy evaluation: policy '{}' took {} ms for privilege {} on {}",
+          policy.getDisplayName(),
+          TimeUnit.NANOSECONDS.toMillis(elapsedNanos),
+          request.getPrivilege(),
+          request.getResourceSpec().map(EntitySpec::getType).orElse("<no resource>"));
+    }
   }
 
   /**
@@ -589,6 +628,8 @@ public class DataHubAuthorizer
             return;
           }
         }
+
+        newCache.values().forEach(policies -> policies.sort(PolicyEvaluationOrder.CHEAPEST_FIRST));
 
         writeLock.lock();
         try {

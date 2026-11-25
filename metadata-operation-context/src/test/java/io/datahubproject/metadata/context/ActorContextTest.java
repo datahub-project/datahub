@@ -35,6 +35,7 @@ import com.linkedin.policy.PolicyMatchCriterion;
 import com.linkedin.policy.PolicyMatchCriterionArray;
 import com.linkedin.policy.PolicyMatchFilter;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -169,6 +170,55 @@ public class ActorContextTest {
     assertEquals(indexed.get("d"), List.of(POLICY_D));
     assertEquals(ActorContext.indexPoliciesByPrivilege(Set.of()).size(), 0);
     assertEquals(ActorContext.indexPoliciesByPrivilege(null).size(), 0);
+  }
+
+  @Test
+  public void indexPoliciesByPrivilegeOrdersCheapestPoliciesFirst() {
+    DataHubPolicyInfo ownerBased =
+        new DataHubPolicyInfo()
+            .setPrivileges(new StringArray("VIEW_ENTITY_PAGE"))
+            .setActors(new DataHubActorFilter().setResourceOwners(true));
+    DataHubPolicyInfo glossaryScoped =
+        new DataHubPolicyInfo()
+            .setPrivileges(new StringArray("VIEW_ENTITY_PAGE"))
+            .setActors(new DataHubActorFilter())
+            .setResources(
+                resourceFilter(
+                    criterion("GLOSSARY", "urn:li:glossaryNode:unit"),
+                    criterion("TYPE", "glossaryTerm")));
+    DataHubPolicyInfo typeScoped =
+        new DataHubPolicyInfo()
+            .setPrivileges(new StringArray("VIEW_ENTITY_PAGE"))
+            .setActors(new DataHubActorFilter())
+            .setResources(resourceFilter(criterion("type", "glossaryTerm")));
+    DataHubPolicyInfo unscoped =
+        new DataHubPolicyInfo()
+            .setPrivileges(new StringArray("VIEW_ENTITY_PAGE"))
+            .setActors(new DataHubActorFilter());
+    // Iteration order puts the expensive policies first, as a HashSet may after any policy edit.
+    Set<DataHubPolicyInfo> policies = new LinkedHashSet<>();
+    policies.add(ownerBased);
+    policies.add(glossaryScoped);
+    policies.add(typeScoped);
+    policies.add(unscoped);
+
+    Map<String, List<RecordTemplate>> indexed = ActorContext.indexPoliciesByPrivilege(policies);
+
+    assertEquals(
+        indexed.get("VIEW_ENTITY_PAGE"), List.of(unscoped, typeScoped, ownerBased, glossaryScoped));
+  }
+
+  private static PolicyMatchCriterion criterion(String field, String value) {
+    return new PolicyMatchCriterion()
+        .setField(field)
+        .setValues(new StringArray(value))
+        .setCondition(PolicyMatchCondition.EQUALS);
+  }
+
+  private static DataHubResourceFilter resourceFilter(PolicyMatchCriterion... criteria) {
+    return new DataHubResourceFilter()
+        .setFilter(
+            new PolicyMatchFilter().setCriteria(new PolicyMatchCriterionArray(List.of(criteria))));
   }
 
   @Test
