@@ -84,6 +84,7 @@ from tests.unit.vertexai.test_vertexai_failure_scope import (
     _real_carry,
     _region_source,
     _run_regions,
+    _service_disabled,
     _throttled,
     _warning_contexts,
     _written,
@@ -388,7 +389,7 @@ def test_legacy_run_without_metrics_has_the_fields_the_sdk_sets() -> None:
     assert vars(built).keys() == vars(real).keys()
 
 
-def test_legacy_runs_share_one_warning_and_record_no_loss(
+def test_legacy_runs_share_one_info_and_record_no_loss(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     source = _experiment_source()
@@ -397,7 +398,7 @@ def test_legacy_runs_share_one_warning_and_record_no_loss(
     current = gen_mock_experiment_run()
     _mock(current).name = "mock_experiment_run_3"
 
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.INFO):
         workunits = _read_experiment_runs(source, [*legacy, current])
 
     for run in legacy:
@@ -407,8 +408,11 @@ def test_legacy_runs_share_one_warning_and_record_no_loss(
     assert (
         len({wu.get_urn() for wu in workunits if "experiment_run" in wu.get_urn()}) == 3
     )
-    assert [w.title for w in source.report.warnings] == [LEGACY_RUN_EXECUTIONS_TITLE]
-    assert len(source.report.warnings[0].context) == 2
+    assert not source.report.warnings
+    (legacy_info,) = [
+        i for i in source.report.infos if i.title == LEGACY_RUN_EXECUTIONS_TITLE
+    ]
+    assert len(legacy_info.context) == 2
     assert (
         len(
             [r for r in caplog.records if LEGACY_RUN_EXECUTIONS_TITLE in r.getMessage()]
@@ -443,7 +447,7 @@ def test_legacy_run_kept_after_temporary_state_error_is_not_warned() -> None:
 
     _read_experiment_runs(source, [run])
 
-    assert LEGACY_RUN_EXECUTIONS_TITLE not in [w.title for w in source.report.warnings]
+    assert LEGACY_RUN_EXECUTIONS_TITLE not in [i.title for i in source.report.infos]
 
 
 def _experiment_context(
@@ -805,7 +809,8 @@ def test_legacy_run_without_metadata_struct_keeps_metrics() -> None:
     [props] = _aspects(workunits, MLTrainingRunPropertiesClass)
     assert props.hyperParams == []
     assert [m.name for m in props.trainingMetrics] == ["acc"]
-    assert [w.title for w in source.report.warnings] == [LEGACY_RUN_EXECUTIONS_TITLE]
+    assert not source.report.warnings
+    assert LEGACY_RUN_EXECUTIONS_TITLE in [i.title for i in source.report.infos]
     assert not source.report.failures
     assert not source._stopped.lost_in("proj-one")
 
@@ -817,7 +822,8 @@ def test_legacy_run_metrics_artifact_without_struct_has_no_metrics() -> None:
         source, [_legacy_node("run-1", {"lr": 0.1})], artifact=_metrics_artifact()
     )
 
-    assert [w.title for w in source.report.warnings] == [LEGACY_RUN_EXECUTIONS_TITLE]
+    assert not source.report.warnings
+    assert LEGACY_RUN_EXECUTIONS_TITLE in [i.title for i in source.report.infos]
     [props] = _aspects(workunits, MLTrainingRunPropertiesClass)
     assert [p.name for p in props.hyperParams] == ["lr"]
     assert props.trainingMetrics == []
@@ -950,6 +956,22 @@ def test_no_listed_region_readable_says_project_not_read() -> None:
     assert [f.message for f in source.report.failures] == [
         REGION_UNCHECKED_AFTER_DISCOVERY_NONE_READ
     ]
+
+
+@pytest.mark.parametrize("listed", [True, False])
+def test_api_off_during_discovery_reads_no_listed_region(listed: bool) -> None:
+    source = _region_source(discover_regions=True, regions=[REGION])
+    if not listed:
+        source.config.project_ids = []
+    source._carry = MagicMock()
+
+    with _locations_client(_service_disabled()):
+        regions = source._discover_regions_for_project("proj-one")
+
+    assert regions == []
+    assert REGION_DISCOVERY_FAILED not in [w.message for w in source.report.warnings]
+    assert bool(source.report.failures) == listed
+    source._carry.keep_project.assert_called_with("proj-one")
 
 
 @pytest.mark.filterwarnings("ignore:.*region.*deprecated")

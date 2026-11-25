@@ -630,7 +630,7 @@ def test_project_region_discovery_failure_without_fallback_is_project_failure() 
 
 
 def test_project_region_discovery_service_disabled_discovered_is_warning() -> None:
-    source = _make_source(project_ids=["proj-one"], discover_regions=True)
+    source = _make_source(project_ids=["proj-one"], discover_regions=True, regions=[])
     source.config.project_ids = []
     source._carry = MagicMock()
 
@@ -669,7 +669,7 @@ def test_project_discovered_no_role_is_warning_and_kept() -> None:
 
 
 def test_project_region_discovery_refused_discovered_is_warning() -> None:
-    source = _make_source(project_ids=["proj-one"], discover_regions=True)
+    source = _make_source(project_ids=["proj-one"], discover_regions=True, regions=[])
     source.config.project_ids = []
     source._carry = MagicMock()
 
@@ -2474,7 +2474,7 @@ def test_m1_region_discovery_refused_discovered_keeps_only_own_containers(
     region: Optional[str], error: Exception, kept_everywhere: bool
 ) -> None:
     source, current = _m1_source(
-        _M1_PREVIOUS, discovered=True, discover_regions=True, region=region
+        _M1_PREVIOUS, discovered=True, discover_regions=True, region=region, regions=[]
     )
 
     with _locations_client(error):
@@ -2959,7 +2959,7 @@ def _legacy_mock_run() -> ExperimentRun:
     return run
 
 
-def test_experiment_legacy_run_skips_executions_with_shared_warning() -> None:
+def test_experiment_legacy_run_skips_executions_with_shared_info() -> None:
     source = _experiment_source()
     run = _legacy_mock_run()
 
@@ -2970,8 +2970,11 @@ def test_experiment_legacy_run_skips_executions_with_shared_warning() -> None:
     assert next(iter(urns)).startswith(_RUN_URN_PREFIX)
     _mock(run.get_executions).assert_not_called()
     assert not source._stopped._stopped
-    assert [w.message for w in source.report.warnings] == [LEGACY_RUN_EXECUTIONS]
-    contexts = _warning_contexts(source)
+    assert not source.report.warnings
+    (legacy_info,) = [
+        i for i in source.report.infos if i.message == LEGACY_RUN_EXECUTIONS
+    ]
+    contexts = list(legacy_info.context)
     assert len(contexts) == 1
     assert f"item={_EXPERIMENT_NAME}/{run.name}" in contexts[0]
 

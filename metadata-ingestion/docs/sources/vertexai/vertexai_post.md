@@ -109,7 +109,7 @@ source:
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
-The Vertex AI SDK cannot read the executions or the logged custom jobs (training-job links) of experiment runs created before Vertex AI Experiments 2.0. These runs are written without executions and without those links. Their run times come from executions, so they are missing too. One shared warning covers all such runs, and nothing is kept for them.
+Experiment runs created during the Vertex Experiment Preview have no executions and no logged custom jobs (training-job links), so they are written without them. Their run times come from executions, so they are missing too. One shared info entry in the report covers all such runs, and nothing is kept for them.
 
 ### Troubleshooting
 

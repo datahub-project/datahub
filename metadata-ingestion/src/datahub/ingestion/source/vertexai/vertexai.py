@@ -952,6 +952,10 @@ class VertexAISource(StatefulIngestionSourceBase):
                 raise ValueError("The location list holds no usable region")
             return discovered
         except Exception as e:
+            if classify_error(e) is ErrorKind.PROJECT_WIDE:
+                # The API is off or the project is invalid, so no region can be read.
+                self._handle_project_error(project_id, e)
+                return []
             listed = self.config.get_listed_regions()
             readable = [
                 r for r in listed if _sdk_reads(r) and r.lower() != GLOBAL_LOCATION
@@ -975,7 +979,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                     Scope(project=project_id, kind=DetailCalls.REGION_DISCOVERY),
                     cause=e,
                 )
-            if unreadable and classify_error(e) is not ErrorKind.PROJECT_WIDE:
+            if unreadable:
                 # Discovery just failed, so no list can tell these regions from a typo.
                 self._fail_configured_regions(
                     project_ids=[project_id],
@@ -993,7 +997,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                     keep_entities=not readable,
                 )
             elif not readable:
-                # No region to read (none, or `global`), or the API is off.
+                # No region to read: none listed, or only `global`.
                 self._handle_project_error(project_id, e)
             # `global` goes on to `_readable_regions`, which warns it out.
             return [r for r in listed if _sdk_reads(r)] if readable else []

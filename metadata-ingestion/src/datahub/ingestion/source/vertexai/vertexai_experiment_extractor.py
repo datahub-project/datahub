@@ -110,8 +110,7 @@ _RUN_CALL_KINDS = (
 )
 
 
-# A pre-2.0 run never reads executions or logged jobs: the SDK does not
-# support them for it.
+# A Vertex Experiment Preview run has no executions or logged jobs to read.
 _LEGACY_RUN_CALL_KINDS = (DetailCalls.EXPERIMENT_RUN_DETAIL,)
 
 
@@ -274,8 +273,9 @@ class VertexAIExperimentExtractor:
         is_legacy = isinstance(node, MetadataExecution)
 
         def init() -> bool:
-            # lookup_tensorboard_run=False: the SDK would otherwise create a
-            # TensorBoard run artifact when the experiment has none.
+            # lookup_tensorboard_run=False: otherwise, for a run with no TensorBoard
+            # run, the SDK creates one in the experiment's backing TensorBoard, or
+            # clears the experiment's link to it if that TensorBoard was deleted.
             with self.rate_limiter if is_legacy else nullcontext():
                 run._initialize_experiment_run(
                     node, experiment, lookup_tensorboard_run=False
@@ -724,7 +724,7 @@ class VertexAIExperimentExtractor:
         if state.keep_previous:
             return None
         if is_legacy:
-            self.report.warning(
+            self.report.info(
                 title=LEGACY_RUN_EXECUTIONS_TITLE,
                 message=LEGACY_RUN_EXECUTIONS,
                 context=scope_context(replace(self._get_scope(), item=item)),

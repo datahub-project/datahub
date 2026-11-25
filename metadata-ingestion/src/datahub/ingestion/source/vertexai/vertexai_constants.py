@@ -106,10 +106,12 @@ REGION_UNCHECKED_TITLE = "Configured region could not be checked"
 REGION_UNCHECKED = "A region set in `regions` (or the deprecated `region`) is not one the installed Google Cloud SDK (google-cloud-aiplatform) can read, and Google's list of Vertex AI locations could not be read to tell a newer region from a misspelt one, so no project is read. Each project's earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project. Remove the region from the recipe, or grant aiplatform.locations.list so it can be checked."
 REGION_UNCHECKED_AFTER_DISCOVERY = "A region set in `regions` (or the deprecated `region`) is not one the installed Google Cloud SDK (google-cloud-aiplatform) can read, and discovery could not list Google's Vertex AI locations to tell a newer region from a misspelt one, so the regions named in the context are not read. The other listed regions are. The project's earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project. Remove the region from the recipe, or grant aiplatform.locations.list so it can be checked."
 REGION_UNCHECKED_AFTER_DISCOVERY_NONE_READ = "A region set in `regions` (or the deprecated `region`) is not one the installed Google Cloud SDK (google-cloud-aiplatform) can read, and discovery could not list Google's Vertex AI locations to tell a newer region from a misspelt one, so no listed region can be read and this project is not read. The project's earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project. Remove the region from the recipe, or grant aiplatform.locations.list so it can be checked."
-LEGACY_RUN_EXECUTIONS_TITLE = "Pre-2.0 experiment runs read without executions"
+LEGACY_RUN_EXECUTIONS_TITLE = (
+    "Experiment runs from Vertex Experiment Preview read without executions"
+)
 LEGACY_RUN_EXECUTIONS = (
-    "The Vertex AI SDK cannot read the executions or the logged custom jobs of "
-    "pre-2.0 experiment runs. These runs are written with what can be read, and "
+    "Experiment runs created during the Vertex Experiment Preview have no "
+    "executions or logged custom jobs, so they are written without them, and "
     "nothing is kept for them."
 )
 UNSCOPED_KEPT_TITLE = "Pipelines and containers kept in every project"
