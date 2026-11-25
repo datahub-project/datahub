@@ -15,6 +15,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -130,7 +131,9 @@ public class FabricTypeValidator extends AspectPayloadValidator {
       @Nonnull RetrieverContext retrieverContext) {
     List<Candidate> candidates = new ArrayList<>();
     for (BatchItem item : mcpItems) {
-      if (item.getRecordTemplate() == null) {
+      // A PATCH has no record before it is applied, and its aspect is JSON patch content that
+      // getRecordTemplate cannot deserialize. Pre-commit checks it once applied.
+      if (ChangeType.PATCH.equals(item.getChangeType()) || item.getRecordTemplate() == null) {
         continue;
       }
       DataMap record = item.getRecordTemplate().data();

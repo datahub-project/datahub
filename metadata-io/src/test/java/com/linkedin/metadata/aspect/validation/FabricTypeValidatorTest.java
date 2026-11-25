@@ -436,6 +436,22 @@ public class FabricTypeValidatorTest {
         1);
   }
 
+  /** A PATCH carries JSON patch content, which its record accessor cannot deserialize. */
+  @Test
+  public void proposalSkipsPatchItemsWithoutReadingTheirRecord() {
+    enabled.set(false);
+    CachingAspectRetriever retriever = mock(CachingAspectRetriever.class);
+    ChangeMCP patch = proposed(DATA_FLOW, "dataFlowInfo", dataFlowInfo("PORD"));
+    when(patch.getChangeType()).thenReturn(ChangeType.PATCH);
+    when(patch.getRecordTemplate())
+        .thenThrow(
+            new IllegalArgumentException(
+                "application/json-patch+json content type is not supported"));
+
+    assertTrue(validateProposed(retriever, List.of(patch)).isEmpty());
+    verifyNoInteractions(retriever);
+  }
+
   @Test
   public void proposalOfBuiltInEnvsDoesNoLookup() {
     enabled.set(false);
