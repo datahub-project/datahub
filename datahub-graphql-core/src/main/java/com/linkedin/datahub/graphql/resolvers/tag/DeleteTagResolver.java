@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -31,13 +32,14 @@ public class DeleteTagResolver implements DataFetcher<CompletableFuture<Boolean>
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (AuthorizationUtils.canManageTags(context)
-              || AuthorizationUtils.canDeleteEntity(UrnUtils.getUrn(tagUrn), context)) {
+          if (AuthorizationUtils.isEntityType(urn, Constants.TAG_ENTITY_NAME)
+              && (AuthorizationUtils.canManageTags(context)
+                  || AuthorizationUtils.canDeleteEntity(UrnUtils.getUrn(tagUrn), context))) {
             try {
               final var references =
-                  _entityClient.deleteEntityThenReferences(context.getOperationContext(), urn);
+                  _entityClient.deleteReferencesThenEntity(context.getOperationContext(), urn);
 
-              // Asynchronously Delete all references to the entity (to return quickly)
+              // The entity is already gone. This removes the remaining references.
               CompletableFuture.runAsync(
                   () -> {
                     try {

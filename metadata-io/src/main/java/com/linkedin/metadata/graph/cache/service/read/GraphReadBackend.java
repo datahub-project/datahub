@@ -19,6 +19,7 @@ import com.linkedin.metadata.graph.cache.snapshot.EntityGraphView;
 import com.linkedin.metadata.graph.cache.snapshot.TraversalCoverage;
 import com.linkedin.metadata.graph.cache.store.EntityGraphDistributedStore;
 import com.linkedin.metadata.graph.cache.store.EntityGraphLocalViewCache;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Collections;
@@ -77,6 +78,32 @@ public class GraphReadBackend {
       @Nonnull String cacheKey,
       @Nonnull TraversalDirection direction) {
     return freshnessEvaluator.isFresh(definition, cacheKey, direction);
+  }
+
+  public void recordCachedRead(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull String outcome,
+      @Nullable ReadMissReason reason) {
+    if (systemOperationContext == null) {
+      return;
+    }
+    Optional<MetricUtils> metrics = systemOperationContext.getMetricUtils();
+    if (metrics == null) {
+      return;
+    }
+    // Prometheus requires one tag-key set per metric name. A hit that omits reason and a
+    // miss that includes it throws on the second registration and fails the cached read.
+    metrics.ifPresent(
+        utils ->
+            utils.incrementMicrometer(
+                "entity.graph.cache.read",
+                1,
+                "graphId",
+                definition.getGraphId(),
+                "outcome",
+                outcome,
+                "reason",
+                reason == null ? "none" : reason.name()));
   }
 
   public boolean coverageSatisfies(

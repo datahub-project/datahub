@@ -67,7 +67,15 @@ export class SchemaBlamePage extends BasePage {
     const escapedVersion = version.replace(/\./g, '\\.');
     const versionRegex = new RegExp(`(^|\\s)${escapedVersion}(\\.0)*\\s+-`);
     const versionText = this.page.getByText(versionRegex);
-    await versionButton.or(versionText).click({ timeout: TIMEOUTS.LONG });
+    const versionOption = versionButton.or(versionText);
+    // A field drawer that finishes opening after the selector was clicked takes focus and closes the
+    // dropdown, so reopen it if the option isn't showing.
+    await expect(async () => {
+      if (!(await versionOption.isVisible())) {
+        await this.schemaVersionSelector.click();
+      }
+      await versionOption.click({ timeout: TIMEOUTS.SHORT });
+    }).toPass({ timeout: TIMEOUTS.LONG });
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 

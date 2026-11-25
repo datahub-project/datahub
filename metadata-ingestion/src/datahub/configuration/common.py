@@ -63,7 +63,10 @@ REDACT_SUFFIXES = {
 
 def _should_redact_key(key: Union[str, int]) -> bool:
     return isinstance(key, str) and (
-        key in REDACT_KEYS or any(key.endswith(suffix) for suffix in REDACT_SUFFIXES)
+        key in REDACT_KEYS
+        or any(key.endswith(suffix) for suffix in REDACT_SUFFIXES)
+        # HTTP header names are case-insensitive.
+        or key.lower() == "authorization"
     )
 
 
@@ -89,10 +92,17 @@ def _redact_value(value: Any) -> Any:
 
 def redact_raw_config(obj: Any) -> Any:
     if isinstance(obj, dict):
-        return {
-            k: _redact_value(v) if _should_redact_key(k) else redact_raw_config(v)
-            for k, v in obj.items()
-        }
+        redacted = {}
+        for k, v in obj.items():
+            if _should_redact_key(k):
+                redacted[k] = _redact_value(v)
+            elif k == "extra_headers" and isinstance(v, dict):
+                # Any custom header (API key, cookie, ...) may carry a credential;
+                # keep header names visible but redact every value.
+                redacted[k] = {hk: _redact_value(hv) for hk, hv in v.items()}
+            else:
+                redacted[k] = redact_raw_config(v)
+        return redacted
     elif isinstance(obj, list):
         return [redact_raw_config(v) for v in obj]
     else:
@@ -511,6 +521,19 @@ class AllowDenyPattern(ConfigModel):
         "unknown", not "restricted".
         """
         return not self.deny and ".*" in self.allow
+
+    def with_deny(self, *rules: str) -> Self:
+        """A new pattern with `rules` added to the deny list, each listed once:
+        duplicates already in the deny list are collapsed too. Rebuilt rather
+        than mutated or model_copy'd: the copy would carry this instance's
+        compiled-regex caches.
+
+        The rebuild round-trips through `model_dump()`, so a subclass is only
+        preserved faithfully if its fields survive that: no excluded or
+        aliased fields.
+        """
+        deny = deduplicate_list([*self.deny, *rules])
+        return type(self).model_validate({**self.model_dump(), "deny": deny})
 
     def allowed(self, string: str) -> bool:
         if self.denied(string):

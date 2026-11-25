@@ -732,14 +732,6 @@ type Mutation {
   ): Boolean
 
   """
-  Delete a ERModelRelationship
-  """
-  deleteERModelRelationship(
-    "The urn of the ERModelRelationship to delete"
-    urn: String!
-  ): Boolean
-
-  """
   Sets the Deprecation status for a Metadata Entity. Requires the Edit Deprecation status privilege for an entity.
   """
   updateDeprecation(
@@ -998,16 +990,6 @@ type Mutation {
   ): Application
 
   """
-  Update a Application
-  """
-  updateApplication(
-    "The urn identifier for the Application to update."
-    urn: String!
-    "Inputs required to create a new Application."
-    input: UpdateApplicationInput!
-  ): Application
-
-  """
   Delete a Application by urn.
   """
   deleteApplication("Urn of the application to remove." urn: String!): Boolean
@@ -1052,6 +1034,7 @@ type Mutation {
   deleteOwnershipType(
     "Urn of the Custom Ownership Type to remove."
     urn: String!
+    "Remove references to this ownership type before deleting it. Defaults to true when omitted."
     deleteReferences: Boolean
   ): Boolean
 
@@ -1820,6 +1803,13 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   editableSchemaMetadata: EditableSchemaMetadata
     @aspectMapping(aspects: ["editableSchemaMetadata"])
+
+  """
+  Primary key declared by users, for datasets whose source declares none.
+  A primary key declared by the source takes precedence.
+  """
+  editablePrimaryKeys: EditablePrimaryKeys
+    @aspectMapping(aspects: ["editablePrimaryKeys"])
 
   """
   Status of the Dataset
@@ -3993,6 +3983,16 @@ type SchemaField {
   Schema field entity that exist in the database for this schema field
   """
   schemaFieldEntity: SchemaFieldEntity
+}
+
+"""
+A primary key declared by users for a dataset whose source declares none
+"""
+type EditablePrimaryKeys {
+  """
+  Field paths of the primary key
+  """
+  primaryKeys: [String!]!
 }
 
 """
@@ -14027,9 +14027,10 @@ input CreateDataProductInput {
   properties: CreateDataProductPropertiesInput!
 
   """
-  The primary key of the Domain
+  The urn of the Domain to create the Data Product in. Optional: when omitted, the
+  Data Product is created without a Domain.
   """
-  domainUrn: String!
+  domainUrn: String
   """
   An optional id for the new data product
   """
@@ -14303,21 +14304,6 @@ input CreateApplicationPropertiesInput {
   A display name for the Application
   """
   name: String!
-
-  """
-  An optional description for the Application
-  """
-  description: String
-}
-
-"""
-Input properties required for update a Application
-"""
-input UpdateApplicationInput {
-  """
-  A display name for the Application
-  """
-  name: String
 
   """
   An optional description for the Application

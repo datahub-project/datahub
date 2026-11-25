@@ -2937,3 +2937,209 @@ def test_known_query_lineage_keeps_observed_custom_properties() -> None:
     ]
     assert len(query_properties) == 1
     assert query_properties[0].customProperties == _DAG_A_LABELS
+
+
+def _make_lineage_aggregator() -> SqlParsingAggregator:
+    return SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+
+def _target_lineage(
+    aggregator: SqlParsingAggregator, downstream: str
+) -> UpstreamLineageClass:
+    lineage = _upstream_lineage_aspect(list(aggregator.gen_metadata()), downstream)
+    assert lineage is not None
+    return lineage
+
+
+def test_lineage_queries_per_downstream_opt_in_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datahub.sql_parsing import sql_parsing_aggregator as aggregator_module
+
+    monkeypatch.setattr(aggregator_module, "MAX_QUERIES_PER_DOWNSTREAM", 3)
+
+    aggregator = _make_lineage_aggregator()
+    downstream = DatasetUrn("snowflake", "dev.public.target").urn()
+    copy_source = DatasetUrn("snowflake", "dev.public.copy_source").urn()
+    known_source = DatasetUrn("snowflake", "dev.public.known_source").urn()
+    sources = [DatasetUrn("snowflake", f"dev.public.src_{i}").urn() for i in range(10)]
+
+    # Known lineage outranks parsed queries and must survive the cap even though it
+    # was registered first.
+    aggregator.add_known_lineage_mapping(
+        upstream_urn=copy_source, downstream_urn=downstream
+    )
+    # Known query lineage keeps a fingerprinted id rather than a known_ prefix.
+    aggregator.add_known_query_lineage(
+        KnownQueryLineageInfo(
+            query_text="INSERT INTO target SELECT * FROM known_source",
+            downstream=downstream,
+            upstreams=[known_source],
+            timestamp=_ts(0),
+        )
+    )
+    for i, source in enumerate(sources):
+        aggregator.add_preparsed_query(
+            PreparsedQuery(
+                query_id=None,
+                query_text=f"INSERT INTO target SELECT * FROM src_{i}",
+                upstreams=[source],
+                downstream=downstream,
+                timestamp=_ts(i),
+            )
+        )
+
+    lineage = _target_lineage(aggregator, downstream)
+    assert {u.dataset for u in lineage.upstreams} == {
+        copy_source,
+        known_source,
+        *sources[-3:],
+    }
+    assert aggregator.report.num_downstreams_with_capped_lineage_queries == 1
+    assert aggregator.report.capped_lineage_downstreams[downstream] == 12
+
+
+def test_lineage_uses_every_query_by_default() -> None:
+    aggregator = _make_lineage_aggregator()
+    downstream = DatasetUrn("snowflake", "dev.public.target").urn()
+    sources = [DatasetUrn("snowflake", f"dev.public.src_{i}").urn() for i in range(50)]
+    for i, source in enumerate(sources):
+        aggregator.add_preparsed_query(
+            PreparsedQuery(
+                query_id=None,
+                query_text=f"INSERT INTO target SELECT * FROM src_{i}",
+                upstreams=[source],
+                downstream=downstream,
+                timestamp=_ts(i),
+            )
+        )
+
+    lineage = _target_lineage(aggregator, downstream)
+    assert {u.dataset for u in lineage.upstreams} == set(sources)
+    assert aggregator.report.num_downstreams_with_capped_lineage_queries == 0
+
+
+def test_lineage_walk_stops_once_output_caps_are_full(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datahub.sql_parsing import sql_parsing_aggregator as aggregator_module
+
+    monkeypatch.setattr(aggregator_module, "MAX_UPSTREAM_TABLES_COUNT", 2)
+    monkeypatch.setattr(aggregator_module, "MAX_FINEGRAINEDLINEAGE_COUNT", 2)
+
+    aggregator = _make_lineage_aggregator()
+    downstream = DatasetUrn("snowflake", "dev.public.target").urn()
+    sources = [DatasetUrn("snowflake", f"dev.public.src_{i}").urn() for i in range(6)]
+    for i, source in enumerate(sources):
+        aggregator.add_preparsed_query(
+            PreparsedQuery(
+                query_id=None,
+                query_text=f"INSERT INTO target (col_{i}) SELECT col_{i} FROM src_{i}",
+                upstreams=[source],
+                downstream=downstream,
+                column_lineage=[
+                    ColumnLineageInfo(
+                        downstream=DownstreamColumnRef(
+                            table=downstream, column=f"col_{i}"
+                        ),
+                        upstreams=[ColumnRef(table=source, column=f"col_{i}")],
+                    )
+                ],
+                timestamp=_ts(i),
+            )
+        )
+
+    lineage = _target_lineage(aggregator, downstream)
+    # Latest timestamp wins, and the walk ends once both caps are satisfied.
+    assert [u.dataset for u in lineage.upstreams] == [sources[5], sources[4]]
+    assert lineage.fineGrainedLineages is not None
+    assert len(lineage.fineGrainedLineages) == 2
+    assert aggregator.report.num_downstreams_with_lineage_walk_stopped_early == 1
+    assert aggregator.report.lineage_walk_stopped_early_downstreams == {downstream: 6}
+
+
+@pytest.mark.parametrize(
+    "max_column_edges, expected_columns, expected_created_ts, stopped_early",
+    [
+        # Both caps full after the newer query: the walk stops, so the older query's
+        # second upstream for column `a` is never merged and `b` stays inside the cap.
+        (2, [("a", "src_new"), ("b", "src_new")], 2, 1),
+        # Only the table cap is full: the walk must go on and merge the older query,
+        # whose edge for `a` lands next to `a`'s first edge.
+        (3, [("a", "src_new"), ("a", "src_old"), ("b", "src_new")], 1, 0),
+    ],
+)
+def test_lineage_walk_stop_keeps_highest_precedence_column_lineage(
+    monkeypatch: pytest.MonkeyPatch,
+    max_column_edges: int,
+    expected_columns: List[tuple],
+    expected_created_ts: int,
+    stopped_early: int,
+) -> None:
+    from datahub.sql_parsing import sql_parsing_aggregator as aggregator_module
+
+    monkeypatch.setattr(aggregator_module, "MAX_UPSTREAM_TABLES_COUNT", 1)
+    monkeypatch.setattr(
+        aggregator_module, "MAX_FINEGRAINEDLINEAGE_COUNT", max_column_edges
+    )
+
+    aggregator = _make_lineage_aggregator()
+    downstream = DatasetUrn("snowflake", "dev.public.target").urn()
+    sources = {
+        name: DatasetUrn("snowflake", f"dev.public.{name}").urn()
+        for name in ("src_new", "src_old")
+    }
+
+    def _cll(column: str, source: str) -> ColumnLineageInfo:
+        return ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=downstream, column=column),
+            upstreams=[ColumnRef(table=source, column=column)],
+        )
+
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="INSERT INTO target (a, b) SELECT a, b FROM src_new",
+            upstreams=[sources["src_new"]],
+            downstream=downstream,
+            column_lineage=[
+                _cll("a", sources["src_new"]),
+                _cll("b", sources["src_new"]),
+            ],
+            timestamp=_ts(2),
+        )
+    )
+    # An older query adding a second upstream to an already-seen column.
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="INSERT INTO target (a) SELECT a FROM src_old",
+            upstreams=[sources["src_old"]],
+            downstream=downstream,
+            column_lineage=[_cll("a", sources["src_old"])],
+            timestamp=_ts(1),
+        )
+    )
+
+    lineage = _target_lineage(aggregator, downstream)
+    assert [u.dataset for u in lineage.upstreams] == [sources["src_new"]]
+    created = lineage.upstreams[0].created
+    assert created is not None
+    assert created.time == expected_created_ts * 1000
+    assert lineage.fineGrainedLineages is not None
+    assert [(f.downstreams, f.upstreams) for f in lineage.fineGrainedLineages] == [
+        (
+            [f"urn:li:schemaField:({downstream},{column})"],
+            [f"urn:li:schemaField:({sources[source]},{column})"],
+        )
+        for column, source in expected_columns
+    ]
+    assert (
+        aggregator.report.num_downstreams_with_lineage_walk_stopped_early
+        == stopped_early
+    )

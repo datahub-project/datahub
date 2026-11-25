@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import { OnboardingTourContext } from '@app/onboarding/OnboardingTourContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockContextValue = {
     isModalTourOpen: false,

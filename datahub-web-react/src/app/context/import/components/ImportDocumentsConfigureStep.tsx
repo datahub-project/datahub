@@ -13,6 +13,7 @@ type ImportDocumentsConfigureStepProps = {
 
 const SCHEDULED_SOURCE_COPY_KEYS: Partial<Record<ImportSourceType, string>> = {
     [ImportSourceType.GITHUB]: 'context.import.scheduledSource.github',
+    [ImportSourceType.GITLAB]: 'context.import.scheduledSource.gitlab',
     [ImportSourceType.NOTION]: 'context.import.scheduledSource.notion',
     [ImportSourceType.CONFLUENCE]: 'context.import.scheduledSource.confluence',
 };

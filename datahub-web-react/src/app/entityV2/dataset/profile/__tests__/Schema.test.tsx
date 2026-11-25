@@ -2,7 +2,6 @@ import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
 
-import SchemaRow from '@app/entityV2/dataset/profile/schema/components/SchemaRow';
 import {
     sampleSchema,
     sampleSchemaWithKeyValueFields,
@@ -17,13 +16,6 @@ import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, SchemaMetadata } from '@types';
-
-vi.mock('virtualizedtableforantd4', async () => {
-    return {
-        ...(await vi.importActual<object>('virtualizedtableforantd4')),
-        useVT: () => [{ body: { row: SchemaRow } }, vi.fn()],
-    };
-});
 
 describe('Schema', () => {
     it('renders', () => {
@@ -363,7 +355,7 @@ describe('Schema', () => {
             },
         };
 
-        const { queryByText } = render(
+        const { getByRole } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <EntityContext.Provider
@@ -395,6 +387,7 @@ describe('Schema', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(queryByText('Stats')).toBeInTheDocument();
+        // antd copies headers into a hidden measure row, so match the visible column header only
+        expect(getByRole('columnheader', { name: /Stats/ })).toBeInTheDocument();
     });
 });

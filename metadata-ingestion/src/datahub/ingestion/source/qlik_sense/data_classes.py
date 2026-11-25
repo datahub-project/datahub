@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.qlik_sense.config import QLIK_DATETIME_FORMAT, Constant
@@ -14,6 +14,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
+from datahub.utilities.str_enum import StrEnum
 
 # TODO: Replace with standardized types in sql_types.py
 FIELD_TYPE_MAPPING: Dict[
@@ -134,6 +135,143 @@ class SchemaField(_QlikBaseModel):
         return values
 
 
+# Qlik field tags, most specific first: a date is also tagged $numeric.
+_FIELD_TAG_TYPES = [
+    ("$timestamp", "TIMESTAMP"),
+    ("$date", "DATE"),
+    ("$integer", "INTEGER"),
+    ("$numeric", "DOUBLE"),
+    ("$text", "STRING"),
+]
+
+
+class DataModelTable(BaseModel):
+    """A table of an app's data model, from the Engine's GetTablesAndKeys."""
+
+    name: str
+    fields: List[SchemaField] = []
+
+    @classmethod
+    def from_engine(cls, table: Dict) -> "DataModelTable":
+        return cls(
+            name=table.get("qName") or "",
+            fields=[
+                SchemaField.model_validate(
+                    {
+                        "name": field["qName"],
+                        "dataType": {
+                            "type": next(
+                                (
+                                    data_type
+                                    for tag, data_type in _FIELD_TAG_TYPES
+                                    if tag in (field.get("qTags") or [])
+                                ),
+                                None,
+                            )
+                        },
+                    }
+                )
+                for field in table.get("qFields") or []
+                if field.get("qName") and not field.get("qIsSynthetic")
+            ],
+        )
+
+
+class LineageGraphLevel(StrEnum):
+    RESOURCE = "RESOURCE"
+    TABLE = "TABLE"
+    FIELD = "FIELD"
+
+
+class LineageGraphNode(BaseModel):
+    label: Optional[str] = None
+
+
+class LineageGraphEdge(BaseModel):
+    source: Optional[str] = None
+    target: Optional[str] = None
+    # Such as `load` or `store`.
+    relation: Optional[str] = None
+
+
+class LineageGraph(BaseModel):
+    """The `graph` of a Qlik Cloud lineage-graphs response, nodes by QRI."""
+
+    nodes: Dict[str, LineageGraphNode] = {}
+    edges: List[LineageGraphEdge] = []
+
+    @field_validator("nodes", mode="before")
+    @classmethod
+    def _null_nodes_are_empty(cls, value: object) -> object:
+        return {} if value is None else value
+
+    @field_validator("edges", mode="before")
+    @classmethod
+    def _null_edges_are_empty(cls, value: object) -> object:
+        return [] if value is None else value
+
+
+class LineageTable(BaseModel):
+    """A table node of Qlik Cloud's lineage graph, with the table nodes it is
+    loaded or stored from."""
+
+    qri: str
+    label: str
+    source_qris: List[str] = []
+    # Labels of the database tables among the sources, such as
+    # `dbo.orders`, by QRI. Qlik names the database itself only by an opaque
+    # hash.
+    database_source_labels: Dict[str, str] = {}
+    # The table's field names, and the field nodes each is loaded or stored
+    # from, when the graph was read at field level.
+    fields: List[str] = []
+    field_source_qris: Dict[str, List[str]] = {}
+    # The field level could not be read, so the table's column lineage is
+    # unknown this run.
+    field_lineage_failed: bool = False
+
+
+# Qlik Cloud datasets, such as QVDs stored in a space.
+QLIK_DATASET_QRI_PREFIX = "qri:qdf:"
+# Database tables an app's script reads with SQL.
+DATABASE_QRI_PREFIX = "qri:db:"
+# Qlik Cloud datasets and data connection files, the upstream resources
+# LineageUpstreams can name.
+UPSTREAM_RESOURCE_QRI_PREFIXES = (QLIK_DATASET_QRI_PREFIX, "qri:file:")
+
+
+class LineageUpstreams(BaseModel):
+    """The resources upstream of an app in Qlik Cloud's lineage graph, which
+    names nodes the API key can't list, such as datasets in spaces it has no
+    access to."""
+
+    # Resource QRI, such as a QVD's, to its label, such as `orders.qvd`.
+    resource_labels: Dict[str, str] = {}
+    # Table QRI to the QRIs of the app tables Qlik saw store into it.
+    stored_from: Dict[str, List[str]] = {}
+    # Database table QRI to its label, such as `dbo.orders`; None when the
+    # graph was not read.
+    database_labels: Optional[Dict[str, str]] = None
+
+
+class ReloadStatement(BaseModel):
+    """A statement Qlik Cloud ran in an app's last reload, with its variables
+    expanded and included scripts inlined."""
+
+    # Such as `<space>:<connection>` for SQL, `RESIDENT <table>` or `INLINE`.
+    discriminator: str
+    statement: str = ""
+
+
+class ListedDataset(BaseModel):
+    space_id: str
+    name: str
+    # None when the listing gives none, so the dataset can't be matched to
+    # the lineage graph.
+    secure_qri: Optional[str] = None
+    type: str = ""
+
+
 class QlikDataset(Item):
     name: str
     secureQri: str
@@ -142,6 +280,12 @@ class QlikDataset(Item):
     rowCount: int
     itemId: str
     datasetSchema: List[SchemaField]
+    # App tables that store into this dataset; None when Qlik's lineage graph
+    # for it could not be read.
+    stored_from_qris: Optional[List[str]] = None
+    # The dataset's fields, and the app table field nodes each is stored from.
+    stored_field_source_qris: Dict[str, List[str]] = {}
+    stored_field_lineage_failed: bool = False
 
     @model_validator(mode="before")
     @classmethod
@@ -162,7 +306,13 @@ class QlikDataset(Item):
         values[Constant.SIZE] = values[Constant.OPERATIONAL].get(Constant.SIZE, 0)
         values[Constant.ROWCOUNT] = values[Constant.OPERATIONAL][Constant.ROWCOUNT]
 
-        values[Constant.DATASETSCHEMA] = values[Constant.SCHEMA][Constant.DATAFIELDS]
+        # Qlik keeps fields the file no longer has in the schema, marked as
+        # orphans.
+        values[Constant.DATASETSCHEMA] = [
+            field
+            for field in values[Constant.SCHEMA][Constant.DATAFIELDS]
+            if not field.get("orphan")
+        ]
         return values
 
 
@@ -244,6 +394,13 @@ class AppField(BaseModel):
     field: SchemaField
 
 
+class ChartInputs(BaseModel):
+    """The app fields a chart reads and the tables it takes them from."""
+
+    fields: List[AppField]
+    tables: List[str]
+
+
 class AppFieldIndex(BaseModel):
     """Chart field lookup. Qlik field names are case-sensitive, but the SQL
     parser may change the case of script table columns, so only those also
@@ -269,6 +426,9 @@ class QlikTable(_QlikBaseModel):
     spaceId: str
     datasetSchema: List[SchemaField] = Field(alias="fields")
     tableQri: Optional[str] = None
+    # The table's node in the app's Qlik Cloud lineage graph, by which other
+    # apps' graphs name it, such as for a BINARY load.
+    graphQri: Optional[str] = None
     selectStatement: Optional[str] = None
     databaseName: Optional[str] = None
     schemaName: Optional[str] = None
@@ -282,7 +442,11 @@ class QlikTable(_QlikBaseModel):
         values[Constant.DATACONNECTORPLATFORM] = values[Constant.CONNECTIONINFO][
             Constant.SOURCECONNECTORID
         ]
-        values[Constant.SPACEID] = values[Constant.CONNECTIONINFO][Constant.SPACE]
+        # A connection in a personal space has no space.
+        values[Constant.SPACEID] = (
+            values[Constant.CONNECTIONINFO].get(Constant.SPACE)
+            or Constant.PERSONAL_SPACE_ID
+        )
         return values
 
 
@@ -293,14 +457,37 @@ class App(Item):
     qUsage: Optional[str] = None
     sheets: List[Sheet] = []
     tables: List[QlikTable] = []
+    # Tables of an app without a data model, from Qlik Cloud's lineage graph.
+    lineage_tables: List[LineageTable] = []
+    # Qlik Cloud answered 404 for the app's lineage graph.
+    lineage_graph_missing: bool = False
+    # Labels of the app's lineage graph table nodes that matched no data model
+    # table with a URN, so other apps' loads of them can't be resolved.
+    unmatched_graph_tables: List[str] = []
+    # The tables of the app's data model as the last reload left them, read on
+    # Qlik Cloud for apps whose tables come from the lineage graph or script.
+    data_model_tables: List[DataModelTable] = []
+    # Variable definitions by name, used to expand $(name) in chart expressions.
+    variables: Dict[str, str] = {}
+    variables_read_failed: bool = False
     script: Optional[str] = None
     fingerprint: Optional[str] = None
     script_read_failed: bool = False
     # The data model or the load script could not be read, so the app's tables,
     # and with them the chart inputs, are unknown.
     tables_read_failed: bool = False
+    # Statements of the app's last reload, read when its lineage graph names
+    # database tables; None when not read.
+    reload_statements: Optional[List[ReloadStatement]] = None
+    reload_statements_read_failed: bool = False
+    # The app was opened without its data after loading it failed, so the next
+    # run must try again rather than skip it as unchanged.
+    data_load_failed: bool = False
     # Engine reads of this app that failed, so its metadata is only partly read.
     read_errors: List[str] = []
+    # Every sheet of the app was read, even if other parts of the app were not.
+    # Off until a read says so, as it lets the app's sheet edges be replaced.
+    sheets_complete: bool = False
     # Batch Engine reads that fell back to slower per-object reads.
     read_fallbacks: List[str] = []
 
@@ -318,7 +505,7 @@ class App(Item):
         if not values.get(Constant.SPACEID):
             # spaceId none indicates app present in personal space
             values[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
-        values[Constant.QRI] = f"qri:app:sense://{values['id']}"
+        values.setdefault(Constant.QRI, f"qri:app:sense://{values['id']}")
         return values
 
     @property

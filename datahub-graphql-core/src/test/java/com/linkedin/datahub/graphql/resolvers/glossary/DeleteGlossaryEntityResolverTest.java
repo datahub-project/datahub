@@ -30,7 +30,7 @@ public class DeleteGlossaryEntityResolverTest {
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
-    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    Mockito.when(mockClient.deleteReferencesThenEntity(any(), any())).thenReturn(references);
     EntityService<?> mockService = getMockEntityService();
     EntityVersioningService mockVersioningService = Mockito.mock(EntityVersioningService.class);
 
@@ -47,7 +47,7 @@ public class DeleteGlossaryEntityResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntityThenReferences(any(), Mockito.eq(Urn.createFromString(TEST_TERM_URN)));
+        .deleteReferencesThenEntity(any(), Mockito.eq(Urn.createFromString(TEST_TERM_URN)));
     Mockito.verifyNoInteractions(mockVersioningService);
   }
 
@@ -56,7 +56,7 @@ public class DeleteGlossaryEntityResolverTest {
     final Urn termUrn = Urn.createFromString(TEST_TERM_URN);
     final Urn versionSetUrn = UrnUtils.getUrn("urn:li:versionSet:(my_set,glossaryTerm)");
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.deleteEntityThenReferences(any(), any()))
+    Mockito.when(mockClient.deleteReferencesThenEntity(any(), any()))
         .thenReturn(Mockito.mock(EntityClient.ReferencesCleanup.class));
     EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(termUrn), eq(true))).thenReturn(true);
@@ -77,7 +77,7 @@ public class DeleteGlossaryEntityResolverTest {
     // set pointing at the deleted term and its other versions hidden.
     InOrder order = Mockito.inOrder(mockVersioningService, mockClient);
     order.verify(mockVersioningService).unlinkVersion(any(), eq(versionSetUrn), eq(termUrn));
-    order.verify(mockClient).deleteEntityThenReferences(any(), eq(termUrn));
+    order.verify(mockClient).deleteReferencesThenEntity(any(), eq(termUrn));
   }
 
   @Test
@@ -85,7 +85,7 @@ public class DeleteGlossaryEntityResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .deleteEntityThenReferences(any(), Mockito.any());
+        .deleteReferencesThenEntity(any(), Mockito.any());
 
     EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_URN)), eq(true)))

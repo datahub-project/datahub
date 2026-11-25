@@ -1,0 +1,76 @@
+/*
+Wiring ratchet: every Spring configuration class must be loaded by a real-context test in its own
+module, or be listed in that module's wiring-baseline.txt, which may only shrink.
+See gradle/wiring/README.md. Applied to every Java subproject from the root build.gradle.
+*/
+import io.datahubproject.wiring.WiringCoverageCheck
+import io.datahubproject.wiring.WiringCoverageRecorderArgs
+
+def recordDir = layout.buildDirectory.dir('wiring-coverage/test')
+def updateBaselineProp = project.findProperty('updateWiringBaseline')
+def updateBaseline = updateBaselineProp != null && updateBaselineProp.toString() != 'false'
+
+dependencies {
+  // testImplementation so hand-built contexts can call WiringCoverage.attach()/initializer().
+  testImplementation project(':wiring-coverage')
+}
+
+def testTask = tasks.named('test', Test)
+// A module without test sources has nothing to record: its check needs no test run, and is hooked
+// into `check` so CI paths that only schedule `:module:test` for modules with tests (the sharded
+// jobs) still enforce it through `build`.
+def hasNoTests = { sourceSets.test.allSource.isEmpty() }
+testTask.configure {
+  def recorderArgs = objects.newInstance(WiringCoverageRecorderArgs)
+  recorderArgs.dir.set(recordDir)
+  jvmArgumentProviders.add(recorderArgs)
+  // Recorder files are appended per JVM; start every real run from an empty directory.
+  doFirst { recordDir.get().asFile.deleteDir() }
+  finalizedBy 'checkWiringCoverage'
+}
+
+def checkTask = tasks.register('checkWiringCoverage', WiringCoverageCheck) {
+  group = 'verification'
+  description = 'Fails when a Spring configuration class is neither loaded by a real-context test nor baselined.'
+  classesDirs.from(sourceSets.main.output.classesDirs)
+  // A NO-SOURCE test task never runs its doFirst cleanup, so ignore whatever an earlier run left.
+  recordings.from({ (hasNoTests() || testTask.get().state.noSource) ? [] : recordDir })
+  baseline.set(layout.projectDirectory.file('wiring-baseline.txt'))
+  projectPath.set(project.path)
+  rootDirectory.set(rootProject.layout.projectDirectory)
+  it.updateBaseline.set(updateBaseline)
+  report.set(layout.buildDirectory.file('reports/wiring-coverage/report.txt'))
+  mustRunAfter testTask
+  dependsOn tasks.named('classes')
+  if (updateBaseline) {
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+  }
+  // Coverage is only meaningful after the full suite ran (or was restored from cache).
+  onlyIf('the test task ran its whole suite successfully') {
+    if (hasNoTests()) {
+      return true
+    }
+    def t = testTask.get()
+    // Run standalone, the recordings would be stale or missing.
+    if (!project.gradle.taskGraph.hasTask(t)) {
+      // Normal when check runs without test (e.g. `build -x test`); --info explains the skip.
+      logger.info("checkWiringCoverage skipped for ${project.path}: test is not part of this build")
+      return false
+    }
+    def s = t.state
+    // Executed, UP-TO-DATE / FROM-CACHE (upToDate), or NO-SOURCE. Anything else (disabled, onlyIf
+    // false) means no suite ran: say so instead of skipping silently.
+    def ran = !s.skipped || s.upToDate || s.noSource
+    if (!ran) {
+      logger.warn("checkWiringCoverage skipped for ${project.path}: test was ${s.skipMessage}")
+    }
+    // --tests runs a subset; build-script filters are the module's normal suite and still count.
+    def filtered = !t.filter.commandLineIncludePatterns.isEmpty()
+    ran && s.failure == null && !filtered
+  }
+}
+
+tasks.named('check') {
+  dependsOn checkTask
+}

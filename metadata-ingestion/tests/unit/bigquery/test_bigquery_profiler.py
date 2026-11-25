@@ -1194,6 +1194,182 @@ def test_fallback_partition_values_override_used():
     assert result == "`region` = 'us-east-1'"
 
 
+HIVE_REGION_DDL = (
+    "CREATE EXTERNAL TABLE `p.d.t` WITH PARTITION COLUMNS (region STRING) "
+    "OPTIONS (format='PARQUET', uris=['gs://bucket/*'], "
+    "hive_partition_uri_prefix='gs://bucket')"
+)
+HIVE_EVENT_DATE_DDL = (
+    "CREATE EXTERNAL TABLE `p.d.t` WITH PARTITION COLUMNS (event_date DATE) "
+    "OPTIONS (format='PARQUET', uris=['gs://bucket/*'])"
+)
+
+
+def test_external_table_discovery_fallback_skips_and_warns():
+    """When external discovery can pin no partition value, the table is skipped with a
+    warning instead of being profiled with an unpruned IS NOT NULL full scan."""
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(create_test_config(), report)
+    table = create_test_table(external=True, ddl=HIVE_REGION_DDL)
+
+    with patch.object(discovery, "_get_partitions_with_sampling", return_value=None):
+        filters = discovery._get_external_table_partition_filters(
+            table,
+            "test-project",
+            "dataset",
+            lambda query, job_config, context: [],
+        )
+
+    # Nothing could be pinned, so the table is skipped (None) rather than read as
+    # unpartitioned ([]) and full-scanned: an unpruned external scan is unbounded.
+    assert filters is None
+    assert any("skipped" in str(w).lower() for w in report.warnings)
+
+
+def test_external_discovery_short_circuits_on_sampling_success():
+    # Hive keys and types come from the DDL and are threaded into sampling. When sampling
+    # finds values the path returns them without the fallback or any COLUMNS query.
+    discovery = PartitionDiscovery(create_test_config(), BigQueryV2Report())
+    table = create_test_table(external=True, ddl=HIVE_EVENT_DATE_DDL)
+
+    with (
+        patch.object(
+            discovery,
+            "_get_partitions_with_sampling",
+            return_value=["`event_date` = '2023-01-01'"],
+        ) as mock_sampling,
+        patch.object(discovery, "_get_fallback_partition_filters") as mock_fallback,
+        patch.object(
+            discovery.info_schema, "get_partition_column_names"
+        ) as mock_columns,
+    ):
+        filters = discovery._get_external_table_partition_filters(
+            table, "test-project", "dataset", lambda q, jc, ctx: []
+        )
+
+    assert filters == ["`event_date` = '2023-01-01'"]
+    mock_fallback.assert_not_called()
+    mock_columns.assert_not_called()
+    assert mock_sampling.call_args.kwargs["known_columns"] == ["event_date"]
+    assert mock_sampling.call_args.kwargs["known_column_types"] == {
+        "event_date": "DATE"
+    }
+
+
+def test_external_discovery_applies_partition_datetime_override():
+    # The orchestrator returns into the external path before its own override check, so
+    # a configured partition_datetime must be honoured here instead of sampling.
+    config = create_test_config()
+    config.profiling.partition_datetime = datetime(2025, 6, 15, 8, 30)
+    discovery = PartitionDiscovery(config, BigQueryV2Report())
+    table = create_test_table(external=True, ddl=HIVE_EVENT_DATE_DDL)
+
+    with patch.object(discovery, "_get_partitions_with_sampling") as mock_sampling:
+        filters = discovery._get_external_table_partition_filters(
+            table, "test-project", "dataset", lambda q, jc, ctx: []
+        )
+
+    assert filters == ["`event_date` >= '2025-06-15' AND `event_date` < '2025-06-16'"]
+    mock_sampling.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "ddl",
+    [
+        pytest.param(None, id="no_ddl"),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` WITH PARTITION COLUMNS "
+            "OPTIONS (format='PARQUET', uris=['gs://bucket/*'])",
+            id="bare_with_partition_columns",
+        ),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (dt STRING) "
+            "OPTIONS (format='PARQUET', uris=['gs://bucket/*'], "
+            "hive_partitioning_mode = 'AUTO')",
+            id="reconstructed_hive_mode_option",
+        ),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (dt STRING) "
+            "OPTIONS (format='PARQUET', uris=['gs://bucket/*'], "
+            "hive_partition_uri_prefix = 'gs://bucket', "
+            "require_hive_partition_filter = false)",
+            id="ddl_hive_option_names",
+        ),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (id INT64) WITH CONNECTION `p.us.conn` "
+            "OPTIONS (format='DELTA_LAKE', uris=['gs://bucket/delta'])",
+            id="delta_lake",
+        ),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (id INT64) "
+            "OPTIONS (format='GOOGLE_SHEETS', uris=['https://docs.google.com/x'])",
+            id="google_sheets",
+        ),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (id INT64, name STRING)",
+            id="no_format",
+        ),
+    ],
+)
+def test_external_discovery_skips_possibly_partitioned_tables(ddl):
+    # Each of these could hide partitioning the DDL does not spell out, so it is skipped
+    # (None) rather than read as unpartitioned ([]) and full-scanned.
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(create_test_config(), report)
+    table = create_test_table(external=True, ddl=ddl)
+
+    filters = discovery._get_external_table_partition_filters(
+        table, "test-project", "dataset", lambda q, jc, ctx: []
+    )
+
+    assert filters is None
+    assert any("undetermined" in str(w).lower() for w in report.warnings)
+
+
+def test_external_discovery_source_format_overrides_ddl_format():
+    # Table metadata reports ICEBERG, whose partition spec lives outside the DDL, so the
+    # table is skipped even though the DDL alone looks like a plain Parquet table.
+    discovery = PartitionDiscovery(create_test_config(), BigQueryV2Report())
+    table = create_test_table(
+        external=True,
+        ddl="CREATE EXTERNAL TABLE `p.d.t` (id INT64) WITH CONNECTION `p.us.conn` "
+        "OPTIONS (format='PARQUET', uris=['gs://bucket/*'])",
+        external_source_format="ICEBERG",
+    )
+
+    filters = discovery._get_external_table_partition_filters(
+        table, "test-project", "dataset", lambda q, jc, ctx: []
+    )
+
+    assert filters is None
+
+
+@pytest.mark.parametrize(
+    "ddl",
+    [
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (id INT64) OPTIONS ("
+            "uris=['gs://bucket/hive_partitioning_options=x/data/*'], format='PARQUET')",
+            id="hive_marker_in_uri",
+        ),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (id INT64, name STRING) "
+            "WITH CONNECTION `p.us.conn` OPTIONS (format='CSV', uris=['gs://b/*'])",
+            id="biglake_with_connection",
+        ),
+    ],
+)
+def test_external_discovery_unpartitioned_file_table_returns_empty(ddl):
+    discovery = PartitionDiscovery(create_test_config(), BigQueryV2Report())
+    table = create_test_table(external=True, ddl=ddl)
+
+    filters = discovery._get_external_table_partition_filters(
+        table, "test-project", "dataset", lambda q, jc, ctx: []
+    )
+
+    assert filters == []
+
+
 def test_internal_fallback_is_not_null_warns():
     report = BigQueryV2Report()
     discovery = PartitionDiscovery(create_test_config(), report)

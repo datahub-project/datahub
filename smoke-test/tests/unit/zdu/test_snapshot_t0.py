@@ -39,22 +39,22 @@ class TestSnapshotT0PhaseHappyPath:
     ) -> None:
         # Pre-Phase-1 state: indices exist as physical indices with no aliases yet.
         es.list_indices.return_value = [
-            "datasetindex_v2",
-            "dashboardindex_v2",
-            "datasetindex_v2_1714000000",  # already-reindexed style
+            "datasetindex_v3",
+            "dashboardindex_v3",
+            "datasetindex_v3_1714000000",  # already-reindexed style
         ]
-        # Post-Phase-1 state: "datasetindex_v2" is now an alias pointing
+        # Post-Phase-1 state: "datasetindex_v3" is now an alias pointing
         # at the timestamped physical index. The other names are physical
         # indices with no aliases of their own.
         es.get_alias_targets.side_effect = lambda alias: (
-            ["datasetindex_v2_1714000000"] if alias == "datasetindex_v2" else []
+            ["datasetindex_v3_1714000000"] if alias == "datasetindex_v3" else []
         )
 
         def doc_count(idx: str) -> int:
             return {
-                "datasetindex_v2": 100,
-                "dashboardindex_v2": 50,
-                "datasetindex_v2_1714000000": 100,
+                "datasetindex_v3": 100,
+                "dashboardindex_v3": 50,
+                "datasetindex_v3_1714000000": 100,
             }[idx]
 
         es.get_doc_count.side_effect = doc_count
@@ -71,9 +71,9 @@ class TestSnapshotT0PhaseHappyPath:
         snap = ctx.snapshot_t0
         # Doc counts captured for every physical index returned by list_indices.
         assert snap.doc_counts == {
-            "datasetindex_v2": 100,
-            "dashboardindex_v2": 50,
-            "datasetindex_v2_1714000000": 100,
+            "datasetindex_v3": 100,
+            "dashboardindex_v3": 50,
+            "datasetindex_v3_1714000000": 100,
         }
         # Aspect histograms captured for both configured aspects.
         assert snap.aspects_by_version == {
@@ -83,10 +83,38 @@ class TestSnapshotT0PhaseHappyPath:
         # Alias mapping captured (only the alias name appears as a key;
         # the physical-index names that returned [] do not).
         assert snap.indices == {
-            "datasetindex_v2": ["datasetindex_v2_1714000000"],
+            "datasetindex_v3": ["datasetindex_v3_1714000000"],
         }
         # T0 is a positive epoch_ms.
         assert snap.epoch_ms > 0
+
+
+class TestSnapshotT0AliasDocCounts:
+    def test_counts_keyed_by_alias(
+        self, phase: SnapshotT0Phase, es: MagicMock, mysql: MagicMock
+    ) -> None:
+        # V3 physical names carry a version and timestamp; Suite B needs the
+        # counts by alias to compare against the per-alias upgrade state.
+        es.list_indices.return_value = [
+            "datasetindex_v3_v1_9_0rc1-0_1795277461329",
+            "tagindex_v3_v1_9_0rc1-0_1795277457504",
+        ]
+        es.get_alias_targets.return_value = []
+        es.get_doc_count.side_effect = lambda idx: 3 if "dataset" in idx else 0
+        es.get_alias_map.return_value = {
+            "datasetindex_v3_v1_9_0rc1-0_1795277461329": ["datasetindex_v3"],
+            "tagindex_v3_v1_9_0rc1-0_1795277457504": ["tagindex_v3"],
+        }
+        mysql.count_aspects_by_schema_version.return_value = {}
+
+        ctx = TestContext()
+        phase.run(ctx)
+
+        assert ctx.snapshot_t0 is not None
+        assert ctx.snapshot_t0.alias_doc_counts == {
+            "datasetindex_v3": 3,
+            "tagindex_v3": 0,
+        }
 
 
 class TestSnapshotT0PhaseDefensiveErrors:
@@ -102,7 +130,7 @@ class TestSnapshotT0PhaseDefensiveErrors:
     def test_one_aspect_query_failure_does_not_drop_other_aspects(
         self, phase: SnapshotT0Phase, es: MagicMock, mysql: MagicMock
     ) -> None:
-        es.list_indices.return_value = ["datasetindex_v2"]
+        es.list_indices.return_value = ["datasetindex_v3"]
         es.get_doc_count.return_value = 0
 
         def aspect_query(aspect: str) -> dict:
@@ -122,10 +150,10 @@ class TestSnapshotT0PhaseDefensiveErrors:
     def test_one_index_doc_count_failure_does_not_drop_other_indices(
         self, phase: SnapshotT0Phase, es: MagicMock, mysql: MagicMock
     ) -> None:
-        es.list_indices.return_value = ["a_index_v2", "b_index_v2"]
+        es.list_indices.return_value = ["a_index_v3", "b_index_v3"]
 
         def doc_count(idx: str) -> int:
-            if idx == "a_index_v2":
+            if idx == "a_index_v3":
                 raise ConnectionError("blip")
             return 42
 
@@ -134,9 +162,9 @@ class TestSnapshotT0PhaseDefensiveErrors:
         ctx = TestContext()
         result = phase.run(ctx)
         assert result.status == "passed"
-        # a_index_v2 omitted, b_index_v2 captured.
+        # a_index_v3 omitted, b_index_v3 captured.
         assert ctx.snapshot_t0 is not None
-        assert ctx.snapshot_t0.doc_counts == {"b_index_v2": 42}
+        assert ctx.snapshot_t0.doc_counts == {"b_index_v3": 42}
 
 
 class TestSnapshotT0PhaseUpgradeResultCheck:

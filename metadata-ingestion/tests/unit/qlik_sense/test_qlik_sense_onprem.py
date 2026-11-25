@@ -1,11 +1,12 @@
 import json
 import ssl
 import threading
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from websocket import WebSocketBadStatusException
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -29,7 +30,12 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ScriptTableLineage,
     infer_data_connection,
 )
-from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    REFUSED_RETRY_SECONDS,
+    EngineError,
+    RefusedConnectionBudget,
+    WebsocketConnection,
+)
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
@@ -164,6 +170,7 @@ def test_onprem_closes_engine_session_when_app_cannot_open(
     items = list(api.get_items(["stream-1"]))
 
     assert [item.id for item in items] == ["app-1"]
+    assert isinstance(items[0], App) and not items[0].sheets_complete
     websocket.close_websocket.assert_called_once()
 
 
@@ -551,6 +558,8 @@ def test_onprem_reads_charts_after_a_failed_chart(
         ("GetChild", 2),
         ("GetLayout", 3),
         ("GetProperties", 3),
+        # The app's variables, read on the app handle.
+        ("CreateSessionObject", 1),
     ]
     assert engine.handles == [-1, 1]
 
@@ -824,7 +833,13 @@ def test_chart_input_fields_match_app_fields() -> None:
     "expressions, fields_complete, unknown_schema, matched_fields, keeps_all_tables",
     [
         pytest.param(
-            ["Sum(unknown_field)"], True, False, [], True, id="no_field_matches"
+            # Every table's fields are known, so the chart reads none of them.
+            ["Sum(unknown_field)"],
+            True,
+            False,
+            [],
+            False,
+            id="no_field_matches",
         ),
         pytest.param(
             ["Region", "Sum($(vSales))"],
@@ -833,6 +848,14 @@ def test_chart_input_fields_match_app_fields() -> None:
             ["Region"],
             True,
             id="variable_measure",
+        ),
+        pytest.param(
+            [],
+            True,
+            False,
+            [],
+            False,
+            id="text_object_without_fields",
         ),
         pytest.param(
             ["Count({<Year={$(vYear)}>} Region)"],
@@ -950,11 +973,8 @@ def test_chart_inputs_when_fields_are_unknown(
         {app_tables[0]: [], app_tables[1]: [SchemaField(name="Region")]}
     )
 
-    workunits = list(
-        source._gen_charts_workunit(
-            [chart], app_tables, app_fields, unknown_schema, "app-1"
-        )
-    )
+    inputs = source._chart_inputs([chart], {}, app_fields, app_tables, unknown_schema)
+    workunits = list(source._gen_charts_workunit([chart], inputs, "app-1"))
     (chart_info,) = filter(
         None, (wu.get_aspect_of_type(ChartInfoClass) for wu in workunits)
     )
@@ -962,7 +982,9 @@ def test_chart_inputs_when_fields_are_unknown(
         None, (wu.get_aspect_of_type(InputFieldsClass) for wu in workunits)
     )
 
-    assert chart_info.inputs == (app_tables if keeps_all_tables else app_tables[1:])
+    # Region is the only field, of customers; a chart reading none has no input.
+    read_tables = app_tables[1:] if matched_fields else []
+    assert chart_info.inputs == (app_tables if keeps_all_tables else read_tables)
     assert [
         field.schemaField.fieldPath
         for field in input_fields.fields
@@ -1090,9 +1112,8 @@ def test_input_fields_are_kept_when_measures_were_unread(
         {table: [SchemaField(name="Region")]}
     )
 
-    workunits = list(
-        source._gen_charts_workunit([chart], [table], app_fields, False, "app-1")
-    )
+    inputs = source._chart_inputs([chart], {}, app_fields, [table], False)
+    workunits = list(source._gen_charts_workunit([chart], inputs, "app-1"))
 
     assert any(wu.get_aspect_of_type(ChartInfoClass) for wu in workunits)
     assert (
@@ -1657,6 +1678,198 @@ def test_cloud_app_read_failure_closes_engine_session(
     assert api.unread_items == [UnreadItem(name="app-1", cause="Access denied")]
 
 
+def _open_onprem_engine(refusals: RefusedConnectionBudget) -> WebsocketConnection:
+    return WebsocketConnection.for_on_prem(
+        host="qlik.example.com",
+        port=4747,
+        app_id="app-1",
+        user_header="UserDirectory=INTERNAL; UserId=sa_engine",
+        client_cert="/secrets/client.pem",
+        client_key="/secrets/client_key.pem",
+        root_cert="/secrets/root.pem",
+        refusals=refusals,
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_engine_connection_waits_for_the_engine(
+    mock_connect: MagicMock, mock_sleep: MagicMock
+) -> None:
+    # More refusals than transient errors are retried, as an Engine restart takes.
+    mock_connect.side_effect = [ConnectionRefusedError()] * 5 + [MagicMock()]
+    refusals = RefusedConnectionBudget()
+
+    _open_onprem_engine(refusals)
+
+    assert mock_connect.call_count == 6
+    assert {call.args for call in mock_sleep.call_args_list} == {
+        (REFUSED_RETRY_SECONDS,)
+    }
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_engine_connection_fails_at_once_after_the_budget(
+    mock_connect: MagicMock, mock_sleep: MagicMock
+) -> None:
+    mock_connect.side_effect = ConnectionRefusedError()
+    # Other workers have already waited out the budget.
+    spent = RefusedConnectionBudget(seconds=0)
+
+    with pytest.raises(ConnectionRefusedError):
+        _open_onprem_engine(spent)
+
+    assert mock_connect.call_count == 1
+    mock_sleep.assert_not_called()
+
+
+class _FakeClock:
+    """Time that only passes when the code under test sleeps or a test advances it."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds
+
+
+@pytest.fixture
+def engine_clock() -> Iterator[_FakeClock]:
+    clock = _FakeClock()
+    module = "datahub.ingestion.source.qlik_sense.websocket_connection.time"
+    with (
+        patch(f"{module}.monotonic", clock.monotonic),
+        patch(f"{module}.sleep", clock.sleep),
+    ):
+        yield clock
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_engine_connection_resets_the_refusal_budget(
+    mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_connect.side_effect = [
+        ConnectionRefusedError(),
+        ConnectionRefusedError(),
+        MagicMock(),
+        ConnectionRefusedError(),
+        MagicMock(),
+    ]
+    refusals = RefusedConnectionBudget(seconds=300)
+
+    _open_onprem_engine(refusals)
+    # Past the first refusal's budget, had the connection not reset it.
+    engine_clock.now += 400
+    _open_onprem_engine(refusals)
+
+    assert mock_connect.call_count == 5
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_other_engine_failure_starts_a_new_refusal_wait(
+    mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_connect.side_effect = [
+        ConnectionRefusedError(),
+        WebSocketBadStatusException("Handshake status 503", 503),
+        ConnectionRefusedError(),
+        MagicMock(),
+    ]
+    refusals = RefusedConnectionBudget(seconds=300)
+
+    with pytest.raises(WebSocketBadStatusException):
+        _open_onprem_engine(refusals)
+    # Past the first refusal's budget, had the other failure not reset it.
+    engine_clock.now += 2000
+    _open_onprem_engine(refusals)
+
+    assert mock_connect.call_count == 4
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_engine_connection_waits_at_most_one_step_past_the_budget(
+    mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_connect.side_effect = ConnectionRefusedError()
+    refusals = RefusedConnectionBudget(seconds=300)
+    engine_clock.now = 1000
+    refusals.record_refusal()
+    # Another worker's refusal started the count just before the budget ran out.
+    engine_clock.now += 299
+
+    with pytest.raises(ConnectionRefusedError):
+        _open_onprem_engine(refusals)
+
+    assert engine_clock.now - 1000 <= 300 + REFUSED_RETRY_SECONDS
+    assert mock_connect.call_count == 2
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refusal_wait_is_bounded_when_other_reads_reset_the_count(
+    mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    refusals = RefusedConnectionBudget(seconds=300)
+
+    def refuse_after_another_read_timed_out(*args: object, **kwargs: object) -> None:
+        # Stops a read that would otherwise wait forever.
+        assert engine_clock.now < 3600
+        refusals.reset()
+        raise ConnectionRefusedError()
+
+    mock_connect.side_effect = refuse_after_another_read_timed_out
+
+    with pytest.raises(ConnectionRefusedError):
+        _open_onprem_engine(refusals)
+
+    assert engine_clock.now <= 300 + REFUSED_RETRY_SECONDS
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_engine_refusal_wait_is_reported_as_info(
+    mock_onprem: MagicMock, engine_clock: _FakeClock
+) -> None:
+    refusals = RefusedConnectionBudget()
+    refusals.record_refusal()
+    engine_clock.now += 4 * REFUSED_RETRY_SECONDS
+    refusals.reset()
+    mock_onprem.return_value.get_spaces.return_value = []
+    mock_onprem.return_value.unread_items = []
+    mock_onprem.return_value.engine_refusals = refusals
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+
+    list(source.get_workunits_internal())
+
+    assert "Qlik Engine refused connections" in [
+        info.title for info in source.reporter.infos
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_refusal_budget_is_shared_by_all_app_reads(
+    mock_session_cls: MagicMock, mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_session_cls.return_value.headers = {}
+    mock_connect.side_effect = ConnectionRefusedError()
+    api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+
+    with pytest.raises(ConnectionRefusedError):
+        api._open_engine("app-1")
+    assert mock_connect.call_count > 1
+    mock_connect.reset_mock()
+
+    with pytest.raises(ConnectionRefusedError):
+        api._open_engine("app-2")
+    assert mock_connect.call_count == 1
+
+
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
 def test_onprem_websocket_skips_notifications(mock_connect: MagicMock) -> None:
     socket = MagicMock()
@@ -1881,7 +2094,14 @@ def test_partly_read_app_does_not_overwrite_relationships(
     def emitted(aspect: type) -> bool:
         return any(wu.get_aspect_of_type(aspect) for wu in workunits)
 
-    assert emitted(DashboardInfoClass) is charts_complete
+    sheet_urn = source._gen_dashboard_urn(sheet.id)
+    assert (
+        any(
+            wu.get_urn() == sheet_urn and wu.get_aspect_of_type(DashboardInfoClass)
+            for wu in workunits
+        )
+        is charts_complete
+    )
     assert emitted(ChartInfoClass) is not tables_read_failed
     assert emitted(InputFieldsClass) is not tables_read_failed
     chart_info_patches = [
@@ -1945,6 +2165,7 @@ def test_onprem_unreadable_sheet_marks_app_partly_read(
 
     assert app.sheets == []
     assert not app.read_complete
+    assert not app.sheets_complete
     assert engine.handles == [-1, 1]
 
 
@@ -2205,3 +2426,123 @@ def test_reshaped_script_tables_keep_only_traceable_fields(
         field: [f"urn:li:schemaField:({upstream},{column})" for column in columns]
         for field, columns in expected_fields.items()
     }
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_opens_app_with_data_to_read_its_data_model(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = fake_qrs_get
+    websocket = MagicMock()
+    websocket.websocket_send_request.side_effect = fake_engine_calls()
+    websocket.get_script.return_value = LOAD_SCRIPT
+    websocket.get_data_model_tables.return_value = [
+        {
+            "qName": "Orders",
+            "qFields": [
+                {"qName": "order_id", "qTags": ["$numeric", "$integer"]},
+                {"qName": "amount", "qTags": ["$numeric"]},
+            ],
+        },
+        {"qName": "$Syn 1 Table", "qIsSynthetic": True},
+    ]
+    mock_engine.return_value = websocket
+    config = QlikSourceConfig.model_validate(
+        {"on_prem": {**ON_PREM, "read_data_model": True}}
+    )
+
+    api = QlikOnPremAPI(config)
+    api.get_spaces()
+    [app] = list(api.get_items(["stream-1"]))
+
+    open_doc = websocket.websocket_send_request.call_args_list[0].kwargs
+    assert open_doc["params"]["qNoData"] is False
+    assert isinstance(app, App)
+    assert [
+        (table.name, [(f.name, f.dataType) for f in table.fields])
+        for table in app.data_model_tables
+    ] == [("Orders", [("order_id", "INTEGER"), ("amount", "DOUBLE")])]
+    assert app.read_complete
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_app_whose_data_model_cant_be_read_is_still_complete(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = fake_qrs_get
+    websocket = MagicMock()
+    websocket.websocket_send_request.side_effect = fake_engine_calls()
+    websocket.get_script.return_value = LOAD_SCRIPT
+    websocket.get_variables.return_value = {}
+    websocket.get_data_model_tables.side_effect = TimeoutError("timed out")
+    mock_engine.return_value = websocket
+    config = QlikSourceConfig.model_validate(
+        {"on_prem": {**ON_PREM, "read_data_model": True}}
+    )
+
+    api = QlikOnPremAPI(config)
+    api.get_spaces()
+    [app] = list(api.get_items(["stream-1"]))
+
+    # As when opening with data fails: the script, sheets and QVDs stand, and
+    # the next run reads the data model again.
+    assert isinstance(app, App)
+    assert app.read_complete
+    assert app.data_load_failed
+    assert app.script == LOAD_SCRIPT
+    assert not app.data_model_tables
+    assert len(api.opened_without_data) == 1
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        EngineError({"code": 5, "message": "Access denied"}),
+        TimeoutError("Connection timed out"),
+    ],
+)
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_app_whose_data_cant_be_opened_is_read_without_it(
+    mock_session_cls: MagicMock, mock_engine: MagicMock, error: Exception
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = fake_qrs_get
+    # Section access denies the data, or the data load times out.
+    with_data = MagicMock()
+    with_data.websocket_send_request.side_effect = error
+    without_data = MagicMock()
+    without_data.websocket_send_request.side_effect = fake_engine_calls()
+    without_data.get_script.return_value = LOAD_SCRIPT
+    without_data.get_variables.return_value = {}
+    mock_engine.side_effect = [with_data, without_data]
+    config = QlikSourceConfig.model_validate(
+        {"on_prem": {**ON_PREM, "read_data_model": True}}
+    )
+
+    api = QlikOnPremAPI(config)
+    api.get_spaces()
+    [app] = list(api.get_items(["stream-1"]))
+
+    open_doc = without_data.websocket_send_request.call_args_list[0].kwargs
+    assert open_doc["params"]["qNoData"] is True
+    assert isinstance(app, App)
+    assert app.read_complete
+    assert app.data_load_failed
+    assert app.script == LOAD_SCRIPT
+    assert not app.data_model_tables
+    without_data.get_data_model_tables.assert_not_called()
+    assert len(api.opened_without_data) == 1

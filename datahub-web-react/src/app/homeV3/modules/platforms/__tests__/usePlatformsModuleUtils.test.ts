@@ -1,10 +1,11 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { type Mock, vi } from 'vitest';
 
 import usePlatformsModuleUtils from '@app/homeV3/modules/platforms/usePlatformsModuleUtils';
 import { PLATFORM_FILTER_NAME } from '@app/search/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { PageRoutes } from '@conf/Global';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mocks
 const mockPush = vi.fn();

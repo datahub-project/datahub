@@ -13,12 +13,12 @@ import lombok.experimental.Accessors;
 @Data
 @Accessors(chain = true)
 public class SearchTemplateConfiguration {
-  /** Bound from application.yaml. Shipped false, which is the rollback to the Java builder. */
+  /** Bound from application.yaml. Shipped true. False is the rollback to the Java builder. */
   private boolean enabled;
 
   /**
-   * Per-surface off, shadow, and canary controls. Ignored while {@link #enabled} is false, which is
-   * the shipped rollback to the Java V2.5 builder.
+   * Per-surface off, shadow, and canary controls. Ignored while {@link #enabled} is false, which
+   * rolls every surface back to the Java V2.5 builder.
    */
   private SearchTemplateRolloutConfiguration rollout = new SearchTemplateRolloutConfiguration();
 

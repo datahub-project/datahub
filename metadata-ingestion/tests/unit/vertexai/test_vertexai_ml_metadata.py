@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, Mock
 
 import pytest
+from google.api_core.exceptions import PermissionDenied
 
 from datahub.ingestion.source.vertexai.vertexai_ml_metadata_helper import (
     MLMetadataHelper,
@@ -9,6 +10,8 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     LineageMetadata,
     MLMetadataConfig,
 )
+from datahub.ingestion.source.vertexai.vertexai_report import VertexAISourceReport
+from datahub.ingestion.source.vertexai.vertexai_scope import Scope, StoppedScopes
 from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
 
 
@@ -90,6 +93,9 @@ class TestMLMetadataHelper:
             metadata_client=mock_metadata_client,
             config=ml_metadata_config,
             uri_parser=mock_uri_parser,
+            report=VertexAISourceReport(),
+            stopped_scopes=StoppedScopes(),
+            scope=lambda: Scope(project="test-project", region="us-west1"),
         )
 
     def test_extract_hyperparams(self, helper):
@@ -201,7 +207,8 @@ class TestMLMetadataHelper:
 
         lineage = helper.get_job_lineage_metadata(mock_job)
 
-        assert lineage is None
+        assert lineage.value is None
+        assert not lineage.keep_previous
 
     def test_get_job_lineage_metadata_with_executions(
         self, helper, mock_metadata_client
@@ -241,10 +248,24 @@ class TestMLMetadataHelper:
 
         lineage = helper.get_job_lineage_metadata(mock_job)
 
-        assert lineage is not None
-        assert len(lineage.input_urns) > 0
-        assert len(lineage.hyperparams) == 1
-        assert len(lineage.metrics) == 1
+        assert lineage.value is not None
+        assert len(lineage.value.input_urns) > 0
+        assert len(lineage.value.hyperparams) == 1
+        assert len(lineage.value.metrics) == 1
+
+    def test_get_job_lineage_metadata_refused_is_report_warning(
+        self, helper, mock_metadata_client
+    ):
+        mock_job = Mock()
+        mock_job.display_name = "test-job"
+        mock_job.name = "projects/123/jobs/456"
+        mock_metadata_client.list_executions.side_effect = PermissionDenied("denied")
+
+        lineage = helper.get_job_lineage_metadata(mock_job)
+
+        assert lineage.value is None
+        assert not lineage.keep_previous
+        assert len(helper.report.warnings) == 1
 
     def test_execution_cache_loaded_once_for_multiple_jobs(
         self, helper, mock_metadata_client

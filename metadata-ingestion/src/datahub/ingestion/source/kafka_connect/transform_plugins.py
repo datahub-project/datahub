@@ -184,6 +184,53 @@ class RegexRouterPlugin(TransformPlugin):
         return True  # RegexRouter transforms are predictable and safe to apply
 
 
+class ByLogicalTableRouterPlugin(TransformPlugin):
+    """
+    Plugin for Debezium's ByLogicalTableRouter, which routes topics using
+    topic.regex/topic.replacement. Its key.field.* options only rewrite the
+    record key, so they don't affect topic lineage.
+    """
+
+    SUPPORTED_TYPES = {"io.debezium.transforms.ByLogicalTableRouter"}
+
+    @classmethod
+    def supports_transform_type(cls, transform_type: str) -> bool:
+        return transform_type in cls.SUPPORTED_TYPES
+
+    def apply_forward(self, topics: List[str], config: TransformConfig) -> List[str]:
+        if not JAVA_REGEX_AVAILABLE:
+            raise ValueError(
+                "ByLogicalTableRouter transform requires JPype and JVM. "
+                "Install with: pip install 'acryl-datahub[kafka-connect]'"
+            )
+
+        regex_pattern = config.config.get("topic.regex", "")
+        replacement = config.config.get("topic.replacement")
+
+        if not regex_pattern or replacement is None:
+            logger.warning(
+                f"ByLogicalTableRouter {config.name} missing topic.regex or topic.replacement"
+            )
+            return topics
+
+        pattern = JavaPattern.compile(regex_pattern)
+        transformed_topics = []
+        for topic in topics:
+            # Mirrors Debezium: the regex must match the whole topic, and an empty
+            # result keeps the original topic.
+            matcher = pattern.matcher(topic)
+            new_topic = (
+                str(matcher.replaceFirst(replacement)) if matcher.matches() else ""
+            )
+            transformed_topics.append(new_topic or topic)
+
+        return transformed_topics
+
+    @classmethod
+    def should_apply_automatically(cls) -> bool:
+        return True
+
+
 class ComplexTransformPlugin(TransformPlugin):
     """Plugin for complex transforms that require explicit configuration."""
 
@@ -251,6 +298,7 @@ class TransformPluginRegistry:
     def _register_default_plugins(self):
         """Register default transform plugins."""
         self.register(RegexRouterPlugin())
+        self.register(ByLogicalTableRouterPlugin())
         self.register(ComplexTransformPlugin())
         self.register(ReplaceFieldPlugin())
 

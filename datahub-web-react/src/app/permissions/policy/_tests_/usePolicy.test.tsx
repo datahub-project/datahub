@@ -1,10 +1,10 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as policyUtils from '@app/permissions/policy/policyUtils';
 import { usePolicy } from '@app/permissions/policy/usePolicy';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { PolicyMatchCondition, PolicyState, PolicyType } from '@types';
 

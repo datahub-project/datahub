@@ -92,6 +92,31 @@ def test_query_types():
         dialect="redshift",
     ) == (QueryType.CREATE_VIEW, {"kind": "VIEW"})
 
+    assert get_query_type_of_sql(
+        sqlglot.parse_one("COPY INTO t FROM 'gcs://b/p/'", dialect="snowflake"),
+        dialect="snowflake",
+    ) == (QueryType.INSERT, {})
+
+    assert get_query_type_of_sql(
+        sqlglot.parse_one("COPY INTO @stg/out FROM src", dialect="snowflake"),
+        dialect="snowflake",
+    ) == (QueryType.UNKNOWN, {})
+
+    assert get_query_type_of_sql(
+        sqlglot.parse_one("COPY t TO '/f'", dialect="postgres"),
+        dialect="postgres",
+    ) == (QueryType.UNKNOWN, {})
+
+    assert get_query_type_of_sql(
+        sqlglot.parse_one("GRANT SELECT ON v TO ROLE r", dialect="snowflake"),
+        dialect="snowflake",
+    ) == (QueryType.UNKNOWN, {})
+
+    assert get_query_type_of_sql(
+        sqlglot.parse_one("REVOKE SELECT ON v FROM ROLE r", dialect="snowflake"),
+        dialect="snowflake",
+    ) == (QueryType.UNKNOWN, {})
+
 
 class QueryGeneralizationTestMode(Enum):
     FULL = "full"

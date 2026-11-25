@@ -1,5 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
 import {
     BusinessAttribute,
@@ -9,6 +7,7 @@ import {
     SchemaFieldDataType,
     Tag,
 } from '@src/types.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockUseBaseEntity = vi.hoisted(() => vi.fn());
 

@@ -250,6 +250,16 @@ public class SearchClusterRegistry implements SearchClusterAccess, SearchWriteAc
     return uniqueConnections;
   }
 
+  /**
+   * Every named cluster, including aliases that share a client. Each carries its own effective
+   * config, so a cluster overlay's entity-index copy is visible here even when its client is
+   * shared.
+   */
+  @Nonnull
+  public Collection<ClusterConnection> allConnections() {
+    return connections.values();
+  }
+
   @Nonnull
   private static List<ClusterConnection> distinctConnections(
       @Nonnull Map<String, ClusterConnection> connections) {

@@ -29,6 +29,7 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.dialects.postgresql import ranges
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.types import UserDefinedType
 
 if TYPE_CHECKING:
@@ -669,23 +670,56 @@ class PostgresSource(SQLAlchemySource):
         engine = create_engine(url, **self._get_engine_options())
         self._setup_rds_iam_event_listener(engine)
 
-        with engine.connect() as conn:
-            if self.config.database or self.config.sqlalchemy_uri:
-                inspector = inspect(conn)
-                yield inspector
-            else:
+        try:
+            with engine.connect() as conn:
+                if self.config.database or self.config.sqlalchemy_uri:
+                    yield inspect(conn)
+                    return
+                # Only the listing needs this connection. Closing it here keeps
+                # it from staying checked out across every yield below, which
+                # spans the whole run's reflection and profiling.
                 databases = self.config.list_databases(conn)
-                for db_name in databases:
-                    if not self.config.database_pattern.allowed(db_name):
+
+            for db_name in databases:
+                if not self.config.database_pattern.allowed(db_name):
+                    continue
+
+                url = self.config.get_sql_alchemy_url(database=db_name)
+                db_engine = create_engine(url, **self._get_engine_options())
+                self._setup_rds_iam_event_listener(db_engine)
+
+                try:
+                    try:
+                        db_conn = db_engine.connect()
+                    except OperationalError as e:
+                        # A failure (not a warning) on purpose: stateful
+                        # ingestion skips soft-deletion when the report has
+                        # failures, so the skipped database's entities are
+                        # not marked as removed.
+                        self.report.failure(
+                            title="Failed to connect to database",
+                            message="Skipping this database; other databases are still ingested. "
+                            "Check that the ingestion user can connect to it (e.g. has the CONNECT privilege), "
+                            "or exclude it with database_pattern.deny.",
+                            context=db_name,
+                            exc=e,
+                        )
                         continue
-
-                    url = self.config.get_sql_alchemy_url(database=db_name)
-                    db_engine = create_engine(url, **self._get_engine_options())
-                    self._setup_rds_iam_event_listener(db_engine)
-
-                    with db_engine.connect() as conn:
-                        inspector = inspect(conn)
-                        yield inspector
+                    with db_conn:
+                        # Invariant: the caller must finish reflection and
+                        # profiling for this database before asking for the
+                        # next inspector -- the finally below disposes the
+                        # engine on resume.
+                        yield inspect(db_conn)
+                finally:
+                    # Otherwise each engine's pool keeps a connection open
+                    # per database for the whole run.
+                    db_engine.dispose()
+        finally:
+            # Same reason, for the engine that listed the databases (or serves
+            # the single database): its pooled connection would otherwise stay
+            # open on the server for the rest of the run.
+            engine.dispose()
 
     def _get_view_names(self, inspector: Inspector, schema: str) -> List[str]:
         view_names = super()._get_view_names(inspector, schema)

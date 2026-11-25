@@ -661,7 +661,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.confluence.confluence_source.ConfluenceSource",
+      "classname": "datahub.ingestion.source.confluence.source.ConfluenceSource",
       "platform_id": "confluence",
       "platform_name": "Confluence",
       "support_status": "ALPHA"
@@ -1731,6 +1731,12 @@
           "supported": true
         },
         {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1740,6 +1746,32 @@
       "classname": "datahub.ingestion.source.github_documents.github_documents_source.GitHubDocumentsSource",
       "platform_id": "github",
       "platform_name": "GitHub",
+      "support_status": "ALPHA"
+    },
+    "gitlab-documents": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.gitlab_documents.gitlab_documents_source.GitLabDocumentsSource",
+      "platform_id": "gitlab",
+      "platform_name": "GitLab",
       "support_status": "ALPHA"
     },
     "glue": {
@@ -2044,6 +2076,68 @@
       "platform_id": "hex",
       "platform_name": "Hex",
       "support_status": "GA"
+    },
+    "hightouch": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default, one per workspace",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default, from parsed model SQL and sync field mappings",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default via `extract_owners`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default for models",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default, from warehouse tables through models and syncs to destinations",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.hightouch.hightouch.HightouchSource",
+      "platform_id": "hightouch",
+      "platform_name": "Hightouch",
+      "support_status": "ALPHA"
     },
     "hive": {
       "capabilities": [
@@ -3716,13 +3810,19 @@
         },
         {
           "capability": "OWNERSHIP",
-          "description": "Enabled by default",
+          "description": "Disabled by default, configured using `extract_ownership`. In `metadata_api_mode: workspace_apis` owners come from workspace roles.",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `extract_refresh_history`: the latest dataset refresh as an Operation aspect",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3746,7 +3846,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default, configured using `extract_lineage`.",
+          "description": "Enabled by default, configured using `extract_lineage`. In `metadata_api_mode: workspace_apis` lineage comes from the semantic-model definitions (TMDL partitions) without admin API access.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4004,7 +4104,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Disabled by default.",
+          "description": "Enabled by default, can be disabled via configuration `include_column_lineage`",
           "subtype_modifier": null,
           "supported": true
         },

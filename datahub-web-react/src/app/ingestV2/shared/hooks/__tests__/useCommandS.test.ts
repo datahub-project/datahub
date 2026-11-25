@@ -1,7 +1,6 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import { checkIfMac } from '@app/utils/checkIfMac';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock the checkIfMac utility
 vi.mock('@app/utils/checkIfMac', () => ({

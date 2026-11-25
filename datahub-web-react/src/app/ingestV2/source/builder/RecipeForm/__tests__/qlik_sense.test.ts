@@ -8,12 +8,16 @@ import {
     QLIK_DEPLOYMENT,
     QLIK_DEPLOYMENT_CLOUD,
     QLIK_DEPLOYMENT_ON_PREM,
+    QLIK_FILE_CONNECTION_MAP,
+    QLIK_INCLUDE_SHEETS_AND_CHARTS,
     QLIK_INGEST_OWNER,
     QLIK_ON_PREM_CLIENT_CERT,
     QLIK_ON_PREM_CLIENT_KEY_PASSWORD,
+    QLIK_ON_PREM_READ_DATA_MODEL,
     QLIK_ON_PREM_SERVER,
     QLIK_ON_PREM_SKIP_HOSTNAME_CHECK,
     QLIK_ON_PREM_SKIP_UNCHANGED_APPS,
+    QLIK_SCRIPT_VARIABLES,
     QLIK_SPACE_ALLOW,
     QLIK_SPACE_DENY,
     QLIK_TENANT_HOSTNAME,
@@ -66,6 +70,17 @@ describe('Qlik Sense recipe form', () => {
         expect(QLIK_ON_PREM_SERVER.dynamicHidden?.(cloud)).toBe(true);
         expect(QLIK_ON_PREM_CLIENT_CERT.dynamicRequired?.(onPrem)).toBe(true);
         expect(QLIK_ON_PREM_SKIP_UNCHANGED_APPS.dynamicHidden?.(cloud)).toBe(true);
+        expect(QLIK_ON_PREM_READ_DATA_MODEL.dynamicHidden?.(cloud)).toBe(true);
+        // Sheets and charts apply to both deployments and stay on unless turned off.
+        expect(QLIK_INCLUDE_SHEETS_AND_CHARTS.dynamicHidden).toBeUndefined();
+        expect(QLIK_INCLUDE_SHEETS_AND_CHARTS.getValueFromRecipeOverride?.({})).toBe(true);
+        // Off unless the recipe turns it on, as in the connector.
+        expect(QLIK_ON_PREM_READ_DATA_MODEL.getValueFromRecipeOverride?.({})).toBe(false);
+        expect(
+            QLIK_ON_PREM_READ_DATA_MODEL.getValueFromRecipeOverride?.({
+                source: { config: { on_prem: { read_data_model: true } } },
+            }),
+        ).toBe(true);
         expect(QLIK_ON_PREM_CLIENT_KEY_PASSWORD.dynamicHidden?.(cloud)).toBe(true);
         expect(QLIK_ON_PREM_CLIENT_KEY_PASSWORD.dynamicHidden?.(onPrem)).toBe(false);
         expect(QLIK_ON_PREM_CLIENT_KEY_PASSWORD.type).toBe(FieldType.SECRET);
@@ -195,6 +210,70 @@ describe('Qlik Sense recipe form', () => {
                 default_schema: 'dbo',
             },
         ]);
+    });
+
+    it('round-trips the file connection mapping, shown for Qlik Cloud only', () => {
+        const recipe = QLIK_FILE_CONNECTION_MAP.setValueOnRecipeOverride?.(baseRecipe(), [
+            {
+                data_connection_name: 'Sales Space:Lake',
+                storage_uri: 'abfss://lake@account.dfs.core.windows.net/sales',
+                platform_instance: '',
+                env: '',
+            },
+        ]);
+        expect(recipe.source.config.file_connection_to_storage).toEqual({
+            'Sales Space:Lake': { storage_uri: 'abfss://lake@account.dfs.core.windows.net/sales' },
+        });
+        expect(QLIK_FILE_CONNECTION_MAP.getValueFromRecipeOverride?.(recipe)).toEqual([
+            {
+                data_connection_name: 'Sales Space:Lake',
+                storage_uri: 'abfss://lake@account.dfs.core.windows.net/sales',
+                platform_instance: '',
+                env: '',
+            },
+        ]);
+        expect(QLIK_FILE_CONNECTION_MAP.dynamicHidden?.({ deployment: 'on_prem' })).toBe(true);
+
+        // A setting the form has no field for survives a save.
+        const withFlag = {
+            source: {
+                type: 'qlik-sense',
+                config: {
+                    file_connection_to_storage: {
+                        'Sales Space:Lake': { storage_uri: 's3://old', convert_urns_to_lowercase: true },
+                    },
+                },
+            },
+        };
+        const saved = QLIK_FILE_CONNECTION_MAP.setValueOnRecipeOverride?.(withFlag, [
+            { data_connection_name: 'Sales Space:Lake', storage_uri: 's3://new' },
+        ]);
+        expect(saved.source.config.file_connection_to_storage).toEqual({
+            'Sales Space:Lake': { storage_uri: 's3://new', convert_urns_to_lowercase: true },
+        });
+    });
+
+    it('round-trips script variables as a name to value mapping, keeping empty values', () => {
+        const recipe = QLIK_SCRIPT_VARIABLES.setValueOnRecipeOverride?.(baseRecipe(), [
+            { variable_name: 'vSchema', value: 'sales' },
+            { variable_name: 'vPrefix', value: '' },
+            { variable_name: '', value: 'ignored' },
+        ]);
+        expect(recipe.source.config.script_variables).toEqual({ vSchema: 'sales', vPrefix: '' });
+        expect(QLIK_SCRIPT_VARIABLES.getValueFromRecipeOverride?.(recipe)).toEqual([
+            { variable_name: 'vSchema', value: 'sales' },
+            { variable_name: 'vPrefix', value: '' },
+        ]);
+    });
+
+    it('accepts a bare script variable name and rejects $() or surrounding spaces', () => {
+        const nameRule = QLIK_SCRIPT_VARIABLES.keyField?.rules?.find((rule) => 'pattern' in rule) as {
+            pattern: RegExp;
+        };
+        expect(nameRule.pattern.test('vSchema')).toBe(true);
+        expect(nameRule.pattern.test('v')).toBe(true);
+        expect(nameRule.pattern.test('$(vSchema)')).toBe(false);
+        expect(nameRule.pattern.test(' vSchema')).toBe(false);
     });
 
     it('accepts a bare tenant hostname and rejects a scheme or path', () => {

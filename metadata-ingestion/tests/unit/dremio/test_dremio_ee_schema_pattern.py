@@ -23,6 +23,8 @@ _SOURCE_TABLES = [
     ["My_Source", "Sales", "Orders"],
     # Dremio file datasets often have a dot in their name.
     ["My_Source", "Sales", "weather.csv"],
+    # A sibling source whose name starts with My_Source.
+    ["My_SourceB", "Sales", "other"],
 ]
 _SPACE_VIEW = ["Analytics", "orders_vw"]
 
@@ -114,13 +116,15 @@ _IN_SALES = ["Orders", "weather.csv"]
         ([r"^My_Source(\.Sales)?$", r"^Analytics$"], [], [*_IN_SALES, "orders_vw"]),
         ([r"^My_Source($|\..*)"], [], _IN_SALES),
         ([r"^Other($|\..*)"], [], []),
-        ([".*"], [r"^My_Source\.Sales$"], ["orders_vw"]),
+        ([".*"], [r"^My_Source\.Sales$"], ["orders_vw", "other"]),
+        # Allow and deny together: the deny carves the sibling out of the allow.
+        ([r"^My_Source"], [r"^My_SourceB"], _IN_SALES),
         # A pattern that names the dataset is not a schema match.
         ([r"^Analytics\.orders_vw$"], [], []),
         # Breaking changes documented for this fix: "\..*" no longer reaches
         # datasets directly in the schema, and a dataset-name deny filters nothing.
         ([r"^My_Source\.Sales\..*"], [], []),
-        ([".*"], [r".*_vw$"], [*_IN_SALES, "orders_vw"]),
+        ([".*"], [r".*_vw$"], [*_IN_SALES, "orders_vw", "other"]),
     ],
 )
 def test_schema_pattern_matches_schema_path(
@@ -160,9 +164,14 @@ def test_per_container_fallback_matches_schema_path(
         lambda url: {
             "data": [
                 {"containerType": "SOURCE", "path": ["My_Source"]},
+                {"containerType": "SOURCE", "path": ["My_SourceB"]},
                 {"containerType": "SPACE", "path": ["Analytics"]},
             ]
         },
     )
 
     assert _fetched(sys_api, [r"^My_Source(\.Sales)?$"], []) == _IN_SALES
+    # My_Source's query must not pick up My_SourceB's tables: its column scan
+    # is exact, so they would come back without columns.
+    assert _fetched(sys_api, [".*"], []) == sorted([*_IN_SALES, "orders_vw", "other"])
+    assert not sys_api.datasets_without_columns

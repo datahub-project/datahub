@@ -882,7 +882,17 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
-            "inputs": []
+            "inputs": [],
+            "inputEdges": [
+                {
+                    "sourceUrn": "urn:li:chart:(sigma,noFormulaElem01)",
+                    "destinationUrn": "urn:li:chart:(sigma,sourceElem01)"
+                },
+                {
+                    "sourceUrn": "urn:li:chart:(sigma,noFormulaElem01)",
+                    "destinationUrn": "urn:li:chart:(sigma,warehouseElem01)"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -900,7 +910,22 @@
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,noFormulaElem01),col_a)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,sourceElem01),col)",
+                    "schemaField": {
+                        "fieldPath": "col_a",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,warehouseElem01),some_col)",
                     "schemaField": {
                         "fieldPath": "col_a",
                         "nullable": false,
@@ -1147,7 +1172,22 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,noFormulaElem01),col_a)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,sourceElem01),col)",
+                    "schemaField": {
+                        "fieldPath": "col_a",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,warehouseElem01),some_col)",
                     "schemaField": {
                         "fieldPath": "col_a",
                         "nullable": false,

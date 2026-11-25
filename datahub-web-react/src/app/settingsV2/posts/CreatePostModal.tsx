@@ -7,7 +7,7 @@ import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { Modal, toast } from '@src/alchemy-components';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
-import { MediaType, PostContentType, PostType } from '@types';
+import { MediaType, PostContentType, PostType, UpdatePostContentInput } from '@types';
 
 function getInitialFormData(editData?: PostEntry): PostFormData {
     if (editData) {
@@ -30,18 +30,13 @@ function getInitialFormData(editData?: PostEntry): PostFormData {
 
 type Props = {
     editData: PostEntry;
+    showPinnedLinks: boolean;
     onClose: () => void;
-    onCreate: (
-        contentType: string,
-        title: string,
-        description: string | undefined,
-        link: string | undefined,
-        location: string | undefined,
-    ) => void;
-    onEdit: () => void;
+    onCreate: () => void;
+    onEdit: (urn: string, content: UpdatePostContentInput) => void;
 };
 
-export default function CreatePostModal({ onClose, onCreate, editData, onEdit }: Props) {
+export default function CreatePostModal({ onClose, onCreate, editData, onEdit, showPinnedLinks }: Props) {
     const { t } = useTranslation('settings.posts');
     const { t: tc } = useTranslation('common.actions');
     const [createPostMutation] = useCreatePostMutation();
@@ -54,71 +49,58 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
 
     const isValid = useMemo(() => formData.title.trim().length > 0, [formData.title]);
 
+    const isLink = formData.type === PostContentType.Link;
+    const content: UpdatePostContentInput = {
+        contentType: formData.type,
+        title: formData.title,
+        description: formData.description || null,
+        link: isLink ? formData.link || null : null,
+        media: isLink && formData.location ? { type: MediaType.Image, location: formData.location } : null,
+    };
+
     const onCreatePost = () => {
-        const mediaValue =
-            formData.type && formData.location ? { type: MediaType.Image, location: formData.location } : null;
         createPostMutation({
             variables: {
                 input: {
                     postType: PostType.HomePageAnnouncement,
-                    content: {
-                        contentType: formData.type || PostContentType.Text,
-                        title: formData.title,
-                        description: formData.description || null,
-                        link: formData.link || null,
-                        media: mediaValue,
-                    },
+                    content,
                 },
             },
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    toast.success(t('createSuccess'));
-                    onCreate(
-                        formData.type || PostContentType.Text,
-                        formData.title,
-                        formData.description,
-                        formData.link,
-                        formData.location,
-                    );
+                    toast.success(t(showPinnedLinks ? 'createSuccess' : 'announcement.createSuccess'));
+                    onCreate();
                 }
             })
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: t('createError'),
-                    permissionMessage: t('createUnauthorized'),
+                    defaultMessage: t(showPinnedLinks ? 'createError' : 'announcement.createError'),
+                    permissionMessage: t(showPinnedLinks ? 'createUnauthorized' : 'announcement.createUnauthorized'),
                 });
             });
         onClose();
     };
 
     const onUpdatePost = () => {
-        const mediaValue =
-            formData.type && formData.location ? { type: MediaType.Image, location: formData.location } : null;
         updatePostMutation({
             variables: {
                 input: {
                     urn: editData?.urn,
                     postType: PostType.HomePageAnnouncement,
-                    content: {
-                        contentType: formData.type || PostContentType.Text,
-                        title: formData.title,
-                        description: formData.description || null,
-                        link: formData.link || null,
-                        media: mediaValue,
-                    },
+                    content,
                 },
             },
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    toast.success(t('updateSuccess'));
-                    onEdit();
+                    toast.success(t(showPinnedLinks ? 'updateSuccess' : 'announcement.updateSuccess'));
+                    onEdit(editData.urn, content);
                 }
             })
             .catch((e) => {
-                toast.error(t('updateError'));
+                toast.error(t(showPinnedLinks ? 'updateError' : 'announcement.updateError'));
                 console.error('Failed to update Post:', e.message);
             });
         onClose();
@@ -147,7 +129,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
                 },
             ]}
         >
-            <CreatePostForm formData={formData} onChange={handleChange} />
+            <CreatePostForm formData={formData} onChange={handleChange} showPinnedLinks={showPinnedLinks} />
         </Modal>
     );
 }

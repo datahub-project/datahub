@@ -13,7 +13,8 @@ const { termSearch, searchState } = vi.hoisted(() => ({
     searchState: { data: undefined as { search?: { searchResults: unknown[] } } | undefined, loading: false },
 }));
 
-vi.mock('@graphql/search.generated', () => ({
+vi.mock('@graphql/search.generated', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@graphql/search.generated')>()),
     useGetSearchResultsLazyQuery: () => [termSearch, searchState],
 }));
 

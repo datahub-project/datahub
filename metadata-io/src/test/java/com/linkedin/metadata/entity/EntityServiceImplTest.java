@@ -2136,6 +2136,32 @@ public class EntityServiceImplTest {
   }
 
   @Test
+  public void testValidateKeyDeleteRejectsActiveStructuredPropertyWithoutWriting() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "no-run-id-provided");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> service.validateKeyDelete(newUserContext(), GUARDED_PROPERTY_URN));
+
+    verify(dao, never()).runInTransactionWithRetry(any(), any(), anyInt());
+    verify(dao, never()).deleteUrn(any(OperationContext.class), any(), any(String.class));
+  }
+
+  @Test
+  public void testValidateKeyDeleteAcceptsSoftDeletedStructuredProperty() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, true, "no-run-id-provided");
+
+    service.validateKeyDelete(newUserContext(), GUARDED_PROPERTY_URN);
+
+    verify(dao, never()).runInTransactionWithRetry(any(), any(), anyInt());
+    verify(dao, never()).deleteUrn(any(OperationContext.class), any(), any(String.class));
+  }
+
+  @Test
   public void testHardDeleteStructuredPropertyWithRemovedFalseRejected() {
     AspectDao dao = mock(AspectDao.class);
     EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
