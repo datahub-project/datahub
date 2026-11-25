@@ -1,4 +1,3 @@
-import base64
 import copy
 import functools
 import hashlib
@@ -821,8 +820,7 @@ def _qlik_field_id(name: str) -> str:
     """The last part of a field node's QRI in Qlik's lineage graph, which is the
     unpadded base64url SHA-256 of the field name. Not documented by Qlik, so it
     is only used to confirm a name, never to make one up."""
-    digest = hashlib.sha256(name.encode("utf-8")).digest()
-    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+    return qri_part_id(name)
 
 
 def _refs_of_field_sources(
