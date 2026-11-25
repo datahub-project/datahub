@@ -1013,6 +1013,7 @@ public class PoliciesConfig {
               VIEW_ENTITY_PAGE_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE));
 
