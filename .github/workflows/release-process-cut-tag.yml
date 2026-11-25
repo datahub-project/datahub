@@ -2,8 +2,8 @@ name: Release Process - Cut Tag
 
 run-name: "Cut tag on ${{ github.ref_name }} [${{ inputs.release_type }}]"
 
-# The version is inferred from the branch this workflow is run on (releases/v{version}),
-# so it is not an input. Run this workflow directly from the release branch.
+# The X.Y line is inferred from the branch this workflow is run on (releases/vX.Y.0),
+# and patch_version supplies N for vX.Y.N. Run this workflow directly from the release branch.
 on:
   workflow_dispatch:
     inputs:
@@ -14,6 +14,10 @@ on:
         options:
           - rc
           - final
+      patch_version:
+        description: "Patch number N for vX.Y.N. Use 0 for the first release of the line."
+        required: true
+        type: string
 
 permissions: {}
 
@@ -39,14 +43,17 @@ jobs:
           sparse-checkout-cone-mode: true
           fetch-depth: 1
 
-      # Infers the version from the branch name, and fails the run if it is not a
-      # releases/v{version} branch.
+      # Builds the version from the branch name and patch_version, and fails the run if
+      # the branch is not a releases/vX.Y.0 branch.
       - name: Parse version from ref
         id: parse
         env:
           REF_NAME: ${{ github.ref_name }}
+          PATCH_VERSION: ${{ inputs.patch_version }}
         run: |
-          python3 .github/scripts/release/validate_inputs.py parse-ref --ref "$REF_NAME"
+          python3 .github/scripts/release/validate_inputs.py parse-ref \
+            --ref "$REF_NAME" \
+            --patch-version "$PATCH_VERSION"
 
   cut_tag:
     name: Cut Tag

@@ -46,6 +46,8 @@ Grant the following permissions to the service account on all target projects.
 
 **Default GCP Role:** [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)
 
+The connector only reads. It never creates, updates or adds to a resource in Google Cloud. This role covers every permission below. Project auto-discovery also needs `resourcemanager.projects.get`, as described under Project Auto-Discovery Permissions.
+
 | Permission                                             | Description                                                                           |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | `aiplatform.models.list`                               | Allows a user to view and list all ML models in a project                             |

@@ -13,7 +13,8 @@ still imports the suite.
 With ``--size-batches MAX`` (CI's ``smoke_test_matrix`` job, via
 ``TEST_STRATEGY=plan ./smoke.sh``) the plugin also applies smart selection from
 ``SMOKE_SMART_TAGS`` and picks the fewest batches (at most MAX) whose predicted
-long pole meets ``TARGET_BATCH_WALL_SECONDS`` (see ``shard_pack.size_batches``).
+long pole meets ``TARGET_BATCH_WALL_SECONDS``, or
+``SMOKE_PLAN_TARGET_BATCH_SECONDS`` when set (see ``shard_pack.size_batches``).
 Each batch job then runs only its planned scopes (``SMOKE_BATCH_PLAN``).
 """
 
@@ -207,10 +208,11 @@ def size_selected(
         for item in items:
             smart_testing.apply_markers(item, tag_map)
         chosen = smart_testing.selected_items(items, tag_map, pr, changed_tests)
-    packed = size_batches(chosen, max_batches, xdist_workers)
+    target_wall = env_vars.get_plan_target_batch_seconds(TARGET_BATCH_WALL_SECONDS)
+    packed = size_batches(chosen, max_batches, xdist_workers, target_wall)
     return packed, {
         "max_batches": max_batches,
-        "target_wall": TARGET_BATCH_WALL_SECONDS,
+        "target_wall": target_wall,
         "slowest_scope_wall": slowest_scope_seconds(packed),
         "candidate_test_count": len(items),
         "candidate_scope_count": len({loadscope_key(item.nodeid) for item in items}),

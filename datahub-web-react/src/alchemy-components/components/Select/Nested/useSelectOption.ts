@@ -8,8 +8,7 @@ interface Props<OptionType extends NestedSelectOption> {
     children: OptionType[];
     selectableChildren: OptionType[];
     implicitlySelectChildren: boolean;
-    implicitlySelectAllDescendants?: boolean;
-    isAncestorSelected?: boolean;
+    isOptionImplicitlySelected?: (option: OptionType, selectedOptions: OptionType[]) => boolean;
     selectChildrenWithParent: boolean;
     areParentsSelectable: boolean;
     addOptions: (nodes: OptionType[]) => void;
@@ -26,8 +25,7 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
     selectableChildren,
     areParentsSelectable,
     implicitlySelectChildren,
-    implicitlySelectAllDescendants = false,
-    isAncestorSelected = false,
+    isOptionImplicitlySelected,
     selectChildrenWithParent,
     addOptions,
     removeOptions,
@@ -71,17 +69,13 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
     );
 
     const isImplicitlySelected = useMemo(() => {
-        if (!implicitlySelectChildren) return false;
-        if (implicitlySelectAllDescendants) return isAncestorSelected;
-        return !option.isParent && !!selectedOptions.find((o) => o.value === option.parentValue);
-    }, [
-        selectedOptions,
-        option.isParent,
-        option.parentValue,
-        implicitlySelectChildren,
-        implicitlySelectAllDescendants,
-        isAncestorSelected,
-    ]);
+        if (isOptionImplicitlySelected) return isOptionImplicitlySelected(option, selectedOptions);
+        return (
+            implicitlySelectChildren &&
+            !option.isParent &&
+            !!selectedOptions.find((o) => o.value === option.parentValue)
+        );
+    }, [selectedOptions, option, implicitlySelectChildren, isOptionImplicitlySelected]);
 
     const isParentMissingChildren = useMemo(() => !!option.isParent && !children.length, [children, option.isParent]);
 

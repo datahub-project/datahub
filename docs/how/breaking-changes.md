@@ -15,6 +15,22 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Pinned links removed from Settings > Home Page ([#21466](https://github.com/datahub-project/datahub/pull/21466))
+
+If the home page redesign is enabled (`SHOW_HOME_PAGE_REDESIGN=true`, the default), the
+**Settings > Home Page** page now manages only announcements. The **Pinned Link** option has been
+removed when creating an announcement, and existing pinned link posts no longer appear in the
+table. This option had not worked reliably for some time. With the redesign turned off, the page
+still offers pinned links.
+
+To pin links on the home page, add a **Quick Link** module (pinned link widget) to your home page
+instead. To show pinned links to everyone by default, an admin can edit the **Organization Default
+Home** and add Quick Link modules there. Users who haven't customized their home page will see
+them automatically.
+
+The upgrade reindexes existing posts in the background so the page can tell announcements from
+pinned links. Until that finishes, existing announcements may be missing from the table.
+
 ### Stricter permission checks when deleting from the UI or GraphQL
 
 Delete actions in the UI and GraphQL API now check the type of the item being deleted ([PR #21488](https://github.com/datahub-project/datahub/pull/21488)). For example, **Delete Tag** can only delete tags, and **Delete Domain** can only delete domains. Normal use of these actions does not change.
@@ -396,6 +412,14 @@ Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if th
 or isn't a Data Product, as it already did in the UI and GraphQL ([PR #21307](https://github.com/datahub-project/datahub/pull/21307)).
 Create parents before their children. Existing products are unaffected unless their parent is changed.
 To turn the check off, set `metadataChangeProposal.validation.dataProductProperties.parent.enabled` to `false`.
+
+### A Data Product's parent can no longer be one of its descendants
+
+Setting a Data Product's parent through OpenAPI, Rest.li, YAML or the Python SDK now fails if the new
+parent is one of the product's own descendants, as it already did in the UI and GraphQL. Previously
+the write succeeded and left a loop of Data Products with no root. Move the descendant elsewhere
+first, in the same request or an earlier one. Existing products are unaffected unless their parent is
+changed. The same setting as above turns this check off.
 
 <!--
 
