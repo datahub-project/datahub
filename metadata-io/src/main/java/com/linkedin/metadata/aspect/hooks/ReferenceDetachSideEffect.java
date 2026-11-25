@@ -18,9 +18,11 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.mxe.SystemMetadata;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -54,6 +56,7 @@ public abstract class ReferenceDetachSideEffect extends MCPSideEffect {
 
   public static final int DEFAULT_PAGE_SIZE = 500;
   public static final int MAX_PAGE_ATTEMPTS = 3;
+  private static final long INITIAL_RETRY_BACKOFF_MS = 100;
 
   private int pageSize = DEFAULT_PAGE_SIZE;
 
@@ -188,6 +191,7 @@ public abstract class ReferenceDetachSideEffect extends MCPSideEffect {
               if (stillReferences(persisted.get().get(entityUrn), deletedUrn)) {
                 MCPItem patch = buildPatchItem(entityUrn, deletedUrn, mclItem, retrieverContext);
                 if (patch != null) {
+                  cascade.attachToSystemMetadata(patch.getSystemMetadata());
                   patches.add(patch);
                   cascade.recordEntityProcessed();
                 }
@@ -229,9 +233,22 @@ public abstract class ReferenceDetachSideEffect extends MCPSideEffect {
         last = e;
         log.warn("{} failed (attempt {}/{})", what, attempt, MAX_PAGE_ATTEMPTS, e);
       }
+      if (attempt < MAX_PAGE_ATTEMPTS && !sleepBeforeRetry(attempt)) {
+        break;
+      }
     }
     log.error("Exhausted retries: {}", what, last);
     return Optional.empty();
+  }
+
+  private static boolean sleepBeforeRetry(int attempt) {
+    try {
+      Thread.sleep(INITIAL_RETRY_BACKOFF_MS << (2 * (attempt - 1)));
+      return true;
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return false;
+    }
   }
 
   @Nonnull
@@ -302,7 +319,10 @@ public abstract class ReferenceDetachSideEffect extends MCPSideEffect {
         .aspectSpec(entitySpec.getAspectSpec(referencingAspectName()))
         .patch(removalPatch(deletedUrn))
         .auditStamp(source.getAuditStamp())
-        .systemMetadata(source.getSystemMetadata())
+        .systemMetadata(
+            source.getSystemMetadata() == null
+                ? null
+                : GenericRecordUtils.copy(source.getSystemMetadata(), SystemMetadata.class))
         .build(retrieverContext.getAspectRetriever().getEntityRegistry());
   }
 

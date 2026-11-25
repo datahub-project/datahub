@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.ACCESS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ROLE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ROLE_KEY;
+import static com.linkedin.metadata.utils.metrics.CascadeOperationContext.SYSTEM_METADATA_CASCADE_ID_KEY;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -11,6 +12,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
@@ -180,6 +183,32 @@ public class RoleReferenceDetachSideEffectTest {
     assertEquals(output.get(0).getUrn(), DATASET_URN);
     assertEquals(output.get(0).getAspectName(), ACCESS_ASPECT_NAME);
     assertEquals(applied(output.get(0), stored), accessAspect(OTHER_ROLE_URN));
+  }
+
+  @Test
+  public void testPatchesCarryCascadeIdWithoutTaggingTheDeleteEvent() {
+    searchReturns(DATASET_URN, OTHER_DATASET_URN);
+    persistedAccess(
+        Map.of(DATASET_URN, accessAspect(ROLE_URN), OTHER_DATASET_URN, accessAspect(ROLE_URN)));
+    MCLItem roleDelete = roleKeyMcl(ChangeType.DELETE);
+
+    List<MCPItem> output = run(roleDelete);
+
+    assertEquals(output.size(), 2);
+    Set<String> cascadeIds =
+        output.stream()
+            .map(
+                item ->
+                    item.getSystemMetadata().getProperties().get(SYSTEM_METADATA_CASCADE_ID_KEY))
+            .collect(Collectors.toSet());
+    assertEquals(cascadeIds.size(), 1);
+    assertNotNull(cascadeIds.iterator().next());
+    assertFalse(
+        roleDelete.getSystemMetadata().hasProperties()
+            && roleDelete
+                .getSystemMetadata()
+                .getProperties()
+                .containsKey(SYSTEM_METADATA_CASCADE_ID_KEY));
   }
 
   @Test
