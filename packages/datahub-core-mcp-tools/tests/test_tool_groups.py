@@ -85,14 +85,33 @@ READ_TOOLS = {
     "grep_documents",
     "grep_entities",
 }
+WRITE_TOOLS = {
+    "create_tag",
+    "add_tags",
+    "remove_tags",
+    "add_terms",
+    "remove_terms",
+    "create_glossary_term",
+    "add_related_terms",
+    "create_domain",
+    "set_domains",
+    "remove_domains",
+    "add_owners",
+    "remove_owners",
+    "update_description",
+    "add_structured_properties",
+    "remove_structured_properties",
+    "save_document",
+    "update_document",
+}
 
 
 @pytest.mark.parametrize(
     ("groups", "expected"),
     [
-        (None, {"get_me", *READ_TOOLS}),
+        (None, {"get_me", *READ_TOOLS, *WRITE_TOOLS}),
         ([], {"get_me"}),
-        (["write_metadata"], {"get_me"}),
+        (["write_metadata"], {"get_me", *WRITE_TOOLS}),
         (["read_metadata"], {"get_me", *READ_TOOLS}),
     ],
 )

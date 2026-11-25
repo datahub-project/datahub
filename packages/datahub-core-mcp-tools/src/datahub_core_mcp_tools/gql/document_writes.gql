@@ -1,0 +1,47 @@
+# Reads and writes of the document tools. All exist on GMS 1.4.0, the tools' minimum.
+
+# Who is saving: the owner of a new document and the actor of its audit stamps.
+query getDocumentAuthor {
+  me {
+    corpUser {
+      urn
+      username
+      info {
+        displayName
+        fullName
+        firstName
+        lastName
+      }
+      editableProperties {
+        displayName
+      }
+    }
+  }
+}
+
+# GMS checks here that the new parent exists and is neither the document nor
+# one of its descendants.
+mutation moveDocument($input: MoveDocumentInput!) {
+  moveDocument(input: $input)
+}
+
+# The body goes through GMS's own content write, as the UI's does: it stamps
+# documentInfo.lastModified and, from 1.9.0, rewrites the semanticText aspect
+# (the embedding pipeline's preferred source) to follow the new body.
+mutation updateDocumentContents($input: UpdateDocumentContentsInput!) {
+  updateDocumentContents(input: $input)
+}
+
+# update_properties changes one field at a time through these and
+# updateDocumentContents (with only a title, which leaves the body and
+# semanticText as stored), so the body, parent and links are never written back
+# as they were read.
+mutation updateDocumentRelatedEntities(
+  $input: UpdateDocumentRelatedEntitiesInput!
+) {
+  updateDocumentRelatedEntities(input: $input)
+}
+
+mutation updateDocumentStatus($input: UpdateDocumentStatusInput!) {
+  updateDocumentStatus(input: $input)
+}

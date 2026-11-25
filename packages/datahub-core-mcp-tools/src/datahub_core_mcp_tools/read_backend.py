@@ -117,6 +117,50 @@ class ReadBackend(Protocol):
         (``getGlossaryTermsForCompare`` in ``glossary_versioning.gql``)."""
         ...
 
+    def tags_named(self, name: str, count: int) -> list[JsonObject]:
+        """Up to ``count`` tags a search for ``name`` finds, each with its urn and
+        ``properties.name`` (``findTagsByName`` in ``tags.gql``). Search matches
+        loosely and lags writes: the caller compares names, and a tag created
+        moments ago may be missing."""
+        ...
+
+    def domains_named(
+        self, name: str, parent_domain: str | None, count: int
+    ) -> list[JsonObject]:
+        """Up to ``count`` domains directly under ``parent_domain`` (the top level
+        when None) that a search for ``name`` finds, each with its urn and
+        ``properties.name`` (``findDomainsByName`` in ``domains.gql``). Search
+        matches loosely: the caller compares names."""
+        ...
+
+    def ownership_types_named(self, name: str, count: int) -> list[JsonObject]:
+        """Up to ``count`` ownership types a search for ``name`` finds, each with
+        its urn and ``info.name`` (``findOwnershipTypesByName`` in
+        ``owners.gql``). Search matches loosely: the caller compares names."""
+        ...
+
+    def description_sources(self, urn: str) -> JsonObject | None:
+        """The entity's ``type`` and every description it has, edited in DataHub
+        and from the source system, for it and its columns
+        (``getDescriptionSources`` in ``descriptions.gql``); None when GMS
+        returns no entity.
+
+        A dataset with siblings also carries their documentation-bearing parts
+        under ``siblingsSearch`` for sibling_merge, as ``entity`` does. Unlike
+        there, a failed sibling read raises, as does one that leaves out a
+        sibling the dataset's siblings aspect names: the caller builds a write
+        on the merged text.
+        """
+        ...
+
+    def structured_property(self, urn: str) -> JsonObject | None:
+        """The entity at ``urn`` with its ``type`` and, for a structured
+        property, ``exists`` and its ``definition`` (qualified name, cardinality,
+        value type;
+        ``getStructuredPropertyDefinition`` in ``structured_properties.gql``);
+        None when GMS returns no entity."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -157,28 +201,34 @@ class GraphQLReadBackend:
             )["entity"],
         )
         # Read here rather than in the tools, so every backend that wraps this one
-        # returns siblings too. GetEntity selects `siblings` only to learn whether
-        # there are any, so only datasets with siblings pay for this second query.
-        if (
-            entity is not None
-            and entity.get(SIBLINGS_KEY) is not None
-            and sibling_merge_enabled()
-        ):
+        # returns siblings too.
+        if entity is not None and self._has_siblings(entity):
             try:
-                siblings = graphql_helpers.execute_graphql(
-                    self.graph,
-                    query=graphql_helpers.load_gql_document("entity_details.gql"),
-                    variables={"urn": urn},
-                    operation_name="GetEntitySiblings",
-                )["entity"]
+                siblings = self._sibling_search(urn)
             except Exception as e:
                 # The entity's own metadata still answers the call.
                 logger.warning(
                     f"Sibling read failed for {urn}; returning its own metadata: {e}"
                 )
             else:
-                entity[SIBLINGS_SEARCH_KEY] = (siblings or {}).get(SIBLINGS_SEARCH_KEY)
+                entity[SIBLINGS_SEARCH_KEY] = siblings
         return entity
+
+    @staticmethod
+    def _has_siblings(entity: JsonObject) -> bool:
+        # GetEntity and getDescriptionSources select `siblings` only to learn
+        # whether there are any, so only datasets with siblings pay for the
+        # sibling query.
+        return entity.get(SIBLINGS_KEY) is not None and sibling_merge_enabled()
+
+    def _sibling_search(self, urn: str) -> JsonValue:
+        siblings = graphql_helpers.execute_graphql(
+            self.graph,
+            query=graphql_helpers.load_gql_document("entity_details.gql"),
+            variables={"urn": urn},
+            operation_name="GetEntitySiblings",
+        )["entity"]
+        return cast(JsonValue, (siblings or {}).get(SIBLINGS_SEARCH_KEY))
 
     def document_contents(self, urns: list[str]) -> list[JsonObject | None]:
         entities = cast(
@@ -335,6 +385,108 @@ class GraphQLReadBackend:
             ).get("entities")
             or [],
         )
+
+    def tags_named(self, name: str, count: int) -> list[JsonObject]:
+        results = cast(
+            list[JsonObject],
+            (
+                graphql_helpers.execute_graphql(
+                    self.graph,
+                    query=graphql_helpers.load_gql_document("tags.gql"),
+                    variables={"query": name, "count": count},
+                    operation_name="findTagsByName",
+                )["search"]
+                or {}
+            ).get("searchResults")
+            or [],
+        )
+        return [
+            cast(JsonObject, r["entity"])
+            for r in results
+            if isinstance(r, dict) and isinstance(r.get("entity"), dict)
+        ]
+
+    def domains_named(
+        self, name: str, parent_domain: str | None, count: int
+    ) -> list[JsonObject]:
+        result = graphql_helpers.execute_graphql(
+            self.graph,
+            query=graphql_helpers.load_gql_document("domains.gql"),
+            variables={"query": name, "parentDomain": parent_domain, "count": count},
+            operation_name="findDomainsByName",
+        )
+        domains = (result.get("listDomains") or {}).get("domains") or []
+        return [cast(JsonObject, d) for d in domains if isinstance(d, dict)]
+
+    def ownership_types_named(self, name: str, count: int) -> list[JsonObject]:
+        result = graphql_helpers.execute_graphql(
+            self.graph,
+            query=graphql_helpers.load_gql_document("owners.gql"),
+            variables={"query": name, "count": count},
+            operation_name="findOwnershipTypesByName",
+        )
+        found = (result.get("listOwnershipTypes") or {}).get("ownershipTypes") or []
+        return [cast(JsonObject, t) for t in found if isinstance(t, dict)]
+
+    def description_sources(self, urn: str) -> JsonObject | None:
+        entity = cast(
+            JsonObject | None,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("descriptions.gql"),
+                variables={"urn": urn},
+                operation_name="getDescriptionSources",
+            ).get("entity"),
+        )
+        if entity is not None and self._has_siblings(entity):
+            siblings = self._sibling_search(urn)
+            missing = _live_siblings(entity, urn) - _found_siblings(siblings)
+            if missing:
+                # The search answered without them (an index that lags the
+                # siblings aspect, or a null result): merging without their
+                # text would build the write on less than DataHub shows.
+                raise RuntimeError(
+                    f"the sibling read did not return {', '.join(sorted(missing))}"
+                )
+            entity[SIBLINGS_SEARCH_KEY] = siblings
+        return entity
+
+    def structured_property(self, urn: str) -> JsonObject | None:
+        return cast(
+            JsonObject | None,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("structured_properties.gql"),
+                variables={"urn": urn},
+                operation_name="getStructuredPropertyDefinition",
+            ).get("entity"),
+        )
+
+
+def _live_siblings(entity: JsonObject, urn: str) -> set[str]:
+    """The siblings the entity's siblings aspect names, less deleted ones."""
+    aspect = entity.get(SIBLINGS_KEY)
+    listed = aspect.get(SIBLINGS_KEY) if isinstance(aspect, dict) else None
+    live: set[str] = set()
+    for sibling in listed if isinstance(listed, list) else []:
+        if not isinstance(sibling, dict) or not isinstance(sibling.get("urn"), str):
+            continue
+        status = sibling.get("status")
+        if isinstance(status, dict) and status.get("removed"):
+            continue
+        if sibling["urn"] != urn:
+            live.add(cast(str, sibling["urn"]))
+    return live
+
+
+def _found_siblings(search: JsonValue) -> set[str]:
+    results = search.get("searchResults") if isinstance(search, dict) else None
+    found: set[str] = set()
+    for result in results if isinstance(results, list) else []:
+        entity = result.get("entity") if isinstance(result, dict) else None
+        if isinstance(entity, dict) and isinstance(entity.get("urn"), str):
+            found.add(cast(str, entity["urn"]))
+    return found
 
 
 def get_read_backend() -> ReadBackend:

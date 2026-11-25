@@ -1,0 +1,33 @@
+# Tag writes and the name lookup create_tag makes. All exist on GMS 1.7.0.
+
+mutation batchAddTags($input: BatchAddTagsInput!) {
+  batchAddTags(input: $input)
+}
+
+mutation batchRemoveTags($input: BatchRemoveTagsInput!) {
+  batchRemoveTags(input: $input)
+}
+
+mutation createTag($input: CreateTagInput!) {
+  createTag(input: $input)
+}
+
+mutation setTagColor($urn: String!, $colorHex: String!) {
+  setTagColor(urn: $urn, colorHex: $colorHex)
+}
+
+# Search is fuzzy: the caller compares the names it returns.
+query findTagsByName($query: String!, $count: Int!) {
+  search(input: { type: TAG, query: $query, start: 0, count: $count }) {
+    searchResults {
+      entity {
+        urn
+        ... on Tag {
+          properties {
+            name
+          }
+        }
+      }
+    }
+  }
+}

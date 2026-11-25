@@ -1,4 +1,5 @@
-"""get_glossary_term_versions and compare_glossary_term_versions.
+"""create_glossary_term_version, get_glossary_term_versions and
+compare_glossary_term_versions.
 
 Most tests serve GraphQL through the caller's graph, so they exercise the default
 GraphQLReadBackend as well as the tools.
@@ -11,6 +12,8 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+import requests
+from datahub.configuration.common import GraphError
 from datahub.metadata.schema_classes import VersionSetKeyClass
 from fastmcp import Client, FastMCP
 from fastmcp.exceptions import ToolError
@@ -25,6 +28,7 @@ from datahub_core_mcp_tools.read_backend import (
 from datahub_core_mcp_tools.tool_context import ToolContext
 from datahub_core_mcp_tools.tools.glossary_versioning import (
     compare_glossary_term_versions,
+    create_glossary_term_version,
     get_glossary_term_versions,
 )
 from datahub_core_mcp_tools.version_requirements import get_version_requirement
@@ -32,7 +36,8 @@ from datahub_core_mcp_tools.version_requirements import get_version_requirement
 VERSION_SET_URN = "urn:li:versionSet:(kpi-revenue,glossaryTerm)"
 TERM_A_URN = "urn:li:glossaryTerm:Revenue"
 TERM_B_URN = "urn:li:glossaryTerm:Revenue_v2"
-VERSIONING_TOOLS = {"get_glossary_term_versions", "compare_glossary_term_versions"}
+READ_TOOLS = {"get_glossary_term_versions", "compare_glossary_term_versions"}
+VERSIONING_TOOLS = {*READ_TOOLS, "create_glossary_term_version"}
 
 
 @pytest.fixture
@@ -302,12 +307,139 @@ def test_compare_reads_through_a_bound_read_backend() -> None:
 
 
 # ---------------------------------------------------------------------------
+# create_glossary_term_version
+# ---------------------------------------------------------------------------
+
+CREATED = {"createGlossaryTermVersion": {"urn": VERSION_SET_URN}}
+
+
+def _write_input(graph: MagicMock) -> dict:
+    call = graph.execute_graphql.call_args
+    assert call.kwargs["operation_name"] == "createGlossaryTermVersion"
+    return call.kwargs["variables"]["input"]
+
+
+def test_create_a_version_in_a_version_set(graph: MagicMock) -> None:
+    graph.execute_graphql.return_value = CREATED
+
+    result = create_glossary_term_version(
+        name="Revenue v3",
+        description="Net of refunds.",
+        version="v3",
+        version_set_urn=VERSION_SET_URN,
+        comment="Refunds policy",
+        id="Revenue_v3",
+    )
+
+    assert result == {
+        "success": True,
+        "version_set_urn": VERSION_SET_URN,
+        "term_urn": "urn:li:glossaryTerm:Revenue_v3",
+    }
+    assert _write_input(graph) == {
+        "id": "Revenue_v3",
+        "name": "Revenue v3",
+        "description": "Net of refunds.",
+        "version": "v3",
+        "versionSet": VERSION_SET_URN,
+        "comment": "Refunds policy",
+    }
+    # The version set is checked by its own key aspect, not DataHubGraph.exists.
+    graph.exists.assert_not_called()
+
+
+def test_create_a_version_after_a_term_names_the_new_term(graph: MagicMock) -> None:
+    graph.execute_graphql.return_value = CREATED
+
+    result = create_glossary_term_version(
+        name="Revenue v2", description="d", version="v2", previous_term_urn=TERM_A_URN
+    )
+
+    sent = _write_input(graph)
+    assert sent["previousTermUrn"] == TERM_A_URN
+    # An id is always sent, so the new term's URN is known.
+    assert result["term_urn"] == f"urn:li:glossaryTerm:{sent['id']}"
+    graph.exists.assert_called_once_with(TERM_A_URN)
+
+
+@pytest.mark.parametrize(
+    ("arguments", "error"),
+    [
+        (
+            {"version_set_urn": VERSION_SET_URN, "previous_term_urn": TERM_A_URN},
+            "not both",
+        ),
+        ({"previous_term_urn": "urn:li:tag:Revenue"}, "previous_term_urn"),
+        ({"version_set_urn": TERM_A_URN}, "VersionSet URN"),
+        ({"version": " "}, "`version` is required"),
+        ({"id": "a,b"}, "`id` may not contain"),
+    ],
+)
+def test_invalid_arguments_write_nothing(
+    graph: MagicMock, arguments: dict, error: str
+) -> None:
+    call = {"name": "Revenue v2", "description": "d", "version": "v2", **arguments}
+
+    with pytest.raises(ToolError, match=error):
+        create_glossary_term_version(**call)
+
+    graph.execute_graphql.assert_not_called()
+
+
+def test_a_missing_previous_term_is_not_found(graph: MagicMock) -> None:
+    graph.exists.return_value = False
+
+    with pytest.raises(ToolError, match="not found"):
+        create_glossary_term_version(
+            name="Revenue v2",
+            description="d",
+            version="v2",
+            previous_term_urn=TERM_A_URN,
+        )
+
+    graph.execute_graphql.assert_not_called()
+
+
+def test_a_refused_version_reports_gms_reason(graph: MagicMock) -> None:
+    graph.execute_graphql.side_effect = GraphError(
+        [{"message": "The version set already holds an unpublished version."}]
+    )
+
+    with pytest.raises(ToolError, match="unpublished version"):
+        create_glossary_term_version(
+            name="Revenue v2",
+            description="d",
+            version="v2",
+            version_set_urn=VERSION_SET_URN,
+        )
+
+    assert graph.execute_graphql.call_count == 1
+
+
+def test_a_version_without_a_reply_names_the_term_to_check(graph: MagicMock) -> None:
+    graph.execute_graphql.side_effect = requests.ConnectionError("connection reset")
+
+    with pytest.raises(ToolError) as raised:
+        create_glossary_term_version(
+            name="Revenue v2", description="d", version="v2", id="Revenue_v2"
+        )
+
+    assert "may or may not have been applied" in str(raised.value)
+    assert "urn:li:glossaryTerm:Revenue_v2" in str(raised.value)
+
+
+# ---------------------------------------------------------------------------
 # Version gate and registration
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
-    "tool", [get_glossary_term_versions, compare_glossary_term_versions]
+    "tool",
+    [
+        get_glossary_term_versions,
+        compare_glossary_term_versions,
+        create_glossary_term_version,
+    ],
 )
 def test_needs_a_gms_with_glossary_term_versioning(tool: Callable[..., dict]) -> None:
     requirement = get_version_requirement(tool)
@@ -331,4 +463,10 @@ async def test_registration_is_gated_by_env_flag(value: Optional[str]) -> None:
     assert registered == (VERSIONING_TOOLS if value == "true" else set())
     for name in registered:
         annotations = tools[name].annotations
-        assert annotations is not None and annotations.read_only_hint is True
+        assert annotations is not None
+        assert annotations.read_only_hint is (name in READ_TOOLS)
+        assert annotations.destructive_hint is False
+    if value == "true":
+        assert (
+            "mutation" in tools["create_glossary_term_version"].meta["fastmcp"]["tags"]
+        )

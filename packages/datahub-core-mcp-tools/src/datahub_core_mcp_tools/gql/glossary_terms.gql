@@ -1,0 +1,17 @@
+# Glossary term writes. All exist on GMS 1.7.0.
+
+mutation batchAddTerms($input: BatchAddTermsInput!) {
+  batchAddTerms(input: $input)
+}
+
+mutation batchRemoveTerms($input: BatchRemoveTermsInput!) {
+  batchRemoveTerms(input: $input)
+}
+
+mutation createGlossaryTerm($input: CreateGlossaryEntityInput!) {
+  createGlossaryTerm(input: $input)
+}
+
+mutation addRelatedTerms($input: RelatedTermsInput!) {
+  addRelatedTerms(input: $input)
+}

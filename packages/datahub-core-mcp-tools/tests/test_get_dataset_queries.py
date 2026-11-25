@@ -79,6 +79,23 @@ class FakeBackend:
     def glossary_terms(self, urns: list[str]) -> list[JsonObject | None]:
         return []
 
+    def tags_named(self, name: str, count: int) -> list[JsonObject]:
+        return []
+
+    def structured_property(self, urn: str) -> dict | None:
+        return None
+
+    def description_sources(self, urn: str) -> dict | None:
+        return None
+
+    def ownership_types_named(self, name: str, count: int) -> list[JsonObject]:
+        return []
+
+    def domains_named(
+        self, name: str, parent_domain: str | None, count: int
+    ) -> list[JsonObject]:
+        return []
+
     def list_queries(self, variables: JsonObject) -> JsonObject:
         self.sent.append(dict(variables))
         return cast(JsonObject, copy.deepcopy(self.page))

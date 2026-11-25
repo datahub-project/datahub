@@ -26,7 +26,9 @@ from .tool_context import BackgroundExecution
 from .tools.aspect_history import get_aspect_history
 from .tools.dataset_queries import get_dataset_queries
 from .tools.dataset_usage import get_dataset_usage_history
+from .tools.descriptions import update_description
 from .tools.documents import grep_documents, search_documents
+from .tools.domains import create_domain, remove_domains, set_domains
 from .tools.entities import (
     SchemaFieldsTool,
     get_entities,
@@ -34,14 +36,29 @@ from .tools.entities import (
     list_schema_fields,
 )
 from .tools.get_me import get_me
+from .tools.glossary import (
+    add_related_terms,
+    add_related_terms_cloud,
+    create_glossary_term,
+)
 from .tools.glossary_versioning import (
     compare_glossary_term_versions,
+    create_glossary_term_version,
     get_glossary_term_versions,
     is_entity_versioning_enabled,
 )
 from .tools.grep_entities import grep_entities
 from .tools.lineage import get_lineage, get_lineage_paths_between
+from .tools.owners import add_owners, remove_owners
+from .tools.save_document import is_save_document_enabled, save_document
 from .tools.search import search, search_description
+from .tools.structured_properties import (
+    add_structured_properties,
+    remove_structured_properties,
+)
+from .tools.tags import add_tags, create_tag, remove_tags
+from .tools.terms import add_glossary_terms, remove_glossary_terms
+from .tools.update_document import update_document
 from .version_requirements import tool_annotations
 
 _P = ParamSpec("_P")
@@ -137,7 +154,7 @@ def register_tool(
 
     The function runs in a worker thread (see ``async_background``), is tagged
     with its tool type, and carries MCP annotations from its @read_only,
-    @destructive and @open_world markers. A ``slow`` tool also reports progress
+    @destructive, @idempotent and @open_world markers. A ``slow`` tool also reports progress
     while it runs, to clients that ask for it.
     """
     mcp_instance.tool(
@@ -168,11 +185,21 @@ def register_tools(
 
     Returns:
         The names of the tools registered.
+
+    TOOLS_IS_MUTATION_ENABLED=false registers no tool that changes metadata.
+    Writes are on by default: each one still runs with the caller's own
+    privileges, so it can do only what that caller could do in the UI.
     """
     # tool_groups builds on ToolType from this module.
     from .tool_groups import SYSTEM_TOOL_IDS, groups_for_tags
 
-    logger.info(f"Registering DataHub MCP tools (is_oss={is_oss}, groups={groups})")
+    mutations_enabled = get_boolean_env_variable(
+        "TOOLS_IS_MUTATION_ENABLED", default=True
+    )
+    logger.info(
+        f"Registering DataHub MCP tools (is_oss={is_oss}, groups={groups}, "
+        f"mutations={'on' if mutations_enabled else 'off'})"
+    )
     registered: list[str] = []
 
     def add(
@@ -183,6 +210,8 @@ def register_tools(
         description: Optional[str] = None,
         slow: bool = False,
     ) -> None:
+        if tool_type is ToolType.MUTATION and not mutations_enabled:
+            return
         if groups is not None and name not in SYSTEM_TOOL_IDS:
             if not set(groups_for_tags({tool_type.value})) & set(groups):
                 return
@@ -238,7 +267,45 @@ def register_tools(
     add("grep_documents", grep_documents, ToolType.SEARCH, slow=True)
     if get_boolean_env_variable("GREP_ENTITIES_ENABLED", default=True):
         add("grep_entities", grep_entities, ToolType.SEARCH, slow=True)
+    add("create_tag", create_tag, ToolType.MUTATION)
+    add("add_tags", add_tags, ToolType.MUTATION)
+    add("remove_tags", remove_tags, ToolType.MUTATION)
+    add("add_terms", add_glossary_terms, ToolType.MUTATION)
+    add("remove_terms", remove_glossary_terms, ToolType.MUTATION)
+    add("create_glossary_term", create_glossary_term, ToolType.MUTATION)
+    # DataHub Cloud relates terms in more ways than Core's isA / hasA.
+    add(
+        "add_related_terms",
+        add_related_terms if is_oss else add_related_terms_cloud,
+        ToolType.MUTATION,
+    )
+    add("create_domain", create_domain, ToolType.MUTATION)
+    add("set_domains", set_domains, ToolType.MUTATION)
+    add("remove_domains", remove_domains, ToolType.MUTATION)
+    add("add_owners", add_owners, ToolType.MUTATION)
+    add("remove_owners", remove_owners, ToolType.MUTATION)
+    add("update_description", update_description, ToolType.MUTATION)
+    add("add_structured_properties", add_structured_properties, ToolType.MUTATION)
+    add(
+        "remove_structured_properties",
+        remove_structured_properties,
+        ToolType.MUTATION,
+    )
+    if is_save_document_enabled():
+        # They ship together: an agent that can create a document but not edit
+        # it is not a configuration anyone needs.
+        add("save_document", save_document, ToolType.MUTATION)
+        add("update_document", update_document, ToolType.MUTATION)
+    else:
+        logger.info(
+            "Document tools not registered (SAVE_DOCUMENT_TOOL_ENABLED is false)"
+        )
     if is_entity_versioning_enabled():
+        add(
+            "create_glossary_term_version",
+            create_glossary_term_version,
+            ToolType.MUTATION,
+        )
         add("get_glossary_term_versions", get_glossary_term_versions, ToolType.SEARCH)
         add(
             "compare_glossary_term_versions",
