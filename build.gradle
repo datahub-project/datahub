@@ -854,6 +854,12 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.useVersion(rootProject.ext.openTelemetryVersion)
         details.because("OpenTelemetry aligned to ${rootProject.ext.openTelemetryVersion} for CVE-2026-45292")
       }
+      // opentelemetry-api-incubator ships on the matching -alpha line. The SDK calls into it, so it must
+      // move with openTelemetryVersion or the SDK hits classes removed from opentelemetry-api.
+      if (details.requested.group == 'io.opentelemetry' && details.requested.name == 'opentelemetry-api-incubator') {
+        details.useVersion("${rootProject.ext.openTelemetryVersion}-alpha")
+        details.because("opentelemetry-api-incubator aligned to ${rootProject.ext.openTelemetryVersion}-alpha to match the SDK")
+      }
       if (details.requested.group == 'org.apache.parquet') {
         details.useVersion(rootProject.ext.parquetVersion)
         details.because("Parquet stack aligned to ${rootProject.ext.parquetVersion}")
