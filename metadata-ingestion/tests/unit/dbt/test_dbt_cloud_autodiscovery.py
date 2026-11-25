@@ -954,3 +954,366 @@ class TestDiscoveryMetrics:
         assert metric.unique_id == "metric.paying"
         assert metric.filter == "{{ x }} = true"
         assert metric.expr == "hubspot_company_id"
+
+
+def _cloud_source(
+    environment_id: Optional[int] = None,
+) -> DBTCloudSource:
+    config = DBTCloudConfig(
+        access_url="https://test.getdbt.com",
+        token="dummy_token",
+        account_id=123456,
+        project_id=1234567,
+        job_id=1,
+        environment_id=environment_id,
+        target_platform="snowflake",
+    )
+    return DBTCloudSource(
+        config, PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+    )
+
+
+def _definition_page(
+    kind: str,
+    nodes: List[Dict[str, Any]],
+    end_cursor: Optional[str] = None,
+    has_next_page: bool = False,
+) -> Dict[str, Any]:
+    """A Discovery API page of environment.definition.<kind>."""
+    return {
+        "environment": {
+            "definition": {
+                kind: {
+                    "edges": [{"node": node} for node in nodes],
+                    "pageInfo": {
+                        "hasNextPage": has_next_page,
+                        "endCursor": end_cursor,
+                    },
+                }
+            }
+        }
+    }
+
+
+def _warning_titles(source: DBTCloudSource) -> List[Optional[str]]:
+    return [warning.title for warning in source.report.warnings]
+
+
+class TestDiscoverySemanticModelFetch:
+    """Semantic models are read from environment.definition.semanticModels."""
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_pages_are_followed_and_nodes_normalized(
+        self, mock_graphql: mock.Mock
+    ) -> None:
+        mock_graphql.side_effect = [
+            _definition_page(
+                "semanticModels",
+                [
+                    {
+                        "uniqueId": "semantic_model.proj.orders",
+                        "name": "orders",
+                        "description": None,
+                        "parents": [
+                            {"uniqueId": "model.proj.fct_orders"},
+                            {"uniqueId": ""},
+                            "not-a-dict",
+                        ],
+                    }
+                ],
+                end_cursor="cursor-1",
+                has_next_page=True,
+            ),
+            _definition_page(
+                "semanticModels",
+                [
+                    # No uniqueId: one is built from the package and name.
+                    {"name": "customers", "packageName": "proj"},
+                    # No name: skipped.
+                    {"uniqueId": "semantic_model.proj.nameless"},
+                ],
+            ),
+        ]
+
+        nodes = DBTCloudSource._fetch_discovery_semantic_models(
+            metadata_endpoint="https://metadata.test", token="t", environment_id=7
+        )
+
+        assert [node["uniqueId"] for node in nodes] == [
+            "semantic_model.proj.orders",
+            "semantic_model.proj.customers",
+        ]
+        orders, customers = nodes
+        assert orders["resourceType"] == "semantic_model"
+        assert orders["description"] == ""
+        assert orders["dependsOn"] == ["model.proj.fct_orders"]
+        assert customers["meta"] == {} and customers["tags"] == []
+        assert mock_graphql.call_count == 2
+        second_call_variables = mock_graphql.call_args_list[1].kwargs["variables"]
+        assert second_call_variables["after"] == "cursor-1"
+        assert second_call_variables["environmentId"] == 7
+
+    def test_a_node_without_a_package_gets_an_unknown_package(self) -> None:
+        normalized = DBTCloudSource._normalize_semantic_model_node({"name": "orders"})
+
+        assert normalized is not None
+        assert normalized["uniqueId"] == "semantic_model.unknown.orders"
+        assert normalized["dependsOn"] == []
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_an_unexpected_response_shape_raises(self, mock_graphql: mock.Mock) -> None:
+        mock_graphql.return_value = {"environment": None}
+
+        with pytest.raises(ValueError, match="environment.definition.semanticModels"):
+            DBTCloudSource._fetch_discovery_semantic_models(
+                metadata_endpoint="https://metadata.test", token="t", environment_id=7
+            )
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_a_next_page_without_a_cursor_raises(self, mock_graphql: mock.Mock) -> None:
+        mock_graphql.return_value = _definition_page(
+            "semanticModels", [], end_cursor=None, has_next_page=True
+        )
+
+        with pytest.raises(ValueError, match="no endCursor"):
+            DBTCloudSource._fetch_discovery_semantic_models(
+                metadata_endpoint="https://metadata.test", token="t", environment_id=7
+            )
+
+
+class TestSemanticModelEnvironmentIds:
+    """Which environments the semantic models and metrics are read from."""
+
+    def test_the_configured_environment_wins(self) -> None:
+        source = _cloud_source(environment_id=42)
+
+        assert source._semantic_model_environment_ids([{"environmentId": 1}]) == [42]
+
+    def test_node_environment_ids_are_deduplicated_in_order(self) -> None:
+        source = _cloud_source()
+
+        environment_ids = source._semantic_model_environment_ids(
+            [
+                {"environmentId": "12"},
+                {"environmentId": 5},
+                {"environmentId": 12},
+                {"environmentId": "not-a-number"},
+                {},
+            ]
+        )
+
+        assert environment_ids == [12, 5]
+
+    def test_auto_discovery_environment_is_the_fallback(self) -> None:
+        source = _cloud_source()
+        source._auto_discovery_environment_id = 99
+
+        assert source._semantic_model_environment_ids([{}]) == [99]
+
+    def test_no_environment_gives_no_ids(self) -> None:
+        assert _cloud_source()._semantic_model_environment_ids([{}]) == []
+
+
+class TestFetchSemanticModelNodes:
+    """Semantic models from every environment, once each."""
+
+    def test_no_environment_warns_and_fetches_nothing(self) -> None:
+        source = _cloud_source()
+
+        with mock.patch.object(
+            DBTCloudSource, "_fetch_discovery_semantic_models"
+        ) as mock_fetch:
+            assert source._fetch_semantic_model_nodes([{}]) == []
+
+        mock_fetch.assert_not_called()
+        assert _warning_titles(source) == ["dbt Cloud semantic models were not fetched"]
+
+    def test_nodes_from_several_environments_are_deduplicated(self) -> None:
+        source = _cloud_source()
+        orders = {"uniqueId": "semantic_model.proj.orders", "name": "orders"}
+        customers = {"uniqueId": "semantic_model.proj.customers", "name": "customers"}
+
+        with mock.patch.object(
+            DBTCloudSource,
+            "_fetch_discovery_semantic_models",
+            side_effect=[[orders], [orders, customers]],
+        ) as mock_fetch:
+            nodes = source._fetch_semantic_model_nodes(
+                [{"environmentId": 1}, {"environmentId": 2}]
+            )
+
+        assert nodes == [orders, customers]
+        assert [c.kwargs["environment_id"] for c in mock_fetch.call_args_list] == [
+            1,
+            2,
+        ]
+
+    def test_a_failing_environment_warns_and_the_others_still_load(self) -> None:
+        source = _cloud_source()
+        orders = {"uniqueId": "semantic_model.proj.orders", "name": "orders"}
+
+        with mock.patch.object(
+            DBTCloudSource,
+            "_fetch_discovery_semantic_models",
+            side_effect=[ValueError("boom"), [orders]],
+        ):
+            nodes = source._fetch_semantic_model_nodes(
+                [{"environmentId": 1}, {"environmentId": 2}]
+            )
+
+        assert nodes == [orders]
+        assert _warning_titles(source) == ["Failed to fetch dbt Cloud semantic models"]
+
+
+class TestDiscoveryMetricFetch:
+    """Metrics are read from environment.definition.metrics."""
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_pages_are_followed_and_nameless_nodes_dropped(
+        self, mock_graphql: mock.Mock
+    ) -> None:
+        mock_graphql.side_effect = [
+            _definition_page(
+                "metrics",
+                [{"name": "revenue"}, {"name": ""}],
+                end_cursor="cursor-1",
+                has_next_page=True,
+            ),
+            _definition_page("metrics", [{"name": "orders"}]),
+        ]
+
+        nodes = DBTCloudSource._fetch_discovery_metrics(
+            metadata_endpoint="https://metadata.test", token="t", environment_id=7
+        )
+
+        assert [node["name"] for node in nodes] == ["revenue", "orders"]
+        assert mock_graphql.call_args_list[1].kwargs["variables"]["after"] == (
+            "cursor-1"
+        )
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_an_unexpected_response_shape_raises(self, mock_graphql: mock.Mock) -> None:
+        mock_graphql.return_value = {"environment": {"definition": {}}}
+
+        with pytest.raises(ValueError, match="environment.definition.metrics"):
+            DBTCloudSource._fetch_discovery_metrics(
+                metadata_endpoint="https://metadata.test", token="t", environment_id=7
+            )
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_a_next_page_without_a_cursor_raises(self, mock_graphql: mock.Mock) -> None:
+        mock_graphql.return_value = _definition_page(
+            "metrics", [{"name": "revenue"}], end_cursor=None, has_next_page=True
+        )
+
+        with pytest.raises(ValueError, match="no endCursor"):
+            DBTCloudSource._fetch_discovery_metrics(
+                metadata_endpoint="https://metadata.test", token="t", environment_id=7
+            )
+
+
+class TestFetchMetricDefinitions:
+    """Metrics from every environment, linked to their semantic models and metrics."""
+
+    def test_no_environment_gives_no_metrics(self) -> None:
+        source = _cloud_source()
+
+        with mock.patch.object(DBTCloudSource, "_fetch_discovery_metrics") as fetch:
+            parsed = source._fetch_metric_definitions([{}])
+
+        fetch.assert_not_called()
+        assert parsed.metrics == []
+
+    def test_metrics_are_linked_and_deduplicated_across_environments(self) -> None:
+        source = _cloud_source()
+        raw_nodes = [
+            {
+                "environmentId": 1,
+                "resourceType": "semantic_model",
+                "name": "Orders",
+                "uniqueId": "semantic_model.proj.orders",
+            },
+            {"environmentId": 2, "resourceType": "model", "name": "fct_orders"},
+        ]
+        revenue = {
+            "uniqueId": "metric.proj.revenue",
+            "name": "revenue",
+            "type": "SIMPLE",
+            "typeParams": {"measure": {"name": "revenue"}},
+            "parents": [{"name": "orders", "resourceType": "SemanticModel"}],
+        }
+        revenue_per_order = {
+            "name": "revenue_per_order",
+            "packageName": "proj",
+            "type": "DERIVED",
+            "typeParams": {"expr": "revenue / 2"},
+            "parents": [
+                {"name": "revenue", "resourceType": "metric"},
+                {"name": "fct_orders", "resourceType": "model"},
+                {"name": ""},
+                "not-a-dict",
+            ],
+        }
+
+        with mock.patch.object(
+            DBTCloudSource,
+            "_fetch_discovery_metrics",
+            side_effect=[[revenue, revenue_per_order], [revenue]],
+        ):
+            parsed = source._fetch_metric_definitions(raw_nodes)
+
+        metrics = {metric.unique_id: metric for metric in parsed.metrics}
+        assert set(metrics) == {
+            "metric.proj.revenue",
+            "metric.proj.revenue_per_order",
+        }
+        assert metrics["metric.proj.revenue"].depends_on == [
+            "semantic_model.proj.orders"
+        ]
+        assert metrics["metric.proj.revenue_per_order"].depends_on == [
+            "metric.proj.revenue"
+        ]
+
+    def test_a_failing_environment_warns_and_the_others_still_load(self) -> None:
+        source = _cloud_source()
+        revenue = {
+            "uniqueId": "metric.proj.revenue",
+            "name": "revenue",
+            "type": "SIMPLE",
+            "typeParams": {"measure": {"name": "revenue"}},
+            "parents": [],
+        }
+
+        with mock.patch.object(
+            DBTCloudSource,
+            "_fetch_discovery_metrics",
+            side_effect=[ValueError("boom"), [revenue]],
+        ):
+            parsed = source._fetch_metric_definitions(
+                [{"environmentId": 1}, {"environmentId": 2}]
+            )
+
+        assert [metric.unique_id for metric in parsed.metrics] == [
+            "metric.proj.revenue"
+        ]
+        assert _warning_titles(source) == ["Failed to fetch dbt Cloud metrics"]
+
+    def test_an_unreadable_filter_warns_but_keeps_the_metric(self) -> None:
+        source = _cloud_source()
+
+        node = source._manifest_metric_node(
+            {"name": "revenue", "type": "SIMPLE", "filter": 12345, "parents": []},
+            semantic_model_ids={},
+            metric_ids={},
+        )
+
+        assert node is not None and node["name"] == "revenue"
+        assert _warning_titles(source) == ["Could not read a dbt Cloud metric filter"]
+
+    def test_a_metric_without_a_name_is_skipped(self) -> None:
+        assert (
+            _cloud_source()._manifest_metric_node(
+                {"name": None}, semantic_model_ids={}, metric_ids={}
+            )
+            is None
+        )
