@@ -261,6 +261,37 @@ def test_config_redaction_connection_string():
     }
 
 
+def test_config_redaction_headers():
+    obj = {
+        "sink": {
+            "config": {
+                "server": "http://localhost:8080",
+                "extra_headers": {
+                    "Authorization": "Basic dXNlcjpwYXNz",
+                    "X-Custom": "opaque-value",
+                    "X-Ref": "${HEADER_VALUE}",
+                },
+            }
+        },
+        "headers": {"AUTHORIZATION": "Bearer abc"},
+    }
+
+    redacted = redact_raw_config(obj)
+    assert redacted == {
+        "sink": {
+            "config": {
+                "server": "http://localhost:8080",
+                "extra_headers": {
+                    "Authorization": "********",
+                    "X-Custom": "********",
+                    "X-Ref": "${HEADER_VALUE}",
+                },
+            }
+        },
+        "headers": {"AUTHORIZATION": "********"},
+    }
+
+
 def test_config_redaction_2():
     obj = {
         "config": {

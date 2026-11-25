@@ -6,6 +6,7 @@
     "addDataProductError": "Data ProductへのAssetの追加に失敗しました。不明なエラーが発生しました。",
     "addDataProductModalTitle": "Data ProductにAssetを追加",
     "addDataProductTooltip": "Data ProductにAssetを追加",
+    "addDataProductUnauthorized": "このData ProductにAssetを追加する権限がありません",
     "addDomainError": "DomainへのAssetの追加に失敗しました: {{error}}",
     "addDomainModalTitle": "DomainにAssetを追加",
     "addDomainTooltip": "DomainにAssetを追加",

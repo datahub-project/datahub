@@ -7930,6 +7930,17 @@
       "doc" : "Deprecated. Minimum engine kNN score (inclusive). On the cosine engines that hybrid read\nallows, the engine score is (1 + cosine) / 2, a normalized value from 0 to 1.\n\nOn semantic search, a hit below this score is dropped, letting an agent abstain instead of\nreturning weak matches. On document rerank, a row below it is not blended and keeps its\nkeyword position; the row is not dropped. When null/unset, no floor is applied. Search\ntemplates add retrieval.minSimilarity, a raw cosine, on the vector leg and knn.blendFloor on\nrerank. Until this flag is removed, a hit or row must pass both it and those controls.",
       "optional" : true
     }, {
+      "name" : "minSimilarity",
+      "type" : "float",
+      "doc" : "Raw cosine floor, from -1 to 1, on the hits a vector rung (retrieval.combine: vector)\nretrieves. A hit below it is dropped and a hit at it is kept; the window is not refilled.\nWith no floor in effect it sets one. With retrieval.minSimilarity, or else\nsemanticSearch.minSimilarity, in effect it can only raise it: the higher of the two applies.\nA profile whose metric is not cosine rejects it. Only a vector rung reads it, as on semantic\nsearch through the semantic search template. Semantic search on its legacy path rejects it.",
+      "optional" : true
+    }, {
+      "name" : "keywordFallbackOnEmbeddingFailure",
+      "type" : "boolean",
+      "doc" : "On GraphQL, semantic search through the semantic search template, and searchAcrossEntities and\nsearch through a template named in searchTemplate, such as semantic, answer a query they could\nnot embed with an error naming why: timeout, rejected, reserveExhausted, budgetExhausted, or\nfailed. With this flag set they serve keyword search results for the same request instead,\nwithout the named template, and SearchResultMetadata.keywordFallback marks them with that\nreason. Those results cover every requested entity type, not only the ones semantic search\ncovers. Only a failed query embedding falls back: a failed kNN or facet request, and\nsimilarity, still fail. Semantic search on its legacy path fails as it does without the flag.",
+      "default" : false,
+      "optional" : true
+    }, {
       "name" : "searchTemplate",
       "type" : "com.linkedin.common.Urn",
       "doc" : "Caller-selected search template URN. When set, selection skips classification, sub-intent,\nand engine lookup. The resolved template is not written back onto this field.",
@@ -8538,7 +8549,12 @@
             }, {
               "name" : "minSimilarity",
               "type" : "float",
-              "doc" : "The raw cosine floor in effect: retrieval.minSimilarity, else semanticSearch.minSimilarity.",
+              "doc" : "The raw cosine floor in effect: retrieval.minSimilarity, else semanticSearch.minSimilarity,\nor SearchFlags.minSimilarity when that is higher or no other floor is in effect.",
+              "optional" : true
+            }, {
+              "name" : "callerMinSimilarity",
+              "type" : "float",
+              "doc" : "SearchFlags.minSimilarity, the floor the caller set, whether or not it raised the floor in\neffect.",
               "optional" : true
             }, {
               "name" : "minSimilaritySkipped",
@@ -8549,6 +8565,11 @@
               "name" : "belowMinSimilarity",
               "type" : "int",
               "doc" : "Hits below minSimilarity. They are dropped and the window is not refilled.",
+              "default" : 0
+            }, {
+              "name" : "belowCallerMinSimilarity",
+              "type" : "int",
+              "doc" : "Of the hits below minSimilarity, those SearchFlags.minSimilarity dropped by raising the floor:\nthe floor in effect without it would have kept them.",
               "default" : 0
             }, {
               "name" : "belowMinScore",
@@ -8571,6 +8592,11 @@
             } ]
           },
           "doc" : "How the served template's vector rung retrieved this result. Set when the caller asks for an\nexplanation and the served rung declares combine: vector.",
+          "optional" : true
+        }, {
+          "name" : "keywordFallback",
+          "type" : "string",
+          "doc" : "Set when a search served keyword search results because the template serving it could not\nembed the query and the caller set SearchFlags.keywordFallbackOnEmbeddingFailure: why the\nembedding failed (timeout, rejected, reserveExhausted, budgetExhausted, or failed).",
           "optional" : true
         } ]
       },

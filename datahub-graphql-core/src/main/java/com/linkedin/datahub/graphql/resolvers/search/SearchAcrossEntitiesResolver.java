@@ -11,6 +11,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -28,15 +29,18 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.function.FailableFunction;
 
 /** Resolver responsible for resolving 'searchAcrossEntities' field of the Query type */
 @Slf4j
@@ -109,9 +113,10 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             final boolean callerFiltered = FilterUtils.hasCriterion(combinedFilter);
 
             // Add default entity filters (e.g. showInGlobalContext for documents).
-            combinedFilter =
-                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            final DefaultEntityFiltersUtil.SearchFilters defaults =
+                DefaultEntityFiltersUtil.searchFilters(
                     combinedFilter, finalEntities, searchFlags, context);
+            combinedFilter = defaults.filter();
 
             boolean shouldIncludeStructuredPropertyFacets =
                 input.getSearchFlags() != null
@@ -123,28 +128,42 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     ? getStructuredPropertyFacets(context, finalEntities)
                     : Collections.emptyList();
 
-            // Execute search and remove default filter fields from aggregations
+            // Execute search and remove default filter fields from aggregations. A template the
+            // caller names may embed the query; the keyword fallback is the same search without it,
+            // so with no template named there is none.
+            final Filter searchFilter = combinedFilter;
+            final FailableFunction<OperationContext, SearchResult, RemoteInvocationException>
+                search =
+                    opContext ->
+                        _entityClient.searchAcrossEntities(
+                            opContext,
+                            finalEntities,
+                            sanitizedQuery,
+                            searchFilter,
+                            start,
+                            count,
+                            sortCriteria,
+                            structuredPropertyFacets);
             SearchResult searchResult =
-                _entityClient.searchAcrossEntities(
+                QueryEmbeddingFailures.searchWithKeywordFallback(
                     context
                         .getOperationContext()
                         .withSearchFlags(flags -> searchFlags)
                         .withCallerOptionalFilterFields(
                             DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter))
-                        .withCallerFiltered(callerFiltered),
-                    finalEntities,
-                    sanitizedQuery,
-                    combinedFilter,
-                    start,
-                    count,
-                    sortCriteria,
-                    structuredPropertyFacets);
+                        .withCallerFiltered(callerFiltered)
+                        .withAnchorFilter(defaults.anchorFilter()),
+                    search,
+                    searchFlags != null && searchFlags.hasSearchTemplate() ? search : null);
 
             // Cleanse aggregations to remove hidden/default filter fields
             searchResult =
                 DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(searchResult);
 
             return UrnSearchResultsMapper.map(context, searchResult);
+          } catch (DataHubGraphQLException e) {
+            // Already typed, as a query embedding failure is
+            throw e;
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",

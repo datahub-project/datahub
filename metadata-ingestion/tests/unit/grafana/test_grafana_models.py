@@ -1,5 +1,7 @@
 from typing import Any, Dict
 
+import pytest
+
 from datahub.ingestion.source.grafana.models import (
     Dashboard,
     Folder,
@@ -277,6 +279,71 @@ def test_dashboard_missing_created_by():
     assert dashboard.created_by is None
 
 
+@pytest.mark.parametrize(
+    "folder_data, expected_title",
+    [
+        pytest.param({"id": 4, "uid": "team-a"}, "team-a", id="uid"),
+        pytest.param({"id": 4, "title": None}, "4", id="id"),
+        pytest.param(
+            {"id": 4, "uid": "team-a", "title": "Team A"}, "Team A", id="title"
+        ),
+    ],
+)
+def test_folder_without_title_is_named_after_uid_or_id(folder_data, expected_title):
+    # Only a folder with no id is skipped; one without a title is still ingested.
+    assert Folder.model_validate(folder_data).title == expected_title
+
+
+@pytest.mark.parametrize(
+    "bad_entry, expected_skipped",
+    [
+        pytest.param(
+            "not a panel", "entry that is not a panel: 'not a panel'", id="top-level"
+        ),
+        pytest.param(
+            {"type": "row", "id": "9", "panels": ["not a panel"]},
+            "entry that is not a panel: 'not a panel'",
+            id="in-row",
+        ),
+        pytest.param(
+            {"type": "row", "id": "9", "panels": "x"},
+            "id=9, type=row (its panels are not a list)",
+            id="row-panels-not-a-list",
+        ),
+    ],
+)
+def test_dashboard_skips_only_the_malformed_panel(bad_entry, expected_skipped):
+    # One entry that is not a panel used to drop every panel on the dashboard.
+    dashboard = Dashboard.model_validate(
+        {
+            "dashboard": {
+                "uid": "x",
+                "title": "x",
+                "panels": [{"id": "1", "type": "graph"}, bad_entry],
+            }
+        }
+    )
+
+    assert [p.id for p in dashboard.panels] == ["1"]
+    assert dashboard.skipped_panels == [expected_skipped]
+
+
+def test_dashboard_skips_text_panels_when_flag_is_on_the_response():
+    # The API client sets the flag on the response, which wraps the dashboard.
+    dashboard = Dashboard.model_validate(
+        {
+            "dashboard": {
+                "uid": "x",
+                "title": "x",
+                "panels": [{"id": "1", "type": "graph"}, {"id": "2", "type": "text"}],
+            },
+            "_skip_text_panels": True,
+        }
+    )
+
+    assert [p.id for p in dashboard.panels] == ["1"]
+
+
 def test_dashboard_missing_folder_id():
     dashboard_data = {
         "dashboard": {
@@ -495,3 +562,27 @@ def test_nested_panels_with_missing_fields():
     assert panel2.id == "2"
     assert panel2.title is None
     assert panel2.type == "text"
+
+
+def test_dashboard_records_skipped_panels():
+    dashboard = Dashboard.model_validate(
+        {
+            "dashboard": {
+                "uid": "dash1",
+                "title": "Test Dashboard",
+                "panels": [
+                    {"id": "1", "type": "graph"},
+                    {"id": "2", "type": "graph", "title": ["not", "a", "string"]},
+                    {
+                        "type": "row",
+                        "panels": [{"id": "3", "type": "table", "title": {}}],
+                    },
+                ],
+            }
+        }
+    )
+
+    assert [p.id for p in dashboard.panels] == ["1"]
+    assert len(dashboard.skipped_panels) == 2
+    assert "id=2" in dashboard.skipped_panels[0]
+    assert "id=3" in dashboard.skipped_panels[1]

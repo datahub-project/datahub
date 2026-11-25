@@ -13,7 +13,8 @@
         "datahub-upgrade": {},
         "datahub-actions": {
           "variant_suffixes": ["", "-slim", "-locked"]
-        }
+        },
+        "datahub-ai-service": {}
       }
     }
   },

@@ -1285,6 +1285,12 @@ def test_lineage_graph_ingest(
                 {_field_qri(stored, "name"): "name"},
                 [(_field_qri(TEST_TABLE, "name"), _field_qri(stored, "name"))],
             ),
+            # Read for the script's STORE; DataFiles is not a data connection.
+            f"{API_URL}/data-connections": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {"data": [], "links": {}},
+            },
         },
     )
     mock_websocket_send_request.side_effect = lineage_graph_app_response

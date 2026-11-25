@@ -14,6 +14,7 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
@@ -55,13 +56,23 @@ public class StructuredPropertyPrivilegeConstraintsValidator
     List<AspectValidationException> failures = new ArrayList<>();
 
     Map<Urn, Aspect> currentAspects = fetchCurrentAspects(operationContext, items, aspectRetriever);
+    Map<Urn, Boolean> entityExists = entityExists(operationContext, items, aspectRetriever);
 
     for (BatchItem item : items) {
-      if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(item.getAspectName())) {
-        failures.addAll(
-            validateStructuredProperties(
-                session, item, aspectRetriever, currentAspects.get(item.getUrn())));
+      if (!STRUCTURED_PROPERTIES_ASPECT_NAME.equals(item.getAspectName())) {
+        continue;
       }
+      // A missing answer is not "does not exist": that would classify the write as a create and
+      // let Create Entity authorize a change to an entity that may already exist.
+      if (existenceUnknown(item, entityExists)) {
+        failures.add(
+            AspectValidationException.forAuth(
+                item, "Cannot authorize a structured property write without an existence result"));
+        continue;
+      }
+      failures.addAll(
+          validateStructuredProperties(
+              session, item, aspectRetriever, currentAspects.get(item.getUrn()), entityExists));
     }
     return failures;
   }
@@ -96,7 +107,8 @@ public class StructuredPropertyPrivilegeConstraintsValidator
       AuthorizationSession session,
       BatchItem item,
       AspectRetriever aspectRetriever,
-      @Nullable Aspect currentAspect) {
+      @Nullable Aspect currentAspect,
+      @Nonnull Map<Urn, Boolean> entityExists) {
     StructuredProperties currentProps =
         currentAspect == null
             ? null
@@ -125,7 +137,10 @@ public class StructuredPropertyPrivilegeConstraintsValidator
       return Collections.emptyList();
     }
     if (!AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-        session, item.getUrn(), difference)) {
+        session,
+        item.getUrn(),
+        difference,
+        operationFor(item.getUrn(), item.getChangeType(), entityExists))) {
       return List.of(
           AspectValidationException.forAuth(
               item, "Unauthorized to modify one or more structured property Urns: " + difference));
@@ -167,5 +182,42 @@ public class StructuredPropertyPrivilegeConstraintsValidator
                 StructuredPropertyValueAssignment::getPropertyUrn,
                 a -> Optional.ofNullable(a.getValues()).orElse(new PrimitivePropertyValueArray()),
                 (a, b) -> b));
+  }
+
+  @Nullable
+  private static Map<Urn, Boolean> entityExists(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull List<? extends BatchItem> items,
+      @Nonnull AspectRetriever aspectRetriever) {
+    Set<Urn> urns =
+        items.stream()
+            .filter(
+                item ->
+                    AuthUtil.subResourceWriteOperationNeedsExistence(
+                        item.getChangeType(), item.getUrn()))
+            .map(BatchItem::getUrn)
+            .collect(Collectors.toSet());
+    if (urns.isEmpty()) {
+      return Map.of();
+    }
+    return aspectRetriever.entityExists(operationContext, urns);
+  }
+
+  /**
+   * True when the operation depends on existence and the lookup did not answer for this URN. An
+   * explicit {@code false} is an answer; a null map, a missing key, or a null value is not.
+   */
+  private static boolean existenceUnknown(
+      @Nonnull BatchItem item, @Nullable Map<Urn, Boolean> entityExists) {
+    if (!AuthUtil.subResourceWriteOperationNeedsExistence(item.getChangeType(), item.getUrn())) {
+      return false;
+    }
+    return entityExists == null || entityExists.get(item.getUrn()) == null;
+  }
+
+  private static ApiOperation operationFor(
+      @Nonnull Urn urn, @Nonnull ChangeType changeType, @Nonnull Map<Urn, Boolean> entityExists) {
+    return AuthUtil.subResourceWriteOperation(
+        changeType, urn, Boolean.TRUE.equals(entityExists.get(urn)));
   }
 }

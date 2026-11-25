@@ -34,6 +34,7 @@ import com.linkedin.entity.FilterExistingUrnsRequest;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.GraphReferenceOverLimit;
 import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.run.DeleteEntityResponse;
@@ -120,7 +121,9 @@ public class EntityResourceTest {
             mock(DeleteEntityService.class),
             timeseriesAspectService,
             new ReliableHardDelete(entityService, false),
-            null));
+            null,
+            5000,
+            GraphReferenceOverLimit.SKIP));
     entityResource.setAuthorizer(authorizer);
     entityResource.setSystemOperationContext(systemOperationContext);
 

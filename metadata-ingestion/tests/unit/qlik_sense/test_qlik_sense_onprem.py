@@ -1,11 +1,12 @@
 import json
 import ssl
 import threading
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from websocket import WebSocketBadStatusException
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -30,7 +31,9 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    REFUSED_RETRY_SECONDS,
     EngineError,
+    RefusedConnectionBudget,
     WebsocketConnection,
 )
 from datahub.metadata.schema_classes import (
@@ -1673,6 +1676,198 @@ def test_cloud_app_read_failure_closes_engine_session(
     )
     websocket.close_websocket.assert_called_once()
     assert api.unread_items == [UnreadItem(name="app-1", cause="Access denied")]
+
+
+def _open_onprem_engine(refusals: RefusedConnectionBudget) -> WebsocketConnection:
+    return WebsocketConnection.for_on_prem(
+        host="qlik.example.com",
+        port=4747,
+        app_id="app-1",
+        user_header="UserDirectory=INTERNAL; UserId=sa_engine",
+        client_cert="/secrets/client.pem",
+        client_key="/secrets/client_key.pem",
+        root_cert="/secrets/root.pem",
+        refusals=refusals,
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_engine_connection_waits_for_the_engine(
+    mock_connect: MagicMock, mock_sleep: MagicMock
+) -> None:
+    # More refusals than transient errors are retried, as an Engine restart takes.
+    mock_connect.side_effect = [ConnectionRefusedError()] * 5 + [MagicMock()]
+    refusals = RefusedConnectionBudget()
+
+    _open_onprem_engine(refusals)
+
+    assert mock_connect.call_count == 6
+    assert {call.args for call in mock_sleep.call_args_list} == {
+        (REFUSED_RETRY_SECONDS,)
+    }
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_engine_connection_fails_at_once_after_the_budget(
+    mock_connect: MagicMock, mock_sleep: MagicMock
+) -> None:
+    mock_connect.side_effect = ConnectionRefusedError()
+    # Other workers have already waited out the budget.
+    spent = RefusedConnectionBudget(seconds=0)
+
+    with pytest.raises(ConnectionRefusedError):
+        _open_onprem_engine(spent)
+
+    assert mock_connect.call_count == 1
+    mock_sleep.assert_not_called()
+
+
+class _FakeClock:
+    """Time that only passes when the code under test sleeps or a test advances it."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds
+
+
+@pytest.fixture
+def engine_clock() -> Iterator[_FakeClock]:
+    clock = _FakeClock()
+    module = "datahub.ingestion.source.qlik_sense.websocket_connection.time"
+    with (
+        patch(f"{module}.monotonic", clock.monotonic),
+        patch(f"{module}.sleep", clock.sleep),
+    ):
+        yield clock
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_engine_connection_resets_the_refusal_budget(
+    mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_connect.side_effect = [
+        ConnectionRefusedError(),
+        ConnectionRefusedError(),
+        MagicMock(),
+        ConnectionRefusedError(),
+        MagicMock(),
+    ]
+    refusals = RefusedConnectionBudget(seconds=300)
+
+    _open_onprem_engine(refusals)
+    # Past the first refusal's budget, had the connection not reset it.
+    engine_clock.now += 400
+    _open_onprem_engine(refusals)
+
+    assert mock_connect.call_count == 5
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_other_engine_failure_starts_a_new_refusal_wait(
+    mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_connect.side_effect = [
+        ConnectionRefusedError(),
+        WebSocketBadStatusException("Handshake status 503", 503),
+        ConnectionRefusedError(),
+        MagicMock(),
+    ]
+    refusals = RefusedConnectionBudget(seconds=300)
+
+    with pytest.raises(WebSocketBadStatusException):
+        _open_onprem_engine(refusals)
+    # Past the first refusal's budget, had the other failure not reset it.
+    engine_clock.now += 2000
+    _open_onprem_engine(refusals)
+
+    assert mock_connect.call_count == 4
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_engine_connection_waits_at_most_one_step_past_the_budget(
+    mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_connect.side_effect = ConnectionRefusedError()
+    refusals = RefusedConnectionBudget(seconds=300)
+    engine_clock.now = 1000
+    refusals.record_refusal()
+    # Another worker's refusal started the count just before the budget ran out.
+    engine_clock.now += 299
+
+    with pytest.raises(ConnectionRefusedError):
+        _open_onprem_engine(refusals)
+
+    assert engine_clock.now - 1000 <= 300 + REFUSED_RETRY_SECONDS
+    assert mock_connect.call_count == 2
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refusal_wait_is_bounded_when_other_reads_reset_the_count(
+    mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    refusals = RefusedConnectionBudget(seconds=300)
+
+    def refuse_after_another_read_timed_out(*args: object, **kwargs: object) -> None:
+        # Stops a read that would otherwise wait forever.
+        assert engine_clock.now < 3600
+        refusals.reset()
+        raise ConnectionRefusedError()
+
+    mock_connect.side_effect = refuse_after_another_read_timed_out
+
+    with pytest.raises(ConnectionRefusedError):
+        _open_onprem_engine(refusals)
+
+    assert engine_clock.now <= 300 + REFUSED_RETRY_SECONDS
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_engine_refusal_wait_is_reported_as_info(
+    mock_onprem: MagicMock, engine_clock: _FakeClock
+) -> None:
+    refusals = RefusedConnectionBudget()
+    refusals.record_refusal()
+    engine_clock.now += 4 * REFUSED_RETRY_SECONDS
+    refusals.reset()
+    mock_onprem.return_value.get_spaces.return_value = []
+    mock_onprem.return_value.unread_items = []
+    mock_onprem.return_value.engine_refusals = refusals
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+
+    list(source.get_workunits_internal())
+
+    assert "Qlik Engine refused connections" in [
+        info.title for info in source.reporter.infos
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_refusal_budget_is_shared_by_all_app_reads(
+    mock_session_cls: MagicMock, mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_session_cls.return_value.headers = {}
+    mock_connect.side_effect = ConnectionRefusedError()
+    api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+
+    with pytest.raises(ConnectionRefusedError):
+        api._open_engine("app-1")
+    assert mock_connect.call_count > 1
+    mock_connect.reset_mock()
+
+    with pytest.raises(ConnectionRefusedError):
+        api._open_engine("app-2")
+    assert mock_connect.call_count == 1
 
 
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")

@@ -446,7 +446,7 @@ public class VertexAiEmbeddingProviderTest {
   }
 
   @Test(
-      expectedExceptions = RuntimeException.class,
+      expectedExceptions = EmbeddingThrottledException.class,
       expectedExceptionsMessageRegExp = ".*Vertex AI call failed after.*")
   public void exhausts429RetriesAndThrows() throws Exception {
     when(mockResponse.statusCode()).thenReturn(429);
@@ -518,5 +518,28 @@ public class VertexAiEmbeddingProviderTest {
     verify(mockHttpClient, times(1))
         .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
     assertEquals(request.getValue().timeout(), Optional.of(Duration.ofMillis(1_500)));
+  }
+
+  @Test
+  public void testEmbedWithTimeoutReportsOnlyA429AsThrottled() throws Exception {
+    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(mockResponse);
+    when(mockResponse.body()).thenReturn("{\"error\": \"quota exceeded\"}");
+
+    // The query path makes one attempt, so its 429 is the throttle a search reports as rejected
+    when(mockResponse.statusCode()).thenReturn(429);
+    assertThrows(
+        EmbeddingThrottledException.class,
+        () -> provider.embed("revenue", null, EmbeddingTaskType.QUERY, Duration.ofSeconds(2)));
+
+    // An exhausted 5xx is not a throttle
+    when(mockResponse.statusCode()).thenReturn(503);
+    RuntimeException unavailable =
+        expectThrows(
+            RuntimeException.class,
+            () -> provider.embed("revenue", null, EmbeddingTaskType.QUERY, Duration.ofSeconds(2)));
+    assertFalse(unavailable instanceof EmbeddingThrottledException);
+    verify(mockHttpClient, times(2))
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
   }
 }

@@ -12,6 +12,10 @@ import lombok.experimental.Accessors;
  * shadow} (alias {@code render-only}) renders the template and does not execute it. {@code active}
  * (alias {@code canary}) serves it to {@code percent} of actors on that surface. An unset percent
  * ({@code -1}) uses {@code percent}.
+ *
+ * <p>{@code semanticSearch} is the exception: it is off unless set, whatever {@code mode} and
+ * {@code percent} say, and an unset {@code semanticSearchPercent} serves every actor. Only {@code
+ * active} serves the template there. {@code shadow} keeps semantic search on its legacy path.
  */
 @Data
 @Accessors(chain = true)
@@ -24,4 +28,6 @@ public class SearchTemplateRolloutConfiguration {
   private int scrollEntitiesPercent = -1;
   private String aggregateEntities = "";
   private int aggregateEntitiesPercent = -1;
+  private String semanticSearch = "";
+  private int semanticSearchPercent = -1;
 }
