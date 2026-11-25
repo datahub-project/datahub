@@ -120,6 +120,17 @@ Reference Links:
 | `ENTITY_SERVICE_ENABLE_RETENTION`          | `true`  | Enable entity retention       | GMS, MCE Consumer |
 | `ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP` | `false` | Apply retention on bootstrap  | GMS, MCE Consumer |
 
+### Hard Delete Configuration
+
+Controls how a hard delete handles the graph relationships that point at the entity being deleted.
+
+| Environment Variable                                | Default | Description                                                                                                                                                                                                                                                                          | Components |
+| --------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| `DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT` | `100`   | Number of graph relationships to an entity above which a hard delete is over the limit.                                                                                                                                                                                              | GMS        |
+| `DATAHUB_HARD_DELETE_GRAPH_REFERENCE_OVER_LIMIT`    | `SKIP`  | What a hard delete over the limit does. `SKIP` deletes the entity and leaves the graph relationships to it in place, logging a warning and incrementing `datahub.hard_delete.graph_references_skipped`. `REFUSE` deletes nothing and fails the request with a 400. Case-insensitive. | GMS        |
+
+After a `SKIP`, the entities that pointed at the deleted one keep pointers to it. To repair them, restore the indices of those entities, then run `datahub delete references`. See [Breaking Changes](../how/breaking-changes.md) for the full behavior.
+
 ### Aspect Size Validation
 
 Protects against aspects exceeding deserialization limits. **Debugging flags - enable only when troubleshooting service crashes or memory pressure from oversized aspects.**
