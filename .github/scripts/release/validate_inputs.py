@@ -6,7 +6,7 @@ Usage:
   python3 validate_inputs.py cut-branch --version 1.0.0
   python3 validate_inputs.py cut-branch --version 1.0.0 --sha <40-char hex> --source master
   python3 validate_inputs.py cut-tag --version 1.0.0 --release-type rc
-  python3 validate_inputs.py parse-ref --ref releases/v1.0.0
+  python3 validate_inputs.py parse-ref --ref releases/v1.0.0 --patch-version 0
 
 Environment variables (cut-branch / cut-tag):
   GH_TOKEN             GitHub token for duplicate release checks (read-only)
@@ -27,7 +27,7 @@ import sys
 from release_variables import VERSION_SUFFIX
 import version_util
 
-# Cut Tag runs on the release branch, so the version comes from its name.
+# Cut Tag runs on the release branch, so the X.Y line comes from its name and the patch from input.
 # The version grammar itself is validated by version_util.
 RELEASE_BRANCH_PREFIX = "releases/v"
 
@@ -143,8 +143,31 @@ def parse_release_ref(ref: str) -> str:
     sys.exit(1)
 
 
-def emit_parsed_ref(ref: str) -> None:
-    version = parse_release_ref(ref)
+PATCH_VERSION_PATTERN = re.compile(r"0|[1-9]\d*")
+
+
+def release_version(ref: str, patch_version: str) -> str:
+    """Return the version to tag: X.Y from the release branch, patch from the input."""
+    major, minor, branch_patch = parse_release_ref(ref).split(".")
+    if branch_patch != "0":
+        print(
+            f"Error: branch '{ref}' is not a release line base. "
+            "Cut Tag must be dispatched from 'releases/vX.Y.0'."
+        )
+        sys.exit(1)
+
+    if not PATCH_VERSION_PATTERN.fullmatch(patch_version):
+        print(
+            f"Error: patch_version '{patch_version}' is not valid. "
+            "Expected a non-negative integer without leading zeros (e.g. 0, 1, 2)."
+        )
+        sys.exit(1)
+
+    return f"{major}.{minor}.{patch_version}"
+
+
+def emit_parsed_ref(ref: str, patch_version: str) -> None:
+    version = release_version(ref, patch_version)
     lines = [f"version={version}"]
 
     github_output = os.environ.get("GITHUB_OUTPUT")
@@ -181,9 +204,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     ref = sub.add_parser(
         "parse-ref",
-        help="Infer the version from the dispatch branch name",
+        help="Infer the version from the dispatch branch name and the patch input",
     )
     ref.add_argument("--ref", required=True, help="e.g. releases/v1.0.0")
+    ref.add_argument(
+        "--patch-version",
+        required=True,
+        help="Patch number N for vX.Y.N (0 for the line's first release)",
+    )
 
     return parser
 
@@ -194,7 +222,7 @@ def main() -> None:
     if args.command == "cut-branch":
         validate_cut_branch(args.version, args.sha, args.source)
     elif args.command == "parse-ref":
-        emit_parsed_ref(args.ref)
+        emit_parsed_ref(args.ref, args.patch_version)
     else:
         validate_cut_tag(args.version, args.release_type)
 
