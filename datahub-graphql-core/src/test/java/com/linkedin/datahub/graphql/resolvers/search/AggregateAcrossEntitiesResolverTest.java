@@ -6,6 +6,7 @@ import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_S
 import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
@@ -28,19 +29,24 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -117,7 +123,7 @@ public class AggregateAcrossEntitiesResolverTest {
         initMockEntityClient(
             ImmutableList.of(Constants.DATASET_ENTITY_NAME),
             "",
-            SearchUtils.combineFilters(baseFilter, viewFilter),
+            FilterUtils.combineFilters(baseFilter, viewFilter),
             0,
             0,
             null,
@@ -158,7 +164,7 @@ public class AggregateAcrossEntitiesResolverTest {
         ImmutableList.of(
             Constants.DATASET_ENTITY_NAME), // Verify that merged entity types were used.
         "",
-        SearchUtils.combineFilters(baseFilter, viewFilter), // Verify that merged filters were used.
+        FilterUtils.combineFilters(baseFilter, viewFilter), // Verify that merged filters were used.
         0,
         0,
         null);
@@ -582,6 +588,63 @@ public class AggregateAcrossEntitiesResolverTest {
                         Constants.DATASET_ENTITY_NAME, Constants.DASHBOARD_ENTITY_NAME)))
             .setFilter(viewFilter));
     return info;
+  }
+
+  @Test
+  public static void testRecordsWhetherTheCallerSetAFilterBeforeTheDefaults() throws Exception {
+    // A vector store that cannot filter reads this to tell the caller's filter from the
+    // published-document default the resolver adds
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(
+                    new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
+    AggregateAcrossEntitiesResolver resolver =
+        new AggregateAcrossEntitiesResolver(
+            mockClient, Mockito.mock(ViewService.class), Mockito.mock(FormService.class));
+    List<AndFilterInput> facet =
+        ImmutableList.of(
+            new AndFilterInput(
+                ImmutableList.of(
+                    new FacetFilterInput(
+                        "platform",
+                        ImmutableList.of("urn:li:dataPlatform:hive"),
+                        false,
+                        FilterOperator.EQUAL))));
+
+    for (List<AndFilterInput> orFilters : Arrays.asList(null, facet)) {
+      DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+      QueryContext mockContext = getMockAllowContext();
+      Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+          .thenReturn(
+              new AggregateAcrossEntitiesInput(
+                  ImmutableList.of(EntityType.DOCUMENT), "", null, orFilters, null, null));
+      Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+      resolver.get(mockEnv).get();
+    }
+
+    ArgumentCaptor<OperationContext> contexts = ArgumentCaptor.forClass(OperationContext.class);
+    Mockito.verify(mockClient, Mockito.times(2))
+        .searchAcrossEntities(
+            contexts.capture(), any(), any(), any(), anyInt(), anyInt(), any(), any());
+    assertEquals(
+        contexts.getAllValues().stream()
+            .map(context -> context.getSearchContext().getCallerFiltered())
+            .collect(Collectors.toList()),
+        List.of(false, true));
+    // An aggregation counts a similarity rung's neighbors, so its anchor is held to the defaults
+    assertEquals(
+        contexts.getAllValues().stream()
+            .map(context -> context.getSearchContext().getAnchorFilter())
+            .collect(Collectors.toList()),
+        List.of(buildDocumentDefaultFilter(), buildDocumentDefaultFilter()));
   }
 
   private static ViewService initMockViewService(Urn viewUrn, DataHubViewInfo viewInfo) {

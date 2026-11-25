@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -32,15 +33,20 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
     if (AuthorizationUtils.canManageUsersAndGroups(context)) {
       final String groupUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(groupUrn);
+      if (!AuthorizationUtils.isEntityType(urn, Constants.CORP_GROUP_ENTITY_NAME)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
       return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
-              // Capture members BEFORE the delete. deleteEntity's key-aspect DELETE MCL leads to
+              // Capture members BEFORE the delete. deleteReferencesThenEntity removes the graph
+              // references first, but only up to graph-reference-cleanup-limit, and not at all
+              // over it when the deployment skips them. The key delete's MCL then leads to
               // graphService.removeNode(urn), which reaps incoming IsMemberOfNativeGroup edges
               // even though each edge is owned by a member's nativeGroupMembership aspect.
-              // Discovering referrers afterwards, as deleteEntityReferences does by scrolling
-              // incoming edges, races that removal and loses, stranding a dangling group URN on
-              // every member.
+              // Discovering referrers afterwards races that removal and loses, stranding a
+              // dangling group URN on every member, so the sweep below works from this list.
               //
               // This capture is its own try/catch, isolated from the delete itself, because a
               // single unparseable URN in the graph index makes getRelatedEntities throw - and
@@ -50,25 +56,28 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
               // still attempts its own cleanup, and a member who is re-added later repairs their
               // own edge via GroupService's restoreIndices path.
               final List<Urn> capturedMembers = captureMembersBeforeDelete(context, urn);
-              _entityClient.deleteEntity(context.getOperationContext(), urn);
+              final var references =
+                  _entityClient.deleteReferencesThenEntity(context.getOperationContext(), urn);
 
-              // Asynchronously Delete all references to the entity (to return quickly)
+              // The group is deleted, and its graph references are removed unless the delete went
+              // over the limit and they were skipped: a failure was thrown above and left the group
+              // in place. This removes the references that are not graph edges, then sweeps the
+              // members' links.
               CompletableFuture.runAsync(
                   () -> {
-                    // References first: deleteEntityReferences finds referrers by scrolling the
-                    // graph index, so it is racing the removeNode() that the delete's key-aspect
-                    // MCL triggers, and whatever it has not reached by then it never cleans - a
-                    // recreated group silently owning what the old one owned, above all. The
-                    // membership sweep below works from the list captured before the delete, so
-                    // no lag can hide a member from it and it loses nothing by going second.
                     try {
-                      _entityClient.deleteEntityReferences(context.getOperationContext(), urn);
+                      references.run();
                     } catch (Exception e) {
                       log.error(
                           String.format(
                               "Caught exception while attempting to clear all entity references for group with urn %s",
                               urn),
                           e);
+                    }
+                    // Handed off: the group is not deleted yet. The process that deletes it also
+                    // cleans the members' links once it is gone.
+                    if (references.handedOff()) {
+                      return;
                     }
                     try {
                       cleanUpNativeGroupMembership(context, urn, capturedMembers);

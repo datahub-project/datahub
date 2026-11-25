@@ -19,7 +19,6 @@ const mockEntityRegistry = {
 
 vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: () => mockEntityRegistry,
-    useEntityRegistryV2: () => mockEntityRegistry,
 }));
 
 // A document that no longer resolves. `entities(urns:)` is typed `[Entity]`, so GMS answers 200

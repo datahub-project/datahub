@@ -4,13 +4,23 @@ services:
     image: "mcr.microsoft.com/mssql/server:2022-latest"
     platform: linux/amd64
     container_name: "testsqlserver"
+    # Cert CN/SAN is localhost. SQL Server refuses a cert whose subject does
+    # not match the machine name, and pytds checks the same name.
+    hostname: localhost
+    entrypoint: ["/bin/bash", "/setup/tls-entrypoint.sh"]
+    # Replacing the entrypoint drops the image CMD. launch_sqlservr.sh
+    # backgrounds "$@" and waits on it; with no arguments that wait returns
+    # immediately and the container exits 0 without starting sqlservr.
+    command: ["/opt/mssql/bin/sqlservr"]
     environment:
       ACCEPT_EULA: "Y"
       SA_PASSWORD: "test!Password"
     ports:
       # Ephemeral: the fixed host port could be held forever by a leaked
       # container from a prior CI run. Tests discover the real port via
-      # docker_services.port_for("testsqlserver", 1433).
+      # docker_services.port_for("testsqlserver", 1433). The server has
+      # forceencryption on, so this port speaks TLS only.
       - "1433"
     volumes:
       - ./setup:/setup
+      - ${MSSQL_TLS_DIR}:/tls:ro

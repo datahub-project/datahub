@@ -26,8 +26,8 @@ import {
     setFieldValues,
 } from '@app/permissions/policy/policyUtils';
 import StructuredPropertyResourceSelect from '@app/permissions/policy/structuredProperties/StructuredPropertyResourceSelect';
-import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
-import { useIsStructuredPropertiesInPoliciesEnabled } from '@app/shared/hooks/useIsStructuredPropertiesInPoliciesEnabled';
+import { useIsGlossaryBasedPoliciesEnabled } from '@app/sharedV2/hooks/useIsGlossaryBasedPoliciesEnabled';
+import { useIsStructuredPropertiesInPoliciesEnabled } from '@app/sharedV2/hooks/useIsStructuredPropertiesInPoliciesEnabled';
 
 import { PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
 

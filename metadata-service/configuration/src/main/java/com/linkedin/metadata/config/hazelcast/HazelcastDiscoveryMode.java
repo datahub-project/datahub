@@ -2,6 +2,8 @@ package com.linkedin.metadata.config.hazelcast;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 
 /**
@@ -18,6 +20,13 @@ import java.util.Arrays;
 public final class HazelcastDiscoveryMode {
 
   public static final String DEFAULT_SERVICE_DNS = "hazelcast-service";
+
+  /**
+   * Present on a pod even when {@code enableServiceLinks: false} removes {@code
+   * KUBERNETES_SERVICE_HOST}.
+   */
+  static final Path SERVICE_ACCOUNT_TOKEN =
+      Path.of("/var/run/secrets/kubernetes.io/serviceaccount/token");
 
   static final int DNS_ATTEMPTS = 3;
   static final long DNS_RETRY_PAUSE_MS = 200L;
@@ -44,15 +53,25 @@ public final class HazelcastDiscoveryMode {
         serviceName,
         InetAddress::getAllByName,
         System.getenv("KUBERNETES_SERVICE_HOST"),
+        Files.isRegularFile(SERVICE_ACCOUNT_TOKEN),
         () -> Thread.sleep(DNS_RETRY_PAUSE_MS));
   }
 
   static Join decide(String serviceName, Resolver resolver) {
-    return decide(serviceName, resolver, null, () -> {});
+    return decide(serviceName, resolver, null, false, () -> {});
   }
 
   static Join decide(
       String serviceName, Resolver resolver, String kubernetesServiceHost, Pause pause) {
+    return decide(serviceName, resolver, kubernetesServiceHost, false, pause);
+  }
+
+  static Join decide(
+      String serviceName,
+      Resolver resolver,
+      String kubernetesServiceHost,
+      boolean serviceAccountTokenPresent,
+      Pause pause) {
     String name = serviceName == null ? "" : serviceName.trim();
     if (name.isEmpty() || isLoopbackName(name)) {
       return Join.SINGLE_NODE;
@@ -76,7 +95,7 @@ public final class HazelcastDiscoveryMode {
         }
       }
     }
-    if (inKubernetes(kubernetesServiceHost)) {
+    if (inKubernetes(kubernetesServiceHost, serviceAccountTokenPresent)) {
       return Join.KUBERNETES;
     }
     if (DEFAULT_SERVICE_DNS.equals(name)) {
@@ -85,8 +104,10 @@ public final class HazelcastDiscoveryMode {
     return Join.KUBERNETES;
   }
 
-  private static boolean inKubernetes(String kubernetesServiceHost) {
-    return kubernetesServiceHost != null && !kubernetesServiceHost.trim().isEmpty();
+  private static boolean inKubernetes(
+      String kubernetesServiceHost, boolean serviceAccountTokenPresent) {
+    return serviceAccountTokenPresent
+        || (kubernetesServiceHost != null && !kubernetesServiceHost.trim().isEmpty());
   }
 
   private static boolean isLoopbackName(String name) {

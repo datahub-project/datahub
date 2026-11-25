@@ -35,6 +35,7 @@ from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     resolve_parameter_value,
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    ColumnRenameStep,
     DataAccessFunctionDetail,
     DataPlatformTable,
     FunctionName,
@@ -304,6 +305,123 @@ def _remap_column_lineage_to_pbi_fields(
     return remapped
 
 
+def _name_before_renames(name: str, column_rename_steps: List[ColumnRenameStep]) -> str:
+    """Walk outermost-first. Each step is applied as a set, so a swap holds."""
+    for step in column_rename_steps:
+        new_to_old = {
+            rename.renamed_name: rename.source_name for rename in step.renames
+        }
+        name = new_to_old.get(name, name)
+    return name
+
+
+def _name_after_renames(name: str, column_rename_steps: List[ColumnRenameStep]) -> str:
+    """Walk innermost-first. sqlglot output names can differ in case from the
+    names the warehouse returned to Power BI (e.g. Snowflake folds unquoted
+    identifiers), so a rename key matches case-insensitively when no key matches
+    exactly."""
+    for step in reversed(column_rename_steps):
+        old_to_new = {
+            rename.source_name: rename.renamed_name for rename in step.renames
+        }
+        old_to_new_folded = {
+            source.lower(): renamed for source, renamed in old_to_new.items()
+        }
+        if name in old_to_new:
+            name = old_to_new[name]
+        else:
+            name = old_to_new_folded.get(name.lower(), name)
+    return name
+
+
+def _rename_sql_output_columns(
+    column_lineage: List[ColumnLineageInfo],
+    column_rename_steps: List[ColumnRenameStep],
+    pbi_columns: Optional[List[Column]],
+) -> List[ColumnLineageInfo]:
+    """Map native SQL output names forward through Table.RenameColumns.
+
+    Runs before _remap_column_lineage_to_pbi_fields: otherwise an output name can
+    be snapped onto a Power BI field that is really the target of a different
+    rename. A rename whose result is not a Power BI field is left alone.
+    """
+    if not column_rename_steps or not column_lineage:
+        return column_lineage
+
+    pbi_names = {col.name.lower() for col in pbi_columns} if pbi_columns else set()
+    renamed_lineage: List[ColumnLineageInfo] = []
+    for info in column_lineage:
+        output_name = info.downstream.column if info.downstream else ""
+        renamed = (
+            _name_after_renames(output_name, column_rename_steps)
+            if output_name
+            else output_name
+        )
+        if renamed == output_name or (pbi_names and renamed.lower() not in pbi_names):
+            renamed_lineage.append(info)
+            continue
+        renamed_lineage.append(
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(
+                    table=info.downstream.table,
+                    column=renamed,
+                    column_type=info.downstream.column_type,
+                    native_column_type=info.downstream.native_column_type,
+                ),
+                upstreams=info.upstreams,
+                logic=info.logic,
+            )
+        )
+    return renamed_lineage
+
+
+def apply_table_rename_columns(
+    lineage: Lineage,
+    column_rename_steps: List[ColumnRenameStep],
+) -> Lineage:
+    """Point table-navigation column lineage at Table.RenameColumns names.
+
+    Navigation lineage copies each Power BI field name onto the upstream side, so
+    the upstream column is mapped back to its pre-rename name. Native SQL lineage
+    already applied the renames in parse_custom_sql and is returned unchanged.
+    """
+    if (
+        not column_rename_steps
+        or not lineage.column_lineage
+        or not lineage.downstream_names_are_powerbi_fields
+    ):
+        return lineage
+
+    updated: List[ColumnLineageInfo] = []
+    for info in lineage.column_lineage:
+        downstream_name = info.downstream.column if info.downstream else ""
+        source_name = (
+            _name_before_renames(downstream_name, column_rename_steps)
+            if downstream_name
+            else downstream_name
+        )
+        if source_name == downstream_name:
+            updated.append(info)
+            continue
+        updated.append(
+            ColumnLineageInfo(
+                downstream=info.downstream,
+                upstreams=[
+                    ColumnRef(table=ref.table, column=source_name)
+                    if ref.column == downstream_name
+                    else ref
+                    for ref in info.upstreams
+                ],
+                logic=info.logic,
+            )
+        )
+    return Lineage(
+        upstreams=lineage.upstreams,
+        column_lineage=updated,
+        downstream_names_are_powerbi_fields=lineage.downstream_names_are_powerbi_fields,
+    )
+
+
 def make_urn(
     config: PowerBiDashboardSourceConfig,
     platform_instance_resolver: AbstractDataPlatformInstanceResolver,
@@ -376,6 +494,7 @@ class AbstractLineage(ABC):
         config: PowerBiDashboardSourceConfig,
         reporter: PowerBiDashboardSourceReport,
         platform_instance_resolver: AbstractDataPlatformInstanceResolver,
+        column_rename_steps: Optional[List[ColumnRenameStep]] = None,
     ) -> None:
         super().__init__()
         self.ctx = ctx
@@ -383,6 +502,7 @@ class AbstractLineage(ABC):
         self.config = config
         self.reporter = reporter
         self.platform_instance_resolver = platform_instance_resolver
+        self.column_rename_steps = column_rename_steps or []
 
     @abstractmethod
     def create_lineage(
@@ -797,9 +917,13 @@ class AbstractLineage(ABC):
         # shared SQL-parsing path so the downstream column resolves to the real
         # PowerBI field regardless of the platform driving the parse.
         column_lineage = _remap_column_lineage_to_pbi_fields(
-            parsed_result.column_lineage
-            if parsed_result.column_lineage is not None
-            else [],
+            _rename_sql_output_columns(
+                parsed_result.column_lineage
+                if parsed_result.column_lineage is not None
+                else [],
+                self.column_rename_steps,
+                self.table.columns,
+            ),
             self.table.columns,
         )
 
@@ -815,6 +939,7 @@ class AbstractLineage(ABC):
         return Lineage(
             upstreams=dataplatform_tables,
             column_lineage=column_lineage,
+            downstream_names_are_powerbi_fields=False,
         )
 
     def create_table_column_lineage(self, urn: str) -> List[ColumnLineageInfo]:
@@ -1029,8 +1154,20 @@ class AmazonRedshiftLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        schema_name: str = accessor.items["Name"]
-        table_name: str = accessor.next.items["Name"]
+        schema_name = accessor.items.get("Name")
+        table_name = accessor.next.items.get("Name")
+        if not schema_name or not table_name:
+            # A navigation step without a Name key is not the schema/table
+            # shape this handler understands; report it rather than letting a
+            # KeyError surface as a misleading "Unknown M-Query Pattern".
+            self.reporter.warning(
+                title=Constant.M_QUERY_NAVIGATION_UNRESOLVED,
+                message="Redshift navigation steps lack a Name key, so the "
+                "table's lineage was skipped.",
+                context=f"table-name={self.table.full_name}, "
+                f"schema={schema_name!r}, table={table_name!r}",
+            )
+            return Lineage.empty()
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
@@ -1692,10 +1829,21 @@ class MSSqlMultiDatabaseLineage(AbstractLineage):
             return Lineage.empty()
 
         # Second is database name
-        db_name: str = accessor.items["Name"]
+        db_name = accessor.items.get("Name")
         # Third is schema name and table name
-        schema_name: str = accessor.next.items["Schema"]
-        table_name: str = accessor.next.items["Item"]
+        schema_name = accessor.next.items.get("Schema")
+        table_name = accessor.next.items.get("Item")
+        if not db_name or not schema_name or not table_name:
+            # Sql.Databases navigation is {[Name=db]} then {[Schema=..,Item=..]};
+            # anything else is not a table reference this handler can resolve.
+            self.reporter.warning(
+                title=Constant.M_QUERY_NAVIGATION_UNRESOLVED,
+                message="MSSQL Sql.Databases navigation steps lack the expected "
+                "Name/Schema/Item keys, so the table's lineage was skipped.",
+                context=f"table-name={self.table.full_name}, db={db_name!r}, "
+                f"schema={schema_name!r}, table={table_name!r}",
+            )
+            return Lineage.empty()
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
@@ -2180,6 +2328,7 @@ class OdbcLineage(AbstractLineage):
         return Lineage(
             upstreams=updated_upstreams,
             column_lineage=updated_column_lineage,
+            downstream_names_are_powerbi_fields=lineage.downstream_names_are_powerbi_fields,
         )
 
     def _strip_athena_catalog_from_lineage(self, lineage: Lineage) -> Lineage:

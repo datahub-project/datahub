@@ -83,14 +83,14 @@ public class ReliableHardDeleteTest {
 
   /**
    * Data written since the capture keeps the key: only captured aspects were deleted, and the
-   * request fails so the caller does not remove references to an entity that still exists.
+   * request fails with a {@link PartialHardDeleteException} that callers do not retry.
    */
   @Test
   public void anEntityWrittenSinceTheCaptureStaysAndTheDeleteFails() {
     when(entityService.deleteUrn(any(), eq(URN), eq(CEILING)))
         .thenReturn(new RollbackRunResult(List.of(), 0, List.of(deleted("tagProperties", false))));
 
-    expectThrows(IllegalStateException.class, () -> reliableHardDelete.delete(opContext, URN));
+    expectThrows(PartialHardDeleteException.class, () -> reliableHardDelete.delete(opContext, URN));
     verify(entityService).deleteUrn(any(), eq(URN), eq(CEILING));
   }
 

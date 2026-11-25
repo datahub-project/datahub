@@ -12,7 +12,7 @@ public class ProductUpdateFlavorTest {
   public void testCoreIgnoresDraftHeadingAndOutOfOrderSections() throws IOException {
     Path repoRoot = Files.createTempDirectory("core-release-notes");
     writeFile(
-        repoRoot.resolve("docs/how/updating-datahub.md"),
+        repoRoot.resolve("docs/how/breaking-changes.md"),
         String.join(
             "\n",
             "# Updating DataHub",

@@ -1,10 +1,13 @@
 {
     "accessManagement.accessAlreadyGranted": "Käyttöoikeus on jo myönnetty",
     "accessManagement.accessGrantedTooltip": "Sinulla on jo käyttöoikeus tähän rooliin",
+    "accessManagement.accessNotGranted": "Käyttöoikeutta ei ole myönnetty",
+    "accessManagement.accessNotGrantedTooltip": "Tälle roolille ei ole määritetty pyyntölinkkiä",
     "accessManagement.columnAccess": "Käyttöoikeus",
     "accessManagement.columnAccessType": "Käyttöoikeustyyppi",
     "accessManagement.columnRoleName": "Roolin nimi",
     "accessManagement.granted": "Myönnetty",
+    "accessManagement.notGranted": "Ei myönnetty",
     "accessManagement.request": "Pyydä",
     "accessManagement.requestAccess": "Pyydä käyttöoikeutta",
     "accessManagement.tableAriaLabel": "Käyttöoikeuksien hallinnan roolitaulukko"

@@ -1,15 +1,20 @@
 import json
 import time
 import unittest
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
 
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
+from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_upstream_lineage_to_patch,
+)
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
@@ -56,6 +61,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     StringTypeClass,
     SubTypesClass,
+    SystemMetadataClass,
     UpstreamClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
@@ -1595,3 +1601,178 @@ class TestEnsureAspectSizeProcessorReport:
         assert proc.report.num_truncations_by_aspect.get("schemaMetadata", 0) == 1
         assert proc.report.num_truncations_by_aspect.get("querySubjects", 0) == 1
         assert proc.report.num_truncations_by_aspect.get("upstreamLineage", 0) == 0
+
+
+def upstream_lineage_patch_workunit(
+    num_columns: int, num_upstreams: int = 1
+) -> MetadataWorkUnit:
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.downstream,PROD)"
+    upstreams = [
+        f"urn:li:dataset:(urn:li:dataPlatform:hive,db.upstream_{j},PROD)"
+        for j in range(num_upstreams)
+    ]
+    # Reverse path order, so the kept subset shows the trimmer sorts by path.
+    lineage = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=upstream, type=DatasetLineageTypeClass.TRANSFORMED)
+            for upstream in reversed(upstreams)
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[make_schema_field_urn(upstreams[0], f"col_{i}")],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(downstream, f"col_{i}")],
+            )
+            for i in reversed(range(num_columns))
+        ],
+    )
+    return convert_upstream_lineage_to_patch(
+        downstream,
+        lineage,
+        SystemMetadataClass(lastObserved=1700000000000, runId="test-run"),
+    )
+
+
+def patch_operations(wu: MetadataWorkUnit) -> list:
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert wu.metadata.aspect is not None
+    return json.loads(wu.metadata.aspect.value)
+
+
+def by_path(operations: list) -> list:
+    return sorted(operations, key=lambda op: op["path"])
+
+
+def test_oversized_upstream_lineage_patch_is_truncated(processor):
+    processor.payload_constraint = 1_000_000
+    processor.schema_size_constraint = int(processor.payload_constraint * 0.985)
+    wu = upstream_lineage_patch_workunit(num_columns=5000)
+    operations = patch_operations(wu)
+    assert len(json.dumps(operations)) > processor.payload_constraint
+
+    (result,) = processor.process([wu])
+
+    kept = patch_operations(result)
+    assert 1 < len(kept) < len(operations)
+    assert kept[0] == operations[0]
+    assert kept[1:] == by_path(operations[1:])[: len(kept) - 1]
+    assert (
+        len(json.dumps(pre_json_transform(result.metadata.to_obj())))
+        <= processor.payload_constraint
+    )
+    assert processor.report.num_truncations_by_aspect == {"upstreamLineage": 1}
+    assert processor.ctx.source_report.warnings
+
+
+def test_upstream_lineage_patch_keeps_upstreams_first_in_path_order(processor):
+    wu = upstream_lineage_patch_workunit(num_columns=10, num_upstreams=5)
+    operations = patch_operations(wu)
+    upstream_ops = by_path(operations[:5])
+    processor.schema_size_constraint = (
+        sum(len(json.dumps(json.dumps(op))) for op in upstream_ops[:3]) + 1
+    )
+
+    (result,) = processor.process([wu])
+
+    assert patch_operations(result) == upstream_ops[:3]
+    warnings = " ".join(str(w) for w in processor.ctx.source_report.warnings)
+    assert "Skipped 2 upstream datasets" in warnings
+    assert "Skipped 10 field-set-level fine-grained lineages" in warnings
+
+
+def test_upstream_lineage_patch_truncated_when_only_escaped_size_exceeds(processor):
+    wu = upstream_lineage_patch_workunit(num_columns=100)
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert isinstance(wu.metadata.aspect, GenericAspectClass)
+    raw_value = wu.metadata.aspect.value
+    processor.schema_size_constraint = len(raw_value) + 1
+    assert len(json.dumps(raw_value.decode())) >= processor.schema_size_constraint
+
+    (result,) = processor.process([wu])
+
+    assert len(patch_operations(result)) < len(json.loads(raw_value))
+    assert processor.report.num_truncations_by_aspect == {"upstreamLineage": 1}
+
+
+def test_upstream_lineage_patch_keeps_dataset_level_before_field_set_level(processor):
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.downstream,PROD)"
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.upstream,PROD)"
+    # The field-set edge sorts first by path, so only the type priority keeps the
+    # dataset-level edge.
+    lineage = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=upstream, type=DatasetLineageTypeClass.TRANSFORMED)
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[make_schema_field_urn(upstream, "col_a")],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(downstream, "col_a")],
+            ),
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
+                upstreams=[upstream],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(downstream, "col_b")],
+            ),
+        ],
+    )
+    wu = convert_upstream_lineage_to_patch(
+        downstream,
+        lineage,
+        SystemMetadataClass(lastObserved=1700000000000, runId="test-run"),
+    )
+    upstream_op, field_set_op, dataset_op = sorted(
+        patch_operations(wu), key=lambda op: op["path"].startswith("/fine")
+    )
+    assert field_set_op["path"] < dataset_op["path"]
+    processor.schema_size_constraint = (
+        sum(len(json.dumps(json.dumps(op))) for op in (upstream_op, dataset_op)) + 1
+    )
+
+    (result,) = processor.process([wu])
+
+    assert patch_operations(result) == [upstream_op, dataset_op]
+    warnings = " ".join(str(w) for w in processor.ctx.source_report.warnings)
+    assert "Skipped 1 field-set-level fine-grained lineages" in warnings
+
+
+def with_first_operation(
+    wu: MetadataWorkUnit, op: str, path: Optional[str] = None
+) -> MetadataWorkUnit:
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert wu.metadata.aspect is not None
+    operations = patch_operations(wu)
+    operations[0]["op"] = op
+    if path is not None:
+        operations[0]["path"] = path
+    wu.metadata.aspect.value = json.dumps(operations).encode()
+    return wu
+
+
+def test_upstream_lineage_patch_left_unchanged_when_fits_or_not_trimmable(processor):
+    fitting = upstream_lineage_patch_workunit(num_columns=3)
+    with_remove = with_first_operation(
+        upstream_lineage_patch_workunit(num_columns=100), "remove"
+    )
+    with_replace = with_first_operation(
+        upstream_lineage_patch_workunit(num_columns=100), "add", "/fineGrainedLineages"
+    )
+    with_non_dict = upstream_lineage_patch_workunit(num_columns=100)
+    assert isinstance(with_non_dict.metadata, MetadataChangeProposalClass)
+    assert with_non_dict.metadata.aspect is not None
+    with_non_dict.metadata.aspect.value = json.dumps(
+        ["not-an-operation", *patch_operations(with_non_dict)]
+    ).encode()
+    processor.schema_size_constraint = (
+        len(json.dumps(patch_operations(with_remove))) // 2
+    )
+    workunits = [fitting, with_remove, with_replace, with_non_dict]
+    original = [patch_operations(wu) for wu in workunits]
+
+    results = list(processor.process(workunits))
+
+    assert [patch_operations(wu) for wu in results] == original
+    assert not processor.report.num_truncations_by_aspect

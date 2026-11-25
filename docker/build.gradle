@@ -5,6 +5,7 @@ plugins {
 import com.avast.gradle.dockercompose.tasks.ComposeUp
 import com.avast.gradle.dockercompose.tasks.ComposeDownForced
 import org.yaml.snakeyaml.Yaml
+import groovy.json.JsonSlurper
 
 apply from: "../gradle/versioning/versioning.gradle"
 
@@ -18,12 +19,18 @@ ext {
     ]
 
     python_services_modules = [
+            ':packages:datahub-ai-service',
     ]
 
     // Load environment variables from file if DATAHUB_LOCAL_COMMON_ENV is set
     loadCommonEnvFile = {
         def envFile = System.getenv("DATAHUB_LOCAL_COMMON_ENV")
         def envVars = [:]
+        // datahub-dev resolves these names in _dev_env() (shell value first, blank skipped, path checked)
+        // and publishes them here. The file must not override them: a saved value would beat a shell
+        // value, and a blank one would reach Compose as an empty string.
+        def decidedKeys = (System.getenv("DATAHUB_DEV_PROMOTED_ENV_KEYS") ?: "")
+            .split(",").collect { it.trim() }.findAll { it }
 
         if (envFile && new File(envFile).exists()) {
             logger.lifecycle("Loading environment variables from: ${envFile}")
@@ -32,7 +39,10 @@ ext {
                 if (line && !line.startsWith("#") && line.contains("=")) {
                     def parts = line.split("=", 2)
                     if (parts.length == 2) {
-                        envVars[parts[0].trim()] = parts[1].trim()
+                        def key = parts[0].trim()
+                        if (!decidedKeys.contains(key)) {
+                            envVars[key] = parts[1].trim()
+                        }
                     }
                 }
             }
@@ -141,6 +151,21 @@ ext {
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
+            'quickstartDebugSearchSplit': [
+                    // Search V3 on its own OpenSearch cluster: profiles/docker-compose.search-split-override.yml
+                    // adds `search-secondary` and points GMS / system update / MAE consumer at it through
+                    // elasticsearch.clusters.secondary.uri + componentCluster.searchV3. V2 stays on `search`.
+                    // Turn V3 on with the usual variables (ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED,
+                    // ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED); this task supplies only the
+                    // cluster and the routing.
+                    profile: 'debug',
+                    composeFiles: [compose_base, 'profiles/docker-compose.search-split-override.yml'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
             'quickstartDebugElasticsearch': [
                     profile: 'debug-elasticsearch',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
@@ -151,7 +176,7 @@ ext {
             ],
             'quickstartOS2': [
                     profile: 'quickstart-opensearch2',
-                    modules: backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
             ],
             'quickstartOS2Debug': [
                     profile: 'debug-opensearch2',
@@ -163,7 +188,7 @@ ext {
             ],
             'quickstartOS3': [
                     profile: 'quickstart-opensearch3',
-                    modules: backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
                     // Image-based CI stack still needs /openapi/operations/dev/featureFlags
                     // (smoke-test/tests/dev_tooling). Compose defaults DEV_TOOLING_ENABLED to false.
                     additionalEnv: [
@@ -216,7 +241,7 @@ ext {
             ],
             'quickstartCDC': [
                     profile: 'quickstart-consumers-cdc',
-                    modules: backend_profile_modules + [':datahub-frontend',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                         ':metadata-jobs:mce-consumer-job',
                                                         ':metadata-jobs:mae-consumer-job',
                                                         ':datahub-actions',
@@ -246,14 +271,14 @@ ext {
             ],
             'quickstartPg': [
                     profile: 'quickstart-postgres',
-                    modules: backend_profile_modules + [
+                    modules: python_services_modules + backend_profile_modules + [
                             ':datahub-frontend',
                             ':datahub-actions',
                     ]
             ],
             'quickstartPgConsumers': [
                     profile: 'quickstart-postgres-consumers',
-                    modules: backend_profile_modules + [
+                    modules: python_services_modules + backend_profile_modules + [
                             ':datahub-frontend',
                             ':metadata-jobs:mce-consumer-job',
                             ':metadata-jobs:mae-consumer-job',
@@ -262,7 +287,7 @@ ext {
             ],
             'quickstartPgCdc': [
                 profile: 'quickstart-postgres-cdc',
-                modules: backend_profile_modules + [
+                modules: python_services_modules + backend_profile_modules + [
                     ':datahub-frontend',
                     ':datahub-actions',
                 ]
@@ -339,6 +364,7 @@ ext {
     // Though these support hot reload, they need to be restarted if any ENVs have been modified and ReloadEnv is run.
     moduleToContainerWithHotReload = [
         ':datahub-actions': 'datahub-actions',
+        ':packages:datahub-ai-service': 'datahub-ai-service',
     ]
 
     // Helper function to read the captured profile name from file
@@ -543,10 +569,15 @@ task generateQuickstartComposeConfig {
         composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", '__SIGNING_KEY__')
         composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SALT", '__SALT__')
         composeExecutor.parameters.environment.put("DATAHUB_SYSTEM_CLIENT_SECRET", '__SYSTEM_CLIENT_SECRET__')
+        composeExecutor.parameters.environment.put("ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED", '__SCHEMA_FIELD_HASH_ID__')
         // Set placeholder port values that should remain configurable at runtime
         // Use unique high port numbers as placeholders that will be replaced later
         composeExecutor.parameters.environment.put("DATAHUB_MAPPED_GMS_PORT", '58080')
         composeExecutor.parameters.environment.put("DATAHUB_MAPPED_FRONTEND_PORT", '59002')
+        composeExecutor.parameters.environment.put("DATAHUB_MAPPED_AI_PORT", '59005')
+        composeExecutor.parameters.environment.put("DATAHUB_AI_MCP_ENABLED", '__AI_MCP_ENABLED__')
+        composeExecutor.parameters.environment.put("MCP_SERVER_ENABLED", '__MCP_SERVER_ENABLED__')
+        composeExecutor.parameters.environment.put("DATAHUB_AI_IMAGE", '__AI_IMAGE__')
 
         def configOutput = composeExecutor.execute('config')
 
@@ -558,13 +589,35 @@ task generateQuickstartComposeConfig {
         configOutput = configOutput.replace('__SIGNING_KEY__', '${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}')
         configOutput = configOutput.replace('__SALT__', '${DATAHUB_TOKEN_SERVICE_SALT}')
         configOutput = configOutput.replace('__SYSTEM_CLIENT_SECRET__', '${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}')
+        configOutput = configOutput.replace('__SCHEMA_FIELD_HASH_ID__', '${ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED:-true}')
         configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
+        configOutput = configOutput.replace('__AI_MCP_ENABLED__', '${DATAHUB_AI_MCP_ENABLED:-true}')
+        configOutput = configOutput.replace('__MCP_SERVER_ENABLED__', '${MCP_SERVER_ENABLED:-false}')
+        configOutput = configOutput.replace('__AI_IMAGE__', '${DATAHUB_AI_IMAGE:-acryldata/datahub-ai-service}')
 
         // Parse configOutput as yaml and add UI_INGESTION_DEFAULT_CLI_VERSION as an env var under datahub-gms-quickstart.environment key
         // This needs to be matched with the version of the CLI used to launch quickstart
         def yaml = new Yaml()
         def config = yaml.load(configOutput)
         config['services']['datahub-gms-quickstart']['environment']['UI_INGESTION_DEFAULT_CLI_VERSION'] = '${UI_INGESTION_DEFAULT_CLI_VERSION}'
+        // Compose has already interpolated DATAHUB_SEARCH_TAG from the machine running Gradle.
+        // Put the shipped defaults back so a build host that has the variable set cannot bake 2.x in.
+        // The 3.7.0 fallback must stay equal to DATAHUB_SEARCH_TAG in
+        // docker/profiles/docker-compose.prerequisites.yml and
+        // docker/quickstart/docker-compose.quickstart-profile.yml.
+        def opensearch = config['services']['opensearch']
+        opensearch['image'] = 'opensearchproject/opensearch:${DATAHUB_SEARCH_TAG:-3.7.0}'
+        opensearch['volumes'].each { volume ->
+            if (volume instanceof Map && volume['target'] == '/usr/share/opensearch/data') {
+                volume['source'] = '${DATAHUB_SEARCH_VOLUME:-os3data}'
+            }
+        }
+        // DATAHUB_SEARCH_VOLUME=osdata must resolve to a declared volume.
+        config['volumes'].putIfAbsent('osdata', [name: 'datahub_osdata'])
+        // The released quickstart doesn't run datahub-ai-service yet (see docker-compose.ai.yml).
+        // With no URL the frontend answers 404 on /mcp, as when MCP is off; with one it would
+        // proxy to a missing host and answer 503. Drop this once quickstart runs the service.
+        config['services']['frontend-quickstart']['environment'].remove('DATAHUB_AI_SERVICE_URL')
 
         // Configure YAML dump options to match Docker Compose format
         def dumpOptions = new org.yaml.snakeyaml.DumperOptions()
@@ -577,6 +630,7 @@ task generateQuickstartComposeConfig {
         // Replace port placeholders with environment variable syntax (after YAML processing)
         configOutput = configOutput.replace("published: '58080'", 'published: ${DATAHUB_MAPPED_GMS_PORT:-8080}')
         configOutput = configOutput.replace("published: '59002'", 'published: ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}')
+        configOutput = configOutput.replace("published: '59005'", 'published: ${DATAHUB_MAPPED_AI_PORT:-9005}')
 
         // Preserve create_host_path so host dirs (e.g. ~/.datahub/plugins) are created on first run
         configOutput = configOutput.replace("bind: {}", "bind:\n        create_host_path: true")
@@ -634,17 +688,41 @@ quickstart_configs.each { taskName, config ->
 
 
 quickstart_configs.each { taskName, config ->
+    def taskSuffix = config.isDebug? 'debug' : ''
+    def buildModules = selectBuildModules(config.modules)
+    def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
+    tasks.register("generateBakeSpec${taskName}") {
+        dependsOn(buildModules.collect { it + ":generateBakeSnippet${taskSuffix}" })
+        outputs.file(jsonFile)
+        outputs.upToDateWhen { false }
+
+        doLast {
+            def bakeSnippets = [:]
+            def targets = []
+
+            buildModules.each { module ->
+                def moduleProject = project.project(module)
+                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet${taskSuffix}")
+                bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
+                targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
+            }
+
+            def bakeSpec = [
+                    group: ["default": ["targets": targets]],
+                    target: bakeSnippets,
+            ]
+            jsonFile.parentFile.mkdirs()
+            jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(bakeSpec))
+        }
+    }
+
     tasks.register("buildImages${taskName}", Exec) {
         ext{
             bakeSpec = [:]
         }
         group = 'quickstart-ci'
-        def taskSuffix = config.isDebug? 'debug' : ''
-        def buildModules = selectBuildModules(config.modules)
-        dependsOn(buildModules.collect { it + ":generateBakeSnippet${taskSuffix}" })
+        dependsOn(tasks.named("generateBakeSpec${taskName}"))
         dependsOn(tasks.getByName("prepareAll${taskName}"))
-
-        def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
 
         def bakeCmdArgs = ["bake", "-f",  "${jsonFile.absolutePath}"]
         def buildCmd = []
@@ -658,6 +736,12 @@ quickstart_configs.each { taskName, config ->
         } else {
             buildCmd += ["docker",  "buildx" ]
             buildCmd +=bakeCmdArgs
+            if (config.isDebug && System.getenv("CI") != "true") {
+                buildCmd += [
+                        '--provenance=false',
+                        '--sbom=false',
+                ]
+            }
             // buildx >= 0.17 refuses to read files referenced by the bake definition that
             // live outside the working directory (e.g. a netrc secret at $HOME/.netrc)
             // unless the fs entitlement is granted; non-interactive runs fail outright
@@ -682,21 +766,7 @@ quickstart_configs.each { taskName, config ->
                 logger.lifecycle("Building a subset of ${taskName} images: ${buildModules}")
             }
 
-            def bakeSnippets = [:]
-            def targets = []
-
-            buildModules.each { module ->
-                def moduleProject = project.project(module)
-                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet${taskSuffix}")
-                bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
-                targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
-            }
-
-            ext.bakeSpec.group = [ "default": ["targets": targets] ]
-            ext.bakeSpec.target = bakeSnippets
-
-            jsonFile.parentFile.mkdirs()
-            jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ext.bakeSpec))
+            ext.bakeSpec = new JsonSlurper().parse(jsonFile)
         }
     }
 }

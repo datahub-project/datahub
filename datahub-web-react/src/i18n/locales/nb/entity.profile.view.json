@@ -8,5 +8,6 @@
     "viewDefinitionTab.logicHeading": "Logikk",
     "viewDefinitionTab.materializedFalse": "Nei",
     "viewDefinitionTab.materializedLabel": "Materialisert",
-    "viewDefinitionTab.materializedTrue": "Ja"
+    "viewDefinitionTab.materializedTrue": "Ja",
+    "viewDefinitionTab.noViewPermission": "Du har ikke tillatelse til å se SQL-logikken for dette viewet."
 }

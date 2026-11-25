@@ -100,6 +100,12 @@ class TrinoUsageConfig(TrinoConfig, BaseUsageConfig, EnvBasedSourceBaseConfig):
     options: dict = Field(default={}, description="")
     database: str = Field(description="The name of the catalog from getting the usage")
 
+    @classmethod
+    def probe_provider_class(cls) -> Optional[type]:
+        # A usage-only source: it ingests query history, which the inherited
+        # SQL provider doesn't list. Probe the `trino` source instead.
+        return None
+
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
     ) -> str:

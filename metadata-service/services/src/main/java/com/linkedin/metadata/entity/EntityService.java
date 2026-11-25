@@ -10,6 +10,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -169,6 +170,15 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull final Set<String> aspectNames) {
     return getLatestAspects(opContext, urns, aspectNames, true);
   }
+
+  /**
+   * The latest stored aspect as readers see it (references to entity types this registry doesn't
+   * know removed), including whether it was written by a newer version, or empty when there is
+   * none.
+   */
+  @Nonnull
+  Optional<SystemAspect> getLatestSystemAspect(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String aspectName);
 
   Map<String, RecordTemplate> getLatestAspectsForUrn(
       @Nonnull OperationContext opContext,
@@ -428,6 +438,9 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull RestoreIndicesArgs args,
       @Nonnull Consumer<String> logger);
 
+  /** Rows the urn has in primary storage, every aspect and every version; -1 when unknown. */
+  int countUrnRows(@Nonnull OperationContext opContext, @Nonnull Urn urn);
+
   // TODO: Extract this to a different service, doesn't need to be here
   List<RestoreIndicesResult> restoreIndices(
       @Nonnull OperationContext opContext,
@@ -570,6 +583,19 @@ public interface EntityService<U extends ChangeMCP> {
   @Nonnull
   Optional<DeleteCeiling> captureDeleteCeiling(
       @Nonnull OperationContext opContext, @Nonnull Urn urn);
+
+  /**
+   * Runs what a hard delete of {@code urn} checks before it writes anything: the delete validators
+   * for the key aspect, and the guard that keeps an ordinary delete of a structured property that
+   * is not soft-deleted. Reads only. The delete runs the same checks again in its transaction, so a
+   * caller that must not change anything else until the delete is allowed (removing the references
+   * to the entity, for one) calls this first; a state that changes in between is still refused by
+   * the delete itself.
+   *
+   * @throws ValidationException when a validator rejects the delete
+   * @throws IllegalArgumentException when the guard rejects it
+   */
+  void validateKeyDelete(@Nonnull OperationContext opContext, @Nonnull Urn urn);
 
   /**
    * {@link #deleteUrn(OperationContext, Urn)}, bounded by {@code ceiling} when it is not null (null

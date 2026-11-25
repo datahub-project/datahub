@@ -35,7 +35,12 @@ from urllib3 import HTTPResponse
 
 from datahub._version import nice_version_name
 from datahub.cli import config_utils
-from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url, get_or_else
+from datahub.cli.cli_utils import (
+    ensure_has_system_metadata,
+    fixup_gms_url,
+    get_or_else,
+    is_same_gms_origin,
+)
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigModel,
@@ -122,7 +127,15 @@ _DATAHUB_EMITTER_TRACE = get_emitter_trace()
 
 _DEFAULT_CLIENT_MODE: ClientMode = ClientMode.SDK
 
+# Servers already warned about not receiving system credentials. The rest sink builds one
+# emitter per worker thread, so without this the same warning repeats per thread. It is
+# process-wide and never cleared; a test asserting the warning must clear it first.
+_SYSTEM_AUTH_SKIPPED_SERVERS: set[str] = set()
+
 TRACE_PENDING_STATUS = "PENDING"
+# UNKNOWN is reported with success=true when no consumer offset is visible yet.
+# That is not a primary-storage write; wait_for_completion must keep polling.
+_TRACE_PRIMARY_UNRESOLVED_STATUSES = frozenset({TRACE_PENDING_STATUS, "UNKNOWN"})
 TRACE_INITIAL_BACKOFF = 1.0  # Start with 1 second
 TRACE_MAX_BACKOFF = 300.0  # Cap at 5 minutes
 TRACE_BACKOFF_FACTOR = 2.0  # Double the wait time each attempt
@@ -301,7 +314,7 @@ class RequestsSessionConfig(ConfigModel):
 
     tcp_keepalive: bool = _DEFAULT_TCP_KEEPALIVE
 
-    def build_session(self) -> requests.Session:
+    def build_session(self, *, retry: Optional[Retry] = None) -> requests.Session:
         session = requests.Session()
 
         user_agent = self._get_user_agent_string(session)
@@ -366,7 +379,7 @@ class RequestsSessionConfig(ConfigModel):
         adapter = adapter_cls(
             pool_connections=self.pool_connections,
             pool_maxsize=self.pool_maxsize,
-            max_retries=retry_strategy,
+            max_retries=retry if retry is not None else retry_strategy,
         )
         session.mount("http://", adapter)
         session.mount("https://", adapter)
@@ -568,9 +581,26 @@ class DataHubRestEmitter(Closeable, Emitter):
             # in as part of this constructor.
             # It works because everything goes through here. The DatahubGraph inherits from the
             # rest emitter, and the rest sink uses the rest emitter under the hood.
+            #
+            # The system credentials belong to the env-configured GMS, so they are only sent
+            # there. A server that comes from a recipe or other config and points anywhere else
+            # gets no credentials, the same rule the rest sink applies to env OAuth.
             system_auth = config_utils.get_system_auth()
             if system_auth is not None:
-                headers["Authorization"] = system_auth
+                env_url = config_utils.get_url_from_env()
+                if env_url is not None and is_same_gms_origin(
+                    env_url, self._gms_server
+                ):
+                    headers["Authorization"] = system_auth
+                elif self._gms_server not in _SYSTEM_AUTH_SKIPPED_SERVERS:
+                    _SYSTEM_AUTH_SKIPPED_SERVERS.add(self._gms_server)
+                    logger.warning(
+                        "Not sending DATAHUB_SYSTEM_CLIENT_ID/DATAHUB_SYSTEM_CLIENT_SECRET "
+                        "credentials to %s: it does not match the env-configured server %s. "
+                        "Set DATAHUB_GMS_URL to this server, or configure a token for it.",
+                        self._gms_server,
+                        env_url,
+                    )
 
         timeout: float | tuple[float, float]
         if connect_timeout_sec is not None or read_timeout_sec is not None:
@@ -625,6 +655,13 @@ class DataHubRestEmitter(Closeable, Emitter):
         built from copied headers.
         """
         return self._session
+
+    def create_session(self, *, retry: Optional[Retry] = None) -> requests.Session:
+        """Create an owned transport with this client's settings and live auth hook."""
+        session = self._session_config.build_session(retry=retry)
+        session.headers.update(self.session.headers)
+        session.auth = self.session.auth
+        return session
 
     @property
     def server_config(self) -> RestServiceConfig:
@@ -1211,6 +1248,11 @@ class DataHubRestEmitter(Closeable, Emitter):
                     )
                     info.pop("stackTrace", None)
 
+                # Callers classify failures by status (a failed If-Version-Match precondition
+                # is a 412 the caller can retry, not a rejected write). The restli error body
+                # carries it; the OpenAPI one does not, so fill it in from the response.
+                info.setdefault("status", response.status_code)
+
                 hint = ""
                 if "unrecognized field found but not allowed" in (
                     info.get("message") or ""
@@ -1297,9 +1339,12 @@ class DataHubRestEmitter(Closeable, Emitter):
                                 "writeStatus"
                             ]
 
-                            # Remove resolved statuses
+                            # A primary row is ACTIVE_STATE, NO_OP, or HISTORIC_STATE.
+                            # PENDING is in flight. UNKNOWN means the offset was
+                            # not visible yet, which happens before the SQL write.
                             if (
-                                primary_storage != TRACE_PENDING_STATUS
+                                primary_storage
+                                not in _TRACE_PRIMARY_UNRESOLVED_STATUSES
                                 and search_storage != TRACE_PENDING_STATUS
                             ):
                                 trace.data[urn].remove(aspect_name)

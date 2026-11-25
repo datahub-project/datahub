@@ -114,3 +114,13 @@ class DataProductPatchBuilder(
             value=parent_urn,
         )
         return self
+
+    def remove_parent_data_product(self) -> "DataProductPatchBuilder":
+        """Detach the Data Product from its parent, making it a root. A no-op if it has none."""
+        self._add_patch(
+            DataProductProperties.ASPECT_NAME,
+            "remove",
+            path=("parentDataProduct",),
+            value={},
+        )
+        return self

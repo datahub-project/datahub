@@ -9,7 +9,11 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
+import com.linkedin.metadata.config.search.QueryCanonicalizationConfiguration;
+import com.linkedin.metadata.config.search.TimeCanonicalizationConfiguration;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
@@ -18,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -298,7 +303,114 @@ public class DatasetStatsSummaryBatchLoaderTest {
 
   private static QueryContext mockContext() {
     final QueryContext context = Mockito.mock(QueryContext.class);
-    Mockito.when(context.getOperationContext()).thenReturn(Mockito.mock(OperationContext.class));
+    final OperationContext opContext = Mockito.mock(OperationContext.class);
+    // Pass-through canonicalizer: these assert batching and assembly, not time rounding, so the
+    // window bounds stay the exact clock reading.
+    Mockito.when(opContext.canonicalNow()).thenReturn(QueryTimeCanonicalizer.DISABLED.now());
+    Mockito.when(context.getOperationContext()).thenReturn(opContext);
     return context;
+  }
+
+  // ── Canonicalization ────────────────────────────────────────────────────────
+
+  /** A QueryContext whose canonical clock is pinned to a fixed, off-boundary instant. */
+  private static QueryContext canonicalContext(final String isoInstant) {
+    final QueryTimeCanonicalizer canonicalizer =
+        QueryTimeCanonicalizer.fromConfig(
+            QueryCanonicalizationConfiguration.builder()
+                .enabled(true)
+                .time(
+                    TimeCanonicalizationConfiguration.builder()
+                        .enabled(true)
+                        .bucketSize(5)
+                        .bucketSizeUnit("MINUTES")
+                        .timezone("UTC")
+                        .rounding("EXPAND")
+                        .build())
+                .build(),
+            null,
+            java.time.Clock.fixed(java.time.Instant.parse(isoInstant), java.time.ZoneOffset.UTC));
+
+    final QueryContext context = Mockito.mock(QueryContext.class);
+    final OperationContext opContext = Mockito.mock(OperationContext.class);
+    Mockito.when(opContext.canonicalNow()).thenReturn(canonicalizer.now());
+    Mockito.when(context.getOperationContext()).thenReturn(opContext);
+    return context;
+  }
+
+  /** Every timestampMillis bound in the captured filter, in criterion order. */
+  private static List<Long> timeBounds(final Filter filter) {
+    return filter.getOr().stream()
+        .flatMap(cc -> cc.getAnd().stream())
+        .filter(c -> "timestampMillis".equals(c.getField()))
+        .map(c -> Long.parseLong(c.getValues().get(0)))
+        .collect(java.util.stream.Collectors.toList());
+  }
+
+  private static Filter capturedFilter(final TimeseriesAspectService ts) {
+    final ArgumentCaptor<Filter> captor = ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(ts, Mockito.atLeastOnce())
+        .batchGetAggregatedStats(any(), any(), any(), any(), any(), captor.capture(), any());
+    return captor.getAllValues().get(0);
+  }
+
+  /**
+   * The batched path must round its window exactly like the per-URN resolver, otherwise the two
+   * paths issue different queries for the same question and neither can reuse the other's cached
+   * result.
+   *
+   * <p>Only the end bound lands on a bucket boundary. The start comes from {@code
+   * TimeseriesUtils.convertRangeToStartTime}, which deliberately subtracts {@code 31d + 1ms} - both
+   * bounds are inclusive, so it needs an off-by-one adjustment. That offset is constant, so the
+   * start is still identical for every request in a bucket, which is what cache reuse requires.
+   */
+  @Test
+  public void testWindowEndIsCanonicalizedAndStartIsOffsetConsistently() throws Exception {
+    final TimeseriesAspectService ts = Mockito.mock(TimeseriesAspectService.class);
+    stubBatch(ts, true, new HashMap<>());
+    stubBatch(ts, false, new HashMap<>());
+
+    new DatasetStatsSummaryBatchLoader(
+            ts, DatasetStatsSummaryBatchLoader.newCache(), (c, u) -> true)
+        .batchLoad(
+            ImmutableList.of(Urn.createFromString(DATASET_A)),
+            canonicalContext("2026-08-16T19:03:42Z"));
+
+    final List<Long> bounds = timeBounds(capturedFilter(ts));
+    assertEquals(bounds.size(), 2);
+    final long start = bounds.get(0);
+    final long end = bounds.get(1);
+
+    // 19:03:42 with a 5m EXPAND bucket ceils the upper bound to 19:05:00.
+    assertEquals(end, java.time.Instant.parse("2026-08-16T19:05:00Z").toEpochMilli());
+    assertEquals(end % 300_000L, 0L, "end bound must be on a 5m boundary");
+
+    // The start is measured from the floored reference (19:00:00), minus the fixed 31d + 1ms.
+    final long flooredReference = java.time.Instant.parse("2026-08-16T19:00:00Z").toEpochMilli();
+    assertEquals(start, flooredReference - (31L * 24 * 60 * 60 * 1000) - 1);
+  }
+
+  /** Two loads inside one bucket must request an identical window. */
+  @Test
+  public void testSameBucketProducesSameWindow() throws Exception {
+    final TimeseriesAspectService first = Mockito.mock(TimeseriesAspectService.class);
+    stubBatch(first, true, new HashMap<>());
+    stubBatch(first, false, new HashMap<>());
+    new DatasetStatsSummaryBatchLoader(
+            first, DatasetStatsSummaryBatchLoader.newCache(), (c, u) -> true)
+        .batchLoad(
+            ImmutableList.of(Urn.createFromString(DATASET_A)),
+            canonicalContext("2026-08-16T19:00:01Z"));
+
+    final TimeseriesAspectService second = Mockito.mock(TimeseriesAspectService.class);
+    stubBatch(second, true, new HashMap<>());
+    stubBatch(second, false, new HashMap<>());
+    new DatasetStatsSummaryBatchLoader(
+            second, DatasetStatsSummaryBatchLoader.newCache(), (c, u) -> true)
+        .batchLoad(
+            ImmutableList.of(Urn.createFromString(DATASET_A)),
+            canonicalContext("2026-08-16T19:04:59Z"));
+
+    assertEquals(timeBounds(capturedFilter(second)), timeBounds(capturedFilter(first)));
   }
 }

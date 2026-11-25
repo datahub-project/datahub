@@ -135,6 +135,28 @@ class TestUnityCatalogProxy:
                 "target_type": "TABLE",
                 "last_updated": datetime(2023, 1, 1),
             },
+            # Streaming table upstream
+            {
+                "entity_type": "TABLE",
+                "entity_id": "entity_2",
+                "source_table_full_name": "other_catalog.schema.source_streaming_table",
+                "source_path": None,
+                "source_type": "STREAMING_TABLE",
+                "target_table_full_name": "test_catalog.schema.target_table",
+                "target_type": "TABLE",
+                "last_updated": datetime(2023, 1, 1),
+            },
+            # Materialized view upstream
+            {
+                "entity_type": "TABLE",
+                "entity_id": "entity_3",
+                "source_table_full_name": "other_catalog.schema.source_materialized_view",
+                "source_path": None,
+                "source_type": "MATERIALIZED_VIEW",
+                "target_table_full_name": "test_catalog.schema.target_table",
+                "target_type": "TABLE",
+                "last_updated": datetime(2023, 1, 1),
+            },
             # External PATH upstream
             {
                 "entity_type": "TABLE",
@@ -181,13 +203,26 @@ class TestUnityCatalogProxy:
 
         # Check table upstream
         target_lineage = result["test_catalog.schema.target_table"]
-        assert len(target_lineage.upstreams) == 1
+        assert len(target_lineage.upstreams) == 3
         assert (
             target_lineage.upstreams[0].table_name
             == "other_catalog.schema.source_table"
         )
         assert target_lineage.upstreams[0].source_type == "TABLE"
 
+        # Check streaming table upstream
+        assert (
+            target_lineage.upstreams[1].table_name
+            == "other_catalog.schema.source_streaming_table"
+        )
+        assert target_lineage.upstreams[1].source_type == "STREAMING_TABLE"
+
+        # Check materialized view
+        assert (
+            target_lineage.upstreams[2].table_name
+            == "other_catalog.schema.source_materialized_view"
+        )
+        assert target_lineage.upstreams[2].source_type == "MATERIALIZED_VIEW"
         # Check external upstream
         external_lineage = result["test_catalog.schema.external_target"]
         assert len(external_lineage.external_upstreams) == 1
@@ -1139,6 +1174,112 @@ class TestUnityCatalogProxy:
         result = proxy._create_ml_model_version(model, version_info)
         assert result is None
 
+    def test_volumes_converts_volume_info(self, mock_proxy):
+        from databricks.sdk.service.catalog import (
+            EncryptionDetails,
+            SseEncryptionDetails,
+            SseEncryptionDetailsAlgorithm,
+            VolumeInfo,
+            VolumeType,
+        )
+
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+        )
+
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c", name="c", metastore=metastore, comment=None, owner=None, type=None
+        )
+        schema = Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
+        mock_proxy._workspace_client.volumes.list.return_value = [
+            VolumeInfo(
+                name="raw",
+                full_name="c.s.raw",
+                comment="landing zone",
+                volume_type=VolumeType.MANAGED,
+                storage_location="s3://bucket/vol",
+                owner="alice@example.com",
+                created_at=1735689600000,
+                created_by="alice@example.com",
+                updated_at=1735776000000,
+                updated_by="bob@example.com",
+                volume_id="vol-123",
+                metastore_id="ms-456",
+                browse_only=True,
+                encryption_details=EncryptionDetails(
+                    sse_encryption_details=SseEncryptionDetails(
+                        algorithm=SseEncryptionDetailsAlgorithm.AWS_SSE_KMS
+                    )
+                ),
+            ),
+            VolumeInfo(full_name=None, name=None),
+        ]
+
+        volumes = list(mock_proxy.volumes(schema))
+
+        mock_proxy._workspace_client.volumes.list.assert_called_once_with(
+            catalog_name="c", schema_name="s", include_browse=True
+        )
+        assert len(volumes) == 1
+        volume = volumes[0]
+        assert volume.id == "c.s.raw"
+        assert volume.schema is schema
+        assert volume.volume_type == "MANAGED"
+        assert volume.storage_location == "s3://bucket/vol"
+        assert volume.owner == "alice@example.com"
+        assert volume.updated_by == "bob@example.com"
+        assert volume.volume_id == "vol-123"
+        assert volume.browse_only
+        assert volume.encryption_algorithm == "AWS_SSE_KMS"
+        assert volume.created_at == datetime(
+            2025, 1, 1, tzinfo=volume.created_at.tzinfo
+        )
+
+    def test_volumes_skips_hive_metastore_schema(self, mock_proxy):
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            CustomCatalogType,
+            Metastore,
+            Schema,
+        )
+
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="hive_metastore",
+            name="hive_metastore",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=CustomCatalogType.HIVE_METASTORE_CATALOG,
+        )
+        schema = Schema(
+            id="hive_metastore.s", name="s", catalog=catalog, comment=None, owner=None
+        )
+
+        assert list(mock_proxy.volumes(schema)) == []
+        mock_proxy._workspace_client.volumes.list.assert_not_called()
+
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_create_ml_model_success(self, mock_workspace_client):
         """Test _create_ml_model() successfully creates a model."""
@@ -1663,19 +1804,6 @@ class TestUnityCatalogProxyAuthentication:
             result = proxy._execute_sql_query("SELECT * FROM test_table")
             assert result == [("result",)]
             mock_connect.assert_called_once()
-
-    def test_apply_databricks_proxy_fix(self):
-        with patch("datahub.ingestion.source.unity.proxy_patch.logger") as mock_logger:
-            from datahub.ingestion.source.unity.proxy_patch import (
-                apply_databricks_proxy_fix,
-            )
-
-            apply_databricks_proxy_fix()
-
-            log_calls = [call.args[0] for call in mock_logger.info.call_args_list]
-            assert any(
-                "databricks-sql proxy authentication fix" in msg for msg in log_calls
-            )
 
 
 class TestUnityCatalogProxyUsageSystemTables:

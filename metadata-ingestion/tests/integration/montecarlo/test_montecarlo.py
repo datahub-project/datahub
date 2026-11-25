@@ -12,6 +12,8 @@ match that shape rather than the raw wire format.
 
 import json
 import pathlib
+import re
+from collections import defaultdict
 from typing import Any, Dict, List
 
 import pytest
@@ -253,6 +255,150 @@ METRICS_V4: Dict[str, List[Dict[str, Any]]] = {
     ],
 }
 
+_SNAKE_TO_CAMEL = re.compile(r"_([a-z])")
+
+# GraphQL object type names for nested fixture dicts (not derived from FieldSpec).
+_NESTED_GRAPHQL_TYPES: Dict[str, str] = {
+    "comparisons": "Comparison",
+    "custom_metric": "CustomMetric",
+    "warehouse": "Warehouse",
+    "assets": "AlertAsset",
+    "field_type_changes": "SchemaFieldTypeChange",
+    "thresholds": "MetricThreshold",
+}
+
+
+def _snake_to_camel(name: str) -> str:
+    return _SNAKE_TO_CAMEL.sub(lambda m: m.group(1).upper(), name)
+
+
+def _nested_graphql_type(key: str) -> str:
+    if key in _NESTED_GRAPHQL_TYPES:
+        return _NESTED_GRAPHQL_TYPES[key]
+    camel = _snake_to_camel(key)
+    if camel.endswith("s") and camel not in ("assets",):
+        return camel[:-1]
+    return camel
+
+
+def _scalar_type_spec(key: str, value: Any) -> str:
+    if isinstance(value, bool):
+        return "SCALAR:Boolean"
+    if isinstance(value, (int, float)):
+        return "SCALAR:Float"
+    if key in ("uuid", "resource_id") or key.endswith("_uuid"):
+        return "SCALAR:UUID"
+    return "SCALAR:String"
+
+
+def _field_type_spec(key: str, value: Any) -> str:
+    if isinstance(value, list):
+        if value and isinstance(value[0], dict):
+            return f"OBJECT:{_nested_graphql_type(key)}"
+        return _scalar_type_spec(key, value[0] if value else "")
+    if isinstance(value, dict):
+        return f"OBJECT:{_nested_graphql_type(key)}"
+    return _scalar_type_spec(key, value)
+
+
+def _introspection_fields_from_spec(
+    fields_spec: Dict[str, str],
+) -> List[Dict[str, Any]]:
+    """Build mcType.fields nodes matching a live GraphQL __type response."""
+    fields: List[Dict[str, Any]] = []
+    for name, spec in fields_spec.items():
+        kind, type_name = spec.split(":", 1)
+        type_node: Dict[str, Any]
+        if kind in ("SCALAR", "ENUM"):
+            type_node = {"kind": kind, "name": type_name, "of_type": None}
+        else:
+            type_node = {
+                "kind": "NON_NULL",
+                "name": None,
+                "of_type": {
+                    "kind": "LIST",
+                    "name": None,
+                    "of_type": {
+                        "kind": "OBJECT",
+                        "name": type_name,
+                        "of_type": None,
+                    },
+                },
+            }
+        fields.append({"name": name, "type": type_node})
+    return fields
+
+
+def _merge_record_fields(
+    merged: Dict[str, str],
+    pending_objects: Dict[str, List[Dict[str, Any]]],
+    record: Dict[str, Any],
+) -> None:
+    for key, value in record.items():
+        if value is None:
+            continue
+        graphql_name = _snake_to_camel(key)
+        merged[graphql_name] = _field_type_spec(key, value)
+        spec = merged[graphql_name]
+        if spec.startswith("OBJECT:"):
+            obj_type = spec.split(":", 1)[1]
+            if isinstance(value, dict):
+                pending_objects[obj_type].append(value)
+            elif isinstance(value, list):
+                pending_objects[obj_type].extend(
+                    item for item in value if isinstance(item, dict)
+                )
+
+
+def _build_introspection_type_map() -> Dict[str, Dict[str, Any]]:
+    """Fixture-derived GraphQL shapes for __type(name:) (not the connector spec)."""
+    merged_by_type: Dict[str, Dict[str, str]] = {}
+    pending: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    job_execution_records = [
+        record for runs in JOB_EXECUTIONS.values() for record in runs
+    ]
+    metric_records = [point for points in METRICS_V4.values() for point in points]
+    roots: List[tuple[str, List[Dict[str, Any]]]] = [
+        ("Monitor", MONITORS),
+        ("CustomRule", CUSTOM_RULES),
+        ("Alert", ALERTS),
+        ("WarehouseTable", list(TABLES.values())),
+        ("JobExecutionHistoryLog", job_execution_records),
+        ("TableMetricV2", metric_records),
+    ]
+    for type_name, records in roots:
+        merged_by_type.setdefault(type_name, {})
+        for record in records:
+            _merge_record_fields(merged_by_type[type_name], pending, record)
+
+    while pending:
+        obj_type = next(iter(pending))
+        samples = pending.pop(obj_type)
+        merged_by_type.setdefault(obj_type, {})
+        for sample in samples:
+            _merge_record_fields(merged_by_type[obj_type], pending, sample)
+
+    merged_by_type["SchemaChange"] = {
+        "mcon": "SCALAR:String",
+        "startTime": "SCALAR:String",
+        "fieldsAdded": "SCALAR:String",
+        "fieldsRemoved": "SCALAR:String",
+        "fieldTypeChanges": "OBJECT:SchemaFieldTypeChange",
+    }
+    merged_by_type["SchemaFieldTypeChange"] = {
+        "fieldName": "SCALAR:String",
+        "oldFieldType": "SCALAR:String",
+        "newFieldType": "SCALAR:String",
+    }
+
+    return {
+        type_name: {"mc_type": {"fields": _introspection_fields_from_spec(fields_spec)}}
+        for type_name, fields_spec in merged_by_type.items()
+    }
+
+
+_INTROSPECTION_BY_TYPE = _build_introspection_type_map()
+
 
 class _FakeBox(dict):
     pass
@@ -310,6 +456,19 @@ class _FakePycarloClient:
             metric_name = variables.get("metricName")
             key = f"{mcon}:{metric_name}"
             return _FakeBox(get_metrics_v4={"metrics": METRICS_V4.get(key, [])})
+        if "mcIntrospect" in query or "__type" in query:
+            type_name = variables.get("name")
+            if not isinstance(type_name, str):
+                raise AssertionError(f"Unexpected introspection variables: {variables}")
+            payload = _INTROSPECTION_BY_TYPE.get(type_name, {"mc_type": {"fields": []}})
+            return _FakeBox(**payload)
+        if "getSchemaChanges" in query:
+            return _FakeBox(
+                get_schema_changes={
+                    "edges": [],
+                    "page_info": {"has_next_page": False, "end_cursor": None},
+                }
+            )
         raise AssertionError(f"Unexpected query: {query}")
 
 
@@ -356,10 +515,14 @@ IGNORE_PATHS = [
 ]
 
 
-def _run_source() -> List[Any]:
+def _run_source(*, static_fallback: bool = False) -> List[Any]:
     source = MonteCarloSource.create(
         CONFIG_DICT, PipelineContext(run_id="montecarlo-test")
     )
+    if static_fallback:
+        from tests.unit.montecarlo.static_query_builder import StaticQueryBuilder
+
+        source.client.set_query_builder(StaticQueryBuilder())
     return [wu.metadata for wu in source.get_workunits()]
 
 
@@ -370,6 +533,8 @@ def test_montecarlo_ingestion_oss(pytestconfig, fake_pycarlo, monkeypatch):
 
     Forces the cloud-SDK loader to return None so the test produces identical
     output whether or not acryl-datahub-cloud is installed in the test env.
+    Uses the static fallback query builder so the golden pins the minimal
+    field selection path.
     """
     from datahub.ingestion.source.montecarlo import assertion as mc_assertion
 
@@ -380,7 +545,32 @@ def test_montecarlo_ingestion_oss(pytestconfig, fake_pycarlo, monkeypatch):
         / "tests/integration/montecarlo/golden/montecarlo_mces_golden.json"
     )
     mce_helpers.check_goldens_stream(
-        outputs=_run_source(), golden_path=golden_path, ignore_paths=IGNORE_PATHS
+        outputs=_run_source(static_fallback=True),
+        golden_path=golden_path,
+        ignore_paths=IGNORE_PATHS,
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_montecarlo_ingestion_introspecting(pytestconfig, fake_pycarlo, monkeypatch):
+    """Same golden as the fallback run, but via IntrospectingQueryBuilder.
+
+    Proves fixture-derived __type shapes produce identical metadata to the
+    static fallback selection.
+    """
+    from datahub.ingestion.source.montecarlo import assertion as mc_assertion
+
+    monkeypatch.setattr(mc_assertion, "_load_cloud_assertion_class", lambda: None)
+
+    golden_path = (
+        pytestconfig.rootpath
+        / "tests/integration/montecarlo/golden/montecarlo_mces_golden.json"
+    )
+    mce_helpers.check_goldens_stream(
+        outputs=_run_source(static_fallback=False),
+        golden_path=golden_path,
+        ignore_paths=IGNORE_PATHS,
     )
 
 

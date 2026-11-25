@@ -227,6 +227,30 @@ class MonteCarloSourceConfig(
         default=[],
         description="Optional list of Monte Carlo domain UUIDs to scope ingestion to.",
     )
+    table_monitor_max_assets: pydantic.PositiveInt = Field(
+        default=100,
+        description="Maximum number of tables to ingest per pattern-scoped TABLE "
+        "monitor. TABLE monitors often cover a warehouse via tags or activity "
+        "filters; each covered table becomes its own assertion, so this cap "
+        "bounds getTable calls and assertion count. evaluateAssetSelection is "
+        "always paged to completion so the cap applies to a stable, sorted "
+        "table list. Remaining tables are skipped with a warning. Raise it if a "
+        "TABLE monitor's coverage is truncated in the run report.",
+    )
+    strict_schema_drift: bool = Field(
+        default=False,
+        description="When enabled, any missing GraphQL field the connector expects "
+        "aborts that ingestion phase (monitors, custom rules, or alerts), even if "
+        "the field is non-critical. When disabled, only the loss of a critical "
+        "field aborts a phase — for example uuid/entityMcons on monitors and "
+        "custom rules, id/monitorUuids/createdTime on alerts, or WarehouseTable "
+        "fields needed to resolve dataset URNs. Other missing fields are dropped "
+        "with a warning that names each field and what you lose (DEGRADED). A "
+        "phase ABORT skips that phase only; other phases still run, and the run "
+        "records a failure so stateful stale removal does not soft-delete "
+        "assertions from a partial ingest. Enable this when you want zero silent "
+        "degradation on optional fields.",
+    )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,

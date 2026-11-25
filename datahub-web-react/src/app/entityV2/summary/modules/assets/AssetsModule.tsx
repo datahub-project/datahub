@@ -3,7 +3,7 @@ import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import AddAssetsModal from '@app/entityV2/summary/modules/assets/AddAssetsModal';
 import { ENTITIES_TO_ADD_TO_ASSETS } from '@app/entityV2/summary/modules/assets/constants';
 import { useGetAssets } from '@app/entityV2/summary/modules/assets/useGetAssets';
@@ -20,9 +20,10 @@ export default function AssetsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { t: tEntity } = useTranslation('entity.types');
     const { loading, fetchAssets, total, navigateToAssetsTab } = useGetAssets(props.module.urn);
-    const { entityType } = useEntityData();
+    const { entityType, entityData } = useEntityData();
 
     const canAddToAssets = ENTITIES_TO_ADD_TO_ASSETS.includes(entityType);
+    const canEditAssets = entityType !== EntityType.DataProduct || !!entityData?.privileges?.canManageEntity;
     const [showAddAssetsModal, setShowAddAssetsModal] = useState(false);
 
     const module = useMemo(() => {
@@ -58,8 +59,8 @@ export default function AssetsModule(props: ModuleProps) {
                             icon={Database}
                             title={t('assets.emptyTitle')}
                             description={t('assets.emptyDescription')}
-                            linkText={t('assets.emptyLink')}
-                            onLinkClick={() => setShowAddAssetsModal(true)}
+                            linkText={canEditAssets ? t('assets.emptyLink') : undefined}
+                            onLinkClick={canEditAssets ? () => setShowAddAssetsModal(true) : undefined}
                         />
                     ) : null
                 }

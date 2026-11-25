@@ -48,6 +48,10 @@ class DatasetSchemaInfo:
     """
 
     columns: list[str]
+    # True for a schema ingested into DataHub by the dataset's own source,
+    # which lists every column. An ADF dataset's structure/schema may list
+    # only some of them.
+    from_datahub: bool = False
 
 
 # Type alias for schema resolver callback
@@ -104,6 +108,240 @@ class ColumnLineageExtractor(ABC):
         pass
 
 
+def get_activity_translator_config(
+    activity: ActivityProtocol,
+) -> Optional[dict[str, Any]]:
+    """Get an activity's translator (column mapping) configuration, if
+    any. The Azure SDK sometimes flattens CopyActivity properties to the
+    activity level rather than nesting them in typeProperties.
+
+    Also used outside this module (adf_source.py) to detect whether an
+    activity has its own explicit column mapping before attempting any
+    other column-lineage recovery, so both code paths agree on what
+    counts as "explicit".
+    """
+    # Try SDK-flattened attribute first
+    translator = activity.translator if hasattr(activity, "translator") else None
+    if translator is not None:
+        # Could be a dict or an SDK object - normalize to dict
+        if hasattr(translator, "as_dict"):
+            return translator.as_dict()
+        if isinstance(translator, dict):
+            return translator
+
+    # Fall back to typeProperties (raw JSON or mock data)
+    type_properties = (
+        activity.type_properties if hasattr(activity, "type_properties") else None
+    )
+    if type_properties and isinstance(type_properties, dict):
+        translator = type_properties.get("translator")
+        if isinstance(translator, dict):
+            return translator
+
+    return None
+
+
+def create_fine_grained_lineage(
+    source_urn: str,
+    source_column: str,
+    sink_urn: str,
+    sink_column: str,
+) -> FineGrainedLineageClass:
+    """Create a FineGrainedLineageClass for a single column mapping.
+
+    Also used outside this module (adf_source.py) to build column-level
+    lineage resolved via a sibling activity's run output, reusing the
+    same field-URN construction as the static translator path.
+    """
+    upstream_field_urn = SchemaFieldUrn(source_urn, source_column)
+    downstream_field_urn = SchemaFieldUrn(sink_urn, sink_column)
+
+    return FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+        upstreams=[str(upstream_field_urn.urn())],
+        downstreams=[str(downstream_field_urn.urn())],
+        transformOperation="COPY",
+    )
+
+
+def parse_dict_translator_format(
+    column_mappings: dict[str, str],
+    source_urn: str,
+    sink_urn: str,
+) -> list[FineGrainedLineageClass]:
+    """Parse legacy dictionary format: {source_col: sink_col}."""
+    lineages: list[FineGrainedLineageClass] = []
+    for source_col, sink_col in column_mappings.items():
+        # Skip empty column names
+        if not source_col or not sink_col:
+            continue
+        lineages.append(
+            create_fine_grained_lineage(
+                source_urn, str(source_col), sink_urn, str(sink_col)
+            )
+        )
+    return lineages
+
+
+def parse_list_translator_format(
+    mappings_list: list[dict[str, Any]],
+    source_urn: str,
+    sink_urn: str,
+) -> list[FineGrainedLineageClass]:
+    """Parse current list format: [{source: {name}, sink: {name}}]."""
+    lineages: list[FineGrainedLineageClass] = []
+    for mapping in mappings_list:
+        if not isinstance(mapping, dict):
+            continue
+
+        source_info = mapping.get("source", {})
+        sink_info = mapping.get("sink", {})
+
+        if not isinstance(source_info, dict) or not isinstance(sink_info, dict):
+            continue
+
+        source_col = source_info.get("name")
+        sink_col = sink_info.get("name")
+
+        # Skip empty column names
+        if not source_col or not sink_col:
+            continue
+
+        lineages.append(
+            create_fine_grained_lineage(
+                source_urn, str(source_col), sink_urn, str(sink_col)
+            )
+        )
+    return lineages
+
+
+def parse_translator_column_mappings(
+    translator: dict[str, Any],
+    source_urn: str,
+    sink_urn: str,
+) -> list[FineGrainedLineageClass]:
+    """Parse column mappings from a translator configuration.
+
+    Handles both legacy dict format and current list format. Also used
+    outside this module (adf_source.py) to convert a translator resolved
+    via a sibling activity's run output into the same
+    FineGrainedLineageClass shape produced by the static translator path,
+    so both agree on how translator configs are read.
+    """
+    # Mode 1: Legacy dictionary format - columnMappings: {src: sink}
+    column_mappings = translator.get("columnMappings")
+    if column_mappings and isinstance(column_mappings, dict):
+        return parse_dict_translator_format(column_mappings, source_urn, sink_urn)
+
+    # Mode 2: Current list format - mappings: [{source: {name}, sink: {name}}]
+    mappings_list = translator.get("mappings")
+    if mappings_list and isinstance(mappings_list, list):
+        return parse_list_translator_format(mappings_list, source_urn, sink_urn)
+
+    return []
+
+
+def translator_has_explicit_mappings(translator: dict[str, Any]) -> bool:
+    """Whether a translator configuration specifies actual column
+    mappings, as opposed to being present but empty (e.g. a bare
+    {"type": "TabularTranslator"} with no columnMappings/mappings). ADF
+    itself falls back to its own default name-based auto-mapping in that
+    case, exactly as when no translator is configured at all - callers
+    deciding whether to attempt auto-mapping recovery must treat an
+    empty translator the same as a missing one, not as an explicit one
+    that should block the fallback."""
+    column_mappings = translator.get("columnMappings")
+    if column_mappings and isinstance(column_mappings, dict):
+        return True
+    mappings_list = translator.get("mappings")
+    return bool(mappings_list and isinstance(mappings_list, list))
+
+
+# Called with (sink_urn, column) when a source column has no unique
+# case-insensitive match in the sink's known schema.
+UnmatchedSinkColumnCallback = Callable[[str, str], None]
+
+
+@dataclass(frozen=True)
+class SinkColumnCasing:
+    """Resolves auto-mapped column names to the field paths DataHub stores
+    for the sink, so the downstream schemaField URN joins to a real field
+    (e.g. source "Ship_Date" vs sink "ship_date").
+
+    Matching is case-insensitive even though ADF's own default mapping is
+    case-sensitive: DataHub may store a platform's column names in a
+    different case than the source query or dataset reports them. Sink
+    columns that differ only by case are ambiguous and never matched.
+    """
+
+    columns_by_lower: dict[str, str]
+    # Only a complete schema (from DataHub) proves an unmatched column is
+    # not in the sink.
+    drop_unmatched: bool
+
+    @classmethod
+    def from_schema(cls, schema: Optional[DatasetSchemaInfo]) -> "SinkColumnCasing":
+        if not schema or not schema.columns:
+            return cls(columns_by_lower={}, drop_unmatched=False)
+        columns_by_lower: dict[str, str] = {}
+        ambiguous: set[str] = set()
+        for col in schema.columns:
+            if not col:
+                continue
+            key = col.lower()
+            if key in columns_by_lower and columns_by_lower[key] != col:
+                ambiguous.add(key)
+            columns_by_lower.setdefault(key, col)
+        for key in ambiguous:
+            del columns_by_lower[key]
+        return cls(
+            columns_by_lower=columns_by_lower, drop_unmatched=schema.from_datahub
+        )
+
+    def resolve(self, column: str) -> Optional[str]:
+        """The sink's casing for `column`. With no unique match: None when the
+        sink schema came from DataHub, since a URN for that field would point
+        at nothing; otherwise the column unchanged."""
+        match = self.columns_by_lower.get(column.lower())
+        if match is not None or self.drop_unmatched:
+            return match
+        return column
+
+
+def infer_auto_mappings_by_name(
+    source_urn: str,
+    sink_urn: str,
+    source_schema: Optional[DatasetSchemaInfo],
+    sink_schema: Optional[DatasetSchemaInfo] = None,
+    on_unmatched_sink_column: Optional[UnmatchedSinkColumnCallback] = None,
+) -> list[FineGrainedLineageClass]:
+    """Infer 1:1 column mappings from a source schema by name, as ADF does
+    for a Copy activity with no explicit mappings. Also used by adf_source.py
+    with a schema looked up from DataHub (e.g. for a "SELECT *" query source).
+
+    Reference: https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-schema-and-type-mapping#default-mapping
+    """
+    if not source_schema or not source_schema.columns:
+        return []
+
+    sink_casing = SinkColumnCasing.from_schema(sink_schema)
+
+    lineages: list[FineGrainedLineageClass] = []
+    for col in source_schema.columns:
+        if not col:
+            continue
+        sink_column = sink_casing.resolve(col)
+        if sink_column is None:
+            if on_unmatched_sink_column is not None:
+                on_unmatched_sink_column(sink_urn, col)
+            continue
+        lineages.append(
+            create_fine_grained_lineage(source_urn, col, sink_urn, sink_column)
+        )
+    return lineages
+
+
 class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
     """Extracts column-level lineage from ADF Copy activities.
 
@@ -125,6 +363,11 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
     - https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-schema-and-type-mapping
     - https://learn.microsoft.com/en-us/javascript/api/@azure/arm-datafactory/tabulartranslator
     """
+
+    def __init__(
+        self, on_unmatched_sink_column: Optional[UnmatchedSinkColumnCallback] = None
+    ) -> None:
+        self._on_unmatched_sink_column = on_unmatched_sink_column
 
     def supports_activity(self, activity_type: str) -> bool:
         """Only supports Copy activities."""
@@ -161,31 +404,19 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         source_urn = str(inlets[0])
         sink_urn = str(outlets[0])
 
-        # Get source schema for auto-mapping inference
-        # The schema resolver may raise an exception if the backend is unavailable
-        source_schema: Optional[DatasetSchemaInfo] = None
-        try:
-            source_schema = schema_resolver(source_urn)
-        except Exception as e:
-            logger.debug(f"Failed to resolve schema for {source_urn}: {e}")
-
-        # Get translator - check SDK-flattened attribute first, then typeProperties
         translator = self._get_translator(activity)
         if not translator:
-            # No explicit translator - try auto-mapping if we have source schema
-            return self._infer_auto_mappings(source_urn, sink_urn, source_schema)
+            return self._infer_auto_mappings(source_urn, sink_urn, schema_resolver)
 
-        # Extract mappings based on translator format
         lineages = self._parse_translator(translator, source_urn, sink_urn)
 
-        # If no explicit mappings found but translator is TabularTranslator,
-        # try auto-mapping inference
-        if not lineages:
-            translator_type = self._get_translator_type(translator)
-            if translator_type == "TabularTranslator":
-                lineages = self._infer_auto_mappings(
-                    source_urn, sink_urn, source_schema
-                )
+        # A TabularTranslator with no explicit mappings means ADF's default
+        # name-based mapping.
+        if (
+            not lineages
+            and self._get_translator_type(translator) == "TabularTranslator"
+        ):
+            lineages = self._infer_auto_mappings(source_urn, sink_urn, schema_resolver)
 
         return lineages
 
@@ -195,25 +426,7 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         The Azure SDK sometimes flattens CopyActivity properties to the activity
         level rather than nesting them in typeProperties.
         """
-        # Try SDK-flattened attribute first
-        translator = activity.translator if hasattr(activity, "translator") else None
-        if translator is not None:
-            # Could be a dict or an SDK object - normalize to dict
-            if hasattr(translator, "as_dict"):
-                return translator.as_dict()
-            if isinstance(translator, dict):
-                return translator
-
-        # Fall back to typeProperties (raw JSON or mock data)
-        type_properties = (
-            activity.type_properties if hasattr(activity, "type_properties") else None
-        )
-        if type_properties and isinstance(type_properties, dict):
-            translator = type_properties.get("translator")
-            if isinstance(translator, dict):
-                return translator
-
-        return None
+        return get_activity_translator_config(activity)
 
     def _get_translator_type(self, translator: dict[str, Any]) -> Optional[str]:
         """Get the translator type from the translator configuration."""
@@ -227,15 +440,8 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         sink_column: str,
     ) -> FineGrainedLineageClass:
         """Create a FineGrainedLineageClass for a single column mapping."""
-        upstream_field_urn = SchemaFieldUrn(source_urn, source_column)
-        downstream_field_urn = SchemaFieldUrn(sink_urn, sink_column)
-
-        return FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-            upstreams=[str(upstream_field_urn.urn())],
-            downstreams=[str(downstream_field_urn.urn())],
-            transformOperation="COPY",
+        return create_fine_grained_lineage(
+            source_urn, source_column, sink_urn, sink_column
         )
 
     def _parse_translator(
@@ -248,17 +454,7 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
 
         Handles both legacy dict format and current list format.
         """
-        # Mode 1: Legacy dictionary format - columnMappings: {src: sink}
-        column_mappings = translator.get("columnMappings")
-        if column_mappings and isinstance(column_mappings, dict):
-            return self._parse_dict_format(column_mappings, source_urn, sink_urn)
-
-        # Mode 2: Current list format - mappings: [{source: {name}, sink: {name}}]
-        mappings_list = translator.get("mappings")
-        if mappings_list and isinstance(mappings_list, list):
-            return self._parse_list_format(mappings_list, source_urn, sink_urn)
-
-        return []
+        return parse_translator_column_mappings(translator, source_urn, sink_urn)
 
     def _parse_dict_format(
         self,
@@ -267,17 +463,7 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         sink_urn: str,
     ) -> list[FineGrainedLineageClass]:
         """Parse legacy dictionary format: {source_col: sink_col}."""
-        lineages: list[FineGrainedLineageClass] = []
-        for source_col, sink_col in column_mappings.items():
-            # Skip empty column names
-            if not source_col or not sink_col:
-                continue
-            lineages.append(
-                self._create_fine_grained_lineage(
-                    source_urn, str(source_col), sink_urn, str(sink_col)
-                )
-            )
-        return lineages
+        return parse_dict_translator_format(column_mappings, source_urn, sink_urn)
 
     def _parse_list_format(
         self,
@@ -286,58 +472,20 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         sink_urn: str,
     ) -> list[FineGrainedLineageClass]:
         """Parse current list format: [{source: {name}, sink: {name}}]."""
-        lineages: list[FineGrainedLineageClass] = []
-        for mapping in mappings_list:
-            if not isinstance(mapping, dict):
-                continue
-
-            source_info = mapping.get("source", {})
-            sink_info = mapping.get("sink", {})
-
-            if not isinstance(source_info, dict) or not isinstance(sink_info, dict):
-                continue
-
-            source_col = source_info.get("name")
-            sink_col = sink_info.get("name")
-
-            # Skip empty column names
-            if not source_col or not sink_col:
-                continue
-
-            lineages.append(
-                self._create_fine_grained_lineage(
-                    source_urn, str(source_col), sink_urn, str(sink_col)
-                )
-            )
-        return lineages
+        return parse_list_translator_format(mappings_list, source_urn, sink_urn)
 
     def _infer_auto_mappings(
-        self,
-        source_urn: str,
-        sink_urn: str,
-        source_schema: Optional[DatasetSchemaInfo],
+        self, source_urn: str, sink_urn: str, schema_resolver: SchemaResolver
     ) -> list[FineGrainedLineageClass]:
-        """Infer 1:1 column mappings from source schema.
-
-        When no explicit column mappings are configured and the translator type
-        is TabularTranslator, ADF auto-maps columns by name. We replicate this
-        behavior by creating identity mappings for each source column.
-
-        Reference: https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-schema-and-type-mapping#default-mapping
-        """
+        """Same-name mappings from the source schema. The sink schema is only
+        looked up once the source has columns to map."""
+        source_schema = schema_resolver(source_urn)
         if not source_schema or not source_schema.columns:
             return []
-
-        lineages: list[FineGrainedLineageClass] = []
-        for col in source_schema.columns:
-            if not col:
-                continue
-            lineages.append(
-                self._create_fine_grained_lineage(
-                    source_urn,
-                    col,
-                    sink_urn,
-                    col,  # Auto-mapped: same column name
-                )
-            )
-        return lineages
+        return infer_auto_mappings_by_name(
+            source_urn,
+            sink_urn,
+            source_schema,
+            schema_resolver(sink_urn),
+            self._on_unmatched_sink_column,
+        )

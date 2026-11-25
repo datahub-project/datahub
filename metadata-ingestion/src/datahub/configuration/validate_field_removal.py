@@ -3,7 +3,11 @@ from typing import Any, Type
 
 from pydantic import model_validator
 
-from datahub.configuration.common import ConfigurationWarning
+from datahub.configuration.common import (
+    REMOVED_FIELD_MARKER,
+    ConfigurationWarning,
+    RemovedField,
+)
 
 
 def pydantic_removed_field(
@@ -23,8 +27,12 @@ def pydantic_removed_field(
             values.pop(field)
         return values
 
-    # Mark the function as handling a removed field for doc generation
-    _validate_field_removal._doc_removed_field = field  # type: ignore[attr-defined]
+    # Consumed by ConfigModel's json_schema_extra hook.
+    setattr(
+        _validate_field_removal,
+        REMOVED_FIELD_MARKER,
+        RemovedField(name=field, month=month, year=year),
+    )
 
     # Hack: Pydantic maintains unique list of validators by referring its __name__.
     # https://github.com/pydantic/pydantic/blob/v1.10.9/pydantic/main.py#L264

@@ -40,7 +40,9 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     /**
      * Retrieve the current user details once on component mount.
      */
-    const [getMe, { data: meData, refetch }] = useGetMeLazyQuery({ fetchPolicy: 'cache-first' });
+    const [getMe, { data: meData, loading: meLoading, error: meError, called: meCalled, refetch }] = useGetMeLazyQuery({
+        fetchPolicy: 'cache-first',
+    });
     useEffect(() => {
         getMe();
     }, [getMe]);
@@ -48,12 +50,22 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     /**
      * Retrieve the Global View settings once on component mount.
      */
-    const [getGlobalViewSettings, { data: settingsData }] = useGetGlobalViewsSettingsLazyQuery({
+    const [
+        getGlobalViewSettings,
+        { data: settingsData, loading: globalViewsLoading, error: globalViewsError, called: globalViewsCalled },
+    ] = useGetGlobalViewsSettingsLazyQuery({
         fetchPolicy: 'cache-first',
     });
     useEffect(() => {
         getGlobalViewSettings();
     }, [getGlobalViewSettings]);
+
+    // A query has settled on success (including an empty settings payload) or on error.
+    // Waiting only for a settings object never finishes for a user or org with no default,
+    // or when the request fails, so search would stay blocked.
+    const personalDefaultsSettled = meCalled && !meLoading && (meData !== undefined || meError !== undefined);
+    const globalDefaultsSettled =
+        globalViewsCalled && !globalViewsLoading && (settingsData !== undefined || globalViewsError !== undefined);
 
     const updateLocalState = useCallback((newState: LocalState) => {
         saveLocalState(newState);
@@ -70,33 +82,37 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
         [localState, updateLocalState],
     );
 
-    // Update the global default views in local state
+    // Update the global default views in local state once the query settles.
     useEffect(() => {
-        if (!state.views.loadedGlobalDefaultViewUrn && settingsData?.globalViewsSettings) {
-            setState({
-                ...state,
+        if (!globalDefaultsSettled) return;
+        setState((previous) => {
+            if (previous.views.loadedGlobalDefaultViewUrn) return previous;
+            return {
+                ...previous,
                 views: {
-                    ...state.views,
+                    ...previous.views,
                     globalDefaultViewUrn: settingsData?.globalViewsSettings?.defaultView,
                     loadedGlobalDefaultViewUrn: true,
                 },
-            });
-        }
-    }, [settingsData, state]);
+            };
+        });
+    }, [globalDefaultsSettled, settingsData]);
 
-    // Update the personal default views in local state
+    // Update the personal default views in local state once the query settles.
     useEffect(() => {
-        if (!state.views.loadedPersonalDefaultViewUrn && meData?.me?.corpUser?.settings) {
-            setState({
-                ...state,
+        if (!personalDefaultsSettled) return;
+        setState((previous) => {
+            if (previous.views.loadedPersonalDefaultViewUrn) return previous;
+            return {
+                ...previous,
                 views: {
-                    ...state.views,
+                    ...previous.views,
                     personalDefaultViewUrn: meData?.me?.corpUser?.settings?.views?.defaultView?.urn,
                     loadedPersonalDefaultViewUrn: true,
                 },
-            });
-        }
-    }, [meData, state]);
+            };
+        });
+    }, [personalDefaultsSettled, meData]);
 
     /**
      * Initialize the default selected view for the logged in user.

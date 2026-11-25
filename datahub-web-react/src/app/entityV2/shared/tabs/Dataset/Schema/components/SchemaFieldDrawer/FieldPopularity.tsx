@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { pathMatchesNewPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { PopularityBars } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 
 import { UsageQueryResult } from '@types';
 

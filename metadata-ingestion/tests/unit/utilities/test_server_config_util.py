@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -323,6 +323,27 @@ def test_supports_feature_semantic_model_entities_versions(sample_config):
         mock_version_check.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    ("server_env", "version", "expected"),
+    [
+        ("core", "v1.7.0", False),
+        ("core", "v1.7.0.1", True),
+        ("cloud", "v0.3.16", False),
+        ("cloud", "v1.0.0-cloud", True),
+    ],
+)
+def test_supports_feature_assertion_note_aspect(
+    server_env: str, version: str, expected: bool
+) -> None:
+    config = RestServiceConfig(
+        raw_config={
+            "datahub": {"serverEnv": server_env},
+            "versions": {"acryldata/datahub": {"version": version}},
+        }
+    )
+    assert config.supports_feature(ServiceFeature.ASSERTION_NOTE_ASPECT) is expected
+
+
 def test_datahub_cloud_feature(sample_config):
     """Test the DATAHUB_CLOUD feature detection."""
     # Test with cloud environment
@@ -528,3 +549,18 @@ def test_requirements_not_defined():
 
     # Should return False as no requirements defined
     assert not config.supports_feature(mock_feature)
+
+
+@pytest.mark.parametrize(
+    ("raw_config", "expected"),
+    [
+        ({"authentication": {"enabled": True}}, True),
+        ({"authentication": {"enabled": False}}, False),
+        # A GMS from before /config reported it.
+        ({}, None),
+        ({"authentication": {}}, None),
+        ({"authentication": {"enabled": "true"}}, None),
+    ],
+)
+def test_auth_enabled(raw_config: dict, expected: Optional[bool]) -> None:
+    assert RestServiceConfig(raw_config=raw_config).auth_enabled is expected

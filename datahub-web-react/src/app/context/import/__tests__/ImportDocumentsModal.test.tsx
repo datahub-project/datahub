@@ -22,7 +22,7 @@ vi.mock('@app/context/useUserContext', () => ({
 vi.mock('@app/useAppConfig', () => ({
     useAppConfig: () => ({
         config: {
-            featureFlags: { showIngestionPageRedesign: true },
+            featureFlags: {},
             visualConfig: { theme: { themeId: null } },
         },
         loaded: true,
@@ -83,6 +83,20 @@ describe('ImportDocumentsModal', () => {
         fireEvent.click(screen.getByText('GitHub'));
 
         expect(mockLaunchDocumentIngestion).toHaveBeenCalledWith({ source: 'GITHUB' });
+        expect(onClose).toHaveBeenCalled();
+    });
+
+    it('launches ingestion setup immediately when GitLab is selected', () => {
+        const onClose = vi.fn();
+        render(
+            <Wrapper>
+                <ImportDocumentsModal visible onClose={onClose} />
+            </Wrapper>,
+        );
+
+        fireEvent.click(screen.getByText('GitLab'));
+
+        expect(mockLaunchDocumentIngestion).toHaveBeenCalledWith({ source: 'GITLAB' });
         expect(onClose).toHaveBeenCalled();
     });
 

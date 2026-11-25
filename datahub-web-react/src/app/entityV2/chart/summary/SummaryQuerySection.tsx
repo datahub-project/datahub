@@ -1,7 +1,9 @@
-import { Button, CodeBlock, Modal } from '@components';
+import { Button, Modal } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
+
+import { CodeBlock } from '@components/components/CodeBlock';
 
 const PreviewCode = styled(CodeBlock)`
     max-width: 100%;

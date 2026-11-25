@@ -243,6 +243,7 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
             mode: ViewBuilderMode.EDITOR,
             view,
         });
+        updateOpenState(false);
     };
 
     const onCloseViewBuilder = () => {
@@ -255,6 +256,7 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
             mode: ViewBuilderMode.PREVIEW,
             view,
         });
+        updateOpenState(false);
     };
 
     const onClear = () => {

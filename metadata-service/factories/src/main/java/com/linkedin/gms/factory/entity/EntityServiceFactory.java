@@ -4,6 +4,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.config.SemanticNoOpConfiguration;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -11,7 +12,9 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.lock.EntityWriteLock;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
+import com.linkedin.metadata.entity.semantic.SemanticNoOpComparator;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +42,9 @@ public class EntityServiceFactory {
       @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
       @Value("${featureFlags.cdcModeChangeLog}") final boolean enableCDCModeChangeLog,
       @Value("${entityService.syncIngestStamping:false}") final boolean syncIngestStamping,
+      @Value("${entityService.semanticNoOp.enabled:false}") final boolean semanticNoOpEnabled,
+      @Value("${entityService.semanticNoOp.rulesJson:[]}") final String semanticNoOpRulesJson,
+      @Qualifier("entityRegistry") final EntityRegistry entityRegistry,
       @Value("${MAE_CONSUMER_ENABLED:false}") final String maeConsumerEnabled,
       @Value("${MCL_CONSUMER_ENABLED:false}") final String mclConsumerEnabled,
       final List<ThrottleSensor> throttleSensors,
@@ -64,8 +70,15 @@ public class EntityServiceFactory {
                 .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled())
                 // Without this line the yaml/env value never reaches the service and
                 // stamping is silently dead regardless of DATAHUB_HONOR_SYNC_INGEST_FLAG.
-                .setSyncIngestStamping(syncIngestStamping),
+                .setSyncIngestStamping(syncIngestStamping)
+                .setSemanticNoOp(
+                    new SemanticNoOpConfiguration()
+                        .setEnabled(semanticNoOpEnabled)
+                        .setRulesJson(semanticNoOpRulesJson)),
             metricUtils);
+    entityService.setSemanticNoOpComparator(
+        SemanticNoOpComparator.compile(
+            semanticNoOpEnabled, semanticNoOpRulesJson, entityRegistry, metricUtils));
 
     // Absent (NO_OP) unless RetentionBufferFactory activated a coalesce-backed buffer.
     entityService.setRetentionBuffer(retentionBufferProvider.getIfAvailable());

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { NameColumn } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 import { getIngestionSourceSystemFilter } from '@app/ingestV2/source/utils';
-import { capitalizeFirstLetter } from '@app/shared/textUtil';
+import { capitalizeFirstLetter } from '@app/sharedV2/textUtil';
 
 import { useListIngestionSourceTypeFacetsQuery } from '@graphql/ingestion.generated';
 

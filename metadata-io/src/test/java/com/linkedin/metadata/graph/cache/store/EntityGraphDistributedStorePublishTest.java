@@ -16,6 +16,7 @@ import com.linkedin.metadata.graph.cache.CacheStatus;
 import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphDefinition;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphScope;
+import com.linkedin.metadata.graph.cache.config.EntityGraphModel.GraphBounds;
 import com.linkedin.metadata.graph.cache.config.EntityGraphRegistry;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot.DirectedEdge;
@@ -25,6 +26,7 @@ import com.linkedin.metadata.graph.cache.snapshot.TraversalCoverage;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
@@ -41,6 +43,7 @@ public class EntityGraphDistributedStorePublishTest {
 
   private HazelcastInstance hazelcast;
   private EntityGraphDistributedStore store;
+  private EntityGraphDefinition definition;
   private final AtomicLong listenerInvocations = new AtomicLong();
 
   @BeforeMethod
@@ -64,7 +67,7 @@ public class EntityGraphDistributedStorePublishTest {
                 .setImplementation(new EntityGraphOperationalStatusSerializer()));
     hazelcast = Hazelcast.newHazelcastInstance(config);
 
-    EntityGraphDefinition definition = mock(EntityGraphDefinition.class);
+    definition = mock(EntityGraphDefinition.class);
     when(definition.getGraphId()).thenReturn("domain");
     when(definition.getScope()).thenReturn(EntityGraphScope.builder().mode(ScopeMode.FULL).build());
 
@@ -474,11 +477,120 @@ public class EntityGraphDistributedStorePublishTest {
   }
 
   @Test
+  public void removeVertexClearsOverLimitSuppressionWhenBelowMaxVertices() {
+    String cacheKey = publishTwoEdgeDomainSnapshot();
+    store.suppressRebuildKeepingSnapshot(cacheKey, CacheStatus.OVER_LIMIT);
+
+    assertTrue(store.removeVertexFromSnapshot("domain", "urn:li:domain:child", 3));
+
+    assertEquals(store.getRebuildSuppression(cacheKey), null);
+    assertEquals(store.getStatus(cacheKey), CacheStatus.ACTIVE);
+    assertEquals(store.getSnapshot(cacheKey).getVertexCount(), 2);
+  }
+
+  @Test
+  public void removeVertexKeepsOverLimitSuppressionAtVertexCap() {
+    String cacheKey = publishTwoEdgeDomainSnapshot();
+    store.suppressRebuildKeepingSnapshot(cacheKey, CacheStatus.OVER_LIMIT);
+
+    assertTrue(store.removeVertexFromSnapshot("domain", "urn:li:domain:child", 2));
+
+    assertEquals(store.getRebuildSuppression(cacheKey).cacheStatus(), CacheStatus.OVER_LIMIT);
+    assertEquals(store.getSnapshot(cacheKey).getVertexCount(), 2);
+  }
+
+  @Test
+  public void removeVertexKeepsInvalidSuppression() {
+    String cacheKey = publishTwoEdgeDomainSnapshot();
+    store.suppressRebuildKeepingSnapshot(cacheKey, CacheStatus.INVALID);
+
+    assertTrue(store.removeVertexFromSnapshot("domain", "urn:li:domain:child", 100));
+
+    assertEquals(store.getRebuildSuppression(cacheKey).cacheStatus(), CacheStatus.INVALID);
+  }
+
+  @Test
+  public void droppedSnapshotClearsOverLimitSuppression() {
+    String cacheKey = EntityGraphCacheKeys.fullCacheKey("domain", GraphSnapshotSource.SEARCH);
+    store.publish(oneEdgeSnapshot(cacheKey), CacheStatus.ACTIVE);
+    store.suppressRebuildKeepingSnapshot(cacheKey, CacheStatus.OVER_LIMIT);
+
+    assertTrue(store.removeVertexFromSnapshot("domain", "urn:li:domain:child", 100));
+
+    assertEquals(store.getSnapshot(cacheKey), null);
+    assertEquals(store.getRebuildSuppression(cacheKey), null);
+  }
+
+  @Test
+  public void removeVertexKeepsOverLimitSuppressionWhenEdgesStayOverCap() {
+    when(definition.getBounds())
+        .thenReturn(GraphBounds.builder().maxVertices(100).maxEdges(OptionalInt.of(1)).build());
+    String cacheKey = publishTwoEdgeDomainSnapshot();
+    store.suppressRebuildKeepingSnapshot(cacheKey, CacheStatus.OVER_LIMIT);
+
+    assertTrue(store.removeVertexFromSnapshot("domain", "urn:li:domain:child", 100));
+
+    assertEquals(store.getSnapshot(cacheKey).getEdgeCount(), 1);
+    assertEquals(store.getRebuildSuppression(cacheKey).cacheStatus(), CacheStatus.OVER_LIMIT);
+  }
+
+  @Test
   public void isRebuildLeaseHeldReflectsStatusMapOnly() {
     String cacheKey = EntityGraphCacheKeys.fullCacheKey("domain", GraphSnapshotSource.SEARCH);
     assertFalse(store.isRebuildLeaseHeld(cacheKey));
     store.tryClaimRebuild(cacheKey, 60_000L);
     assertTrue(store.isRebuildLeaseHeld(cacheKey));
+  }
+
+  private String publishTwoEdgeDomainSnapshot() {
+    String cacheKey = EntityGraphCacheKeys.fullCacheKey("domain", GraphSnapshotSource.SEARCH);
+    store.publish(
+        EntityGraphSnapshot.builder()
+            .graphId("domain")
+            .cacheKey(cacheKey)
+            .generation(0L)
+            .buildSource("search")
+            .builtAtMillis(System.currentTimeMillis())
+            .vertexCount(3)
+            .edgeCount(2)
+            .topologyFingerprint("fp")
+            .traversalCoverage(TraversalCoverage.fullComplete())
+            .edges(
+                List.of(
+                    DirectedEdge.builder()
+                        .sourceUrn("urn:li:domain:child")
+                        .destinationUrn("urn:li:domain:root")
+                        .relationshipType("IsPartOf")
+                        .build(),
+                    DirectedEdge.builder()
+                        .sourceUrn("urn:li:domain:other")
+                        .destinationUrn("urn:li:domain:root")
+                        .relationshipType("IsPartOf")
+                        .build()))
+            .build(),
+        CacheStatus.ACTIVE);
+    return cacheKey;
+  }
+
+  private static EntityGraphSnapshot oneEdgeSnapshot(String cacheKey) {
+    return EntityGraphSnapshot.builder()
+        .graphId("domain")
+        .cacheKey(cacheKey)
+        .generation(0L)
+        .buildSource("search")
+        .builtAtMillis(System.currentTimeMillis())
+        .vertexCount(2)
+        .edgeCount(1)
+        .topologyFingerprint("fp")
+        .traversalCoverage(TraversalCoverage.fullComplete())
+        .edges(
+            List.of(
+                DirectedEdge.builder()
+                    .sourceUrn("urn:li:domain:child")
+                    .destinationUrn("urn:li:domain:root")
+                    .relationshipType("IsPartOf")
+                    .build()))
+        .build();
   }
 
   private static EntityGraphSnapshot sampleSnapshot(String cacheKey, long generation) {

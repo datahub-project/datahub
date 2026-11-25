@@ -92,6 +92,8 @@ public class ConsistencyControllerTest extends AbstractTestNGSpringContextTests 
 
   @BeforeMethod
   public void setupMocks() {
+    org.mockito.Mockito.reset(mockConsistencyService, authorizerChain);
+
     // Setup Authentication
     Authentication authentication = mock(Authentication.class);
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));

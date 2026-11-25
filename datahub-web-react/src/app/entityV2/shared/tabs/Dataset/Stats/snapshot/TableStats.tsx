@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { ExpandedActorGroup } from '@app/entityV2/shared/components/styled/ExpandedActorGroup';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 import { countFormatter } from '@utils/formatter/index';
 
 import { CorpUser, Maybe, PartitionSpec, PartitionType, UserUsageCounts } from '@types';

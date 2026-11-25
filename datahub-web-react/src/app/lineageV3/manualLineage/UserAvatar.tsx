@@ -6,7 +6,7 @@ import styled from 'styled-components/macro';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
-import { toLocalDateTimeString } from '@app/shared/time/timeUtils';
+import { toLocalDateTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, EntityType } from '@types';

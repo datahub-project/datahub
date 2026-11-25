@@ -1,0 +1,92 @@
+namespace com.linkedin.okf
+
+/** An okfProperties without `raw` means the document is not (or no longer) an OKF concept; readers treat it like an absent aspect. When `raw` is present, `bundle`, `conceptId` and `type` are always set. */
+@Aspect = {
+  "name": "okfProperties"
+}
+record OkfProperties {
+  /** Bundle identity and format version. Concept identifiers are scoped to this bundle. */
+  bundle: optional OkfBundle
+
+  /** Bundle-relative file path without the .md suffix, as defined by OKF. */
+  @Searchable = {
+    "fieldName": "okfConceptId",
+    "fieldType": "KEYWORD",
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
+  conceptId: optional string
+
+  /** The producer's own `id` key, unique only within its bundle; resolve it scoped to the bundle. */
+  @Searchable = {
+    "fieldName": "okfDeclaredId",
+    "fieldType": "KEYWORD",
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
+  declaredId: optional string
+
+  /** Concept type, such as Guide, Table, Policy, or Runbook. */
+  @Searchable = {
+    "fieldName": "okfType",
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "queryByDefault": false,
+    "v3": { "queryByDefault": false }
+  }
+  type: optional string
+
+  /** Description declared in frontmatter. */
+  description: optional string
+
+  /** Lifecycle status as written, conventionally draft, stable, or deprecated. */
+  @Searchable = {
+    "fieldName": "okfStatus",
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "queryByDefault": false,
+    "v3": { "queryByDefault": false }
+  }
+  status: optional string
+
+  /** Absolute instant when the content becomes stale, in milliseconds since epoch. */
+  @Searchable = {
+    "fieldName": "okfStaleAfter",
+    "fieldType": "DATETIME",
+    "queryByDefault": false,
+    "v3": { "queryByDefault": false }
+  }
+  staleAfter: optional long
+
+  /** Who or what produced the current content and, optionally, when. */
+  generated: optional OkfStamp
+
+  /** Independent verification events, normalized to a list. */
+  verified: optional array[OkfStamp]
+
+  /** The original YAML frontmatter block, verbatim including delimiters. The only stored copy of the frontmatter: typed fields above are read from it, and write-back edits it in place. */
+  raw: optional string
+
+  /** The revision the concept was read at; the merge base for write-back. The file's location is bundle.location + bundle.rootPath + conceptId + .md. */
+  revision: optional OkfRevision
+}

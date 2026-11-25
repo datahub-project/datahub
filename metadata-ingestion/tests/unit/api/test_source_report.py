@@ -1,6 +1,8 @@
 import json
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
+from datahub.metadata.schema_classes import SubTypesClass
 
 
 def test_report_to_string_unsampled():
@@ -23,3 +25,18 @@ def test_report_to_string_sampled():
     print(str)
     report_as_dict = json.loads(str)
     assert len(report_as_dict["warnings"]) == 11
+
+
+def test_report_accepts_empty_subtypes() -> None:
+    report = SourceReport()
+    try:
+        report.report_workunit(
+            MetadataChangeProposalWrapper(
+                entityUrn="urn:li:document:example",
+                aspect=SubTypesClass(typeNames=[]),
+            ).as_workunit()
+        )
+        report.compute_stats()
+        assert report.aspects_by_subtypes["document"]["unknown"]["subTypes"] == 1
+    finally:
+        report.close()

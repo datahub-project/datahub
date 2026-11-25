@@ -1,4 +1,11 @@
 fragment childGlossaryTerm on GlossaryTerm {
+    versionProperties {
+        version {
+            versionTag
+        }
+        isLatest
+    }
+    ...glossaryTermLifecycleFields
     urn
     type
     name

@@ -126,7 +126,6 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
 
   @DeleteMapping(
       value = "/v1/{prefix}/namespaces/{namespace}",
-      consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   public void dropNamespace(
       HttpServletRequest request,

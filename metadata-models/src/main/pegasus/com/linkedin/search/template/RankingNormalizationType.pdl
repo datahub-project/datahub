@@ -1,0 +1,13 @@
+namespace com.linkedin.search.template
+
+/**
+ * How a raw signal value becomes the number that the boost exponent is applied to.
+ */
+enum RankingNormalizationType {
+  SIGMOID
+  LOG_SIGMOID
+  LINEAR
+  LINEAR_DECAY
+  BOOLEAN
+  NONE
+}

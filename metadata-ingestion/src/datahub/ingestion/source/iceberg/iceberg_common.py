@@ -1,7 +1,8 @@
+import json
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 
 import boto3
 from humanfriendly import format_timespan
@@ -22,13 +23,24 @@ from pyiceberg.io import (
     AWS_SECRET_ACCESS_KEY,
     AWS_SESSION_TOKEN,
 )
+from pyiceberg.table import Table
 from pyiceberg.utils.properties import get_first_property_value
 from requests.adapters import HTTPAdapter
 from sortedcontainers import SortedList
+from typing_extensions import Annotated
 from urllib3.util import Retry
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    ancestors_in,
+    parent_required,
+)
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -44,6 +56,48 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 logger = logging.getLogger(__name__)
+
+# pyiceberg reports an unloadable py-io-impl only as a bare ValueError, so
+# ingestion and the probe both match on its text.
+FILE_IO_FAILURE = "Could not initialize FileIO"
+FILE_IO_BAD_PATH = "py-io-impl should be full path"
+
+
+def partition_spec_json(table: Table) -> str:
+    """The table's partition spec as the JSON array ingestion records (Iceberg
+    spec Appendix C, plus the source column's name and type)."""
+    schema = table.schema()
+    return json.dumps(
+        [
+            {
+                "name": partition.name,
+                "transform": str(partition.transform),
+                "source": str(schema.find_column_name(partition.source_id)),
+                "source-id": partition.source_id,
+                "source-type": str(schema.find_type(partition.source_id)),
+                "field-id": partition.field_id,
+            }
+            for partition in table.spec().fields
+        ]
+    )
+
+
+def table_custom_properties(
+    table: Table, partition_spec: Optional[str]
+) -> Dict[str, str]:
+    """The custom properties ingestion records on a table's dataset: its table
+    properties plus location, format version, partition spec and the current
+    snapshot. `partition_spec` is None when it could not be read."""
+    properties = dict(table.metadata.properties)
+    properties["location"] = table.metadata.location
+    properties["format-version"] = str(table.metadata.format_version)
+    properties["partition-spec"] = str(partition_spec)
+    snapshot = table.current_snapshot()
+    if snapshot:
+        properties["snapshot-id"] = str(snapshot.snapshot_id)
+        properties["manifest-list"] = snapshot.manifest_list
+    return properties
+
 
 DEFAULT_REST_TIMEOUT = 120
 DEFAULT_REST_RETRY_POLICY = {"total": 3, "backoff_factor": 0.1}
@@ -105,13 +159,17 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     catalog: Dict[str, Dict[str, Any]] = Field(
         description="Catalog configuration where to find Iceberg tables.  Only one catalog specification is supported.  The format is the same as [pyiceberg's catalog configuration](https://py.iceberg.apache.org/configuration/), where the catalog name is specified as the object name and attributes are set as key-value pairs.",
     )
-    table_pattern: AllowDenyPattern = Field(
+    table_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for tables to filter in ingestion.",
+        description="Regex patterns for tables to filter in ingestion. Matched "
+        "against the full table identifier, `<namespace>.<table>`.",
     )
-    namespace_pattern: AllowDenyPattern = Field(
+    namespace_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.NAMESPACE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for namespaces to filter in ingestion.",
+        description="Regex patterns for namespaces to filter in ingestion. Only "
+        "top-level namespaces are ingested.",
     )
     user_ownership_property: Optional[str] = Field(
         default="owner",
@@ -289,6 +347,33 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
                 "https://", TimeoutHTTPAdapter(timeout=timeout, max_retries=retries)
             )
         return catalog
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: iceberg_probe imports this module for the config type.
+        from datahub.ingestion.source.iceberg.iceberg_probe import (
+            IcebergMetadataProbe,
+        )
+
+        return IcebergMetadataProbe
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """A table is read only in a namespace namespace_pattern keeps;
+        namespaces are top-level."""
+        return ancestors_in(
+            (str(DatasetContainerSubTypes.NAMESPACE),),
+            kind,
+            {str(DatasetSubTypes.TABLE)},
+        )
+
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """table_pattern matches `<namespace>.<table>`, so a table needs its
+        namespace as parent; a namespace matches on its own name."""
+        if ctx.kind != DatasetSubTypes.TABLE:
+            return None
+        if parent_required(ctx):
+            return None
+        return ctx.fqn
 
 
 class TopTableTimings:

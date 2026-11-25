@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
 

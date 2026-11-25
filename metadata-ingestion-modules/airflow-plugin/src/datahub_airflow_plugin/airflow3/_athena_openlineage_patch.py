@@ -78,9 +78,16 @@ def patch_athena_operator() -> None:
                     # SQLParser patch didn't add it - add it manually
                     try:
                         platform = "athena"
-                        default_database = (
-                            self.database if hasattr(self, "database") else None
+                        # Athena dataset names are two-tier (database.table), so the
+                        # operator's database is the default schema. As default_db it
+                        # would prefix qualified tables too (dw.t -> dw.dw.t).
+                        # The query_execution_context fallback mirrors the provider.
+                        query_execution_context = (
+                            getattr(self, "query_execution_context", None) or {}
                         )
+                        default_schema = getattr(
+                            self, "database", None
+                        ) or query_execution_context.get("Database")
 
                         # Get the SQL query - templates are already rendered by Airflow during task execution
                         rendered_query = self.query
@@ -89,7 +96,7 @@ def patch_athena_operator() -> None:
 
                         logger.debug(
                             f"Running DataHub SQL parser for Athena (platform={platform}, "
-                            f"default_db={default_database}, multi_statement={enable_multi_statement}): "
+                            f"default_schema={default_schema}, multi_statement={enable_multi_statement}): "
                             f"{rendered_query[:200] if rendered_query else 'None'}"
                         )
 
@@ -98,10 +105,10 @@ def patch_athena_operator() -> None:
                         # Use DataHub's SQL parser
                         sql_parsing_result = parse_sql_with_datahub(
                             sql=rendered_query,
-                            default_database=default_database,
+                            default_database=None,
                             platform=platform,
                             env=env,
-                            default_schema=None,
+                            default_schema=default_schema,
                             graph=None,
                             enable_multi_statement=enable_multi_statement,
                         )

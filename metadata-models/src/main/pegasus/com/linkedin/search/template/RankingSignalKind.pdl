@@ -1,0 +1,20 @@
+namespace com.linkedin.search.template
+
+/**
+ * How a ranking signal reads a candidate. The value is normalized, then raised to the signal boost.
+ */
+enum RankingSignalKind {
+  SCORE
+  FIELD_NUMBER
+  FIELD_BOOLEAN
+  FIELD_KEYWORD
+  FIELD_AGE_DAYS
+  NAME_MATCH
+  QUALIFIED_NAME_MATCH
+  ALL_TERMS_MATCH
+  NON_PRODUCTION_NAME
+  BACKUP_NAME
+  SYSTEM_TAG
+  TAG_WEIGHTS
+  STRUCTURED_PROPERTY
+}

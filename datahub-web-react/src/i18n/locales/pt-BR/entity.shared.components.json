@@ -96,9 +96,14 @@
     "searchActions.glossaryTerms.addTitle": "Adicionar Termos do Glossário",
     "searchActions.glossaryTerms.name": "Termos do Glossário",
     "searchActions.glossaryTerms.removeTitle": "Remover Termos do Glossário",
+    "searchActions.noSelection": "Selecione pelo menos um ativo para usar esta ação.",
     "searchActions.notSupported": "Esta ação não é compatível com os tipos selecionados.",
     "searchActions.owners.addTitle": "Adicionar responsáveis",
     "searchActions.owners.removeTitle": "Remover responsáveis",
     "searchActions.tags.addTitle": "Adicionar Tags",
-    "searchActions.tags.removeTitle": "Remover Tags"
+    "searchActions.tags.removeTitle": "Remover Tags",
+    "structuredProperty.addMore": "+ Adicionar Mais",
+    "structuredProperty.selectPlaceholder": "Selecionar",
+    "viewAll.resultsIncomplete": "Os resultados podem estar incompletos.",
+    "viewAll.searchAllAssets": "Pesquisar todos os ativos {{platform}} ingeridos"
 }

@@ -3,6 +3,7 @@ import { StructuredPropertiesPage } from '../../pages/structured-properties.page
 import { DatasetPage } from '../../pages/dataset.page';
 import { withRandomSuffix } from '../../utils/random';
 import { TEST_DATA, TOAST_MESSAGES, TIMEOUTS } from './constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 /**
  * Schema Field Structured Properties tests
@@ -23,33 +24,37 @@ test.describe('Schema Field Structured Properties', () => {
     await structuredPropertiesPage.navigate();
   });
 
-  test('Verify adding a structured property to a schema field', async ({ cleanup }) => {
-    const propertyName = withRandomSuffix('field-add');
-    const fieldProperty = { name: propertyName, entity: 'Column' };
+  test(
+    'Verify adding a structured property to a schema field',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ cleanup }) => {
+      const propertyName = withRandomSuffix('field-add');
+      const fieldProperty = { name: propertyName, entity: 'Column' };
 
-    const propertyUrn = await structuredPropertiesPage.createStructuredProperty(fieldProperty);
+      const propertyUrn = await structuredPropertiesPage.createStructuredProperty(fieldProperty);
 
-    await structuredPropertiesPage.enableShowInColumnsTable(fieldProperty);
+      await structuredPropertiesPage.enableShowInColumnsTable(fieldProperty);
 
-    // Wait for property setting to propagate to backend before navigating to dataset
-    await new Promise((resolve) => setTimeout(resolve, TIMEOUTS.SETTING_PROPAGATION));
+      // Wait for property setting to propagate to backend before navigating to dataset
+      await new Promise((resolve) => setTimeout(resolve, TIMEOUTS.SETTING_PROPAGATION));
 
-    await datasetPage.navigateToDataset(TEST_DATA.SCHEMA_FIELD_ADD_DATASET);
-    await datasetPage.clickSchemaFieldByName(TEST_DATA.SCHEMA_FIELD_ADD);
+      await datasetPage.navigateToDataset(TEST_DATA.SCHEMA_FIELD_ADD_DATASET);
+      await datasetPage.clickSchemaFieldByName(TEST_DATA.SCHEMA_FIELD_ADD);
 
-    await datasetPage.waitForFieldDrawer(TIMEOUTS.DRAWER_VISIBLE);
+      await datasetPage.waitForFieldDrawer(TIMEOUTS.DRAWER_VISIBLE);
 
-    await structuredPropertiesPage.waitForFieldPropertyButton(propertyName, TIMEOUTS.FIELD_BUTTON_VISIBLE);
-    await structuredPropertiesPage.clickFieldPropertyButton(propertyName);
+      await structuredPropertiesPage.waitForFieldPropertyButton(propertyName, TIMEOUTS.FIELD_BUTTON_VISIBLE);
+      await structuredPropertiesPage.clickFieldPropertyButton(propertyName);
 
-    await structuredPropertiesPage.fillFieldPropertyValue(TEST_DATA.PROPERTY_VALUE);
-    await structuredPropertiesPage.submitFieldProperty();
+      await structuredPropertiesPage.fillFieldPropertyValue(TEST_DATA.PROPERTY_VALUE);
+      await structuredPropertiesPage.submitFieldProperty();
 
-    await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_ADDED);
-    await structuredPropertiesPage.expectDrawerContains(TEST_DATA.PROPERTY_VALUE);
+      await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_ADDED);
+      await structuredPropertiesPage.expectDrawerContains(TEST_DATA.PROPERTY_VALUE);
 
-    cleanup.track(propertyUrn);
-  });
+      cleanup.track(propertyUrn);
+    },
+  );
 
   test('Verify updating a structured property on a schema field', async ({ cleanup }) => {
     const propertyName = withRandomSuffix('field-update');

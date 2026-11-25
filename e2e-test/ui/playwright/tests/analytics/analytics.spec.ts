@@ -14,6 +14,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { AnalyticsPage } from '../../pages/analytics.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 const CHART_URN = 'urn:li:chart:(looker,playwright_baz1)';
 const CHART_TITLE = 'Baz Chart 1';
@@ -25,10 +26,14 @@ test.describe('Analytics', () => {
     analyticsPage = new AnalyticsPage(page, logger, logDir);
   });
 
-  test('can view analytics dashboard with Data Landscape Summary', async () => {
-    await analyticsPage.goToAnalytics();
-    await analyticsPage.verifyLandscapeSummaryVisible();
-  });
+  test(
+    'can view analytics dashboard with Data Landscape Summary',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async () => {
+      await analyticsPage.goToAnalytics();
+      await analyticsPage.verifyLandscapeSummaryVisible();
+    },
+  );
 
   test('can track tab interactions and see them in analytics', async () => {
     await analyticsPage.goToChart(CHART_URN);

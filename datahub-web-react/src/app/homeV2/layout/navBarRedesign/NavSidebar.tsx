@@ -25,6 +25,7 @@ import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContex
 import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import NavSkeleton from '@app/homeV2/layout/navBarRedesign/NavBarSkeleton';
+import { getHelpMenuItems } from '@app/homeV2/layout/navBarRedesign/NavSidebar.utils';
 import {
     NavBarMenuDropdownItem,
     NavBarMenuDropdownItemElement,
@@ -43,8 +44,8 @@ import {
     NAV_SIDEBAR_ID,
     NAV_SIDEBAR_WIDTH_COLLAPSED,
     NAV_SIDEBAR_WIDTH_EXPANDED,
-} from '@app/shared/constants';
-import { useIsHomePage } from '@app/shared/useIsHomePage';
+} from '@app/sharedV2/constants';
+import { useIsHomePage } from '@app/sharedV2/useIsHomePage';
 import { useAppConfig, useBusinessAttributesFlag, useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
@@ -180,14 +181,10 @@ export const NavSidebar = () => {
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
     const logoComponent = hasCustomLogo ? <CustomLogo alt={t('navBar.logoAlt')} src={customLogoUrl} /> : <AcrylIcon />;
 
-    const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
-        title: value.label,
-        description: value.description || '',
-        link: value.path,
-        isHidden: false,
-        isExternalLink: true,
-        key: `helpMenu${value.label}`,
-    })) as NavBarMenuDropdownItemElement[];
+    const HelpContentMenuItems = getHelpMenuItems(
+        themeConfig.content.menu.items,
+        config.featureFlags.showGithubStarPrompt,
+    );
 
     // --- MFE YAML CONFIG ---
     const mfeConfig: any = useMFEConfigFromBackend();
@@ -287,6 +284,10 @@ export const NavSidebar = () => {
                         icon: <Sigma />,
                         selectedIcon: <Sigma weight="fill" />,
                         link: PageRoutes.METRICS,
+                        additionalLinksForPathMatching: [
+                            `${PageRoutes.METRIC_ENTITY}/:urn`,
+                            `${PageRoutes.SEMANTIC_MODEL_ENTITY}/:urn`,
+                        ],
                         dataTestId: 'nav-menu-item-metrics',
                         isHidden: !config?.featureFlags?.metricsEnabled,
                         badge: {

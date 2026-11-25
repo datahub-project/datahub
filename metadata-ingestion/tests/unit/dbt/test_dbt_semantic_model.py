@@ -54,10 +54,12 @@ def _mapper(
 ) -> DbtSemanticModelMapper:
     base: Dict[str, Any] = {"target_platform": "bigquery"}
     base.update(overrides)
+    config = DBTCommonConfig.model_validate(base)
     return DbtSemanticModelMapper(
-        config=DBTCommonConfig.model_validate(base),
+        config=config,
         report=DBTSourceReport(),
         project_name=project_name,
+        platform_instance=config.platform_instance,
     )
 
 
@@ -1401,8 +1403,7 @@ def test_a_failed_metrics_probe_warns_even_on_the_auto_enable_path():
 
 def test_config_pins_the_project_name_over_the_manifest():
     source = _source(semantic_model_project_name="pinned")
-    source._project_name = "from_manifest"
-    assert source._resolve_semantic_model_project_name([]) == "pinned"
+    assert source._resolve_semantic_model_project_name("from_manifest", []) == "pinned"
 
 
 def test_the_package_name_is_the_fallback_when_there_is_no_manifest_metadata():
@@ -1411,7 +1412,7 @@ def test_the_package_name_is_the_fallback_when_there_is_no_manifest_metadata():
     source = _source()
     assert (
         source._resolve_semantic_model_project_name(
-            [_sm_node("orders", _ORDERS, package_name="cloud_project")]
+            None, [_sm_node("orders", _ORDERS, package_name="cloud_project")]
         )
         == "cloud_project"
     )
@@ -1424,7 +1425,7 @@ def test_several_packages_pick_the_most_common_one_with_a_warning():
         _sm_node("b", _ORDERS, package_name="root"),
         _sm_node("c", _ORDERS, package_name="installed_pkg"),
     ]
-    assert source._resolve_semantic_model_project_name(nodes) == "root"
+    assert source._resolve_semantic_model_project_name(None, nodes) == "root"
     assert source.report.warnings
 
 
@@ -1435,7 +1436,7 @@ def test_an_undeterminable_project_name_is_a_failure_not_a_guess():
     node = _sm_node("orders", _ORDERS)
     node.dbt_package_name = None
 
-    assert source._resolve_semantic_model_project_name([node]) is None
+    assert source._resolve_semantic_model_project_name(None, [node]) is None
     assert source.report.failures
 
 

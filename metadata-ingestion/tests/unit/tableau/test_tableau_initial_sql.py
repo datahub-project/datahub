@@ -253,12 +253,11 @@ def test_emit_datasource_includes_initial_sql_upstream_and_property():
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.public.source_table,PROD)"
     ]
 
-    props_aspects = []
-    for wu in workunits:
-        if hasattr(wu.metadata, "proposedSnapshot"):
-            for aspect in wu.metadata.proposedSnapshot.aspects:
-                if isinstance(aspect, DatasetPropertiesClass):
-                    props_aspects.append(aspect)
+    props_aspects = [
+        aspect
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(DatasetPropertiesClass)) is not None
+    ]
     assert len(props_aspects) == 1
     assert "CREATE TEMPORARY TABLE" in props_aspects[0].customProperties["initialSql"]
 
@@ -417,9 +416,7 @@ def test_emit_datasource_embedded_emits_initial_sql_via_workbook():
     props = [
         aspect
         for wu in workunits
-        if hasattr(wu.metadata, "proposedSnapshot")
-        for aspect in wu.metadata.proposedSnapshot.aspects
-        if isinstance(aspect, DatasetPropertiesClass)
+        if (aspect := wu.get_aspect_of_type(DatasetPropertiesClass)) is not None
     ]
     assert len(props) == 1
     assert "SALES_SRC" in props[0].customProperties["initialSql"]
@@ -767,9 +764,7 @@ def test_emit_datasource_suppresses_custom_property_when_disabled():
     props = [
         aspect
         for wu in workunits
-        if hasattr(wu.metadata, "proposedSnapshot")
-        for aspect in wu.metadata.proposedSnapshot.aspects
-        if isinstance(aspect, DatasetPropertiesClass)
+        if (aspect := wu.get_aspect_of_type(DatasetPropertiesClass)) is not None
     ]
     assert len(props) == 1
     assert "initialSql" not in (props[0].customProperties or {})

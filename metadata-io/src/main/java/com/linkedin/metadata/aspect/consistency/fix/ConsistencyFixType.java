@@ -30,5 +30,11 @@ public enum ConsistencyFixType {
   TRIM_UPSERT,
 
   /** Delete orphaned documents directly from indices (system metadata, entity search, graph) */
-  DELETE_INDEX_DOCUMENTS
+  DELETE_INDEX_DOCUMENTS,
+
+  /**
+   * Set mapped structured-property fields that differ from SQL and null mapped fields SQL does not
+   * project. No other search field is written, and SQL is left unchanged.
+   */
+  SYNC_STRUCTURED_PROPERTY_INDEX_FIELDS
 }

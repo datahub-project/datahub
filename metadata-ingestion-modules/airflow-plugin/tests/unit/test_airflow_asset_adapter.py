@@ -4,7 +4,6 @@ from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 from datahub_airflow_plugin._airflow_asset_adapter import (
-    URI_SCHEME_TO_PLATFORM,
     extract_urns_from_iolets,
     extract_urns_from_resolved_alias_events,
     extract_urns_from_task_instance_outlet_events,
@@ -117,6 +116,16 @@ class TestTranslateAirflowAssetToUrn:
             == "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/path/to/data,PROD)"
         )
 
+    def test_gcs_scheme_uri(self) -> None:
+        class Asset:
+            uri = "gcs://my-bucket/path/to/data"
+
+        urn = translate_airflow_asset_to_urn(Asset())
+        assert (
+            urn
+            == "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/path/to/data,PROD)"
+        )
+
     def test_postgres_uri(self) -> None:
         class Asset:
             uri = "postgresql://myhost/mydb/mytable"
@@ -166,24 +175,24 @@ class TestTranslateAirflowAssetToUrn:
             == "urn:li:dataset:(urn:li:dataPlatform:hdfs,namenode/path/to/data,PROD)"
         )
 
-    def test_adls_uri_abfs(self) -> None:
+    def test_abs_uri_abfs(self) -> None:
         class Asset:
             uri = "abfs://container@storage.dfs.core.windows.net/path"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:adls,container@storage.dfs.core.windows.net/path,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:abs,container@storage.dfs.core.windows.net/path,PROD)"
         )
 
-    def test_adls_uri_abfss(self) -> None:
+    def test_abs_uri_abfss(self) -> None:
         class Asset:
             uri = "abfss://container@storage.dfs.core.windows.net/path"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:adls,container@storage.dfs.core.windows.net/path,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:abs,container@storage.dfs.core.windows.net/path,PROD)"
         )
 
     def test_file_uri(self) -> None:
@@ -192,7 +201,7 @@ class TestTranslateAirflowAssetToUrn:
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
-            urn == "urn:li:dataset:(urn:li:dataPlatform:file,local/path/to/data,PROD)"
+            urn == "urn:li:dataset:(urn:li:dataPlatform:file,/local/path/to/data,PROD)"
         )
 
     def test_custom_env(self) -> None:
@@ -278,28 +287,6 @@ class TestTranslateAirflowAssetToUrn:
             side_effect=Exception("boom"),
         ):
             assert translate_airflow_asset_to_urn(Asset()) is None
-
-
-class TestUriSchemeToPlatform:
-    """Tests for the URI_SCHEME_TO_PLATFORM mapping."""
-
-    def test_s3_schemes(self) -> None:
-        assert URI_SCHEME_TO_PLATFORM["s3"] == "s3"
-        assert URI_SCHEME_TO_PLATFORM["s3a"] == "s3"
-
-    def test_gcs_schemes(self) -> None:
-        assert URI_SCHEME_TO_PLATFORM["gs"] == "gcs"
-        assert URI_SCHEME_TO_PLATFORM["gcs"] == "gcs"
-
-    def test_adls_schemes(self) -> None:
-        assert URI_SCHEME_TO_PLATFORM["abfs"] == "adls"
-        assert URI_SCHEME_TO_PLATFORM["abfss"] == "adls"
-
-    def test_database_schemes(self) -> None:
-        assert URI_SCHEME_TO_PLATFORM["postgresql"] == "postgres"
-        assert URI_SCHEME_TO_PLATFORM["mysql"] == "mysql"
-        assert URI_SCHEME_TO_PLATFORM["bigquery"] == "bigquery"
-        assert URI_SCHEME_TO_PLATFORM["snowflake"] == "snowflake"
 
 
 class TestIsAirflowAssetAlias:

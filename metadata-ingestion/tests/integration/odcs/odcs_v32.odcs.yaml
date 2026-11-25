@@ -1,0 +1,78 @@
+# ODCS v3.2.0 contract exercising the 3.2 additions this source maps or accepts.
+apiVersion: v3.2.0
+kind: DataContract
+id: 00000000-0000-0000-0000-000000000032
+name: sensor_readings
+version: 1.0.0
+status: active
+context:
+  instructions: Readings are hourly; never sum col_reading across sensors.
+  constraints:
+    - constraint: Do not compare readings across firmware versions.
+  verifiedStatements:
+    - question: How many sensors report hourly?
+      answer: Every sensor with status ok.
+servers:
+  - server: prod-postgres
+    type: postgres
+    host: postgres.example.internal
+    port: ${DB_PORT:-5432}
+    database: telemetry_db
+    schema: public
+schema:
+  - name: readings
+    physicalName: readings
+    physicalType: table
+    context: Filter on ${REGION} before aggregating.
+    synonyms:
+      - synonym: measurements
+    properties:
+      - name: reading_id
+        logicalType: string
+        physicalType: varchar(36)
+        primaryKey: true
+        required: true
+      - name: col_embedding
+        logicalType: vector
+        physicalType: vector(3)
+        logicalTypeOptions:
+          dimensions: 3
+          elementType: float32
+      - name: col_labels
+        logicalType: map
+        physicalType: map<string,string>
+        map:
+          key:
+            name: key
+            logicalType: string
+          value:
+            name: value
+            logicalType: string
+      - name: col_status
+        logicalType: string
+        semanticType: dimension
+        enum:
+          - value: ok
+            label: OK
+            description: Reporting normally
+          - value: faulty
+        synonyms:
+          - synonym: state
+            locale: en
+          - synonym: health
+      - name: col_legacy
+        logicalType: string
+        deprecated: true
+      - name: location
+        logicalType: object
+        properties:
+          - name: col_old_zone
+            logicalType: string
+            deprecated: true
+  - name: readings_archive
+    physicalName: readings_archive
+    physicalType: table
+    deprecated: true
+    properties:
+      - name: reading_id
+        logicalType: string

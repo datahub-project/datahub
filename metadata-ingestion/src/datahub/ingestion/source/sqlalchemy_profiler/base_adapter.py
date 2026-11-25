@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple, Union, cast
+from typing import Any, List, NamedTuple, Optional, Tuple, Union, cast
 
 import sqlalchemy as sa
 from sqlalchemy import Select
@@ -18,6 +18,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
     flattenable_query,
+    gate_query,
     single_row_query,
 )
 
@@ -25,6 +26,19 @@ logger = logging.getLogger(__name__)
 
 # Default quantiles for statistical profiling
 DEFAULT_QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
+
+
+class QueryTimeout(NamedTuple):
+    """How to read, set and put back a session statement timeout."""
+
+    read: str
+    """Returns the session's current limit, in whatever form `restore` takes."""
+
+    apply: str
+    """Sets the limit for profiling."""
+
+    restore: str
+    """Puts back what `read` returned; formatted with it as `{value}`."""
 
 
 class ProfilingConnection:
@@ -62,6 +76,7 @@ class ProfilingConnection:
         table: Any,
         expr: ColumnElement[Any],
         literal_is_aggregate: bool = False,
+        gate: bool = False,
     ) -> Any:
         """Execute one aggregate over a whole table.
 
@@ -92,7 +107,10 @@ class ProfilingConnection:
             )
             return self._conn.execute(query)
 
-        return self._conn.execute(flattenable_query(single_row_query(query)))
+        tagged = flattenable_query(single_row_query(query))
+        if gate:
+            tagged = gate_query(tagged)
+        return self._conn.execute(tagged)
 
     def execute_single_row(self, query: Any) -> Any:
         """Execute a query you built yourself that returns exactly one row.
@@ -171,6 +189,21 @@ class PlatformAdapter(ABC):
         - Creating temp tables/views for custom SQL or partitions
         - Setting up table sampling for large tables
         - Creating the SQLAlchemy Table object
+        - Reporting what it applied on `context.applied`, which is what the
+          profile's partitionSpec is rendered from. Anything the config asked
+          for and `applied` does not report is warned about centrally.
+
+        Deciding between options the platform cannot honour together is this
+        layer's job, not the config's: the config stays neutral and records the
+        request, and the adapter -- the only thing that knows what the platform
+        can do -- picks and says what it picked.
+
+        Sampling and limit/offset are two answers to the same question -- how to
+        profile a big table cheaply -- and they do not compose: sampling an
+        already-bounded slice pays sampling's cost and loses the validity it
+        buys. Both SQL adapters that sample therefore prefer the sample, and the
+        profiler warns that the limit went unapplied. An adapter is free to
+        choose otherwise, as long as it reports what it chose.
 
         Default implementation: Creates SQLAlchemy table object with no special handling.
         Platforms like BigQuery, Athena, and Trino override this for custom behavior.
@@ -403,7 +436,9 @@ class PlatformAdapter(ABC):
             result = self.get_estimated_row_count(table, conn)
             return int(result) if result is not None else 0
 
-        count_result: Any = conn.execute_aggregate(table, sa.func.count()).scalar()
+        count_result: Any = conn.execute_aggregate(
+            table, sa.func.count(), gate=True
+        ).scalar()
         # scalar() can return Any | None, so we need to handle None
         if count_result is None:
             return 0
@@ -493,6 +528,30 @@ class PlatformAdapter(ABC):
         stddev (MySQL, Doris, ClickHouse), so name the sample variant explicitly.
         """
         return sa.func.stddev_samp(sa.column(column))
+
+    def get_query_timeout_statements(self, seconds: int) -> Optional[QueryTimeout]:
+        """
+        SQL to read, set and put back a per-statement time limit on the session.
+
+        None means the platform has no session-level equivalent, in which case
+        the timeout option is ignored for it. The restore is parameterised on
+        the value read beforehand rather than resetting to DEFAULT: the session
+        may already carry a limit from init_command or a connect listener, and
+        DEFAULT would silently discard it.
+        """
+        return None
+
+    def is_query_timeout(self, e: Exception) -> bool:
+        """
+        Whether the server ended this statement because it hit the time limit.
+
+        The recovery ladder retries a failed batch in shapes that cost more --
+        a CTE re-route scans the table once per query where the flat statement
+        scanned it once -- which is worth it for a statement the server refused
+        to parse and pointless for one it ran out of time on. False is the safe
+        answer: it only means the ladder behaves as it did before.
+        """
+        return False
 
     def get_column_stdev(
         self, table: sa.Table, column: str, conn: ProfilingConnection

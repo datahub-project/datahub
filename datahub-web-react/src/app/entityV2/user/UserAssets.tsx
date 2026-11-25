@@ -24,6 +24,7 @@ export const UserAssets = ({ urn }: Props) => {
     return (
         <UserAssetsWrapper>
             <EmbeddedListSearchSection
+                applyView
                 skipCache
                 fixedFilters={{
                     unionType: UnionType.AND,

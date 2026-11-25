@@ -37,7 +37,9 @@ services:
 
   # Dremio
   dremio:
-    platform: linux/x86_64
+    # No platform pin: every image here is multi-arch, so Docker runs the
+    # host's own build (amd64 on CI, arm64 on Apple Silicon). Forced to x86
+    # under emulation, Dremio's embedded ZooKeeper loses its master and exits.
     image: dremio/dremio-oss:latest
     container_name: dremio
     ports:

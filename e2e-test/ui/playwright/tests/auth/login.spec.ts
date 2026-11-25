@@ -9,6 +9,7 @@
 import { test, expect } from '../../fixtures/login-test';
 import { users } from '../../data/users';
 import { NETWORK_IDLE_TIMEOUT } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.describe('Login', () => {
   test.beforeEach(async ({ page }) => {
@@ -17,13 +18,17 @@ test.describe('Login', () => {
     });
   });
 
-  test('logs in successfully with valid credentials', async ({ page, loginPage }) => {
-    const { username, password } = users.admin;
-    await loginPage.navigateToLogin();
-    await loginPage.login(username, password);
-    await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible({ timeout: NETWORK_IDLE_TIMEOUT });
-    await expect(page).toHaveURL(/\/$|\/home/);
-  });
+  test(
+    'logs in successfully with valid credentials',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page, loginPage }) => {
+      const { username, password } = users.admin;
+      await loginPage.navigateToLogin();
+      await loginPage.login(username, password);
+      await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible({ timeout: NETWORK_IDLE_TIMEOUT });
+      await expect(page).toHaveURL(/\/$|\/home/);
+    },
+  );
 
   test('displays login form elements', async ({ loginPage }) => {
     await loginPage.navigateToLogin();
@@ -32,7 +37,7 @@ test.describe('Login', () => {
     await expect(loginPage.loginButton).toBeVisible();
   });
 
-  test('shows error for invalid credentials', async ({ page, loginPage }) => {
+  test('shows error for invalid credentials', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page, loginPage }) => {
     await loginPage.navigateToLogin();
     await loginPage.usernameInput.fill('invalid_user');
     await loginPage.passwordInput.fill('invalid_password');

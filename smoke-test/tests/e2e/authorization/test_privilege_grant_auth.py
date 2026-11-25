@@ -19,6 +19,7 @@ import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
+    NativeGroupMembershipClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -193,6 +194,28 @@ def _wait_until_group_edit_effective() -> None:
     )
 
 
+ME_PLATFORM_PRIVILEGES_QUERY = """
+query me {
+  me {
+    platformPrivileges { manageIdentities }
+  }
+}
+"""
+
+
+def _actor_has_manage_identities(email: str, password: str) -> bool:
+    res = _post_graphql_as_user(
+        email, password, {"query": ME_PLATFORM_PRIVILEGES_QUERY}
+    )
+    me = (res.get("data") or {}).get("me") or {}
+    return bool((me.get("platformPrivileges") or {}).get("manageIdentities"))
+
+
+def _is_group_member(graph_client, user_urn: str, group_urn: str) -> bool:
+    membership = graph_client.get_aspect(user_urn, NativeGroupMembershipClass)
+    return membership is not None and group_urn in membership.nativeGroups
+
+
 def _assert_admin_role_not_granted(graph_client, urn: str) -> None:
     wait_for_writes_to_sync(mcp_only=True)
     role_membership = graph_client.get_aspect(urn, RoleMembershipClass)
@@ -272,6 +295,32 @@ def test_group_owner_cannot_add_self_to_owned_group(graph_client):
     """
     _wait_until_group_edit_effective()
 
+    # The validator diffs proposed against current membership and returns before it consults
+    # the self floor when the diff is empty (addedUrns -> `if (granted.isEmpty()) return`).
+    # Re-adding an existing member grants nothing, so it is correctly allowed - which means a
+    # run where the actor is already in the group sees addGroupMembers: true and reports a
+    # security failure that never happened. Assert the precondition so that state fails here,
+    # naming the real cause, instead of downstream as a bogus privilege escalation.
+    wait_for_writes_to_sync(mcp_only=True)
+    assert not _is_group_member(graph_client, ACTOR_URN, OWNED_GROUP_URN), (
+        f"Precondition violated: {ACTOR_URN} is already a member of {OWNED_GROUP_URN}, so "
+        f"adding them again grants nothing and is allowed by design. This is test state "
+        f"leaking (a rerun after a partial write, or a dirty fixture), not a privilege check "
+        f"regression."
+    )
+
+    # MANAGE_USERS_AND_GROUPS is the self floor this test exercises, so an actor who holds it
+    # is *supposed* to succeed - the assertion below would then report a privilege escalation
+    # that never happened. Nothing in this module grants it, so holding it means another test
+    # leaked a platform policy; tests/privileges/utils.py used to do exactly that by rewriting
+    # "All Users - Base Platform Privileges" with a hardcoded privilege list on restore.
+    # Fail here, naming the leak, rather than downstream as a phantom security regression.
+    assert not _actor_has_manage_identities(ACTOR_EMAIL, USER_PASSWORD), (
+        f"{ACTOR_URN} unexpectedly holds MANAGE_USERS_AND_GROUPS, which legitimately permits "
+        f"the self-add this test forbids. Another test has granted it platform-wide - look for "
+        f"an all-users policy left ACTIVE with that privilege."
+    )
+
     res = _post_graphql_as_user(
         ACTOR_EMAIL,
         USER_PASSWORD,
@@ -285,6 +334,12 @@ def test_group_owner_cannot_add_self_to_owned_group(graph_client):
 
     assert res.get("data", {}).get("addGroupMembers") is not True, res
     assert res.get("errors"), res
+
+    # The mutation's return value alone does not prove the write was blocked.
+    wait_for_writes_to_sync(mcp_only=True)
+    assert not _is_group_member(graph_client, ACTOR_URN, OWNED_GROUP_URN), (
+        f"{ACTOR_URN} was added to {OWNED_GROUP_URN} despite the mutation reporting failure"
+    )
 
 
 def test_invite_accept_still_assigns_role(graph_client):

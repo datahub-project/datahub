@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.policy.mappers;
 
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActorFilterInput;
@@ -19,62 +20,91 @@ import com.linkedin.policy.PolicyMatchFilter;
 import com.linkedin.policy.StructuredPropertyCriterionValue;
 import com.linkedin.policy.StructuredPropertyCriterionValueArray;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-/** Maps GraphQL {@link PolicyUpdateInput} to DataHub backend {@link DataHubPolicyInfo}. */
+/**
+ * Maps GraphQL {@link PolicyUpdateInput} onto a backend {@link DataHubPolicyInfo}.
+ *
+ * <p>Only fields represented in {@link PolicyUpdateInput} / {@link ActorFilterInput} are ever
+ * touched. For an update, callers should go through {@link #mapToExisting} with the currently
+ * persisted aspect so this mapper mutates it in place instead of building a new one from scratch -
+ * that way any field the GraphQL input schema doesn't model (e.g. {@code actors.roles}, the
+ * top-level {@code editable} flag, or anything added to the aspect later) survives the edit
+ * untouched rather than being silently reset to its default.
+ */
 public class PolicyUpdateInputInfoMapper
     implements ModelMapper<PolicyUpdateInput, DataHubPolicyInfo> {
 
   public static final PolicyUpdateInputInfoMapper INSTANCE = new PolicyUpdateInputInfoMapper();
 
+  /** Maps a create input into a brand new {@link DataHubPolicyInfo}. */
   public static DataHubPolicyInfo map(
       @Nullable QueryContext context, @Nonnull final PolicyUpdateInput policyInput) {
     return INSTANCE.apply(context, policyInput);
   }
 
+  /**
+   * Applies an update input onto {@code existingInfo}, mutating and returning it in place so fields
+   * absent from {@link PolicyUpdateInput} are preserved.
+   */
+  public static DataHubPolicyInfo mapToExisting(
+      @Nullable QueryContext context,
+      @Nonnull final PolicyUpdateInput policyInput,
+      @Nonnull final DataHubPolicyInfo existingInfo) {
+    return INSTANCE.applyToExisting(context, policyInput, existingInfo);
+  }
+
   @Override
   public DataHubPolicyInfo apply(
       @Nullable QueryContext queryContext, @Nonnull final PolicyUpdateInput policyInput) {
-    final DataHubPolicyInfo result = new DataHubPolicyInfo();
+    return applyToExisting(queryContext, policyInput, new DataHubPolicyInfo());
+  }
+
+  private DataHubPolicyInfo applyToExisting(
+      @Nullable QueryContext queryContext,
+      @Nonnull final PolicyUpdateInput policyInput,
+      @Nonnull final DataHubPolicyInfo result) {
     if (policyInput.getDescription() != null) {
       result.setDescription(policyInput.getDescription());
     }
     result.setType(policyInput.getType().toString());
     result.setDisplayName(policyInput.getName());
     result.setPrivileges(new StringArray(policyInput.getPrivileges()));
-    result.setActors(mapActors(policyInput.getActors()));
+    result.setActors(
+        mapActors(
+            policyInput.getActors(),
+            result.hasActors() ? result.getActors() : new DataHubActorFilter()));
     result.setState(policyInput.getState().toString());
     if (policyInput.getResources() != null) {
       result.setResources(mapResources(policyInput.getResources()));
+    } else {
+      result.removeResources();
     }
     return result;
   }
 
-  private DataHubActorFilter mapActors(final ActorFilterInput actorInput) {
-    final DataHubActorFilter result = new DataHubActorFilter();
+  private DataHubActorFilter mapActors(
+      final ActorFilterInput actorInput, final DataHubActorFilter result) {
     result.setAllGroups(actorInput.getAllGroups());
     result.setAllUsers(actorInput.getAllUsers());
     result.setResourceOwners(actorInput.getResourceOwners());
-    if (actorInput.getResourceOwnersTypes() != null) {
-      result.setResourceOwnersTypes(
-          new UrnArray(
-              actorInput.getResourceOwnersTypes().stream()
-                  .map(this::createUrn)
-                  .collect(Collectors.toList())));
-    }
-    if (actorInput.getGroups() != null) {
-      result.setGroups(
-          new UrnArray(
-              actorInput.getGroups().stream().map(this::createUrn).collect(Collectors.toList())));
-    }
-    if (actorInput.getUsers() != null) {
-      result.setUsers(
-          new UrnArray(
-              actorInput.getUsers().stream().map(this::createUrn).collect(Collectors.toList())));
-    }
+    result.setResourceOwnersTypes(
+        toUrnArray(actorInput.getResourceOwnersTypes()), SetMode.REMOVE_IF_NULL);
+    result.setGroups(toUrnArray(actorInput.getGroups()), SetMode.REMOVE_IF_NULL);
+    result.setUsers(toUrnArray(actorInput.getUsers()), SetMode.REMOVE_IF_NULL);
+    // `roles` has no representation in ActorFilterInput - deliberately left untouched.
     return result;
+  }
+
+  @Nullable
+  private UrnArray toUrnArray(@Nullable final List<String> urnStrs) {
+    if (urnStrs == null) {
+      return null;
+    }
+    return new UrnArray(urnStrs.stream().map(this::createUrn).collect(Collectors.toList()));
   }
 
   private DataHubResourceFilter mapResources(final ResourceFilterInput resourceInput) {

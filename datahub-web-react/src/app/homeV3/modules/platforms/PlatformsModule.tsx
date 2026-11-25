@@ -10,7 +10,7 @@ import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import usePlatformModuleUtils from '@app/homeV3/modules/platforms/usePlatformsModuleUtils';
-import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { DataHubPageModuleType, Entity } from '@types';

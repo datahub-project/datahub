@@ -106,6 +106,12 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_DOMAINS_PRIVILEGE =
       Privilege.of("MANAGE_DOMAINS", "Manage Domains", "Create and remove Asset Domains.");
 
+  public static final Privilege MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ALL_DATA_PRODUCTS",
+          "Manage All Data Products",
+          "Create, edit, and remove Data Products in any Domain.");
+
   public static final Privilege MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE =
       Privilege.of(
           "MANAGE_GLOBAL_ANNOUNCEMENTS",
@@ -287,6 +293,7 @@ public class PoliciesConfig {
           VIEW_ANALYTICS_PRIVILEGE,
           GET_ANALYTICS_PRIVILEGE,
           MANAGE_DOMAINS_PRIVILEGE,
+          MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE,
           MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
           MANAGE_INGESTION_PRIVILEGE,
           MANAGE_SECRETS_PRIVILEGE,
@@ -370,6 +377,12 @@ public class PoliciesConfig {
           "EDIT_ENTITY_STATUS",
           "Edit Status",
           "The ability to edit the status of an entity (soft deleted or not).");
+
+  public static final Privilege EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_LIFECYCLE_STAGE",
+          "Edit Lifecycle Stage",
+          "The ability to edit the lifecycle stage of an entity.");
 
   public static final Privilege EDIT_ENTITY_DOMAINS_PRIVILEGE =
       Privilege.of(
@@ -460,6 +473,7 @@ public class PoliciesConfig {
           EDIT_ENTITY_DOCS_PRIVILEGE,
           EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
           EDIT_ENTITY_STATUS_PRIVILEGE,
+          EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE,
           EDIT_ENTITY_DOMAINS_PRIVILEGE,
           EDIT_ENTITY_APPLICATIONS_PRIVILEGE,
           EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE,
@@ -484,6 +498,12 @@ public class PoliciesConfig {
           "EDIT_DATASET_COL_GLOSSARY_TERMS",
           "Edit Dataset Column Glossary Terms",
           "The ability to edit the column (field) glossary terms associated with a dataset schema.");
+
+  public static final Privilege EDIT_DATASET_COL_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "EDIT_DATASET_COL_PROPERTIES",
+          "Edit Dataset Column Properties",
+          "The ability to edit the column (field) structured properties associated with a dataset schema.");
 
   public static final Privilege EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE =
       Privilege.of(
@@ -699,6 +719,7 @@ public class PoliciesConfig {
                       VIEW_DATASET_PROFILE_PRIVILEGE,
                       VIEW_DATASET_OPERATIONS_PRIVILEGE,
                       EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
+                      EDIT_DATASET_COL_PROPERTIES_PRIVILEGE,
                       EDIT_DATASET_COL_TAGS_PRIVILEGE,
                       EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
                       EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
@@ -880,6 +901,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+              EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               EDIT_ENTITY_TAGS_PRIVILEGE,
@@ -898,6 +920,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+              EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
               MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
@@ -917,6 +940,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+              EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE,
@@ -976,8 +1000,8 @@ public class PoliciesConfig {
   public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
       ResourcePrivileges.of(
           "erModelRelationship",
-          "ERModelRelationship",
-          "update privileges for ermodelrelations",
+          "ER Model Relationships",
+          "Privileges for ER Model Relationships",
           COMMON_ENTITY_PRIVILEGES);
   public static final ResourcePrivileges BUSINESS_ATTRIBUTE_PRIVILEGES =
       ResourcePrivileges.of(
@@ -1046,6 +1070,23 @@ public class PoliciesConfig {
           "ML Feature Tables indexed by DataHub",
           COMMON_ENTITY_PRIVILEGES);
 
+  // Assertion Privileges. Assertions are usually managed through EDIT_ENTITY_ASSERTIONS on the
+  // asserted entity (e.g. the dataset); these entries cover policies scoped to the assertion
+  // itself.
+  public static final ResourcePrivileges ASSERTION_PRIVILEGES =
+      ResourcePrivileges.of(
+          Constants.ASSERTION_ENTITY_NAME,
+          "Assertions",
+          "Data quality assertions on DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE));
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -1074,7 +1115,8 @@ public class PoliciesConfig {
           DATAHUB_VIEW_PRIVILEGES,
           ML_MODEL_PRIVILEGES,
           ML_FEATURE_PRIVILEGES,
-          ML_FEATURE_TABLE_PRIVILEGES);
+          ML_FEATURE_TABLE_PRIVILEGES,
+          ASSERTION_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =
@@ -1372,6 +1414,25 @@ public class PoliciesConfig {
                       .put(ApiOperation.READ, Disjunctive.disjoint(MANAGE_SECRETS_PRIVILEGE))
                       .put(ApiOperation.UPDATE, Disjunctive.disjoint(MANAGE_SECRETS_PRIVILEGE))
                       .put(ApiOperation.DELETE, Disjunctive.disjoint(MANAGE_SECRETS_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .put(
+                  Constants.INVITE_TOKEN_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(MANAGE_USER_CREDENTIALS_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(MANAGE_USER_CREDENTIALS_PRIVILEGE))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(MANAGE_USER_CREDENTIALS_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(MANAGE_USER_CREDENTIALS_PRIVILEGE))
                       .put(
                           ApiOperation.EXISTS,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))

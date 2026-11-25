@@ -1,14 +1,21 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.aspect.EntityAspect;
+import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.timeline.TimelineServiceImpl;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import java.sql.Timestamp;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.testng.annotations.Test;
 
 public class GlossaryTermInfoChangeEventGeneratorTest {
@@ -131,5 +138,45 @@ public class GlossaryTermInfoChangeEventGeneratorTest {
         generator.getSemanticDiff(previous, current, ChangeCategory.TAG, null, false);
 
     assertTrue(tx.getChangeEvents().isEmpty());
+  }
+
+  private static List<String> descriptions(
+      EntityChangeEventGenerator<?> generator, EntityAspect previous, EntityAspect current) {
+    return generator
+        .getSemanticDiff(previous, current, ChangeCategory.DOCUMENTATION, null, false)
+        .getChangeEvents()
+        .stream()
+        .map(ChangeEvent::getDescription)
+        .collect(Collectors.toList());
+  }
+
+  // Change History for glossary terms is served by the multi-field generator; existing event text
+  // for name and definition changes must stay identical to this class's.
+  @Test
+  public void testMultiFieldGeneratorMatchesLegacyText() {
+    EntityChangeEventGenerator<?> legacy = new GlossaryTermInfoChangeEventGenerator();
+    EntityChangeEventGenerator<?> current =
+        new TimelineServiceImpl(mock(AspectDao.class), mock(EntityRegistry.class))
+            .getTimelineGenerator(
+                GLOSSARY_TERM_ENTITY_NAME,
+                ChangeCategory.DOCUMENTATION,
+                GLOSSARY_TERM_INFO_ASPECT_NAME);
+    List<EntityAspect[]> cases =
+        List.of(
+            new EntityAspect[] {makeEmptyAspect(0), makeTermInfoAspect("Balance", "Def A", 1)},
+            new EntityAspect[] {
+              makeTermInfoAspect(null, "Def A", 0), makeTermInfoAspect("Balance", "Def A", 1)
+            },
+            new EntityAspect[] {
+              makeTermInfoAspect("Balance", "Def A", 0), makeTermInfoAspect("Total", "Def A", 1)
+            },
+            new EntityAspect[] {
+              makeTermInfoAspect("Balance", "Def A", 0), makeTermInfoAspect("Balance", "Def B", 1)
+            });
+    for (EntityAspect[] pair : cases) {
+      List<String> expected = descriptions(legacy, pair[0], pair[1]);
+      assertFalse(expected.isEmpty());
+      assertEquals(descriptions(current, pair[0], pair[1]), expected);
+    }
   }
 }

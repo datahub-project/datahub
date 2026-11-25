@@ -1,11 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
-import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
-
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -13,9 +10,6 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
 
 /**
  * Shared V2 vs V3 entity index list for non-vector (keyword) reads: search, list, browse,
@@ -25,6 +19,36 @@ import org.opensearch.index.query.QueryBuilders;
 public final class EntitySearchIndexResolver {
 
   private EntitySearchIndexResolver() {}
+
+  /**
+   * Field a filter reads for the index family being queried. Search V3 stores the view's creator as
+   * the system actor copied from {@code systemMetadata.aspectCreated}, while V2 stores it as {@code
+   * createdBy} from the view's audit stamp.
+   */
+  @Nonnull
+  public static String viewCreatorField(@Nullable EntityIndexConfiguration entityIndex) {
+    return shouldReadV3(entityIndex) ? MappingConstants.SYSTEM_CREATED_ACTOR_FIELD : "createdBy";
+  }
+
+  /**
+   * Field a sort or filter reads. Search V3 drops the entity audit stamp and stores the time and
+   * actor on {@code _system}, resolved through the V3 field mapping. V2 keeps the name the caller
+   * already uses.
+   */
+  @Nonnull
+  public static String indexedField(
+      @Nullable EntityIndexConfiguration entityIndex,
+      @Nonnull OperationContext opContext,
+      @Nonnull String v2Field,
+      @Nonnull String v3Field,
+      @Nonnull SearchFieldResolver.Intent intent) {
+    if (!shouldReadV3(entityIndex)) {
+      return v2Field;
+    }
+    return V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry())
+        .resolver()
+        .exactPath(v3Field, intent);
+  }
 
   public static boolean shouldReadV3(@Nullable EntityIndexConfiguration entityIndex) {
     if (entityIndex == null || entityIndex.getV3() == null || !entityIndex.getV3().isEnabled()) {
@@ -80,39 +104,5 @@ public final class EntitySearchIndexResolver {
       return convention.getV3EntityIndexPatterns(opContext).get(0);
     }
     return convention.getEntityIndexName(opContext, "*");
-  }
-
-  /**
-   * Restricts a query to the requested entity types via {@code _entityType}.
-   *
-   * <p>V3 documents always store {@code _entityType}, including when the index is named after the
-   * entity rather than a shared search group. Entity-type scoped reads and deletes must still
-   * filter on the field so a shared group index (or leftover documents) cannot leak another type.
-   *
-   * <p>No-op for V2: those documents do not have {@code _entityType} as a real field.
-   */
-  public static void applyEntityTypeFilter(
-      @Nonnull BoolQueryBuilder query,
-      @Nonnull Collection<String> entityNames,
-      @Nullable EntityIndexConfiguration entityIndex) {
-    QueryBuilder entityTypeQuery = entityTypeQuery(entityNames, entityIndex);
-    if (entityTypeQuery != null) {
-      query.filter(entityTypeQuery);
-    }
-  }
-
-  @Nullable
-  public static QueryBuilder entityTypeQuery(
-      @Nonnull Collection<String> entityNames, @Nullable EntityIndexConfiguration entityIndex) {
-    if (!shouldReadV3(entityIndex) || entityNames.isEmpty()) {
-      return null;
-    }
-    // Callers often pass entity registry keys, which are lower-cased (glossaryterm), while V3
-    // stores the entity name (glossaryTerm). Entity names are unique ignoring case.
-    BoolQueryBuilder query = QueryBuilders.boolQuery().minimumShouldMatch(1);
-    for (String entityName : entityNames) {
-      query.should(QueryBuilders.termQuery(INDEX_VIRTUAL_FIELD, entityName).caseInsensitive(true));
-    }
-    return query;
   }
 }

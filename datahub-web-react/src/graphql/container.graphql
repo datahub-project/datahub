@@ -16,6 +16,9 @@ query getContainer($urn: String!) {
                 key
                 value
             }
+            created {
+                time
+            }
         }
         privileges {
             ...entityPrivileges

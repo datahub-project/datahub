@@ -3,7 +3,6 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.entity.AspectUtils.buildMetadataChangeProposal;
 
 import com.datahub.authentication.Authentication;
@@ -30,8 +29,10 @@ import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormActorAssignment;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
+import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder;
 import com.linkedin.metadata.authorization.OwnershipUtils;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.FormKey;
@@ -44,9 +45,6 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.structured.PrimitivePropertyValueArray;
-import com.linkedin.structured.StructuredProperties;
-import com.linkedin.structured.StructuredPropertyValueAssignment;
-import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -268,8 +266,9 @@ public class FormService extends BaseService {
       // if this is complete, the prompt as a whole should be marked as complete
       ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId, forms);
     } else {
-      // regardless, ingest forms to save state of this aspect
-      ingestForms(opContext, entityUrn, forms);
+      // The field is recorded before the prompt is complete. Same system write as a finished
+      // prompt: the resolver already allowed this caller.
+      ingestFormsOrThrow(systemWriteContext(opContext), entityUrn, forms);
     }
   }
 
@@ -305,8 +304,10 @@ public class FormService extends BaseService {
     // Then, update the completed forms fields based on which prompts remain incomplete.
     updateFormCompletion(opContext, forms, formAssociation, formInfo);
 
-    // Finally, ingest the newly updated forms aspect.
-    ingestForms(opContext, entityUrn, forms);
+    // The resolver has already allowed this caller. Completion is written as the system actor, like
+    // the prompted value, so an assignee without an entity-edit privilege still closes the prompt.
+    // A failure propagates: the mutation must not report success while the form stays incomplete.
+    ingestFormsOrThrow(systemWriteContext(opContext), entityUrn, forms);
   }
 
   private void ingestSchemaFieldStructuredProperties(
@@ -326,67 +327,78 @@ public class FormService extends BaseService {
       @Nonnull final Urn structuredPropertyUrn,
       @Nonnull final PrimitivePropertyValueArray values)
       throws Exception {
-    final EntityResponse response =
-        entityClient.getV2(
-            opContext,
-            entityUrn.getEntityType(),
-            entityUrn,
-            ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME));
-
-    StructuredProperties structuredProperties = new StructuredProperties();
-    structuredProperties.setProperties(new StructuredPropertyValueAssignmentArray());
-    if (response != null && response.getAspects().containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME)) {
-      structuredProperties =
-          new StructuredProperties(
-              response.getAspects().get(STRUCTURED_PROPERTIES_ASPECT_NAME).getValue().data());
-    }
-
-    // Since we upsert assignments for this structuredProperty,
-    // remove anything from this structured property and add to this list
-    List<StructuredPropertyValueAssignment> filteredAssignments =
-        structuredProperties.getProperties().stream()
-            .filter(assignment -> !assignment.getPropertyUrn().equals(structuredPropertyUrn))
-            .collect(Collectors.toList());
-
-    StructuredPropertyValueAssignment assignment = new StructuredPropertyValueAssignment();
-    assignment.setValues(values);
-    assignment.setPropertyUrn(structuredPropertyUrn);
-    assignment.setCreated(
+    // The resolver has already allowed this caller, either by form assignment or by the property
+    // privilege. The value is written as the system actor so an assignee who lacks that privilege
+    // passes the aspect validator. The audit stamp stays the caller.
+    final AuditStamp lastModified =
         new AuditStamp()
             .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr()))
-            .setTime(System.currentTimeMillis()));
-    assignment.setLastModified(
-        new AuditStamp()
-            .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr()))
-            .setTime(System.currentTimeMillis()));
-    filteredAssignments.add(assignment);
+            .setTime(System.currentTimeMillis());
 
-    StructuredPropertyValueAssignmentArray assignments =
-        new StructuredPropertyValueAssignmentArray(filteredAssignments);
-    structuredProperties.setProperties(assignments);
-
+    // Patch only the prompted property. Upserting the whole aspect re-validates every property on
+    // the entity, so a value that predates another property's allowedValues would reject a
+    // response that never touched that property.
     final MetadataChangeProposal structuredPropertiesProposal =
-        AspectUtils.buildMetadataChangeProposal(
-            entityUrn, STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties);
+        new StructuredPropertiesPatchBuilder()
+            .urn(entityUrn)
+            .setProperty(structuredPropertyUrn, values, lastModified)
+            .build();
     try {
-      this.entityClient.ingestProposal(opContext, structuredPropertiesProposal, false);
+      this.entityClient.ingestProposal(
+          systemWriteContext(opContext), structuredPropertiesProposal, false);
     } catch (Exception e) {
       throw new RuntimeException("Failed to submit form response", e);
     }
   }
 
+  /**
+   * A user session rebuilt on the context's system authentication. {@code isSystemAuth} is true
+   * only when the session actor is already the system actor.
+   */
+  @Nonnull
+  private static OperationContext systemWriteContext(@Nonnull OperationContext opContext) {
+    if (opContext.isSystemAuth()) {
+      return opContext;
+    }
+    final Authentication systemAuthentication =
+        opContext
+            .getSystemAuthentication()
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "System authentication is required to write a form prompt response"));
+    return opContext.toBuilder()
+        .operationContextConfig(
+            Objects.requireNonNull(
+                opContext.getOperationContextConfig().toBuilder()
+                    .allowSystemAuthentication(true)
+                    .build()))
+        .build(
+            systemAuthentication, opContext.getSessionActorContext().isEnforceExistenceEnabled());
+  }
+
+  /**
+   * Assignment, unassign, and verification keep going when the forms write fails. Prompt completion
+   * does not: {@link #ingestFormsOrThrow} surfaces that failure.
+   */
   private void ingestForms(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final Forms forms) {
     try {
-      ingestChangeProposals(
-          opContext,
-          ImmutableList.of(
-              AspectUtils.buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, forms)));
+      ingestFormsOrThrow(opContext, entityUrn, forms);
     } catch (Exception e) {
       log.warn(String.format("Failed to ingest forms for entity with urn %s", entityUrn), e);
     }
+  }
+
+  private void ingestFormsOrThrow(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn, @Nonnull final Forms forms)
+      throws Exception {
+    ingestChangeProposals(
+        opContext,
+        ImmutableList.of(
+            AspectUtils.buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, forms)));
   }
 
   /**
@@ -961,6 +973,32 @@ public class FormService extends BaseService {
 
     // Update verifications for forms aspect.
     forms.setVerifications(new FormVerificationAssociationArray(newVerifications));
+  }
+
+  /**
+   * Whether {@code formPromptId} is a {@code promptType} prompt asking for {@code
+   * structuredPropertyUrn}, on a form assigned to {@code entityUrn}. Prompt responses are checked
+   * with this before anything is written, so a response can only set the property its prompt asks
+   * for, on an entity the form applies to.
+   */
+  public boolean isPromptForStructuredProperty(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final String formPromptId,
+      @Nonnull final FormPromptType promptType,
+      @Nonnull final Urn structuredPropertyUrn)
+      throws Exception {
+    if (getFormWithUrn(getEntityForms(opContext, entityUrn), formUrn) == null) {
+      return false;
+    }
+    return getFormInfo(opContext, formUrn).getPrompts().stream()
+        .anyMatch(
+            prompt ->
+                prompt.getId().equals(formPromptId)
+                    && prompt.getType() == promptType
+                    && prompt.hasStructuredPropertyParams()
+                    && prompt.getStructuredPropertyParams().getUrn().equals(structuredPropertyUrn));
   }
 
   /**

@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import i18n from 'i18next';
 
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useIngestionSources', () => {
     describe('displayName field', () => {
@@ -59,14 +59,6 @@ describe('useIngestionSources', () => {
             const bigquery = result.current.ingestionSources.find((s) => s.name === 'bigquery');
             expect(bigquery!.category).toBe('Data Warehouse');
         });
-
-        it('leaves category undefined when absent in source data', () => {
-            const { result } = renderHook(() => useIngestionSources());
-            // doris and rdf have no category field in sources.json
-            const doris = result.current.ingestionSources.find((s) => s.name === 'doris');
-            expect(doris).toBeDefined();
-            expect(doris!.category).toBeUndefined();
-        });
     });
 
     describe('full source list', () => {
@@ -90,7 +82,7 @@ describe('useIngestionSources', () => {
             const odcs = result.current.ingestionSources.find((s) => s.name === 'odcs');
             expect(odcs).toBeDefined();
             expect(odcs!.displayName).toBe('Open Data Contract Standard');
-            expect(odcs!.category).toBe('Data Catalog');
+            expect(odcs!.category).toBe('Miscellaneous');
             // The starter recipe must select the odcs source type so the YAML editor is valid out of the box.
             expect(odcs!.recipe).toContain('type: odcs');
         });

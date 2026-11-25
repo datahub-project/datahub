@@ -346,3 +346,75 @@ def test_odcs_synthetic_ecommerce(
         output_path=output_path,
         golden_path=test_resources_dir / "odcs_synthetic_ecommerce_mces_golden.json",
     )
+
+
+_V32_LOGICAL = (
+    "urn:li:dataset:(urn:li:dataPlatform:odcs,"
+    "00000000-0000-0000-0000-000000000032.{},PROD)"
+)
+
+
+def _aspects(mces: List[Dict[str, Any]], aspect_name: str) -> Dict[str, Any]:
+    return {
+        m["entityUrn"]: m["aspect"]["json"]
+        for m in mces
+        if m.get("aspectName") == aspect_name
+    }
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.parametrize("strict", [False, True])
+def test_odcs_v32(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path, strict: bool
+) -> None:
+    """v3.2 contract ingests (lenient and strict, same output) with vector,
+    deprecated and property-synonym mappings."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/odcs"
+    output_path = _run_pipeline(
+        tmp_path=tmp_path,
+        test_resources_dir=test_resources_dir,
+        fixture="odcs_v32.odcs.yaml",
+        output_name=f"odcs_v32_{'strict' if strict else 'lenient'}_mces.json",
+        extra_config={"strict_validation": strict},
+    )
+    mces = _read_mces(output_path)
+    readings = _V32_LOGICAL.format("readings")
+    archive = _V32_LOGICAL.format("readings_archive")
+
+    deprecations = _aspects(mces, "deprecation")
+    assert set(deprecations) == {
+        archive,
+        f"urn:li:schemaField:({readings},col_legacy)",
+        f"urn:li:schemaField:({readings},location.col_old_zone)",
+    }
+    ai_context = _aspects(mces, "aiContext")
+    assert ai_context == {
+        f"urn:li:schemaField:({readings},col_status)": {"synonyms": ["state", "health"]}
+    }
+    schema = _aspects(mces, "schemaMetadata")[readings]
+    types = {f["fieldPath"]: f["type"]["type"] for f in schema["fields"]}
+    assert "com.linkedin.schema.ArrayType" in types["col_embedding"]
+    assert "com.linkedin.schema.MapType" in types["col_labels"]
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "odcs_v32_mces_golden.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_odcs_v32_unresolved_variable_stays_unbound(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/odcs"
+    output_path = _run_pipeline(
+        tmp_path=tmp_path,
+        test_resources_dir=test_resources_dir,
+        fixture="odcs_v32_variables.odcs.yaml",
+        output_name="odcs_v32_variables_mces.json",
+    )
+    mces = _read_mces(output_path)
+    assert not [m for m in mces if m.get("aspectName") == "logicalParent"]
+    assert not [m for m in mces if "${" in m.get("entityUrn", "")]
+    assert _aspects(mces, "datasetProperties")  # logical dataset still emitted

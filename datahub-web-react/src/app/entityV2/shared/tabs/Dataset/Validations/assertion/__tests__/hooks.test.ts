@@ -1,5 +1,5 @@
-import { act, renderHook } from '@testing-library/react-hooks';
-import { message } from 'antd';
+import { toast } from '@components';
+import { act } from '@testing-library/react';
 import { useHistory, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,16 +10,22 @@ import {
     useOpenAssertionDetailModal,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 
-vi.mock('antd', async (importOriginal) => {
-    const original = await importOriginal<any>();
+// Mock alchemy toast
+vi.mock('@components', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@components')>();
     return {
-        ...original,
-        message: {
+        ...actual,
+        toast: {
             success: vi.fn(),
             error: vi.fn(),
+            warning: vi.fn(),
+            info: vi.fn(),
+            loading: vi.fn(),
+            destroy: vi.fn(),
         },
     };
 });
@@ -160,8 +166,8 @@ describe('useAssertionURNCopyLink', () => {
             await result.current();
         });
 
-        expect(message.success).toHaveBeenCalledWith('Link copied to clipboard!');
-        expect(message.error).not.toHaveBeenCalled();
+        expect(toast.success).toHaveBeenCalledWith('Link copied to clipboard!');
+        expect(toast.error).not.toHaveBeenCalled();
     });
 
     it('shows an error message when the clipboard write fails', async () => {
@@ -172,8 +178,8 @@ describe('useAssertionURNCopyLink', () => {
             await result.current();
         });
 
-        expect(message.error).toHaveBeenCalledWith('Failed to copy link to clipboard.');
-        expect(message.success).not.toHaveBeenCalled();
+        expect(toast.error).toHaveBeenCalledWith('Failed to copy link to clipboard.');
+        expect(toast.success).not.toHaveBeenCalled();
     });
 });
 
@@ -226,7 +232,7 @@ describe('useOpenAssertionDetailModal', () => {
         renderHook(() => useOpenAssertionDetailModal(mockSetFocusUrn));
 
         expect(mockSetFocusUrn).not.toHaveBeenCalled();
-        expect(message.error).toHaveBeenCalled();
+        expect(toast.error).toHaveBeenCalled();
         expect(mockReplace).not.toHaveBeenCalled();
     });
 

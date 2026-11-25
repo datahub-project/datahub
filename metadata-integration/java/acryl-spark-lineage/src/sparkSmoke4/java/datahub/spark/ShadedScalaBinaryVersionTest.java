@@ -116,12 +116,12 @@ public class ShadedScalaBinaryVersionTest {
   }
 
   /**
-   * Covers the remaining call sites the extractor test cannot reach without a Delta or JDBC
-   * dependency — {@code LogicalPlan.output()} in {@code SaveIntoDataSourceCommandVisitor} and
-   * {@code RedshiftSaveIntoDataSourceCommandBuilder}, and {@code TreeNode.children()} in the two
-   * Delta MERGE builders — by asserting the invariant those sites depend on directly on the
-   * deployed artifact. {@code scripts/check_jar.sh} enforces the same thing at build time; this is
-   * the runtime half, on the classpath where a mismatch actually fails.
+   * Covers the remaining call sites the extractor test cannot reach without a Delta or Redshift
+   * dependency — {@code LogicalPlan.output()} in {@code RedshiftSaveIntoDataSourceCommandBuilder},
+   * and {@code TreeNode.children()} in the two Delta MERGE builders — by asserting the invariant
+   * those sites depend on directly on the deployed artifact. {@code scripts/check_jar.sh} enforces
+   * the same thing at build time; this is the runtime half, on the classpath where a mismatch
+   * actually fails.
    */
   @Test
   public void shadedJarCarriesNoScala212SeqDescriptors() throws Exception {

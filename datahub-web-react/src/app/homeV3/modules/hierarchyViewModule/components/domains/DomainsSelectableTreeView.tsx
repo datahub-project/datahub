@@ -7,6 +7,7 @@ import { ChildrenLoaderProvider } from '@app/homeV3/modules/hierarchyViewModule/
 import useChildrenDomainsLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useChildrenDomainsLoader';
 import useParentValuesToLoadChildren from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useParentValues';
 import { ChildrenLoaderMetadata } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/types';
+import { getTotalChildren } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/utils';
 import DomainSelectableTreeNodeRenderer from '@app/homeV3/modules/hierarchyViewModule/components/domains/DomainSelectableTreeNodeRenderer';
 import useSelectableDomainTree from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useSelectableDomainTree';
 import { useHierarchyFormContext } from '@app/homeV3/modules/hierarchyViewModule/components/form/HierarchyFormContext';
@@ -57,7 +58,7 @@ export default function DomainsSelectableTreeView() {
             tree.update(newNodes, parentDomainUrn);
             tree.updateNode(parentDomainUrn, {
                 isChildrenLoading: false,
-                totalChildren: (metadata.totalNumberOfChildren ?? 0) + (metadata.totalNumberOfRelatedEntities ?? 0),
+                totalChildren: getTotalChildren(metadata),
             });
         },
         [tree, removeParentValue],

@@ -12,6 +12,7 @@ export class RunHistoryBaseTab extends BaseTab {
   readonly dropdownSearchBar: Locator;
   readonly footerUpdateButton: Locator;
   readonly filterDropdown: Locator;
+  readonly backBreadcrumb: Locator;
 
   constructor(
     protected readonly page: Page,
@@ -30,6 +31,7 @@ export class RunHistoryBaseTab extends BaseTab {
     this.footerUpdateButton = page.getByTestId('footer-button-update');
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design dropdown portal has no data-testid or ARIA role
     this.filterDropdown = page.locator('body .ant-dropdown');
+    this.backBreadcrumb = page.getByTestId('breadcrumb-back');
   }
 
   getExecutionRowLocator(executionUrn: string): Locator {
@@ -55,6 +57,11 @@ export class RunHistoryBaseTab extends BaseTab {
   async clickExecutionSourceNameLink(executionUrn: string): Promise<void> {
     this.logger?.step('click execution source name link', { executionUrn });
     await this.getExecutionSourceNameLocator(executionUrn).click();
+  }
+
+  async openRunDetails(executionUrn: string): Promise<void> {
+    this.logger?.step('open run details', { executionUrn });
+    await this.getExecutionRowLocator(executionUrn).getByTestId('execution-table-status').click();
   }
 
   async expectExecutionRowVisible(executionUrn: string): Promise<void> {

@@ -10,7 +10,12 @@ ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
 ENV JMX_VERSION=1.0.1
 
+# Cache-bust the apk layers. Wolfi is a rolling distro, so a cached layer can keep
+# shipping a stale JDK after a fix lands. Bump WOLFI_PKG_REFRESH to force a fresh
+# apk upgrade and a fresh openjdk install in setup_java_runtime.sh.
+ARG WOLFI_PKG_REFRESH=2026-11-17
 RUN printf '%s\n' "${APK_REPOSITORY_URL}" > /etc/apk/repositories \
+    && echo "wolfi pkg refresh: ${WOLFI_PKG_REFRESH}" \
     && apk update --no-cache \
     && apk upgrade --no-cache
 
@@ -22,12 +27,13 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
 
 COPY docker/snippets/wait_for_deps.sh /usr/local/lib/datahub/wait_for_deps.sh
 
+RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
+
 FROM base AS prod-install
 COPY metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce-consumer/resources/entity-registry.yml
-COPY docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
+COPY --chmod=755 docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
-RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -35,8 +41,6 @@ FROM base AS dev-install
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce-consumer/resources/entity-registry.yml
 
 FROM ${APP_ENV}-install AS final
-
-RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
 USER datahub
 
 ENV JMX_OPTS=""

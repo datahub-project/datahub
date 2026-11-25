@@ -15,7 +15,7 @@ import {
 } from '@app/govern/structuredProperties/styledComponents';
 import { DISPLAY_NAME_FILTER_NAME } from '@app/search/utils/constants';
 import { CREATED_TIME_FIELD_NAME } from '@app/searchV2/utils/constants';
-import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
+import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';

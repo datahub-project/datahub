@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -8,6 +7,7 @@ import {
 } from '@app/ingestV2/executions/constants';
 import useRefresh from '@app/ingestV2/executions/hooks/useRefresh';
 import useRefreshInterval from '@app/ingestV2/shared/hooks/useRefreshInterval';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType, ExecutionRequest } from '@types';
 

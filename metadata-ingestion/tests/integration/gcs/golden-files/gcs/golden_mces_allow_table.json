@@ -10,7 +10,7 @@
                 "schema_inferred_from": "gs://my-test-bucket/folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=march/part2.json",
                 "number_of_partitions": "1"
             },
-            "externalUrl": "https://console.cloud.google.com/storage/browser/my-test-bucket/folder_a/folder_aa/folder_aaa/folder_aaaa",
+            "externalUrl": "https://console.cloud.google.com/storage/browser/my-test-bucket/folder_a/folder_aa/folder_aaa/folder_aaaa/",
             "name": "folder_aaaa",
             "description": "",
             "created": {

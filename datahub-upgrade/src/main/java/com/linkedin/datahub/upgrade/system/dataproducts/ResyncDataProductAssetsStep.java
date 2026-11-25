@@ -53,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
 @Slf4j
 public class ResyncDataProductAssetsStep implements UpgradeStep {
 
-  static final String UPGRADE_ID = "data-product-assets-from-properties-v1";
+  static final String UPGRADE_ID = "data-product-assets-from-properties-v2";
 
   private static final List<String> REQUIRED_ASPECTS = List.of(DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
 

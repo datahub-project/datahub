@@ -18,5 +18,11 @@
     "sidebar.collapse": "Glossar einklappen",
     "sidebar.expand": "Glossar ausklappen",
     "sidebar.home": "Glossar-Startseite",
-    "sidebar.section.allTerms": "Alle Begriffe"
+    "sidebar.ownerFilter.label": "Owners",
+    "sidebar.ownerFilter.placeholder": "Nach Owner filtern",
+    "sidebar.domainFilter.label": "Domänen",
+    "sidebar.domainFilter.placeholder": "Nach Domäne filtern",
+    "sidebar.section.allTerms": "Alle Begriffe",
+    "sidebar.tagFilter.label": "Tags",
+    "sidebar.tagFilter.placeholder": "Nach Tag filtern"
 }

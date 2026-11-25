@@ -27,6 +27,7 @@ import computeLineageGraph from '@app/lineageV3/useComputeGraph/computeLineageGr
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 import { hideOrphanedNodes } from '@app/lineageV3/useComputeGraph/lineageGraph.utils';
 import { generateCompareNodesFunction } from '@app/lineageV3/useComputeGraph/orderNodes';
+import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -82,6 +83,7 @@ export default function computeBoundingBoxGraph(
         NodeContext,
         GraphStoreFields | LineageToggles | 'rootType' | 'outputPortsOnly' | 'boundingBoxEntities'
     >,
+    entityRegistry: EntityRegistry,
     ignoreSchemaFieldStatus: boolean,
     showFilterNodes = true,
 ) {
@@ -111,7 +113,7 @@ export default function computeBoundingBoxGraph(
     };
     const nodeFilter = createBoundingBoxNodeFilter(urn, rootType, showDataProcessInstances);
     const graphStore: GraphStore = {
-        ...hideNodes(urn, rootType, config, { nodes, edges, adjacencyList }, nodeFilter),
+        ...hideNodes(urn, rootType, entityRegistry, config, { nodes, edges, adjacencyList }, nodeFilter),
         rootType,
     };
     // Positioning and edge creation only consider edges that are actually shown
@@ -131,10 +133,11 @@ export default function computeBoundingBoxGraph(
 
     // Step 1: Compute displayed nodes globally. The hide flags are overridden to match `config`
     // above, so `computeLineageGraph` recomputes the same graph store internally.
-    const compareLineageNodes = generateCompareNodesFunction(rootType);
+    const compareLineageNodes = generateCompareNodesFunction(rootType, entityRegistry);
     const { displayedNodes, lineageFilters } = computeLineageGraph(
         urn,
         { ...context, hideTransformations: false, showDataProcessInstances: true },
+        entityRegistry,
         ignoreSchemaFieldStatus,
         {
             nodeFilter,
@@ -185,6 +188,7 @@ export default function computeBoundingBoxGraph(
         const box = layoutBoundingBoxInterior(
             { ...group, memberUrns: displayedMemberUrns },
             revealedGraphStore,
+            entityRegistry,
             ignoreSchemaFieldStatus,
         );
         if (box) boxes.set(group.urn, box);

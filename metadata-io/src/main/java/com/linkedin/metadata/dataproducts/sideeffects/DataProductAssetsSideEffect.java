@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DATA_PRODUCTS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
@@ -191,19 +192,13 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
           addUnsynced(operationContext, newByAsset, dataProductUrn, mclItem, retrieverContext)
               .collect(Collectors.toList());
       if (isSystemUpdate(mclItem.getSystemMetadata())) {
-        try {
-          List<MCPItem> removes =
-              removeStaleMirrors(dataProductUrn, newByAsset, mclItem, retrieverContext)
-                  .collect(Collectors.toList());
-          return Stream.concat(adds.stream(), removes.stream());
-        } catch (RuntimeException e) {
-          log.warn(
-              "REMOVE heal failed for {}; emitting {} ADD(s) anyway",
-              dataProductUrn,
-              adds.size(),
-              e);
-          return adds.stream();
-        }
+        // A scroll failure must fail the batch. Swallowing it and returning ADD-only patches
+        // lets ResyncDataProductAssetsStep save LAST_URN and skip the REMOVE heal on retry.
+        // addUnsynced is idempotent, so the ADDs are safe to rebuild when the batch is retried.
+        List<MCPItem> removes =
+            removeStaleMirrors(dataProductUrn, newByAsset, mclItem, retrieverContext)
+                .collect(Collectors.toList());
+        return Stream.concat(adds.stream(), removes.stream());
       }
       return adds.stream();
     }
@@ -478,7 +473,7 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
       @Nonnull RetrieverContext retrieverContext) {
     final EntitySpec entitySpec =
         Optional.ofNullable(retrieverContext.getAspectRetriever().getEntityRegistry())
-            .map(registry -> registry.getEntitySpec(assetUrn.getEntityType()))
+            .flatMap(registry -> handling().entitySpecForData(registry, assetUrn.getEntityType()))
             .orElse(null);
     if (entitySpec == null || entitySpec.getAspectSpec(DATA_PRODUCTS_ASPECT_NAME) == null) {
       log.warn(

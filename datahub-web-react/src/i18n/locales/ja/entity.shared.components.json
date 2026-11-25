@@ -93,9 +93,14 @@
     "searchActions.glossaryTerms.addTitle": "Glossary Termを追加",
     "searchActions.glossaryTerms.name": "Glossary Term",
     "searchActions.glossaryTerms.removeTitle": "Glossary Termを外す",
+    "searchActions.noSelection": "このアクションを使用するには、少なくとも1つのAssetを選択してください。",
     "searchActions.notSupported": "このアクションは選択したタイプではサポートされていません。",
     "searchActions.owners.addTitle": "Ownerを追加",
     "searchActions.owners.removeTitle": "Ownerの割り当てを解除",
     "searchActions.tags.addTitle": "Tagを追加",
-    "searchActions.tags.removeTitle": "Tagを外す"
+    "searchActions.tags.removeTitle": "Tagを外す",
+    "structuredProperty.addMore": "+ さらに追加",
+    "structuredProperty.selectPlaceholder": "選択",
+    "viewAll.resultsIncomplete": "結果が不完全な場合があります。",
+    "viewAll.searchAllAssets": "取り込まれたすべての{{platform}}Assetを検索"
 }

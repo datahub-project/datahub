@@ -111,6 +111,23 @@ class ExportTarget:
     output_path: str
 
 
+def build_service_account_credentials(
+    config: DataplexConfig,
+) -> Optional[service_account.Credentials]:
+    """Service-account credentials from the recipe, or None for ADC.
+
+    Scoped at construction because unscoped service-account credentials cannot
+    mint tokens (see build_authed_session). Ingestion and the probe both
+    resolve credentials here, so the two cannot authenticate differently.
+    """
+    creds = config.get_credentials()
+    if not creds:
+        return None
+    return service_account.Credentials.from_service_account_info(
+        creds, scopes=GCP_SCOPES
+    )
+
+
 def build_authed_session(
     credentials: Optional[service_account.Credentials],
 ) -> google.auth.transport.requests.AuthorizedSession:

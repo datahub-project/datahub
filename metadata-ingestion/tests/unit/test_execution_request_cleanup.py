@@ -214,3 +214,105 @@ def test_ingestion_sources_are_bucketed_independently() -> None:
     # Each source has 2 records (< min_count 3), so nothing is deleted despite the
     # 400-day age — the two sources are retained in independent buckets.
     assert _deleted_urns(config, records) == []
+
+
+def _scroll_cleanup(pages: List[Dict[str, Any]]) -> DatahubExecutionRequestCleanup:
+    graph = MagicMock()
+    graph.config.server = "http://gms:8080"
+    responses = []
+    for page in pages:
+        response = MagicMock()
+        response.json.return_value = page
+        responses.append(response)
+    graph._session.get.side_effect = responses
+    return DatahubExecutionRequestCleanup(
+        graph=graph,
+        report=DatahubExecutionRequestCleanupReport(),
+        config=DatahubExecutionRequestCleanupConfig(batch_read_size=2),
+    )
+
+
+def _v3_entity(exec_id: str, *, source: str, requested_at: int, status: str) -> Dict:
+    return {
+        "urn": f"urn:li:dataHubExecutionRequest:{exec_id}",
+        "dataHubExecutionRequestKey": {"value": {"id": exec_id}},
+        "dataHubExecutionRequestInput": {
+            "value": {
+                "requestedAt": requested_at,
+                "source": {
+                    "type": "SCHEDULED_INGESTION_SOURCE",
+                    "ingestionSource": source,
+                },
+            }
+        },
+        "dataHubExecutionRequestResult": {"value": {"status": status}},
+    }
+
+
+def test_scroll_reads_v3_entities_across_pages() -> None:
+    source = "urn:li:dataHubIngestionSource:s1"
+    cleanup = _scroll_cleanup(
+        [
+            {
+                "scrollId": "page-2",
+                "entities": [
+                    _v3_entity("a", source=source, requested_at=200, status="SUCCESS")
+                ],
+            },
+            {
+                "scrollId": None,
+                "entities": [
+                    _v3_entity("b", source=source, requested_at=100, status="FAILURE")
+                ],
+            },
+        ]
+    )
+
+    records = list(cleanup._scroll_execution_requests())
+
+    assert records == [
+        CleanupRecord(
+            urn="urn:li:dataHubExecutionRequest:a",
+            request_id="a",
+            status="SUCCESS",
+            ingestion_source=source,
+            source_type="SCHEDULED_INGESTION_SOURCE",
+            requested_at=200,
+        ),
+        CleanupRecord(
+            urn="urn:li:dataHubExecutionRequest:b",
+            request_id="b",
+            status="FAILURE",
+            ingestion_source=source,
+            source_type="SCHEDULED_INGESTION_SOURCE",
+            requested_at=100,
+        ),
+    ]
+    calls = cleanup.graph._session.get.call_args_list  # type: ignore[attr-defined]
+    assert len(calls) == 2
+    assert (
+        calls[0].args[0] == "http://gms:8080/openapi/v3/entity/dataHubExecutionRequest"
+    )
+    first_params = calls[0].kwargs["params"]
+    assert first_params["count"] == "2"
+    assert first_params["sort"] == "requestTimeMs"
+    assert first_params["sortOrder"] == "DESCENDING"
+    assert calls[1].kwargs["params"]["scrollId"] == "page-2"
+
+
+def test_scroll_defaults_status_when_result_aspect_missing() -> None:
+    entity = _v3_entity(
+        "queued",
+        source="urn:li:dataHubIngestionSource:s1",
+        requested_at=300,
+        status="unused",
+    )
+    del entity["dataHubExecutionRequestResult"]
+    cleanup = _scroll_cleanup([{"entities": [entity]}])
+
+    records = list(cleanup._scroll_execution_requests())
+
+    assert len(records) == 1
+    assert records[0].request_id == "queued"
+    assert records[0].status == "PENDING"
+    assert records[0].requested_at == 300

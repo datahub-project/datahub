@@ -26,6 +26,7 @@ import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.run.IngestionRunSummaryArray;
 import com.linkedin.metadata.run.RollbackResponse;
+import com.linkedin.metadata.service.RollbackNotHandedOffException;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.parseq.Task;
@@ -124,10 +125,27 @@ public class BatchIngestionRunResource
           },
           MetricRegistry.name(this.getClass(), "rollback"));
     } catch (Exception e) {
-      rollbackService.updateExecutionRequestStatus(opContext, runId, ROLLBACK_FAILED_STATUS);
+      if (isNotHandedOff(e)) {
+        // Nothing started (e.g. this run is already rolling back): keep its status, and answer
+        // 409 so clients do not resend as they do on a 500.
+        throw new RestLiServiceException(HttpStatus.S_409_CONFLICT, e.getMessage(), e);
+      }
+      if (!Boolean.TRUE.equals(dryRun)) {
+        // A dry run rolls nothing back, so a failure there must not mark the run failed.
+        rollbackService.updateExecutionRequestStatus(opContext, runId, ROLLBACK_FAILED_STATUS);
+      }
       throw new RuntimeException(
           String.format("There was an issue rolling back ingestion run with runId %s", runId), e);
     }
+  }
+
+  private static boolean isNotHandedOff(@Nonnull final Throwable throwable) {
+    for (Throwable t = throwable; t != null; t = t.getCause()) {
+      if (t instanceof RollbackNotHandedOffException) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Retrieves the ingestion run summaries. */

@@ -1,0 +1,26 @@
+namespace com.linkedin.search.template
+
+/**
+ * One way a stored boolean can match. A {@code booleanMatch} lists one or more of these.
+ */
+enum RankingBooleanValue {
+  /**
+   * The stored value is true. A missing field does not match.
+   */
+  TRUE
+
+  /**
+   * The stored value is false. A missing field does not match.
+   */
+  FALSE
+
+  /**
+   * The stored field is present, including a stored false.
+   */
+  EXISTS
+
+  /**
+   * The stored field is missing.
+   */
+  NOT_EXISTS
+}

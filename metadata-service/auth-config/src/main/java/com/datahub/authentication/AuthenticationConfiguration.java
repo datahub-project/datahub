@@ -44,4 +44,17 @@ public class AuthenticationConfiguration {
 
   /** Policy for personal / service-account access token durations. */
   private AccessTokenConfiguration accessTokens = AccessTokenConfiguration.defaults();
+
+  /**
+   * Retry-After, in seconds, on the 503 returned when credentials cannot be checked because the
+   * token store is unavailable. Binds to {@code AUTH_UNAVAILABLE_RETRY_AFTER_SECONDS}.
+   */
+  private int unavailableRetryAfterSeconds = 3;
+
+  /**
+   * Random extra delay added to {@link #unavailableRetryAfterSeconds}, as a percentage of it
+   * (0-100), so clients that failed together do not all retry at the same moment. Binds to {@code
+   * AUTH_UNAVAILABLE_RETRY_AFTER_JITTER_PERCENT}.
+   */
+  private int unavailableRetryAfterJitterPercent = 50;
 }

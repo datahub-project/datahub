@@ -561,7 +561,16 @@ def _silenced_loggers(provider_cls: type) -> Tuple[str, ...]:
 
 
 def _provider_class(source_type: str) -> Optional[Type[ProbeProvider]]:
-    getter = config_hook(config_class_for(source_type), "probe_provider_class")
+    return provider_class_for_config(config_class_for(source_type))
+
+
+def provider_class_for_config(
+    config_cls: Optional[type],
+) -> Optional[Type[ProbeProvider]]:
+    """The probe provider `config_cls` declares, or None. The one rule for
+    "this source can be probed": `probe methods` and `probe run` read it, and
+    test_probe_contract checks each source's `@capability(PROBE)` against it."""
+    getter = config_hook(config_cls, "probe_provider_class")
     provider_cls = getter() if getter else None
     if isinstance(provider_cls, type):
         _refuse_unknown_provider_attributes(provider_cls)
@@ -611,6 +620,28 @@ def declared_kind_overrides(config: object) -> Dict[str, str]:
         return {}
     declared = cast(Mapping[object, object], hook())
     return {str(key): str(value) for key, value in declared.items()}
+
+
+def listing_command_for_kind(
+    config: object, provider_cls: Type[ProbeProvider], kind: str
+) -> Optional[str]:
+    """The first command on `provider_cls` that lists `kind`, or None.
+
+    For a refusal that wants to name the listing which would resolve it: the
+    kinds are declared on the commands, so this asks them rather than carrying
+    a per-connector table that would go stale.
+
+    Reads the config's kind overrides the same way list_probe_methods does.
+    Without them the SQL family's `containers` -- which declares no kind of its
+    own and takes one from probe_kind_overrides -- could never be named, which
+    is every SQL source's only container listing.
+    """
+    overrides = declared_kind_overrides(config)
+    for command, spec in _iter_specs(provider_cls):
+        declared = overrides.get(command, spec.kind)
+        if declared is not None and str(declared) == kind:
+            return command
+    return None
 
 
 def list_probe_methods(source_type: str) -> List[ProbeMethodSpec]:

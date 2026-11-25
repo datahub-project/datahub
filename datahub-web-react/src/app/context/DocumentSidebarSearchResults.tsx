@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { buildDocumentParentBreadcrumb } from '@app/document/utils/documentSidebarGrouping';
 import { isDocumentUnpublished } from '@app/document/utils/documentUtils';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
 import SidebarFilteredResults from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarFilteredResults';
@@ -40,6 +41,7 @@ export default function DocumentSidebarSearchResults({
     onClearView,
 }: Props) {
     const { t: tet } = useTranslation('entity.types');
+    const { t: th } = useTranslation('home.v2');
 
     return (
         <SidebarFilteredResults
@@ -56,6 +58,7 @@ export default function DocumentSidebarSearchResults({
         >
             {documents.map((doc) => {
                 const title = doc.info?.title || tet('document.untitledFallback');
+                const breadcrumb = buildDocumentParentBreadcrumb(doc, th('untitled'));
                 return (
                     <DocumentTreeItem
                         key={doc.urn}
@@ -66,6 +69,7 @@ export default function DocumentSidebarSearchResults({
                         isExpanded={false}
                         isSelected={doc.urn === selectedUrn}
                         isUnpublished={isDocumentUnpublished(doc)}
+                        belowLabel={breadcrumb}
                         onToggleExpand={() => {}}
                         onClick={() => onSelect(doc.urn)}
                         onCreateChild={onCreateChild ?? (() => {})}

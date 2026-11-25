@@ -13,7 +13,7 @@ This plugin extracts the following:
 
 - [Hive Source Configuration](hive_recipe.yml) - Configuration examples
 - [Hive Metastore Connector](../hive-metastore) - Alternative connector for direct metastore access
-- [PyHive Documentation](https://github.com/dropbox/PyHive) - Underlying connection library
+- [impyla Documentation](https://github.com/cloudera/impyla) - Underlying HiveServer2 driver
 
 ### Prerequisites
 
@@ -21,7 +21,7 @@ This plugin extracts the following:
 
 2. **User Account**: Hive user with read permissions on target databases and tables
 
-3. **Dependencies**: Install PyHive connectivity:
+3. **Dependencies**: Install the Hive plugin:
    ```bash
    pip install 'acryl-datahub[hive]'
    ```
@@ -56,7 +56,7 @@ GRANT SELECT ON <database_name>.* TO USER <datahub_user>;
 
 #### Authentication
 
-The Hive connector supports multiple authentication methods through PyHive. Configure authentication using the recipe parameters described below.
+The Hive connector connects to HiveServer2 with [impyla](https://github.com/cloudera/impyla). Configure authentication with the recipe parameters described below. The `options.connect_args` keys shown here (`auth`, `kerberos_service_name`, `http_path`, `ssl_cert`, `check_hostname`, `configuration`) are translated to impyla, and any [impyla `connect()` argument](https://github.com/cloudera/impyla/blob/master/impala/dbapi.py) such as `auth_mechanism`, `use_ssl`, `ca_cert`, `verify_cert` or `timeout` can be passed directly.
 
 ##### Basic Authentication (Username/Password)
 
@@ -106,7 +106,7 @@ source:
 
 - Valid Kerberos ticket (use `kinit` before running ingestion)
 - Kerberos configuration file (`/etc/krb5.conf` or specified via `KRB5_CONFIG` environment variable)
-- PyKerberos or requests-kerberos package installed
+- The `kerberos` Python package installed (`pip install kerberos`; it builds against the system Kerberos libraries, e.g. `libkrb5-dev`)
 
 ##### TLS/SSL Connection
 
@@ -143,21 +143,6 @@ source:
         auth: BASIC
 ```
 
-##### Databricks (via PyHive)
+##### Databricks
 
-For Databricks clusters using the Hive connector:
-
-```yaml
-source:
-  type: hive
-  config:
-    host_port: <workspace-url>:443
-    scheme: "databricks+pyhive"
-    username: token # or your Databricks username
-    password: ${DATABRICKS_TOKEN} # Personal access token or password
-    options:
-      connect_args:
-        http_path: "sql/protocolv1/o/xxxyyyzzzaaasa/1234-567890-hello123"
-```
-
-**Note**: For comprehensive Databricks support, consider using the dedicated [Databricks Unity Catalog](../databricks) connector instead, which provides enhanced features.
+The hive source no longer connects to Databricks (the `databricks+pyhive` scheme was removed). Use the [Databricks](../databricks) source instead; set `include_hive_metastore` to also ingest legacy `hive_metastore` tables.

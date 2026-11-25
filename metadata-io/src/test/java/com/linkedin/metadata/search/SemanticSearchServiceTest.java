@@ -10,15 +10,19 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -29,13 +33,17 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -501,6 +509,28 @@ public class SemanticSearchServiceTest {
   }
 
   @Test
+  public void testTemplatePathPassesRegistryEntityNames() {
+    // The template gates match registry names, so the template path does not lowercase them
+    when(mockCachingEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any(), anyList()))
+        .thenReturn(createMockSearchResult(0, 10, 0));
+
+    semanticSearchService.semanticSearchAcrossEntitiesByTemplate(
+        opContext, List.of("glossaryterm", "DOCUMENT"), "revenue", null, null, 0, 10, List.of());
+
+    verify(mockCachingEntitySearchService)
+        .search(
+            any(),
+            eq(List.of("glossaryTerm", "document")),
+            eq("revenue"),
+            any(),
+            any(),
+            anyInt(),
+            any(),
+            anyList());
+  }
+
+  @Test
   public void testSemanticSearchNullSemanticServiceThrows() {
     // Given: Semantic service is null
     SemanticSearchService serviceWithNullSemantic =
@@ -683,6 +713,45 @@ public class SemanticSearchServiceTest {
   }
 
   @Test
+  public void testKeywordFacetsKeepCallerTemplate() {
+    List<String> entityNames = List.of("dataset");
+    String query = "customer analytics";
+    List<String> facets = List.of("platform");
+    Urn template = UrnUtils.getUrn("urn:li:searchTemplate:structured");
+    OperationContext searching =
+        opContext.withSearchFlags(
+            flags -> flags.setSearchTemplate(template).setIncludeExplain(true).setFulltext(false));
+
+    when(mockSemanticEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any()))
+        .thenReturn(createMockSearchResult(0, 10, 1));
+    when(mockCachingEntitySearchService.search(
+            any(), anyList(), anyString(), any(), anyList(), eq(0), eq(0), anyList()))
+        .thenReturn(createMockFacetResult());
+    when(mockEntityDocCountCache.getNonEmptyEntities(any())).thenReturn(entityNames);
+
+    semanticSearchService.semanticSearchAcrossEntities(
+        searching, entityNames, query, null, null, 0, 10, facets);
+
+    ArgumentCaptor<OperationContext> captured = ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockCachingEntitySearchService)
+        .search(
+            captured.capture(),
+            eq(entityNames),
+            eq("*"),
+            eq(null),
+            anyList(),
+            eq(0),
+            eq(0),
+            eq(facets));
+    SearchFlags applied = captured.getValue().getSearchContext().getSearchFlags();
+    assertEquals(applied.getSearchTemplate(), template);
+    assertTrue(applied.isIncludeExplain());
+    assertTrue(applied.isFulltext());
+    assertTrue(applied.isSkipHighlighting());
+  }
+
+  @Test
   public void testSizeLimitApplied() {
     // Given: Search with size exceeding max limit
     List<String> entityNames = Collections.singletonList("dataset");
@@ -709,5 +778,41 @@ public class SemanticSearchServiceTest {
     // Verify size was capped to default limit (100) when exceeding max
     verify(mockSemanticEntitySearchService, times(1))
         .search(eq(opContext), eq(entityNames), eq(query), eq(null), eq(null), eq(from), eq(100));
+  }
+
+  @Test
+  public void testAnUnreadableEngineVersionIsReadAgainAfterAMinute() throws Exception {
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    when(client.getEngineVersion()).thenReturn("unknown", "3.7.0");
+    SearchTemplateCoordinator coordinator = mock(SearchTemplateCoordinator.class);
+    when(coordinator.executes(any())).thenReturn(true);
+    long[] now = {0};
+    SemanticSearchService semantic =
+        new SemanticSearchService(
+            mockEntityDocCountCache,
+            mockCachingEntitySearchService,
+            mockSemanticEntitySearchService,
+            mockSearchServiceConfig) {
+          @Override
+          long currentTimeMillis() {
+            return now[0];
+          }
+        };
+    OperationContext searching =
+        TestOperationContexts.withFixedSearchClient(opContext, client)
+            .withSearchTemplateRuntime(coordinator);
+
+    // Unreadable: the request stays on the legacy search, and the next one does not read again
+    assertFalse(semantic.isServedByTemplate(searching));
+    assertFalse(semantic.isServedByTemplate(searching));
+    verify(client, times(1)).getEngineVersion();
+
+    // A minute later it is read again. A version that parses decides, and is not read again
+    now[0] += Duration.ofMinutes(1).toMillis();
+    assertTrue(semantic.isServedByTemplate(searching));
+    now[0] += Duration.ofMinutes(1).toMillis();
+    assertTrue(semantic.isServedByTemplate(searching));
+    verify(client, times(2)).getEngineVersion();
   }
 }

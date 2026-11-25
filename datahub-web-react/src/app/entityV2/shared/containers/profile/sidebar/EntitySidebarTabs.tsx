@@ -6,7 +6,8 @@ import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import { EntitySidebarTab } from '@app/entityV2/shared/types';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 
@@ -107,13 +108,6 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
         display: none;
     }
     background-color: ${(props) => props.theme.colors.bg};
-`;
-
-const Tab = styled(Tabs.TabPane)`
-    font-size: 14px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
 `;
 
 const TabIconContainer = styled.div<{ $isSelected?: boolean }>`
@@ -294,34 +288,40 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                 activeKey={selectedTab?.name || ''}
                 onTabClick={handleTabClick}
                 $isClosed={isClosed}
-            >
-                {!hideCollapse && (
-                    <Tab
-                        tab={
-                            <TabIconContainer data-testid="entity-sidebar-collapse-tab">
-                                <IconWrapper>
-                                    <Icon icon={isClosed ? ArrowLineLeft : ArrowLineRight} size="lg" color="inherit" />
-                                </IconWrapper>
-                            </TabIconContainer>
-                        }
-                        key="collapse"
-                        data-node-key="collapse"
-                    />
-                )}
-                {tabs.map((tab) => {
-                    const TabIcon = tab.icon;
-                    const SelectedTabIcon = tab.selectedIcon || tab.icon;
-                    const { name } = tab;
-                    const isDisabled = !tab.display?.enabled(entityData, baseEntity);
-                    const isSelected = !isClosed && selectedTab?.name === tab.name;
+                items={[
+                    ...(hideCollapse
+                        ? []
+                        : [
+                              {
+                                  key: 'collapse',
+                                  label: (
+                                      <TabIconContainer data-testid="entity-sidebar-collapse-tab">
+                                          <IconWrapper>
+                                              <Icon
+                                                  icon={isClosed ? ArrowLineLeft : ArrowLineRight}
+                                                  size="lg"
+                                                  color="inherit"
+                                              />
+                                          </IconWrapper>
+                                      </TabIconContainer>
+                                  ),
+                              },
+                          ]),
+                    ...tabs.map((tab) => {
+                        const TabIcon = tab.icon;
+                        const SelectedTabIcon = tab.selectedIcon || tab.icon;
+                        const { name } = tab;
+                        const isDisabled = !tab.display?.enabled(entityData, baseEntity);
+                        const isSelected = !isClosed && selectedTab?.name === tab.name;
 
-                    return (
-                        <Tab
-                            disabled={isDisabled}
-                            tab={
+                        return {
+                            key: tab.name,
+                            disabled: isDisabled,
+                            label: (
                                 <TabIconContainer
                                     $isSelected={isSelected}
-                                    data-testid={`entity-sidebar-tab-${tab.name}`}
+                                    data-testid={`entity-sidebar-tab-${tab.key}`}
+                                    data-sidebar-tab={tab.key}
                                 >
                                     <IconWrapper $isSelected={isSelected}>
                                         {isSelected ? (
@@ -332,14 +332,14 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                                     </IconWrapper>
                                     <TabTextWithTooltip
                                         text={(() => {
-                                            switch (name) {
-                                                case 'Summary':
+                                            switch (tab.key) {
+                                                case EntitySidebarTabKey.SUMMARY:
                                                     return t('sidebar.tabs.summaryLabel');
-                                                case 'Properties':
+                                                case EntitySidebarTabKey.PROPERTIES:
                                                     return t('sidebar.tabs.propsAbbreviation');
-                                                case 'Columns':
+                                                case EntitySidebarTabKey.COLUMNS:
                                                     return t('sidebar.tabs.columnsLabel');
-                                                case 'Lineage':
+                                                case EntitySidebarTabKey.LINEAGE:
                                                     return t('sidebar.tabs.lineageLabel');
                                                 default:
                                                     return name;
@@ -348,13 +348,11 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                                         isSelected={isSelected}
                                     />
                                 </TabIconContainer>
-                            }
-                            key={tab.name}
-                            data-node-key={tab.name}
-                        />
-                    );
-                })}
-            </UnborderedTabs>
+                            ),
+                        };
+                    }),
+                ]}
+            />
         </TabsWrapper>
     );
 };

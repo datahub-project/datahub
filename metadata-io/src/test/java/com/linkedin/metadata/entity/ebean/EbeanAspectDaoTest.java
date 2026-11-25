@@ -529,6 +529,29 @@ public class EbeanAspectDaoTest {
     }
   }
 
+  /** Every version of every aspect counts, for the exact urn only, not one that starts with it. */
+  @Test
+  public void countUrnRowsCountsEveryVersionOfEveryAspect() {
+    final String urnA = "urn:li:corpuser:count_rows";
+    // Each lookalike would match urnA under a LIKE: "_" is a single-character wildcard, and a
+    // trailing "%" would match a longer urn.
+    final String underscoreLookalike = "urn:li:corpuser:countXrows";
+    final String prefixLookalike = "urn:li:corpuser:count_rows2";
+    insertAspect(urnA, "corpUserKey", 0, "key");
+    insertAspect(urnA, "status", 0, "v0");
+    insertAspect(urnA, "status", 1, "v1");
+    insertAspect(urnA, "status", 2, "v2");
+    for (final String lookalike : List.of(underscoreLookalike, prefixLookalike)) {
+      insertAspect(lookalike, "corpUserKey", 0, "key");
+      insertAspect(lookalike, "status", 0, "v0");
+    }
+
+    assertEquals(testDao.countUrnRows(opContext, urnA), 4);
+    assertEquals(testDao.countUrnRows(opContext, underscoreLookalike), 2);
+    assertEquals(testDao.countUrnRows(opContext, prefixLookalike), 2);
+    assertEquals(testDao.countUrnRows(opContext, "urn:li:corpuser:count_rows_none"), 0);
+  }
+
   @Test(dataProvider = "writabilityConfig")
   public void testDeleteAspectWithWritability(boolean canWrite, String description) {
     // Set writability

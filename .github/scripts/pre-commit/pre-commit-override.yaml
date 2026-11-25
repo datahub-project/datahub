@@ -1,6 +1,13 @@
 repos:
   - repo: local
     hooks:
+      - id: gms-lite-python
+        name: GMS-lite Python lint and format
+        entry: ./gradlew :metadata-service:gms-lite:lintFix -x generateGitPropertiesGlobal
+        language: system
+        files: ^metadata-service/gms-lite/.*\.(py|toml)$
+        pass_filenames: false
+        stages: [pre-commit]
       - id: guard-push-file-count
         name: Guard against massive pushes (>500 files)
         entry: bash .github/scripts/pre-commit/guard_push_file_count.sh
@@ -14,7 +21,7 @@ repos:
         # once before this guard. A >500-file push is still rejected, but only
         # after the formatters have run on the diff. Making the guard fast-fail
         # first would require changing the generator's merge order (prepend
-        # override hooks) — deferred as not worth it for now.
+        # override hooks) - deferred as not worth it for now.
         stages: [pre-push]
       - id: update-lineage-file
         name: update-lineage-file
@@ -46,13 +53,13 @@ repos:
         files: ^\.github/workflows/.*\.yml$
         pass_filenames: false
         stages: [pre-commit]
-      - id: actionlint-docker
+      - id: actionlint
         name: Lint GitHub Actions workflow files
-        description: Runs actionlint Docker image to lint GitHub Actions workflow files
-        language: docker_image
+        description: Runs the pinned actionlint, locally when installed (mise) or via Docker
+        language: system
         types: ["yaml"]
         files: ^\.github/workflows/
-        entry: docker.io/rhysd/actionlint:1.7.11
+        entry: bash .github/scripts/pre-commit/run_actionlint.sh
         stages: [pre-commit]
       - id: docusaurus-markdown-lint
         name: Lint Docusaurus Markdown
@@ -99,7 +106,7 @@ repos:
         language: system
         pass_filenames: false
         # Scans only the staged diff. A native (non-docker) binary resolves git worktrees
-        # correctly — a docker_image hook cannot (it only mounts $PWD, not the external gitdir).
+        # correctly - a docker_image hook cannot (it only mounts $PWD, not the external gitdir).
         # Keep pass_filenames: false: betterleaks reads the staged diff itself; passing files
         # would switch it to `dir` semantics (whole-file, and broken/slow on multiple file args).
         stages: [pre-commit]
@@ -114,5 +121,17 @@ repos:
         # The script globs smoke-test/ itself; it needs the whole tree, not the diff.
         pass_filenames: false
         # Also runs in CI via lint-jobs.yml smoke-test-lint, which is the real
-        # guard — pre-commit is local convenience and no workflow invokes it.
+        # guard - pre-commit is local convenience and no workflow invokes it.
+        stages: [pre-commit]
+      - id: playwright-p0-tags
+        name: Playwright P0 tags must not split serial chains
+        description:
+          --grep @p0 selects single tests, so a P0 tag inside a serial describe
+          runs a chain step without its predecessors
+        entry: python3 .github/scripts/check_playwright_p0.py
+        language: system
+        files: ^(e2e-test/ui/playwright/tests/.*\.spec\.ts|\.github/scripts/(check_playwright_p0|plan_playwright_tier)\.py)$
+        # The script globs the specs itself; it needs the whole tree, not the diff.
+        pass_filenames: false
+        # Also runs in CI via lint-jobs.yml playwright-e2e-lint.
         stages: [pre-commit]

@@ -31,8 +31,8 @@ Dataset creation time is determined by the creation time of earliest created fil
 
 How the source determines the highest/lowest partition it is based on the traversal method set in the path_spec.
 
-- If the traversal method is set to `MAX` then the source will try to find the latest partition by ordering the partitions each level and find the latest partiton. This traversal method won't look for earilest partition/creation time but this is the fastest.
-- If the traversal method is set to `MIN_MAX` then the source will try to find the latest and earliest partition by ordering the partitions each level and find the latest/earliest partiton. This traversal sort folders purely by name therefor it is fast but it doesn't guarantee the latest partition will have the latest created file.
+- If the traversal method is set to `MAX` then the source will try to find the latest partition by ordering the partitions each level and find the latest partition. This traversal method won't look for earliest partition/creation time but this is the fastest.
+- If the traversal method is set to `MIN_MAX` then the source will try to find the latest and earliest partition by ordering the partitions each level and find the latest/earliest partition. This traversal sorts folders purely by name therefore it is fast but it doesn't guarantee the latest partition will have the latest created file.
 - If the traversal method is set to `ALL` then the source will try to find the latest and earliest partition by listing all the files in all the partitions and find the creation/last modification time based on the file creations. This is the slowest but for non time partitioned datasets this is the only way to find the latest/earliest partition.
 
 #### Path Specs - Examples
@@ -194,7 +194,7 @@ Above config has 3 path_specs and will ingest following datasets
 
 ```python
 s3://my-bucket/foo/tests/bar.avro # single file table
-s3://my-bucket/foo/tests/*.* # mulitple file level tables
+s3://my-bucket/foo/tests/*.* # multiple file level tables
 s3://my-bucket/foo/tests/{table}/*.avro #table without partition
 s3://my-bucket/foo/tests/{table}/ #table with partition autodetection. Partition only can be detected if it is in the format of key=value
 s3://my-bucket/foo/tests/{table}/*/*.avro #table where partitions are not specified
@@ -279,6 +279,55 @@ path_specs:
       - "**/*.txt"
 ```
 
+#### Compressed files
+
+When `path_spec.enable_compression` is `true` (the default), the connector transparently reads compressed files whose inner content is one of the supported file types above. Supported compression formats are `.gz` (and its `.gzip` alias), `.bz2`, and `.zip`.
+
+For `.zip` archives:
+
+- Only the **first entry with a supported extension** is read. If an archive contains more than one supported entry, a warning is added to the ingestion report and only the first is processed.
+- The archive is selected by its name like any other compressed file, so name it with the inner format (`data.csv.zip`) or set `default_extension` for bare `archive.zip` files. The member that is read is the first one whose extension is in `file_types`, and its extension decides how it is parsed.
+- macOS `__MACOSX/` and `._*` metadata members are ignored.
+- Only the bytes needed (the central directory and the selected entry) are downloaded from S3 via range requests, so large archives are not fully downloaded for schema inference.
+- To guard against zip-bomb archives, an entry whose **uncompressed** size exceeds `path_spec.max_zip_entry_size` (default 512 MiB) is skipped with a warning. Increase this value if you need to read larger entries.
+
+Set `path_spec.enable_compression` to `false` to skip compressed files; they are not ingested.
+
+#### Multiple AWS accounts
+
+`ListBuckets` only returns buckets owned by the account of the calling credentials, so a bucket wildcard such as `s3://*/` discovers one account's buckets. To catalog several accounts from one recipe, list them under `aws_accounts`. For each account the source assumes that account's role, runs every path spec, and places the account's buckets under an `AWS Account` container, so the browse tree shows S3, then the account, then its buckets. Set up each role's trust policy as described in [Cross-Account Access](#cross-account-access).
+
+```yaml
+source:
+  type: s3
+  config:
+    aws_config:
+      aws_region: us-east-1
+    aws_accounts:
+      - aws_role: "arn:aws:iam::111111111111:role/DataHubS3Reader"
+        name: analytics-prod # container name; defaults to the account ID
+      - aws_role:
+          RoleArn: "arn:aws:iam::222222222222:role/DataHubS3Reader"
+          ExternalId: "<external id>"
+    path_specs:
+      - include: "s3://*/" # every bucket, including empty ones
+        emit_folders_only: true
+      - include: "s3://*/*/" # first level of folders in each bucket
+        emit_folders_only: true
+```
+
+Bucket names are globally unique, so the account is not part of any URN. Bucket, folder and dataset URNs are the same as a single-account recipe produces, and lineage from other sources such as Glue or Athena still joins to them. The account only adds a parent container above each bucket.
+
+Credentials must come from the default AWS credential chain: environment variables, or the instance or pod role. `aws_access_key_id` and `aws_profile` are rejected with `aws_accounts`, because roles are not assumed from them. Roles in `aws_config.aws_role` are assumed before each account's role, so a hub role can chain into every account. Do not list the role the executor already runs as, since assuming a role from itself fails unless the role trusts itself.
+
+Every path spec runs in every account, so the bucket name in each `include` must be a wildcard or a placeholder such as `{table}`. With `emit_folders_only`, each account's role needs `s3:ListAllMyBuckets` and `s3:ListBucket`, but not `s3:GetObject`.
+
+If an account or one of its path specs fails, for example because the role cannot be assumed, the run reports a failure and carries on with the rest. One failure turns off stale-metadata removal for the whole run, so nothing is soft-deleted from any account, and the report sets `stale_removal_skipped_due_to_account_failures`. An account that fails on every run therefore stops stale metadata from being removed for all accounts: fix its role or bucket permissions, or remove it from `aws_accounts`. An account that works but matches nothing is reported as a warning, and no container is created for it.
+
+Moving accounts that are already ingested by one recipe each into `aws_accounts` keeps their bucket, folder and dataset URNs, provided those recipes did not set `platform_instance`. Recipes that set `platform_instance` to the account produce different URNs, so switching creates new entities, and documentation, tags and terms added in DataHub do not carry over. Those recipes can keep running as they are.
+
+`datahub recipe probe` does not support `aws_accounts`. Probe one account at a time by setting its role in `aws_config.aws_role`.
+
 #### S3-specific mapping details
 
 This ingestion source maps the following source system concepts to DataHub concepts:
@@ -297,6 +346,51 @@ This plugin extracts:
 Profiling is a pure-Python implementation (built on `pyarrow` and Apache DataSketches) and no longer requires Spark, Hadoop, PyDeequ, or any JVM. There is nothing extra to install beyond the `s3` extra, and no `s3a://` configuration is needed — the profiler reads files over the same `s3://` path used for schema inference. Distinct counts and quantiles/histograms are approximate (DataSketches), matching the precision the previous Spark/Deequ profiler provided.
 
 Enabling profiling will slow down ingestion runs.
+
+#### Checking path_specs before you ingest
+
+`datahub recipe probe` lists what your recipe can see and judges it with the same `path_specs`
+rules ingestion uses, without ingesting anything:
+
+```shell
+datahub recipe probe methods --recipe s3.yml
+datahub recipe probe run buckets --recipe s3.yml
+datahub recipe probe run folders --recipe s3.yml --bucket my-bucket --prefix data/
+datahub recipe probe run objects --recipe s3.yml --bucket my-bucket --prefix data/
+datahub recipe probe run datasets --recipe s3.yml --path-spec 0 --report-to datasets.json
+datahub recipe probe filter --recipe s3.yml --from-run datasets.json
+datahub recipe probe filter --recipe s3.yml --kind Table --name s3://my-bucket/data/events
+datahub recipe probe run path_spec_folders --recipe s3.yml --path-spec 1 --report-to folders.json
+datahub recipe probe filter --recipe s3.yml --kind Folder --from-run folders.json
+datahub recipe probe run tags --recipe s3.yml --bucket my-bucket --key data/a.csv
+```
+
+- The listing commands only list (`ListBuckets`, `ListObjectsV2`). They never read object
+  contents. `tags` is the one command beyond those two: it calls `GetBucketTagging` /
+  `GetObjectTagging`, and only the lookups your recipe turns on (`use_s3_bucket_tags`,
+  `use_s3_object_tags`). Use it to check that ingestion can read object tags: a denied
+  `GetObjectTagging` fails an ingestion run. A failed `GetBucketTagging` is a warning:
+  ingestion logs it and attaches no bucket tags.
+- A probe-only IAM identity needs `s3:ListAllMyBuckets` and `s3:ListBucket`. It does not need
+  `s3:GetObject`. Add `s3:GetBucketTagging` / `s3:GetObjectTagging` only to check tags.
+- `datasets` lists candidates, including the ones `path_specs` drop; `probe filter` says which
+  rule drops each one (for example `path_specs[0].tables_filter_pattern`).
+- For a `{table}` path_spec the verdict is decided at the table folder. `exclude`, `file_types`
+  and the files in the selected partitions are applied per file during ingestion, so a table
+  folder whose files all fail them is reported as included, with a warning.
+- `folders` lists the folders one level under a bucket and prefix, to write an include against.
+  For an `emit_folders_only` path_spec, `datasets` lists nothing: list its folders with
+  `path_spec_folders --path-spec N` and judge them with `probe filter --kind Folder`.
+- A listing denied while `datasets` or `path_spec_folders` walks a path_spec (resolving its
+  wildcards, or listing its table folders) is reported as a failure, at any depth: ingestion
+  stops the whole run on it, so later path_specs are not ingested either. The rows listed
+  before the denial are still returned. A missing bucket under a `{table}` path_spec is only a
+  warning, because ingestion warns "Missing bucket" and skips that path_spec.
+- With `use_s3_content_type: true`, file extensions are not checked, the same as in ingestion.
+- `buckets` needs `s3:ListAllMyBuckets`, and so does a path_spec whose bucket is a wildcard. A
+  credential scoped to named buckets reports a failure, not an empty list.
+- Recipes over local paths (platform `file`) cannot be probed, and a recipe without
+  `aws_config` is refused, as ingestion refuses it.
 
 ### Limitations
 

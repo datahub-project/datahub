@@ -1,0 +1,118 @@
+// Keep both servers isolated from DataHub's dependency graph and from each other.
+plugins {
+    id 'java'
+    id 'application'
+}
+
+def major = providers.gradleProperty('opensearchVersion')
+    .orElse(providers.environmentVariable('EMBEDDED_OPENSEARCH_VERSION'))
+    .orElse(providers.gradleProperty('embeddedOpenSearchDefault')).get()
+if (!(major in ['2', '3'])) {
+    throw new GradleException('opensearchVersion / EMBEDDED_OPENSEARCH_VERSION must be 2 or 3')
+}
+def knnEnabled = System.getenv('OPENSEARCH_KNN_ENABLED') == 'true' || project.hasProperty('knn')
+
+application {
+    mainClass = 'com.linkedin.metadata.opensearch.embedded.EmbeddedOpenSearchMain'
+    applicationDefaultJvmArgs = ["-Xmx${System.getenv('EMBEDDED_OPENSEARCH_HEAP') ?: '4g'}"]
+}
+
+sourceSets {
+    main { java.setSrcDirs([]) }
+    test { java.setSrcDirs([]) }
+    os2 { java.srcDir 'src/shared/java' }
+    os3 { java.srcDir 'src/shared/java' }
+    os2Test { java.srcDir 'src/test/java' }
+    os3Test { java.srcDir 'src/test/java' }
+}
+
+['2': '2.19.1.0', '3': '3.7.0.0'].each { version, runnerVersion ->
+    def server = sourceSets["os${version}"]
+    def tests = sourceSets["os${version}Test"]
+    def knnZip = configurations.create("os${version}KnnZip")
+    dependencies.add(server.implementationConfigurationName,
+        "org.codelibs.opensearch:opensearch-runner:${runnerVersion}")
+    // The root pins Netty 4.2, whose split codec packages require the full set.
+    dependencies.add(server.implementationConfigurationName, "io.netty:netty-all:${rootProject.ext.nettyVersion}")
+    // Always resolve both plugin distributions: locking must not depend on the selected engine or -Pknn.
+    dependencies.add(knnZip.name, "org.opensearch.plugin:opensearch-knn:${runnerVersion}")
+    dependencies.add(tests.implementationConfigurationName, 'junit:junit:4.13.2')
+    tests.compileClasspath += server.output + server.compileClasspath
+    tests.runtimeClasspath += server.output + server.runtimeClasspath
+
+    if (version == '3') {
+        // The 3.x k-NN plugin references these server-provided APIs even without gRPC transport.
+        dependencies.add(server.implementationConfigurationName, externalDependency.guava)
+        dependencies.add(server.implementationConfigurationName, 'org.opensearch.plugin:transport-grpc-spi:3.7.0')
+    }
+    def codecsZip = configurations.create("os${version}CustomCodecsZip")
+    dependencies.add(codecsZip.name, "org.opensearch.plugin:opensearch-custom-codecs:${runnerVersion}")
+    // GMS uses zstd_no_dict on both majors; the minimal runner omits this plugin.
+    def extractCodecs = tasks.register("extractOs${version}CustomCodecs", Sync) {
+        from({ zipTree(codecsZip.singleFile) }) { include '*.jar' }
+        into layout.buildDirectory.dir("plugins/os${version}/custom-codecs")
+        // Gradle ignores added output files for up-to-date checks; always remove stray jars.
+        outputs.upToDateWhen { false }
+    }
+    dependencies.add(server.implementationConfigurationName, files(extractCodecs.map {
+        fileTree(layout.buildDirectory.dir("plugins/os${version}/custom-codecs")) { include '*.jar' }
+    }))
+    tasks.named(server.compileJavaTaskName) { dependsOn extractCodecs }
+    if (knnEnabled) {
+        def extractKnn = tasks.register("extractOs${version}Knn", Sync) {
+            from({ zipTree(knnZip.singleFile) }) {
+                include '*.jar'
+                // Prefer the locked runtime versions over bundled duplicates.
+                exclude 'httpclient5-*.jar', 'httpcore5-*.jar', 'httpcore5-h2-*.jar', 'slf4j-api-*.jar'
+            }
+            into layout.buildDirectory.dir("plugins/os${version}/knn")
+            outputs.upToDateWhen { false }
+        }
+        dependencies.add(server.implementationConfigurationName, files(extractKnn.map {
+            fileTree(layout.buildDirectory.dir("plugins/os${version}/knn")) { include '*.jar' }
+        }))
+        tasks.named(server.compileJavaTaskName) { dependsOn extractKnn }
+    }
+    def serverTest = tasks.register("testOs${version}", Test) {
+        description = "Smoke and startup tests against OpenSearch ${version}"
+        testClassesDirs = tests.output.classesDirs
+        classpath = tests.runtimeClasspath
+        systemProperties System.properties
+        systemProperty 'opensearch.knn.enabled', knnEnabled.toString()
+        systemProperty 'opensearch.major', version
+        doFirst {
+            systemProperty 'opensearch.embedded.classpath', server.runtimeClasspath.asPath
+        }
+    }
+    tasks.named('test') { dependsOn serverTest }
+}
+
+// Painless in both versions is generated with 4.13.1; DataHub's 4.9.3 pin breaks scripts.
+configurations.configureEach {
+    resolutionStrategy {
+        forcedModules = forcedModules.findAll { it.group != 'org.antlr' }
+        force 'org.antlr:antlr4-runtime:4.13.1'
+    }
+}
+
+def selected = sourceSets["os${major}"]
+tasks.named('classes') { dependsOn selected.classesTaskName }
+tasks.named('jar') {
+    from selected.output
+    archiveClassifier = "os${major}"
+}
+tasks.named('run') {
+    classpath = selected.runtimeClasspath
+    systemProperties System.properties
+    environment 'OPENSEARCH_KNN_ENABLED', knnEnabled.toString()
+}
+tasks.named('startScripts') {
+    classpath = files(tasks.named('jar')) + configurations[selected.runtimeClasspathConfigurationName]
+}
+distributions.main.contents {
+    into('lib') { from configurations[selected.runtimeClasspathConfigurationName] }
+}
+// Versioned installations remain usable when another stack builds the other major.
+tasks.named('installDist') {
+    destinationDir = layout.buildDirectory.dir("install/opensearch-embedded-os${major}").get().asFile
+}

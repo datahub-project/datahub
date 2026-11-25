@@ -1,7 +1,7 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
-import { message } from 'antd';
+import { toast } from '@components';
+import { act, waitFor } from '@testing-library/react';
+import { GraphQLError } from 'graphql';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,6 +13,8 @@ import {
     useMoveDocumentTreeMutation,
     useUpdateDocumentTitleMutation,
 } from '@app/document/hooks/useDocumentTreeMutations';
+import { ErrorCodes } from '@app/sharedV2/constants';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import {
     CreateDocumentDocument,
@@ -22,11 +24,15 @@ import {
 } from '@graphql/document.generated';
 import { DocumentState } from '@types';
 
-// Mock antd message
-vi.mock('antd', () => ({
-    message: {
-        error: vi.fn(),
+// Mock alchemy toast
+vi.mock('@components', () => ({
+    toast: {
         success: vi.fn(),
+        error: vi.fn(),
+        warning: vi.fn(),
+        info: vi.fn(),
+        loading: vi.fn(),
+        destroy: vi.fn(),
     },
 }));
 
@@ -215,10 +221,62 @@ describe('useDocumentTreeMutations', () => {
 
             await waitFor(() => {
                 expect(newUrn).toBe(null);
-                expect(message.error).toHaveBeenCalledWith('Failed to create document');
+                expect(toast.error).toHaveBeenCalledWith('Failed to create document');
                 // Verify no nodes remain in tree (temp node was rolled back)
                 const rootNodes = result.current.tree.getRootNodes();
                 expect(rootNodes).toHaveLength(0);
+            });
+        });
+
+        it('shows the server message when create is rejected as a bad request', async () => {
+            const parentUrn = 'urn:li:document:missing';
+            const serverMessage = `Parent Document with URN ${parentUrn} does not exist`;
+            const input = {
+                title: 'Child Document',
+                parentDocument: parentUrn,
+            };
+
+            const mocks = [
+                {
+                    request: {
+                        query: CreateDocumentDocument,
+                        variables: {
+                            input: {
+                                title: 'Child Document',
+                                parentDocument: parentUrn,
+                                subType: undefined,
+                                state: DocumentState.Published,
+                                contents: { text: '' },
+                                settings: { showInGlobalContext: true },
+                            },
+                        },
+                    },
+                    result: {
+                        errors: [
+                            new GraphQLError(serverMessage, undefined, undefined, undefined, undefined, undefined, {
+                                code: ErrorCodes.BadRequest,
+                            }),
+                        ],
+                    },
+                },
+            ];
+
+            const { result } = renderHook(
+                () => ({
+                    createMutation: useCreateDocumentTreeMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
+            );
+
+            const newUrn = await result.current.createMutation.createDocument(input);
+
+            await waitFor(() => {
+                expect(newUrn).toBe(null);
+                expect(toast.error).toHaveBeenCalledWith(serverMessage);
+                expect(result.current.tree.getRootNodes()).toHaveLength(0);
             });
         });
 
@@ -265,7 +323,7 @@ describe('useDocumentTreeMutations', () => {
 
             await waitFor(() => {
                 expect(newUrn).toBe(null);
-                expect(message.error).toHaveBeenCalledWith('Failed to create document');
+                expect(toast.error).toHaveBeenCalledWith('Failed to create document');
             });
         });
     });
@@ -312,7 +370,7 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.updateMutation.updateTitle(mockUrn, newTitle);
 
@@ -367,13 +425,13 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.updateMutation.updateTitle(mockUrn, newTitle);
 
             await waitFor(() => {
                 expect(success).toBe(false);
-                expect(message.error).toHaveBeenCalledWith('Failed to update title');
+                expect(toast.error).toHaveBeenCalledWith('Failed to update title');
                 // Verify title was rolled back
                 const node = result.current.tree.getNode(mockUrn);
                 expect(node?.title).toBe(oldTitle);
@@ -458,13 +516,13 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.moveMutation.moveDocument(mockUrn, newParentUrn);
 
             await waitFor(() => {
                 expect(success).toBe(true);
-                expect(message.success).toHaveBeenCalledWith('Document moved successfully');
+                expect(toast.success).toHaveBeenCalledWith('Document moved successfully');
                 expect(analytics.event).toHaveBeenCalledWith({
                     type: EventType.MoveDocumentEvent,
                     documentUrn: mockUrn,
@@ -517,7 +575,7 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.moveMutation.moveDocument(mockUrn, null);
 
@@ -565,16 +623,71 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.moveMutation.moveDocument(mockUrn, newParentUrn);
 
             await waitFor(() => {
                 expect(success).toBe(false);
-                expect(message.error).toHaveBeenCalledWith('Failed to move document');
+                expect(toast.error).toHaveBeenCalledWith('Failed to move document');
                 // Verify parent was rolled back
                 const node = result.current.tree.getNode(mockUrn);
                 expect(node?.parentUrn).toBe(oldParentUrn);
+            });
+        });
+
+        it('shows the server message when move is rejected as a bad request', async () => {
+            const mockUrn = 'urn:li:document:child';
+            const oldParentUrn = 'urn:li:document:oldParent';
+            const newParentUrn = 'urn:li:document:missing';
+            const serverMessage = `Parent Document with URN ${newParentUrn} does not exist`;
+
+            const mocks = [
+                {
+                    request: {
+                        query: MoveDocumentDocument,
+                        variables: {
+                            input: {
+                                urn: mockUrn,
+                                parentDocument: newParentUrn,
+                            },
+                        },
+                    },
+                    result: {
+                        errors: [
+                            new GraphQLError(serverMessage, undefined, undefined, undefined, undefined, undefined, {
+                                code: ErrorCodes.BadRequest,
+                            }),
+                        ],
+                    },
+                },
+            ];
+
+            const { result } = renderHook(
+                () => ({
+                    moveMutation: useMoveDocumentTreeMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
+            );
+
+            const initialNode: DocumentTreeNode = {
+                urn: mockUrn,
+                title: 'Child Document',
+                parentUrn: oldParentUrn,
+                hasChildren: false,
+                children: [],
+            };
+            act(() => result.current.tree.addNode(initialNode));
+
+            const success = await result.current.moveMutation.moveDocument(mockUrn, newParentUrn);
+
+            await waitFor(() => {
+                expect(success).toBe(false);
+                expect(toast.error).toHaveBeenCalledWith(serverMessage);
+                expect(result.current.tree.getNode(mockUrn)?.parentUrn).toBe(oldParentUrn);
             });
         });
 
@@ -629,7 +742,7 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.deleteMutation.deleteDocument(mockUrn);
 
@@ -703,13 +816,13 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.deleteMutation.deleteDocument(mockUrn);
 
             await waitFor(() => {
                 expect(success).toBe(false);
-                expect(message.error).toHaveBeenCalledWith('Failed to delete document');
+                expect(toast.error).toHaveBeenCalledWith('Failed to delete document');
                 // Verify node was restored in tree
                 const node = result.current.tree.getNode(mockUrn);
                 expect(node).toBeTruthy();
@@ -751,13 +864,13 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.deleteMutation.deleteDocument(mockUrn);
 
             await waitFor(() => {
                 expect(success).toBe(false);
-                expect(message.error).toHaveBeenCalledWith('Failed to delete document');
+                expect(toast.error).toHaveBeenCalledWith('Failed to delete document');
                 // Verify node was restored
                 const node = result.current.tree.getNode(mockUrn);
                 expect(node).toBeTruthy();

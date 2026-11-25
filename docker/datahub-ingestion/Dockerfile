@@ -44,8 +44,13 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
 ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 
+# Cache-bust the apt layer so a cached build cannot keep a stale ca-certificates
+# package. Bump UBUNTU_PKG_REFRESH to force a fresh `apt-get install` whenever base
+# packages need refreshing.
+ARG UBUNTU_PKG_REFRESH=2026-10-27
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    echo "ubuntu pkg refresh: ${UBUNTU_PKG_REFRESH}" && \
     apt-get update && apt-get install -y \
     ca-certificates \
     git \
@@ -79,6 +84,8 @@ ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 # uv uses a different mechanism. See https://github.com/astral-sh/uv/issues/1474.
 ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+# gRPC ignores SSL_CERT_FILE and trusts its own bundled roots.pem by default.
+ENV GRPC_DEFAULT_SSL_ROOTS_FILE_PATH="/etc/ssl/certs/ca-certificates.crt"
 
 ARG UV_PROFILE=default
 ARG DEFAULT_INDEX_URL=""
@@ -186,7 +193,8 @@ FROM add-code-full AS final-full
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install \
-        -e "/metadata-ingestion/[all,datahub-documents,notion,confluence]" \
+        -e "/metadata-ingestion/[all,datahub-documents,notion,confluence,google-drive]" \
+    && uv pip install pip \
     && python -m spacy download en_core_web_sm \
     && datahub --version
 RUN rm -rf $HOME/.config/uv

@@ -2,7 +2,7 @@ import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getSupportedTimezones } from '@app/shared/time/timeUtils';
+import { getSupportedTimezones } from '@app/sharedV2/time/timeUtils';
 
 const StyledSelect = styled(Select)`
     max-width: 300px;

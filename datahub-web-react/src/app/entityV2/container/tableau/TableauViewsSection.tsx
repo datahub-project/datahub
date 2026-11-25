@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
 import { CONTAINER_FILTER_NAME } from '@app/searchV2/utils/constants';

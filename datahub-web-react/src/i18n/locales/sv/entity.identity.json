@@ -45,6 +45,7 @@
     "inviteToken.copyTooltip": "Kopiera inbjudningslänk.",
     "inviteToken.createError": "Det gick inte att skapa inbjudningstoken för rollen {{roleName}}: \n {{error}}",
     "inviteToken.footerText": "Kopiera en inbjudningslänk att skicka till dina användare. När de går med tilldelas de automatiskt den valda rollen.",
+    "inviteToken.footerTextNoRole": "Kopiera en inbjudningslänk att skicka till dina användare. De kan skapa ett konto men tilldelas ingen roll.",
     "inviteToken.generateNewLinkTooltip": "Generera en ny länk. Gamla länkar slutar då att gälla.",
     "inviteToken.generateSuccess": "Ny inbjudningslänk genererad",
     "inviteToken.modalTitle": "Dela inbjudningslänk",

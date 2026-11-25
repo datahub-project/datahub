@@ -15,11 +15,11 @@ import {
     resolveActorsFromUrns,
 } from '@app/entityV2/shared/utils/actorUtils';
 import { entitiesToSelectOptions } from '@app/entityV2/shared/utils/selectorUtils';
-import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
-import { addUserFiltersToAutoCompleteMultipleInput } from '@app/shared/userSearchUtils';
+import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
+import { addUserFiltersToAutoCompleteMultipleInput } from '@app/sharedV2/userSearchUtils';
 import { SimpleSelect } from '@src/alchemy-components/components/Select/SimpleSelect';
 import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType } from '@types';
@@ -86,7 +86,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
 }) => {
     const { t } = useTranslation('entity.shared.selectors');
     const resolvedPlaceholder = placeholder ?? t('actorsSearch.placeholder');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 

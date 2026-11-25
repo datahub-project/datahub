@@ -21,8 +21,6 @@ import { FileUploadButton } from '@components/components/Editor/toolbar/FileUplo
 import { FontSizeSelect } from '@components/components/Editor/toolbar/FontSizeSelect';
 import { HeadingMenu } from '@components/components/Editor/toolbar/HeadingMenu';
 
-import { useAppConfig } from '@app/useAppConfig';
-
 const Container = styled.div<{ $fixedBottom?: boolean }>`
     position: ${(props) => (props.$fixedBottom ? 'fixed' : 'sticky')};
     ${(props) => (props.$fixedBottom ? 'bottom: 48px;' : 'top: 0;')}
@@ -72,18 +70,18 @@ interface Props {
     fixedBottom?: boolean;
     /** Optional content rendered below the formatting buttons inside the toolbar card. */
     belowToolbar?: React.ReactNode;
+    /** Shows the upload image button when the Editor also has an upload handler. */
+    imageUploadEnabled?: boolean;
 }
 
-export const Toolbar = ({ styles, fixedBottom, belowToolbar }: Props) => {
+export const Toolbar = ({ styles, fixedBottom, belowToolbar, imageUploadEnabled }: Props) => {
     const commands = useCommands();
     const active = useActive(true);
     const theme = useTheme();
-    const { config } = useAppConfig();
-    const { documentationFileUploadV1 } = config.featureFlags;
     const remirrorContext = useRemirrorContext();
     const fileExtension = remirrorContext.getExtension(FileDragDropExtension);
 
-    const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.uploadFileProps?.onFileUpload;
+    const shouldShowImageButtonV2 = imageUploadEnabled && fileExtension.options.uploadFileProps?.onFileUpload;
 
     return (
         <Container style={styles} $fixedBottom={fixedBottom}>

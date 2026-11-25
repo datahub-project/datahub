@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.telemetry;
 
 import static com.linkedin.gms.factory.telemetry.TelemetryUtils.*;
 
+import com.datahub.telemetry.MixpanelEventSender;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -18,12 +19,11 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
-import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.annotation.Nonnull;
-import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -92,26 +92,23 @@ public class DailyReport {
           EntityType.INCIDENT,
           EntityType.CONTAINER);
 
-  private MixpanelAPI mixpanel;
+  private final MixpanelEventSender mixpanelSender;
   private MessageBuilder mixpanelBuilder;
 
   public DailyReport(
       @Nonnull OperationContext systemOperationContext,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
-      GitVersion gitVersion) {
+      GitVersion gitVersion,
+      @Nonnull MixpanelEventSender mixpanelSender) {
     this.systemOperationContext = systemOperationContext;
     this._configurationProvider = configurationProvider;
     this._entityService = entityService;
     this._gitVersion = gitVersion;
+    this.mixpanelSender = mixpanelSender;
     try {
       String clientId = getClientId(systemOperationContext, entityService);
 
-      // initialize MixPanel instance and message builder
-      mixpanel =
-          new MixpanelAPI(
-              "https://track.datahubproject.io/mp/track",
-              "https://track.datahubproject.io/mp/engage");
       mixpanelBuilder = new MessageBuilder(MIXPANEL_TOKEN);
 
       // set user-level properties
@@ -119,12 +116,9 @@ public class DailyReport {
       props.put("java_version", System.getProperty("java.version"));
       props.put("os", System.getProperty("os.name"));
       props.put("server_version", _gitVersion.getVersion());
-      JSONObject update = mixpanelBuilder.set(clientId, props);
-      try {
-        mixpanel.sendMessage(update);
-      } catch (IOException e) {
-        log.error("Error sending telemetry profile:", e);
-      }
+      // Queued, never sent inline: the sender's thread owns the network call, so an
+      // unreachable collector cannot delay startup or the scheduler thread.
+      mixpanelSender.submit(mixpanelBuilder.set(clientId, props));
     } catch (Exception e) {
       log.warn("Unable to set up telemetry.", e);
     }
@@ -269,19 +263,20 @@ public class DailyReport {
   }
 
   public void ping(String eventName, JSONObject properties) {
-    if (mixpanel == null || mixpanelBuilder == null) {
+    if (mixpanelBuilder == null) {
       log.error("Unable to send telemetry metrics, MixPanel API not initialized");
       return;
     }
 
-    try {
-      JSONObject event =
-          mixpanelBuilder.event(
-              getClientId(systemOperationContext, _entityService), eventName, properties);
-      mixpanel.sendMessage(event);
-    } catch (IOException e) {
-      log.error("Error reporting telemetry:", e);
-    }
+    JSONObject event =
+        mixpanelBuilder.event(
+            getClientId(systemOperationContext, _entityService), eventName, properties);
+    mixpanelSender.submit(event);
+  }
+
+  /** Spring infers this as the bean's destroy method; it stops the sender's worker thread. */
+  public void close() {
+    mixpanelSender.close();
   }
 
   /**
@@ -479,7 +474,7 @@ public class DailyReport {
 
   private QueryBuilder corpUserQuery(QueryBuilder extraFilter) {
     BoolQueryBuilder query = QueryBuilders.boolQuery();
-    EntitySearchIndexResolver.applyEntityTypeFilter(
+    EntityFilter.applyEntityTypeFilter(
         query, List.of(Constants.CORP_USER_ENTITY_NAME), entityIndexConfiguration());
     if (extraFilter != null) {
       query.filter(extraFilter);
