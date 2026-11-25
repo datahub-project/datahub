@@ -516,6 +516,15 @@ _INSERT_COLUMN_LIST_SCHEMAS = {
             id="select_star_without_schema",
         ),
         pytest.param(
+            # The unknown table's star stays unexpanded, so positions can't be matched
+            # even though the projection count equals the column list's.
+            "qualified_star_without_schema",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT u.*, s.x "
+            "FROM my_db.my_schema.unknown u JOIN my_db.my_schema.src s ON u.y = s.y",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="qualified_star_without_schema",
+        ),
+        pytest.param(
             "count_mismatch",
             "INSERT INTO my_db.my_schema.tgt (a) SELECT x, y FROM my_db.my_schema.src",
             _INSERT_COLUMN_LIST_SCHEMAS,

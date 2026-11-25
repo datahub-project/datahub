@@ -1721,8 +1721,9 @@ def _alias_projections_to_insert_columns(
     matched, so the projections are left as they are.
     """
     projections = select_statement.selects
+    # is_star covers a bare `*` and a qualified `t.*`, whatever name sqlglot gives it.
     if len(projections) != len(insert_columns) or any(
-        projection.alias_or_name == "*" for projection in projections
+        projection.is_star for projection in projections
     ):
         logger.debug(
             "Not mapping INSERT column list positionally: %d target columns, "
