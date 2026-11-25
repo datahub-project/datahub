@@ -482,8 +482,6 @@ def test_rest_sink_config_accepts_client_config_dump():
 
 
 def test_emit_wrapper_sends_mce_as_one_mcp_batch():
-    from unittest.mock import PropertyMock, patch
-
     status = models.StatusClass(removed=False)
     properties = models.DatasetPropertiesClass(description="d")
     mce = models.MetadataChangeEventClass(
@@ -493,16 +491,13 @@ def test_emit_wrapper_sends_mce_as_one_mcp_batch():
         )
     )
     mock_emitter = MagicMock()
-    with (
-        patch.object(DatahubRestSink, "__init__", lambda self, *args, **kwargs: None),
-        patch.object(
-            DatahubRestSink, "emitter", new_callable=PropertyMock
-        ) as mock_emitter_prop,
-    ):
-        mock_emitter_prop.return_value = mock_emitter
-        sink = DatahubRestSink.__new__(DatahubRestSink)
-        sink._emit_wrapper(mce, emit_mode=EmitMode.SYNC_PRIMARY)
+    sink = DatahubRestSink.__new__(DatahubRestSink)
+    sink._emitter_thread_local = threading.local()
+    sink._emitter_thread_local.emitter = mock_emitter
 
+    sink._emit_wrapper(mce, emit_mode=EmitMode.SYNC_PRIMARY)
+
+    mock_emitter.emit.assert_not_called()
     mock_emitter.emit_mcps.assert_called_once()
     emitted = mock_emitter.emit_mcps.call_args.args[0]
     assert all(isinstance(m, MetadataChangeProposalWrapper) for m in emitted)

@@ -409,6 +409,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     ) -> None:
         # TODO: Add timing metrics
         if isinstance(record, MetadataChangeEvent):
+            # Not emitter.emit(): that logs an MCE deprecation warning recipe users cannot act on.
             self.emitter.emit_mcps(list(mcps_from_mce(record)), emit_mode=emit_mode)
         else:
             self.emitter.emit(record, emit_mode=emit_mode)

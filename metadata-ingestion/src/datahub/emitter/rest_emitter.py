@@ -67,7 +67,11 @@ from datahub.configuration.env_vars import (
 # EmitMode` imports keep working; the class now lives in its own leaf module so
 # graph.config can reference it for the default_emit_mode field without a cycle.
 from datahub.emitter.emit_mode import EmitMode as EmitMode
-from datahub.emitter.generic_emitter import Emitter
+from datahub.emitter.generic_emitter import (
+    MCE_DEPRECATION_MESSAGE,
+    Emitter,
+    warn_mce_deprecated,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import (
     OpenApiRequest,
@@ -146,12 +150,6 @@ TRACE_BACKOFF_FACTOR = 2.0  # Double the wait time each attempt
 # for overhead like request headers.
 # This applies to pretty much all calls to GMS.
 INGEST_MAX_PAYLOAD_BYTES = get_rest_emitter_batch_max_payload_bytes()
-
-_MCE_DEPRECATION_MESSAGE = (
-    "Emitting MetadataChangeEvents is deprecated and will be removed in a "
-    "future release. They are converted to MCPs; emit "
-    "MetadataChangeProposalWrapper instead."
-)
 
 # This limit is somewhat arbitrary. All GMS endpoints will timeout
 # and return a 500 if processing takes too long. To avoid sending
@@ -842,7 +840,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                 self.emit_mcp(item, emit_mode=emit_mode)
             else:
                 warnings.warn(
-                    _MCE_DEPRECATION_MESSAGE, DataHubDeprecationWarning, stacklevel=2
+                    MCE_DEPRECATION_MESSAGE, DataHubDeprecationWarning, stacklevel=2
                 )
                 self._emit_mce(item, emit_mode)
         except Exception as e:
@@ -853,7 +851,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             if callback:
                 callback(None, "success")  # type: ignore
 
-    @deprecated(_MCE_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning)
+    @deprecated(MCE_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning)
     def emit_mce(self, mce: MetadataChangeEvent) -> None:
         """Emit an MCE as one MCP per aspect, with the default emit mode."""
         self._emit_mce(mce, self._default_emit_mode)
@@ -863,7 +861,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         # Deferred to break the cycle mcp_builder -> ingestion.api.workunit -> ingestion.api.common -> graph.client -> rest_emitter.
         from datahub.emitter.mcp_builder import mcps_from_mce
 
-        _warn_mce_deprecated()
+        warn_mce_deprecated()
         mcps = list(mcps_from_mce(mce))
         if not mcps:
             logger.warning(f"MCE for {mce.proposedSnapshot.urn} produced zero MCPs")
@@ -1439,9 +1437,3 @@ class DataHubRestEmitter(Closeable, Emitter):
 
 """This class exists as a pass-through for backwards compatibility"""
 DatahubRestEmitter = DataHubRestEmitter
-
-
-# Cached so the warning prints once per process, however many emitters or MCEs there are.
-@functools.lru_cache(maxsize=None)
-def _warn_mce_deprecated() -> None:
-    logger.warning(_MCE_DEPRECATION_MESSAGE)
