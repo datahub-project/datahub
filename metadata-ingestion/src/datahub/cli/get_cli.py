@@ -6,6 +6,7 @@ import click
 from click_default_group import DefaultGroup
 
 from datahub.cli.cli_utils import get_aspects_for_entity
+from datahub.cli.edit_operations import get_entity_summary
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.upgrade import upgrade
@@ -73,3 +74,16 @@ def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool) -> None:
             indent=2,
         )
     )
+
+
+@get.command()
+@click.option("--urn", required=True, type=str)
+@upgrade.check_upgrade
+def summary(urn: str) -> None:
+    """
+    Show what the UI shows at the top of an entity page, as JSON: name,
+    description, tags, glossary terms, owners, domain and deprecation.
+    """
+    with get_default_graph(ClientMode.CLI) as graph:
+        entity = get_entity_summary(graph, urn)
+    click.echo(json.dumps(entity.to_dict(), indent=2))
