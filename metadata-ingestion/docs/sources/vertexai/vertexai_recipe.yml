@@ -7,7 +7,7 @@ source:
     # region: "us-west2"  # [deprecated] Prefer 'regions' or 'discover_regions'
     regions:
       - "us-central1"
-    # discover_regions: true  # Enumerate available regions and scan all. 'regions' is read instead if discovery fails
+    # discover_regions: true  # Enumerate available regions and scan all. If discovery fails (not for an API that is off), the readable 'regions' are read instead
     # project_labels:
     #   - "env:prod"
     # project_id_pattern:

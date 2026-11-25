@@ -192,13 +192,13 @@ class VertexAIConfig(
     regions: List[str] = Field(
         default_factory=list,
         description=(
-            "List of Vertex AI regions to scan. If empty and discover_regions is false, falls back to 'region'. When discover_regions is true and region discovery fails, the listed regions are read instead."
+            "List of Vertex AI regions to scan. If empty and discover_regions is false, falls back to 'region'. When discover_regions is true and discovery fails for a reason other than the API being off or the project being invalid, the listed regions the installed SDK can read are read instead, never 'global'."
         ),
     )
     discover_regions: bool = Field(
         default=False,
         description=(
-            "If true, discover available Vertex AI regions per project and scan all. If discovery fails, 'regions' (else 'region') are read instead."
+            "If true, discover available Vertex AI regions per project and scan all. If discovery fails for a reason other than the API being off or the project being invalid, the regions listed in 'regions' (else 'region') that the installed SDK can read are read instead, never 'global'."
         ),
     )
     bucket_uri: Optional[str] = Field(
