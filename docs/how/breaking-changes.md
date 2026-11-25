@@ -15,7 +15,7 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
-### Vertex AI pipelines show every step ([#TBD-2](https://github.com/datahub-project/datahub/pull/TBD-2))
+### Vertex AI pipelines show every step ([#21614](https://github.com/datahub-project/datahub/pull/21614))
 
 The Vertex AI source now shows a pipeline as it is defined and as it ran. This applies only when `include_pipelines` is on (the default).
 
