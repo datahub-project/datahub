@@ -926,7 +926,7 @@ def test_skips_unchanged_file_when_graph_hash_matches(
     source: GitHubDocumentsSource,
 ) -> None:
     content = "# Hello"
-    content_hash = compute_file_content_hash(content)
+    content_hash = compute_source_hash(content, bundle=None, enable_okf=False)
     _mock_github_client(
         source,
         files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
@@ -942,11 +942,37 @@ def test_skips_unchanged_file_when_graph_hash_matches(
     assert source.report.files_skipped_unchanged == 1
 
 
+def test_hash_from_an_older_output_version_reimports_the_file(
+    source: GitHubDocumentsSource,
+) -> None:
+    """A file imported before OUTPUT_VERSION was bumped is re-imported once."""
+    content = "# Hello"
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
+        file_content=content,
+    )
+    source.ctx.graph = MagicMock()
+    source.ctx.graph.get_urns_by_filter.return_value = []
+    mock_info = MagicMock()
+    # Before output version 2, a plain file's source hash was its content hash.
+    mock_info.customProperties = {
+        "source_content_hash": compute_file_content_hash(content)
+    }
+    source.ctx.graph.get_aspect.side_effect = lambda urn, cls: (
+        mock_info if cls is DocumentInfoClass else None
+    )
+
+    list(source.get_workunits())
+    assert source.report.files_skipped_unchanged == 0
+    assert source.report.files_processed == 1
+
+
 def test_skipping_unchanged_file_registers_entity_for_stale_removal(
     source: GitHubDocumentsSource,
 ) -> None:
     content = "# Hello"
-    content_hash = compute_file_content_hash(content)
+    content_hash = compute_source_hash(content, bundle=None, enable_okf=False)
     _mock_github_client(
         source,
         files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
@@ -1059,7 +1085,7 @@ def test_skip_unchanged_uses_resolved_existing_urn(
 ) -> None:
     existing_urn = "urn:li:document:native-uuid-1234"
     content = "# Hello"
-    content_hash = compute_file_content_hash(content)
+    content_hash = compute_source_hash(content, bundle=None, enable_okf=False)
     source_id = make_file_source_id(
         "acme/docs", "docs/readme.md", source_prefix="github"
     )
@@ -1328,7 +1354,9 @@ def test_unchanged_file_resurrects_soft_deleted_document(
     source.ctx.graph = MagicMock()
     existing = MagicMock()
     existing.customProperties = {
-        "source_content_hash": compute_file_content_hash(content)
+        "source_content_hash": compute_source_hash(
+            content, bundle=None, enable_okf=False
+        )
     }
     source.ctx.graph.get_aspect.return_value = existing
     soft_deleted_searches: List[Dict[str, Any]] = []
@@ -1375,7 +1403,9 @@ def test_failed_soft_deleted_search_is_reported(source: GitHubDocumentsSource) -
     source.ctx.graph = MagicMock()
     existing = MagicMock()
     existing.customProperties = {
-        "source_content_hash": compute_file_content_hash(content)
+        "source_content_hash": compute_source_hash(
+            content, bundle=None, enable_okf=False
+        )
     }
     source.ctx.graph.get_aspect.return_value = existing
 
@@ -1408,7 +1438,9 @@ def test_unchanged_file_not_soft_deleted_emits_nothing(
     source.ctx.graph = MagicMock()
     existing = MagicMock()
     existing.customProperties = {
-        "source_content_hash": compute_file_content_hash(content)
+        "source_content_hash": compute_source_hash(
+            content, bundle=None, enable_okf=False
+        )
     }
     source.ctx.graph.get_aspect.return_value = existing
     source.ctx.graph.get_urns_by_filter.return_value = []
@@ -1448,7 +1480,9 @@ def test_resurrect_preserves_stored_lifecycle_stage(
     source.ctx.graph = MagicMock()
     existing_info = MagicMock()
     existing_info.customProperties = {
-        "source_content_hash": compute_file_content_hash(content)
+        "source_content_hash": compute_source_hash(
+            content, bundle=None, enable_okf=False
+        )
     }
 
     def get_aspect(urn: str, aspect_type: object) -> object:
@@ -1992,7 +2026,13 @@ def test_okf_hash_detects_frontmatter_and_mapping_changes() -> None:
     ):
         assert original != compute_source_hash(content, bundle=bundle, enable_okf=True)
         assert outside == compute_source_hash(content, bundle=None, enable_okf=True)
-        assert outside == compute_file_content_hash(content)
+    with patch(
+        "datahub.ingestion.source.repository_documents.source.OUTPUT_VERSION",
+        "next",
+    ):
+        assert original != compute_source_hash(content, bundle=bundle, enable_okf=True)
+        assert outside != compute_source_hash(content, bundle=None, enable_okf=True)
+    assert outside != compute_file_content_hash(content)
 
 
 def _association_aspect(
@@ -2931,8 +2971,8 @@ def test_default_import_preserves_frontmatter(
     assert info.contents.text == content
     assert info.title == "guide.md"
     assert info.customProperties is not None
-    assert info.customProperties["source_content_hash"] == compute_file_content_hash(
-        content
+    assert info.customProperties["source_content_hash"] == compute_source_hash(
+        content, bundle=None, enable_okf=False
     )
     assert not any(wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits)
     assert not any(wu.get_aspect_of_type(SubTypesClass) for wu in workunits)
@@ -3058,7 +3098,13 @@ def test_already_neutral_okf_state_is_not_cleaned_again(
     content = "# Plain document"
     info = MagicMock()
     info.customProperties = (
-        {"source_content_hash": compute_file_content_hash(content)} if unchanged else {}
+        {
+            "source_content_hash": compute_source_hash(
+                content, bundle=None, enable_okf=False
+            )
+        }
+        if unchanged
+        else {}
     )
     neutral = OkfPropertiesClass()
     graph = MagicMock()

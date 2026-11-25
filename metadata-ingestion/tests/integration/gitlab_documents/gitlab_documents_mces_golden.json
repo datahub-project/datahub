@@ -184,7 +184,7 @@
                 "gitlab_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "gitlab.example-group.data.analytics.guides.broken",
                 "content_hash": "db536c4b7cc9f8c57987f6b3462e7304ab8d03ebac9d373f3f4f54376adb1d82",
-                "source_content_hash": "821efc44f3fe0a5abe04ef8f7d23a474ea8cddba856f5b8296e407253588a955",
+                "source_content_hash": "5f66866a3f5899cc2a1ce738cc597822c6ab840046debc51b82f2e78a66024ab",
                 "extraction_algo_version": "2",
                 "gitlab_blob_sha": "2379207268f21baec301446363a89396d7e96d4c"
             },
@@ -301,7 +301,7 @@
                 "gitlab_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "gitlab.example-group.data.analytics.guides.mau",
                 "content_hash": "618b6ce523a5ca19616f00ba07bffe5916fc222e1cfb1266f95b63c66fffeb01",
-                "source_content_hash": "1d6fcdaa8c7161a2431ae1167a35e7dcbd9eb02c2d3992c971c3205d787cd0e5",
+                "source_content_hash": "6f7f6438ca09388d28d23adb2a2393ca7486f4c78d2be776ab1f7beebb4f9f7f",
                 "extraction_algo_version": "2",
                 "gitlab_blob_sha": "ab354c614d205f21b831c77612fa615b2920f689"
             },
@@ -640,7 +640,7 @@
                 "gitlab_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "gitlab.example-group.data.analytics.guides.no-type",
                 "content_hash": "f6fc372a2f0454bccaa5d889a01835f59de10ee0b9fd6f289c56f73abe305dc0",
-                "source_content_hash": "b3aa06c133eb68077c8f7c8ac7a1eeaa7d3c326b30e2e047ca1a2d29f875ffd2",
+                "source_content_hash": "8c3344b79f4526ac66c8a5cceea0c08aad7413a0d609f20bd2b522a2ae0e837a",
                 "extraction_algo_version": "2",
                 "gitlab_blob_sha": "a489440ef2f01af8bd3993b3e488f184542f48d7"
             },
@@ -757,7 +757,7 @@
                 "gitlab_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "gitlab.example-group.data.analytics.guides.plain",
                 "content_hash": "15d93d955bfa541350a4fd53e30fe3e5da7b6918ef1c985ad5697e030f0063ed",
-                "source_content_hash": "6a32b5ebdb9d2ec8cf71055c5f595645e4d5a72617889394547afd286cc9310f",
+                "source_content_hash": "0ec7e526e6b9f6396d48f5bf95f84c3cbe06628913f2c533ae87e44446f2c1a8",
                 "extraction_algo_version": "2",
                 "gitlab_blob_sha": "ce2c2b7a82b88acee2e9fdc65370d783af35a260"
             },
@@ -874,7 +874,7 @@
                 "gitlab_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "gitlab.example-group.data.analytics.index",
                 "content_hash": "f508de285142d8aff109d44cd1c90b1520235e1c254f30a74561f1c1dd89ba4b",
-                "source_content_hash": "a088609cfb9a76190de426a31d2aa2d25b4ada2f36dc725611002db5b63c1188",
+                "source_content_hash": "b9c2d8e40218a60ad75fa2ecd4707d0b63496448b862ed5851386566d6a45bbe",
                 "extraction_algo_version": "2",
                 "gitlab_blob_sha": "f45872f0101a221b869987f6b2e63f9c3b89207b"
             },
@@ -987,7 +987,7 @@
                 "gitlab_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "gitlab.example-group.data.analytics.log",
                 "content_hash": "560b9e4ebfa0f3c17386a5cb3a2b3cacf0a239a185e92aeb2e7d5827ed8b4d50",
-                "source_content_hash": "577e51986f0bced22218f80ab29e9485d0ca3a93dfa5d1bb476b055cf5f350ed",
+                "source_content_hash": "c0573906574ca89cfa63f1f8643a36f285d78f7582af098643ab8347fb2f65d1",
                 "extraction_algo_version": "2",
                 "gitlab_blob_sha": "d273b32ed24d7d0b67937f688ac5b32e2b826197"
             },

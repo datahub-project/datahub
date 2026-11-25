@@ -106,6 +106,9 @@ from datahub.sdk.document import Document
 logger = logging.getLogger(__name__)
 
 EXTRACTION_ALGO_VERSION = "2"
+# Version of the aspects emitted for each file. Bump it when that output changes,
+# so the next run re-imports unchanged files. 2: Status carries the lifecycle stage.
+OUTPUT_VERSION = "2"
 LAST_EXPORTED_CONTENT_HASH_KEY = "last_exported_content_hash"
 PROP_IMPORT_SOURCE_ID = "import_source_id"
 _DOCUMENT_URN_PREFIX = "urn:li:document:"
@@ -141,12 +144,22 @@ def compute_source_hash(
 ) -> str:
     """Hash the complete source file and its applicable OKF interpretation."""
     if not enable_okf or bundle is None:
-        return compute_file_content_hash(content)
+        return hashlib.sha256(
+            json.dumps(
+                {
+                    "body": content,
+                    "algo_version": EXTRACTION_ALGO_VERSION,
+                    "output_version": OUTPUT_VERSION,
+                },
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
     return hashlib.sha256(
         json.dumps(
             {
                 "body": content,
                 "algo_version": EXTRACTION_ALGO_VERSION,
+                "output_version": OUTPUT_VERSION,
                 "okf_mapping_version": MAPPING_VERSION,
                 "okf_bundle": bundle.to_obj(),
             },
