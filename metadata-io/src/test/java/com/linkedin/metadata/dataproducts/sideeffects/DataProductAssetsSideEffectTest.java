@@ -43,6 +43,8 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
@@ -53,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -83,13 +86,28 @@ public class DataProductAssetsSideEffectTest {
   private RetrieverContext retrieverContext;
 
   @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
+
+  @BeforeMethod
   public void setup() {
     mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
     when(mockAspectRetriever.getLatestAspectObjects(any(), any(), any())).thenReturn(Map.of());
+    SearchRetriever searchRetriever = mock(SearchRetriever.class);
+    ScrollResult emptyScroll = new ScrollResult();
+    emptyScroll.setEntities(new SearchEntityArray());
+    emptyScroll.setNumEntities(0);
+    when(searchRetriever.scroll(any(), any(), any(), any(), any(), any())).thenReturn(emptyScroll);
     retrieverContext =
         RetrieverContext.builder()
-            .searchRetriever(mock(SearchRetriever.class))
+            .searchRetriever(searchRetriever)
             .cachingAspectRetriever(mockAspectRetriever)
             .graphRetriever(mock(GraphRetriever.class))
             .build();
@@ -181,6 +199,19 @@ public class DataProductAssetsSideEffectTest {
     assertEquals(output.get(0).getAspectName(), DATA_PRODUCTS_ASPECT_NAME);
     assertEquals(
         output.get(0), expectedAssetPatch(DATASET_2, PatchOperationType.ADD, false, change));
+  }
+
+  @Test
+  public void testAssetOfUnknownEntityTypeIsSkipped() {
+    // After a version rollback a data product can list an asset of an entity type only a newer
+    // build knows; the known assets are still synced.
+    Urn unknownTypeAsset = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+    ChangeItemImpl change = changeItem(propsWith(), ChangeType.UPSERT);
+    List<MCPItem> output = run(change, propsWith(DATASET_1, unknownTypeAsset));
+
+    assertEquals(output.size(), 1, "Expected a REMOVE patch for the known asset only: " + output);
+    assertEquals(
+        output.get(0), expectedAssetPatch(DATASET_1, PatchOperationType.REMOVE, false, change));
   }
 
   @Test
@@ -292,8 +323,8 @@ public class DataProductAssetsSideEffectTest {
                             .equals(item)));
   }
 
-  @Test
-  public void testSystemUpdateEmitsAddsWhenStaleMirrorScrollFails() {
+  @Test(expectedExceptions = RuntimeException.class)
+  public void testSystemUpdateFailsWhenStaleMirrorScrollFails() {
     SearchRetriever mockSearchRetriever = mock(SearchRetriever.class);
     when(mockSearchRetriever.scroll(any(), any(), any(), any(), any(), any()))
         .thenThrow(new RuntimeException("search unavailable"));
@@ -312,20 +343,8 @@ public class DataProductAssetsSideEffectTest {
 
     ChangeItemImpl change =
         changeItem(propsWith(DATASET_1, DATASET_2), ChangeType.UPSERT, systemMetadata);
-    List<MCPItem> output = run(change, propsWith(DATASET_1, DATASET_2));
-
-    assertEquals(
-        output.size(),
-        2,
-        "Scroll failure should still emit ADD patches for current members: " + output);
-    assertTrue(
-        output.stream()
-            .allMatch(
-                item ->
-                    expectedAssetPatch(item.getUrn(), PatchOperationType.ADD, false, change)
-                        .equals(item)));
-    assertTrue(output.stream().anyMatch(item -> DATASET_1.equals(item.getUrn())));
-    assertTrue(output.stream().anyMatch(item -> DATASET_2.equals(item.getUrn())));
+    // A scroll failure must fail the batch so resync does not advance LAST_URN.
+    run(change, propsWith(DATASET_1, DATASET_2));
   }
 
   @Test

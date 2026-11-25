@@ -15,6 +15,22 @@ query getUser($urn: String!, $groupsCount: Int!) {
             email
             departmentName
             countryCode
+            manager {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    fullName
+                }
+                info {
+                    displayName
+                    fullName
+                }
+                editableProperties {
+                    displayName
+                }
+            }
         }
         editableProperties {
             slack

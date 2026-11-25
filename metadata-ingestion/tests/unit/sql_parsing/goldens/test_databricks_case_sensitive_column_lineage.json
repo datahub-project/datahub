@@ -26,7 +26,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "`bet`.`betStatusId` AS `betStatusId`"
+                "column_logic": "`bet`.`betstatusid` AS `betstatusid`"
             }
         },
         {
@@ -48,7 +48,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "`bet`.`channelId` AS `channelId`"
+                "column_logic": "`bet`.`channelid` AS `channelid`"
             }
         }
     ],

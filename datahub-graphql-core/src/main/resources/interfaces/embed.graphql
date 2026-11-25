@@ -1,0 +1,13 @@
+"""
+An entity that can be embedded
+"""
+interface HasEmbed {
+  """
+  Embed information about the entity
+  """
+  embed: Embed
+}
+
+extend type Chart implements HasEmbed
+extend type Dashboard implements HasEmbed
+extend type Dataset implements HasEmbed

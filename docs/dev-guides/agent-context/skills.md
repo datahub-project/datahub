@@ -11,6 +11,10 @@ DataHub Skills give your AI agent the **instructions** to work with your data ca
 
 **Skills vs. Tools**: The [MCP Server](../../features/feature-guides/mcp.md) gives agents _tools_ — discrete actions like searching a catalog or reading a schema. Skills give agents _instructions_ — how to chain those tools into multi-step workflows with the right judgment at each step. You need both.
 
+:::tip On DataHub Cloud with Claude or ChatGPT?
+The [DataHub Cloud plugin](./plugins.md) includes the MCP server and the search, lineage, quality, SQL, and setup skills. For metadata curation (`datahub-enrich`), developer skills like building connectors, or DataHub Core, use `datahub-skills` from this page.
+:::
+
 ## Prerequisites
 
 - [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) installed
@@ -24,10 +28,10 @@ The fastest path is the Skills CLI:
 npx skills add datahub-project/datahub-skills
 ```
 
-Or install directly as a Claude Code plugin:
+Or install it as a Claude Code plugin from [Anthropic's marketplace](https://claude.com/plugins/datahub-skills):
 
 ```bash
-claude plugins install datahub-skills --from github:datahub-project/datahub-skills
+claude plugin install datahub-skills@claude-plugins-official
 ```
 
 Verify the install:

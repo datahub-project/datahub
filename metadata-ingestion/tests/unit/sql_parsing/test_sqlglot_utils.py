@@ -92,6 +92,31 @@ def test_query_types():
         dialect="redshift",
     ) == (QueryType.CREATE_VIEW, {"kind": "VIEW"})
 
+    assert get_query_type_of_sql(
+        sqlglot.parse_one("COPY INTO t FROM 'gcs://b/p/'", dialect="snowflake"),
+        dialect="snowflake",
+    ) == (QueryType.INSERT, {})
+
+    assert get_query_type_of_sql(
+        sqlglot.parse_one("COPY INTO @stg/out FROM src", dialect="snowflake"),
+        dialect="snowflake",
+    ) == (QueryType.UNKNOWN, {})
+
+    assert get_query_type_of_sql(
+        sqlglot.parse_one("COPY t TO '/f'", dialect="postgres"),
+        dialect="postgres",
+    ) == (QueryType.UNKNOWN, {})
+
+    assert get_query_type_of_sql(
+        sqlglot.parse_one("GRANT SELECT ON v TO ROLE r", dialect="snowflake"),
+        dialect="snowflake",
+    ) == (QueryType.UNKNOWN, {})
+
+    assert get_query_type_of_sql(
+        sqlglot.parse_one("REVOKE SELECT ON v FROM ROLE r", dialect="snowflake"),
+        dialect="snowflake",
+    ) == (QueryType.UNKNOWN, {})
+
 
 class QueryGeneralizationTestMode(Enum):
     FULL = "full"
@@ -228,6 +253,29 @@ def test_query_fingerprint():
     assert get_query_fingerprint(
         "select 1 + 1", platform="postgres"
     ) != get_query_fingerprint("select 2", platform="postgres")
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        pytest.param(
+            "INSERT INTO public.active_users SELECT id, email FROM public.users "
+            "WHERE deleted_at IS NULL AND email IS NOT NULL",
+            "5b074995bf74d4bd7634f63f90f7f2edd18b1985a0a8dc162a70c0567333d49a",
+            id="is_not_null",
+        ),
+        pytest.param(
+            # The literal inside the negated IS still becomes a placeholder.
+            "SELECT a FROM t WHERE COALESCE(a, 1) IS NOT NULL",
+            "7901eee5a53b62eb96c0c1da449aff9ebb33447309524f819a798c1b23f331f1",
+            id="is_not_null_over_literal",
+        ),
+    ],
+)
+def test_postgres_is_not_null_fingerprint_is_stable(sql: str, expected: str) -> None:
+    # The fingerprint is the urn:li:query id for Postgres queries, so a sqlglot
+    # upgrade must not change it. These are the values sqlglot 30.12 produced.
+    assert get_query_fingerprint(sql, platform="postgres") == expected
 
 
 def test_redshift_query_fingerprint():

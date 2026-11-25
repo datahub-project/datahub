@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers;
 
 import static com.datahub.authorization.AuthUtil.isAuthorized;
 import static com.datahub.authorization.AuthUtil.isAuthorizedEntityType;
-import static com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.ApiGroup.ANALYTICS;
 import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
@@ -18,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.PlatformPrivileges;
 import com.linkedin.datahub.graphql.resolvers.application.ApplicationAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -74,8 +74,10 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setGeneratePersonalAccessTokens(
                 canGeneratePersonalAccessToken(context));
             platformPrivileges.setManageDomains(canManageDomains(context));
-            platformPrivileges.setManageIngestion(canManageIngestion(context));
-            platformPrivileges.setManageSecrets(canManageSecrets(context));
+            platformPrivileges.setManageAllDataProducts(
+                DataProductAuthorizationUtils.canManageAllDataProducts(context));
+            platformPrivileges.setManageIngestion(AuthorizationUtils.canManageIngestion(context));
+            platformPrivileges.setManageSecrets(AuthorizationUtils.canManageSecrets(context));
             platformPrivileges.setManageTokens(canManageTokens(context));
             platformPrivileges.setViewTests(canViewTests(context));
             platformPrivileges.setManageTests(canManageTests(context));

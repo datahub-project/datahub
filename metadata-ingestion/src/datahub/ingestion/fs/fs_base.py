@@ -44,7 +44,8 @@ class FileSystem(metaclass=ABCMeta):
 
 def get_path_schema(path: str) -> str:
     scheme = parse.urlparse(path).scheme
-    if scheme == "":
-        # This makes the default schema "file" for local paths.
+    # No scheme means a local path. A one-letter scheme is a Windows drive
+    # letter (C:\data\x.csv parses with scheme "c"), so it is local too.
+    if len(scheme) <= 1:
         scheme = "file"
     return scheme

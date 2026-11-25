@@ -16,11 +16,15 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
+# DataHub's Hive and Presto dialects register their URL schemes (hive://, hive+http://,
+# sparksql://, presto://) on import. Their drivers come with the hive / presto extras,
+# without which those URIs can't work anyway.
 try:
-    # SQLAlchemy loads pyhive's dialects via entry points at create_engine() time, so
-    # hive:// / presto:// / databricks+pyhive:// URIs need the SA 2.0 patches applied
-    # first. pyhive is optional here; without it those URIs can't work anyway.
-    import datahub.ingestion.source.sql._pyhive_compat  # noqa: F401
+    import datahub.ingestion.source.sql.hive.hive_dialect
+except ImportError:
+    pass
+try:
+    import datahub.ingestion.source.sql.presto_dialect  # noqa: F401
 except ImportError:
     pass
 
@@ -75,6 +79,10 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
 @support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SQLAlchemyGenericSource(SQLAlchemySource):
     """
     Generic source for databases with SQLAlchemy dialect support but no dedicated connector.

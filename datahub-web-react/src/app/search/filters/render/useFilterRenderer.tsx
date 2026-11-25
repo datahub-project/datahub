@@ -1,6 +1,6 @@
-import FilterRendererRegistry from '@app/search/filters/render/FilterRendererRegistry';
 import { HasActiveIncidentsRenderer } from '@app/search/filters/render/incident/HasActiveIncidentsRenderer';
 import { HasSiblingsRenderer } from '@app/search/filters/render/siblings/HasSiblingsRenderer';
+import FilterRendererRegistry from '@app/searchV2/filters/render/FilterRendererRegistry';
 
 /**
  * Configure the render registry.

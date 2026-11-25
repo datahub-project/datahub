@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import NoMarkdownViewer from '@app/entityV2/shared/components/styled/StripMarkdownText';
-import { toLocalDateString } from '@app/shared/time/timeUtils';
+import { toLocalDateString } from '@app/sharedV2/time/timeUtils';
 
 const Title = styled(Heading)<{ secondary?: boolean }>`
     && {

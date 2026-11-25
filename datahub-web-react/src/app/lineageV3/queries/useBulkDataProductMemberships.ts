@@ -18,7 +18,7 @@ type DataProductResult =
  * `boundingBoxEntities`, for the bounding boxes. Invoked via `useBulkBoundingBoxMemberships` when
  * the root is a DataProduct; nodes are not displayed until membership is known.
  */
-export default function useBulkDataProductMemberships() {
+export default function useBulkDataProductMemberships(): { loading: boolean } {
     const { rootUrn, rootType, nodes, boundingBoxEntities, nodeVersion, dataVersion, setDataVersion } =
         useContext(LineageNodesContext);
     const skip = rootType !== EntityType.DataProduct;
@@ -39,7 +39,7 @@ export default function useBulkDataProductMemberships() {
         });
     }, [skip, nodes, nodeVersion, dataVersion]);
 
-    useGetBulkEntityDataProductsQuery({
+    const { loading } = useGetBulkEntityDataProductsQuery({
         skip: skip || !urnsToFetch.length,
         fetchPolicy: 'cache-first',
         variables: { urns: urnsToFetch },
@@ -80,6 +80,7 @@ export default function useBulkDataProductMemberships() {
             }
         },
     });
+    return { loading };
 }
 
 /** Registered as a node so its bounding box's entity is fetched like any other node's; it has no

@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { SUMMARY_DOMAIN_ICON_FONT_SIZE, SUMMARY_DOMAIN_ICON_SIZE } from '@app/entityV2/summary/properties/constants';
 import BaseProperty from '@app/entityV2/summary/properties/property/properties/BaseProperty';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';

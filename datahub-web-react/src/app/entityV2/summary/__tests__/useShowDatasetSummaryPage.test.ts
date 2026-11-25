@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useShowDatasetSummaryPage } from '@app/entityV2/summary/useShowDatasetSummaryPage';
 import { useAppConfig } from '@app/useAppConfig';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/useAppConfig', () => ({
     useAppConfig: vi.fn(),

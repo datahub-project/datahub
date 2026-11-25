@@ -1,0 +1,559 @@
+[
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(feature_store.driver_hourly_stats,driver_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(feature_store.driver_hourly_stats,driver_id)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:deprecated"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(feature_store.driver_hourly_stats,driver_id)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpGroup:MOCK_OWNER",
+                    "type": "BUSINESS_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(feature_store.driver_hourly_stats,driver_id)",
+    "changeType": "UPSERT",
+    "aspectName": "mlPrimaryKeyProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Driver ID",
+            "dataType": "ORDINAL",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,conv_rate)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,conv_rate)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:needs_documentation"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,conv_rate)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Conv rate",
+            "dataType": "CONTINUOUS",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,acc_rate)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,acc_rate)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Acc rate",
+            "dataType": "CONTINUOUS",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,avg_daily_trips)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,avg_daily_trips)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Avg daily trips",
+            "dataType": "ORDINAL",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,string_feature)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,string_feature)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "String feature",
+            "dataType": "TEXT",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.driver_hourly_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePaths",
+    "aspect": {
+        "json": {
+            "paths": [
+                "/feast/feature_store"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.driver_hourly_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.driver_hourly_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:deprecated"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.driver_hourly_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpGroup:MOCK_OWNER",
+                    "type": "BUSINESS_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.driver_hourly_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureTableProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "mlFeatures": [
+                "urn:li:mlFeature:(feature_store.driver_hourly_stats,conv_rate)",
+                "urn:li:mlFeature:(feature_store.driver_hourly_stats,acc_rate)",
+                "urn:li:mlFeature:(feature_store.driver_hourly_stats,avg_daily_trips)",
+                "urn:li:mlFeature:(feature_store.driver_hourly_stats,string_feature)"
+            ],
+            "mlPrimaryKeys": [
+                "urn:li:mlPrimaryKey:(feature_store.driver_hourly_stats,driver_id)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.driver_hourly_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "feature_store"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.transformed_conv_rate,conv_rate_plus_val1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.transformed_conv_rate,conv_rate_plus_val1)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "dataType": "CONTINUOUS",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:request,vals_to_add,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.transformed_conv_rate,conv_rate_plus_val2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(feature_store.transformed_conv_rate,conv_rate_plus_val2)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "dataType": "CONTINUOUS",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:request,vals_to_add,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.transformed_conv_rate)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePaths",
+    "aspect": {
+        "json": {
+            "paths": [
+                "/feast/feature_store"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.transformed_conv_rate)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.transformed_conv_rate)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureTableProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "mlFeatures": [
+                "urn:li:mlFeature:(feature_store.transformed_conv_rate,conv_rate_plus_val1)",
+                "urn:li:mlFeature:(feature_store.transformed_conv_rate,conv_rate_plus_val2)"
+            ],
+            "mlPrimaryKeys": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.transformed_conv_rate)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "feature_store"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:deprecated",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "deprecated"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:needs_documentation",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "needs_documentation"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

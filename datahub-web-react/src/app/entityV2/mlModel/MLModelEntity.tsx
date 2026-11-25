@@ -5,11 +5,11 @@ import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/mlModel/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -30,6 +30,7 @@ import {
     SidebarTagsSection,
     StatusSection,
 } from '@app/entityV2/shared/profileChunks';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { SidebarTitleActionType, isOutputPort } from '@app/entityV2/shared/utils';
 
 import { useGetMlModelQuery } from '@graphql/mlModel.generated';
@@ -49,6 +50,7 @@ const MlModelFeaturesTab = lazyProfileComponent(
 );
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.RAISE_INCIDENT,
@@ -110,32 +112,39 @@ export class MLModelEntity implements Entity<MlModel> {
             tabs={[
                 {
                     name: i18next.t('entity.types:tab.summary'),
+                    path: EntityTabPath.SUMMARY,
                     component: MLModelSummary,
                 },
                 {
                     name: i18next.t('entity.types:tab.documentation'),
+                    path: EntityTabPath.DOCUMENTATION,
                     component: DocumentationTab,
                 },
                 {
                     name: i18next.t('entity.types:tab.lineage'),
+                    path: EntityTabPath.LINEAGE,
                     component: LineageTab,
                     icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
                     name: i18next.t('entity.types:tab.properties'),
+                    path: EntityTabPath.PROPERTIES,
                     component: PropertiesTab,
                 },
                 {
                     name: i18next.t('entity.types:group.name'),
+                    path: EntityTabPath.GROUP,
                     component: MLModelGroupsTab,
                 },
                 {
                     name: i18next.t('entity.types:mlFeature.namePlural'),
+                    path: EntityTabPath.FEATURES,
                     component: MlModelFeaturesTab,
                 },
                 {
                     name: i18next.t('entity.types:tab.incidents'),
+                    path: EntityTabPath.INCIDENTS,
                     icon: Warning,
                     component: IncidentTab,
                     getCount: (_, mlModel) => {
@@ -186,6 +195,7 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.LINEAGE,
             name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
             description: i18next.t('entity.types:sidebar.lineageDescription'),
@@ -195,6 +205,7 @@ export class MLModelEntity implements Entity<MlModel> {
             },
         },
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),

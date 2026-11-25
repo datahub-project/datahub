@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
+import { useUrlQueryParam } from '@app/sharedV2/useUrlQueryParam';
 
 import { SortCriterion, SortOrder } from '@types';
 

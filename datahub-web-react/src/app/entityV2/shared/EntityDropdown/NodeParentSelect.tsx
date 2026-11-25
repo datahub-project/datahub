@@ -5,13 +5,13 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { filterResultsForMove } from '@app/entityV2/shared/EntityDropdown/nodeParentSelectUtils';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { deriveGlossaryLabelFromUrn } from '@app/glossaryV2/utils';
-import { useGlossaryTreeEntities } from '@app/shared/tags/useGlossaryTreeEntities';
-import { TermTreeOption, useTermTreeOptions } from '@app/shared/tags/useTermTreeOptions';
+import { useGlossaryTreeEntities } from '@app/sharedV2/tags/useGlossaryTreeEntities';
+import { TermTreeOption, useTermTreeOptions } from '@app/sharedV2/tags/useTermTreeOptions';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Loader, SimpleSelect } from '@src/alchemy-components';
 

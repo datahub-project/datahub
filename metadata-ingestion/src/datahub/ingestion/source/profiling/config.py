@@ -14,6 +14,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source_config.operation_config import OperationConfig
+from datahub.metadata.urns import TagUrn
 from datahub.utilities.str_enum import StrEnum
 
 _PROFILING_FLAGS_TO_REPORT = {
@@ -49,13 +50,28 @@ class ProfilingBaseConfig(ProfilingMethodConfig):
         default_factory=OperationConfig,
         description="Experimental feature. To specify operation configs.",
     )
-    limit: Optional[int] = Field(
+    limit: Annotated[
+        Optional[pydantic.PositiveInt],
+        SupportedSources(["bigquery", "snowflake"]),
+    ] = Field(
         default=None,
-        description="Max number of documents to profile. By default, profiles all documents.",
+        description="Max number of rows to profile, taken in storage order — not a random "
+        "sample, use `sample_size` for that. Sampling takes precedence: where "
+        "`use_sampling` applies, the table is sampled and this is not applied. Only "
+        "BigQuery and Snowflake apply it; wherever it is not applied the run warns and "
+        "the profile is labelled from whatever was applied instead. By default, profiles all "
+        "rows.",
     )
-    offset: Optional[int] = Field(
+    offset: Annotated[
+        Optional[pydantic.NonNegativeInt],
+        SupportedSources(["bigquery", "snowflake"]),
+    ] = Field(
         default=None,
-        description="Offset in documents to profile. By default, uses no offset.",
+        description="Number of rows to skip before the profiled window. Whether it applies "
+        "without a `limit` is up to the source: the SQL profiler declines an offset on its "
+        "own, because skipping rows without bounding them scans more rather than less. "
+        "Only BigQuery and Snowflake apply it; wherever it is not applied the run warns. "
+        "By default, uses no offset.",
     )
     profile_table_level_only: bool = Field(
         default=False,
@@ -117,6 +133,17 @@ class ProfilingBaseConfig(ProfilingMethodConfig):
 
 
 class ProfilingConfig(ProfilingBaseConfig):
+    """Shared profiling options.
+
+    This layer is deliberately not opinionated: it validates that a value is
+    usable on its own (a limit must be positive) and otherwise records the
+    request untouched. It does not reconcile options that pull against each
+    other -- a limit alongside sampling, an offset with no limit -- because
+    whether they conflict depends on the platform, which this object cannot
+    see. The adapter decides and reports what it applied; the profiler warns
+    about anything the recipe asked for that did not happen.
+    """
+
     report_dropped_profiles: bool = Field(
         default=False,
         description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",
@@ -178,11 +205,11 @@ class ProfilingConfig(ProfilingBaseConfig):
     )
 
     profile_table_row_count_estimate_only: Annotated[
-        bool, SupportedSources(["postgres", "mysql"])
+        bool, SupportedSources(["postgres", "mysql", "redshift"])
     ] = Field(
         default=False,
         description="Use an approximate query for row count. This will be much faster but slightly "
-        "less accurate. Only supported for Postgres and MySQL. ",
+        "less accurate. Only supported for Postgres, MySQL and Redshift. ",
     )
 
     # The query combiner enables us to combine multiple queries into a single query,
@@ -197,6 +224,29 @@ class ProfilingConfig(ProfilingBaseConfig):
     query_combiner_flatten_enabled: bool = Field(
         default=False,
         description="Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. COUNT(DISTINCT) columns are capped per statement to bound server memory.",
+    )
+
+    # Duplicated from MAX_QUERIES_TO_COMBINE_AT_ONCE for the same reason as
+    # max_distinct_per_statement below.
+    max_queries_to_combine: pydantic.PositiveInt = Field(
+        default=40,
+        description="Only used when `query_combiner_enabled` is on. Maximum number of "
+        "profiling **queries** merged into one statement -- not columns: a 12-column "
+        "numeric table issues 109 queries under default settings, 85 of them "
+        "combinable. Raising it cuts round trips, and with "
+        "`query_combiner_flatten_enabled` also scans, because a flattened statement is "
+        "one aggregate list over one table. Without flattening each merged query is "
+        "still its own aggregate, so only round trips fall. Raising it is also bounded "
+        "by the database without flattening: the merged statement cross-joins one "
+        "subquery per query, and MySQL allows 61 tables in a join, SQLite 64. Past that "
+        "every merged statement fails and is retried one query at a time, which is "
+        "slower than not combining at all -- measured on a 20-column SQLite table of "
+        "101 queued queries, a value of 40 took 3 statements and 100 took 102. The "
+        "profiler warns at startup when it can tell the value is above the limit. A "
+        "flattened statement does not join, so its normal path is not subject to "
+        "that limit -- but a flat statement that fails is re-routed through the "
+        "joining path, so above the limit that recovery skips straight to one "
+        "query at a time.",
     )
 
     # Duplicated from DEFAULT_MAX_DISTINCT_PER_STATEMENT rather than imported,
@@ -242,6 +292,44 @@ class ProfilingConfig(ProfilingBaseConfig):
         ),
     )
 
+    query_timeout_seconds: Annotated[
+        Optional[pydantic.PositiveInt], SupportedSources(["mysql", "postgres"])
+    ] = Field(
+        default=None,
+        # Postgres takes statement_timeout in milliseconds as a signed 32-bit
+        # int, so a larger value is rejected by the SET itself. MySQL's
+        # max_execution_time is unsigned and would accept more; the bound is
+        # the lower of the two rather than a per-platform limit.
+        le=2147483,
+        description=(
+            "Server-side time limit for each profiling statement, in seconds. "
+            "Defaults to unset, so a statement runs as long as it takes. A single "
+            "aggregate over a very large table holds a read view for its whole "
+            "duration, growing the InnoDB undo log on MySQL and blocking VACUUM on "
+            "Postgres, which a limit here bounds. The limit is set on the profiling "
+            "connection and restored when the table is done. Only MySQL "
+            "(max_execution_time) and Postgres (statement_timeout) are implemented; "
+            "other platforms ignore it. "
+            "Pair it with `profiling_isolation_level: AUTOCOMMIT`; the profiler "
+            "warns when the connection's isolation level undermines it. On "
+            "Postgres a timed-out statement leaves the transaction aborted at "
+            "every level below AUTOCOMMIT, so the table loses every per-column "
+            "metric that runs after it -- quantiles, histograms, value frequencies "
+            "and sample values. On MySQL nothing is lost that way, but REPEATABLE "
+            "READ and SERIALIZABLE hold the read view from the first statement to "
+            "the commit, so a per-statement limit does not bound the thing this "
+            "option exists to bound; AUTOCOMMIT or READ COMMITTED restores it. "
+            "Under AUTOCOMMIT it bounds a statement, not a table, and it does not "
+            "abandon the table: a statement that exceeds the limit is retried one "
+            "query at a time, so the columns whose own query then succeeds are "
+            "still profiled and only the slow ones lose their metrics. A table is "
+            "left without field profiles only when the row count itself times out. "
+            "One whose columns are each slow enough to time out therefore costs "
+            "roughly this limit per profiling query, which on a wide table is many "
+            "multiples of it."
+        ),
+    )
+
     @field_validator("profiling_isolation_level", mode="before")
     @classmethod
     def _normalize_profiling_isolation_level(cls, value: Any) -> Any:
@@ -270,22 +358,29 @@ class ProfilingConfig(ProfilingBaseConfig):
         "If not specified, profile the latest partition. Only Bigquery supports this.",
     )
     use_sampling: Annotated[bool, SupportedSources(["bigquery", "snowflake"])] = Field(
-        default=True,
-        description="Whether to profile column level stats on sample of table. Only BigQuery and Snowflake support this. "
-        "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
+        # Defaults to False here and is overridden to True by the two sources that
+        # implement sampling, so the flag is never on where it does nothing.
+        default=False,
+        description="Whether to profile column level stats on a sample of the table rather than all "
+        "of it. Only BigQuery and Snowflake implement sampling, and it is on by default there; "
+        "on every other source this option has no effect. Smaller tables are not sampled.",
     )
 
-    sample_size: Annotated[int, SupportedSources(["bigquery", "snowflake"])] = Field(
+    sample_size: Annotated[
+        int, SupportedSources(["bigquery", "kafka", "snowflake"])
+    ] = Field(
         default=10000,
-        description="Number of rows to be sampled from table for column level profiling."
-        "Applicable only if `use_sampling` is set to True.",
+        description="Number of rows to be sampled from table for column level profiling. "
+        "On BigQuery and Snowflake this applies only when `use_sampling` is on. Kafka "
+        "reads it independently of `use_sampling`, as the number of messages to sample, "
+        "and chooses between them with its own `sampling_strategy`.",
     )
 
     profile_external_tables: Annotated[
-        bool, SupportedSources(["redshift", "snowflake"])
+        bool, SupportedSources(["bigquery", "redshift", "snowflake"])
     ] = Field(
         default=False,
-        description="Whether to profile external tables. Only Snowflake and Redshift supports this.",
+        description="Whether to profile external tables. Only Snowflake, BigQuery and Redshift support this.",
     )
 
     tags_to_ignore_sampling: Optional[List[str]] = pydantic.Field(
@@ -294,8 +389,35 @@ class ProfilingConfig(ProfilingBaseConfig):
             "Fixed list of tags to ignore sampling. Each entry may be a full tag URN"
             " (e.g. `urn:li:tag:my_tag`) or just the tag name (e.g. `my_tag`)."
             " If not specified, tables will be sampled based on `use_sampling`."
+            " Resolving these tags queries the DataHub server. When that lookup"
+            " fails, the table is treated as tagged rather than untagged: row,"
+            " null and distinct counts are still profiled, but column values"
+            " (sample values, min/max/mean, stddev, median, histograms,"
+            " quantiles and distinct value frequencies) are not, and a warning"
+            " is reported."
         ),
     )
+
+    @field_validator("tags_to_ignore_sampling")
+    @classmethod
+    def _validate_tags_to_ignore_sampling(
+        cls, value: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        # Parsed here so a typo fails the recipe with the offending entry. The
+        # profiler parses these again while resolving tags, inside a handler
+        # that answers any failure with "treat the table as tagged" -- so an
+        # unvalidated typo would silently drop every column value for every
+        # table, reported as a DataHub outage. Same call the profiler makes, so
+        # parse time and profile time accept exactly the same set.
+        for tag in value or []:
+            try:
+                TagUrn(tag)
+            except Exception as e:
+                raise ValueError(
+                    f"tags_to_ignore_sampling entry {tag!r} is not a valid tag "
+                    f"name or tag URN: {e}"
+                ) from e
+        return value
 
     profile_nested_fields: bool = Field(
         default=False,
@@ -386,3 +508,23 @@ class ProfilingConfig(ProfilingBaseConfig):
             for flag in config_dict
             if flag in _PROFILING_FLAGS_TO_REPORT or flag.startswith("include_field_")
         }
+
+
+def coerce_profiling_config_instance(v: object) -> object:
+    """Normalize a `profiling` block so a source's own ProfilingConfig subclass can validate it.
+
+    A code caller may pass a ProfilingConfig instance rather than a YAML dict.
+    Re-validating it as the subclass runs ProfilingConfig's inherited
+    before-validators, which assume a dict and raise on a model instance, so it
+    has to be dumped back to plain data first.
+
+    `exclude_unset` is what makes the dump safe: a full dump carries every
+    field at *this* class's default, which would pin a field the subclass
+    overrides -- `use_sampling`, which BigQuery and Snowflake turn back on --
+    to the shared default and silently profile the whole table. Only the fields
+    the caller (or a before-validator) actually set survive, so everything else
+    falls through to the subclass's own defaults.
+    """
+    if isinstance(v, ProfilingConfig):
+        return v.model_dump(exclude_unset=True)
+    return v

@@ -7,10 +7,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Reviewing Context Changes
 
-<FeatureAvailability saasOnly />
+<FeatureAvailability saasOnly stage="public-beta"/>
 
-:::caution Public Beta
-Context review is part of the DataHub Cloud **Context** add-on and is in Public Beta. Details on this page may change as the feature evolves.
+:::info Context add-on
+Context review is part of the DataHub Cloud **Context** add-on.
 :::
 
 AI agents act on whatever context you give them, so the people who know the data should decide what goes in. In DataHub, anyone can propose a change to context: people on your team, DataHub's AI, your own agents, or Context Generation. The owners of that context review each proposal, can test it against your evals, and approve it before agents see it.

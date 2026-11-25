@@ -5,22 +5,24 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { SecretBuilderModal } from '@app/ingest/secret/SecretBuilderModal';
-import { SecretBuilderState } from '@app/ingest/secret/types';
+import { SecretBuilderState } from '@app/ingestV2/secret/types';
 
 import { useCreateSecretMutation } from '@graphql/ingestion.generated';
 
 const CreateButton = styled(Button)`
-    align-items: center;
-    display: flex;
-    justify-content: center;
-    margin: 8px 12px 4px 12px;
-    width: calc(100% - 24px);
+    && {
+        align-items: center;
+        display: flex;
+        justify-content: center;
+        margin: 8px 12px 4px 12px;
+        width: calc(100% - 24px);
 
-    &:hover {
-        color: ${blue[5]};
+        &:hover {
+            color: ${blue[5]};
+        }
+
+        gap: 5px;
     }
-
-    gap: 5px;
 `;
 
 interface Props {

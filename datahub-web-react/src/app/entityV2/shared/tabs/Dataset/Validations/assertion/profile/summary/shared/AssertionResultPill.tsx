@@ -8,7 +8,7 @@ import {
     getResultStatusText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { applyOpacityToHexColor } from '@app/shared/styleUtils';
+import { applyOpacityToHexColor } from '@app/sharedV2/styleUtils';
 
 import { AssertionResult } from '@types';
 

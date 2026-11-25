@@ -1,0 +1,34 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "4ebfd48893fa9ec9388f3dd32fcaaab3c1d14eacea54e4892e75e1cd34693c09",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.table_a,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "columna",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.table_a,PROD)",
+                    "column": "columnA"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`table_a`.`columna` AS `columna`"
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT COLUMNA FROM my_db.table_a"
+    }
+}

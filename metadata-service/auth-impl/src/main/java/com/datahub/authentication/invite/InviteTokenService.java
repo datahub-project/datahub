@@ -4,10 +4,12 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
+import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.key.InviteTokenKey;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -22,6 +24,8 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,27 +47,60 @@ public class InviteTokenService {
     return Urn.createFromString(inviteTokenUrnStr);
   }
 
-  public boolean isInviteTokenValid(
-      @Nonnull OperationContext opContext, @Nonnull final Urn inviteTokenUrn)
-      throws RemoteInvocationException {
-    return _entityClient.exists(opContext, inviteTokenUrn);
-  }
-
+  /**
+   * Returns the stored invite token for {@code inviteTokenStr} if one exists and its stored value
+   * matches {@code inviteTokenStr}, otherwise null.
+   */
   @Nullable
-  public Urn getInviteTokenRole(
-      @Nonnull OperationContext opContext, @Nonnull final Urn inviteTokenUrn)
+  public com.linkedin.identity.InviteToken getVerifiedInviteToken(
+      @Nonnull OperationContext opContext, @Nonnull final String inviteTokenStr)
       throws URISyntaxException, RemoteInvocationException {
+    final Urn inviteTokenUrn = getInviteTokenUrn(inviteTokenStr);
+    final EntityResponse inviteTokenEntity =
+        _entityClient.getV2(
+            opContext,
+            INVITE_TOKEN_ENTITY_NAME,
+            inviteTokenUrn,
+            Collections.singleton(INVITE_TOKEN_ASPECT_NAME));
+    if (inviteTokenEntity == null
+        || !inviteTokenEntity.getAspects().containsKey(INVITE_TOKEN_ASPECT_NAME)) {
+      return null;
+    }
     final com.linkedin.identity.InviteToken inviteToken =
-        getInviteTokenEntity(opContext, inviteTokenUrn);
-    return inviteToken.hasRole() ? inviteToken.getRole() : null;
+        new com.linkedin.identity.InviteToken(
+            inviteTokenEntity.getAspects().get(INVITE_TOKEN_ASPECT_NAME).getValue().data());
+
+    final String storedInviteTokenStr;
+    try {
+      storedInviteTokenStr =
+          _secretService.decrypt(_systemOperationContext, inviteToken.getToken());
+    } catch (RuntimeException e) {
+      log.warn("Failed to decrypt invite token {}", inviteTokenUrn);
+      return null;
+    }
+    return MessageDigest.isEqual(
+            storedInviteTokenStr.getBytes(StandardCharsets.UTF_8),
+            inviteTokenStr.getBytes(StandardCharsets.UTF_8))
+        ? inviteToken
+        : null;
   }
 
   @Nonnull
   public String getInviteToken(
       @Nonnull OperationContext opContext, @Nullable final String roleUrnStr, boolean regenerate)
       throws Exception {
+    // A blank role is an invite with no role. A non-blank role is a role grant: reading, creating,
+    // or rotating that link reveals a redeemable secret even when the stored role does not change,
+    // which the aspect validator treats as unchanged state.
+    final String roleUrn = roleUrnStr == null || roleUrnStr.isBlank() ? null : roleUrnStr;
+    if (roleUrn != null
+        && !AuthUtil.isAuthorized(opContext, PoliciesConfig.MANAGE_POLICIES_PRIVILEGE)) {
+      throw new InviteTokenAuthorizationException(
+          "Unauthorized to create or read an invite token for a role. Manage Policies is required.");
+    }
+
     final Filter inviteTokenFilter =
-        roleUrnStr == null ? createInviteTokenFilter() : createInviteTokenFilter(roleUrnStr);
+        roleUrn == null ? createInviteTokenFilter() : createInviteTokenFilter(roleUrn);
 
     final SearchResult searchResult =
         _entityClient.filter(opContext, INVITE_TOKEN_ENTITY_NAME, inviteTokenFilter, null, 0, 10);
@@ -72,12 +109,12 @@ public class InviteTokenService {
     // If there is more than one invite token, wipe all of them and generate a fresh one
     if (numEntities > 1) {
       deleteExistingInviteTokens(opContext, searchResult);
-      return createInviteToken(opContext, roleUrnStr);
+      return createInviteToken(opContext, roleUrn);
     }
 
     // If we want to regenerate, or there are no entities in the result, create a new invite token.
     if (regenerate || numEntities == 0) {
-      return createInviteToken(opContext, roleUrnStr);
+      return createInviteToken(opContext, roleUrn);
     }
 
     final SearchEntity searchEntity = searchResult.getEntities().get(0);

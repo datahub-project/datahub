@@ -28,7 +28,7 @@
                 "number_of_files": "1",
                 "size_in_bytes": "172"
             },
-            "externalUrl": "https://console.cloud.google.com/storage/browser/my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small",
+            "externalUrl": "https://console.cloud.google.com/storage/browser/_details/my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small",
             "name": "small",
             "description": "",
             "tags": []

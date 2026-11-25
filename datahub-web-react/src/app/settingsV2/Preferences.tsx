@@ -1,5 +1,4 @@
-import { PageTitle, Pill, Switch } from '@components';
-import { message } from 'antd';
+import { PageTitle, Pill, Switch, toast } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -86,7 +85,9 @@ export const Preferences = () => {
 
     const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
 
-    const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
+    const canManageApplicationAppearance =
+        appConfig.config?.featureFlags?.showApplicationsFeatureToggle &&
+        userContext?.platformPrivileges?.manageFeatures;
 
     return (
         <Page>
@@ -128,10 +129,7 @@ export const Preferences = () => {
                                             },
                                         },
                                     });
-                                    message.success({
-                                        content: t('showApplications.successMessage'),
-                                        duration: 2,
-                                    });
+                                    toast.success(t('showApplications.successMessage'), { duration: 2 });
                                     appConfig?.refreshContext();
                                 }}
                             />

@@ -191,13 +191,13 @@ public class PageModuleService {
     try {
       checkDeleteModulePermissions(opContext, moduleUrn);
 
-      entityClient.deleteEntity(opContext, moduleUrn);
+      final var references = entityClient.deleteReferencesThenEntity(opContext, moduleUrn);
 
-      // Asynchronously delete all references to the entity (to return quickly)
+      // The entity is already gone. This removes the remaining references.
       CompletableFuture.runAsync(
           () -> {
             try {
-              entityClient.deleteEntityReferences(opContext, moduleUrn);
+              references.run();
             } catch (Exception e) {
               log.error(
                   String.format(

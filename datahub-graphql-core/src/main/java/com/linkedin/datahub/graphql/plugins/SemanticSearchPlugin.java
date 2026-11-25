@@ -117,7 +117,9 @@ public class SemanticSearchPlugin implements GmsGraphQLPlugin {
         "Query",
         typeWiring ->
             typeWiring
-                .dataFetcher("semanticSearch", new SemanticSearchResolver(semanticSearchService))
+                .dataFetcher(
+                    "semanticSearch",
+                    new SemanticSearchResolver(semanticSearchService, entityClient))
                 .dataFetcher(
                     "semanticSearchAcrossEntities",
                     new SemanticSearchAcrossEntitiesResolver(

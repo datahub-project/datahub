@@ -15,6 +15,7 @@ import { TIMEOUTS, gmsUrl, LOAD_STATES } from '../../utils/constants';
 import { seedTimeRangeLineage } from '../../utils/lineage-time-seeder';
 import { readGmsToken } from '../../fixtures/login';
 import { users } from '../../data/users';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'lineage-v3' });
 
@@ -267,7 +268,7 @@ test.describe('lineage v3 — lineage graph', () => {
     await apiMock.setFeatureFlags(BASE_FEATURE_FLAGS);
   });
 
-  test('can see full history', async () => {
+  test('can see full history', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
     await lineagePage.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await lineagePage.waitForGraphToRender();
@@ -390,7 +391,7 @@ test.describe('lineage v3 — lineage graph', () => {
     expect(await lineagePage.areGraphEdgesVisible()).toBe(true);
   });
 
-  test('can edit upstream lineage', async ({ page }) => {
+  test('can edit upstream lineage', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page }) => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
 
     await lineagePage.openManageLineageMenu(DATASET_URN);
@@ -409,7 +410,7 @@ test.describe('lineage v3 — lineage graph', () => {
     await expect(page.getByRole('button', { name: /Set Upstreams/i })).not.toHaveAttribute('disabled');
   });
 
-  test('displays complete lineage graph with all node types', async () => {
+  test('displays complete lineage graph with all node types', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, NODE1_DATASET_URN);
 
     // Check initial state

@@ -30,6 +30,7 @@ public class InstitutionalMemoryPatchBuilder
 
   public InstitutionalMemoryPatchBuilder addLink(
       @Nonnull String url, @Nonnull String description, @Nonnull Urn actor) {
+    InstitutionalMemoryLinkUrls.validate(url);
     ObjectNode createStamp = instance.objectNode();
     createStamp.put(TIME_KEY, System.currentTimeMillis());
     createStamp.put(ACTOR_KEY, actor.toString());

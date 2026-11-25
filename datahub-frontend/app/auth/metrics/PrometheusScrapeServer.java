@@ -33,7 +33,7 @@ public final class PrometheusScrapeServer {
    */
   static final String HEALTH_INFLIGHT = "frontend_management_health_inflight";
 
-  /** Last server started by {@link #startIfConfigured}; cleared when stopped. For tests only. */
+  /** Last server started by {@link #startIfConfigured}; cleared by {@link #stopIfRunning()}. */
   private static volatile HttpServer activeScrapeServer;
 
   /**
@@ -44,13 +44,25 @@ public final class PrometheusScrapeServer {
 
   private PrometheusScrapeServer() {}
 
-  /** Stops the server bound by {@link #startIfConfigured}, if any. For unit tests only. */
-  static void stopActiveScrapeServerForTests() {
+  /**
+   * Stops the server bound by {@link #startIfConfigured}, if any.
+   *
+   * <p>Called from a late Pekko CoordinatedShutdown phase (see {@code
+   * config.GracefulShutdownModule}) rather than a JVM shutdown hook. JVM hooks run concurrently
+   * with CoordinatedShutdown, so a hook would close this listener at SIGTERM and {@code
+   * /health/ready} could never report 503 while Play drains.
+   */
+  public static void stopIfRunning() {
     HttpServer server = activeScrapeServer;
     activeScrapeServer = null;
     if (server != null) {
       server.stop(0);
     }
+  }
+
+  /** Stops the server bound by {@link #startIfConfigured}, if any. For unit tests only. */
+  static void stopActiveScrapeServerForTests() {
+    stopIfRunning();
   }
 
   /**
@@ -67,7 +79,7 @@ public final class PrometheusScrapeServer {
   /**
    * If {@code MANAGEMENT_SERVER_PORT} is set, binds {@code 0.0.0.0}:{port} and serves {@code GET
    * /health/live} and {@code GET /health/ready}. {@code GET /actuator/prometheus} is served only
-   * when a Prometheus registry is provided. Stopped on JVM shutdown.
+   * when a Prometheus registry is provided. Stopped by {@link #stopIfRunning()}.
    */
   public static void startIfConfigured(PrometheusMeterRegistry prometheusRegistry) {
     String portStr =
@@ -90,7 +102,6 @@ public final class PrometheusScrapeServer {
       log.info(
           "Management endpoints at http://0.0.0.0:{} (/actuator/prometheus, /health/live, /health/ready)",
           port);
-      Runtime.getRuntime().addShutdownHook(new Thread(() -> server.stop(0)));
     } catch (IOException e) {
       log.error("Failed to bind Micrometer Prometheus scrape server on port {}", port, e);
     }

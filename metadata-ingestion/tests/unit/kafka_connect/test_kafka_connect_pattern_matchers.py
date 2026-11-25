@@ -1,10 +1,7 @@
 """Tests for Kafka Connect pattern matching utilities."""
 
-from unittest.mock import Mock
-
-import jpype
-import jpype.imports
-import pytest
+import sys
+from unittest.mock import Mock, patch
 
 from datahub.ingestion.source.kafka_connect.common import (
     ConnectorManifest,
@@ -18,14 +15,6 @@ from datahub.ingestion.source.kafka_connect.pattern_matchers import (
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     DebeziumSourceConnector,
 )
-
-
-@pytest.fixture(scope="session", autouse=True)
-def ensure_jvm_started():
-    """Ensure JVM is started for all tests requiring Java regex."""
-    if not jpype.isJVMStarted():
-        jpype.startJVM(jpype.getDefaultJVMPath())
-    yield
 
 
 class TestJavaRegexMatcher:
@@ -260,3 +249,25 @@ class TestDebeziumSourceConnectorPatternMatching:
         assert "schema_v1.products" in result
         assert "schema_v2.products" in result
         assert "private.data" not in result
+
+
+class TestJavaRegexUnavailable:
+    """Without a JVM, Debezium patterns cannot be evaluated faithfully; the
+    matcher must say so and match nothing rather than guess with Python re."""
+
+    def test_matches_is_false(self) -> None:
+        with patch.dict(sys.modules, {"java.util.regex": None}):
+            assert not JavaRegexMatcher().matches("public\\..*", "public.users")
+
+    def test_filter_matches_is_empty(self) -> None:
+        with patch.dict(sys.modules, {"java.util.regex": None}):
+            assert (
+                JavaRegexMatcher().filter_matches(["public\\..*"], ["public.users"])
+                == []
+            )
+
+    def test_unparseable_pattern_does_not_hide_other_matches(self) -> None:
+        matched = JavaRegexMatcher().filter_matches(
+            ["(unclosed", "public\\..*"], ["public.users", "audit.log"]
+        )
+        assert matched == ["public.users"]

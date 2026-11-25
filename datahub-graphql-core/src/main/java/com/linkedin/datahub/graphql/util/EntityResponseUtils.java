@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.util;
 
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
@@ -64,9 +66,11 @@ public class EntityResponseUtils {
     }
 
     ResolvedAuditStamp auditStamp = new ResolvedAuditStamp();
-    final CorpUser emptyCreatedUser = new CorpUser();
-    emptyCreatedUser.setUrn(aspect.getCreated().getActor().toString());
-    auditStamp.setActor(emptyCreatedUser);
+    if (CORP_USER_ENTITY_NAME.equals(aspect.getCreated().getActor().getEntityType())) {
+      final CorpUser emptyCreatedUser = new CorpUser();
+      emptyCreatedUser.setUrn(aspect.getCreated().getActor().toString());
+      auditStamp.setActor(emptyCreatedUser);
+    }
     auditStamp.setTime(aspect.getCreated().getTime());
     return auditStamp;
   }

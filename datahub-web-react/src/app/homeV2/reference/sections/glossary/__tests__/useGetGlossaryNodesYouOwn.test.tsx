@@ -1,9 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useGetGlossaryNodesYouOwn } from '@app/homeV2/reference/sections/glossary/useGetGlossaryNodesYouOwn';
 import { OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetSearchResultsForMultipleCardsQuery } from '@graphql/search.generated';
 import { CorpUser, EntityType } from '@types';

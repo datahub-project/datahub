@@ -26,6 +26,7 @@ import { MLModelEntity } from '@app/entityV2/mlModel/MLModelEntity';
 import { MLModelGroupEntity } from '@app/entityV2/mlModelGroup/MLModelGroupEntity';
 import { MLPrimaryKeyEntity } from '@app/entityV2/mlPrimaryKey/MLPrimaryKeyEntity';
 import { QueryEntity } from '@app/entityV2/query/QueryEntity';
+import { RepositoryEntity } from '@app/entityV2/repository/RepositoryEntity';
 import { SchemaFieldEntity } from '@app/entityV2/schemaField/SchemaFieldEntity';
 import { SemanticModelEntity } from '@app/entityV2/semanticModel/SemanticModelEntity';
 import { StructuredPropertyEntity } from '@app/entityV2/structuredProperty/StructuredPropertyEntity';
@@ -64,6 +65,7 @@ export default function buildEntityRegistryV2() {
     registry.register(new BusinessAttributeEntity());
     registry.register(new ApplicationEntity());
     registry.register(new ApiEntity());
+    registry.register(new RepositoryEntity());
     registry.register(new MetricEntity());
     registry.register(new SemanticModelEntity());
     return registry;

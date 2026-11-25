@@ -5,14 +5,14 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import EntityProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/EntityProperty';
 import SyncedOrShared from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrShared';
 import TimeProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/TimeProperty';
 import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
-import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
+import { getDatasetLastUpdatedMs, getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
 
@@ -49,8 +49,7 @@ const StatusSection = () => {
     const created = entityRegistry.getCreatedTime(entityType, entityData);
     const lastModified = properties?.lastModified?.time;
     const lastRefreshed = properties?.lastRefreshed;
-    const lastOp = dataset?.operations?.length && dataset?.operations[0]?.lastUpdatedTimestamp;
-    const lastUpdated = Math.max(lastModified, lastOp);
+    const { lastUpdatedMs: lastUpdated } = getDatasetLastUpdatedMs(properties, dataset?.operations);
 
     const lastIngested = entityData?.lastIngested;
     const platform = entityData?.siblingPlatforms?.[0] || entityData?.platform;

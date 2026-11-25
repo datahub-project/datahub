@@ -194,37 +194,61 @@ public interface IndexConvention {
   // that must touch only the current operation's indices) and would wrongly reject a name whose
   // prefix came from a different operation than the caller's.
 
-  /** True if {@code indexName} is a V2 entity index, ignoring any prefix. */
+  /** True if {@code indexName} is a V2 entity index alias, ignoring any prefix. */
   default boolean isV2EntityIndexType(@Nonnull String indexName) {
-    return indexName.endsWith("index_v2") && indexName.length() > "index_v2".length();
+    return EntityIndexVersion.V2.isAliasName(indexName);
   }
 
-  /** True if {@code indexName} is a V3 entity index, ignoring any prefix. */
+  /** True if {@code indexName} is a V3 entity index alias, ignoring any prefix. */
   default boolean isV3EntityIndexType(@Nonnull String indexName) {
-    return indexName.endsWith("index_v3") && indexName.length() > "index_v3".length();
+    return EntityIndexVersion.V3.isAliasName(indexName);
+  }
+
+  /**
+   * True if {@code indexName} is a V2 entity index alias or one of its physical backing indices
+   * ({@code datasetindex_v2_1704067200000}, {@code datasetindex_v2_0_13_1_0_1704067200000}),
+   * ignoring any prefix.
+   */
+  default boolean isV2EntityIndexOrBackingType(@Nonnull String indexName) {
+    return EntityIndexVersion.V2.matches(indexName);
+  }
+
+  /**
+   * True if {@code indexName} is a V3 entity index alias or one of its physical backing indices,
+   * ignoring any prefix.
+   */
+  default boolean isV3EntityIndexOrBackingType(@Nonnull String indexName) {
+    return EntityIndexVersion.V3.matches(indexName);
+  }
+
+  /** The entity index generation encoded in {@code indexName} (alias or physical), if any. */
+  default Optional<EntityIndexVersion> entityIndexVersionOf(@Nonnull String indexName) {
+    return EntityIndexVersion.fromIndexName(indexName);
+  }
+
+  /**
+   * Inverse of {@link #getEntityIndexNameV3}: the V3 index key — the search group, or the entity
+   * name under an entity-named layout — for an alias or physical V3 index name carrying the V3
+   * family's prefix for {@code operation} (a per-cluster overlay when the V3 cluster declares one,
+   * else the deploy-wide prefix). Empty when the name is not a V3 entity index for this operation.
+   */
+  default Optional<String> getEntityIndexKeyV3(
+      @Nonnull OperationFingerprint operation, @Nonnull String indexName) {
+    final String prefixToken =
+        getPrefix(operation, SearchComponent.SEARCH_V3).map(prefix -> prefix + "_").orElse("");
+    if (!indexName.startsWith(prefixToken)) {
+      return Optional.empty();
+    }
+    return EntityIndexVersion.V3
+        .keyOf(indexName)
+        .map(key -> key.substring(prefixToken.length()))
+        .filter(key -> !key.isEmpty());
   }
 
   /** True if {@code indexName} is a V2 semantic entity index, ignoring any prefix. */
   default boolean isSemanticEntityIndexType(@Nonnull String indexName) {
     return indexName.endsWith("index_v2_semantic")
         && indexName.length() > "index_v2_semantic".length();
-  }
-
-  /**
-   * True if {@code indexName} is a V2 entity index or one of its rebuild indices (ZDU timestamp,
-   * incremental {@code _next_}, or {@code getIncrementalNextIndexName} versioned names). Semantic
-   * names are excluded.
-   */
-  default boolean isV2EntityIndexOrBackingType(@Nonnull String indexName) {
-    return isV2EntityIndexType(indexName) || matchesRebuildIndex(indexName, "index_v2");
-  }
-
-  /**
-   * True if {@code indexName} is a V3 entity index or one of its rebuild indices ({@code
-   * datasetindex_v3_1712345678}, {@code datasetindex_v3_next_123}).
-   */
-  default boolean isV3EntityIndexOrBackingType(@Nonnull String indexName) {
-    return isV3EntityIndexType(indexName) || matchesRebuildIndex(indexName, "index_v3");
   }
 
   /**

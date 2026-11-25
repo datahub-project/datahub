@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DeleteStructuredPropertyInput;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
@@ -38,17 +39,20 @@ public class DeleteStructuredPropertyResolver implements DataFetcher<Completable
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            if (!AuthorizationUtils.canManageStructuredProperties(context)) {
+            if (!AuthorizationUtils.isEntityType(
+                    propertyUrn, Constants.STRUCTURED_PROPERTY_ENTITY_NAME)
+                || !AuthorizationUtils.canManageStructuredProperties(context)) {
               throw new AuthorizationException(
                   "Unable to delete structured property. Please contact your admin.");
             }
-            _entityClient.deleteEntity(context.getOperationContext(), propertyUrn);
-            // Asynchronously Delete all references to the entity (to return quickly)
+            final var references =
+                _entityClient.deleteReferencesThenEntity(
+                    context.getOperationContext(), propertyUrn);
+            // The entity is already gone. This removes the remaining references.
             GraphQLConcurrencyUtils.supplyAsync(
                 () -> {
                   try {
-                    _entityClient.deleteEntityReferences(
-                        context.getOperationContext(), propertyUrn);
+                    references.run();
                   } catch (Exception e) {
                     log.error(
                         String.format(

@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
 import com.linkedin.datahub.graphql.generated.SystemFreshness;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.KnownEntities;
 import com.linkedin.metadata.search.LineageSearchEntity;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
@@ -35,11 +36,19 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
 
     final SearchResultMetadata searchResultMetadata = input.getMetadata();
     result.setSearchResults(
-        input.getEntities().stream().map(r -> mapResult(context, r)).collect(Collectors.toList()));
+        input.getEntities().stream()
+            // SearchAcrossLineageResult.entity is non-null, so a hit GraphQL can't return would
+            // null the whole list.
+            .filter(r -> KnownEntities.isReturnable(context, r.getEntity()))
+            .map(r -> mapResult(context, r))
+            .collect(Collectors.toList()));
     result.setFacets(
         searchResultMetadata.getAggregations().stream()
             .map(f -> MapperUtils.mapFacet(context, f))
             .collect(Collectors.toList()));
+    if (searchResultMetadata.hasRouteChain()) {
+      result.setRouteChain(new ArrayList<>(searchResultMetadata.getRouteChain()));
+    }
 
     if (input.hasFreshness()) {
       FreshnessStats outputFreshness = new FreshnessStats();
@@ -70,6 +79,10 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
         .setEntity(UrnToEntityMapper.map(context, searchEntity.getEntity()))
         .setInsights(getInsightsFromFeatures(searchEntity.getFeatures()))
         .setMatchedFields(getMatchedFieldEntry(context, searchEntity.getMatchedFields()))
+        .setExplainMatches(
+            searchEntity.hasExplainMatches()
+                ? getExplainMatches(searchEntity.getExplainMatches())
+                : null)
         .setPaths(
             searchEntity.getPaths().stream()
                 .map(p -> mapPath(context, p))

@@ -335,7 +335,7 @@ public class ProductUpdateReleaseSyncTest {
     Path cwd = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
     Path current = cwd;
     while (current != null) {
-      if (new File(current.toFile(), "docs/how/updating-datahub.md").isFile()
+      if (new File(current.toFile(), "docs/how/breaking-changes.md").isFile()
           && new File(current.toFile(), "metadata-service/configuration").isDirectory()) {
         return current;
       }

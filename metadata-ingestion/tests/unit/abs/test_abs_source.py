@@ -1,3 +1,6 @@
+import io
+import zipfile
+from datetime import datetime
 from typing import Any, List, Tuple
 from unittest.mock import Mock, patch
 
@@ -8,8 +11,11 @@ from azure.storage.filedatalake import DataLakeServiceClient
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.abs.config import DataLakeSourceConfig
+from datahub.ingestion.source.abs.source import ABSSource, TableData
 from datahub.ingestion.source.azure.abs_folder_utils import get_abs_tags
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 
 # AccountName matches the account_name used throughout so the connection-string
 # vs account_name divergence validator accepts these fixtures.
@@ -424,6 +430,68 @@ def test_connection_string_account_check_handles_base64_key_padding():
             container_name="c",
             connection_string=f"AccountName=devstoreaccount1;AccountKey={key};",
         )
+
+
+_ABS_INCLUDE = "https://testaccount.blob.core.windows.net/testcontainer/*.*"
+
+
+def _make_abs_source() -> ABSSource:
+    config = DataLakeSourceConfig(
+        platform="abs",
+        azure_config=AzureConnectionConfig(
+            account_name="testaccount",
+            container_name="testcontainer",
+            account_key="dGVzdA==",
+        ),
+        path_specs=[PathSpec(include=_ABS_INCLUDE)],
+    )
+    ctx = PipelineContext(run_id="test-abs-zip")
+    ctx.graph = Mock()
+    return ABSSource(config, ctx)
+
+
+def _table_data(full_path: str, rel_path: str = "data/file.zip") -> TableData:
+    return TableData(
+        display_name="test_table",
+        is_abs=False,
+        full_path=full_path,
+        rel_path=rel_path,
+        partitions=None,
+        timestamp=datetime.now(),
+        table_path=full_path,
+        size_in_bytes=1024,
+        number_of_files=1,
+    )
+
+
+def _make_zip(entries: dict) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, data in entries.items():
+            zf.writestr(name, data)
+    return buf.getvalue()
+
+
+def test_abs_get_fields_csv_zip(tmp_path):
+    zip_path = tmp_path / "products.csv.zip"
+    zip_path.write_bytes(_make_zip({"products.csv": b"product,price\nwidget,9.99\n"}))
+
+    source = _make_abs_source()
+    # Returning None makes get_fields read the local file instead of Azure.
+    with patch(
+        "datahub.ingestion.source.azure.azure_common.AzureConnectionConfig.get_blob_service_client",
+        return_value=None,
+    ):
+        fields = source.get_fields(
+            _table_data(str(zip_path)),
+            PathSpec(
+                include="https://testaccount.blob.core.windows.net/testcontainer/*.csv.zip",
+                enable_compression=True,
+            ),
+        )
+
+    field_names = {f.fieldPath for f in fields}
+    assert {"product", "price"}.issubset(field_names)
 
 
 def _ingest_single_abs_table(

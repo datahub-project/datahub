@@ -9,8 +9,11 @@ import {
 } from '@app/lineageV3/common';
 import { BoundingBoxGroup, GraphStore } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.types';
 import layoutBoundingBoxInterior from '@app/lineageV3/useComputeGraph/boundingBoxes/layoutBoundingBoxInterior';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, LineageDirection } from '@types';
+
+const entityRegistry = getTestEntityRegistry();
 
 const DP = 'urn:li:dataProduct:DP';
 const A = 'urn:li:dataset:A';
@@ -57,7 +60,7 @@ function setUp(): { group: BoundingBoxGroup; graphStore: GraphStore } {
 describe('layoutBoundingBoxInterior', () => {
     it('lays out a query placed in the box between the members it connects', () => {
         const { group, graphStore } = setUp();
-        const box = layoutBoundingBoxInterior(group, graphStore, false);
+        const box = layoutBoundingBoxInterior(group, graphStore, entityRegistry, false);
 
         const positionOf = (urn: string) =>
             box?.memberNodes.find((member) => (member.data as LineageEntity).urn === urn)?.position;
@@ -69,7 +72,7 @@ describe('layoutBoundingBoxInterior', () => {
 
     it('excludes query nodes from the box member count', () => {
         const { group, graphStore } = setUp();
-        const box = layoutBoundingBoxInterior(group, graphStore, false);
+        const box = layoutBoundingBoxInterior(group, graphStore, entityRegistry, false);
 
         expect(box?.memberNodes).toHaveLength(3);
         expect(box?.memberCount).toBe(2);

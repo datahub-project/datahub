@@ -45,7 +45,7 @@ import * as path from 'path';
 import { test as base } from '@playwright/test';
 import { users, type UserCredentials } from '../data/users';
 import { LoginPage } from '../pages/login.page';
-import { gmsTokenPath } from './login';
+import { dropExpiringGmsToken, gmsTokenPath } from './login';
 import { DATAHUB_GRAPHQL_PATH } from '../utils/constants';
 import { withArtifactLock, writeJsonAtomic } from '../helpers/seeder-utils';
 import type { DataHubLogger } from '../utils/logger';
@@ -165,6 +165,7 @@ export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
       // bootstrapGmsToken — take the artifact lock so workers_per_shard > 1
       // cannot race a torn writeFileSync against that producer (or each other).
       const tokenFile = gmsTokenPath(user.username);
+      dropExpiringGmsToken(user.username);
       await withArtifactLock(tokenFile, async () => {
         const baseURL = process.env.BASE_URL ?? 'http://localhost:9002';
         const graphqlUrl = new URL(DATAHUB_GRAPHQL_PATH, baseURL).toString();
@@ -187,7 +188,7 @@ export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
                 input: {
                   type: 'PERSONAL',
                   actorUrn: actorCookie.value,
-                  duration: 'ONE_MONTH',
+                  duration: 'ONE_DAY',
                   name: `Playwright Test Token — ${user.username}`,
                 },
               },

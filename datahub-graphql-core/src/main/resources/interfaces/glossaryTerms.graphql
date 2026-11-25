@@ -1,0 +1,32 @@
+"""
+An entity that can have glossary terms
+"""
+interface HasGlossaryTerms {
+  """
+  Glossary terms associated with the entity
+  """
+  glossaryTerms: GlossaryTerms
+}
+
+extend type Api implements HasGlossaryTerms
+extend type Application implements HasGlossaryTerms
+extend type Chart implements HasGlossaryTerms
+extend type Container implements HasGlossaryTerms
+extend type Dashboard implements HasGlossaryTerms
+extend type DataFlow implements HasGlossaryTerms
+extend type DataJob implements HasGlossaryTerms
+extend type DataProduct implements HasGlossaryTerms
+extend type Dataset implements HasGlossaryTerms
+extend type Document implements HasGlossaryTerms
+extend type ERModelRelationship implements HasGlossaryTerms
+extend type MLFeature implements HasGlossaryTerms
+extend type MLFeatureTable implements HasGlossaryTerms
+extend type MLModel implements HasGlossaryTerms
+extend type MLModelGroup implements HasGlossaryTerms
+extend type MLPrimaryKey implements HasGlossaryTerms
+extend type Metric implements HasGlossaryTerms
+extend type Notebook implements HasGlossaryTerms
+extend type Repository implements HasGlossaryTerms
+extend type SchemaFieldEntity implements HasGlossaryTerms
+extend type SemanticModel implements HasGlossaryTerms
+extend type VersionedDataset implements HasGlossaryTerms

@@ -66,6 +66,14 @@ vi.mock('virtual:__federation__', () => ({
     __federation_method_unwrapDefault: unwrapModuleMock,
 }));
 
+// Capture tracked events; EventType resolves each member to its own name so events can be matched by string.
+const { trackEventMock } = vi.hoisted(() => ({ trackEventMock: vi.fn() }));
+vi.mock('@app/analytics', () => ({
+    __esModule: true,
+    default: { event: trackEventMock },
+    EventType: new Proxy({}, { get: (_target, key) => String(key) }),
+}));
+
 describe('MFEBaseConfigurablePage', () => {
     // Restore real timers even when a fake-timer test fails, so they can't leak into later tests.
     afterEach(() => {
@@ -211,6 +219,83 @@ describe('MFEBaseConfigurablePage', () => {
 
         vi.useRealTimers();
     }, 10000);
+
+    it('tracks a page view and a successful load', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        const mountFn = vi.fn(() => vi.fn());
+        getRemoteMock.mockResolvedValue({ mount: mountFn });
+        unwrapModuleMock.mockResolvedValue({ mount: mountFn });
+
+        await act(async () => {
+            renderPage(yaml, 5000);
+        });
+
+        expect(trackEventMock).toHaveBeenCalledWith({
+            type: 'MfePageViewEvent',
+            mfeId: yaml.id,
+            mfeLabel: yaml.label,
+            mfePath: yaml.path,
+        });
+        expect(trackEventMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: 'MfeLoadEvent',
+                mfeId: yaml.id,
+                outcome: 'success',
+                loadTimeoutMs: 5000,
+                durationMs: expect.any(Number),
+            }),
+        );
+        expect(trackEventMock.mock.calls.filter(([event]) => event.type === 'MfeLoadEvent')).toHaveLength(1);
+    });
+
+    it('tracks a timed-out load', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        getRemoteMock.mockImplementation(() => new Promise(() => {}));
+
+        vi.useFakeTimers();
+        renderPage(yaml, 1000);
+        await act(async () => {
+            vi.advanceTimersByTime(1000);
+        });
+
+        await vi.waitFor(() => {
+            expect(trackEventMock).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'MfeLoadEvent', mfeId: yaml.id, outcome: 'timeout' }),
+            );
+        });
+        vi.useRealTimers();
+    });
+
+    it('tracks a failed remote load', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        getRemoteMock.mockRejectedValue(new Error('remoteEntry.js returned 503'));
+
+        await act(async () => {
+            renderPage(yaml);
+        });
+
+        await vi.waitFor(() => {
+            expect(trackEventMock).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'MfeLoadEvent', mfeId: yaml.id, outcome: 'load_error' }),
+            );
+        });
+    });
+
+    it('tracks a load whose remote exposes no mount function', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        getRemoteMock.mockResolvedValue({});
+        unwrapModuleMock.mockResolvedValue({ notMount: 42 });
+
+        await act(async () => {
+            renderPage(yaml);
+        });
+
+        await vi.waitFor(() => {
+            expect(trackEventMock).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'MfeLoadEvent', mfeId: yaml.id, outcome: 'invalid_mount' }),
+            );
+        });
+    });
 
     it('shows error UI when enabled flag is false', async () => {
         const yaml = {

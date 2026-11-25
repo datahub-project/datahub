@@ -12,8 +12,8 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioCatalog,
     DremioQuery,
 )
+from datahub.ingestion.source.dremio.dremio_naming import DREMIO_DATABASE_NAME
 from datahub.ingestion.source.dremio.dremio_source import (
-    DREMIO_DATABASE_NAME,
     DremioSource,
     passes_dremio_filters,
 )

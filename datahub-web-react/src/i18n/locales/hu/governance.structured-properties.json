@@ -18,8 +18,11 @@
     "allowedValues.addTooltip": "Új érték hozzáadása az engedélyezett listához",
     "allowedValues.anyValueAllowed": "Bármely <type>{{valueType}}</type> típusú érték engedélyezett lesz",
     "allowedValues.descriptionPlaceholder": "Adjon meg egy leírást",
+    "allowedValues.descriptionTooltip": "Leírás hozzáadása",
+    "allowedValues.dragTooltip": "Húzza az átrendezéshez",
     "allowedValues.editExistingTooltip": "A meglévő engedélyezett értékek szerkesztése nem megengedett",
     "allowedValues.fieldTooltip": "Adja meg az érvényes értékek halmazát ehhez a tulajdonsághoz. Ha nincs megadva egy sem, bármely érték engedélyezett lesz",
+    "allowedValues.hideDescriptionTooltip": "Leírás elrejtése",
     "allowedValues.removeTooltip": "Eltávolítás az engedélyezett értékek listájáról",
     "allowedValues.title": "Engedélyezett értékek",
     "allowedValues.updateButton": "Engedélyezett értékek frissítése",
@@ -33,6 +36,7 @@
     "appliesTo.title": "Erre vonatkozik",
     "appliesTo.titleCapitalized": "Erre vonatkozik",
     "appliesTo.tooltip": "Válassza ki azokat az entitástípusokat, amelyekhez ez a tulajdonság hozzáadható",
+    "badgeReplaceError": "A strukturált tulajdonság mentve, de az eszközjelvényt nem sikerült frissíteni.",
     "create.nameError": "Adja meg a nevet",
     "create.namePlaceholder": "Adjon meg egy nevet",
     "create.propertyType": "Tulajdonságtípus",
@@ -64,6 +68,7 @@
     "page.subtitle": "Egyéni tulajdonságok létrehozása és kezelése az adateszközeihez",
     "page.title": "Strukturált tulajdonságok",
     "permissionTooltip": "Jogosultsággal kell rendelkeznie a strukturált tulajdonságok kezeléséhez. Forduljon a DataHub adminisztrátorához.",
+    "table.allowedPlatformsColumn": "Platformok",
     "table.confirmDeleteText": "Biztosan törölni szeretné? A törlés eltávolítja ezt a strukturált tulajdonságot minden eszközről, amelyen jelenleg szerepel.",
     "table.confirmDeleteTitle": "Törlés megerősítése",
     "table.copyUrn": "URN másolása",
@@ -75,6 +80,7 @@
     "table.entityTypesColumn": "Entitástípusok",
     "table.noPropertiesYet": "Még nincsenek tulajdonságok!",
     "table.noSearchResults": "Nincsenek keresési találatok!",
+    "table.typeColumn": "Típus",
     "updateError": "A strukturált tulajdonság frissítése nem sikerült.",
     "updateSuccess": "Strukturált tulajdonság frissítve!",
     "valueType.dateDescription": "Egy adott dátum",
@@ -94,5 +100,6 @@
     "valueType.textDescription": "Egy karakterlánc érték",
     "valueType.textLabel": "Szöveg",
     "valueType.textListDescription": "Karakterlánc értékek listája",
-    "valueType.textListLabel": "Szöveg – Lista"
+    "valueType.textListLabel": "Szöveg – Lista",
+    "viewTitle": "Strukturált tulajdonság megtekintése"
 }

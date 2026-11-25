@@ -211,7 +211,10 @@ public class DataProcessInstanceTypeTest {
     List<DataFetcherResult<DataProcessInstance>> result =
         type.batchLoad(ImmutableList.of(TEST_INSTANCE_URN), getMockAllowContext());
 
-    assertEquals(result.size(), 0);
+    // Result list size matches input (null returned for each requested URN when feature flag
+    // disabled)
+    assertEquals(result.size(), 1);
+    assertNull(result.get(0)); // Null result when feature flag is disabled
 
     Mockito.verify(mockClient, Mockito.never())
         .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());

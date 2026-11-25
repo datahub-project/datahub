@@ -69,3 +69,31 @@ class TestGenerateFullyQualifiedNameExistingPlatforms:
         conn = _conn("snowflake", "my_db", "my_schema")
         result = _generate_fully_qualified_name("my_table", conn, reporter, "view_name")
         assert result == "my_db.my_schema.my_table"
+
+
+class TestGenerateFullyQualifiedNameThreePartPlatforms:
+    def test_three_part_name_is_lowercased_and_kept(
+        self, reporter: LookMLSourceReport
+    ) -> None:
+        conn = _conn("snowflake", "my_db", "my_schema")
+        result = _generate_fully_qualified_name(
+            "Other_DB.Other_Schema.My_Table", conn, reporter, "view_name"
+        )
+        assert result == "other_db.other_schema.my_table"
+
+    def test_two_part_name_gets_default_db(self, reporter: LookMLSourceReport) -> None:
+        conn = _conn("snowflake", "my_db", "my_schema")
+        result = _generate_fully_qualified_name(
+            "other_schema.my_table", conn, reporter, "view_name"
+        )
+        assert result == "my_db.other_schema.my_table"
+
+    def test_more_than_three_parts_is_reported(
+        self, reporter: LookMLSourceReport
+    ) -> None:
+        conn = _conn("snowflake", "my_db", "my_schema")
+        result = _generate_fully_qualified_name(
+            "a.b.c.my_table", conn, reporter, "view_name"
+        )
+        assert result == "a.b.c.my_table"
+        assert any(w.title == "Malformed Table Name" for w in reporter.warnings)

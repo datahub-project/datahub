@@ -1,5 +1,5 @@
+import { toast } from '@components';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
-import { message } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -30,7 +30,7 @@ export default function SampleValueDetailed({ sample }: SampleValueDetailedProps
 
     const copySample = () => {
         navigator.clipboard.writeText(sample);
-        message.success(tc('copiedSuccess'));
+        toast.success(tc('copiedSuccess'));
     };
 
     return (

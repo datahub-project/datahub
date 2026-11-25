@@ -14,6 +14,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
 import { BASE_FEATURE_FLAGS, CHART_URN, MART_URN, MODEL_DBT_URN } from './constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'lineage-controls' });
 
@@ -31,19 +32,23 @@ test.describe('lineage sidebar', () => {
     await lineagePage.waitForViewportToSettle();
   });
 
-  test('opens for a dataset, a dbt model and a chart, one at a time', async () => {
-    await expect(lineagePage.lineageSidebar).toHaveCount(0);
+  test(
+    'opens for a dataset, a dbt model and a chart, one at a time',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async () => {
+      await expect(lineagePage.lineageSidebar).toHaveCount(0);
 
-    await lineagePage.clickNode(MART_URN);
-    await lineagePage.checkSidebarShows('mart');
+      await lineagePage.clickNode(MART_URN);
+      await lineagePage.checkSidebarShows('mart');
 
-    await lineagePage.clickNode(MODEL_DBT_URN);
-    await lineagePage.checkSidebarShows('model');
+      await lineagePage.clickNode(MODEL_DBT_URN);
+      await lineagePage.checkSidebarShows('model');
 
-    await lineagePage.clickNode(CHART_URN);
-    await lineagePage.checkSidebarShows('Lineage Controls Chart');
+      await lineagePage.clickNode(CHART_URN);
+      await lineagePage.checkSidebarShows('Lineage Controls Chart');
 
-    // One node is selected at a time, so one sidebar is open at a time
-    await expect(lineagePage.lineageSidebar).toHaveCount(1);
-  });
+      // One node is selected at a time, so one sidebar is open at a time
+      await expect(lineagePage.lineageSidebar).toHaveCount(1);
+    },
+  );
 });

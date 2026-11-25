@@ -1,9 +1,9 @@
-import { Input } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
 import { CirclePicker, ColorResult } from 'react-color';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
+import { Input } from '@components/components/Input';
 import { formLabelTextStyles } from '@components/components/commonStyles';
 import { spacing } from '@components/theme';
 

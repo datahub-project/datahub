@@ -10,11 +10,11 @@ import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DashboardPreview } from '@app/entityV2/dashboard/preview/DashboardPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -41,7 +41,7 @@ import {
     SummaryTab,
 } from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
-import { EntityTab } from '@app/entityV2/shared/types';
+import { EntityTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
     getDashboardLastUpdatedMs,
@@ -53,7 +53,7 @@ import { LOOKER_URN, MODE_URN } from '@app/ingest/source/builder/constants';
 import { matchedInputFieldRenderer } from '@app/search/matches/matchedInputFieldRenderer';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { MatchContext } from '@app/searchV2/matches/utils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { GetDashboardQuery, useGetDashboardQuery, useUpdateDashboardMutation } from '@graphql/dashboard.generated';
@@ -91,6 +91,7 @@ const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
  */
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -151,11 +152,13 @@ export class DashboardEntity implements Entity<Dashboard> {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: showSummaryTab ? SummaryTab : DashboardSummaryTab,
                 icon: SUMMARY_TAB_ICON,
             },
             {
                 name: i18next.t('entity.types:tab.contents'),
+                path: EntityTabPath.CONTENTS,
                 component: DashboardChartsTab,
                 icon: SquaresFour,
                 display: {
@@ -167,6 +170,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
             {
                 name: i18next.t('entity.types:dataset.namePlural'),
+                path: EntityTabPath.DATASETS,
                 component: DashboardDatasetsTab,
                 icon: Table,
                 display: {
@@ -178,6 +182,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: File,
                       },
@@ -185,6 +190,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 : []),
             {
                 name: i18next.t('entity.types:shared.accessTab'),
+                path: EntityTabPath.ACCESS,
                 component: AccessManagement,
                 icon: LockOpen,
                 display: {
@@ -194,6 +200,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
             {
                 name: i18next.t('common.actions:preview'),
+                path: EntityTabPath.PREVIEW,
                 component: EmbedTab,
                 icon: Eye,
                 display: {
@@ -207,6 +214,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
                 component: LineageTab,
                 icon: TreeStructure,
                 properties: {
@@ -216,11 +224,13 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },
             {
                 name: i18next.t('entity.types:tab.incidents'),
+                path: EntityTabPath.INCIDENTS,
                 icon: Warning,
                 component: IncidentTab,
                 getCount: (_, dashboard) => {
@@ -274,6 +284,7 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.LINEAGE,
             name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
             description: i18next.t('entity.types:sidebar.lineageDescription'),
@@ -284,6 +295,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
         },
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
@@ -312,7 +324,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}
@@ -344,7 +355,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 name={data.properties?.name}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}

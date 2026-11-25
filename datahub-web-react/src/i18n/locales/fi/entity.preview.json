@@ -42,7 +42,7 @@
     "lineage.upstreamCount_other": "{{count}} ylävirtaa",
     "notesCount_one": "{{count}} muistiinpano",
     "notesCount_other": "{{count}} muistiinpanoa",
-    "outputPortTooltip": "Tämä kohde on tämän datatuotteen tulostusportti",
+    "outputPortTooltip": "Tämä kohde on tämän datatuotteen lähtöportti",
     "pill.downstreamColumnCount_one": "{{count}} alavirran sarake",
     "pill.downstreamColumnCount_other": "{{count}} alavirran saraketta",
     "pill.matchCount_one": "{{count}} osuma",

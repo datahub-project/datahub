@@ -171,6 +171,31 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 
 ### Authorization Architecture
 
+A metadata policy has three parts, and policies are OR'd. One matching policy grants the
+operation. See [Policies](docs/authorization/policies.md).
+
+- **Resource filter** (`resources.filter`): which assets. A tag or domain criterion selects assets
+  that have that tag or domain. It is not a list of sub-resources the actor may edit.
+- **Privilege**: the operation. An entity update is **Edit Entity**, or **Manage Documents** on
+  documents. **Edit Entity Properties** covers every structured property. **Edit Entity Tags**
+  covers tags. A column is authorized on the parent dataset or on the schema field itself with
+  **Edit Entity** or **Edit Dataset Column Properties**. Create uses **Create Entity** when the
+  asset does not exist yet. Delete uses **Delete Entity**.
+- **Sub-resource list** (`privilegeConstraints`): which tags or structured properties that policy
+  may change when the action names them. No list means the privilege applies in full. An action
+  that names no sub-resource is not filtered by the list. A list of tag URNs allows only those
+  tags. A list of property URNs allows only those properties. `TYPE` equals `structuredProperty`
+  matches every structured property. A second policy with no list still grants in full.
+
+The validator sees the real diff and is the precise check. The ingest gate and GraphQL resolvers
+are coarse: they accept the same privilege set and must not deny a write the validator would
+allow. For aspects that carry tags or structured properties they pass a wildcard sub-resource so a
+list is decided by the validator, and both pick create, update or delete with
+`AuthUtil.subResourceWriteOperation`. A form prompt checks that the answer matches the prompt. An
+assigned user can answer without the property privilege: the value is written as the system actor
+and the audit stamp stays the caller. A user who is not assigned is authorized as the caller.
+Authorization failures are authorization results (403), not validation errors.
+
 When adding an entity or API:
 
 - Enforce authorization across GraphQL, OpenAPI, and Rest.li
@@ -413,7 +438,7 @@ This is a mandatory security guardrail - never disable or skip this test.
 ### Commits
 
 - Follow Conventional Commits format for commit messages
-- Breaking Changes: Always update `docs/how/updating-datahub.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
+- Breaking Changes: Always update `docs/how/breaking-changes.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
 - **Never bypass git hook failures with `--no-verify`** (or any equivalent skip flag) on commit or push. A failing hook is a signal that something needs attention — stop, report the failure to the user, and confirm how to proceed. Only use `--no-verify` if the user explicitly tells you to for that specific action.
 
 ### Pull Requests
@@ -436,7 +461,7 @@ Example: `feat(parser): add ability to parse arrays`
 - [ ] Links to related issues (if applicable)
 - [ ] Tests added/updated (if applicable)
 - [ ] Docs added/updated (if applicable)
-- [ ] Breaking changes documented in `docs/how/updating-datahub.md`
+- [ ] Breaking changes documented in `docs/how/breaking-changes.md`
 
 ### Confidentiality in Committed Code
 
@@ -472,6 +497,34 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 `setup`, `frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`,
 `sync-flags`, `reset`, `nuke`, `instances list/clean`, `shell-env`).
 
+### Docker-free stack
+
+Run `scripts/dev/datahub-dev.sh start --local` with JDK 25 to launch GMS on H2,
+in-memory queues and a shared OpenSearch node. Select `--opensearch 2|3`; new stacks
+use `EMBEDDED_OPENSEARCH_VERSION` or `embeddedOpenSearchDefault` in root `gradle.properties`
+(currently 3). Restarts retain the recorded major; changing it requires `--fresh`.
+Unmarked legacy stacks retain 3. Each major uses `~/.datahub/local/opensearch-<major>/`;
+never use the unversioned `~/.datahub/local/opensearch/` directory. Status shows the
+major, and cleanup follows it. Use `--processes N` for isolated
+GMS instances, `--fresh` to reset this stack's data, `--auth` / `--no-auth` to enable
+or disable auth (omitting both keeps the recorded setting), and `--skip-build`
+to require existing artifacts (built jars are reused automatically).
+Vite serves the React UI with hot reload on `9002 + slot * 1000`, using lite mode
+without a Play server. Log in with `datahub` / `datahub`. `--no-frontend` skips Vite;
+restarts retain this choice. Status includes Vite, and stop/nuke stop its recorded process
+only after checking its command line. Data lives in `~/.datahub/local/stacks/<worktree-id>/`.
+
+`status`, `wait`, `stop`, `reset`, `rebuild`, `env set/list/restart`, `instances list/clean`, `nuke`
+and `shell-env` recognize local stacks. Local `nuke` removes this stack's data,
+indices, profiles and registry entry without restarting; `nuke --keep-data` only
+stops it and clears stale H2 locks. The shared search node survives both commands.
+Unmarked local registry entries are read-only and keep their slots reserved.
+
+Start refreshes CLI profiles `local-<worktree-id>` and `local-<worktree-id>-gms-N`
+without changing the machine default. Select the default instance for this shell
+with `eval "$(scripts/dev/datahub-dev.sh shell-env)"`. Stop retains the profiles.
+See [scripts/dev/README.md](scripts/dev/README.md) for details and offline tests.
+
 ### End-to-End Workflow
 
 0. **Setup** (once): `scripts/dev/datahub-dev.sh setup` — installs Python dev environment (provides `datahub` CLI). For frontend work, also run `scripts/dev/datahub-dev.sh setup frontend`.
@@ -485,15 +538,17 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 
 ### Module-to-Container Mapping
 
-| Source directory                  | Container                                     |
-| --------------------------------- | --------------------------------------------- |
-| `metadata-service/`               | `datahub-gms`                                 |
-| `datahub-graphql-core/`           | `datahub-gms`                                 |
-| `metadata-io/`                    | `datahub-gms`                                 |
-| `datahub-frontend/`               | `datahub-frontend-react`                      |
-| `metadata-jobs/mce-consumer-job/` | `datahub-mce-consumer`                        |
-| `metadata-jobs/mae-consumer-job/` | `datahub-mae-consumer`                        |
-| `metadata-models/`                | All (triggers full rebuild + code generation) |
+| Source directory                   | Container                                     |
+| ---------------------------------- | --------------------------------------------- |
+| `metadata-service/`                | `datahub-gms`                                 |
+| `datahub-graphql-core/`            | `datahub-gms`                                 |
+| `metadata-io/`                     | `datahub-gms`                                 |
+| `datahub-frontend/`                | `datahub-frontend-react`                      |
+| `packages/datahub-ai-service/`     | `datahub-ai-service`                          |
+| `packages/datahub-core-mcp-tools/` | `datahub-ai-service`                          |
+| `metadata-jobs/mce-consumer-job/`  | `datahub-mce-consumer`                        |
+| `metadata-jobs/mae-consumer-job/`  | `datahub-mae-consumer`                        |
+| `metadata-models/`                 | All (triggers full rebuild + code generation) |
 
 ### Environment Variables
 
@@ -658,16 +713,24 @@ export DATAHUB_GMS_TOKEN=<your-token>         # omit if auth is not required
 
 ### Init (setup authentication)
 
-`datahub init` writes `~/.datahubenv` with the GMS URL and an access token. Run it once before
-using any other CLI commands that require authentication.
+`datahub init --profile local` writes the local connection to
+`~/.datahub/profiles/local/.datahubenv`. Pass `--profile local` on subsequent commands.
 
 ```bash
 # Quickstart: local instance with default credentials
-datahub init --username datahub --password datahub
+datahub init --profile local --username datahub --password datahub
 
 # Full agent best-practices guide (defaults, env vars, all scenarios)
 datahub init --agent-context
 ```
+
+### DataHub CLI connection profiles
+
+- Never run `datahub init` without `--profile <name>`. Name the profile after the instance (`acme`, `acme-staging`).
+- Never run `datahub profile use`; it changes the default for the user's other shells.
+- Pass `--profile <name>` on every command, unless the session already sets `DATAHUB_PROFILE`.
+- Before any write (`put`, `delete`, `ingest`, upserts), run `datahub profile current --format json` and confirm the server is the one the user asked for.
+- If a token has expired, re-run `datahub init --profile <same name>` with the same host. Do not create a new profile.
 
 ### GraphQL
 

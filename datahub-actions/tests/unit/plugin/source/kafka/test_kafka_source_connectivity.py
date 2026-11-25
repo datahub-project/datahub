@@ -8,6 +8,7 @@ from confluent_kafka import KafkaError, KafkaException
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 from datahub_actions.plugin.source.kafka import kafka_event_source
 from datahub_actions.plugin.source.kafka.kafka_event_source import (
+    DEFAULT_TOPIC_ROUTES,
     KafkaEventSource,
     KafkaEventSourceConfig,
 )
@@ -69,6 +70,9 @@ def test_connected_source_logs_readiness_and_subscribes(
         assert list(source.events()) == []
 
     _consumer(source).subscribe.assert_called_once()
+    assert [
+        call.args[0] for call in _consumer(source).list_topics.call_args_list
+    ] == list(DEFAULT_TOPIC_ROUTES.values())
     assert any(
         "connected to Kafka" in r.message and "test-connect" in r.message
         for r in caplog.records
@@ -80,11 +84,15 @@ def test_transient_failures_inside_the_window_are_retried(
     clock: Callable[[], float], caplog: pytest.LogCaptureFixture
 ) -> None:
     source, _ = _make_source()
-    _consumer(source).list_topics.side_effect = [
-        _transport_failure(),
-        _transport_failure(),
-        MagicMock(),
-    ]
+    failures = {"remaining": 2}
+
+    def list_topics(*_args: Any, **_kwargs: Any) -> Any:
+        if failures["remaining"]:
+            failures["remaining"] -= 1
+            raise _transport_failure()
+        return MagicMock()
+
+    _consumer(source).list_topics.side_effect = list_topics
     _stop_on_first_poll_after_subscribe(source)
 
     assert list(source.events()) == []
@@ -119,13 +127,81 @@ def test_close_during_startup_stops_waiting_without_failing(
 ) -> None:
     source, _ = _make_source()
 
-    def list_topics(timeout: float) -> Any:
-        source.running = False  # what close() does on shutdown
+    def list_topics(*_args: Any, **_kwargs: Any) -> Any:
+        source.close()
         raise _transport_failure()
 
     _consumer(source).list_topics.side_effect = list_topics
 
     assert list(source.events()) == []
+    _consumer(source).subscribe.assert_not_called()
+
+
+def test_stop_during_startup_does_not_restart_the_consumer() -> None:
+    source, _ = _make_source()
+    source.request_stop()
+
+    assert list(source.events()) == []
+
+    _consumer(source).list_topics.assert_not_called()
+    _consumer(source).subscribe.assert_not_called()
+    assert source.running is False
+
+
+def test_closed_source_does_not_restart_the_consumer() -> None:
+    source, _ = _make_source()
+    source.close()
+
+    assert list(source.events()) == []
+
+    _consumer(source).list_topics.assert_not_called()
+    _consumer(source).subscribe.assert_not_called()
+    assert source.running is False
+
+
+def test_startup_probes_each_configured_topic() -> None:
+    source, _ = _make_source()
+    _stop_on_first_poll_after_subscribe(source)
+
+    assert list(source.events()) == []
+
+    probed = [call.args[0] for call in _consumer(source).list_topics.call_args_list]
+    assert probed == list(DEFAULT_TOPIC_ROUTES.values())
+
+
+def test_unknown_topic_still_counts_as_connected() -> None:
+    source, _ = _make_source()
+
+    def list_topics(topic: str, timeout: float = 0) -> Any:
+        topic_meta = MagicMock()
+        topic_meta.error = KafkaError(KafkaError.UNKNOWN_TOPIC_OR_PART, "missing")
+        metadata = MagicMock()
+        metadata.topics = {topic: topic_meta}
+        return metadata
+
+    _consumer(source).list_topics.side_effect = list_topics
+    _stop_on_first_poll_after_subscribe(source)
+
+    assert list(source.events()) == []
+    _consumer(source).subscribe.assert_called_once()
+
+
+def test_topic_authorization_error_is_not_treated_as_connected(
+    clock: Callable[[], float],
+) -> None:
+    source, _ = _make_source()
+
+    def list_topics(topic: str, timeout: float = 0) -> Any:
+        topic_meta = MagicMock()
+        topic_meta.error = KafkaError(KafkaError.TOPIC_AUTHORIZATION_FAILED, "denied")
+        metadata = MagicMock()
+        metadata.topics = {topic: topic_meta}
+        return metadata
+
+    _consumer(source).list_topics.side_effect = list_topics
+
+    with pytest.raises(KafkaException):
+        list(source.events())
     _consumer(source).subscribe.assert_not_called()
 
 

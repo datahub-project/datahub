@@ -15,7 +15,11 @@ from datahub.metadata.schema_classes import (
 
 def test_parses_string_type():
     elements = {
-        "MONTH": {"type": "cds.String", "@EndUserText.label": "Month", "length": 2}
+        "MONTH": {
+            "type": "cds.String",
+            "@EndUserText.label": "Calendar Month",
+            "length": 2,
+        }
     }
     result = parse_csn_elements_to_schema_fields(elements)
     fields = result.fields
@@ -24,8 +28,19 @@ def test_parses_string_type():
     f = fields[0]
     assert f.fieldPath == "MONTH"
     assert isinstance(f.type.type, StringTypeClass)
-    assert "Month" in (f.description or "")
+    # The single source label becomes the visible description and is also kept in the
+    # label slot, which backs the fieldLabels search index.
+    assert f.description == "Calendar Month"
+    assert f.label == "Calendar Month"
     assert "2" in f.nativeDataType
+
+
+def test_label_that_only_repeats_name_is_not_a_description():
+    elements = {"MONTH": {"type": "cds.String", "@EndUserText.label": " month "}}
+    f = parse_csn_elements_to_schema_fields(elements).fields[0]
+    # "month" only repeats MONTH (whitespace/case-insensitive), so no description.
+    assert f.description is None
+    assert f.label is None
 
 
 def test_parses_hana_tinyint_as_number():

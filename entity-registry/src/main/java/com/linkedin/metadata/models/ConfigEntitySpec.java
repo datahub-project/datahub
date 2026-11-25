@@ -23,6 +23,7 @@ public class ConfigEntitySpec implements EntitySpec {
   private final Map<String, AspectSpec> _aspectSpecs;
 
   private List<SearchableFieldSpec> _searchableFieldSpecs;
+  private volatile List<RelationshipFieldSpec> _relationshipFieldSpecs;
   private Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypeMap;
   private Map<PathSpec, String> searchableFieldPathMap;
   private Map<String, List<PathSpec>> fieldPathToSearchableFieldMap;
@@ -105,6 +106,15 @@ public class ConfigEntitySpec implements EntitySpec {
     }
 
     return _searchableFieldSpecs;
+  }
+
+  @Override
+  public List<RelationshipFieldSpec> getRelationshipFieldSpecs() {
+    if (_relationshipFieldSpecs == null) {
+      _relationshipFieldSpecs = List.copyOf(EntitySpec.super.getRelationshipFieldSpecs());
+    }
+
+    return _relationshipFieldSpecs;
   }
 
   @Override

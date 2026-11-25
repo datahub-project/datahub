@@ -1,6 +1,6 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
-import { EntityPrivileges, EntityType, PlatformPrivileges } from '@types';
+import { EntityPrivileges, EntityType, LifecycleStageType, PlatformPrivileges } from '@types';
 
 export function canShowEditDeprecation(privileges?: EntityPrivileges | null): boolean {
     return privileges?.canEditDeprecation !== false;
@@ -28,6 +28,24 @@ export function getDeprecationMenuActions(
     return actions;
 }
 
+const NO_STAGE_SENTINEL = 'urn:li:lifecycleStageType:__NONE__';
+
+type SelectableStage = Pick<LifecycleStageType, 'urn' | 'name' | 'userAssignable' | 'allowedPreviousStages'>;
+
+/**
+ * Stages the user may move to from the current one, mirroring the server's entry rules:
+ * a null list accepts any stage, otherwise the current stage (or __NONE__) must be listed.
+ */
+export function getSelectableStages<T extends SelectableStage>(stages: T[], currentStageUrn?: string | null): T[] {
+    const currentKey = currentStageUrn ?? NO_STAGE_SENTINEL;
+    return stages.filter(
+        (stage) =>
+            stage.userAssignable &&
+            stage.urn !== currentStageUrn &&
+            (stage.allowedPreviousStages == null || stage.allowedPreviousStages.includes(currentKey)),
+    );
+}
+
 export function isDeleteDisabled(
     entityType: EntityType,
     entityData: GenericEntityProperties | null,
@@ -40,7 +58,9 @@ export function isDeleteDisabled(
         return !canDeleteGlossaryEntity;
     }
     if (entityType === EntityType.DataProduct) {
-        return false; // TODO: update with permissions
+        const entityHasChildren = !!entityData?.children?.total;
+        const canDeleteDataProduct = !entityHasChildren && !!entityData?.privileges?.canDeleteEntity;
+        return !canDeleteDataProduct;
     }
     if (entityType === EntityType.Domain) {
         const entityHasChildren = !!entityData?.children?.total;
@@ -64,6 +84,9 @@ export function isMoveDisabled(
         const canManageDomains = !!platformPrivileges?.manageDomains;
         return !canManageDomains;
     }
+    if (entityType === EntityType.DataProduct) {
+        return !entityData?.privileges?.canManageEntity;
+    }
     return false;
 }
 
@@ -84,5 +107,40 @@ export function shouldDisplayChildDeletionWarning(
         const hasTooltip = entityHasChildren && canManageDomains;
         return hasTooltip;
     }
+    if (entityType === EntityType.DataProduct) {
+        const entityHasChildren = !!entityData?.children?.total;
+        return entityHasChildren && !!entityData?.privileges?.canDeleteEntity;
+    }
     return false;
+}
+
+/** Translation key (entity.shared.entityDropdown) for the tooltip on a delete blocked by children. */
+export function getChildDeletionWarningKey(entityType: EntityType) {
+    if (entityType === EntityType.Domain) return 'delete.cantDeleteSubDomain';
+    if (entityType === EntityType.DataProduct) return 'delete.cantDeleteWithChildDataProducts';
+    return 'delete.cantDeleteChild';
+}
+
+const TRAILING_NUMBER = /^(.*?)(\d+)$/;
+
+/**
+ * Whether the user may create a new version of this glossary term: versioning is on, they hold the
+ * same right createGlossaryTermVersion checks (canManageEntity is computed from the parent node for
+ * glossary terms), and this is the latest version or the term is not versioned yet.
+ */
+export function canCreateTermVersion(versioningEnabled: boolean, entityData?: GenericEntityProperties | null): boolean {
+    if (!versioningEnabled || !entityData?.privileges?.canManageEntity) return false;
+    return !entityData.versionProperties || !!entityData.versionProperties.isLatest;
+}
+
+/** Deleting a glossary term version removes only that version; the rest of its version set stays. */
+export function isGlossaryTermVersion(entityType: EntityType, entityData?: GenericEntityProperties | null): boolean {
+    return entityType === EntityType.GlossaryTerm && !!entityData?.versionProperties;
+}
+
+/** Increments the label's trailing number (v9 → v10, 2024-Q1 → 2024-Q2); an unversioned term suggests v2. */
+export function suggestNextVersionLabel(currentLabel?: string | null): string {
+    if (!currentLabel) return 'v2';
+    const match = TRAILING_NUMBER.exec(currentLabel.trim());
+    return match ? `${match[1]}${Number(match[2]) + 1}` : '';
 }

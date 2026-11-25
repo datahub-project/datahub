@@ -11,7 +11,7 @@ import {
     TimeInterval,
     groupTimeData,
 } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
-import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
+import { getFixedLookbackWindow } from '@src/app/sharedV2/time/timeUtils';
 
 export const usePrepareMetricStats = (
     data: Datum[],

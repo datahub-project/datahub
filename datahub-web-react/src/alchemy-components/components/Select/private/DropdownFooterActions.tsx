@@ -1,8 +1,8 @@
-import { Button } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Button } from '@components/components/Button';
 import { SelectSizeOptions } from '@components/components/Select/types';
 
 import { spacing } from '@src/alchemy-components/theme';

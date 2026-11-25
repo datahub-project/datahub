@@ -8,7 +8,7 @@ import styled from 'styled-components';
 import { FULL_TABLE_PARTITION_KEYS } from '@app/entityV2/shared/tabs/Dataset/Stats/constants';
 import ColumnStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/ColumnStats';
 import TableStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/TableStats';
-import { formatBytes, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatBytes, formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 
 import { DatasetProfile } from '@types';
 

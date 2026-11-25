@@ -2,10 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -22,9 +23,13 @@ public class DeleteSecretResolver implements DataFetcher<CompletableFuture<Strin
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    if (IngestionAuthUtils.canManageSecrets(context)) {
+    if (AuthorizationUtils.canManageSecrets(context)) {
       final String inputUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(inputUrn);
+      if (!AuthorizationUtils.isEntityType(urn, Constants.SECRETS_ENTITY_NAME)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
       return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {

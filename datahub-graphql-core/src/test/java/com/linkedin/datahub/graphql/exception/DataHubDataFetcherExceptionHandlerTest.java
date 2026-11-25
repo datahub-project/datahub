@@ -3,12 +3,25 @@ package com.linkedin.datahub.graphql.exception;
 import static org.testng.Assert.*;
 
 import com.datahub.util.exception.DatabaseTransactionConflictException;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.entity.GraphReferenceLimitExceededException;
 import com.linkedin.metadata.graph.LineageTimeoutException;
+import com.linkedin.metadata.search.QueryEmbeddingException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
+import com.linkedin.metadata.service.async.delete.PartialHardDeleteException;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
 import graphql.language.SourceLocation;
+import io.datahubproject.metadata.exception.ActorAccessException;
 import java.sql.SQLException;
+import java.util.List;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -92,6 +105,21 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
+  public void testHandleActorAccessExceptionUnauthorized()
+      throws ExecutionException, InterruptedException {
+    ActorAccessException exception = new ActorAccessException("Actor is not authorized");
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "Actor is not authorized");
+    assertEquals(error.getErrorCode(), 403);
+  }
+
+  @Test
   public void testHandleDataHubGraphQLExceptionConflict()
       throws ExecutionException, InterruptedException {
     DataHubGraphQLException exception =
@@ -165,6 +193,38 @@ public class DataHubDataFetcherExceptionHandlerTest {
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
     assertEquals(error.getMessage(), "Nested state error");
     assertEquals(error.getErrorCode(), 500);
+  }
+
+  @Test
+  public void testHandleWrappedGraphReferenceLimitRefusalIsBadRequest()
+      throws ExecutionException, InterruptedException {
+    GraphReferenceLimitExceededException refusal =
+        new GraphReferenceLimitExceededException(UrnUtils.getUrn("urn:li:tag:t"), 101, 100);
+    RuntimeException wrapper =
+        new RuntimeException("Failed to perform delete against tag with urn urn:li:tag:t", refusal);
+    Mockito.when(mockParameters.getException()).thenReturn(wrapper);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), refusal.getMessage());
+    assertEquals(error.getErrorCode(), 400);
+  }
+
+  @Test
+  public void testHandleWrappedPartialHardDeleteIsConflict()
+      throws ExecutionException, InterruptedException {
+    PartialHardDeleteException partial =
+        new PartialHardDeleteException(UrnUtils.getUrn("urn:li:tag:t"));
+    RuntimeException wrapper =
+        new RuntimeException("Failed to perform delete against tag with urn urn:li:tag:t", partial);
+    Mockito.when(mockParameters.getException()).thenReturn(wrapper);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), partial.getMessage());
+    assertEquals(error.getErrorCode(), 409);
   }
 
   @Test
@@ -289,11 +349,9 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertNotNull(result);
     assertEquals(result.getErrors().size(), 1);
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
-    String message = error.getMessage();
-    assertTrue(message.contains("Top validation error"));
-    assertTrue(message.contains("Middle error"));
-    assertTrue(message.contains("Deep validation error"));
-    assertTrue(message.contains("Root cause"));
+    // The outermost ValidationException's own text only: the IllegalStateException in the middle
+    // is internal and VALIDATION messages are shown verbatim.
+    assertEquals(error.getMessage(), "Top validation error");
     assertEquals(error.getErrorCode(), 400);
   }
 
@@ -489,9 +547,9 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testExtractErrorMessageWithValidationExceptionAndCause()
+  public void testValidationExceptionMessageExcludesCause()
       throws ExecutionException, InterruptedException {
-    // Test that ValidationException also includes root cause
+    // VALIDATION-marked messages are shown verbatim, so the cause's text is left out.
     IllegalArgumentException rootCause = new IllegalArgumentException("Field 'email' is required");
     ValidationException exception = new ValidationException("Validation failed", rootCause);
     Mockito.when(mockParameters.getException()).thenReturn(exception);
@@ -501,9 +559,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertNotNull(result);
     assertEquals(result.getErrors().size(), 1);
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
-    assertTrue(error.getMessage().contains("Validation failed"));
-    assertTrue(error.getMessage().contains("Field 'email' is required"));
-    assertTrue(error.getMessage().contains("Root cause"));
+    assertEquals(error.getMessage(), "Validation failed");
     assertEquals(error.getErrorCode(), 400);
   }
 
@@ -590,5 +646,256 @@ public class DataHubDataFetcherExceptionHandlerTest {
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
     assertTrue(error.getMessage().contains("Slice 0 timed out"));
     assertEquals(error.getErrorCode(), 504);
+  }
+
+  @Test
+  public void testHandleQueryEmbeddingExceptionByReason()
+      throws ExecutionException, InterruptedException {
+    // As a resolver that wraps every failure reports a search template's vector rung that could
+    // not embed the query, e.g. aggregateAcrossEntities naming the semantic template
+    assertEquals(
+        errorFor(embeddingFailure(QueryEmbeddingException.TIMEOUT, null)).getErrorCode(), 504);
+    DataHubGraphQLError throttled =
+        errorFor(embeddingFailure(QueryEmbeddingException.REJECTED, null));
+    assertEquals(throttled.getErrorCode(), 503);
+    assertTrue(throttled.getMessage().contains(QueryEmbeddingException.REJECTED));
+    // A provider's own invalid argument is not the caller's
+    assertEquals(
+        errorFor(
+                embeddingFailure(
+                    QueryEmbeddingException.FAILED,
+                    new IllegalArgumentException("Illegal character in path")))
+            .getErrorCode(),
+        500);
+  }
+
+  @Test
+  public void testHandleSearchTemplateNoAnchorExceptionAsBadRequest()
+      throws ExecutionException, InterruptedException {
+    // A similarity search whose anchor the request cannot use, as a resolver that wraps every
+    // failure reports it
+    SearchTemplateNoAnchorException noAnchor =
+        new SearchTemplateNoAnchorException(
+            "Search template urn:li:searchTemplate:similarity finds similar entities, and the query"
+                + " is not an entity URN");
+    DataHubGraphQLError error =
+        errorFor(new RuntimeException("Failed to search documents", noAnchor));
+
+    assertEquals(error.getErrorCode(), 400);
+    assertTrue(error.getMessage().contains("the query is not an entity URN"));
+    // Ahead of the DataHubGraphQLException branch: a typed server error that carries the unusable
+    // anchor, as a failed keyword fallback does, is the caller's error too
+    assertEquals(
+        errorFor(
+                new DataHubGraphQLException(
+                    "Search failed", DataHubGraphQLErrorCode.SERVER_ERROR, noAnchor))
+            .getErrorCode(),
+        400);
+  }
+
+  private DataHubGraphQLError errorFor(Throwable exception)
+      throws ExecutionException, InterruptedException {
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+    return (DataHubGraphQLError) handler.handleException(mockParameters).get().getErrors().get(0);
+  }
+
+  private static RuntimeException embeddingFailure(String reason, Throwable cause) {
+    return new RuntimeException(
+        "Failed to execute aggregate across entities",
+        new SearchTemplateFailClosedException(
+            "Search template urn:li:searchTemplate:semantic failed to retrieve by vector",
+            new QueryEmbeddingException(reason, cause)));
+  }
+
+  private static BatchItem mockBatchItem() {
+    BatchItem item = Mockito.mock(BatchItem.class);
+    Mockito.when(item.getChangeType()).thenReturn(ChangeType.UPSERT);
+    Mockito.when(item.getUrn())
+        .thenReturn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,handler_test,PROD)"));
+    Mockito.when(item.getAspectName()).thenReturn("datasetProperties");
+    return item;
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionMarksValidationSource()
+      throws ExecutionException, InterruptedException {
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
+    collection.addException(mockBatchItem(), "At least one rule is required.");
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertTrue(error.getMessage().contains("At least one rule is required."));
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), "VALIDATION");
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionAuthorizationSubtypeIs403()
+      throws ExecutionException, InterruptedException {
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
+    collection.addException(
+        AspectValidationException.forAuth(mockBatchItem(), "Not authorized to modify this aspect"));
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    // Authorization-subtype validator failures are permission errors: 403, no VALIDATION marker.
+    assertEquals(error.getErrorCode(), 403);
+    assertTrue(error.getMessage().contains("Not authorized to modify this aspect"));
+    assertEquals(error.getExtensions().get("errorSource"), null);
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionWithoutMessageFallsBack()
+      throws ExecutionException, InterruptedException {
+    // Not every construction path supplies a message (e.g. ValidationApiUtils wraps an
+    // IllegalArgumentException whose getMessage() can be null). GraphQL's `message` is non-null,
+    // and a placeholder must not be marked as real validator text.
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException((String) null);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "An unknown error occurred.");
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), null);
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionWithBlankValidatorMessages()
+      throws ExecutionException, InterruptedException {
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
+    collection.addException(mockBatchItem(), "");
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    // ValidationException.getMessage() falls back to the collection dump for logs/REST, but the
+    // client must never see it: the handler reads the collection's user-facing text, finds none,
+    // and degrades to the generic message without the VALIDATION marker.
+    assertTrue(exception.getMessage().contains("Failed to validate MCP due to:"));
+    assertEquals(error.getMessage(), "An unknown error occurred.");
+    assertFalse(error.getMessage().contains("ValidationExceptionCollection"));
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), null);
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionFilterSubTypeNotSurfaced()
+      throws ExecutionException, InterruptedException {
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
+    collection.addException(
+        AspectValidationException.forFilter(
+            mockBatchItem(), "Dropping write per precondition header If-None-Match: *"));
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    // FILTER text describes an internal drop, not something the user did wrong - it stays in the
+    // logs/REST message and the client degrades to its own default.
+    assertTrue(exception.getMessage().contains("If-None-Match"));
+    assertEquals(error.getMessage(), "An unknown error occurred.");
+    assertEquals(error.getExtensions().get("errorSource"), null);
+  }
+
+  @Test
+  public void testWrappedMetadataValidationExceptionDoesNotLeakLogsMessage()
+      throws ExecutionException, InterruptedException {
+    // A metadata-io ValidationException wrapped in the graphql-layer one must still be answered
+    // with the collection's user-facing text, never its logs/REST message.
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
+    collection.addException(mockBatchItem(), "At least one rule is required.");
+    collection.addException(
+        AspectValidationException.forFilter(
+            mockBatchItem(), "Dropping write per precondition header If-None-Match: *"));
+    com.linkedin.metadata.entity.validation.ValidationException cause =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    ValidationException wrapper = new ValidationException("Failed to ingest proposal", cause);
+    Mockito.when(mockParameters.getException()).thenReturn(wrapper);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "At least one rule is required.");
+    assertFalse(error.getMessage().contains("If-None-Match"));
+    assertFalse(error.getMessage().contains("ValidationExceptionCollection"));
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), "VALIDATION");
+  }
+
+  private DataHubGraphQLError handle(Throwable exception)
+      throws ExecutionException, InterruptedException {
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+    return (DataHubGraphQLError) handler.handleException(mockParameters).get().getErrors().get(0);
+  }
+
+  private static com.linkedin.metadata.entity.validation.ValidationException metadataValidation(
+      AspectValidationException... exceptions) {
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
+    for (AspectValidationException e : exceptions) {
+      collection.addException(e);
+    }
+    return new com.linkedin.metadata.entity.validation.ValidationException(collection);
+  }
+
+  @Test
+  public void testResolverWrapperDoesNotChangeClassification()
+      throws ExecutionException, InterruptedException {
+    // Resolvers wrap failures in "Failed to perform update against input ..." RuntimeExceptions
+    // (graphql-java adds a CompletionException); the cause walk must classify them as unwrapped,
+    // so resolvers need no rethrows or exception mapping of their own.
+    List<Exception> causes =
+        List.of(
+            new AuthorizationException("Unauthorized to perform this action."),
+            new IllegalArgumentException("Invalid urn"),
+            metadataValidation(
+                AspectValidationException.forItem(mockBatchItem(), "First rule failed."),
+                AspectValidationException.forItem(mockBatchItem(), "Second rule failed.")),
+            metadataValidation(
+                AspectValidationException.forAuth(
+                    mockBatchItem(), "Not authorized to modify this aspect")));
+    for (Exception cause : causes) {
+      DataHubGraphQLError direct = handle(cause);
+      DataHubGraphQLError wrapped =
+          handle(
+              new CompletionException(
+                  new RuntimeException("Failed to perform update against input {}", cause)));
+      assertEquals(wrapped.getErrorCode(), direct.getErrorCode(), cause.toString());
+      assertEquals(wrapped.getMessage(), direct.getMessage(), cause.toString());
+      assertEquals(wrapped.getExtensions(), direct.getExtensions(), cause.toString());
+    }
+  }
+
+  @Test
+  public void testGraphQLValidationExceptionDoesNotSurfaceCauseText()
+      throws ExecutionException, InterruptedException {
+    // VALIDATION-marked messages are shown verbatim, so only the caller's own text may appear.
+    DataHubGraphQLError error =
+        handle(
+            new ValidationException(
+                "Invalid input", new RuntimeException("connection refused: db-internal:5432")));
+
+    assertEquals(error.getMessage(), "Invalid input");
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), "VALIDATION");
   }
 }

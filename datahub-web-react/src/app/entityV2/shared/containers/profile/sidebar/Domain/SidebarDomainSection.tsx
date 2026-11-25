@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import { SetDomainModal } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SetDomainModal';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
@@ -96,7 +96,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                             <DomainLinkWrapper>
                                 <DomainLink
                                     domain={domain}
-                                    closable={!readOnly && !updateOnly}
+                                    closable={!readOnly && !updateOnly && canEditDomains}
                                     readOnly={readOnly}
                                     onClose={(e) => {
                                         e.preventDefault();

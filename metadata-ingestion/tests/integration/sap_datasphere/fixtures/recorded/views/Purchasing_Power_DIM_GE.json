@@ -1,0 +1,29 @@
+{
+  "definitions": {
+    "Purchasing_Power_DIM_GE": {
+      "kind": "entity",
+      "@EndUserText.label": "Purchasing Power (synthetic mixin target for Test_Analytic_Model)",
+      "elements": {
+        "Business Partner from S4/HC": {
+          "type": "cds.String",
+          "length": 10,
+          "@EndUserText.label": "Business Partner from S4/HC"
+        },
+        "Country": {
+          "type": "cds.String",
+          "length": 3,
+          "@EndUserText.label": "Country"
+        },
+        "City": {
+          "type": "cds.String",
+          "length": 40,
+          "@EndUserText.label": "City"
+        },
+        "City_Population": {
+          "type": "cds.Integer",
+          "@EndUserText.label": "City_Population"
+        }
+      }
+    }
+  }
+}

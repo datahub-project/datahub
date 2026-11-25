@@ -1,6 +1,7 @@
 from typing import (
     Any,
     Dict,
+    FrozenSet,
     Iterable,
     List,
     Literal,
@@ -19,6 +20,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     MALFORMED_COL_SENTINEL,
     REMOTE_IDENTIFIER_QUOTE,
     REMOTE_NULL_SEGMENT,
+    SAP_GENERATED_OBJECT_PREFIXES,
     UNNAMED_COL_SENTINEL,
 )
 from datahub.metadata.schema_classes import (
@@ -199,18 +201,12 @@ class BusinessLayer(BaseModel):
 
 
 class UpstreamRef(BaseModel):
-    """A table-level upstream reference the source layer resolves to a URN.
-
-    ``qualified`` distinguishes a bare same-space technical name (space-prefixed
-    at URN build time) from an already space-qualified name — e.g. a cross-space
-    or built-in association target like ``SAP.TIME.M_TIME_DIMENSION_TDAY`` — which
-    is used as-is.
-    """
+    """A table-level upstream reference, as written in the CSN; the source layer
+    resolves its space with ``ObjectLocator``."""
 
     model_config = ConfigDict(frozen=True)
 
     name: str
-    qualified: bool = False
 
 
 class UpstreamColRef(BaseModel):
@@ -218,9 +214,36 @@ class UpstreamColRef(BaseModel):
 
     qname: str
     col: str
-    # True when ``qname`` is already space-qualified (association target); a bare
-    # FROM-derived ref is space-prefixed by the source layer.
-    qualified: bool = False
+
+
+def is_sap_generated_object(ref: str) -> bool:
+    return any(ref.startswith(prefix) for prefix in SAP_GENERATED_OBJECT_PREFIXES)
+
+
+class ObjectLocator(BaseModel):
+    # A dotted CSN reference is `SPACE.name`, except objects Datasphere generates
+    # inside a space (time data, TCUR* currency conversion views), which keep their
+    # dotted name in the referencing space. Technical names contain no dots, so a
+    # space named SAP cannot hold `TIME.X`; a reference to that space's own time
+    # data is written `SAP.SAP.TIME.X`, which still splits on the first dot.
+    model_config = ConfigDict(frozen=True)
+
+    space: str
+    name: str
+    # True when the reference carried its own `SPACE.` prefix.
+    explicit_space: bool = False
+
+    @classmethod
+    def from_ref(cls, ref: str, default_space: str) -> "ObjectLocator":
+        if not is_sap_generated_object(ref):
+            prefix, _, rest = ref.partition(".")
+            if prefix and rest:
+                return cls(space=prefix, name=rest, explicit_space=True)
+        return cls(space=default_space, name=ref)
+
+    @property
+    def qualified_name(self) -> str:
+        return f"{self.space}.{self.name}"
 
 
 class SourceColumnRef(BaseModel):
@@ -231,6 +254,25 @@ class SourceColumnRef(BaseModel):
 
     source_object: str
     column: str
+
+
+class FromSources(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    # `as` alias, or the name and its implicit alias (last dotted segment) when
+    # there is none -> source object, for the FROM of an analytic-model projection.
+    by_name: Dict[str, str] = Field(default_factory=dict)
+    # Every source object, including ones whose keys were dropped as ambiguous.
+    objects: FrozenSet[str] = frozenset()
+    # False when part of the FROM is a subquery or path expression, so an
+    # unqualified column may come from a source missing from `by_name`.
+    complete: bool = True
+
+    @property
+    def single_source(self) -> Optional[str]:
+        if self.complete and len(self.objects) == 1:
+            return next(iter(self.objects))
+        return None
 
 
 # Transform-operation labels DataHub's UI recognises for its transformation badge.

@@ -7,6 +7,8 @@
     "queriesTab.downstreamQueriesTooltip": "Céloldali eszközöket tápláló lekérdezések",
     "queriesTab.highlightedQueriesTitle": "Kiemelt lekérdezések",
     "queriesTab.highlightedQueriesTooltip": "Ehhez az adathalmazhoz kapcsolódó, gondozott lekérdezések",
+    "queriesTab.noViewPermission": "Nincs jogosultsága megtekinteni ennek az adathalmaznak a lekérdezéseit.",
+    "queriesTab.queriesTitle": "Lekérdezések",
     "queriesTab.recentQueriesTitle": "Legutóbbi lekérdezések",
     "queriesTab.recentQueriesTooltip": "Nemrég ezen az adathalmazon futtatott lekérdezések",
     "queryBuilderModal.createError": "Nem sikerült létrehozni a lekérdezést! Váratlan hiba történt",

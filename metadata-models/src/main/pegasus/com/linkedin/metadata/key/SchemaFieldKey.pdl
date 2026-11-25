@@ -13,6 +13,11 @@ record SchemaFieldKey {
   * Parent associated with the schema field
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": false,
+      "searchLabel": "parent",
+      "hasValuesFieldName": "hasParent"
+    },
     "fieldType": "URN",
   }
   parent: Urn
@@ -22,6 +27,17 @@ record SchemaFieldKey {
   */
   @Searchable = {
     "fieldType": "KEYWORD",
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   fieldPath: string
 }

@@ -1,6 +1,8 @@
-import { CodeBlock, Modal } from '@components';
+import { Modal } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+
+import { CodeBlock } from '@components/components/CodeBlock';
 
 import { jsonToYaml } from '@app/ingestV2/source/utils';
 

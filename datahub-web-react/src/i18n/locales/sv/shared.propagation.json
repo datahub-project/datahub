@@ -1,9 +1,12 @@
 {
     "autoPropagatedDescription": "Den här beskrivningen propagerades automatiskt från en upstream-kolumn. <learnMore>Läs mer</learnMore>",
+    "ingested": "Inhämtad",
+    "ingestedFrom": "Inhämtad från {{origin}}",
     "origin": "ursprung",
     "originLabel": "Ursprung",
     "propagated": "Propagerad",
     "propagatedDescriptionTitle": "Propagerad beskrivning",
+    "sourceLabel": "Källa",
     "via": "via",
     "viaLabel": "Via"
 }

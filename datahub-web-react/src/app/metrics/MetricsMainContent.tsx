@@ -13,7 +13,7 @@ import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
 import ModuleName from '@app/homeV3/module/components/ModuleName';
 import { useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { PageRoutes } from '@conf/Global';
 
 import {

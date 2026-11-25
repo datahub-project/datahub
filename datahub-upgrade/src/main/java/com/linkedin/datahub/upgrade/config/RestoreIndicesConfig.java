@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.CassandraSearchLimitations;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
@@ -33,7 +34,7 @@ public class RestoreIndicesConfig {
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "cassandra")
   @Nonnull
   public RestoreIndices createNotImplInstance() {
-    log.warn("restoreIndices is not supported for cassandra!");
+    log.warn("restoreIndices is not supported for cassandra. {}", CassandraSearchLimitations.ALL);
     return new RestoreIndices(null, null, null, null, null);
   }
 }

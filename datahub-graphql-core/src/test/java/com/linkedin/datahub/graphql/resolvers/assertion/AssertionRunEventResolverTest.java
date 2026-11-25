@@ -124,4 +124,55 @@ public class AssertionRunEventResolverTest {
         graphqlRunEvent.getResult().getType(),
         com.linkedin.datahub.graphql.generated.AssertionResultType.SUCCESS);
   }
+
+  @Test
+  public void testGetRunEventWithoutSystemMetadata() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    final Urn assertionUrn = Urn.createFromString("urn:li:assertion:guid-1");
+    final AssertionRunEvent gmsRunEvent =
+        new AssertionRunEvent()
+            .setTimestampMillis(12L)
+            .setAssertionUrn(assertionUrn)
+            .setRunId("test-id")
+            .setAsserteeUrn(Urn.createFromString("urn:li:dataset:(test,test,test)"))
+            .setStatus(AssertionRunStatus.COMPLETE)
+            .setResult(new AssertionResult().setType(AssertionResultType.SUCCESS));
+
+    // Timeseries documents indexed without systemMetadata come back with none set.
+    Mockito.when(
+            mockClient.getTimeseriesAspectValues(
+                any(),
+                Mockito.eq(assertionUrn.toString()),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(Constants.ASSERTION_RUN_EVENT_ASPECT_NAME),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableList.of(
+                new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(gmsRunEvent))));
+
+    AssertionRunEventResolver resolver = new AssertionRunEventResolver(mockClient);
+
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Assertion parentAssertion = new Assertion();
+    parentAssertion.setUrn(assertionUrn.toString());
+    Mockito.when(mockEnv.getSource()).thenReturn(parentAssertion);
+
+    AssertionRunEventsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal(), 1);
+    com.linkedin.datahub.graphql.generated.AssertionRunEvent graphqlRunEvent =
+        result.getRunEvents().get(0);
+    assertEquals(graphqlRunEvent.getRunId(), "test-id");
+    assertNull(graphqlRunEvent.getLastObservedMillis());
+  }
 }

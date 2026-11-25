@@ -502,6 +502,92 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   /**
+   * Removes the graph references to an entity, then the entity, and hands back the cleanup of the
+   * other references for the caller to run where it ran {@link #deleteEntityReferences}. Deleting
+   * the entity first drops its graph edges, so those references are removed before it. This default
+   * has no graph scroll: it deletes the entity before returning and throws that failure here, and
+   * the cleanup it returns only removes references. An implementation that counts incoming graph
+   * edges removes them, then deletes the entity, before returning. When the count is over its limit
+   * it either hard-deletes the entity without the graph references, or, when configured to refuse,
+   * throws an {@link IllegalArgumentException} and removes nothing. {@link
+   * ReferencesCleanup#choice()} reports which path ran and is known when this returns. A failure of
+   * the count, the graph pages or the entity delete is thrown here and leaves the entity in place.
+   * {@link ReferencesCleanup#run()} only removes the references that are not graph edges.
+   */
+  @Nonnull
+  default ReferencesCleanup deleteReferencesThenEntity(
+      @Nonnull OperationContext opContext, @Nonnull final Urn urn)
+      throws RemoteInvocationException {
+    deleteEntity(opContext, urn);
+    return () -> deleteEntityReferences(opContext, urn);
+  }
+
+  /** The delete of the references to an entity, as {@link #deleteReferencesThenEntity} gives it. */
+  @FunctionalInterface
+  interface ReferencesCleanup {
+    /**
+     * What this delete did about the references. Known when {@link #deleteReferencesThenEntity}
+     * returns. {@link Choice#PENDING} is an entity that was already gone. {@link Choice#HANDED_OFF}
+     * was taken by another process. A cleanup that does not decide from the referrer count reports
+     * {@link Choice#REFERENCES_THEN_ENTITY}.
+     */
+    enum Choice {
+      /**
+       * The entity was already gone. {@link #run()} only cleans its references, or does nothing.
+       */
+      PENDING,
+      /**
+       * Graph references were removed, then the entity was deleted. {@link #run()} cleans the rest.
+       */
+      REFERENCES_THEN_ENTITY,
+      /**
+       * More graph references pointed at the entity than the limit allows and the deployment skips
+       * them: only the entity was hard-deleted, and its referrers were left. {@link #run()} still
+       * cleans the references that are not graph edges. A deployment that refuses instead throws.
+       */
+      ENTITY_ONLY,
+      /** The delete was handed to another process, which also cleans the references. */
+      HANDED_OFF
+    }
+
+    /** Returned when the entity delete and its references were handed to another process. */
+    ReferencesCleanup HANDED_OFF =
+        new ReferencesCleanup() {
+          @Override
+          public void run() {}
+
+          @Override
+          public boolean handedOff() {
+            return true;
+          }
+
+          @Override
+          public Choice choice() {
+            return Choice.HANDED_OFF;
+          }
+        };
+
+    void run() throws RemoteInvocationException;
+
+    /**
+     * True when the entity delete was handed to another process, which also deletes the references
+     * once the entity is gone; nothing has been deleted here yet, so work that must follow a
+     * completed delete does not run here.
+     */
+    default boolean handedOff() {
+      return false;
+    }
+
+    /**
+     * What this cleanup did. Known when {@link #deleteReferencesThenEntity} returns. Callers that
+     * do not decide from the referrer count report {@link Choice#REFERENCES_THEN_ENTITY}.
+     */
+    default Choice choice() {
+      return handedOff() ? Choice.HANDED_OFF : Choice.REFERENCES_THEN_ENTITY;
+    }
+  }
+
+  /**
    * Filters entities based on a particular Filter and Sort criterion
    *
    * @param entity filter entity

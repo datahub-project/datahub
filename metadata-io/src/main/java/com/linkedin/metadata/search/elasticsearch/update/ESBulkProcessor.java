@@ -1,11 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.update;
 
+import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
@@ -46,7 +48,7 @@ public class ESBulkProcessor implements Closeable {
   @Builder.Default private Integer numRetries = 3;
   @Builder.Default private Long retryInterval = 1L;
   @Builder.Default private Integer threadCount = 1; // Default to single processor
-  @Builder.Default private TimeValue defaultTimeout = TimeValue.timeValueMinutes(1);
+  @Getter @Builder.Default private TimeValue defaultTimeout = TimeValue.timeValueMinutes(1);
   @Builder.Default private Boolean itemRequeueEnabled = true;
   @Builder.Default private Integer itemRequeueMaxAttempts = 3;
   @Builder.Default private Boolean ackAfterTransfer = false;
@@ -120,6 +122,30 @@ public class ESBulkProcessor implements Closeable {
           threadCount);
     }
     this.metricUtils = metricUtils;
+  }
+
+  /**
+   * A view over {@code view}'s client and already-generated bulk processors. Never regenerates
+   * them: the builder constructor replaces the shim's processors, which would orphan the live ones.
+   * Subclasses use this to add behavior around writes without owning a processor.
+   */
+  protected ESBulkProcessor(@Nonnull ESBulkProcessor view) {
+    this.searchClient = view.searchClient;
+    this.async = view.async;
+    this.batchDelete = view.batchDelete;
+    this.bulkRequestsLimit = view.bulkRequestsLimit;
+    this.bulkFlushPeriod = view.bulkFlushPeriod;
+    this.numRetries = view.numRetries;
+    this.retryInterval = view.retryInterval;
+    this.threadCount = view.threadCount;
+    this.defaultTimeout = view.defaultTimeout;
+    this.itemRequeueEnabled = view.itemRequeueEnabled;
+    this.itemRequeueMaxAttempts = view.itemRequeueMaxAttempts;
+    this.ackAfterTransfer = view.ackAfterTransfer;
+    this.ackAfterTransferTimeoutSeconds = view.ackAfterTransferTimeoutSeconds;
+    this.byQueryRequestOptions = view.byQueryRequestOptions;
+    this.writeRequestRefreshPolicy = view.writeRequestRefreshPolicy;
+    this.metricUtils = view.metricUtils;
   }
 
   /**
@@ -263,6 +289,12 @@ public class ESBulkProcessor implements Closeable {
 
   public void flush() {
     searchClient.flushBulkProcessor();
+  }
+
+  @Nonnull
+  public BulkProcessorFlushResult flushAndAwait() {
+    return searchClient.flushBulkProcessorAndAwait(
+        defaultTimeout.getMillis(), TimeUnit.MILLISECONDS);
   }
 
   /**

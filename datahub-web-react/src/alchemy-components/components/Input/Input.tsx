@@ -1,4 +1,3 @@
-import { Tooltip } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
 import { EyeSlash } from '@phosphor-icons/react/dist/csr/EyeSlash';
@@ -21,6 +20,7 @@ import {
 } from '@components/components/Input/components';
 import { InputProps } from '@components/components/Input/types';
 import { getInputType } from '@components/components/Input/utils';
+import { Tooltip } from '@components/components/Tooltip';
 
 export const inputDefaults: InputProps = {
     value: '',

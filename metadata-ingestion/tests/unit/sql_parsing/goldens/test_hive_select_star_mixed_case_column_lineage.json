@@ -1,0 +1,60 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "03cf60b773cc92e0c59311bc133f6f6015ac1f4673cdec5e101e7f8310dfdfcf",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,my_schema.events,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "eventId",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,my_schema.events,PROD)",
+                    "column": "eventId"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`events`.`eventId` AS `eventId`"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "userId",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,my_schema.events,PROD)",
+                    "column": "userId"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`events`.`userId` AS `userId`"
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT * FROM my_schema.events"
+    }
+}

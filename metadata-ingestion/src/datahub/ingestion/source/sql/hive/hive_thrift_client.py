@@ -239,12 +239,13 @@ class HiveMetastoreThriftClient:
     def _create_sasl_transport(self, socket: TSocket.TSocket) -> "TSaslClientTransport":
         """Create SASL transport for Kerberos authentication."""
         try:
-            from pyhive.sasl_compat import PureSASLClient
             from thrift_sasl import TSaslClientTransport
+
+            from datahub.ingestion.source.sql.hive.sasl_client import PureSASLClient
         except ImportError as e:
             raise ImportError(
-                "Kerberos authentication requires 'thrift-sasl' and 'acryl-pyhive[hive-pure-sasl]'. "
-                f"Install with: pip install thrift-sasl acryl-pyhive[hive-pure-sasl]. Error: {e}"
+                "Kerberos authentication requires 'thrift-sasl' and 'pure-sasl'. "
+                f"Install with: pip install thrift-sasl pure-sasl. Error: {e}"
             ) from e
 
         # Use hostname override if provided, otherwise use connection host

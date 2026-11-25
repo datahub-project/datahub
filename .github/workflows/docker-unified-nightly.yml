@@ -211,12 +211,15 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
-      - uses: ./.github/actions/restore-dependency-caches
+      - id: dep-caches
+        uses: ./.github/actions/restore-dependency-caches
         with:
           uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
           uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
           yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+          # No yarn install runs in this job; skip the ~1.7 GB yarn restore.
+          restore_yarn: "false"
 
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
@@ -225,10 +228,10 @@ jobs:
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.11"
-          cache: "pip"
+          gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Detect workflow retry
         id: retry-detection
@@ -348,9 +351,6 @@ jobs:
           echo "✓ All tests passed in previous attempt for ${{ matrix.test_strategy }} on ${{ matrix.profile }} (${{ matrix.architecture }})"
           echo "Skipping this run to optimize CI time (Docker images, quickstart, and tests)"
           exit 0
-
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Login to registry
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
@@ -538,19 +538,31 @@ jobs:
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' && matrix.architecture == 'x64' }}
+      # actions/cache/save archives the path before it reserves the key, and a
+      # primary-key hit cannot be overwritten, so after an exact restore this step
+      # spent its time compressing the cache and then failed with "Unable to
+      # reserve cache". Save only when the restore reports a primary-key miss
+      # ('false' also skips the save when nothing was restored). The yarn save is
+      # gone: nothing in this job writes ~/.cache/yarn, so it never saved anything
+      # and the nightly yarn restore has never had an entry to find.
+      - name: Prune uv cache
+        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' && matrix.architecture == 'x64' && steps.dep-caches.outputs.uv-cache-hit == 'false' }}
+        run: |
+          if command -v uv >/dev/null 2>&1; then
+            uv cache prune --ci
+          elif [[ -x smoke-test/venv/bin/uv ]]; then
+            smoke-test/venv/bin/uv cache prune --ci
+          else
+            echo "uv not found; saving the uv cache without pruning"
+          fi
+
+      - name: Save uv cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' && matrix.architecture == 'x64' && steps.dep-caches.outputs.uv-cache-hit == 'false' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
-
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' && matrix.architecture == 'x64' }}
-        with:
-          path: |
-            ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
 
   # Tag and push head images as nightly after smoke tests pass
   tag_and_push_images:

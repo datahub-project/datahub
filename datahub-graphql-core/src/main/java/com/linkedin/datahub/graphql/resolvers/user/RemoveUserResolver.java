@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -28,16 +29,21 @@ public class RemoveUserResolver implements DataFetcher<CompletableFuture<Boolean
     if (AuthorizationUtils.canManageUsersAndGroups(context)) {
       final String userUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(userUrn);
+      if (!AuthorizationUtils.isEntityType(urn, Constants.CORP_USER_ENTITY_NAME)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
       return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
-              _entityClient.deleteEntity(context.getOperationContext(), urn);
+              final var references =
+                  _entityClient.deleteReferencesThenEntity(context.getOperationContext(), urn);
 
-              // Asynchronously Delete all references to the entity (to return quickly)
+              // The entity is already gone. This removes the remaining references.
               CompletableFuture.runAsync(
                   () -> {
                     try {
-                      _entityClient.deleteEntityReferences(context.getOperationContext(), urn);
+                      references.run();
                     } catch (Exception e) {
                       log.error(
                           String.format(
