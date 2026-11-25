@@ -27,6 +27,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfig>> {
 
+  /**
+   * This server build always registers the semanticContent patch template, so it is a capability of
+   * the build and not an operator setting.
+   */
+  private static final boolean SEMANTIC_CONTENT_PATCH_SUPPORTED = true;
+
   private final GitVersion _gitVersion;
   private final boolean _isAnalyticsEnabled;
   private final IngestionConfiguration _ingestionConfiguration;
@@ -337,7 +343,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             semanticSearchConfig.setEnabled(_semanticSearchConfiguration.isEnabled());
             semanticSearchConfig.setEnabledEntities(
                 new java.util.ArrayList<>(_semanticSearchConfiguration.getEnabledEntities()));
-            semanticSearchConfig.setSemanticContentPatchSupported(true);
+            semanticSearchConfig.setSemanticContentPatchSupported(SEMANTIC_CONTENT_PATCH_SUPPORTED);
             final SemanticProfilesConfiguration profiles =
                 _semanticSearchConfiguration.getProfiles();
             semanticSearchConfig.setGenerationEnabled(
@@ -360,7 +366,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
               // Derive and set canonical model embedding key
               final String modelEmbeddingKey = deriveModelEmbeddingKey(providerConfig.getModelId());
               embeddingConfig.setModelEmbeddingKey(modelEmbeddingKey);
-              embeddingConfig.setSemanticContentPatchSupported(true);
+              // Also set here for clients that predate the top-level field and read this one.
+              embeddingConfig.setSemanticContentPatchSupported(SEMANTIC_CONTENT_PATCH_SUPPORTED);
 
               // Populate provider-specific configuration
               if ("aws-bedrock".equalsIgnoreCase(providerConfig.getType())

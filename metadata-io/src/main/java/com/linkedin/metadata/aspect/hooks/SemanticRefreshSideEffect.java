@@ -18,8 +18,10 @@ import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.builder.SemanticContentPatchBuilder;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.hooks.EntityEligibleSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.semantic.profile.ContentBinding;
 import com.linkedin.metadata.search.semantic.profile.SemanticProfileRefresh;
 import com.linkedin.metadata.search.semantic.profile.SemanticProfileRegistry;
@@ -56,7 +58,7 @@ import lombok.experimental.Accessors;
 @Setter
 @Getter
 @Accessors(chain = true)
-public class SemanticRefreshSideEffect extends MCPSideEffect {
+public class SemanticRefreshSideEffect extends MCPSideEffect implements EntityEligibleSideEffect {
 
   @Nonnull private AspectPluginConfig config;
   @Nonnull private SemanticProfileRegistry registry;
@@ -94,16 +96,9 @@ public class SemanticRefreshSideEffect extends MCPSideEffect {
     return patches.stream();
   }
 
-  // An entity type the registry does not know (data from a newer version after a rollback) cannot
-  // hold semantic vectors, so it is treated as not accepted instead of throwing.
-  private boolean gateAccepts(@Nonnull Urn urn, @Nonnull RetrieverContext retrieverContext) {
-    return gate == null
-        || retrieverContext
-            .getAspectRetriever()
-            .getEntityRegistry()
-            .findEntitySpec(urn.getEntityType())
-            .map(gate::isEntityEligible)
-            .orElse(false);
+  @Override
+  public boolean isEntityEligible(@Nonnull EntitySpec entitySpec) {
+    return gate == null || gate.isEntityEligible(entitySpec);
   }
 
   @Nullable
@@ -112,7 +107,9 @@ public class SemanticRefreshSideEffect extends MCPSideEffect {
       @Nonnull Urn urn,
       @Nonnull List<MCLItem> sources,
       @Nonnull RetrieverContext retrieverContext) {
-    if (!gateAccepts(urn, retrieverContext)) {
+    if (gate != null
+        && !isEntityTypeEligible(
+            urn.getEntityType(), retrieverContext.getAspectRetriever().getEntityRegistry())) {
       return null;
     }
     Aspect stored =
@@ -122,7 +119,13 @@ public class SemanticRefreshSideEffect extends MCPSideEffect {
     if (stored == null) {
       return null;
     }
-    SemanticContent content = new SemanticContent(stored.data());
+    SemanticContent content;
+    try {
+      // The retriever may hand back a cached aspect, so work on a copy that cannot change it.
+      content = new SemanticContent(stored.data().copy());
+    } catch (CloneNotSupportedException e) {
+      throw new IllegalStateException("Failed to copy semanticContent for " + urn, e);
+    }
     if (!content.hasEmbeddings() || content.getEmbeddings().isEmpty()) {
       return null;
     }

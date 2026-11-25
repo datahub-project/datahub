@@ -323,6 +323,20 @@ public class SemanticRefreshSideEffectTest {
         1);
   }
 
+  @Test
+  public void testAnUnregisteredEntityTypeGetsNoMarkerInsteadOfFailingTheWrite() {
+    MCLItem unregistered = source(DOCUMENT_INFO_ASPECT_NAME, document("old"), document("new"), 80L);
+    when(unregistered.getUrn()).thenReturn(UrnUtils.getUrn("urn:li:notARegisteredType:one"));
+
+    assertTrue(
+        sideEffect(Map.of("documentText", DOCUMENT_TEXT))
+            .setGate(new SemanticVectorGate(Set.of("document"), Map.of()))
+            .postMCPSideEffect(
+                OperationFingerprint.EMPTY, List.of(unregistered), stored(content(10L)))
+            .toList()
+            .isEmpty());
+  }
+
   private static SemanticContent applied(SemanticContent stored, MCPItem patch) throws Exception {
     return new SemanticContentTemplate()
         .applyPatch(new SemanticContent(stored.data().copy()), ((PatchItemImpl) patch).getPatch());

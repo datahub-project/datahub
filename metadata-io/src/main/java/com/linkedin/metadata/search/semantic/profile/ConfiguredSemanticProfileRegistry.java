@@ -26,7 +26,9 @@ public class ConfiguredSemanticProfileRegistry implements SemanticProfileRegistr
             : new SemanticProfilesConfiguration();
     this.generationEnabled = profiles.isGenerationEnabled();
     this.defaultBindingName =
-        profiles.getDefaultBinding() != null ? profiles.getDefaultBinding() : "documentText";
+        profiles.getDefaultBinding() != null
+            ? profiles.getDefaultBinding()
+            : SemanticProfilesConfiguration.DOCUMENT_TEXT_BINDING;
     this.bindings = toBindings(profiles.getBindings());
     this.models =
         configuration != null && configuration.getModels() != null
@@ -126,11 +128,13 @@ public class ConfiguredSemanticProfileRegistry implements SemanticProfileRegistr
       result.put(entry.getKey(), binding(entry.getKey(), entry.getValue()));
     }
     result.putIfAbsent("external", ContentBinding.EXTERNAL);
-    if (!result.containsKey("documentText")) {
+    if (!result.containsKey(SemanticProfilesConfiguration.DOCUMENT_TEXT_BINDING)) {
       result.put(
-          "documentText",
+          SemanticProfilesConfiguration.DOCUMENT_TEXT_BINDING,
           new ContentBinding(
-              fields("documentText", SemanticProfilesConfiguration.defaultDocumentTextTriggers())));
+              fields(
+                  SemanticProfilesConfiguration.DOCUMENT_TEXT_BINDING,
+                  SemanticProfilesConfiguration.defaultDocumentTextTriggers())));
     }
     return Map.copyOf(result);
   }

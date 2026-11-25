@@ -40,7 +40,7 @@ public class ModelEmbeddingConfig {
   /**
    * Named content binding from {@code semanticSearch.profiles.bindings}. Defaults to document text.
    */
-  private String binding = "documentText";
+  private String binding = SemanticProfilesConfiguration.DOCUMENT_TEXT_BINDING;
 
   /** When true, generation rejects non-apply writes of this profile's vectors. */
   private boolean serviceOwned = false;

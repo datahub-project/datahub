@@ -227,7 +227,7 @@ One aspect holds every profile, so its version changes on each write to any prof
 | `expectSource(watchKey, token)`     | `/refreshMarker/sources/<watch key>` |
 | `expectSourceAbsent(watchKey)`      | `/refreshMarker/sources/<watch key>` |
 
-On `semanticContent`, a `test` value of `null` means the path must be absent. `expectProfileState` and `expectBoundSources` build expectations from the values that were read.
+On `semanticContent`, a `test` value of `null` means the path must be absent. This differs from the JSON Patch spec, which has no way to assert absence; see [Test](../../advanced/patch.md#test) for how these operations differ. `expectProfileState` and `expectBoundSources` build expectations from the values that were read.
 
 The server evaluates these ops against the stored aspect, which is read for update inside the write transaction, before it applies the rest of the patch. If any expectation fails, nothing is written. Apply then reads again and retries once.
 

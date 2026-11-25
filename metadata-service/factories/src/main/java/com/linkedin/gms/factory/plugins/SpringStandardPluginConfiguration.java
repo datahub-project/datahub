@@ -110,6 +110,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -1500,16 +1501,18 @@ public class SpringStandardPluginConfiguration {
                 && semanticSearch.getProfiles().getBindings() != null
             ? semanticSearch.getProfiles().getBindings()
             : SemanticProfilesConfiguration.defaultBindings();
-    LinkedHashSet<String> aspects = new LinkedHashSet<>();
-    bindings.values().stream()
-        .filter(Objects::nonNull)
-        .filter(b -> b.getTriggers() != null)
-        .forEach(b -> aspects.addAll(b.getTriggers().keySet()));
-    if (!bindings.containsKey("documentText")) {
-      aspects.addAll(SemanticProfilesConfiguration.defaultDocumentTextTriggers().keySet());
-    }
-    aspects.remove(SEMANTIC_CONTENT_ASPECT_NAME);
-    return aspects;
+    Stream<String> triggered =
+        bindings.values().stream()
+            .filter(Objects::nonNull)
+            .filter(b -> b.getTriggers() != null)
+            .flatMap(b -> b.getTriggers().keySet().stream());
+    Stream<String> documentTextDefaults =
+        bindings.containsKey(SemanticProfilesConfiguration.DOCUMENT_TEXT_BINDING)
+            ? Stream.empty()
+            : SemanticProfilesConfiguration.defaultDocumentTextTriggers().keySet().stream();
+    return Stream.concat(triggered, documentTextDefaults)
+        .filter(aspect -> !SEMANTIC_CONTENT_ASPECT_NAME.equals(aspect))
+        .collect(Collectors.toCollection(LinkedHashSet::new));
   }
 
   @Bean

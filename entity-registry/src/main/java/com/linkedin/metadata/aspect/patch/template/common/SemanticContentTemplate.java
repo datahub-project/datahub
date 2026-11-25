@@ -23,9 +23,13 @@ import javax.annotation.Nonnull;
  * of one profile leaves the others in place.
  *
  * <p>{@code test} ops under {@code /embeddings/} and {@code /refreshMarker/sources/} are profile
- * preconditions. They are checked against the stored aspect before any other op runs; a {@code
- * null} value means the path must be absent. A mismatch throws {@link
- * SemanticProfileConflictException} and nothing is written.
+ * preconditions, handled through {@link #preprocessPatch}. They are checked against the stored
+ * aspect before any other op runs. This differs from RFC 6902: a {@code null} value means the path
+ * must be absent, which the RFC cannot express because it fails a {@code test} on a missing path. A
+ * mismatch throws {@link SemanticProfileConflictException} and nothing is written. A {@code test}
+ * op elsewhere is standard.
+ *
+ * <p>See "Test" in {@code docs/advanced/patch.md}.
  */
 public class SemanticContentTemplate implements Template<SemanticContent> {
 
@@ -64,9 +68,8 @@ public class SemanticContentTemplate implements Template<SemanticContent> {
   }
 
   @Override
-  public SemanticContent applyPatch(RecordTemplate recordTemplate, JsonPatch jsonPatch)
+  public JsonPatch preprocessPatch(@Nonnull JsonNode stored, @Nonnull JsonPatch jsonPatch)
       throws JsonProcessingException {
-    JsonNode stored = preprocessTemplate(recordTemplate);
     JsonArrayBuilder remaining = Json.createArrayBuilder();
     for (JsonValue value : jsonPatch.toJsonArray()) {
       JsonObject op = value.asJsonObject();
@@ -74,11 +77,11 @@ public class SemanticContentTemplate implements Template<SemanticContent> {
       if (PatchOperationType.TEST.getValue().equals(op.getString("op", ""))
           && isProfilePrecondition(path)) {
         checkPrecondition(stored, path, op.get("value"));
-      } else if (!isAbsentLegacySkipRemove(op.getString("op", ""), path, stored)) {
+      } else {
         remaining.add(value);
       }
     }
-    return Template.super.applyPatch(recordTemplate, Json.createPatch(remaining.build()));
+    return Json.createPatch(remaining.build());
   }
 
   @Nonnull
@@ -95,21 +98,6 @@ public class SemanticContentTemplate implements Template<SemanticContent> {
 
   private static boolean isProfilePrecondition(@Nonnull String path) {
     return path.startsWith("/embeddings/") || path.startsWith("/refreshMarker/sources/");
-  }
-
-  /**
-   * A vector write always removes the entity skip marker. JSON Patch rejects a remove of a missing
-   * path, and most documents were never skipped, so that op is dropped and the profile write still
-   * applies.
-   */
-  private static boolean isAbsentLegacySkipRemove(
-      @Nonnull String operation, @Nonnull String path, @Nonnull JsonNode stored) {
-    if (!PatchOperationType.REMOVE.getValue().equals(operation)
-        || (!"/skipReason".equals(path) && !"/skippedAt".equals(path))) {
-      return false;
-    }
-    JsonNode actual = stored.at(JsonPointer.compile(path));
-    return actual.isMissingNode() || actual.isNull();
   }
 
   private static void checkPrecondition(

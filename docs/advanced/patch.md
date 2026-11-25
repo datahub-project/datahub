@@ -239,8 +239,8 @@ Path is generally the most complicated portion of a patch to reason about as it 
 
 ### Operation
 
-Operation is a limited enum of a few supported types pulled directly from the JSON Patch spec. DataHub only supports `ADD` and `REMOVE` of these options
-as the other patch operations do not currently have a use case within our system.
+Operation is a limited enum of a few supported types pulled directly from the JSON Patch spec. DataHub supports `ADD` and `REMOVE` for every aspect, and `TEST` on `semanticContent` for profile preconditions.
+The other patch operations do not currently have a use case within our system.
 
 #### Add
 
@@ -251,6 +251,18 @@ using adds, but generally the most useful use case for patch is to add elements 
 #### Remove
 
 Remove operations require the path specified to be present, or an error will be thrown, otherwise they operate as one would expect. The specified path will be removed from the aspect.
+
+#### Test
+
+A `test` operation asserts the value at a path and rejects the whole patch when the value does not match. Only `semanticContent` uses it, as a precondition on one embedding profile or one refresh marker source, under `/embeddings/<profile key>/...` and `/refreshMarker/sources/...`. See [Profile-scoped preconditions](../dev-guides/semantic-search/SEMANTIC_CONTENT_MODEL.md#profile-scoped-preconditions).
+
+On those paths DataHub differs from the JSON Patch spec (RFC 6902):
+
+- A `test` with a `null` value passes only when the path is absent. The spec has no way to assert that a path is absent, and fails a `test` on a missing path.
+- These operations are checked against the stored aspect, read inside the write transaction, before any other operation in the patch runs. They do not see the effect of earlier operations in the same patch.
+- A failed check throws a profile conflict and nothing is written.
+
+A `test` on any other path of `semanticContent`, and on any other aspect, goes to the standard JSON Patch engine unchanged.
 
 ### Value
 
