@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -129,17 +130,35 @@ public class PartialGraphReadBackendTest {
   }
 
   @Test
-  public void allRootsActiveRequiresActiveStatusForEachRoot() {
+  public void firstInactiveRootReasonRequiresActiveStatusForEachRoot() {
     when(shared.findCacheKeyForSeeds(GRAPH_ID, SOURCE, Set.of(ROOT)))
         .thenReturn(Optional.of("key-root"));
     when(distributedStore.getStatus("key-root")).thenReturn(CacheStatus.ACTIVE);
 
-    assertTrue(backend.allRootsActive(DEFINITION, SOURCE, Set.of(ROOT)));
-    assertFalse(backend.allRootsActive(DEFINITION, SOURCE, Set.of(ROOT, CHILD)));
+    assertTrue(
+        backend
+            .firstInactiveRootReason(DEFINITION, SOURCE, TraversalDirection.FORWARD, Set.of(ROOT))
+            .isEmpty());
+    assertEquals(
+        backend.firstInactiveRootReason(
+            DEFINITION, SOURCE, TraversalDirection.FORWARD, Set.of(ROOT, CHILD)),
+        Optional.of(ReadMissReason.ABSENT));
   }
 
   @Test
-  public void allRootsActiveServesBuildingSnapshotForStaleWhileRevalidate() {
+  public void firstInactiveRootReasonLooksUpAnAbsentRootOnce() {
+    when(shared.findCacheKeyForSeeds(GRAPH_ID, SOURCE, Set.of(ROOT))).thenReturn(Optional.empty());
+
+    assertEquals(
+        backend.firstInactiveRootReason(
+            DEFINITION, SOURCE, TraversalDirection.FORWARD, Set.of(ROOT)),
+        Optional.of(ReadMissReason.ABSENT));
+    // The reason comes from the lookup that found the root missing: no second scan.
+    verify(shared, times(1)).findCacheKeyForSeeds(GRAPH_ID, SOURCE, Set.of(ROOT));
+  }
+
+  @Test
+  public void firstInactiveRootReasonServesBuildingSnapshotForStaleWhileRevalidate() {
     EntityGraphDefinition definition =
         EntityGraphDefinition.builder()
             .graphId(GRAPH_ID)
@@ -161,12 +180,21 @@ public class PartialGraphReadBackendTest {
                 .topologyFingerprint("fp")
                 .build());
 
-    assertTrue(backend.allRootsActive(definition, SOURCE, Set.of(ROOT)));
+    assertTrue(
+        backend
+            .firstInactiveRootReason(definition, SOURCE, TraversalDirection.FORWARD, Set.of(ROOT))
+            .isEmpty());
 
     when(distributedStore.hasServableSnapshot("key-root")).thenReturn(false);
     when(distributedStore.getSnapshot("key-root")).thenReturn(null);
-    assertFalse(backend.allRootsActive(definition, SOURCE, Set.of(ROOT)));
-    assertFalse(backend.allRootsActive(DEFINITION, SOURCE, Set.of(ROOT)));
+    assertTrue(
+        backend
+            .firstInactiveRootReason(definition, SOURCE, TraversalDirection.FORWARD, Set.of(ROOT))
+            .isPresent());
+    assertTrue(
+        backend
+            .firstInactiveRootReason(DEFINITION, SOURCE, TraversalDirection.FORWARD, Set.of(ROOT))
+            .isPresent());
   }
 
   @Test

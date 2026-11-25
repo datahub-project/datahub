@@ -91,18 +91,30 @@ public class PartialGraphReadBackend {
     return true;
   }
 
-  public boolean allRootsActive(
+  /**
+   * The miss reason of the first root that cannot be served from the cache, or empty when every
+   * root can. The reason comes from the same lookup that found the root unservable: a seed-index
+   * miss falls back to scanning every cached snapshot of the graph, so looking the root up again
+   * just to name the miss doubled the cost of every miss.
+   */
+  @Nonnull
+  public Optional<ReadMissReason> firstInactiveRootReason(
       @Nonnull EntityGraphDefinition definition,
       @Nonnull GraphSnapshotSource source,
+      @Nonnull TraversalDirection direction,
       @Nonnull Set<String> roots) {
     for (String root : roots) {
       Optional<String> cacheKey =
           shared.findCacheKeyForSeeds(definition.getGraphId(), source, Set.of(root));
-      if (cacheKey.isEmpty() || !rootServable(definition, cacheKey.get())) {
-        return false;
+      if (cacheKey.isEmpty()) {
+        return Optional.of(ReadMissReason.ABSENT);
+      }
+      if (!rootServable(definition, cacheKey.get())) {
+        ReadMissReason reason = missReasonForKey(definition, cacheKey.get(), direction);
+        return Optional.of(reason != null ? reason : ReadMissReason.ABSENT);
       }
     }
-    return true;
+    return Optional.empty();
   }
 
   private boolean rootServable(
@@ -154,21 +166,34 @@ public class PartialGraphReadBackend {
       if (cacheKey.isEmpty()) {
         return ReadMissReason.ABSENT;
       }
-      ReadMissReason freshnessReason =
-          shared.missReasonFromFreshness(definition, cacheKey.get(), direction);
-      if (freshnessReason != null) {
-        return freshnessReason;
-      }
-      GraphComponentContext component = shared.resolveComponent(definition, cacheKey.get());
-      if (component == null) {
-        return ReadMissReason.ABSENT;
-      }
-      if (!SnapshotFreshnessEvaluator.coverageSatisfies(
-          definition, component.coverage(), direction)) {
-        return ReadMissReason.INSUFFICIENT_COVERAGE;
+      ReadMissReason reason = missReasonForKey(definition, cacheKey.get(), direction);
+      if (reason != null) {
+        return reason;
       }
     }
     return ReadMissReason.ABSENT;
+  }
+
+  /** Why the snapshot under {@code cacheKey} cannot serve the read, or null when it can. */
+  @Nullable
+  private ReadMissReason missReasonForKey(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull String cacheKey,
+      @Nonnull TraversalDirection direction) {
+    ReadMissReason freshnessReason =
+        shared.missReasonFromFreshness(definition, cacheKey, direction);
+    if (freshnessReason != null) {
+      return freshnessReason;
+    }
+    GraphComponentContext component = shared.resolveComponent(definition, cacheKey);
+    if (component == null) {
+      return ReadMissReason.ABSENT;
+    }
+    if (!SnapshotFreshnessEvaluator.coverageSatisfies(
+        definition, component.coverage(), direction)) {
+      return ReadMissReason.INSUFFICIENT_COVERAGE;
+    }
+    return null;
   }
 
   @Nullable

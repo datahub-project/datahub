@@ -48,10 +48,9 @@ public class PartialGraphScopeReadStrategyTest {
     GraphReadBackend shared = mock(GraphReadBackend.class);
     when(partialBackend.shared()).thenReturn(shared);
     when(shared.rootsFrom(Set.of(ROOT, CHILD))).thenReturn(Set.of(ROOT, CHILD));
-    when(partialBackend.allRootsActive(DEFINITION, SOURCE, Set.of(ROOT, CHILD))).thenReturn(false);
-    when(partialBackend.firstRootMissReason(
+    when(partialBackend.firstInactiveRootReason(
             DEFINITION, SOURCE, TraversalDirection.FORWARD, Set.of(ROOT, CHILD)))
-        .thenReturn(ReadMissReason.STALE_BLOCKED);
+        .thenReturn(Optional.of(ReadMissReason.STALE_BLOCKED));
 
     PartialGraphScopeReadStrategy strategy = new PartialGraphScopeReadStrategy(partialBackend);
     GraphReadResult result =
@@ -61,6 +60,8 @@ public class PartialGraphScopeReadStrategyTest {
     assertTrue(result.isMiss());
     assertEquals(((GraphReadResult.Miss) result).reason(), ReadMissReason.STALE_BLOCKED);
     verify(partialBackend, never()).resolveComponentContexts(any(), any(), any());
+    // The reason comes with the activity check; no second lookup just to name the miss.
+    verify(partialBackend, never()).firstRootMissReason(any(), any(), any(), any());
   }
 
   @Test
@@ -69,7 +70,9 @@ public class PartialGraphScopeReadStrategyTest {
     GraphReadBackend shared = mock(GraphReadBackend.class);
     when(partialBackend.shared()).thenReturn(shared);
     when(shared.rootsFrom(Set.of(ROOT))).thenReturn(Set.of(ROOT));
-    when(partialBackend.allRootsActive(DEFINITION, SOURCE, Set.of(ROOT))).thenReturn(true);
+    when(partialBackend.firstInactiveRootReason(
+            DEFINITION, SOURCE, TraversalDirection.FORWARD, Set.of(ROOT)))
+        .thenReturn(Optional.empty());
     when(partialBackend.resolveComponentContexts(DEFINITION, SOURCE, Set.of(ROOT)))
         .thenReturn(List.of());
     when(partialBackend.firstRootMissReason(
@@ -94,7 +97,9 @@ public class PartialGraphScopeReadStrategyTest {
             new EntityGraphView(List.of()), TraversalCoverage.fullComplete(), "key");
     when(partialBackend.shared()).thenReturn(shared);
     when(shared.rootsFrom(Set.of(ROOT))).thenReturn(Set.of(ROOT));
-    when(partialBackend.allRootsActive(DEFINITION, SOURCE, Set.of(ROOT))).thenReturn(true);
+    when(partialBackend.firstInactiveRootReason(
+            DEFINITION, SOURCE, TraversalDirection.FORWARD, Set.of(ROOT)))
+        .thenReturn(Optional.empty());
     when(partialBackend.resolveComponentContexts(DEFINITION, SOURCE, Set.of(ROOT)))
         .thenReturn(List.of(component));
     when(shared.expandFromComponents(

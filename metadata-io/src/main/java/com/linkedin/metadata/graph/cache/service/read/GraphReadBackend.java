@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +42,9 @@ public class GraphReadBackend {
       ThreadLocal.withInitial(() -> 0);
   private static final ThreadLocal<Map<String, Optional<String>>> SEED_LOOKUP_MEMO =
       ThreadLocal.withInitial(HashMap::new);
+
+  /** A seed lookup above this is logged at debug: index hits take well under a millisecond. */
+  private static final long SLOW_SEED_LOOKUP_NANOS = TimeUnit.MILLISECONDS.toNanos(20);
 
   private final EntityGraphDistributedStore distributedStore;
   private final EntityGraphLocalViewCache localViews;
@@ -104,6 +108,37 @@ public class GraphReadBackend {
                 outcome,
                 "reason",
                 reason == null ? "none" : reason.name()));
+  }
+
+  /**
+   * Times each seed-to-snapshot lookup. A seed the index does not know falls back to scanning every
+   * cached snapshot of the graph, so a high or rising {@code outcome=absent} duration means reads
+   * are paying for full scans: usually a snapshot map too small for the number of distinct seeds
+   * being read.
+   */
+  private void recordSeedLookup(
+      @Nonnull String graphId, @Nonnull Set<String> seeds, boolean found, long elapsedNanos) {
+    if (systemOperationContext != null && systemOperationContext.getMetricUtils() != null) {
+      systemOperationContext
+          .getMetricUtils()
+          .ifPresent(
+              utils ->
+                  utils.recordTimer(
+                      "entity.graph.cache.seed_lookup",
+                      elapsedNanos,
+                      "graphId",
+                      graphId,
+                      "outcome",
+                      found ? "found" : "absent"));
+    }
+    if (elapsedNanos >= SLOW_SEED_LOOKUP_NANOS && log.isDebugEnabled()) {
+      log.debug(
+          "Slow entity graph seed lookup: graphId={} seeds={} found={} took {} ms",
+          graphId,
+          seeds.size(),
+          found,
+          TimeUnit.NANOSECONDS.toMillis(elapsedNanos));
+    }
   }
 
   public boolean coverageSatisfies(
@@ -401,12 +436,14 @@ public class GraphReadBackend {
       if (memo.containsKey(memoKey)) {
         return memo.get(memoKey);
       }
+      final long startNanos = System.nanoTime();
       Optional<String> resolved =
           distributedStore.findCacheKeyForSeeds(
               graphId,
               source,
               seeds,
               snapshot -> localViews.get(snapshot.getCacheKey(), snapshot.getGeneration()));
+      recordSeedLookup(graphId, seeds, resolved.isPresent(), System.nanoTime() - startNanos);
       memo.put(memoKey, resolved);
       return resolved;
     } finally {
