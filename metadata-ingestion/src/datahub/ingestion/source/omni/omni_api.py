@@ -1,7 +1,7 @@
 import logging
 import time
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional, TypedDict
+from typing import Any, Dict, Iterator, List, Optional, Set, TypedDict
 
 import pydantic
 import requests
@@ -224,6 +224,7 @@ class OmniClient:
         """
         with self._track_call("list_users"):
             start_index = 1
+            seen_ids: Set[str] = set()
             for _ in range(_MAX_PAGINATION_PAGES):
                 payload = self._request(
                     "GET",
@@ -231,9 +232,21 @@ class OmniClient:
                     params={"count": page_size, "startIndex": start_index},
                 )
                 resources: List[ScimUser] = payload.get("Resources") or []
-                yield from resources
                 if not resources:
                     break
+                page_ids = {str(u.get("id")) for u in resources if u.get("id")}
+                if page_ids and page_ids <= seen_ids:
+                    # A server that ignores startIndex replays the same page;
+                    # without this, full pages and no totalResults would be
+                    # re-fetched until the safety cap.
+                    logger.warning(
+                        "Stopping user pagination at startIndex=%s: the page "
+                        "repeats users already listed.",
+                        start_index,
+                    )
+                    break
+                seen_ids |= page_ids
+                yield from resources
                 start_index += len(resources)
                 total = payload.get("totalResults")
                 if isinstance(total, int):

@@ -61,6 +61,13 @@ def test_list_users_stops_on_short_page_without_total() -> None:
     assert _list_user_ids(_client(), pages, page_size=100) == ["u1"]
 
 
+def test_list_users_stops_when_server_replays_full_page_without_total() -> None:
+    # Full pages and no totalResults defeat the short-page check; a replayed
+    # page must still end paging instead of running to the safety cap.
+    page = {"Resources": _users(["u1", "u2"])}
+    assert _list_user_ids(_client(), [page, page], page_size=2) == ["u1", "u2"]
+
+
 @pytest.mark.parametrize(
     "user, expected",
     [
