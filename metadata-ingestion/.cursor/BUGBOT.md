@@ -36,17 +36,17 @@ full registration chain, then:
 
 ## Stale-entity removal
 
-If a source with stateful ingestion hits a listing cap, permission error, timeout
-or partial read and reports it via `report.warning` (or only logs it) and carries
-on, then:
+If a stateful source hits a listing cap, permission error, timeout or partial
+read, reports it via `report.warning` (or a log) and carries on, then:
 
 - High data loss. Only `report.failures` suppresses soft-deletion.
 
 ## Tests that cannot fail
 
-If a test mocks the unit under test, uses `Mock(spec=SourceReport)`, asserts
-`[] == []` or a lone `is not None`, inserts a function between a decorator and
-its target, or renames a test so pytest no longer collects it, then:
+If a test mocks the unit under test, asserts on `report.failures` / `warnings`
+through a `Mock(spec=SourceReport)` (truthy, so it cannot fail), asserts `[] == []`
+or a lone `is not None`, inserts a function between a decorator and its target,
+or renames a test so pytest no longer collects it, then:
 
 - High. Ask for a test that goes red when the fix is reverted, plus a failure path.
 
@@ -69,9 +69,9 @@ map, or emits column lineage without graph / known-URN schema resolution, then:
 
 ## URNs and config
 
-If dataset URNs are built with `DatasetUrn.create_from_ids` or manual casing
-instead of `make_dataset_urn_with_platform_instance`, or a connector invents
-`*_platform_instance` fields instead of reusing `PlatformDetail`, then:
+If a source mixes URN builders (`DatasetUrn.create_from_ids`, which never
+lowercases, next to `make_dataset_urn_with_platform_instance`) or hand-cases
+URNs, or invents `*_platform_instance` fields instead of `PlatformDetail`, then:
 
 - High duplicate-entity risk.
 
@@ -83,8 +83,8 @@ a field is retyped without a `mode="before"` validator, then:
 
 ## Performance, retries, framework reuse
 
-If the code makes one GMS or API call per entity, grows a collection unbounded
-across the run, or retries without backoff and error classification, then:
+If the code makes one GMS/API call per entity, grows a collection unbounded, or
+retries without backoff and error classification, then:
 
 - Medium–High.
 
@@ -112,8 +112,9 @@ If a PR touches LDAP/OIDC/Okta/user-provisioning emitters for `corpuser`, then:
 
 ## Artifacts and hygiene
 
-If comments contain agent markers or signatures, tests import inside functions, a
-source emits `dataPlatformInfo`, vendored code lacks its licence header and a
-`NOTICE` entry, or fixtures carry customer identifiers or ticket IDs, then:
+If comments contain agent signatures, a test imports inside a function with no
+stated reason, a source emits `dataPlatformInfo` for a platform it does not own,
+vendored code lacks its licence header and a `NOTICE` entry, or fixtures carry
+customer identifiers or ticket IDs, then:
 
 - Medium.
