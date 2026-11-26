@@ -390,6 +390,37 @@ GATEWAY = DataConnectionInfo(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_other_files_on_a_mapped_share_keep_the_dataset_named_by_connection(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {
+            "Sales Space:Share": {
+                "storage_uri": SHARE,
+                "platform_instance": "qlik_onprem",
+            }
+        },
+        {},
+        script=SHARE_SCRIPT
+        + "Targets: LOAD * FROM [lib://Sales Space:Share/Ref/Targets.xlsx] (ooxml);\n",
+    )
+
+    # Qlik Sense Enterprise only ingests the share's QVDs, so a spreadsheet on
+    # it would have no dataset under the on-prem name.
+    assert source._file_source_resolution(
+        "app-1", _file_qri("local", SHARE, "Ref/Targets.xlsx")
+    ).urn == make_dataset_urn("qlik-sense", "sales space:share/ref/targets.xlsx")
+    assert (
+        source._file_source_resolution(
+            "app-1", _file_qri("local", SHARE, "Orders/Orders.QVD")
+        ).urn
+        == SHARE_ORDERS_QVD
+    )
+    # The connection is mapped, so it is not reported as unknown.
+    assert source.reporter.unresolved_file_connections == []
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_visible_gateway_connection_without_a_mapping_is_named_by_its_connection(
     mock_api_cls: MagicMock,
 ) -> None:

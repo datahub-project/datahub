@@ -154,7 +154,32 @@ class FileIdentityMixin(DashboardMixin):
             )
         return FileSourceResolver(references)
 
-    def _file_storage(self, connection: str, space_id: str) -> FileStorageMatch:
+    def _file_storage(
+        self, connection: str, space_id: str, path: Optional[str] = None
+    ) -> FileStorageMatch:
+        match = self._connection_storage(connection, space_id)
+        if path is not None and self._is_other_share_file(match.storage, path):
+            # Qlik Sense Enterprise only ingests the QVDs on a share, so another
+            # file keeps the dataset named by its connection.
+            return FileStorageMatch(storage=None, detail=None)
+        return match
+
+    @staticmethod
+    def _is_other_share_file(storage: Optional[FileStorage], path: str) -> bool:
+        return (
+            storage is not None
+            and storage.platform == FilePlatform.WINDOWS_SHARE
+            and not path.lower().endswith(QVD_EXTENSION)
+        )
+
+    def _on_mapped_share(self, connection: str, space_id: str, path: str) -> bool:
+        """Whether the file is one of a mapped share's files other than its
+        QVDs, which are named by connection and path without a report."""
+        return self._is_other_share_file(
+            self._connection_storage(connection, space_id).storage, path
+        )
+
+    def _connection_storage(self, connection: str, space_id: str) -> FileStorageMatch:
         detail = self._mapped_connection(
             connection, space_id, self.config.file_connection_to_storage
         )
@@ -315,7 +340,7 @@ class FileIdentityMixin(DashboardMixin):
         unmapped: Set[str] = set()
         unknown = False
         for reference in candidates.references:
-            match = self._file_storage(reference.connection, space_id)
+            match = self._file_storage(reference.connection, space_id, reference.path)
             storage, detail = match.storage, match.detail
             if storage is None:
                 info = self._find_data_connection(reference.connection, space_id)
@@ -331,7 +356,10 @@ class FileIdentityMixin(DashboardMixin):
                     space_id,
                     # A file the QRI places on another connector, such as
                     # SFTP, has no storage `file_connection_to_storage` maps.
-                    report=candidates.platform is not None,
+                    report=candidates.platform is not None
+                    and not self._on_mapped_share(
+                        reference.connection, space_id, reference.path
+                    ),
                 )
                 if unmapped_urn is None:
                     unknown = True

@@ -58,7 +58,9 @@ class StoreLineageMixin(OnPremQvdMixin):
         for index, store in enumerate(stores):
             if store.file.connection is None:
                 continue
-            match = self._file_storage(store.file.connection, app.spaceId)
+            match = self._file_storage(
+                store.file.connection, app.spaceId, store.file.path
+            )
             storage, detail = match.storage, match.detail
             if storage is None:
                 if is_data_files(store.file.connection):
@@ -72,8 +74,12 @@ class StoreLineageMixin(OnPremQvdMixin):
                     info is not None
                     and info.file_platform == FilePlatform.WINDOWS_SHARE
                 )
-                listed_without_storage = info is not None and (
-                    info.file_platform is None or unmapped_share
+                on_mapped_share = self._on_mapped_share(
+                    store.file.connection, app.spaceId, store.file.path
+                )
+                # A mapped share's other files are named so too.
+                listed_without_storage = on_mapped_share or (
+                    info is not None and (info.file_platform is None or unmapped_share)
                 )
                 if not listed_without_storage:
                     # Its file may be a storage file the app stored into before.
@@ -82,7 +88,8 @@ class StoreLineageMixin(OnPremQvdMixin):
                     store.file.connection,
                     store.file.path,
                     app.spaceId,
-                    report=not listed_without_storage or unmapped_share,
+                    report=not on_mapped_share
+                    and (not listed_without_storage or unmapped_share),
                 )
                 if unmapped_urn is not None:
                     file_urns[index] = unmapped_urn
