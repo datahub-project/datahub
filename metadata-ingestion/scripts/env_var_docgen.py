@@ -100,7 +100,7 @@ def backtick_known_names(text: str, known: "frozenset[str]") -> str:
 def format_description(spec: EnvVarSpec, known: "frozenset[str]") -> str:
     parts: List[str] = []
     if spec.risky:
-        parts.append("⚠️ **Changing this has side effects.**")
+        parts.append("⚠️ **Changing this may have side effects.**")
     if spec.deprecated:
         replacement = f" Use `{spec.replaced_by}` instead." if spec.replaced_by else ""
         version = f" since {spec.deprecated_in}" if spec.deprecated_in else ""

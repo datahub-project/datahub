@@ -64,7 +64,7 @@ def test_secret_and_autodetected_rows_are_flagged() -> None:
 
 def test_risky_rows_carry_a_warning_mark_first() -> None:
     rendered = format_description(spec(risky=True), frozenset())
-    assert rendered.startswith("⚠️ **Changing this has side effects.**")
+    assert rendered.startswith("⚠️ **Changing this may have side effects.**")
 
 
 def test_non_risky_rows_carry_no_warning_mark() -> None:

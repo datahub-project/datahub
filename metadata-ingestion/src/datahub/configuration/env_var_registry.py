@@ -108,28 +108,17 @@ class EnvVarSpec:
         return not self.hidden and self.audience is not EnvVarAudience.INTERNAL
 
 
-def summarize_docstring(doc: Optional[str], *, full: bool = False) -> str:
-    """A docstring collapsed onto one line: the first paragraph, or all of it when ``full``.
+def summarize_docstring(doc: Optional[str]) -> str:
+    """A whole docstring collapsed onto one line.
 
-    Table cells cannot hold the multi-paragraph docstrings some of these accessors carry, so
-    the default is the opening summary. ``full`` is for variables marked ``risky``: their
-    caveat usually lives in a later paragraph, and truncating it is exactly how a warning gets
-    silently lost on the way to the docs.
+    Every paragraph is kept, not just the opening one. Caveats are usually written below the
+    summary, so taking the first paragraph alone is how a warning gets silently lost on the
+    way to the docs -- which is exactly what happened to the ``incremental_lineage`` note on
+    ``DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH``. A long cell is the lesser problem.
     """
     if not doc:
         return ""
-    lines: List[str] = []
-    for raw_line in doc.strip().splitlines():
-        line = raw_line.strip()
-        if not line:
-            if not full:
-                break
-            # Paragraph break inside a collapsed cell; keep the sentences apart.
-            if lines and not lines[-1].endswith(" "):
-                lines.append("")
-            continue
-        lines.append(line)
-    return " ".join(part for part in lines if part)
+    return " ".join(line.strip() for line in doc.strip().splitlines() if line.strip())
 
 
 _REGISTRY: Dict[str, EnvVarSpec] = {}
@@ -188,9 +177,7 @@ def env_var(
     """
 
     def wrapper(func: F) -> F:
-        resolved_description = description or summarize_docstring(
-            func.__doc__, full=risky
-        )
+        resolved_description = description or summarize_docstring(func.__doc__)
         if not resolved_description:
             raise ValueError(
                 f"Environment variable {name} needs a description: give {func.__name__} "
