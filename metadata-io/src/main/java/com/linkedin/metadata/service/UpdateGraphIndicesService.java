@@ -44,6 +44,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.TreeSet;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -63,6 +64,9 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
   }
 
   private final GraphService graphService;
+
+  /** See {@link #registryDestinationTypes}. */
+  private volatile RegistryDestinationTypes registryDestinationTypes;
 
   @Getter private final boolean graphStatusEnabled;
 
@@ -200,12 +204,12 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     // holds such references the graph is computed from the MCL's value instead: the known edges
     // of those elements are kept, added and removed like any other. Restore indices sends values
     // already stripped on read, so the edges to unknown types are kept even when the MCL holds
-    // none of them.
+    // none of them. An aspect that yields no edges isn't read again.
     final EntityRegistry registry = opContext.getEntityRegistry();
     final boolean leaveUnknownDestinations = handling().toleratesUnknownEntityAspect();
     RecordTemplate graphAspect = aspect;
     RecordTemplate graphPrevious = previousAspect;
-    if (leaveUnknownDestinations) {
+    if (leaveUnknownDestinations && mayHaveEdges(aspectSpec)) {
       final RecordTemplate storedAspect =
           asStored(event.getMetadataChangeLog().getAspect(), aspectSpec, aspect);
       final RecordTemplate storedPrevious =
@@ -443,18 +447,54 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
    * and in lower case, and the types of {@code edges} as they are spelled in their urns. An edge to
    * a known type spelled in another case, and no longer in the aspect, isn't matched.
    */
-  private static Filter knownDestinationTypes(
+  private Filter knownDestinationTypes(
       @Nonnull final EntityRegistry registry, @Nonnull final List<Edge> edges) {
-    final Set<String> types = new TreeSet<>();
-    registry
-        .getEntitySpecs()
+    final RegistryDestinationTypes known = registryDestinationTypes(registry);
+    // Usually every edge's type is spelled as the registry names it (or in lower case), so the
+    // registry's own filter applies as it is.
+    if (edges.stream().allMatch(edge -> known.types().contains(edgeDestinationType(edge)))) {
+      return known.filter();
+    }
+    final SortedSet<String> types = new TreeSet<>(known.types());
+    edges.forEach(edge -> types.add(edgeDestinationType(edge)));
+    return destinationTypeFilter(types);
+  }
+
+  /**
+   * The registry's entity types, as named and in lower case, and the filter matching them. They
+   * don't change between events, so they are built once and rebuilt only for another registry, or
+   * when entity types are added to this one (plugin registries are merged into it in place).
+   */
+  private RegistryDestinationTypes registryDestinationTypes(
+      @Nonnull final EntityRegistry registry) {
+    final Map<String, EntitySpec> specs = registry.getEntitySpecs();
+    final RegistryDestinationTypes cached = registryDestinationTypes;
+    if (cached != null && cached.registry() == registry && cached.specCount() == specs.size()) {
+      return cached;
+    }
+    final SortedSet<String> types = new TreeSet<>();
+    specs
         .values()
         .forEach(
             spec -> {
               types.add(spec.getName());
               types.add(spec.getName().toLowerCase());
             });
-    edges.forEach(edge -> types.add(edge.getDestination().getEntityType()));
+    final Filter filter = destinationTypeFilter(types);
+    // Shared by every event, so nothing may change it.
+    filter.data().makeReadOnly();
+    final RegistryDestinationTypes built =
+        new RegistryDestinationTypes(
+            registry, specs.size(), Collections.unmodifiableSortedSet(types), filter);
+    registryDestinationTypes = built;
+    return built;
+  }
+
+  private static String edgeDestinationType(@Nonnull final Edge edge) {
+    return edge.getDestination().getEntityType();
+  }
+
+  private static Filter destinationTypeFilter(@Nonnull final Set<String> types) {
     return new Filter()
         .setOr(
             new ConjunctiveCriterionArray(
@@ -465,6 +505,17 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
                                 GraphQueryConstants.DESTINATION + ".entityType",
                                 Condition.EQUAL,
                                 types)))));
+  }
+
+  private record RegistryDestinationTypes(
+      EntityRegistry registry, int specCount, SortedSet<String> types, Filter filter) {}
+
+  /**
+   * Whether the aspect can yield graph edges. The aspects whose schema field edges {@link
+   * GraphIndexUtils} builds by hand have relationship fields too.
+   */
+  private static boolean mayHaveEdges(@Nonnull final AspectSpec aspectSpec) {
+    return !aspectSpec.getRelationshipFieldSpecs().isEmpty();
   }
 
   private static boolean referencesUnknownEntityType(

@@ -10,6 +10,7 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -59,6 +60,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.GenericAspect;
@@ -551,6 +553,51 @@ public class UpdateGraphIndicesServiceTest {
         deletedByQuery().getRelationshipFilter(),
         newRelationshipFilter(
             new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
+  }
+
+  @Test
+  public void testAnAspectWithoutEdgesIsNotReadAgainForUnknownReferences() {
+    // Only an aspect that can yield edges is re-read from the MCL and checked for references to
+    // entity types this version doesn't know.
+    UnknownDataHandling handling = spy(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(handling);
+
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityType("dataset")
+            .setEntityUrn(TEST_URN)
+            .setAspectName(Constants.DATASET_PROPERTIES_ASPECT_NAME)
+            .setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties())));
+    verify(handling, never()).aspectReferencesUnknownEntityType(any(), any());
+
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        ownershipEvent(ChangeType.UPSERT, ownership(UrnUtils.getUrn("urn:li:corpuser:alice"))));
+    verify(handling, atLeastOnce()).aspectReferencesUnknownEntityType(any(), any());
+  }
+
+  @Test
+  public void testEveryNonDiffReplaceMatchesEveryRegistryType() {
+    // The destination types come from the registry, not the event, so each replace matches the
+    // same ones whatever its edges.
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT, forceIndexing(ownership(UrnUtils.getUrn("urn:li:corpuser:alice"))));
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        forceIndexing(ownershipWithType(UrnUtils.getUrn("urn:li:corpGroup:team"), BUSINESS_OWNER)));
+
+    ArgumentCaptor<GraphFilters> deleted = ArgumentCaptor.forClass(GraphFilters.class);
+    verify(mockWriteDAO, times(2)).deleteByQuery(eq(TEST_OP_CONTEXT), deleted.capture());
+    List<List<String>> destinationTypes =
+        deleted.getAllValues().stream()
+            .map(filters -> filters.getRelationshipFilter().getOr().get(0).getAnd().get(0))
+            .map(Criterion::getValues)
+            .map(List::copyOf)
+            .toList();
+    assertEquals(destinationTypes.get(1), destinationTypes.get(0));
+    assertTrue(destinationTypes.get(0).containsAll(List.of("corpuser", "dataJob", "datajob")));
   }
 
   private GraphFilters deletedByQuery() {
