@@ -45,6 +45,8 @@ from shard_pack import (
 from smart_testing import collection as smart_testing
 from smart_testing.taxonomy import PRTags, load_tag_map
 from utilities import env_vars
+from utilities.backend_plugin import configured_backend
+from utilities.backends import backend_filtered_items
 from utilities.domains import domains_of, is_selected, parse_requested_domains
 
 
@@ -138,6 +140,8 @@ def serialize_batch_plans(
     missing_weight_count: int,
     markexpr: str,
     domains: list[str],
+    backend: str,
+    backend_mode: str,
 ) -> dict[str, Any]:
     batches = []
     walls: list[float] = []
@@ -163,6 +167,8 @@ def serialize_batch_plans(
         "xdist_workers": xdist_workers,
         "markexpr": markexpr,
         "domains": domains,
+        "backend": backend,
+        "backend_mode": backend_mode,
         "test_count": test_count,
         "scope_count": len(scope_test_counts),
         "missing_weight_count": missing_weight_count,
@@ -236,9 +242,12 @@ def pytest_collection_modifyitems(
             "are cleared so they will not run. Prefer --collect-only."
         )
 
+    backend, backend_mode = configured_backend(config)
     selected = markexpr_filtered_items(
         str(getattr(config.option, "markexpr", "") or ""),
-        domain_filtered_items(config, items),
+        backend_filtered_items(
+            backend, backend_mode, domain_filtered_items(config, items)
+        ),
     )
     batch_number = env_vars.get_batch_number()
     xdist_workers = env_vars.get_pytest_xdist_workers()
@@ -272,6 +281,8 @@ def pytest_collection_modifyitems(
         missing_weight_count=len(packed.missing_weight_ids),
         markexpr=markexpr,
         domains=domains,
+        backend=backend.value,
+        backend_mode=backend_mode.value,
     )
     payload.update(sizing)
     path = resolve_dump_path(

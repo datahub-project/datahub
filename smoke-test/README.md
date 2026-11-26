@@ -244,6 +244,21 @@ echo "TEST_STRATEGY: $TEST_STRATEGY"
 - **Local**: Uses direct pytest - faster, uses locally running DataHub instance
 - **Recommendation**: Use local for development, CI for final validation
 
+### Pointing the tests at a non-default stack
+
+The tests read service addresses and index names from these variables. Each defaults to the
+Docker quickstart value, so set them only when you run against another stack, such as a
+Docker-free one:
+
+| Variable               | Docker default                            |
+| ---------------------- | ----------------------------------------- |
+| `DATAHUB_GMS_URL`      | `http://localhost:8080`                   |
+| `DATAHUB_FRONTEND_URL` | `http://localhost:9002`                   |
+| `ELASTICSEARCH_URL`    | `http://localhost:9200`                   |
+| `INDEX_PREFIX`         | none                                      |
+| `ELASTICSEARCH_INDEX`  | `datahub_usage_event`                     |
+| `SMOKE_BACKEND`        | `docker` (`local` skips Kafka-only waits) |
+
 ### Simulate batch packing without running tests
 
 CI splits pytests with `BATCH_COUNT` (5 on forks, 3 for the `p0` tier, 5 for the full suite) and `PYTEST_XDIST_WORKERS=3`. To dump the predicted pack plan for one of those counts without executing tests, load the opt-in plugin with `-p` (it is not registered in `conftest.py`):

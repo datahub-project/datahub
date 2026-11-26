@@ -27,13 +27,17 @@ from tests.e2e.metrics.usage_aggregation_metrics import (
     wait_for_metric_delta,
 )
 from tests.e2e.utils import get_gms_prometheus_base_url
+from utilities.backends import Capability
 from utilities.domains import Domain
 from utilities.metadata_operations import get_prometheus_metrics
 from utilities.multi_user import cleanup_step_actor_user, make_step_actor_user
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [
+    pytest.mark.domain(Domain.PLATFORM),
+    pytest.mark.requires(Capability.OBJECT_STORAGE),
+]
 
 
 def _require_prometheus_url() -> str:

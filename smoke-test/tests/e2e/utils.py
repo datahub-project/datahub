@@ -26,6 +26,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.utilities.urns.urn import guess_entity_type
 from utilities import env_vars
+from utilities.backends import Capability, require_capability
 from utilities.consistency_utils import wait_for_writes_to_sync
 
 TIME: int = 1581407189000
@@ -198,10 +199,12 @@ def get_frontend_url():
 
 
 def get_kafka_broker_url():
+    require_capability(Capability.KAFKA)
     return env_vars.get_kafka_url() or "localhost:9092"
 
 
 def get_kafka_schema_registry():
+    require_capability(Capability.KAFKA)
     #  internal registry "http://localhost:8080/schema-registry/api/"
     return (
         env_vars.get_kafka_schema_registry_url()
@@ -222,6 +225,7 @@ def _metadata_db_tcp_reachable(host_port: str, default_port: int) -> bool:
 
 
 def get_db_type():
+    require_capability(Capability.SQL_DB)
     db_type = env_vars.get_db_type()
     if db_type:
         return db_type

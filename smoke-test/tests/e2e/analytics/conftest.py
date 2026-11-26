@@ -6,7 +6,6 @@ Provides session-scoped fixture for loading analytics data with relative timesta
 
 import json
 import logging
-import os
 import subprocess
 import time
 from pathlib import Path
@@ -14,6 +13,8 @@ from typing import Generator
 
 import pytest
 import requests
+
+from utilities import env_vars
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,8 @@ def _validate_analytics_data_searchable(elasticsearch_url: str) -> None:
     # Force Elasticsearch index refresh to make data immediately searchable
     try:
         refresh_response = requests.post(
-            f"{elasticsearch_url}/datahub_usage_event/_refresh", timeout=10
+            f"{elasticsearch_url}/{env_vars.get_elasticsearch_index()}/_refresh",
+            timeout=10,
         )
         if refresh_response.status_code == 200:
             logger.info("✓ Elasticsearch index refreshed successfully")
@@ -64,7 +66,7 @@ def _validate_analytics_data_searchable(elasticsearch_url: str) -> None:
     for attempt in range(1, max_retries + 1):
         try:
             response = requests.post(
-                f"{elasticsearch_url}/datahub_usage_event/_search",
+                f"{elasticsearch_url}/{env_vars.get_elasticsearch_index()}/_search",
                 json=probe_query,
                 headers={"Content-Type": "application/json"},
                 timeout=10,
@@ -144,7 +146,7 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
             json.dump(minimal_users, f, indent=2)
 
     # Get Elasticsearch URL from environment or use default
-    elasticsearch_url = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
+    elasticsearch_url = env_vars.get_elasticsearch_url()
 
     # Generate 45 days of data to ensure Monthly Active Users (MAU) chart has data
     # MAU queries data from previous complete months, so we need data spanning beyond current month

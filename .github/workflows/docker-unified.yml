@@ -909,6 +909,10 @@ jobs:
         env:
           RUN_QUICKSTART: "false"
           TEST_STRATEGY: plan
+          # The stack the batches run on (smoke-test/utilities/backends.py).
+          # The plan records it, and a batch job with a different value stops
+          # rather than running another lane's selection.
+          SMOKE_BACKEND: docker
           SMOKE_SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
           SMOKE_CHANGED_TESTS: ${{ needs.setup.outputs.smoke_changed_tests }}
           SMOKE_DUMP_BATCH_PLAN: ${{ github.workspace }}/pytest-smoke-plan/pytest-smoke-plan.json
@@ -1542,6 +1546,8 @@ jobs:
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           CLEANUP_DATA: "false"
           TEST_STRATEGY: pytests
+          # Must match the plan step in smoke_test_matrix.
+          SMOKE_BACKEND: docker
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
           # 'p0' or 'full' -- decided by smoke_test_matrix.
