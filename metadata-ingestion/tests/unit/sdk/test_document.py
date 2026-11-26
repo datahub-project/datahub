@@ -269,6 +269,24 @@ class TestDocumentLifecycle:
         assert doc.lifecycle_stage is None
         assert doc.status == models.DocumentStateClass.UNPUBLISHED
 
+    def test_create_without_status_aspect(self):
+        """Callers that manage status themselves can opt out of the status write."""
+        doc = Document.create_document(
+            id="no-status-doc", title="Stage", text="Content", write_status=False
+        )
+        assert doc._get_aspect(models.StatusClass) is None
+        assert doc.status == models.DocumentStateClass.PUBLISHED
+        assert "status" not in [mcp.aspectName for mcp in doc.as_mcps()]
+
+        external = Document.create_external_document(
+            id="no-status-external",
+            title="Stage",
+            platform="notion",
+            external_url="https://example.com/page",
+            write_status=False,
+        )
+        assert external._get_aspect(models.StatusClass) is None
+
     def test_unpublish_keeps_existing_non_published_stage(self):
         doc = Document.create_document(id="draft-doc", title="Stage", text="Content")
         doc._set_aspect(models.StatusClass(removed=False, lifecycleStage=DRAFT_STAGE))

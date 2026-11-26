@@ -495,6 +495,12 @@ class RepositoryDocumentsSourceBase(
         if self._resolved_source_id_urns.get(dir_source_id):
             doc = Document(urn=DocumentUrn(doc_id))
             self._attach_platform_instance(doc, owner_repo)
+            # A folder has no content to hash, so its Status is written when it is first
+            # imported and when it comes back after a soft delete, not on every run:
+            # re-emitting it would add a status version and change event per run.
+            if str(doc.urn) in self._soft_deleted_urns():
+                self.report.documents_resurrected += 1
+                doc._set_aspect(_imported_status())
         else:
             doc = self._build_document(
                 doc_id=doc_id,
@@ -515,8 +521,6 @@ class RepositoryDocumentsSourceBase(
                 ),
                 is_directory=True,
             )
-        # A built document already has its Status; a bare existing folder gets one here.
-        doc._setdefault_aspect(_imported_status())
         self._register_document(
             doc, dir_source_id, title, parent_source_id, is_directory=True
         )

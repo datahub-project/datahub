@@ -388,6 +388,7 @@ class Document(
         created_time: Optional[datetime] = None,
         last_modified_time: Optional[datetime] = None,
         extra_aspects: Optional[ExtraAspectsType] = None,
+        write_status: bool = True,
     ) -> Self:
         """Internal method to create a Document with all options."""
         urn = DocumentUrn(id)
@@ -467,15 +468,19 @@ class Document(
 
         # Keep status.lifecycleStage consistent with documentInfo.status.state above.
         # A stage takes precedence over the legacy state, so a stored stage that
-        # disagrees with it must not be left in place.
-        lifecycle_stage = _state_to_lifecycle_stage(status, None)
-        doc._set_aspect(
-            models.StatusClass(
-                removed=False,
-                lifecycleStage=lifecycle_stage,
-                lifecycleLastUpdated=modified_audit if lifecycle_stage else None,
+        # disagrees with it must not be left in place. This is a full Status write:
+        # the writer owns the document's stage, and a stage set elsewhere (e.g. in
+        # the UI) is replaced. Writers that manage Status themselves pass
+        # write_status=False.
+        if write_status:
+            lifecycle_stage = _state_to_lifecycle_stage(status, None)
+            doc._set_aspect(
+                models.StatusClass(
+                    removed=False,
+                    lifecycleStage=lifecycle_stage,
+                    lifecycleLastUpdated=modified_audit if lifecycle_stage else None,
+                )
             )
-        )
 
         # Create DocumentSettings - always set if show_in_global_context is False
         # This controls whether the document appears in global search and sidebar
@@ -535,6 +540,7 @@ class Document(
         created_time: Optional[datetime] = None,
         last_modified_time: Optional[datetime] = None,
         extra_aspects: Optional[ExtraAspectsType] = None,
+        write_status: bool = True,
     ) -> Self:
         """Create a native document stored in DataHub.
 
@@ -563,6 +569,11 @@ class Document(
             custom_properties: Custom key-value metadata
             structured_properties: Structured properties to add
             extra_aspects: Additional aspects to include
+            write_status: If True (default), also write the document's ``status``
+                aspect: not removed, with the lifecycle stage matching ``status``.
+                This replaces any stored lifecycle stage, including one a person set
+                in the UI, so the caller owns the stage of the documents it writes.
+                Pass False when the caller manages ``status`` itself.
 
         Returns:
             A new Document entity instance
@@ -622,6 +633,7 @@ class Document(
             created_time=created_time,
             last_modified_time=last_modified_time,
             extra_aspects=extra_aspects,
+            write_status=write_status,
         )
 
     @classmethod
@@ -649,6 +661,7 @@ class Document(
         created_time: Optional[datetime] = None,
         last_modified_time: Optional[datetime] = None,
         extra_aspects: Optional[ExtraAspectsType] = None,
+        write_status: bool = True,
     ) -> Self:
         """Create an external document reference.
 
@@ -681,6 +694,11 @@ class Document(
             created_time: Creation timestamp from external system (optional, defaults to now)
             last_modified_time: Last modified timestamp from external system (optional, defaults to now)
             extra_aspects: Additional aspects to include
+            write_status: If True (default), also write the document's ``status``
+                aspect: not removed, with the lifecycle stage matching ``status``.
+                This replaces any stored lifecycle stage, including one a person set
+                in the UI, so the caller owns the stage of the documents it writes.
+                Pass False when the caller manages ``status`` itself.
 
         Returns:
             A new Document entity instance
@@ -746,6 +764,7 @@ class Document(
             created_time=created_time,
             last_modified_time=last_modified_time,
             extra_aspects=extra_aspects,
+            write_status=write_status,
         )
 
     @property

@@ -15,6 +15,12 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Imported documents are reset to the Published lifecycle stage on re-ingestion ([#21146](https://github.com/datahub-project/datahub/pull/21146))
+
+Document connectors built on the Python SDK (GitHub and GitLab documents, Hex, Confluence, Google Drive and unstructured files) now set each document's lifecycle stage to **Published** whenever they write the document. Before, a stage someone set on an imported document in DataHub, such as **Archived**, **Deprecated** or **Rejected**, survived re-ingestion. Now it is reset to **Published** the next time the connector writes that document. For GitHub and GitLab documents, that happens once for every file on the first run after upgrading, then whenever a file changes. Folders are only written when first imported or when restored after deletion. For the other connectors it depends on how often they re-emit a document.
+
+The repository or source system now decides whether an imported document is published. To hide one, remove it at the source or exclude it from ingestion. Custom code that calls `Document.create_document` or `Document.create_external_document` and manages the document's status itself can pass `write_status=False` to keep its own stage.
+
 ### Stricter permission checks when deleting from the UI or GraphQL
 
 Delete actions in the UI and GraphQL API now check the type of the item being deleted ([PR #21488](https://github.com/datahub-project/datahub/pull/21488)). For example, **Delete Tag** can only delete tags, and **Delete Domain** can only delete domains. Normal use of these actions does not change.

@@ -1660,8 +1660,9 @@ def test_identity_short_circuit_skips_search_for_canonical_match(
     source.ctx.graph.get_urns_by_filter.assert_not_called()
 
 
+@pytest.mark.parametrize("soft_deleted", [False, True])
 def test_existing_folder_document_does_not_overwrite_body(
-    source: GitHubDocumentsSource,
+    source: GitHubDocumentsSource, soft_deleted: bool
 ) -> None:
     existing_urn = "urn:li:document:native-folder"
     dir_source_id = make_dir_source_id(
@@ -1689,6 +1690,8 @@ def test_existing_folder_document_does_not_overwrite_body(
     source.ctx.graph.get_aspect.side_effect = get_aspect
 
     def urns_by_filter(**kwargs):  # type: ignore[no-untyped-def]
+        if kwargs.get("status") == RemovedStatusFilter.ONLY_SOFT_DELETED:
+            return [existing_urn] if soft_deleted else []
         for rule in kwargs.get("extraFilters") or []:
             values = rule.get("values") or []
             if any(f"import_source_id={dir_source_id}" == value for value in values):
@@ -1712,12 +1715,17 @@ def test_existing_folder_document_does_not_overwrite_body(
         for status in [wu.get_aspect_of_type(StatusClass)]
         if status is not None
     ]
-    assert statuses
-    # The import owns the stage: a stored DRAFT is replaced by PUBLISHED.
-    assert all(
-        status.removed is False and status.lifecycleStage == PUBLISHED_STAGE_URN
-        for status in statuses
-    )
+    if not soft_deleted:
+        # An existing folder's Status is left alone: re-emitting it every run would
+        # add a status version and change event per run.
+        assert statuses == []
+        return
+    # A folder restored after a soft delete gets the imported Status: the import
+    # owns the stage, so a stored DRAFT is replaced by PUBLISHED.
+    assert len(statuses) == 1
+    assert statuses[0].removed is False
+    assert statuses[0].lifecycleStage == PUBLISHED_STAGE_URN
+    assert source.report.documents_resurrected == 1
 
 
 @pytest.fixture
