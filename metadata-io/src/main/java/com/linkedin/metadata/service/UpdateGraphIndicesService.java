@@ -427,7 +427,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
   /**
    * The edges, without those whose destination's entity type this version doesn't know when {@code
    * leaveUnknownDestinations}. Only the destination's own type is checked, as {@link
-   * #knownDestinationTypes} does for a delete.
+   * #knownDestinationTypes} does for the replace's delete-by-query.
    */
   private static List<Edge> knownDestinations(
       @Nonnull final List<Edge> edges,

@@ -325,6 +325,77 @@ public class UpdateGraphIndicesServiceTest {
   }
 
   @Test
+  public void testStrictHandlingDiffRemovesARemovedOwnersEdges() {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    test.setGraphDiffMode(true);
+    Urn alice = UrnUtils.getUrn("urn:li:corpuser:alice");
+    Urn bob = UrnUtils.getUrn("urn:li:corpuser:bob");
+
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        ownershipEvent(ChangeType.UPSERT, ownership(alice))
+            .setPreviousAspectValue(GenericRecordUtils.serializeAspect(ownership(alice, bob))));
+
+    ArgumentCaptor<String> removed = ArgumentCaptor.forClass(String.class);
+    verify(mockWriteDAO, times(1)).deleteDocument(eq(TEST_OP_CONTEXT), removed.capture());
+    assertEquals(removed.getValue(), ownedByDocId(bob));
+    verify(mockWriteDAO, never()).deleteByQuery(any(), any());
+  }
+
+  @Test
+  public void testStrictHandlingDiffsAgainstTheUnvalidatedPrevious() {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    test.setGraphDiffMode(true);
+    Urn alice = UrnUtils.getUrn("urn:li:corpuser:alice");
+    Urn bob = UrnUtils.getUrn("urn:li:corpuser:bob");
+
+    test.handleChangeEventWithUnvalidatedPrevious(
+        TEST_OP_CONTEXT,
+        ownershipEvent(ChangeType.UPSERT, ownership(alice)),
+        ownership(alice, bob));
+
+    ArgumentCaptor<String> removed = ArgumentCaptor.forClass(String.class);
+    verify(mockWriteDAO, times(1)).deleteDocument(eq(TEST_OP_CONTEXT), removed.capture());
+    assertEquals(removed.getValue(), ownedByDocId(bob));
+  }
+
+  @Test
+  public void testStrictHandlingDeleteRemovesEveryEdgeOfTheTypes() {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        ownershipEvent(ChangeType.DELETE, null)
+            .setPreviousAspectValue(
+                GenericRecordUtils.serializeAspect(
+                    ownership(UrnUtils.getUrn("urn:li:corpuser:alice")))));
+
+    verify(mockWriteDAO, times(1))
+        .deleteByQuery(
+            eq(TEST_OP_CONTEXT),
+            eq(
+                GraphFilters.from(
+                    createUrnFilter(TEST_URN),
+                    Set.of("OwnedBy", "ownershipType"),
+                    createRelationshipFilter(
+                        new Filter().setOr(new ConjunctiveCriterionArray()),
+                        RelationshipDirection.OUTGOING))));
+  }
+
+  @Test
+  public void testStrictHandlingNeverChecksForUnknownReferences() {
+    // With tolerance off the stored value isn't read again, for any aspect.
+    UnknownDataHandling handling = spy(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(handling);
+
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        ownershipEvent(ChangeType.UPSERT, ownership(UrnUtils.getUrn("urn:li:corpuser:alice"))));
+
+    verify(handling, never()).aspectReferencesUnknownEntityType(any(), any());
+  }
+
+  @Test
   public void testUpdateGraphServiceDiffWithSubtractiveDifference() throws URISyntaxException {
     // Enable diff mode
     test.setGraphDiffMode(true);
