@@ -24,6 +24,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     reads_unknown_fields,
 )
 from datahub.ingestion.source.qlik_sense.source.app_tables import AppTablesMixin
+from datahub.ingestion.source.qlik_sense.source_utils import _patch_workunits
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
@@ -184,10 +185,7 @@ class DashboardMixin(AppTablesMixin):
             patch.set_description(chart.visualization)
         for key, value in custom_properties.items():
             patch.add_custom_property(key, value)
-        for mcp in patch.build():
-            yield MetadataWorkUnit(
-                id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
-            )
+        yield from _patch_workunits(patch, is_primary_source=True)
 
     @staticmethod
     def _chart_field_names(expression: str, app_fields: AppFieldIndex) -> List[str]:
@@ -336,10 +334,7 @@ class DashboardMixin(AppTablesMixin):
                 # same patch so the two can't be applied to different bases.
                 for urn in self._stale_sheet_edges(dashboard_urn, sheet_urns):
                     patch.remove_dashboard(urn)
-            for mcp in patch.build():
-                yield MetadataWorkUnit(
-                    id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
-                )
+            yield from _patch_workunits(patch, is_primary_source=True)
         yield MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
             aspect=SubTypes(typeNames=[BIAssetSubTypes.QLIK_APP_DASHBOARD]),

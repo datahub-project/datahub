@@ -65,7 +65,7 @@ class EntityEmitMixin(QlikSourceBase):
         self, date: datetime, username: Optional[str]
     ) -> AuditStampClass:
         return AuditStampClass(
-            time=int(date.timestamp() * 1000),
+            time=builder.make_ts_millis(date),
             actor=builder.make_user_urn(username) if username else builder.UNKNOWN_USER,
         )
 
@@ -101,10 +101,10 @@ class EntityEmitMixin(QlikSourceBase):
                 else None
             ),
             external_url=f"https://{self.ui_host}/hub/stream/{space.id}"
-            if self.config.on_prem
+            if not self._on_cloud
             else f"https://{self.ui_host}/catalog?space_filter={space.id}",
-            created=int(space.createdAt.timestamp() * 1000),
-            last_modified=int(space.updatedAt.timestamp() * 1000),
+            created=builder.make_ts_millis(space.createdAt),
+            last_modified=builder.make_ts_millis(space.updatedAt),
         )
 
     def _gen_entity_status_aspect(self, entity_urn: str) -> MetadataWorkUnit:
@@ -203,8 +203,8 @@ class EntityEmitMixin(QlikSourceBase):
             description=dataset.description,
             qualifiedName=dataset.name,
             externalUrl=f"https://{self.ui_host}/dataset/{dataset.itemId}",
-            created=TimeStamp(time=int(dataset.createdAt.timestamp() * 1000)),
-            lastModified=TimeStamp(time=int(dataset.updatedAt.timestamp() * 1000)),
+            created=TimeStamp(time=builder.make_ts_millis(dataset.createdAt)),
+            lastModified=TimeStamp(time=builder.make_ts_millis(dataset.updatedAt)),
         )
         dataset_properties.customProperties.update(
             {

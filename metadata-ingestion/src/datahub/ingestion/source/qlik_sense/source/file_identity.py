@@ -1,5 +1,4 @@
-import functools
-from functools import partial
+from functools import cached_property, partial
 from typing import Callable, Dict, Optional, Set
 
 from datahub.ingestion.source.qlik_sense.config import Constant, FileStorageDetail
@@ -51,7 +50,7 @@ class FileIdentityMixin(DashboardMixin):
     match the file's QRI wins over one whose storage is only mapped, and the
     file is named only when one URN remains."""
 
-    @functools.cached_property
+    @cached_property
     def _dataset_urns_by_secure_qri(self) -> Optional[Dict[str, str]]:
         """Dataset URNs by secure QRI, or None when the datasets could not be
         listed. First read after the allowed spaces are known."""
@@ -240,7 +239,7 @@ class FileIdentityMixin(DashboardMixin):
             else bool(connections)
         )
 
-    @functools.cached_property
+    @cached_property
     def _catalogued_files(self) -> Dict[_CataloguedFile, Set[str]]:
         """The connection parts of catalogued files' QRIs, by platform and the
         path part."""
@@ -257,7 +256,7 @@ class FileIdentityMixin(DashboardMixin):
                 ).add(match.group("connection"))
         return files
 
-    @functools.cached_property
+    @cached_property
     def _qvd_storage_urns(self) -> Dict[str, Callable[[str], str]]:
         return {
             name: partial(self._file_urn, storage, detail)

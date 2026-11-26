@@ -18,6 +18,14 @@ from datahub.ingestion.source.qlik_sense.source_utils import _bounded_list
 
 
 class EndOfRunMixin(ItemsMixin):
+    def _record_end_of_run_urns(self) -> None:
+        for app_id, urns in self._app_end_of_run_urns.items():
+            self.app_state.add_urns(app_id, urns)
+        for app_id, urns in self._app_read_unmapped_files.items():
+            self.app_state.add_read_unmapped_files(app_id, urns)
+        for app_id, urns in self._app_read_graph_named.items():
+            self.app_state.add_read_graph_named(app_id, urns)
+
     def _report_end_of_run(self) -> None:
         if self.qlik_api.opened_without_data:
             self.reporter.warning(

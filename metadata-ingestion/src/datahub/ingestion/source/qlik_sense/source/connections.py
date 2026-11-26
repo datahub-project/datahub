@@ -116,7 +116,7 @@ class DataConnectionMixin(EntityEmitMixin):
     def _note_unseen_space(self, space: Optional[str], need: _SpaceNeed) -> None:
         """Records a space a script or Qlik names, when the API key can't see
         it, as one the run needs access to for complete lineage."""
-        if not space or self.config.on_prem is not None:
+        if not space or not self._on_cloud:
             return
         if self._listed_space_names is None:
             # Without the listing, every space would look unseen.

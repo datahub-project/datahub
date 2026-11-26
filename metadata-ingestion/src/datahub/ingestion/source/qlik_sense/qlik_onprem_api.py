@@ -341,9 +341,8 @@ class QlikOnPremAPI(QlikBaseAPI):
             errors.record(
                 f"Unable to connect to the Engine for app {app.id}. Exception: {e}"
             )
-            app.read_errors = errors.messages
-            app.sheets_complete = False
-            return app
+            errors.sheets_unread = True
+            return self._finish_read(app, errors)
         with_data = self.on_prem.read_data_model
         try:
             try:

@@ -301,7 +301,7 @@ class ItemsMixin(OnPremBinaryMixin):
         self._name_unknown_tables(app, script_tables)
         qvd_lineage = (
             self._app_qvd_lineage(app, parsed, script_tables)
-            if self.config.on_prem is not None
+            if not self._on_cloud
             else None
         )
         binary_load = None
@@ -331,11 +331,10 @@ class ItemsMixin(OnPremBinaryMixin):
         self._register_app_tables(app)
         for table in app.lineage_tables:
             matched = matched_script_tables.get(table.qri)
-            urn = self._gen_qlik_dataset_urn(
-                self._lineage_table_identifier(app.id, table)
-            )
+            identifier = self._lineage_table_identifier(app.id, table)
+            urn = self._gen_qlik_dataset_urn(identifier)
             table_fields[urn] = self._table_schema(
-                self._lineage_table_identifier(app.id, table),
+                identifier,
                 self._lineage_table_fields(table, matched),
             )
             if matched:
@@ -364,8 +363,8 @@ class ItemsMixin(OnPremBinaryMixin):
                     else None
                 ),
                 external_url=f"https://{self.ui_host}/sense/app/{app.id}/overview",
-                created=int(app.createdAt.timestamp() * 1000),
-                last_modified=int(app.updatedAt.timestamp() * 1000),
+                created=builder.make_ts_millis(app.createdAt),
+                last_modified=builder.make_ts_millis(app.updatedAt),
             )
         )
         yield from container_workunits
@@ -485,7 +484,7 @@ class ItemsMixin(OnPremBinaryMixin):
             self.reporter.apps_read += 1
             if item.lineage_graph_missing:
                 self._check_missing_lineage_graph(item)
-            if self.config.on_prem is not None and record_state:
+            if not self._on_cloud and record_state:
                 self._check_binary_read(item)
             logger.info(
                 f"Processed app {item.qTitle} in space {space_name} "

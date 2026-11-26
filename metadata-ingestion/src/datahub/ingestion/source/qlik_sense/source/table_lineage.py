@@ -18,7 +18,6 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 from datahub.ingestion.source.qlik_sense.lib_path import _named_space
 from datahub.ingestion.source.qlik_sense.reload_sql import _merged_lineage
 from datahub.ingestion.source.qlik_sense.script_lineage import (
-    BACKTICK_QUOTED_PLATFORMS,
     VARIABLE_REFERENCE_RE,
     ParsedScript,
     ResolvedConnection,
@@ -27,7 +26,6 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     app_table_identifier,
     apply_crosstable,
     apply_preceding_loads,
-    brackets_to_backticks,
     drop_condition_variables,
     has_qualified_name,
     is_connector_sql,
@@ -101,12 +99,6 @@ class TableLineageMixin(GraphNamedMixin):
             )
             return None
         result = self._parse_script_sql(sql, connection)
-        if (
-            result.debug_info.table_error
-            and connection.platform in BACKTICK_QUOTED_PLATFORMS
-            and "[" in sql
-        ):
-            result = self._parse_script_sql(brackets_to_backticks(sql), connection)
         if result.in_tables:
             return result
         if result.debug_info.table_error:
@@ -394,31 +386,7 @@ class TableLineageMixin(GraphNamedMixin):
                 dataset_urn=dataset_urn,
                 source_qris=table.source_qris,
                 script_upstream_urns=script_table.upstream_urns if script_table else [],
-                incomplete_reason=(
-                    _IncompleteLineageReason.SCRIPT_UNREAD
-                    if app.script_read_failed
-                    else _IncompleteLineageReason.TABLES_UNREAD
-                    if app.tables_read_failed
-                    else _IncompleteLineageReason.FIELD_LINEAGE_UNREAD
-                    if table.field_lineage_failed
-                    else _IncompleteLineageReason.RELOAD_SQL_UNREAD
-                    if app.reload_statements_read_failed
-                    and any(
-                        qri.startswith(DATABASE_QRI_PREFIX) for qri in table.source_qris
-                    )
-                    else _IncompleteLineageReason.DATA_CONNECTIONS_UNREAD
-                    if self._data_connections_unread()
-                    and any(
-                        qri.startswith(DATABASE_QRI_PREFIX) for qri in table.source_qris
-                    )
-                    else _IncompleteLineageReason.DATABASE_TABLE_UNLABELLED
-                    if any(
-                        qri.startswith(DATABASE_QRI_PREFIX)
-                        and qri not in table.database_source_labels
-                        for qri in table.source_qris
-                    )
-                    else None
-                ),
+                incomplete_reason=self._incomplete_reason(app, table),
                 script_fields=(
                     self._script_column_lineage(dataset_urn, script_table) or []
                     if script_table
@@ -445,6 +413,26 @@ class TableLineageMixin(GraphNamedMixin):
                 self._pending_table_lineage.append(pending)
                 continue
             yield from self._gen_table_lineage(pending, graph_fields)
+
+    def _incomplete_reason(
+        self, app: App, table: LineageTable
+    ) -> Optional[_IncompleteLineageReason]:
+        if app.script_read_failed:
+            return _IncompleteLineageReason.SCRIPT_UNREAD
+        if app.tables_read_failed:
+            return _IncompleteLineageReason.TABLES_UNREAD
+        if table.field_lineage_failed:
+            return _IncompleteLineageReason.FIELD_LINEAGE_UNREAD
+        database_sources = [
+            qri for qri in table.source_qris if qri.startswith(DATABASE_QRI_PREFIX)
+        ]
+        if database_sources and app.reload_statements_read_failed:
+            return _IncompleteLineageReason.RELOAD_SQL_UNREAD
+        if database_sources and self._data_connections_unread():
+            return _IncompleteLineageReason.DATA_CONNECTIONS_UNREAD
+        if any(qri not in table.database_source_labels for qri in database_sources):
+            return _IncompleteLineageReason.DATABASE_TABLE_UNLABELLED
+        return None
 
     def _reads_an_app_not_yet_read(self, app_id: str, table: LineageTable) -> bool:
         source_apps = {
@@ -489,7 +477,7 @@ class TableLineageMixin(GraphNamedMixin):
         self._deferred_fingerprints = {}
 
     def _gen_table_lineage(
-        self, pending: "PendingTableLineage", graph_fields: List[FineGrainedLineage]
+        self, pending: PendingTableLineage, graph_fields: List[FineGrainedLineage]
     ) -> Iterable[MetadataWorkUnit]:
         fine_grained = self._column_lineage([*pending.script_fields, *graph_fields])
         resolved = self._resolve_lineage_sources(

@@ -46,7 +46,7 @@ class SourceResolutionMixin(FileIdentityMixin):
 
     def _resolve_lineage_sources(
         self, source_qris: List[str], dataset_urn: str, own_app_id: Optional[str]
-    ) -> "_ResolvedSources":
+    ) -> _ResolvedSources:
         """URNs of the sources this run ingests. A source that can't be resolved
         this run, because the datasets or its app could not be read, makes the
         result incomplete. `own_app_id` is the app whose table it is."""

@@ -81,7 +81,7 @@ class IncrementalMixin(DataConnectionMixin):
             fingerprint
         ):
             return False
-        if self.config.on_prem is not None and (
+        if not self._on_cloud and (
             previous.qvds is None or previous.binary_tables is None
         ):
             # Recorded before QVD or BINARY lineage, which are only known by

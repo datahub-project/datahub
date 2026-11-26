@@ -282,14 +282,6 @@ class StoreLineageMixin(OnPremQvdMixin):
         } & table_urns
         return next(iter(urns)) if len(urns) == 1 else None
 
-    def _record_end_of_run_urns(self) -> None:
-        for app_id, urns in self._app_end_of_run_urns.items():
-            self.app_state.add_urns(app_id, urns)
-        for app_id, urns in self._app_read_unmapped_files.items():
-            self.app_state.add_read_unmapped_files(app_id, urns)
-        for app_id, urns in self._app_read_graph_named.items():
-            self.app_state.add_read_graph_named(app_id, urns)
-
     def _gen_stored_table_types(self) -> Iterable[MetadataWorkUnit]:
         """Types for the fields of untyped graph tables, from the datasets they
         are stored into: a STORE writes a field's values unchanged, so a field
@@ -393,7 +385,4 @@ class StoreLineageMixin(OnPremQvdMixin):
                         current.fineGrainedLineages or [], stored_fields, owned
                     ):
                         patch.remove_fine_grained_lineage(lineage)
-            for mcp in patch.build():
-                yield MetadataWorkUnit(
-                    id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
-                )
+            yield from _patch_workunits(patch, is_primary_source=True)

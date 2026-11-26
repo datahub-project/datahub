@@ -21,7 +21,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ParsedScript,
     ScriptTableLineage,
 )
-from datahub.ingestion.source.qlik_sense.source.reload_sql import ReloadSqlMixin
+from datahub.ingestion.source.qlik_sense.source.reload_lineage import ReloadSqlMixin
 from datahub.ingestion.source.qlik_sense.source_models import _QvdsUnknownReason
 from datahub.ingestion.source.qlik_sense.source_utils import (
     _bounded_list,

@@ -84,20 +84,18 @@ class OnPremBinaryMixin(TableLineageMixin):
         binary = self._parsed_script(app).binary
         if binary is None:
             return
-        reason = (
-            "its data model could not be loaded"
-            if app.data_load_failed
-            else "its variables, which the BINARY path uses, could not be read"
-            if binary.uses_variables and app.variables_read_failed
-            else None
-        )
-        if reason is None:
+        if app.data_load_failed:
+            reason = "its data model could not be loaded"
+        elif binary.uses_variables and app.variables_read_failed:
+            reason = "its variables, which the BINARY path uses, could not be read"
+        else:
             return
+        tables_unknown = f"{BINARY_TABLES_UNKNOWN}{reason}"
         failures: List[str] = []
         previous = self._usable_checkpoint(app.id, failures)
         if failures:
             # Its last read may hold BINARY tables.
-            app.read_errors.append(f"{BINARY_TABLES_UNKNOWN}{reason}")
+            app.read_errors.append(tables_unknown)
             return
         if previous is None or not previous.binary_tables:
             return
@@ -110,7 +108,7 @@ class OnPremBinaryMixin(TableLineageMixin):
                 context=f"{app.id}: {reason}",
             )
             return
-        app.read_errors.append(f"{BINARY_TABLES_UNKNOWN}{reason}")
+        app.read_errors.append(tables_unknown)
 
     def _binary_load(self, app: App, parsed: ParsedScript) -> _BinaryLoad:
         """The app's tables a BINARY statement loads: the data model's tables

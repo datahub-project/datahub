@@ -55,6 +55,18 @@ class ReloadSqlMixin(SourceResolutionMixin):
     def _parse_script_sql(
         self, sql: str, connection: ResolvedConnection
     ) -> SqlParsingResult:
+        result = self._parse_sql(sql, connection)
+        if (
+            result.debug_info.table_error
+            and connection.platform in BACKTICK_QUOTED_PLATFORMS
+            and "[" in sql
+        ):
+            # A `[bracket]` identifier only parses on these platforms as a
+            # backtick one.
+            result = self._parse_sql(brackets_to_backticks(sql), connection)
+        return result
+
+    def _parse_sql(self, sql: str, connection: ResolvedConnection) -> SqlParsingResult:
         return create_lineage_sql_parsed_result(
             query=sql,
             default_db=connection.database,
@@ -104,12 +116,6 @@ class ReloadSqlMixin(SourceResolutionMixin):
                 parsed.skipped_table_names |= _table_clause_names(sql)
                 continue
             result = self._parse_script_sql(sql, connection)
-            if (
-                result.debug_info.table_error
-                and connection.platform in BACKTICK_QUOTED_PLATFORMS
-                and "[" in sql
-            ):
-                result = self._parse_script_sql(brackets_to_backticks(sql), connection)
             if result.debug_info.table_error:
                 self.reporter.warning(
                     title="Unable to parse Qlik reload SQL",
