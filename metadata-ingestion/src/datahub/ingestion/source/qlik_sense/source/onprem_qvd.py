@@ -80,7 +80,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
             # Without the folder connections, the lib:// QVDs it writes are
             # unknown.
             unknown_reason: Optional[_QvdsUnknownReason] = (
-                _QvdsUnknownReason.DATA_CONNECTIONS_UNREAD
+                _QvdsUnknownReason.DATA_CONNECTIONS_UNLISTED
             )
         elif parsed.has_unresolved_store or lineage.has_unresolved_store:
             # Such as a loop STORE, or a path built from a variable that failed

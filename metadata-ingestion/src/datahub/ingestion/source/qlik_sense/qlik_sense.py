@@ -51,8 +51,9 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     PendingStoredFile,
     PendingTableLineage,
     _BinaryLink,
-    _OnlyAddedTables,
+    _OnlyAddedTablesKey,
     _ParsedApp,
+    _QvdsUnknownReason,
     _UnseenSpace,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
@@ -123,7 +124,7 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
         self._apps_variables_unread: Set[str] = set()
         # The tables whose lineage is only added to, by app and reason, reported
         # once per app at the end of the run.
-        self._only_added_tables: Dict[_OnlyAddedTables, List[str]] = {}
+        self._only_added_tables: Dict[_OnlyAddedTablesKey, List[str]] = {}
         # Apps that load files by a wildcard or a path the connector can't
         # expand, so the files in their lineage graph can't all be named.
         self._apps_file_paths_unknown: Set[str] = set()
@@ -212,7 +213,7 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
         # the apps whose QVDs are unknown.
         self._app_qvds: Dict[str, AppQvds] = {}
         # Apps whose QVD writes are not known this run, with why.
-        self._apps_qvds_unknown: Dict[str, str] = {}
+        self._apps_qvds_unknown: Dict[str, _QvdsUnknownReason] = {}
         # On Qlik Cloud, the files on storage each app read this run stores into.
         self._app_stored_files: Dict[str, List[str]] = {}
         self._unresolved_qvd_loads = 0

@@ -3,7 +3,6 @@ from typing import Dict, List, NamedTuple, Optional, Set
 from pydantic import BaseModel, ConfigDict
 
 from datahub.ingestion.source.qlik_sense.config import FileStorageDetail
-from datahub.ingestion.source.qlik_sense.constants import UNRESOLVED_STORE
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     SchemaField as QlikDatasetSchemaField,
@@ -43,13 +42,21 @@ class UntypedTable(NamedTuple):
     schema: List[QlikDatasetSchemaField]
 
 
+class _SpaceNeed(StrEnum):
+    """What lineage needs from a space the API key can't see."""
+
+    DATASETS = "datasets"
+    INCLUDED_SCRIPTS = "included scripts"
+    DATA_CONNECTIONS = "data connections"
+
+
 class _UnseenSpace(BaseModel):
     # As first written, while the space is keyed by its lowercased name.
     name: str
-    needs: Set[str] = set()
+    needs: Set[_SpaceNeed] = set()
 
 
-class _OnlyAddedTables(BaseModel):
+class _OnlyAddedTablesKey(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     app_id: str
@@ -74,20 +81,12 @@ class _ScriptTableKey(BaseModel):
     mapping: bool
 
 
-class _SpaceNeed(StrEnum):
-    """What lineage needs from a space the API key can't see."""
-
-    DATASETS = "datasets"
-    INCLUDED_SCRIPTS = "included scripts"
-    DATA_CONNECTIONS = "data connections"
-
-
 class _QvdsUnknownReason(StrEnum):
     """Why the QVDs an app writes are not known this run."""
 
     SCRIPT_UNREAD = "its load script could not be read"
-    DATA_CONNECTIONS_UNREAD = "data connections could not be listed"
-    UNRESOLVED_STORE = UNRESOLVED_STORE
+    DATA_CONNECTIONS_UNLISTED = "data connections could not be listed"
+    UNRESOLVED_STORE = "a STORE path could not be resolved"
     CHECKPOINT_UNREAD = "its last read could not be loaded"
     NO_CHECKPOINT = "it has no last read to keep"
     RECORDED_BEFORE_QVDS = "its last read was recorded before QVD lineage"
@@ -111,6 +110,8 @@ class _IncompleteLineageReason(StrEnum):
     FIELD_LINEAGE_UNREAD = "the table's field lineage could not be read"
     RELOAD_SQL_UNREAD = "the SQL of the app's last reload could not be read"
     DATA_CONNECTIONS_UNREAD = "the data connections could not be read"
+    DATABASE_TABLE_UNLABELLED = "a database table in the lineage graph has no label"
+    FIELD_NAME_UNREAD = "a source field's name was not read"
 
 
 class _PartialRead(StrEnum):
@@ -180,7 +181,7 @@ class PendingTableLineage(BaseModel):
     script_upstream_urns: List[str]
     # Why the app's script or tables, or the table's field lineage, were not
     # read.
-    incomplete_reason: Optional[str]
+    incomplete_reason: Optional[_IncompleteLineageReason]
     script_fields: List[FineGrainedLineage]
     field_source_qris: Dict[str, List[str]]
 

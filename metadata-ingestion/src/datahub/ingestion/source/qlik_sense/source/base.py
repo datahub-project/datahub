@@ -21,8 +21,9 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     PendingStoredFile,
     PendingTableLineage,
     _BinaryLink,
-    _OnlyAddedTables,
+    _OnlyAddedTablesKey,
     _ParsedApp,
+    _QvdsUnknownReason,
     _UnseenSpace,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -47,7 +48,7 @@ class QlikSourceBase:
     _file_sources_by_app: Dict[str, FileSourceResolver]
     _app_space_ids: Dict[str, str]
     _apps_variables_unread: Set[str]
-    _only_added_tables: Dict[_OnlyAddedTables, List[str]]
+    _only_added_tables: Dict[_OnlyAddedTablesKey, List[str]]
     _apps_file_paths_unknown: Set[str]
     _apps_with_includes: Set[str]
     _reported_include_apps: Set[str]
@@ -89,7 +90,7 @@ class QlikSourceBase:
     _apps_graph_tables_unresolved: Set[str]
     _deferred_fingerprints: Dict[str, MetadataWorkUnit]
     _app_qvds: Dict[str, AppQvds]
-    _apps_qvds_unknown: Dict[str, str]
+    _apps_qvds_unknown: Dict[str, _QvdsUnknownReason]
     _app_stored_files: Dict[str, List[str]]
     _unresolved_qvd_loads: int
     _unlabelled_qvd_loads: int

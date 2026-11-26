@@ -78,13 +78,13 @@ class SourceResolutionMixin(FileIdentityMixin):
                 # A table the graph names this run is still added, but the
                 # app's other tables are unknown.
                 return ResolvedSource(
-                    urn if urn != dataset_urn else None,
-                    f"the tables of source app {app_id} are not known this run",
+                    urn=urn if urn != dataset_urn else None,
+                    unknown_reason=f"the tables of source app {app_id} are not known this run",
                 )
             if urn is None and app_id in self._apps_graph_tables_unresolved:
                 return ResolvedSource(
-                    None,
-                    f"source app {app_id} has lineage graph tables matched to "
+                    urn=None,
+                    unknown_reason=f"source app {app_id} has lineage graph tables matched to "
                     "none of its tables",
                 )
         else:
@@ -114,17 +114,19 @@ class SourceResolutionMixin(FileIdentityMixin):
                     # listing, it may be a listed file the graph can't name,
                     # and without the connections, one on known storage.
                     if on_known_storage:
-                        return ResolvedSource(None, inputs_unknown)
+                        return ResolvedSource(urn=None, unknown_reason=inputs_unknown)
                     if datasets is None or self._data_connections_unread():
                         self._keep_graph_named_sources(own_app_id, table_qri)
-                        return ResolvedSource(None, inputs_unknown)
+                        return ResolvedSource(urn=None, unknown_reason=inputs_unknown)
                     return ResolvedSource(
-                        self._graph_named_source(graph_app_id, table_qri),
-                        inputs_unknown,
+                        urn=self._graph_named_source(graph_app_id, table_qri),
+                        unknown_reason=inputs_unknown,
                     )
             if urn is None and datasets is None:
                 self._keep_graph_named_sources(own_app_id, table_qri)
-                return ResolvedSource(None, _IncompleteLineageReason.DATASETS_UNLISTED)
+                return ResolvedSource(
+                    urn=None, unknown_reason=_IncompleteLineageReason.DATASETS_UNLISTED
+                )
             if (
                 urn is None
                 and table_qri.startswith(QLIK_DATASET_QRI_PREFIX)
@@ -140,7 +142,8 @@ class SourceResolutionMixin(FileIdentityMixin):
                 # it is not named from the graph either.
                 self._keep_graph_named_sources(own_app_id, table_qri)
                 return ResolvedSource(
-                    None, _IncompleteLineageReason.DATASET_WITHOUT_QRI
+                    urn=None,
+                    unknown_reason=_IncompleteLineageReason.DATASET_WITHOUT_QRI,
                 )
             # A file on known storage that could not be told which is left out
             # rather than named apart from its storage dataset.
@@ -153,9 +156,12 @@ class SourceResolutionMixin(FileIdentityMixin):
                 ):
                     # The upstream graph that may name it could not be read.
                     return ResolvedSource(
-                        None, _IncompleteLineageReason.UPSTREAM_GRAPH_UNREAD
+                        urn=None,
+                        unknown_reason=_IncompleteLineageReason.UPSTREAM_GRAPH_UNREAD,
                     )
-        return ResolvedSource(urn if urn != dataset_urn else None, None)
+        return ResolvedSource(
+            urn=urn if urn != dataset_urn else None, unknown_reason=None
+        )
 
     def _graph_could_name(self, table_qri: str) -> bool:
         # A dataset listed in a space the recipe leaves out stays out. When one

@@ -41,7 +41,7 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     UntypedTable,
     _BinaryLink,
     _IncompleteLineageReason,
-    _OnlyAddedTables,
+    _OnlyAddedTablesKey,
     _ParsedApp,
     _ScriptTableKey,
     _SpaceNeed,
@@ -411,7 +411,7 @@ class TableLineageMixin(GraphNamedMixin):
                     and any(
                         qri.startswith(DATABASE_QRI_PREFIX) for qri in table.source_qris
                     )
-                    else "a database table in the lineage graph has no label"
+                    else _IncompleteLineageReason.DATABASE_TABLE_UNLABELLED
                     if any(
                         qri.startswith(DATABASE_QRI_PREFIX)
                         and qri not in table.database_source_labels
@@ -503,7 +503,7 @@ class TableLineageMixin(GraphNamedMixin):
             pending.incomplete_reason
             or "; ".join(resolved.unknown_reasons)
             or (
-                "a source field's name was not read"
+                _IncompleteLineageReason.FIELD_NAME_UNREAD
                 if pending.dataset_urn in self._unnamed_field_lineage
                 else None
             )
@@ -527,7 +527,7 @@ class TableLineageMixin(GraphNamedMixin):
         # would drop the edges an earlier run wrote, so what was read is added
         # to them instead.
         self._only_added_tables.setdefault(
-            _OnlyAddedTables(app_id=pending.app_id, reason=reason), []
+            _OnlyAddedTablesKey(app_id=pending.app_id, reason=reason), []
         ).append(pending.table_label)
         yield from self._patch_upstreams(
             pending.dataset_urn,
