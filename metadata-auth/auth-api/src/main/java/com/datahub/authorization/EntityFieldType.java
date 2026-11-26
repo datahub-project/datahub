@@ -37,6 +37,4 @@ public enum EntityFieldType {
   GLOSSARY,
   /** Structured properties of the entity */
   STRUCTURED_PROPERTY,
-  /** Environment of the entity: a built-in FabricType value or a custom environment id */
-  ENV,
 }
