@@ -971,6 +971,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Files on a Windows share, which are Qlik Sense datasets of the on-prem
         # recipe, not this one's.
         self._share_file_urns: Set[str] = set()
+        # The on-prem recipe's platform_instance of each such file, by its URN.
+        self._share_file_instances: Dict[str, str] = {}
         # Tables kept apps store into files on storage that was unknown when
         # their last read recorded them.
         self._kept_storage_file_stores: Dict[str, List[str]] = {}
@@ -2999,6 +3001,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         urn = self._storage_file_urn(storage, detail, path)
         if storage.platform == FilePlatform.WINDOWS_SHARE:
             self._share_file_urns.add(urn)
+            if detail is not None and detail.platform_instance:
+                self._share_file_instances[urn] = detail.platform_instance
         return urn
 
     def _storage_file_urn(
@@ -3531,6 +3535,60 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 _file_display_name(posixpath.basename(DatasetUrn.from_string(urn).name))
             )
             yield from _patch_workunits(patch, is_primary_source=False)
+        yield from self._gen_share_qvd_placement()
+
+    def _gen_share_qvd_placement(self) -> Iterable[MetadataWorkUnit]:
+        # A share QVD the on-prem recipe never reads would otherwise sit outside
+        # its platform instance. The instance is the one that recipe writes.
+        instances = {
+            urn: builder.make_dataplatform_instance_urn(self.platform, instance)
+            for urn, instance in self._share_file_instances.items()
+            if urn in self._linked_storage_qvds
+        }
+        for urn, instance_urn in sorted(instances.items()):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=DataPlatformInstanceClass(
+                    platform=builder.make_data_platform_urn(self.platform),
+                    instance=instance_urn,
+                ),
+            ).as_workunit(is_primary_source=False)
+        # The on-prem recipe's browse path places the file in its share
+        # folders, so one is only written where none exists.
+        for urn in sorted(self._without_browse_path(sorted(instances))):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=BrowsePathsV2Class(
+                    path=[BrowsePathEntryClass(id=instances[urn], urn=instances[urn])]
+                ),
+            ).as_workunit(is_primary_source=False)
+
+    def _without_browse_path(self, dataset_urns: List[str]) -> Set[str]:
+        graph = self.ctx.graph
+        if graph is None or not dataset_urns:
+            return set()
+        missing: Set[str] = set()
+        for start in range(0, len(dataset_urns), ENTITY_CHECK_BATCH_SIZE):
+            batch = dataset_urns[start : start + ENTITY_CHECK_BATCH_SIZE]
+            try:
+                entities = graph.get_entities(
+                    "dataset", batch, aspects=[BrowsePathsV2Class.ASPECT_NAME]
+                )
+            except Exception as e:
+                self.reporter.warning(
+                    title="Unable to read browse paths of share QVDs from DataHub",
+                    message="These QVDs on a Windows share get no browse path "
+                    "this run.",
+                    context=_bounded_list(batch),
+                    exc=e,
+                )
+                continue
+            missing.update(
+                urn
+                for urn in batch
+                if not entities.get(urn, {}).get(BrowsePathsV2Class.ASPECT_NAME)
+            )
+        return missing
 
     def _link_unmapped_file(self, app_id: str, urn: str) -> None:
         self._linked_unmapped_files.add(urn)

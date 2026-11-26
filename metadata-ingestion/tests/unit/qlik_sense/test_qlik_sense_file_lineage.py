@@ -45,6 +45,7 @@ from datahub.ingestion.source.qlik_sense.websocket_connection import EngineError
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     ContainerClass,
+    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     MetadataChangeProposalClass,
@@ -372,12 +373,54 @@ def test_file_on_a_mapped_windows_share_takes_the_on_prem_dataset(
     assert urn == SHARE_ORDERS_QVD
     # No source ingests QVDs on a share the on-prem run doesn't read, so the
     # file is typed here, never as the source that could remove it as stale.
-    subtypes, name = list(source._gen_storage_qvd_types())
+    graph = MagicMock()
+    graph.get_entities.return_value = {}
+    source.ctx.graph = graph
+    subtypes, name, instance, browse = list(source._gen_storage_qvd_types())
     assert subtypes.get_urn() == SHARE_ORDERS_QVD
     aspect = subtypes.get_aspect_of_type(SubTypesClass)
     assert aspect is not None and aspect.typeNames == ["QVD"]
     assert not subtypes.is_primary_source
     assert name.get_urn() == SHARE_ORDERS_QVD and not name.is_primary_source
+    # Placed in the on-prem recipe's platform instance, as it places its files.
+    on_prem = "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-sense,qlik_onprem)"
+    placed = instance.get_aspect_of_type(DataPlatformInstanceClass)
+    assert placed is not None and placed.instance == on_prem
+    path = browse.get_aspect_of_type(BrowsePathsV2Class)
+    assert path is not None and [entry.urn for entry in path.path] == [on_prem]
+    assert not instance.is_primary_source and not browse.is_primary_source
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_share_qvd_keeps_the_browse_path_it_already_has(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {
+            "Sales Space:Share": {
+                "storage_uri": SHARE,
+                "platform_instance": "qlik_onprem",
+            }
+        },
+        {},
+        script=SHARE_SCRIPT,
+    )
+    source._file_source_resolution(
+        "app-1", _file_qri("local", SHARE, "Orders/Orders.QVD")
+    )
+    graph = MagicMock()
+    # The on-prem recipe ingested the file and placed it in its share folders.
+    graph.get_entities.return_value = {
+        SHARE_ORDERS_QVD: {"browsePathsV2": (BrowsePathsV2Class(path=[]), None)}
+    }
+    source.ctx.graph = graph
+
+    aspects = [
+        wu.get_aspect_of_type(BrowsePathsV2Class)
+        for wu in source._gen_storage_qvd_types()
+    ]
+
+    assert aspects and not any(aspects)
 
 
 GATEWAY_STATEMENT = 'CUSTOM CONNECT TO "sourceType=DG_File_local;path=' + SHARE + ';"'
@@ -487,7 +530,7 @@ def test_file_read_as_a_qvd_on_a_mapped_share_takes_the_on_prem_dataset(
         ).urn
         == urn
     )
-    subtypes, _ = list(source._gen_storage_qvd_types())
+    subtypes = next(iter(source._gen_storage_qvd_types()))
     assert subtypes.get_urn() == urn
     aspect = subtypes.get_aspect_of_type(SubTypesClass)
     assert aspect is not None and aspect.typeNames == ["QVD"]
