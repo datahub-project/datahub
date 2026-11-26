@@ -68,6 +68,10 @@ by a change or by restore indices, still doesn't hold those references: after ro
 restore indices for the entity types changed or restored during that window to put them back in
 search.
 
+While the older version is running, results built from the graph (relationship counts, lineage,
+related entities) can therefore include references that entity reads and search leave out. They
+agree again after rolling forward and running restore indices as above.
+
 ### Semantic search template sends an entity URN to similarity ([#21474](https://github.com/datahub-project/datahub/pull/21474))
 
 System update now writes version 19 of the shipped search templates. `urn:li:searchTemplate:semantic`
