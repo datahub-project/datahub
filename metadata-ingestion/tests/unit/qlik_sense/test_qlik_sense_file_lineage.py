@@ -878,7 +878,11 @@ def test_prod_file_is_not_linked_when_dev_reads_the_same_path(
 @pytest.mark.parametrize(
     "connection_part, expected",
     [
-        pytest.param("lake/prod", "lake/prod/x.csv", id="matches one storage"),
+        pytest.param(
+            "https://account.blob.core.windows.net/lake/prod",
+            "lake/prod/x.csv",
+            id="matches one storage",
+        ),
         pytest.param("lake-prod", None, id="matches neither"),
     ],
 )
