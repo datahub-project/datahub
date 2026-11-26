@@ -15,6 +15,23 @@ describe('getFieldForeignKeyConstraints', () => {
         expect(getFieldForeignKeyConstraints(sampleSchemaWithPkFk, ' shipping_address ')).toHaveLength(1);
     });
 
+    it('matches source field paths encoded in foreign key URNs', () => {
+        const schemaMetadata = {
+            ...sampleSchemaWithPkFk,
+            foreignKeys: sampleSchemaWithPkFk.foreignKeys?.map(
+                (constraint) =>
+                    constraint && {
+                        ...constraint,
+                        sourceFields: constraint.sourceFields?.map(
+                            (field) => field && { ...field, fieldPath: 'shipping_address%28legacy%29%2C%E2%90%9F%' },
+                        ),
+                    },
+            ),
+        };
+
+        expect(getFieldForeignKeyConstraints(schemaMetadata, 'shipping_address(legacy),␟%')).toHaveLength(1);
+    });
+
     it('returns an empty array for a field without foreign keys', () => {
         expect(getFieldForeignKeyConstraints(sampleSchemaWithPkFk, 'id')).toEqual([]);
     });

@@ -216,7 +216,7 @@ describe('Schema', () => {
         expect(getByText('Primary Key')).toBeInTheDocument();
     });
 
-    it('renders foreign keys', async () => {
+    it('opens About when the Foreign Key button is clicked', async () => {
         render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
@@ -250,6 +250,15 @@ describe('Schema', () => {
         expect(await screen.findByText('Foreign Key to')).toBeInTheDocument();
         const constraint = screen.getByTestId('foreign-key-constraint');
         expect(within(constraint).getByRole('link', { name: /Yet Another Dataset/ })).toBeInTheDocument();
+
+        const statisticsTab = screen.getByRole('tab', { name: 'Statistics' });
+        fireEvent.click(statisticsTab);
+        expect(statisticsTab).toHaveAttribute('aria-selected', 'true');
+        expect(screen.queryByText('Foreign Key to')).not.toBeInTheDocument();
+
+        fireEvent.click(fkButton);
+        expect(screen.getByRole('tab', { name: 'About' })).toHaveAttribute('aria-selected', 'true');
+        expect(await screen.findByRole('link', { name: /Yet Another Dataset/ })).toBeInTheDocument();
     }, 30_000);
 
     it('renders key/value toggle', () => {

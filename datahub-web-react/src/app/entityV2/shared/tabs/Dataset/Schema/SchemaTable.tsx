@@ -14,7 +14,9 @@ import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/trans
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import { hasNestedSchemaRows } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import SchemaFieldDepthBadge from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDepthBadge';
-import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
+import SchemaFieldDrawer, {
+    ABOUT_FIELD_TAB_KEY,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import {
     MetadataStatus,
     renderMetadataCell as renderMetadataCellFor,
@@ -108,6 +110,7 @@ export default function SchemaTable({
     }, [location.pathname, setExpandedDrawerFieldPath]);
 
     const [sortState, setSortState] = useState<TableSortState>(UNSORTED);
+    const [selectedDrawerTab, setSelectedDrawerTab] = useState(ABOUT_FIELD_TAB_KEY);
     const isSearchActive = filterText !== '';
 
     const schemaFields = schemaMetadata ? schemaMetadata.fields : inputFields;
@@ -141,13 +144,20 @@ export default function SchemaTable({
     const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata, fieldInfoMaps);
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata, fieldInfoMaps);
     const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
+    const openForeignKey = useCallback(
+        (fieldPath: string) => {
+            setSelectedDrawerTab(ABOUT_FIELD_TAB_KEY);
+            setExpandedDrawerFieldPath(fieldPath);
+        },
+        [setExpandedDrawerFieldPath],
+    );
     const schemaTitleRenderer = useSchemaTitleRenderer(
         entityUrn,
         schemaMetadata,
         editedPrimaryKeys,
         filterText,
         false,
-        setExpandedDrawerFieldPath,
+        openForeignKey,
     );
     const schemaTypeRenderer = useSchemaTypeRenderer();
     const businessAttributesFlag = useBusinessAttributesFlag();
@@ -363,6 +373,7 @@ export default function SchemaTable({
                 <SchemaFieldDrawer
                     schemaFields={schemaFields}
                     schemaMetadata={schemaMetadata}
+                    tabSelection={{ key: selectedDrawerTab, onSelect: setSelectedDrawerTab }}
                     schemaPrimaryKeys={schemaMetadata?.primaryKeys}
                     editedPrimaryKeys={editedPrimaryKeys}
                     expandedDrawerFieldPath={schemaFieldDrawerFieldPath}

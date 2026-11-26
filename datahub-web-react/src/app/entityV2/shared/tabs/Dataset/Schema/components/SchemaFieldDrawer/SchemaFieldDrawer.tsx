@@ -37,7 +37,7 @@ const SchemaFieldQueriesSidebarTab = lazyProfileComponent(
     () => import('@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab'),
 );
 
-const DEFAULT_SELECTED_TAB_KEY = 'About';
+export const ABOUT_FIELD_TAB_KEY = 'About';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -107,6 +107,7 @@ interface Props {
     refetch?: () => void;
     mask?: boolean;
     defaultSelectedTabKey?: string;
+    tabSelection?: { key: string; onSelect: (key: string) => void };
 }
 
 export default function SchemaFieldDrawer({
@@ -125,7 +126,8 @@ export default function SchemaFieldDrawer({
     displayedRows,
     refetch,
     mask = false,
-    defaultSelectedTabKey = DEFAULT_SELECTED_TAB_KEY,
+    defaultSelectedTabKey = ABOUT_FIELD_TAB_KEY,
+    tabSelection,
 }: Props) {
     const { t } = useTranslation('entity.profile.schema');
     const expandedFieldIndex = useMemo(
@@ -190,7 +192,9 @@ export default function SchemaFieldDrawer({
     }, [displayedRows, expandedDrawerFieldPath, setExpandedDrawerFieldPath]);
 
     const profiles = profilesData?.dataset?.datasetProfiles || [];
-    const [selectedTabKey, setSelectedTabKey] = useState(defaultSelectedTabKey);
+    const [localTabKey, setLocalTabKey] = useState(defaultSelectedTabKey);
+    const selectedTabKey = tabSelection?.key ?? localTabKey;
+    const selectTab = tabSelection?.onSelect ?? setLocalTabKey;
 
     const fetchDataWithLookbackWindow = useCallback(
         (lookbackWindow: TimeWindow) => {
@@ -205,7 +209,7 @@ export default function SchemaFieldDrawer({
 
     const tabs: any = [
         {
-            key: 'About',
+            key: ABOUT_FIELD_TAB_KEY,
             name: t('fieldDrawerTabs.about'),
             icon: BookOpen,
             component: AboutFieldTab,
@@ -220,7 +224,7 @@ export default function SchemaFieldDrawer({
                 fetchDataWithLookbackWindow,
                 profilesDataLoading,
                 notes,
-                setSelectedTabName: setSelectedTabKey,
+                setSelectedTabName: selectTab,
                 refetch,
                 refetchNotes,
                 fieldUrn: expandedField?.schemaFieldEntity?.urn,
@@ -303,7 +307,7 @@ export default function SchemaFieldDrawer({
                                     <SchemaFieldDrawerTabs
                                         tabs={tabs}
                                         selectedTab={selectedTab}
-                                        onSelectTab={(key) => setSelectedTabKey(key)}
+                                        onSelectTab={selectTab}
                                     />
                                 </Tabs>
                             </Body>
