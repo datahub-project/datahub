@@ -104,6 +104,7 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
         self._script_spellings_built_from = None
         self._linked_unmapped_files = set()
         self._linked_storage_qvds = set()
+        self._superseded_file_urns = defaultdict(set)
         self._share_file_urns = set()
         self._kept_storage_file_stores = {}
         self._unmapped_file_stores = defaultdict(dict)

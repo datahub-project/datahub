@@ -261,6 +261,7 @@ class TableLineageMixin(GraphNamedMixin):
                     table.upstream_urns,
                     DatasetLineageType.TRANSFORMED,
                     self._column_lineage(script_column_lineage(dataset_urn, table)),
+                    self._superseded_names(table.upstream_urns),
                 )
                 continue
             yield MetadataChangeProposalWrapper(
@@ -468,4 +469,5 @@ class TableLineageMixin(GraphNamedMixin):
             upstream_urns,
             DatasetLineageType.TRANSFORMED,
             fine_grained,
+            self._superseded_names(upstream_urns),
         )

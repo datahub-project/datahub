@@ -1,6 +1,6 @@
 import posixpath
 from functools import cached_property, partial
-from typing import Callable, Dict, Iterable, Optional, Set
+from typing import Callable, Dict, Iterable, List, Optional, Set
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -208,7 +208,15 @@ class FileIdentityMixin(DashboardMixin):
     def _file_urn(
         self, storage: FileStorage, detail: Optional[FileStorageDetail], path: str
     ) -> str:
-        urn = file_dataset_urn(
+        urn = self._storage_file_urn(storage, detail, path)
+        if storage.platform == FilePlatform.WINDOWS_SHARE:
+            self._share_file_urns.add(urn)
+        return urn
+
+    def _storage_file_urn(
+        self, storage: FileStorage, detail: Optional[FileStorageDetail], path: str
+    ) -> str:
+        return file_dataset_urn(
             storage,
             # As Qlik Cloud names it, so lineage joins whichever way it was read.
             normalized_file_path(path),
@@ -219,9 +227,6 @@ class FileIdentityMixin(DashboardMixin):
             else self.config.env,
             lowercase=detail.convert_urns_to_lowercase if detail else False,
         )
-        if storage.platform == FilePlatform.WINDOWS_SHARE:
-            self._share_file_urns.add(urn)
-        return urn
 
     def _unmapped_file_urn(
         self, connection: str, path: str, space_id: str
@@ -229,6 +234,16 @@ class FileIdentityMixin(DashboardMixin):
         """A Qlik dataset for a file on a connection whose storage is unknown,
         named by the connection and path, so the apps that write and read it
         still join. DataFiles hold Qlik's own datasets."""
+        qualified = self._connection_file_name(connection, path, space_id)
+        if qualified is None:
+            return None
+        urn = self._gen_qlik_dataset_urn(qualified.lower())
+        self._add_unmapped_file(urn, f"lib://{qualified}")
+        return urn
+
+    def _connection_file_name(
+        self, connection: str, path: str, space_id: str
+    ) -> Optional[str]:
         lib_connection = parse_lib_connection(connection)
         space, name = lib_connection.space, lib_connection.name
         if not space:
@@ -245,9 +260,7 @@ class FileIdentityMixin(DashboardMixin):
             or any(char in qualified for char in ",()")
         ):
             return None
-        urn = self._gen_qlik_dataset_urn(qualified.lower())
-        self._add_unmapped_file(urn, f"lib://{qualified}")
-        return urn
+        return qualified
 
     def _add_unmapped_file(self, urn: str, spelling: str) -> None:
         # Apps may spell the file in different case and are read in no fixed
@@ -415,9 +428,44 @@ class FileIdentityMixin(DashboardMixin):
             self._link_unmapped_file(app_id, urn)
         else:
             self._note_storage_qvd(urn, urn in qvd_urns)
+        self._note_superseded_names(urn, file_qri, candidates.references, space_id)
         return FileSourceResolution(
             urn=urn, on_known_storage=unresolved.on_known_storage
         )
+
+    def _note_superseded_names(
+        self,
+        urn: str,
+        file_qri: str,
+        references: List[FileReference],
+        space_id: str,
+    ) -> None:
+        """The file's other names, which earlier runs may have linked before
+        its storage was mapped or its resolution fixed: from its QRI, its
+        connection and path, and its storage or share."""
+        names: Set[str] = set()
+        qri = FILE_QRI_RE.match(file_qri)
+        if qri:
+            names.add(self._gen_qlik_dataset_urn(qri.group(0).lower()))
+        for reference in references:
+            qualified = self._connection_file_name(
+                reference.connection, reference.path, space_id
+            )
+            if qualified is not None:
+                names.add(self._gen_qlik_dataset_urn(qualified.lower()))
+            match = self._connection_storage(reference.connection, space_id)
+            if match.storage is not None:
+                names.add(
+                    self._storage_file_urn(match.storage, match.detail, reference.path)
+                )
+        self._superseded_file_urns[urn].update(names - {urn})
+
+    def _superseded_names(self, upstream_urns: List[str]) -> Set[str]:
+        return {
+            name
+            for urn in upstream_urns
+            for name in self._superseded_file_urns.get(urn, set())
+        }
 
     def _note_storage_qvd(self, urn: str, qvd: bool) -> None:
         if qvd:

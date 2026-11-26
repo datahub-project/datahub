@@ -75,6 +75,9 @@ class QlikSourceBase:
     # QVDs on storage or a Windows share that lineage links this run. No
     # storage source ingests QVDs, so they are typed here.
     _linked_storage_qvds: Set[str]
+    # Other names of a file this run resolves for certain, such as from its
+    # QRI or connection before its storage was mapped, by its URN.
+    _superseded_file_urns: DefaultDict[str, Set[str]]
     # Files on a Windows share, which are Qlik Sense datasets of the on-prem
     # recipe, not this one's.
     _share_file_urns: Set[str]
