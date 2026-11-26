@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import errno
+from collections import deque
 import json
 import os
 import re
@@ -14,6 +15,8 @@ import subprocess
 import sys
 import time
 import urllib.error
+
+from extensions import datahub_local_extension as extensions
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, cast
@@ -23,6 +26,8 @@ sys.path.insert(0, str(_REPO_ROOT / "metadata-service/gms-lite/bin"))
 sys.path.insert(0, str(_REPO_ROOT / "metadata-ingestion/src/datahub/cli"))
 from _opensearch_manager import (  # noqa: E402
     SharedOpenSearchManager,
+    OPENSEARCH_READY_TIMEOUT_ENV,
+    env_seconds,
     delete_prefixes,
     distribution_script,
     validate_major,
@@ -36,6 +41,7 @@ from _profile_store import profile_path_in, write_profile_text  # noqa: E402
 LOCAL_DATA_ROOT = Path.home() / ".datahub/local/stacks"
 OWNER = "datahub-dev-oss-local-v1"
 INSTANCE_RECORD = "instance.json"
+TIMINGS_FILE = "timings.json"
 LOCAL_PORT_BASE = {"gms": 8080, "frontend": 9002}
 # Measured on the embedded OpenSearch 3 node: 86 shards per OSS GMS instance.
 # Prefer measurements from completed stacks as the entity registry grows.
@@ -130,6 +136,9 @@ def _occupied_stack_port(
     requested = list(range(ports["gms"], ports["gms"] + processes))
     if not no_frontend:
         requested.append(ports["frontend"])
+    requested.extend(
+        port for role, port in ports.items() if role not in ("gms", "frontend")
+    )
     for port in requested:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -153,6 +162,29 @@ def _process_command(pid: int) -> str | None:
     except (OSError, subprocess.SubprocessError):
         return None
     return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def process_identity(pid: int) -> str | None:
+    try:
+        result = subprocess.run(
+            ["ps", "-ww", "-p", str(pid), "-o", "lstart=,command="],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def starting_alive(entry: Mapping[str, object]) -> bool:
+    marker = entry.get("starting")
+    return (
+        isinstance(marker, dict)
+        and isinstance(marker.get("pid"), int)
+        and bool(marker.get("identity"))
+        and process_identity(marker["pid"]) == marker["identity"]
+    )
 
 
 def _owned_by(pid: int, data_dir: Path, unknown: bool = False) -> bool:
@@ -181,7 +213,15 @@ def _owned_by(pid: int, data_dir: Path, unknown: bool = False) -> bool:
         and f"-PfrontendStackFile={data_dir / 'stack.json'}" in args
         and "-PfrontendMode=lite" in args
     )
-    return launcher or frontend
+    if launcher or frontend:
+        return True
+    try:
+        identities = json.loads((data_dir / "processes.json").read_text())
+        expected = identities.get(str(pid))
+    except (OSError, ValueError):
+        return False
+    # Match birth time as well as the full command, to reject a recycled PID running the same jar.
+    return bool(expected) and process_identity(pid) == expected
 
 
 def _load_pids(path: Path) -> dict[str, int]:
@@ -200,6 +240,38 @@ def _save_pids(path: Path, pids: dict[str, int]) -> None:
     temporary.replace(path)
 
 
+def recorded_pids(data_dir: Path) -> dict[str, int]:
+    pids = _load_pids(data_dir / "pids.json")
+    candidates: dict[str, int] = {}
+    try:
+        stack = json.loads((data_dir / "stack.json").read_text())
+        candidates.update(
+            {
+                f"{role}/{name}": pid
+                for role, instances in stack.get("servicePids", {}).items()
+                for name, pid in instances.items()
+                if isinstance(pid, int) and pid > 0
+            }
+        )
+    except (OSError, ValueError):
+        pass
+    try:
+        identities = json.loads((data_dir / "processes.json").read_text())
+        candidates.update(
+            {
+                f"service-{pid}": int(pid)
+                for pid in identities
+                if str(pid).isdigit() and int(pid) > 0
+            }
+        )
+    except (OSError, ValueError):
+        pass
+    for name, pid in candidates.items():
+        if pid not in pids.values():
+            pids[name] = pid
+    return pids
+
+
 def _launcher_alive(data_dir: Path) -> bool:
     pid = _load_pids(data_dir / "pids.json").get("launcher")
     # Unknown ownership blocks deletion, but never authorizes sending a signal.
@@ -208,12 +280,10 @@ def _launcher_alive(data_dir: Path) -> bool:
 
 def stack_running(worktree_id: str, ports: Mapping[str, int] | None = None) -> bool:
     data_dir = local_data_dir(worktree_id)
-    frontend = _load_pids(data_dir / "pids.json").get("frontend")
-    return (
-        _launcher_alive(data_dir)
-        or bool(frontend and _owned_by(frontend, data_dir, unknown=True))
-        or bool(ports and _http_ok(f"http://localhost:{ports['gms']}/health"))
-    )
+    return any(
+        _owned_by(pid, data_dir, unknown=True)
+        for pid in recorded_pids(data_dir).values()
+    ) or bool(ports and _http_ok(f"http://localhost:{ports['gms']}/health"))
 
 
 def opensearch_manager(major: str) -> SharedOpenSearchManager:
@@ -341,7 +411,16 @@ def _prepare_shared_opensearch(
     fresh: bool,
     registry: Mapping[str, Mapping[str, object]],
 ) -> str | None:
-    manager = opensearch_manager(recorded_major(_require_owned(worktree_id)))
+    record = _require_owned(worktree_id)
+    manager = opensearch_manager(recorded_major(record))
+    provider = record.get("local_extension")
+    if isinstance(provider, dict):
+        extension = extensions.load(provider["module"])
+        assert extension is not None
+        description = extension.describe(provider["options"])
+        manager.env = dict(os.environ)
+        if "opensearch-knn" in description.search_plugins:
+            manager.env["OPENSEARCH_KNN_ENABLED"] = "true"
     try:
         port = manager.get_or_start()
         usage, shards = shard_inventory(port)
@@ -448,7 +527,10 @@ def cmd_start_local(
     no_frontend: bool = False,
     registry_instances: Mapping[str, Mapping[str, object]] | None = None,
     timeout: int = 1200,
+    verbose: bool = False,
 ) -> int:
+    env_seconds(OPENSEARCH_READY_TIMEOUT_ENV, 900)
+    env_seconds("GMS_LITE_GMS_HEALTH_TIMEOUT", 600)
     record = _require_owned(worktree_id)
     data_dir = local_data_dir(worktree_id)
     stack_file = data_dir / "stack.json"
@@ -472,6 +554,15 @@ def cmd_start_local(
         )
         return 1
     launcher = repo_root / "metadata-service/gms-lite/bin/gms-lite-stack.py"
+    provider = record.get("local_extension")
+    extension = (
+        extensions.load(provider["module"]) if isinstance(provider, dict) else None
+    )
+    description = (
+        extension.describe(provider["options"])
+        if extension and isinstance(provider, dict)
+        else extensions.Description()
+    )
     artifacts = [
         repo_root / "metadata-service/war/build/libs/war.war",
         repo_root / "datahub-upgrade/build/libs/datahub-upgrade.jar",
@@ -480,7 +571,13 @@ def cmd_start_local(
     if not launcher.exists():
         _log(f"ERROR: launcher not found at {launcher}")
         return 1
-    reuse = skip_build or all(path.exists() for path in artifacts)
+    plugin_artifacts = all(
+        any(repo_root.glob(pattern.format(major=recorded_major(record))))
+        for pattern in description.artifact_globs
+    )
+    reuse = skip_build or (
+        all(path.exists() for path in artifacts) and plugin_artifacts
+    )
     if not reuse:
         result = subprocess.run(
             [
@@ -489,6 +586,7 @@ def cmd_start_local(
                 ":datahub-upgrade:bootJar",
                 ":metadata-service:opensearch-embedded:installDist",
                 f"-PopensearchVersion={recorded_major(record)}",
+                *description.build_arguments,
                 "-x",
                 "test",
             ],
@@ -496,14 +594,31 @@ def cmd_start_local(
         )
         if result.returncode:
             return result.returncode
-    elif not all(path.exists() for path in artifacts):
+    elif not all(path.exists() for path in artifacts) or not plugin_artifacts:
         _log(
-            "ERROR: --skip-build requires GMS, upgrade and OpenSearch artifacts; run without --skip-build"
+            "ERROR: --skip-build requires GMS, upgrade and OpenSearch artifacts (including declared plugins); run without --skip-build"
         )
         return 1
+    for build in description.builds:
+        if build.artifact.exists():
+            continue
+        if not skip_build:
+            result = subprocess.run(
+                [str(repo_root / "gradlew"), build.task], cwd=repo_root
+            )
+            if result.returncode and build.required:
+                return result.returncode
+        if not build.artifact.exists():
+            _log(
+                f"{'ERROR' if build.required else 'WARNING'}: missing {build.artifact}; build {build.task}"
+            )
+            if build.required:
+                return 1
+    prepare_started = time.monotonic()
     error = _prepare_shared_opensearch(
         worktree_id, processes, fresh, registry_instances or {}
     )
+    opensearch_ensure_s = round(time.monotonic() - prepare_started, 2)
     if error:
         _log(f"ERROR: {error}")
         return 1
@@ -513,6 +628,8 @@ def cmd_start_local(
         write_instance_record(worktree_id, record)
     env_file.touch(mode=0o600, exist_ok=True)
     stack_file.unlink(missing_ok=True)
+    timings_file = data_dir / TIMINGS_FILE
+    timings_file.unlink(missing_ok=True)
     command = [
         sys.executable,
         str(launcher),
@@ -531,11 +648,27 @@ def cmd_start_local(
         "--env-file",
         str(env_file),
         "--skip-build",
+        "--heap",
+        os.environ.get("GMS_LITE_HEAP", "1g"),
     ]
+    if isinstance(provider, dict):
+        command += [
+            "--extension",
+            provider["module"],
+            "--extension-options",
+            json.dumps(provider["options"]),
+            "--extension-slot",
+            str(slot),
+        ]
+    for key in ("job", "mode"):
+        value = record.get("local_options", {}).get(key)
+        if value is not None:
+            command += [f"--{key}", str(value)]
     if no_auth:
         command.append("--no-auth")
     log_file = data_dir / "launcher.log"
     _log(f"Starting GMS-lite stack (data: {data_dir}); tail -f {log_file}")
+    spawned_at = time.monotonic()
     with log_file.open("w") as output:
         process = subprocess.Popen(
             command,
@@ -546,12 +679,25 @@ def cmd_start_local(
             start_new_session=True,
         )
     _save_pids(data_dir / "pids.json", {"launcher": process.pid})
-    deadline = time.monotonic() + timeout
+    deadline = spawned_at + timeout
+    log_offset = 0
     while time.monotonic() < deadline:
+        if verbose:
+            log_offset = _echo_new_log_lines(log_file, log_offset)
+        measured = {
+            "opensearch_ensure_s": opensearch_ensure_s,
+            "stack_json_wait_s": round(time.monotonic() - spawned_at, 2),
+        }
         if process.poll() is not None:
             _log(f"ERROR: launcher exited with {process.returncode}; see {log_file}")
+            record_datahub_dev_timings(timings_file, measured)
+            _log_tail(log_file)
+            log_boot_timings(timings_file)
             return 1
         if stack_file.exists():
+            if verbose:
+                _echo_new_log_lines(log_file, log_offset)
+            record_datahub_dev_timings(timings_file, measured)
             refresh_profiles(worktree_id)
             (data_dir / "env.applied").write_text(env_file.read_text())
             _log(
@@ -560,8 +706,85 @@ def cmd_start_local(
             return 0
         time.sleep(1)
     _log(f"ERROR: stack did not become ready within {timeout}s; see {log_file}")
+    measured = {
+        "opensearch_ensure_s": opensearch_ensure_s,
+        "stack_json_wait_s": round(time.monotonic() - spawned_at, 2),
+    }
     cmd_stop_local(worktree_id)
+    record_datahub_dev_timings(timings_file, measured)
+    _log_tail(log_file)
+    log_boot_timings(timings_file)
     return 1
+
+
+def _echo_new_log_lines(log_file: Path, offset: int) -> int:
+    try:
+        with log_file.open("rb") as stream:
+            stream.seek(offset)
+            chunk = stream.read()
+    except OSError:
+        return offset
+    complete = chunk[: chunk.rfind(b"\n") + 1]
+    for line in complete.decode(errors="replace").splitlines():
+        _log(f"  | {line}")
+    return offset + len(complete)
+
+
+def _log_tail(log_file: Path) -> None:
+    try:
+        with log_file.open(errors="replace") as stream:
+            lines = deque(stream, maxlen=40)
+    except OSError:
+        return
+    _log(f"Last {len(lines)} lines of {log_file}:")
+    for line in lines:
+        _log(f"  | {line.rstrip()}")
+
+
+def read_timings(path: Path) -> dict[str, object] | None:
+    try:
+        value = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def record_datahub_dev_timings(path: Path, values: Mapping[str, float]) -> None:
+    timings = read_timings(path)
+    if timings is None:
+        return
+    section = timings.get("datahub_dev")
+    timings["datahub_dev"] = {
+        **(section if isinstance(section, dict) else {}),
+        **values,
+    }
+    try:
+        path.write_text(json.dumps(timings, indent=2) + "\n")
+    except OSError:
+        pass
+
+
+def log_boot_timings(path: Path) -> None:
+    timings = read_timings(path)
+    if timings is None:
+        return
+    try:
+        phases = cast(dict[str, float], timings["phases"])
+        section = cast(dict[str, float], timings.get("datahub_dev", {}))
+        split = " ".join(
+            f"{name}={float(value):.1f}s" for name, value in phases.items()
+        )
+        steps = " ".join(
+            f"{name.removesuffix('_s')}={float(section[name]):.1f}s"
+            for name in ("opensearch_ensure_s", "stack_json_wait_s", "frontend_ready_s")
+            if name in section
+        )
+        _log(
+            f"Boot timings: {split} total={float(timings['total_s']):.1f}s warm={timings['warm']} {steps}".rstrip()
+        )
+    except (AttributeError, KeyError, TypeError, ValueError):
+        # Diagnostics must not make an otherwise healthy stack unusable.
+        pass
 
 
 def launch_frontend(
@@ -599,6 +822,7 @@ def launch_frontend(
     ]
     log_file = data_dir / "frontend.log"
     _log(f"Starting frontend HMR: http://localhost:{port}; tail -f {log_file}")
+    spawned_at = time.monotonic()
     with log_file.open("w") as output:
         process = subprocess.Popen(
             command,
@@ -617,6 +841,10 @@ def launch_frontend(
             _log(f"ERROR: frontend exited with {process.returncode}; see {log_file}")
             return 1
         if _http_ok(f"http://localhost:{port}/health", timeout=1):
+            record_datahub_dev_timings(
+                data_dir / TIMINGS_FILE,
+                {"frontend_ready_s": round(time.monotonic() - spawned_at, 2)},
+            )
             _log(f"Frontend HMR ready: http://localhost:{port}")
             return 0
         time.sleep(1)
@@ -635,6 +863,8 @@ def cmd_stop_local(worktree_id: str, *, names: set[str] | None = None) -> int:
     data_dir = local_data_dir(worktree_id)
     pids_file = data_dir / "pids.json"
     pids = _load_pids(pids_file)
+    if names is None:
+        pids = recorded_pids(data_dir)
     selected = {
         name: pid for name, pid in pids.items() if names is None or name in names
     }
@@ -662,9 +892,22 @@ def cmd_stop_local(worktree_id: str, *, names: set[str] | None = None) -> int:
         except PermissionError:
             _log(f"Cannot kill {name} (PID {pid}): permission denied")
 
-    # The launcher's shutdown handler waits up to 20s for GMS to stop.
-    # Poll until all processes exit or deadline is reached.
-    deadline = time.time() + 25
+    # Extensions own independent groups; allow their reverse-order shutdown to finish
+    # before killing the launcher, or those detached children would lose their supervisor.
+    record = _require_owned(worktree_id)
+    options = cast(dict[str, object], record.get("local_options", {}))
+    roles = len(
+        {
+            role.rsplit("-", 1)[0]
+            for role in cast(dict[str, int], record.get("ports", {}))
+        }
+    )
+    shutdown_timeout = (
+        max(25, 35 * int(str(options.get("processes", 1))) * roles)
+        if names is None and record.get("local_extension")
+        else 25
+    )
+    deadline = time.time() + shutdown_timeout
     while time.time() < deadline:
         if not any(_owned_by(pid, data_dir) for pid in owned.values()):
             break
@@ -691,6 +934,8 @@ def cmd_stop_local(worktree_id: str, *, names: set[str] | None = None) -> int:
         _save_pids(pids_file, remaining)
     else:
         pids_file.unlink(missing_ok=True)
+        if names is None:
+            (data_dir / "processes.json").unlink(missing_ok=True)
     _log(
         "Local stack stopped." if names is None else "Selected local processes stopped."
     )
@@ -722,7 +967,21 @@ def cmd_status_local(
             "healthy": bool(frontend_pid and _owned_by(frontend_pid, data_dir))
             and _http_ok(f"{frontend_url}/health"),
         }
-    ready = bool(services) and all(service["healthy"] for service in services.values())
+    checks = cast(
+        dict[str, dict[str, dict[str, object]]], stack.get("serviceHealth", {})
+    )
+    for role, instances in checks.items():
+        for name, spec in instances.items():
+            services[f"{role}/{name}"] = {
+                "url": spec["url"],
+                "healthy": _http_ok(str(spec["url"])),
+                "required": spec["required"],
+            }
+    ready = bool(services) and all(
+        service["healthy"]
+        for service in services.values()
+        if service.get("required", True)
+    )
     if quiet:
         return 0 if ready else 1
     manager = opensearch_manager(recorded_major(_require_owned(worktree_id)))
@@ -751,6 +1010,11 @@ def cmd_status_local(
                 "services": services,
                 "opensearch": status,
                 "profile": profile_name(worktree_id),
+                **(
+                    {"timings": timings}
+                    if (timings := read_timings(data_dir / TIMINGS_FILE)) is not None
+                    else {}
+                ),
             },
             indent=2,
         )
@@ -759,7 +1023,7 @@ def cmd_status_local(
 
 
 def cmd_nuke_local(worktree_id: str, ports: dict[str, int], keep_data: bool) -> int:
-    _require_owned(worktree_id)
+    record = _require_owned(worktree_id)
     if cmd_stop_local(worktree_id) or stack_running(worktree_id, ports):
         _log(
             "ERROR: the local stack is still running after stop; not deleting its data"
@@ -787,6 +1051,16 @@ def cmd_nuke_local(worktree_id: str, ports: dict[str, int], keep_data: bool) -> 
     except (OSError, RuntimeError, ValueError, urllib.error.URLError) as error:
         _log(f"ERROR: could not remove this stack: {error}")
         return 1
+    provider = record.get("local_extension")
+    if isinstance(provider, dict):
+        extension = extensions.load(provider["module"])
+        assert extension is not None
+        for name in _names_from_record(record):
+            extension.after_nuke(
+                extensions.context(
+                    _REPO_ROOT, data_dir, name, ports, provider["options"]
+                )
+            )
     _log(f"Removed this stack's indices, profiles and {data_dir}")
     return 0
 
@@ -808,3 +1082,8 @@ def reclaim_stale(registry: dict[str, dict[str, object]]) -> list[str]:
         if cmd_nuke_local(worktree_id, ports, keep_data=False) == 0:
             removed.append(worktree_id)
     return removed
+
+
+def _names_from_record(record: Mapping[str, object]) -> list[str]:
+    options = cast(dict[str, object], record.get("local_options", {}))
+    return [f"gms-{i}" for i in range(int(str(options.get("processes", 1))))]
