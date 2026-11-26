@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional, Set, Tuple
+from typing import Iterable, List, Optional, Set
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -20,7 +20,11 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     app_table_identifier,
 )
 from datahub.ingestion.source.qlik_sense.source.table_lineage import TableLineageMixin
-from datahub.ingestion.source.qlik_sense.source_models import _BinaryLink, _BinaryLoad
+from datahub.ingestion.source.qlik_sense.source_models import (
+    _BinaryLink,
+    _BinaryLoad,
+    _UnreadBinarySource,
+)
 from datahub.ingestion.source.qlik_sense.source_utils import _bounded_list
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
@@ -216,14 +220,18 @@ class OnPremBinaryMixin(TableLineageMixin):
         return binary
 
     def _binary_link_source(
-        self, link: _BinaryLink, unread: Set[Tuple[str, str]]
+        self, link: _BinaryLink, unread: Set[_UnreadBinarySource]
     ) -> Optional[str]:
         """The source app's table a BINARY table is linked to, if that app was
         read or kept this run and ingests it, so the edge never points at a
         dataset that doesn't exist."""
         source_urns = self._app_urns.get(link.source_app_id)
         if source_urns is None:
-            unread.add((link.app_id, link.source_app_id))
+            unread.add(
+                _UnreadBinarySource(
+                    app_id=link.app_id, source_app_id=link.source_app_id
+                )
+            )
             return None
         source_urn = self._gen_qlik_dataset_urn(
             app_table_identifier(link.source_app_id, link.table)
@@ -277,7 +285,7 @@ class OnPremBinaryMixin(TableLineageMixin):
         once every app has been read. Without the source app's table or its
         fields, the table's own lineage is only added to, so the edges an
         earlier run wrote stay."""
-        unread: Set[Tuple[str, str]] = set()
+        unread: Set[_UnreadBinarySource] = set()
         for link in self._binary_links:
             source_model = self._app_model_fields.get(link.source_app_id)
             in_source_model = (
@@ -285,7 +293,11 @@ class OnPremBinaryMixin(TableLineageMixin):
             )
             if link.maybe_renamed_script_table and not in_source_model:
                 if link.source_app_id not in self._app_urns:
-                    unread.add((link.app_id, link.source_app_id))
+                    unread.add(
+                        _UnreadBinarySource(
+                            app_id=link.app_id, source_app_id=link.source_app_id
+                        )
+                    )
                     yield from self._patch_binary_upstreams(
                         link, None, link.script_fields
                     )
@@ -365,9 +377,10 @@ class OnPremBinaryMixin(TableLineageMixin):
                 entityUrn=link.dataset_urn,
                 aspect=self._binary_upstream_lineage(link, source_urn, fine_grained),
             ).as_workunit()
-        for app_id, source_app_id in sorted(unread):
+        for source in sorted(unread, key=lambda s: (s.app_id, s.source_app_id)):
             self.reporter.binary_loads_without_lineage.append(
-                f"{app_id}: app {source_app_id} was not read or kept this run"
+                f"{source.app_id}: app {source.source_app_id} was not read or "
+                "kept this run"
             )
         if self.reporter.binary_loads_without_lineage:
             self.reporter.warning(

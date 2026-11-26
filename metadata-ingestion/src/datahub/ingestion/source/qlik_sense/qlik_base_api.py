@@ -12,11 +12,11 @@ from typing import (
     List,
     Optional,
     Sequence,
-    Tuple,
     Union,
 )
 
 import requests
+from pydantic import BaseModel, ConfigDict, SkipValidation
 
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
@@ -84,6 +84,21 @@ class ReadErrors:
     def record_fallback(self, message: str) -> None:
         logger.info(message)
         self.fallbacks.append(message)
+
+
+class SpaceItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    space_id: str
+    # The item as the API listed it, kept as it is rather than copied.
+    item: SkipValidation[Dict]
+
+
+class _SpaceListing(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    space_id: str
+    items: SkipValidation[Iterator[Dict]]
 
 
 class QlikBaseAPI(ABC):
@@ -178,8 +193,8 @@ class QlikBaseAPI(ABC):
         for future in BackpressureAwareExecutor.map(
             self._load_item_or_record,
             (
-                (space_id, item, is_unchanged)
-                for space_id, item in self._items_in_turn(space_ids)
+                (listed.space_id, listed.item, is_unchanged)
+                for listed in self._items_in_turn(space_ids)
             ),
             max_workers=self.config.resolved_max_workers(),
         ):
@@ -187,22 +202,26 @@ class QlikBaseAPI(ABC):
             if item:
                 yield item
 
-    def _items_in_turn(self, space_ids: Sequence[str]) -> Iterator[Tuple[str, Dict]]:
+    def _items_in_turn(self, space_ids: Sequence[str]) -> Iterator[SpaceItem]:
         # Each space is listed only when its turn first comes, so a slow
         # listing does not hold back the items already listed.
         unlisted = iter(space_ids)
-        listings: Deque[Tuple[str, Iterator[Dict]]] = deque()
+        listings: Deque[_SpaceListing] = deque()
         while True:
             space_id = next(unlisted, None)
             if space_id is not None:
-                listings.appendleft((space_id, iter(self._list_items(space_id))))
+                listings.appendleft(
+                    _SpaceListing(
+                        space_id=space_id, items=iter(self._list_items(space_id))
+                    )
+                )
             elif not listings:
                 return
-            space_id, listing = listings.popleft()
-            item = next(listing, None)
+            listing = listings.popleft()
+            item = next(listing.items, None)
             if item is not None:
-                yield space_id, item
-                listings.append((space_id, listing))
+                yield SpaceItem(space_id=listing.space_id, item=item)
+                listings.append(listing)
 
     def _load_item_or_record(
         self, space_id: str, item: Dict, is_unchanged: Optional[IsUnchanged]

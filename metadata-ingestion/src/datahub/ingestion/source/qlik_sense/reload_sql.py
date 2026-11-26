@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set
 
 from pydantic import BaseModel, ConfigDict
 
@@ -40,6 +40,18 @@ QUOTE_CHARACTERS = '[]"`'
 RELOAD_FILE_RE = re.compile(
     r"^\{?(?P<store>STORE - )?(?P<path>lib://[^{}]+?)\}?;?$", re.IGNORECASE
 )
+
+
+class _ClauseState(BaseModel):
+    in_clause: bool = False
+    in_from: bool = False
+
+
+class _SourceGroupKey(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    platform: str
+    name: str
 
 
 class _ReloadFile(BaseModel):
@@ -162,7 +174,7 @@ def _table_clause_names(sql: str) -> Set[str]:
     expects_name = False
     previous = ""
     statement_start = True
-    stack: List[Tuple[bool, bool]] = []
+    stack: List[_ClauseState] = []
     for token in SQL_TOKEN_RE.findall(sql):
         if token.startswith(("/*", "--")):
             continue
@@ -171,10 +183,11 @@ def _table_clause_names(sql: str) -> Set[str]:
         if token.startswith("'"):
             names |= _table_clause_names(token.strip("'").replace("''", "'"))
         elif token == "(":
-            stack.append((in_clause, in_from))
+            stack.append(_ClauseState(in_clause=in_clause, in_from=in_from))
             in_clause = in_from = False
         elif token == ")":
-            in_clause, in_from = stack.pop() if stack else (False, False)
+            outer = stack.pop() if stack else _ClauseState()
+            in_clause, in_from = outer.in_clause, outer.in_from
         elif token == ";":
             in_clause = in_from = False
         elif token == "," and in_from and not in_clause:
@@ -277,14 +290,16 @@ def _untraced_source_groups(
     """The database sources, by graph QRI and label, that the script's tables
     don't trace. A script table traces a source only when it is the one source
     of the graph table that could be it."""
-    groups: Dict[Tuple[str, str], Dict[str, str]] = {}
+    groups: Dict[_SourceGroupKey, Dict[str, str]] = {}
     for qri, label in labels.items():
-        key = (_database_qri_platform(qri), _label_parts(label)[-1])
+        key = _SourceGroupKey(
+            platform=_database_qri_platform(qri), name=_label_parts(label)[-1]
+        )
         groups.setdefault(key, {})[qri] = label
     untraced: List[_UntracedSources] = []
-    for (_, name), group in groups.items():
+    for key, group in groups.items():
         sources = _UntracedSources(
-            name=name, labels=dict(group), script_urns=script_urns
+            name=key.name, labels=dict(group), script_urns=script_urns
         )
         for urn in script_urns:
             named = [

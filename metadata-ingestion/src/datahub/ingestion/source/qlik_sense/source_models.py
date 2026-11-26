@@ -135,6 +135,13 @@ class _GraphNamedApps(BaseModel):
     graph_unread: bool
 
 
+class _UnreadBinarySource(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    app_id: str
+    source_app_id: str
+
+
 class _BinaryLink(BaseModel):
     """A table an app BINARY loads from another app, whose lineage is written
     once every app has been read."""

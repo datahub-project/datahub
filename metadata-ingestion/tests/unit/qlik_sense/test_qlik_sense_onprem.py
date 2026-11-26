@@ -335,9 +335,10 @@ def test_items_of_next_space_are_listed_only_after_first_item_is_taken(
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
     with patch.object(api, "_list_items", side_effect=list_items):
         items = api._items_in_turn(["stream-1", "stream-2"])
-        assert next(items) == ("stream-1", {"id": "stream-1-0"})
+        first = next(items)
+        assert (first.space_id, first.item) == ("stream-1", {"id": "stream-1-0"})
         assert listed == ["stream-1"]
-        assert [item["id"] for _, item in items] == [
+        assert [listed_item.item["id"] for listed_item in items] == [
             "stream-2-0",
             "stream-1-1",
             "stream-2-1",
