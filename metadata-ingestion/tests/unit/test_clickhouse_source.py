@@ -381,38 +381,6 @@ def test_query_log_lineage_does_not_over_qualify(monkeypatch):
     ]
 
 
-def test_profile_metadata_takes_storage_size_from_system_tables():
-    """sizeInBytes of a profile comes from this map; without the override the
-    Stats tab of a ClickHouse table had no storage size."""
-    source = ClickHouseSource(
-        ClickHouseConfig.model_validate({"host_port": "localhost:8123"}),
-        PipelineContext(run_id="test"),
-    )
-    inspector = MagicMock()
-    inspector.engine.url.database = "shop"
-    bound: Dict[str, Any] = {}
-
-    def _system_tables(params: Optional[Dict[str, Any]]) -> List[SimpleNamespace]:
-        bound.update(params or {})
-        return [
-            SimpleNamespace(name="orders", total_bytes=8576),
-            SimpleNamespace(name="empty", total_bytes=0),
-        ]
-
-    inspector.engine.connect.return_value = FakeConnection(
-        {"system.tables": _system_tables}
-    )
-
-    source.add_profile_metadata(inspector)
-
-    # One read per database: the two-tier source hands over an inspector per database.
-    assert bound == {"database": "shop"}
-    assert source.profile_metadata_info.dataset_name_to_storage_bytes == {
-        "shop.orders": 8576,
-        "shop.empty": 0,
-    }
-
-
 def test_query_log_query_only_fetches_columns_it_reads():
     config = ClickHouseConfig.model_validate(
         {
@@ -1517,3 +1485,35 @@ def test_emit_xml_dictionaries_reports_fetch_error_as_failure(monkeypatch):
     assert [f.title for f in source.report.failures] == [
         "Config-file dictionary fetch failed"
     ]
+
+
+def test_profile_metadata_takes_storage_size_from_system_tables():
+    """sizeInBytes of a profile comes from this map; without the override the
+    Stats tab of a ClickHouse table had no storage size."""
+    source = ClickHouseSource(
+        ClickHouseConfig.model_validate({"host_port": "localhost:8123"}),
+        PipelineContext(run_id="test"),
+    )
+    inspector = MagicMock()
+    inspector.engine.url.database = "shop"
+    bound: Dict[str, Any] = {}
+
+    def _system_tables(params: Optional[Dict[str, Any]]) -> List[SimpleNamespace]:
+        bound.update(params or {})
+        return [
+            SimpleNamespace(name="orders", total_bytes=8576),
+            SimpleNamespace(name="empty", total_bytes=0),
+        ]
+
+    inspector.engine.connect.return_value = FakeConnection(
+        {"system.tables": _system_tables}
+    )
+
+    source.add_profile_metadata(inspector)
+
+    # One read per database: the two-tier source hands over an inspector per database.
+    assert bound == {"database": "shop"}
+    assert source.profile_metadata_info.dataset_name_to_storage_bytes == {
+        "shop.orders": 8576,
+        "shop.empty": 0,
+    }
