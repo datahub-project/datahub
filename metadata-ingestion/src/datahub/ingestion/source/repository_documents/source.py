@@ -837,12 +837,26 @@ class RepositoryDocumentsSourceBase(
     def _search_documents_by_properties(
         self, extra_filters: List[Dict[str, Any]]
     ) -> List[str]:
-        """Search documents by customProperties, tolerating older servers.
+        """Search documents by customProperties, including hidden lifecycle stages."""
+        return self._search_document_urns(
+            status=RemovedStatusFilter.ALL, extra_filters=extra_filters
+        )
+
+    def _search_document_urns(
+        self,
+        *,
+        status: RemovedStatusFilter,
+        extra_filters: List[Dict[str, Any]],
+        platform: Optional[str] = None,
+        platform_instance: Optional[str] = None,
+    ) -> List[str]:
+        """Search documents, including hidden lifecycle stages, tolerating older servers.
 
         ``include_hidden_lifecycle_stages`` is what surfaces documents parked in a
-        hideInSearch stage (e.g. ``urn:li:lifecycleStageType:DRAFT``). Servers that
-        predate the flag reject it outright, which is a permanent condition rather
-        than a transient one, so degrade once instead of failing every run.
+        hideInSearch stage (e.g. ``urn:li:lifecycleStageType:DRAFT`` or ARCHIVED).
+        Servers that predate the flag reject it outright, which is a permanent
+        condition rather than a transient one, so degrade once instead of failing
+        every run.
         """
         assert self.ctx.graph is not None
         if not self.report.hidden_lifecycle_search_unsupported:
@@ -850,7 +864,9 @@ class RepositoryDocumentsSourceBase(
                 return list(
                     self.ctx.graph.get_urns_by_filter(
                         entity_types=["document"],
-                        status=RemovedStatusFilter.ALL,
+                        platform=platform,
+                        platform_instance=platform_instance,
+                        status=status,
                         include_hidden_lifecycle_stages=True,
                         extraFilters=extra_filters,
                     )
@@ -862,15 +878,17 @@ class RepositoryDocumentsSourceBase(
                     message=(
                         "includeHiddenLifecycleStages is unavailable, so documents "
                         "in hidden lifecycle stages (for example drafts) cannot be "
-                        "matched when reusing document identity. Upgrade GMS to "
-                        "reuse their URNs instead of minting new ones."
+                        "matched when reusing document identity or restoring "
+                        "soft-deleted documents. Upgrade GMS to match them."
                     ),
                     exc=exc,
                 )
         return list(
             self.ctx.graph.get_urns_by_filter(
                 entity_types=["document"],
-                status=RemovedStatusFilter.ALL,
+                platform=platform,
+                platform_instance=platform_instance,
+                status=status,
                 extraFilters=extra_filters,
             )
         )
@@ -1204,9 +1222,10 @@ class RepositoryDocumentsSourceBase(
         urns: Set[str] = set()
         if self.ctx.graph:
             try:
+                # Hidden stages are included so a soft-deleted document parked in
+                # e.g. ARCHIVED is still found and restored.
                 urns = set(
-                    self.ctx.graph.get_urns_by_filter(
-                        entity_types=["document"],
+                    self._search_document_urns(
                         platform=self.platform,
                         platform_instance=make_dataplatform_instance_urn(
                             self.platform, self._instance_name(owner_repo)
@@ -1214,7 +1233,9 @@ class RepositoryDocumentsSourceBase(
                         status=RemovedStatusFilter.ONLY_SOFT_DELETED,
                         # A platform_instance is shared by every repository on
                         # it, so narrow to this repository's documents.
-                        extraFilters=[_property_filter(self._prop("repo"), owner_repo)],
+                        extra_filters=[
+                            _property_filter(self._prop("repo"), owner_repo)
+                        ],
                     )
                 )
             except Exception as exc:

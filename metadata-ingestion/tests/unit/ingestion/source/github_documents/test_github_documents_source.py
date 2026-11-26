@@ -1660,10 +1660,8 @@ def test_identity_short_circuit_skips_search_for_canonical_match(
     source.ctx.graph.get_urns_by_filter.assert_not_called()
 
 
-@pytest.mark.parametrize("soft_deleted", [False, True])
-def test_existing_folder_document_does_not_overwrite_body(
-    source: GitHubDocumentsSource, soft_deleted: bool
-) -> None:
+def _mock_existing_folder(source: GitHubDocumentsSource, *, soft_deleted: bool) -> str:
+    """Mock an existing folder document (stored DRAFT stage) for docs/guides."""
     existing_urn = "urn:li:document:native-folder"
     dir_source_id = make_dir_source_id(
         "acme/docs", "docs/guides", source_prefix="github"
@@ -1699,6 +1697,14 @@ def test_existing_folder_document_does_not_overwrite_body(
         return []
 
     source.ctx.graph.get_urns_by_filter.side_effect = urns_by_filter
+    return existing_urn
+
+
+@pytest.mark.parametrize("soft_deleted", [False, True])
+def test_existing_folder_document_does_not_overwrite_body(
+    source: GitHubDocumentsSource, soft_deleted: bool
+) -> None:
+    existing_urn = _mock_existing_folder(source, soft_deleted=soft_deleted)
 
     workunits = list(source.get_workunits_internal())
     folder_infos = [
@@ -1726,6 +1732,48 @@ def test_existing_folder_document_does_not_overwrite_body(
     assert statuses[0].removed is False
     assert statuses[0].lifecycleStage == PUBLISHED_STAGE_URN
     assert source.report.documents_resurrected == 1
+    # The soft-deleted lookup must include hidden stages, or a folder that is both
+    # soft-deleted and e.g. ARCHIVED would never be found and restored.
+    soft_deleted_calls = [
+        call
+        for call in cast(MagicMock, source.ctx.graph).get_urns_by_filter.call_args_list
+        if call.kwargs.get("status") == RemovedStatusFilter.ONLY_SOFT_DELETED
+    ]
+    assert soft_deleted_calls
+    assert all(
+        call.kwargs.get("include_hidden_lifecycle_stages") is True
+        for call in soft_deleted_calls
+    )
+
+
+def test_existing_folder_auto_status_patches_only_removed(
+    source: GitHubDocumentsSource,
+) -> None:
+    """Through the full workunit pipeline, an existing folder's Status comes from
+    AutoStatusAspectProcessor; on servers with status PATCH it touches only
+    /removed, so a stored stage is kept."""
+    existing_urn = _mock_existing_folder(source, soft_deleted=False)
+
+    with patch(
+        "datahub.ingestion.workunit_processors.auto_status_aspect._gms_supports_status_patch",
+        return_value=True,
+    ):
+        workunits = list(source.get_workunits())
+
+    folder_status_mcps = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu, MetadataWorkUnit)
+        and wu.get_urn() == existing_urn
+        and getattr(wu.metadata, "aspectName", None) == "status"
+    ]
+    assert len(folder_status_mcps) == 1
+    mcp = folder_status_mcps[0]
+    assert isinstance(mcp, MetadataChangeProposalClass)
+    assert mcp.changeType == "PATCH"
+    assert mcp.aspect is not None
+    operations = json.loads(mcp.aspect.value)
+    assert [op["path"] for op in operations] == ["/removed"]
 
 
 @pytest.fixture
