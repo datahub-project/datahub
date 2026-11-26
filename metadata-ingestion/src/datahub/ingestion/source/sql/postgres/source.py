@@ -9,7 +9,6 @@ from typing import (
     Iterable,
     List,
     Optional,
-    Set,
     Tuple,
     Type,
     Union,
@@ -589,9 +588,11 @@ class PostgresSource(SQLAlchemySource):
             config.rds_iam_token_manager()
         )
 
-        # loop_tables and loop_profiler_requests both list tables, so a skipped
-        # partition is seen twice per run; this keeps the report count exact.
-        self._skipped_table_partitions: Set[str] = set()
+        # Partition names per (database, schema). loop_tables and
+        # loop_profiler_requests both list tables, so caching the first answer
+        # keeps the two passes consistent (also when listing fails) and lets
+        # each schema be queried and reported once.
+        self._table_partitions: Dict[Tuple[str, str], FrozenSet[str]] = {}
 
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
         if self.config.include_query_lineage:
@@ -761,14 +762,36 @@ class PostgresSource(SQLAlchemySource):
         table_names = super()._get_table_names(inspector, schema)
         if self.config.include_table_partitions:
             return table_names
+
+        key = (self.get_db_name(inspector), schema)
+        first_listing = key not in self._table_partitions
+        if first_listing:
+            self._table_partitions[key] = self._list_table_partitions(inspector, schema)
+        partitions = self._table_partitions[key]
+
+        kept: List[str] = []
+        for table in table_names:
+            if table not in partitions:
+                kept.append(table)
+            elif first_listing:
+                dataset_name = self.get_identifier(
+                    schema=schema, entity=table, inspector=inspector
+                )
+                self.report.num_table_partitions_skipped += 1
+                self.report.table_partitions_skipped.append(dataset_name)
+        return kept
+
+    def _list_table_partitions(
+        self, inspector: Inspector, schema: str
+    ) -> FrozenSet[str]:
         try:
             with inspector.engine.connect() as conn:
-                partitions = {
+                return frozenset(
                     row.table_name
                     for row in conn.execute(
                         PostgresQuery.get_table_partitions(), {"schema": schema}
                     )
-                }
+                )
         except Exception as e:
             self.report.warning(
                 title="Failed to list table partitions",
@@ -777,21 +800,7 @@ class PostgresSource(SQLAlchemySource):
                 context=f"{self.get_db_name(inspector)}.{schema}",
                 exc=e,
             )
-            return table_names
-
-        kept: List[str] = []
-        for table in table_names:
-            if table not in partitions:
-                kept.append(table)
-                continue
-            dataset_name = self.get_identifier(
-                schema=schema, entity=table, inspector=inspector
-            )
-            if dataset_name not in self._skipped_table_partitions:
-                self._skipped_table_partitions.add(dataset_name)
-                self.report.num_table_partitions_skipped += 1
-                self.report.table_partitions_skipped.append(dataset_name)
-        return kept
+            return frozenset()
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits_internal()

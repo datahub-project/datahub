@@ -58,7 +58,7 @@ from datahub.utilities.sqlalchemy_type_converter import (
 )
 from tests.test_helpers.masking_state_helpers import capture_masked_log
 from tests.unit.conftest import as_mock, log_contexts, single_aspect
-from tests.unit.sql_test_helpers import FakeConnection, FakeResult
+from tests.unit.sql_test_helpers import FakeConnection, FakeResult, Outcome
 
 
 def _base_config():
@@ -223,7 +223,7 @@ def test_view_names_survive_materialized_view_listing_failure():
     assert source.report.warnings
 
 
-def _partitioned_inspector(partition_rows: Any) -> MagicMock:
+def _partitioned_inspector(partition_rows: Outcome) -> MagicMock:
     inspector = MagicMock()
     inspector.get_table_names.return_value = [
         "customers",
@@ -266,10 +266,12 @@ def test_table_names_skip_partitions_when_disabled():
         )
     )
 
-    # loop_tables and loop_profiler_requests both list tables; count each once.
+    # loop_tables and loop_profiler_requests both list tables; query and count
+    # each schema once.
     for _ in range(2):
         assert source._get_table_names(inspector, "public") == ["customers", "events"]
 
+    inspector.engine.connect.assert_called_once()
     assert source.report.num_table_partitions_skipped == 2
     assert list(source.report.table_partitions_skipped) == [
         "db.public.events_2026_10",
@@ -288,7 +290,12 @@ def test_table_names_keep_partitions_when_listing_them_fails():
         RuntimeError('column "relispartition" does not exist')
     )
 
-    assert len(source._get_table_names(inspector, "public")) == 4
+    all_tables = ["customers", "events", "events_2026_10", "events_2026_11"]
+    # The failure is remembered, so profiling keeps the same tables ingestion did.
+    for _ in range(2):
+        assert source._get_table_names(inspector, "public") == all_tables
+
+    inspector.engine.connect.assert_called_once()
     assert source.report.num_table_partitions_skipped == 0
     assert source.report.warnings
 
