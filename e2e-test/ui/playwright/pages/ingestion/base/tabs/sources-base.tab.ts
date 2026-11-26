@@ -13,6 +13,12 @@ const EXECUTION_STATUS_RUNNING = 'RUNNING';
 const EXECUTION_STATUS_PENDING = 'PENDING';
 const SOURCE_STATUS_PENDING = 'Pending';
 
+const COUNT_SOURCES_WITH_LAST_RUN = `query listIngestionSources($input: ListIngestionSourcesInput!) {
+  listIngestionSources(input: $input) {
+    total
+  }
+}`;
+
 export interface SnowflakeSourceDetails {
   account_id: string;
   warehouse_id: string;
@@ -75,6 +81,8 @@ export abstract class SourcesBaseTab extends BaseTab {
   readonly createSourceButton: Locator;
   readonly sourcesSearchInput: Locator;
   readonly typeFilterSelect: Locator;
+  readonly resultStatusFilterSelect: Locator;
+  readonly lastRunSortButton: Locator;
   readonly cliPill: Locator;
   readonly sourceTypeSearchInput: Locator;
   readonly passwordInput: Locator;
@@ -120,6 +128,8 @@ export abstract class SourcesBaseTab extends BaseTab {
     this.createSourceButton = page.getByTestId('create-ingestion-source-button');
     this.sourcesSearchInput = page.getByTestId('ingestion-sources-search');
     this.typeFilterSelect = page.getByTestId('ingestions-type-filter');
+    this.resultStatusFilterSelect = page.getByTestId('result-status-filter');
+    this.lastRunSortButton = page.getByTestId('sort-lastRunRequestedAtMillis');
     this.cliPill = page.getByTestId('ingestion-source-cli-pill');
     this.sourceTypeSearchInput = page.getByTestId('source-type-search-input');
     // eslint-disable-next-line playwright/no-raw-locators -- recipe form field addressed by generated id; no data-testid
@@ -216,6 +226,54 @@ export abstract class SourcesBaseTab extends BaseTab {
     this.logger?.step('select type filter', { value });
     await this.typeFilterSelect.click();
     await this.getTypeFilterDropdownItem(value).click();
+  }
+
+  async selectResultStatusFilter(status: string): Promise<void> {
+    this.logger?.step('select result status filter', { status });
+    await this.resultStatusFilterSelect.click();
+    await this.page.getByTestId('result-status-filter-dropdown').getByTestId(`option-${status}`).click();
+  }
+
+  async sortByLastRun(): Promise<void> {
+    this.logger?.step('sort by last run');
+    await this.lastRunSortButton.click();
+  }
+
+  async waitForLastRunsIndexed(sourceUrns: string[]): Promise<void> {
+    this.logger?.step('wait for last runs indexed', { sourceUrns });
+    // The run summary is derived from the seeded runs asynchronously, so the list can only sort and
+    // filter these sources once it is searchable.
+    await expect
+      .poll(
+        async () => {
+          const response = await this.graphql.executeQuery(COUNT_SOURCES_WITH_LAST_RUN, {
+            input: {
+              start: 0,
+              count: 0,
+              filters: [
+                { field: 'urn', values: sourceUrns },
+                { field: 'lastRunStatus', condition: 'EXISTS' },
+              ],
+            },
+          });
+          return (response.data as { listIngestionSources?: { total: number } })?.listIngestionSources?.total;
+        },
+        { timeout: TIMEOUTS.EXTRA_LONG },
+      )
+      .toBe(sourceUrns.length);
+  }
+
+  async expectSourceOrder(sourceNames: string[]): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- :visible pseudo-class disambiguates duplicate rows; no role/testid equivalent
+    const rows = this.page.getByTestId(/^row-/).and(this.page.locator(':visible'));
+    await expect
+      .poll(async () => {
+        const testIds = await rows.evaluateAll((elements) => elements.map((el) => el.getAttribute('data-testid')));
+        return testIds
+          .map((testId) => testId?.replace(/^row-/, ''))
+          .filter((name): name is string => !!name && sourceNames.includes(name));
+      })
+      .toEqual(sourceNames);
   }
 
   async clickLastRunCell(sourceName: string): Promise<void> {

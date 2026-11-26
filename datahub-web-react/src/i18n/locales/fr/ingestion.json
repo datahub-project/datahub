@@ -123,6 +123,8 @@
     "source.createError": "Échec de la création de la source d'ingestion!",
     "source.createErrorInterpolated": "Échec de la création de la source d'ingestion!: \n {{error}}",
     "source.createSuccess": "Source d'ingestion créée avec succès!",
+    "source.emptyLastRunFilterSubtitle": "Les sources exécutées avant une mise à niveau peuvent mettre quelques minutes à apparaître, le temps que leur dernière exécution soit indexée.",
+    "source.emptyLastRunFilterTitle": "Aucune source avec ce statut de dernière exécution",
     "source.emptySearchSubtitle": "Essayez une autre recherche avec au moins 3 caractères...",
     "source.emptySearchTitle": "Aucun résultat de recherche!",
     "source.emptyTitle": "Aucun {{sourceType}} pour le moment!",

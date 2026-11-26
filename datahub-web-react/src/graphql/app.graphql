@@ -95,6 +95,7 @@ query appConfig {
             showAutoCompleteResults
             entityVersioningEnabled
             showHasSiblingsFilter
+            showIngestionSourceLastRunControls
             showSearchBarAutocompleteRedesign
             showManageTags
             showIntroducePage

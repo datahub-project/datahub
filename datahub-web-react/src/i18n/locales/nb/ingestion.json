@@ -123,6 +123,8 @@
     "source.createError": "Kunne ikke opprette ingestion-kilde!",
     "source.createErrorInterpolated": "Kunne ikke opprette ingestion-kilde!: \n {{error}}",
     "source.createSuccess": "Ingestion-kilde opprettet!",
+    "source.emptyLastRunFilterSubtitle": "Kilder som kjørte før en oppgradering kan bruke noen minutter på å vises mens siste kjøring indekseres.",
+    "source.emptyLastRunFilterTitle": "Ingen kilder med denne statusen for siste kjøring",
     "source.emptySearchSubtitle": "Prøv et annet søk med minst 3 tegn...",
     "source.emptySearchTitle": "Ingen søkeresultater!",
     "source.emptyTitle": "Ingen {{sourceType}} ennå!",
