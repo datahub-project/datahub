@@ -774,7 +774,7 @@ class PostgresSource(SQLAlchemySource):
                 title="Failed to list table partitions",
                 message="Partitions in this schema will be ingested as regular tables. "
                 "Detecting partitions requires Postgres 10+ and read access to pg_catalog.",
-                context=schema,
+                context=f"{self.get_db_name(inspector)}.{schema}",
                 exc=e,
             )
             return table_names

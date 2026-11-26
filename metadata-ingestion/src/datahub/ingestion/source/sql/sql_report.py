@@ -98,8 +98,8 @@ class SQLSourceReport(
         default_factory=LossyList
     )
 
-    # Postgres: partitions of declaratively partitioned tables skipped because
-    # include_table_partitions is disabled. The parent table is still ingested.
+    # Partitions dropped by a source's _get_table_names override (e.g. Postgres
+    # with include_table_partitions disabled). The parent table is still ingested.
     num_table_partitions_skipped: int = 0
     table_partitions_skipped: LossyList[str] = field(default_factory=LossyList)
 

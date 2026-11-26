@@ -11,6 +11,11 @@ source:
       allow:
         - 'partitioned'
     include_table_partitions: false
+    # Profiling lists tables separately from loop_tables; partitions must be
+    # skipped there too, so only the kept tables get a datasetProfile.
+    profiling:
+      enabled: true
+      profile_table_level_only: true
 sink:
   type: file
   config:

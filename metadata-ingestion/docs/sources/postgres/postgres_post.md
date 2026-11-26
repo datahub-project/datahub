@@ -202,6 +202,10 @@ Partitions are detected through `pg_class.relispartition`, so new partitions are
 
 Child tables created with table inheritance (`INHERITS`) are not partitions and are always ingested. Use `table_pattern` to exclude them.
 
+If stateful ingestion with `remove_stale_metadata` is enabled, turning this option off soft-deletes partitions that earlier runs ingested.
+
+The CockroachDB and TimescaleDB sources inherit this option. TimescaleDB hypertable chunks are inheritance children, not partitions, so they are still ingested. On CockroachDB, partition detection may fail; the source then logs a warning and ingests all tables.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

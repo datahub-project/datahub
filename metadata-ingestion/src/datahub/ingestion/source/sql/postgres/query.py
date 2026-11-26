@@ -52,7 +52,7 @@ class PostgresQuery:
         """List tables in a schema that are partitions of a partitioned table.
 
         relispartition was added in Postgres 10, alongside declarative
-        partitioning. Use with: connection.execute(query, {"schema": schema})
+        partitioning.
         """
         return text(
             """
