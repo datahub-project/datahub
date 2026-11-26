@@ -410,7 +410,7 @@ s3_base = {
     # >=5.12.1: CVE-2026-44660 — memory leak in ujson.dump() on write failure.
     # Keep <6 until major API review.
     "ujson>=5.12.1,<6.0.0",
-    "smart-open[s3]>=5.2.1,<8.0.0",
+    "smart-open[s3]>=5.2.1,<11.0.0",
     *path_spec_common,
     # cachetools is used by operation_config which is imported by profiling config
     *cachetools_lib,
@@ -426,7 +426,7 @@ abs_base = {
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     *pyarrow_common,
-    "smart-open[azure]>=5.2.1,<8.0.0",
+    "smart-open[azure]>=5.2.1,<11.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
     *path_spec_common,
@@ -686,7 +686,7 @@ plugins: Dict[str, Set[str]] = {
     | aws_common
     | {"sqlalchemy-cockroachdb>=2.0.0,<3.0.0"},
     # smart-open backs the http(s) and s3 file systems used to read the CSV.
-    "csv-enricher": aws_common | {"smart-open[s3]>=5.2.1,<8.0.0"},
+    "csv-enricher": aws_common | {"smart-open[s3]>=5.2.1,<11.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common | cachetools_lib,
@@ -866,8 +866,8 @@ plugins: Dict[str, Set[str]] = {
     # their CI/CD and image-building references).
     "s3": {*s3_base, *file_profiling},
     "s3-slim": {*s3_base, *file_profiling},
-    "gcs": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
-    "gcs-slim": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
+    "gcs": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<11.0.0"},
+    "gcs-slim": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<11.0.0"},
     "abs": {*abs_base, *file_profiling},
     "abs-slim": {*abs_base},
     "sagemaker": aws_common,
@@ -890,7 +890,7 @@ plugins: Dict[str, Set[str]] = {
     "sql-queries": usage_common
     | sqlglot_lib
     | aws_common
-    | {"smart-open[s3]>=5.2.1,<8.0.0"},
+    | {"smart-open[s3]>=5.2.1,<11.0.0"},
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,

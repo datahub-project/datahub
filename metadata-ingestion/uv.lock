@@ -2645,20 +2645,20 @@ requires-dist = [
     { name = "slack-sdk", marker = "extra == 'docs'", specifier = "==3.18.1" },
     { name = "slack-sdk", marker = "extra == 'integration-tests'", specifier = "==3.18.1" },
     { name = "slack-sdk", marker = "extra == 'slack'", specifier = "==3.18.1" },
-    { name = "smart-open", extras = ["azure"], marker = "extra == 'abs'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["azure"], marker = "extra == 'abs-slim'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["azure"], marker = "extra == 'excel'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["azure", "gcs", "s3"], marker = "extra == 'all'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["azure", "s3"], marker = "extra == 'delta-lake'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["azure", "s3"], marker = "extra == 'dev'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["azure", "s3"], marker = "extra == 'docs'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["azure", "s3"], marker = "extra == 'integration-tests'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["gcs", "s3"], marker = "extra == 'gcs'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["gcs", "s3"], marker = "extra == 'gcs-slim'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["s3"], marker = "extra == 'csv-enricher'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["s3"], marker = "extra == 's3'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["s3"], marker = "extra == 's3-slim'", specifier = ">=5.2.1,<8.0.0" },
-    { name = "smart-open", extras = ["s3"], marker = "extra == 'sql-queries'", specifier = ">=5.2.1,<8.0.0" },
+    { name = "smart-open", extras = ["azure"], marker = "extra == 'abs'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["azure"], marker = "extra == 'abs-slim'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["azure"], marker = "extra == 'excel'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["azure", "gcs", "s3"], marker = "extra == 'all'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["azure", "s3"], marker = "extra == 'delta-lake'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["azure", "s3"], marker = "extra == 'dev'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["azure", "s3"], marker = "extra == 'docs'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["azure", "s3"], marker = "extra == 'integration-tests'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["gcs", "s3"], marker = "extra == 'gcs'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["gcs", "s3"], marker = "extra == 'gcs-slim'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["s3"], marker = "extra == 'csv-enricher'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["s3"], marker = "extra == 's3'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["s3"], marker = "extra == 's3-slim'", specifier = ">=5.2.1,<11.0.0" },
+    { name = "smart-open", extras = ["s3"], marker = "extra == 'sql-queries'", specifier = ">=5.2.1,<11.0.0" },
     { name = "snowflake-connector-python", marker = "extra == 'all'", specifier = ">=4.7.3,<5.0.0" },
     { name = "snowflake-connector-python", marker = "extra == 'dev'", specifier = ">=4.7.3,<5.0.0" },
     { name = "snowflake-connector-python", marker = "extra == 'docs'", specifier = ">=4.7.3,<5.0.0" },
@@ -11502,14 +11502,14 @@ wheels = [
 
 [[package]]
 name = "smart-open"
-version = "7.5.1"
+version = "10.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "wrapt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e8/be/a66598b305763861a9ab15ff0f2fbc44e47b1ce7a776797337a4eef37c66/smart_open-7.5.1.tar.gz", hash = "sha256:3f08e16827c4733699e6b2cc40328a3568f900cb12ad9a3ad233ba6c872d9fe7", size = 54034, upload-time = "2026-02-23T11:01:28.979Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f7/83/f0aec11110c68a260797924075d599ce98443a74dbb882832605cad5ac5c/smart_open-10.0.0.tar.gz", hash = "sha256:1a543272c61395ccb9a731b9674a919b69de7de8a121274a6f65b2e8f69bd3a2", size = 65611, upload-time = "2026-11-20T20:07:06.018Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5e/ea/dcdecd68acebb49d3fd560473a43499b1635076f7f1ae8641c060fe7ce74/smart_open-7.5.1-py3-none-any.whl", hash = "sha256:3e07cbbd9c8a908bcb8e25d48becf1a5cbb4886fa975e9f34c672ed171df2318", size = 64108, upload-time = "2026-02-23T11:01:27.429Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/14/5fe58800378e93d1dd1ad3c8868a5fad9430b5aadef8e6cb63b4a82eb9b2/smart_open-10.0.0-py3-none-any.whl", hash = "sha256:be6bcc7b7fe6e0c108a7b8c764ee31c01eae568a128355355120b051efff6dd7", size = 76590, upload-time = "2026-11-20T20:07:04.418Z" },
 ]
 
 [package.optional-dependencies]

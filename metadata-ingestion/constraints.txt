@@ -1407,7 +1407,7 @@ six==1.17.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   vertica-python
 slack-sdk==3.18.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-smart-open==7.5.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+smart-open==10.0.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   weasel
