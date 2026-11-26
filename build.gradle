@@ -217,6 +217,15 @@ plugins {
 
 apply from: "gradle/docker/docker-utils.gradle"
 
+// Lock shared by every Yarn 1 `yarn install` task (attach with usesService). The installs share the
+// global yarn cache, and Yarn 1 can corrupt a cache entry when two installs extract the same package
+// at once ("the file appears to be corrupt ... ENOENT"). maxParallelUsages = 1 keeps Gradle from
+// running two of them together. It replaces `yarn install --mutex file:...`, whose lock must be
+// refreshed every 5s and fails the install with ECOMPROMISED when a loaded CI runner misses that.
+ext.yarnInstallLock = gradle.sharedServices.registerIfAbsent('yarnInstallLock', BuildService) {
+  maxParallelUsages = 1
+}
+
 // Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
 ext.jacksonVersion = '2.21.7'
 // Parquet stack: parquet-jackson shades Jackson under shaded/parquet/.
@@ -1019,8 +1028,9 @@ tasks.register("generateGitPropertiesGlobal", com.gorylenko.GenerateGitPropertie
 
 subprojects {
 
-  apply plugin: 'maven-publish'
-  apply plugin: 'com.diffplug.spotless'
+  // Python subprojects call the `build` lifecycle task, which only `base` provides. They don't
+  // get it from the Java plugin, so it is applied here for all subprojects.
+  apply plugin: 'base'
 
   // Enable dependency locking for all configurations
   dependencyLocking {
@@ -1036,6 +1046,40 @@ subprojects {
     def sourceFile = file("${rootProject.buildDir}/git.properties")
     from sourceFile
     into "$project.buildDir/resources/main"
+  }
+
+  // Publishing and Spotless apply only to JVM projects. Applying Spotless while Gradle is still
+  // adding the java plugin fails, so this runs after evaluation instead.
+  afterEvaluate {
+    if (!project.plugins.hasPlugin(JavaPlugin)) {
+      return
+    }
+    project.apply plugin: 'maven-publish'
+    project.apply plugin: 'com.diffplug.spotless'
+    project.spotless {
+      // Format checks run in lint-jobs.yml (spotless-check) and ./gradlew lintCheck,
+      // not as part of check/build.
+      enforceCheck false
+      if (!(project.name in ['avroutil1-helper-all-fork', 'datahub-web-react', 'smoke-test'])) {
+        java {
+          googleJavaFormat(googleJavaFormatVersion)
+          target project.fileTree(project.projectDir) {
+            include 'src/**/*.java'
+            include 'app/**/*.java'
+            include 'test/**/*.java'
+            exclude 'src/**/resources/'
+            exclude 'src/**/generated/'
+            exclude 'src/**/mainGeneratedDataTemplate/'
+            exclude 'src/**/mainGeneratedAvroSchema/'
+            exclude 'src/**/mainGeneratedGraphQL/'
+            exclude 'src/**/generatedJsonSchema/'
+            exclude 'src/**/mainGeneratedRest/'
+            exclude 'src/renamed/avro/'
+            exclude 'src/test/sample-test-plugins/'
+          }
+        }
+      }
+    }
   }
 
   plugins.withType(JavaPlugin).configureEach {
@@ -1111,29 +1155,6 @@ subprojects {
       }
     }
 
-    spotless {
-      // Format checks run in lint-jobs.yml (spotless-check) and ./gradlew lintCheck,
-      // not as part of check/build.
-      enforceCheck false
-      java {
-        googleJavaFormat(googleJavaFormatVersion)
-        target project.fileTree(project.projectDir) {
-          include 'src/**/*.java'
-          include 'app/**/*.java'
-          include 'test/**/*.java'
-          exclude 'src/**/resources/'
-          exclude 'src/**/generated/'
-          exclude 'src/**/mainGeneratedDataTemplate/'
-          exclude 'src/**/mainGeneratedAvroSchema/'
-          exclude 'src/**/mainGeneratedGraphQL/'
-          exclude 'src/**/generatedJsonSchema/'
-          exclude 'src/**/mainGeneratedRest/'
-          exclude 'src/renamed/avro/'
-          exclude 'src/test/sample-test-plugins/'
-        }
-      }
-    }
-
     if (project.plugins.hasPlugin('pegasus')) {
       dependencies {
         dataTemplateCompile spec.product.pegasus.data
@@ -1194,14 +1215,17 @@ wrapper {
   distributionSha256Sum = 'a3c4ba4aca8f0075688b9c5b18939fd28e8cb4357c227da5c1d9f38343791439'
 }
 
-def spotlessApplyTasks = subprojects.collect { "${it.path}:spotlessApply" }
-def spotlessCheckTasks = subprojects.collect { "${it.path}:spotlessCheck" }
+// Spotless is applied only to Java projects, so only those have these tasks. Resolved lazily
+// because plugins are applied after this script runs.
+def spotlessTaskPaths = { String taskName ->
+  subprojects.findAll { it.plugins.hasPlugin('com.diffplug.spotless') }.collect { "${it.path}:${taskName}" }
+}
 
 tasks.register('format') {
   dependsOn(':datahub-web-react:graphqlPrettierWrite')
   dependsOn(':datahub-web-react:githubActionsPrettierWrite')
   dependsOn(':datahub-web-react:mdPrettierWrite')
-  dependsOn(spotlessApplyTasks)
+  dependsOn { spotlessTaskPaths('spotlessApply') }
   dependsOn(':scripts:dev:lintFix')
 }
 
@@ -1209,7 +1233,7 @@ tasks.register('formatChanged') {
   dependsOn(':datahub-web-react:graphqlPrettierWriteChanged')
   dependsOn(':datahub-web-react:githubActionsPrettierWriteChanged')
   dependsOn(':datahub-web-react:mdPrettierWriteChanged')
-  dependsOn(spotlessApplyTasks)
+  dependsOn { spotlessTaskPaths('spotlessApply') }
   dependsOn(':scripts:dev:lintFix')
 }
 
@@ -1233,7 +1257,7 @@ tasks.register('lintCheck') {
   dependsOn(':datahub-web-react:githubActionsPrettierCheck')
   dependsOn(':datahub-web-react:docusaurusMarkdownLint')
   dependsOn(':docs-website:yarnLint')
-  dependsOn(spotlessCheckTasks)
+  dependsOn { spotlessTaskPaths('spotlessCheck') }
 }
 
 tasks.register('lintFix') {

@@ -27,6 +27,18 @@ The GraphQL `relationships` field for `IsPartOf` (the children of a domain, glos
 
 If you read these children through the API, request them in pages and keep going while `start + count` is less than `total`. The web UI's glossary delete check only needs `total`, so it now requests `count: 0`.
 
+### Snowflake default `table_types` includes interactive tables ([PR #21476](https://github.com/datahub-project/datahub/pull/21476))
+
+- **(Ingestion / Snowflake)** The Snowflake source now includes `'INTERACTIVE TABLE'` in the default `table_types` set, so interactive tables are discovered and ingested as datasets with subtype `Interactive Table` on a default recipe. Recipes that set `table_types` explicitly are unchanged. **Action:** none required. To keep interactive tables out of ingestion, set `table_types` to a set that omits `'INTERACTIVE TABLE'` (for example `BASE TABLE` and `EXTERNAL TABLE` only).
+
+### Remote executor logs ingestion run output ([#21529](https://github.com/datahub-project/datahub/pull/21529))
+
+The remote executor copies each run's output into its container log (`DATAHUB_EXECUTOR_PRINT_SUBPROCESS_LOGS`, default `true`). To turn it off, set:
+
+- Helm: `global.datahub.executor.ingestions.print_subprocess_logs: false`, through values, not `extraEnvs`.
+- Terraform: `executor_ingestions_print_subprocess_logs = false` in `datahub`.
+- CloudFormation: `DataHubIngestionsPrintSubprocessLogs=false`.
+
 ### Pinned links removed from Settings > Home Page ([#21466](https://github.com/datahub-project/datahub/pull/21466))
 
 If the home page redesign is enabled (`SHOW_HOME_PAGE_REDESIGN=true`, the default), the
