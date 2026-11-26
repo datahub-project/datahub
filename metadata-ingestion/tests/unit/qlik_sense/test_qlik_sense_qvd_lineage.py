@@ -95,6 +95,23 @@ def test_concatenate_after_a_preceding_load_adds_to_its_table() -> None:
     ]
 
 
+def test_label_after_a_prefix_names_the_load() -> None:
+    parsed = parse_script(
+        """
+        NoConcatenate
+        Orders:
+        LOAD id FROM [lib://C/a.qvd] (qvd);
+        STORE Orders INTO [lib://C/b.qvd] (qvd);
+        """
+    )
+    assert [(load.label, load.file.path) for load in parsed.qvd_loads] == [
+        ("Orders", "a.qvd")
+    ]
+    assert [(store.label, store.file.path) for store in parsed.qvd_stores] == [
+        ("Orders", "b.qvd")
+    ]
+
+
 @pytest.mark.parametrize(
     "script, expected",
     [
