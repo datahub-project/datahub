@@ -325,8 +325,13 @@ class TestLookerViewIdProjectPlatformInstance:
         )
         assert config.view_platform_detail("sales").env == "DEV"
 
-        # A well-formed unknown env (e.g. NOT_AN_ENV) may be a registered custom env,
-        # which DataHub checks on write. Malformed values are still rejected here.
+        # CUSTOM_ENV is accepted by the SDK. GMS may reject the write if there
+        # is no custom environment with that name. Malformed values are still rejected here.
+        custom = LookerCommonConfig.model_validate(
+            {"project_to_platform_instance": {"sales": {"env": "CUSTOM_ENV"}}}
+        )
+        assert custom.view_platform_detail("sales").env == "CUSTOM_ENV"
+
         with pytest.raises(ValueError):
             LookerCommonConfig.model_validate(
                 {"project_to_platform_instance": {"sales": {"env": "not-an-env"}}}
