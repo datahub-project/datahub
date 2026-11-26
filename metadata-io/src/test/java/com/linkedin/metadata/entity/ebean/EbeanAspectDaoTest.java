@@ -1954,8 +1954,15 @@ public class EbeanAspectDaoTest {
 
   private static String withFollowingBind(List<String> sql, int index) {
     String stmt = sql.get(index);
-    if (index + 1 < sql.size() && sql.get(index + 1).toLowerCase().contains("bind")) {
-      return stmt + " " + sql.get(index + 1);
+    if (stmt.toLowerCase().contains("--bind")) {
+      return stmt;
+    }
+    if (index + 1 < sql.size()) {
+      String next = sql.get(index + 1).trim();
+      String nextLower = next.toLowerCase();
+      if (nextLower.startsWith("--bind") || nextLower.startsWith("bind(")) {
+        return stmt + " " + next;
+      }
     }
     return stmt;
   }

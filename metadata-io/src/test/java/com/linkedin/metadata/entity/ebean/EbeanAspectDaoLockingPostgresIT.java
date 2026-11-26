@@ -353,8 +353,10 @@ public class EbeanAspectDaoLockingPostgresIT {
     List<String> versionReads = new java.util.ArrayList<>();
     for (int i = 0; i < sql.size(); i++) {
       String lower = sql.get(i).toLowerCase();
-      if (!lower.contains("select ")
-          || !lower.contains("metadata_aspect_v2")
+      // any( is the paged max read. Point lookups from other tests in this class also
+      // land in LoggedSql (urn=?), and "urn:li:corpuser:a" is a prefix of those URNs.
+      if (!lower.contains("from metadata_aspect_v2")
+          || !lower.contains("any(")
           || lower.contains("for update")) {
         continue;
       }
