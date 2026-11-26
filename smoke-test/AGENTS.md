@@ -52,17 +52,13 @@ Put new tests in `tests/e2e/<feature>/`, not `test_e2e.py`. Connector tests are 
   API. `TestSessionWrapper` already waits on POST/PUT — do not extra-sync unless
   you are asserting search/index.
 - **Auth:** `auth_session` / `graph_client`. Extra users:
-  `make_step_actor_user()`. Config: `utilities/env_vars.py`, not `os.getenv` or
+  `make_step_actor_user()` (`utilities/multi_user.py`). Config: `utilities/env_vars.py`, not `os.getenv` or
   `localhost:8080`. GraphQL: `execute_graphql()` (it already checks `data` /
   `errors`) — assert the fields you care about. Ingest:
   `ingest_file_via_rest()`.
 - **Reuse helpers.** Do not copy-paste `addTag` or roll a local `uuid` when  
   `unique_suffix()` exists. Tags/terms/descriptions:  
   `utilities/metadata_operations.py`.
-- Extra users: `make_step_actor_user()` in `utilities/multi_user.py`,  
-  not a one-off signup.
-- `execute_graphql()` already asserts a non-empty body, `data` is not `None`,
-  and no `errors` key, only assert the data that the test requires
 
 ## Markers
 

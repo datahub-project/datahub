@@ -4,7 +4,7 @@ Java SDK V2 integration tests - guidance for Claude Code.
 
 ## Running Integration Tests
 
-**Prerequisites:** Running DataHub instance (start with `./gradlew quickstartDebug`)
+**Prerequisites:** Running DataHub instance (start with `scripts/dev/datahub-dev.sh start`; see root `AGENTS.md`)
 
 ```bash
 # Run all integration tests

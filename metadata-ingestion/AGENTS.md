@@ -20,8 +20,8 @@ equivalent direct commands for a human working in an activated venv.
 ```bash
 # From metadata-ingestion/
 ../gradlew :metadata-ingestion:installDev   # Set up the Python environment (once)
-../gradlew :metadata-ingestion:lintFix      # ruff fix + format; run after every change
-../gradlew :metadata-ingestion:lint         # ruff + mypy, as CI runs them
+../gradlew :metadata-ingestion:lintFix      # Auto-fix (ruff check --fix + format); not validation
+../gradlew :metadata-ingestion:lint         # Validate: ruff + mypy, as CI runs them; run before you are done
 ../gradlew :metadata-ingestion:testQuick    # Unit tests (tests/unit, no Docker)
 ../gradlew :metadata-ingestion:testFull     # Every testpath: unit, integration, performance
 ../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_file.py            # One file or directory

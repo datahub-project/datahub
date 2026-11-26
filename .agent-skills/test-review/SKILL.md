@@ -46,7 +46,6 @@ This skill is designed to work across multiple coding agents (Claude Code, Curso
 
 ### Out of Scope
 
-- `smoke-test/tests/cypress/` -- Cypress UI tests
 - `e2e-test/ui/playwright/` -- Playwright UI tests
 - `metadata-ingestion/tests/integration/` -- ingestion connector tests (covered by `datahub-connector-pr-review`)
 - `metadata-ingestion/tests/unit/` -- unit tests
@@ -100,7 +99,7 @@ If TaskCreate is not available, proceed through the steps sequentially.
 .agent-skills/test-review/scripts/detect-test-changes.sh local
 ```
 
-Or list Python tests under `smoke-test/` excluding `tests/cypress/`.
+Or list Python tests under `smoke-test/`.
 
 ### Step 2: Load Standards into Context
 
@@ -233,7 +232,7 @@ guide: `smoke-test/AGENTS.md`.
 8. **Guaranteed cleanup** -- fixture `yield` or `try/finally`
 9. **Multi-environment config** -- URLs via env vars, `USE_STATIC_SLEEP` fallback
 10. **Concurrent testing** -- thread-safe `run_concurrent_tests()`
-11. **Placement, logging, quality** -- `tests/<feature>/`, `logger.info()`, no customer identifiers
+11. **Placement, logging, quality** -- `tests/e2e/<feature>/`, `logger.info()`, no customer identifiers
 
 ### Anti-Patterns (Automatic Blockers)
 
