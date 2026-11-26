@@ -3181,7 +3181,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if write not in writes.setdefault(file_urn, []):
                 writes[file_urn].append(write)
                 self.reporter.file_stores_linked += 1
-                self._note_storage_qvd(file_urn)
+                self._note_storage_qvd(file_urn, file_urn in qvd_file_urns)
         previous = self._usable_checkpoint(app.id, [])
         previous_files = previous.stored_file_urns if previous else []
         currents = {
@@ -3393,6 +3393,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         likely: Set[str] = set()
         # Files on connections of unknown storage, named by connection and path.
         unmapped: Set[str] = set()
+        # Files the script reads as QVDs, by format or else extension.
+        qvd_urns: Set[str] = set()
         unknown = False
         for reference in candidates.references:
             storage, detail = self._file_storage(
@@ -3437,6 +3439,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 continue
             urn = self._file_urn(storage, detail, reference.path)
+            if reference.qvd:
+                qvd_urns.add(urn)
             (confirmed if storage.qri_connection_id else unconfirmed).add(urn)
             if storage.likely_qri_connection_id == candidates.connection_id:
                 likely.add(urn)
@@ -3463,13 +3467,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if urn in unmapped:
             self._link_unmapped_file(app_id, urn)
         else:
-            self._note_storage_qvd(urn)
+            self._note_storage_qvd(urn, urn in qvd_urns)
         return _FileSourceResolution(
             urn=urn, on_known_storage=unresolved.on_known_storage
         )
 
-    def _note_storage_qvd(self, urn: str) -> None:
-        if DatasetUrn.from_string(urn).name.lower().endswith(QVD_EXTENSION):
+    def _note_storage_qvd(self, urn: str, qvd: bool) -> None:
+        if qvd:
             self._linked_storage_qvds.add(urn)
 
     def _gen_storage_qvd_types(self) -> Iterable[MetadataWorkUnit]:
@@ -4564,7 +4568,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter.qvds_found += len(lineage.paths)
         self.reporter.storage_qvds_resolved += len(lineage.storage_urns)
         for storage_urn in lineage.storage_urns:
-            self._note_storage_qvd(storage_urn)
+            self._note_storage_qvd(storage_urn, True)
         if app.script is None or app.script_read_failed:
             # QVDs the script writes can't be known, so their lineage is kept.
             self._apps_qvds_unknown[app.id] = "its load script could not be read"
