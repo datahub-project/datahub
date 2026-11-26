@@ -539,7 +539,7 @@
                     "description": "",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.TimeType": {}
                         }
                     },
                     "nativeDataType": "DateTime64(2, 'Europe/Berlin')",

@@ -15,8 +15,11 @@ from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql import clickhouse
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig, ClickHouseSource
+from datahub.ingestion.source.sql.sql_common import get_column_type
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
+    TimeTypeClass,
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
@@ -101,6 +104,28 @@ def test_column_info_unwraps_nullable_and_low_cardinality(
     assert isinstance(info["type"], inner_type)
     assert info["full_type"] == spec
     assert info["comment"] == "doc"
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        "DateTime",
+        "DateTime('UTC')",
+        "DateTime64(3)",
+        "DateTime64(3, 'UTC')",
+        "Nullable(DateTime64(6, 'Europe/Berlin'))",
+        "LowCardinality(Nullable(DateTime('UTC')))",
+    ],
+)
+def test_datetime_columns_map_to_time_type(
+    dialect: ClickHouseDialect, spec: str
+) -> None:
+    """A timezone argument must not cost the column its type: DateTime64(p, 'tz')
+    used to fail in the type constructor and fall back to NullType."""
+    info = dialect._get_column_info("c", spec, None)
+    field_type = get_column_type(SQLSourceReport(), "db.t", info["type"])
+    assert isinstance(field_type.type, TimeTypeClass)
+    assert info["full_type"] == spec
 
 
 def test_unparseable_column_type_degrades_to_null_type(
