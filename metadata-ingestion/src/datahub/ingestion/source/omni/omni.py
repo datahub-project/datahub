@@ -79,6 +79,22 @@ logger = logging.getLogger(__name__)
 FieldConfidence = Literal["unresolved", "exact", "derived"]
 
 
+def _scim_user_email(user: Dict[str, Any]) -> Optional[str]:
+    # SCIM userName is the login email in Omni; emails[] covers payloads
+    # where userName is missing.
+    email = user.get("userName")
+    if not email:
+        emails = user.get("emails") or []
+        primary = next(
+            (e for e in emails if isinstance(e, dict) and e.get("primary")), None
+        )
+        chosen = primary or (emails[0] if emails else None)
+        email = chosen.get("value") if isinstance(chosen, dict) else None
+    if not isinstance(email, str) or "@" not in email:
+        return None
+    return email.strip().lower()
+
+
 @dataclass(frozen=True)
 class _ModelContext:
     """Context information for an Omni model used for lineage resolution.
@@ -185,6 +201,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         self._connection_dataset_urns: GuardedSet[str] = GuardedSet()
         self._connections_by_id: GuardedDict[str, Dict[str, object]] = GuardedDict()
         self._model_context_by_id: GuardedDict[str, _ModelContext] = GuardedDict()
+        # Filled once before document workers start and only read afterwards,
+        # so a plain dict is safe across threads.
+        self._owner_email_by_id: Dict[str, str] = {}
+        self._owner_lookup_succeeded = False
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "OmniSource":
@@ -449,8 +469,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         display_name: Optional[str] = None,
         upstreams: Optional[UpstreamLineageClass] = None,
         schema_fields: Optional[List[SchemaFieldClass]] = None,
-        owner_id: str = "",
-        owner_name: str = "",
+        owner_urn: Optional[str] = None,
         external_url: Optional[str] = None,
         platform: Optional[str] = None,
         platform_instance: Optional[str] = None,
@@ -469,8 +488,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             schema=schema_fields or None,
             upstreams=upstreams,
         )
-        if owner_id or owner_name:
-            owner_urn = make_user_urn(owner_id or owner_name)
+        if owner_urn:
             dataset.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
         yield from dataset.as_workunits()
 
@@ -483,8 +501,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         external_url: str,
         chart_urns: List[str],
         custom_properties: Dict[str, str],
-        owner_id: str = "",
-        owner_name: str = "",
+        owner_urn: Optional[str] = None,
         folder_urn: Optional[str] = None,
         updated_at: Optional[str] = None,
     ) -> Iterator[MetadataWorkUnit]:
@@ -510,8 +527,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     updated_at,
                     exc,
                 )
-        if owner_id or owner_name:
-            owner_urn = make_user_urn(owner_id or owner_name)
+        if owner_urn:
             dashboard.set_owners(
                 [(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)]
             )
@@ -526,8 +542,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         external_url: str,
         input_urns: List[str],
         custom_properties: Dict[str, str],
-        owner_id: str = "",
-        owner_name: str = "",
+        owner_urn: Optional[str] = None,
         updated_at: Optional[str] = None,
     ) -> Iterator[MetadataWorkUnit]:
         chart = Chart(
@@ -551,8 +566,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     updated_at,
                     exc,
                 )
-        if owner_id or owner_name:
-            owner_urn = make_user_urn(owner_id or owner_name)
+        if owner_urn:
             chart.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
         yield from chart.as_workunits()
 
@@ -1125,6 +1139,41 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     exc=exc,
                 )
 
+    def _load_owner_emails(self) -> None:
+        try:
+            for user in self.client.list_users():
+                self.report.increment_counter("users_scanned")
+                user_id = user.get("id")
+                email = _scim_user_email(user)
+                if user_id and email:
+                    self._owner_email_by_id[str(user_id)] = email
+            self._owner_lookup_succeeded = True
+        except Exception as exc:
+            self.report.warning(
+                title="Owner email lookup failed",
+                message=(
+                    "Could not list users from the Omni SCIM API, so owners fall "
+                    "back to Omni user IDs. The API key must be an Organization "
+                    "API key; personal access tokens are rejected by this endpoint."
+                ),
+                exc=exc,
+            )
+
+    def _resolve_owner_urn(self, *, owner_id: str, owner_name: str) -> Optional[str]:
+        if owner_id:
+            email = self._owner_email_by_id.get(owner_id)
+            if email:
+                self.report.increment_counter("owners_resolved_to_email")
+                return make_user_urn(email)
+            # Only flag individual misses when the lookup ran; otherwise the
+            # single lookup-failure warning already explains every fallback.
+            if self._owner_lookup_succeeded:
+                self.report.report_owner_unresolved(owner_id)
+            return make_user_urn(owner_id)
+        if owner_name:
+            return make_user_urn(owner_name)
+        return None
+
     def _ingest_folders(self) -> Iterator[MetadataWorkUnit]:
         """Ingest Omni folder hierarchy as DataHub containers.
 
@@ -1478,8 +1527,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             folder_name = str(folder.get("name") or "")
             folder_path = str(folder.get("path") or "")
             owner_info = document.get("owner") or {}
-            owner_id = str(owner_info.get("id") or "")
-            owner_name = str(owner_info.get("name") or "")
+            owner_urn = self._resolve_owner_urn(
+                owner_id=str(owner_info.get("id") or ""),
+                owner_name=str(owner_info.get("name") or ""),
+            )
             labels = document.get("labels") or []
             normalized_labels = [
                 str(lb.get("name") if isinstance(lb, dict) else lb)
@@ -1575,8 +1626,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     external_url=tile_result.chart_urls.get(qp_id, dashboard_url),
                     input_urns=sorted(tile_result.chart_inputs.get(qp_id, set())),
                     custom_properties={"documentId": doc_id},
-                    owner_id=owner_id,
-                    owner_name=owner_name,
+                    owner_urn=owner_urn,
                     updated_at=document.get("updatedAt"),
                 )
                 self.report.increment_counter("charts_emitted")
@@ -1600,8 +1650,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     "topicNames": ",".join(sorted(tile_result.dashboard_topics)),
                     "updatedAt": str(document.get("updatedAt") or ""),
                 },
-                owner_id=owner_id,
-                owner_name=owner_name,
+                owner_urn=owner_urn,
                 folder_urn=folder_urn,
                 updated_at=document.get("updatedAt"),
             )
@@ -1669,6 +1718,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
             with self.report.new_stage("Ingesting Omni folders"):
                 yield from self._ingest_folders()
+
+            if self.config.resolve_owner_emails:
+                with self.report.new_stage("Fetching Omni users"):
+                    self._load_owner_emails()
 
             with self.report.new_stage("Ingesting Omni documents"):
                 yield from self._ingest_documents()

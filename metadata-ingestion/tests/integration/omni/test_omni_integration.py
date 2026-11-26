@@ -14,7 +14,7 @@ Re-generate the golden file after intentional changes:
 from __future__ import annotations
 
 import pathlib
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 
 import pytest
 import time_machine
@@ -25,6 +25,8 @@ from datahub.ingestion.source.omni.omni import OmniSource
 from datahub.ingestion.source.omni.omni_config import OmniSourceConfig
 from datahub.testing import mce_helpers
 from tests.integration.omni.fixtures import (
+    ADMIN_USER_ID,
+    ANALYST_USER_ID,
     DASHBOARD_DOC_DASHBOARD_1,
     FakeOmniClientFull,
 )
@@ -544,26 +546,79 @@ def test_semantic_views_have_schema_metadata() -> None:
     )
 
 
+def _owner_urns(events: List[Dict[str, Any]], entity_urn: str) -> List[str]:
+    return [
+        owner["owner"]
+        for e in events
+        if e["entityUrn"] == entity_urn and e["aspectName"] == "ownership"
+        for owner in e["aspect"].get("owners", [])
+    ]
+
+
+ADMIN_DASHBOARD_URN = "urn:li:dashboard:(omni,doc-dashboard-1)"
+ANALYST_DASHBOARD_URN = "urn:li:dashboard:(omni,doc-workbook-1)"
+
+
 @time_machine.travel(FROZEN_TIME)
-def test_ownership_emitted_for_dashboard() -> None:
-    """Dashboard and chart entities must emit ownership from document owner field."""
+def test_owner_resolved_to_lowercased_email() -> None:
     source = _build_source()
     events = _collect_workunits(source)
 
-    dashboard_urn = "urn:li:dashboard:(omni,doc-dashboard-1)"
-    ownership_events = [
-        e
-        for e in events
-        if e["entityUrn"] == dashboard_urn and e["aspectName"] == "ownership"
+    assert _owner_urns(events, ADMIN_DASHBOARD_URN) == [
+        "urn:li:corpuser:admin.user@example.com"
     ]
-    assert ownership_events, (
-        f"No ownership aspect emitted for dashboard {dashboard_urn}"
-    )
-    owners = ownership_events[0]["aspect"].get("owners", [])
-    assert owners, "Ownership aspect has no owners"
-    assert any("user-admin" in str(o) for o in owners), (
-        f"Expected user-admin in owners; got: {owners}"
-    )
+    chart_owners = {
+        owner
+        for e in events
+        if e["entityUrn"].startswith("urn:li:chart:") and e["aspectName"] == "ownership"
+        for owner in _owner_urns(events, e["entityUrn"])
+    }
+    assert f"urn:li:corpuser:{ADMIN_USER_ID}" not in chart_owners
+    assert source.report.owners_resolved_to_email > 0
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_owner_missing_from_user_list_falls_back_to_omni_id() -> None:
+    source = _build_source()
+    events = _collect_workunits(source)
+
+    assert _owner_urns(events, ANALYST_DASHBOARD_URN) == [
+        f"urn:li:corpuser:{ANALYST_USER_ID}"
+    ]
+    assert ANALYST_USER_ID in source.report.owners_unresolved
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_owner_lookup_failure_warns_and_keeps_ingesting() -> None:
+    class _ClientWithoutScimAccess(FakeOmniClientFull):
+        def list_users(self, page_size: int = 100) -> Iterator[Dict[str, Any]]:
+            raise RuntimeError("403 Forbidden")
+
+    source = _build_source()
+    source.client = _ClientWithoutScimAccess()  # type: ignore[assignment]
+    events = _collect_workunits(source)
+
+    assert _owner_urns(events, ADMIN_DASHBOARD_URN) == [
+        f"urn:li:corpuser:{ADMIN_USER_ID}"
+    ]
+    assert any(w.title == "Owner email lookup failed" for w in source.report.warnings)
+    # The lookup-level warning covers every fallback; don't also list each owner.
+    assert not source.report.owners_unresolved
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_owner_email_lookup_can_be_disabled() -> None:
+    class _ClientFailingOnUsers(FakeOmniClientFull):
+        def list_users(self, page_size: int = 100) -> Iterator[Dict[str, Any]]:
+            raise AssertionError("list_users must not be called when disabled")
+
+    source = _build_source({"resolve_owner_emails": False})
+    source.client = _ClientFailingOnUsers()  # type: ignore[assignment]
+    events = _collect_workunits(source)
+
+    assert _owner_urns(events, ADMIN_DASHBOARD_URN) == [
+        f"urn:li:corpuser:{ADMIN_USER_ID}"
+    ]
 
 
 @time_machine.travel(FROZEN_TIME)

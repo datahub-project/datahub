@@ -5,7 +5,7 @@ from typing import Dict
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
-from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.lossy_collections import LossyList, LossySet
 
 
 @dataclass
@@ -62,6 +62,11 @@ class OmniSourceReport(StaleEntityRemovalSourceReport):
     fine_grained_lineage_edges_exact: int = 0
     fine_grained_lineage_edges_derived: int = 0
     fine_grained_lineage_edges_unresolved: int = 0
+
+    # Owner resolution (Omni user ID -> email)
+    users_scanned: int = 0
+    owners_resolved_to_email: int = 0
+    owners_unresolved: LossySet[str] = field(default_factory=LossySet)
     client_report: OmniClientReport = field(default_factory=OmniClientReport)
 
     def __post_init__(self) -> None:
@@ -87,3 +92,7 @@ class OmniSourceReport(StaleEntityRemovalSourceReport):
 
     def report_document_filtered(self, doc_id: str) -> None:
         self.filtered_documents.append(doc_id)
+
+    def report_owner_unresolved(self, owner_id: str) -> None:
+        with self._report_lock:
+            self.owners_unresolved.add(owner_id)

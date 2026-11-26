@@ -86,6 +86,15 @@ class OmniSourceConfig(
             "When False (default), only documents with hasDashboard=true are ingested."
         ),
     )
+    resolve_owner_emails: bool = Field(
+        default=True,
+        description=(
+            "Resolve Omni owner IDs to email addresses via the Omni SCIM users API "
+            "and use the lowercased email as the DataHub user ID, so owners match "
+            "users provisioned in DataHub by SSO. Requires an Organization API key. "
+            "Owners that cannot be resolved fall back to the Omni user ID."
+        ),
+    )
     model_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(

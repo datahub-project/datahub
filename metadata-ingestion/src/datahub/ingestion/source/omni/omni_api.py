@@ -199,6 +199,36 @@ class OmniClient:
             )
             return queries
 
+    def list_users(self, page_size: int = 100) -> Iterator[Dict[str, Any]]:
+        """Yield users from the SCIM users endpoint.
+
+        Unlike the /v1 endpoints this uses SCIM offset paging (1-based
+        ``startIndex`` + ``count``) and a ``Resources`` envelope. Omni only
+        accepts Organization API keys here; personal access tokens get a 401/403.
+        """
+        with self._track_call("list_users"):
+            start_index = 1
+            for _ in range(_MAX_PAGINATION_PAGES):
+                payload = self._request(
+                    "GET",
+                    "/scim/v2/users",
+                    params={"count": page_size, "startIndex": start_index},
+                )
+                resources = payload.get("Resources") or []
+                yield from resources
+                if not resources:
+                    break
+                start_index += len(resources)
+                total = payload.get("totalResults")
+                if isinstance(total, int) and start_index > total:
+                    break
+            else:
+                logger.warning(
+                    "Stopping user pagination after %s pages (safety cap); "
+                    "more users may exist.",
+                    _MAX_PAGINATION_PAGES,
+                )
+
     def list_folders(self, page_size: int = 50) -> Iterator[Dict[str, Any]]:
         with self._track_call("list_folders"):
             for folder in self.paginate_records(
