@@ -819,6 +819,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     query_text, self.identifiers.platform, fast=True
                 ),
                 extra_info=extra_info,
+                source_query_id=res["query_id"],
             )
             return
 
@@ -891,6 +892,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                             query_text, self.identifiers.platform, fast=True
                         ),
                         extra_info=extra_info,
+                        source_query_id=res["query_id"],
                     )
                     return
                 columns.add(self.identifiers.snowflake_column_identifier(column_name))
@@ -922,6 +924,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     query_text, self.identifiers.platform, fast=True
                 ),
                 extra_info=extra_info,
+                source_query_id=res["query_id"],
             )
             return
 
@@ -950,6 +953,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     query_text, self.identifiers.platform, fast=True
                 ),
                 extra_info=extra_info,
+                source_query_id=res["query_id"],
             )
             return
 

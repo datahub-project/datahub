@@ -468,7 +468,8 @@ class BigQueryQueriesExtractor(Closeable):
                 observed_query.usage_multiplier += 1
                 # Entries are time-ordered only within one project and region, so keep
                 # the newest job's timestamp, labels and extra_info (job_id etc.) rather
-                # than the last one read. user and session_id stay first-seen.
+                # than the last one read. user, session_id and source_query_id stay
+                # first-seen; source_query_id names the job whose text is parsed.
                 if observed_query.timestamp is None or (
                     query.timestamp is not None
                     and query.timestamp >= observed_query.timestamp
@@ -585,6 +586,7 @@ class BigQueryQueriesExtractor(Closeable):
             default_db=row["project_id"],
             default_schema=TEMP_TABLE_QUALIFIER,
             query_hash=row["query_hash"],
+            source_query_id=row["job_id"],
             extra_info={
                 "job_id": row["job_id"],
                 "statement_type": row["statement_type"],

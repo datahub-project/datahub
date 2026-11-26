@@ -3152,7 +3152,7 @@ def test_parse_failures_do_not_quote_sql() -> None:
         generate_usage_statistics=False,
         generate_operations=False,
     )
-    unparseable = "select 'secret_literal' from ((("
+    unparseable = "select a from t where email = 'jane.doe@example.com' and ((("
     view_urn = DatasetUrn("redshift", "dev.public.broken_view")
 
     aggregator.add_observed_query(
@@ -3161,6 +3161,7 @@ def test_parse_failures_do_not_quote_sql() -> None:
             default_db="dev",
             default_schema="public",
             query_hash="query_123",
+            source_query_id="job_1",
         )
     )
     aggregator.add_view_definition(
@@ -3172,8 +3173,29 @@ def test_parse_failures_do_not_quote_sql() -> None:
     list(aggregator.gen_metadata())
 
     report = aggregator.report
+    shape = "select <name1> from <name2> where <name3> = ? and ( ( ("
     assert list(report.observed_query_parse_failures) == [
-        "ParseError on query query_123"
+        f"ParseError on query query_123, source id job_1: {shape}"
     ]
-    assert report.views_parse_failures[view_urn.urn()] == "ParseError"
-    assert "secret_literal" not in str(report.as_obj())
+    assert report.views_parse_failures[view_urn.urn()] == f"ParseError: {shape}"
+    assert "jane.doe@example.com" not in str(report.as_obj())
+
+
+def test_parse_failure_without_query_hash_has_no_query_id() -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    # A lone surrogate cannot be hashed as UTF-8; the failure must still be recorded.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="select 'a\ud800' from (((", default_db="dev", default_schema="public"
+        )
+    )
+
+    assert list(aggregator.report.observed_query_parse_failures) == [
+        "ParseError: select ? from ( ( ("
+    ]

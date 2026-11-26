@@ -1,4 +1,7 @@
 import json
+from typing import Optional
+
+import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
@@ -42,10 +45,11 @@ def test_report_accepts_empty_subtypes() -> None:
         report.close()
 
 
-def test_report_caps_exception_text():
+@pytest.mark.parametrize("context", ["ctx", None])
+def test_report_caps_exception_text(context: Optional[str]) -> None:
     source_report = SourceReport()
     source_report.warning(
-        "key1", "ctx", exc=ValueError("x" * 5000 + "secret_tail"), log=False
+        "key1", context, exc=ValueError("x" * 5000 + "secret_tail"), log=False
     )
 
     context = source_report.warnings[0].context[0]

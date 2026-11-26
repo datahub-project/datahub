@@ -412,6 +412,61 @@ class TestViewUsage:
         assert extractor.report.num_view_query_events_failed_sql_parsing == 1
 
 
+class TestFailureWarningsHoldNoEventData:
+    SECRET_QUERY = "SELECT 'secret_literal' FROM src"
+
+    def _assert_context(
+        self, report: BigQueryV2Report, message: str, expected: str
+    ) -> None:
+        context = " ".join(
+            c for w in report.warnings if w.message == message for c in w.context or []
+        )
+        assert expected in context
+        dumped = str(report.as_obj())
+        assert "secret_literal" not in dumped
+        assert ACTOR not in dumped
+
+    @pytest.mark.parametrize(
+        "message",
+        ["Unable to store usage event", "Unable to generate operation workunit"],
+    )
+    def test_audit_event_failures_name_the_job_only(self, message: str) -> None:
+        extractor = make_extractor()
+        event = AuditEvent(query_event=query_event(query=self.SECRET_QUERY))
+        failing = RuntimeError("boom")
+
+        if message == "Unable to store usage event":
+            with patch.object(extractor, "_store_usage_event", side_effect=failing):
+                extractor._ingest_events([event], set(), MagicMock())
+        else:
+            usage_state = MagicMock()
+            usage_state.standalone_events.return_value = [event]
+            with patch.object(
+                extractor, "_create_operation_workunit", side_effect=failing
+            ):
+                list(extractor._generate_operational_workunits(usage_state, set()))
+
+        self._assert_context(
+            extractor.report, message, f"projects/{PROJECT}/jobs/job_1"
+        )
+
+    def test_unparseable_log_entry_names_the_project_only(self) -> None:
+        extractor = make_extractor()
+        broken = v1_query_entry(query=self.SECRET_QUERY)
+        del broken.payload["serviceData"]["jobCompletedEvent"]["job"]["jobStatistics"]
+        logging_client = MagicMock()
+        logging_client.list_entries.return_value = [broken]
+
+        with patch.object(
+            BigQueryV2Config, "make_gcp_logging_client", return_value=logging_client
+        ):
+            assert list(extractor._get_parsed_bigquery_log_events(PROJECT)) == []
+
+        self._assert_context(
+            extractor.report, "Unable to parse usage log entry", PROJECT
+        )
+
+
 @pytest.mark.parametrize("skip", [True, False])
 def test_redundant_run_handling(skip: bool) -> None:
     """A run the skip handler deems redundant fetches nothing and leaves the

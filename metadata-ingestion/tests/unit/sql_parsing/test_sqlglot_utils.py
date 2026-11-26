@@ -22,6 +22,7 @@ from datahub.sql_parsing.sqlglot_utils import (
     generalize_query_fast,
     get_dialect,
     get_query_fingerprint,
+    get_query_shape,
     is_dialect_instance,
     parse_statement,
     parse_statements_and_pick,
@@ -595,3 +596,59 @@ def test_parse_statements_and_pick_filters_noop_nodes(sql: str, dialect: str) ->
     """
     result = parse_statements_and_pick(sql, dialect)
     assert not isinstance(result, (sqlglot.exp.Semicolon, sqlglot.exp.EndStatement))
+
+
+def test_query_shape_keeps_syntax_and_numbers_names() -> None:
+    assert (
+        get_query_shape(
+            "SELECT user_id, USER_ID FROM `my_dataset.events` "
+            "WHERE email = 'jane.doe@example.com' AND kind = 'DELETE' AND sep = ',' AND (((",
+            "bigquery",
+        )
+        == "SELECT <name1> , <name1> FROM <name2> "
+        "WHERE <name3> = ? AND <name4> = ? AND <name5> = ? AND ( ( ("
+    )
+
+
+_VALUES = "select 'secret', 12345678, 1.5e10 from t -- secret\n/* secret */ where c = 'secret'"
+
+
+@pytest.mark.parametrize(
+    "platform, extra",
+    [
+        ("bigquery", " or c = r'secret' or c = b'secret' or c = \"secret\""),
+        ("snowflake", " or c = $$secret$$"),
+        ("postgres", " or c = E'secret' or c = $$secret$$"),
+        ("redshift", ""),
+        ("mysql", ' or c = "secret"'),
+        ("mssql", " or c = N'secret'"),
+        ("databricks", ' or c = "secret"'),
+        ("trino", ""),
+    ],
+)
+def test_query_shape_never_prints_values(platform: str, extra: str) -> None:
+    shape = get_query_shape(_VALUES + extra, platform)
+
+    assert shape is not None
+    assert "secret" not in shape
+    assert "1234" not in shape
+
+
+def test_query_shape_is_capped() -> None:
+    columns = ", ".join(f"c{i}" for i in range(200))
+
+    shape = get_query_shape(f"select {columns} from t", "bigquery")
+
+    assert shape is not None
+    assert shape.endswith(" ...")
+    assert len(shape) < 310
+
+
+@pytest.mark.parametrize(
+    "sql, platform",
+    [("select 'unterminated", "bigquery"), ("select 1", "not_a_dialect")],
+)
+def test_query_shape_is_none_when_text_does_not_tokenize(
+    sql: str, platform: str
+) -> None:
+    assert get_query_shape(sql, platform) is None

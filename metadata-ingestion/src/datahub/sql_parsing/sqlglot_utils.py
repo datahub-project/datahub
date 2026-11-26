@@ -8,6 +8,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
+from sqlglot.tokens import TokenType
 
 from datahub.configuration.env_vars import get_sql_parse_cache_size
 from datahub.sql_parsing.fingerprint_utils import generate_hash
@@ -388,6 +389,45 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
     transformed = expression.transform(_strip_expression, copy=True)
     assert transformed is not None
     return transformed.sql(dialect=dialect)
+
+
+_QUERY_SHAPE_MAX_LENGTH = 300
+
+
+def get_query_shape(sql: str, platform: DialectOrStr) -> Optional[str]:
+    """Describe a query without its data, for reports that leave the source.
+
+    Keywords and punctuation print as written. Names print as <name1>, <name2>, ...,
+    and a repeated name keeps its number. Everything else, values included, prints
+    as ?. Comments are dropped. Returns None if the text does not tokenize.
+    """
+    try:
+        dialect = get_dialect(platform)
+        tokens = dialect.tokenize(sql)
+    except (ValueError, sqlglot.errors.SqlglotError):
+        return None
+
+    keywords = dialect.tokenizer_class.KEYWORDS
+    punctuation = dialect.tokenizer_class.SINGLE_TOKENS
+    names: Dict[str, int] = {}
+    parts = []
+    for token in tokens:
+        if token.token_type in (TokenType.VAR, TokenType.IDENTIFIER):
+            number = names.setdefault(token.text.lower(), len(names) + 1)
+            parts.append(f"<name{number}>")
+        # A value can have the text of a keyword ('DELETE'), so the type must match.
+        elif token.token_type in (
+            keywords.get(token.text.upper()),
+            punctuation.get(token.text),
+        ):
+            parts.append(token.text)
+        else:
+            parts.append("?")
+
+    shape = " ".join(parts)
+    if len(shape) > _QUERY_SHAPE_MAX_LENGTH:
+        return f"{shape[:_QUERY_SHAPE_MAX_LENGTH]} ..."
+    return shape
 
 
 def get_query_fingerprint_debug(
