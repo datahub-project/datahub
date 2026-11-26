@@ -117,7 +117,6 @@ class _IncompleteLineageReason(StrEnum):
     TABLES_UNREAD = "the app's tables could not be read"
     FIELD_LINEAGE_UNREAD = "the table's field lineage could not be read"
     RELOAD_SQL_UNREAD = "the SQL of the app's last reload could not be read"
-    DATA_CONNECTIONS_UNREAD = "the data connections could not be read"
     DATABASE_TABLE_UNLABELLED = "a database table in the lineage graph has no label"
     FIELD_NAME_UNREAD = "a source field's name was not read"
 

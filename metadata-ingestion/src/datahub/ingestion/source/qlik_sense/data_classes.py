@@ -1,5 +1,4 @@
 from datetime import datetime
-from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -59,7 +58,7 @@ class AppKey(ContainerKey):
     app: str
 
 
-class SpaceType(Enum):
+class SpaceType(StrEnum):
     PERSONAL = "personal"
     SHARED = "shared"
     MANAGED = "managed"
@@ -68,7 +67,7 @@ class SpaceType(Enum):
 
 
 # Qlik table box type
-class BoxType(Enum):
+class BoxType(StrEnum):
     LOADFILE = "load-file"  # Table extracted from dataset
     BLACKBOX = "blackbox"  # Table extracted from data connection
 

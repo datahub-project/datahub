@@ -431,7 +431,7 @@ class TableLineageMixin(GraphNamedMixin):
         if database_sources and app.reload_statements_read_failed:
             return _IncompleteLineageReason.RELOAD_SQL_UNREAD
         if database_sources and self._data_connections_unread():
-            return _IncompleteLineageReason.DATA_CONNECTIONS_UNREAD
+            return _IncompleteLineageReason.DATA_CONNECTIONS_UNLISTED
         if any(qri not in table.database_source_labels for qri in database_sources):
             return _IncompleteLineageReason.DATABASE_TABLE_UNLABELLED
         return None

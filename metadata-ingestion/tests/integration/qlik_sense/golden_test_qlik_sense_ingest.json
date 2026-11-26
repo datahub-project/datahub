@@ -9,7 +9,7 @@
             "customProperties": {
                 "platform": "qlik-sense",
                 "space": "659d0e41d1b0ecce6eebc9b1",
-                "type": "SpaceType.SHARED"
+                "type": "shared"
             },
             "externalUrl": "https://iq37k6byr9lgam8.us.qlikcloud.com/catalog?space_filter=659d0e41d1b0ecce6eebc9b1",
             "name": "test_space",
@@ -130,7 +130,7 @@
             "customProperties": {
                 "platform": "qlik-sense",
                 "space": "personal-space-id",
-                "type": "SpaceType.PERSONAL"
+                "type": "personal"
             },
             "externalUrl": "https://iq37k6byr9lgam8.us.qlikcloud.com/catalog?space_filter=personal-space-id",
             "name": "personal_space",
