@@ -30,6 +30,7 @@ vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/utils/useGetTableColumnPropert
 
 vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer', () => ({
     default: () => null,
+    ABOUT_FIELD_TAB_KEY: 'About',
 }));
 
 const fields = [
