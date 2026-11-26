@@ -365,7 +365,6 @@ def test_file_on_a_mapped_windows_share_takes_the_on_prem_dataset(
         script=SHARE_SCRIPT,
     )
 
-    # The Data Gateway connection's QRI part is its path as written.
     urn = source._file_source_resolution(
         "app-1", _file_qri("local", SHARE, "Orders/Orders.QVD")
     ).urn
@@ -416,7 +415,6 @@ def test_other_files_on_a_mapped_share_keep_the_dataset_named_by_connection(
         ).urn
         == SHARE_ORDERS_QVD
     )
-    # The connection is mapped, so it is not reported as unknown.
     assert source.reporter.unresolved_file_connections == []
 
 

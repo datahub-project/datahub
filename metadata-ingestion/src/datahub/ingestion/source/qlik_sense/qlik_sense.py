@@ -306,7 +306,6 @@ def _get_ignoring_case(
 
 
 def _is_stored_qvd(store: UnmappedFileStore) -> bool:
-    # Older state doesn't record the format, so the extension tells.
     return (
         store.path.lower().endswith(QVD_EXTENSION) if store.qvd is None else store.qvd
     )
@@ -3078,7 +3077,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for index, store in enumerate(stores):
             if store.file.connection is None:
                 continue
-            # A STORE writes a QVD unless its format says otherwise.
             qvd = index < len(parsed.qvd_stores)
             storage, detail = self._file_storage(
                 store.file.connection, app.spaceId, qvd
@@ -3393,7 +3391,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         likely: Set[str] = set()
         # Files on connections of unknown storage, named by connection and path.
         unmapped: Set[str] = set()
-        # Files the script reads as QVDs, by format or else extension.
         qvd_urns: Set[str] = set()
         unknown = False
         for reference in candidates.references:
