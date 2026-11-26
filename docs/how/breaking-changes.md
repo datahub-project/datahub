@@ -15,6 +15,14 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Remote executor logs ingestion run output ([#21529](https://github.com/datahub-project/datahub/pull/21529))
+
+The remote executor copies each run's output into its container log (`DATAHUB_EXECUTOR_PRINT_SUBPROCESS_LOGS`, default `true`). To turn it off, set:
+
+- Helm: `global.datahub.executor.ingestions.print_subprocess_logs: false`, through values, not `extraEnvs`.
+- Terraform: `executor_ingestions_print_subprocess_logs = false` in `datahub`.
+- CloudFormation: `DataHubIngestionsPrintSubprocessLogs=false`.
+
 ### Pinned links removed from Settings > Home Page ([#21466](https://github.com/datahub-project/datahub/pull/21466))
 
 If the home page redesign is enabled (`SHOW_HOME_PAGE_REDESIGN=true`, the default), the
