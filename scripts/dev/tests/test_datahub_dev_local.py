@@ -1272,6 +1272,7 @@ def full_stack(**overrides: object) -> dict[str, object]:
 def test_stack_test_env_uses_default_instance_and_logs_in() -> None:
     env = local.stack_test_env(full_stack())
     assert env["DATAHUB_GMS_URL"] == "http://localhost:9080"
+    assert env["DATAHUB_GMS_MANAGEMENT_URL"] == "http://localhost:9080"
     assert env["INDEX_PREFIX"] == "lite_abc123_0"
     assert env["ELASTICSEARCH_INDEX"] == "lite_abc123_0_datahub_usage_event"
     assert env["ELASTICSEARCH_URL"] == "http://localhost:9201"

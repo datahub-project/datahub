@@ -901,7 +901,10 @@ def delete_urns_from_file(
 
     with open(filename) as f:
         d = json.load(f)
-        Parallel(n_jobs=10)(delayed(delete)(entry) for entry in d)
+        # Threads, not loky processes: deletes are I/O-bound, and process workers must
+        # pickle graph_client, which fails once the session-scoped client has cached
+        # its GraphQL schema (execute_graphql(strip_unsupported_fields=True)).
+        Parallel(n_jobs=10, prefer="threads")(delayed(delete)(entry) for entry in d)
 
     wait_for_writes_to_sync()
 

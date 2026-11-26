@@ -487,14 +487,21 @@ def pytest_collection_modifyitems(
         return
 
     xdist_workers = env_vars.get_pytest_xdist_workers()
-    packed = plan_collected_items(items, batch_count, xdist_workers)
+    backend, _ = configured_backend(config)
+    packed = plan_collected_items(
+        items,
+        batch_count,
+        xdist_workers,
+        weights_stem=backend.weights_stem,
+    )
 
     logger.info(
-        "Batching %s tests from %s scopes across %s batches (xdist_workers=%s)",
+        "Batching %s tests from %s scopes across %s batches (xdist_workers=%s, weights=%s)",
         len(items),
         len(packed.shards),
         batch_count,
         xdist_workers,
+        backend.weights_stem,
     )
 
     for i, plan in enumerate(packed.plans):

@@ -470,6 +470,11 @@ def stack_test_env(stack: Mapping[str, object]) -> dict[str, str]:
     env = {
         "SMOKE_BACKEND": "local",
         "DATAHUB_GMS_URL": cast(dict[str, str], stack["instances"])[instance],
+        # Actuator shares GMS's port here. Without this, a stack on 8080 (slot 0)
+        # makes the tests assume Docker's separate management port, 4319.
+        "DATAHUB_GMS_MANAGEMENT_URL": cast(dict[str, str], stack["instances"])[
+            instance
+        ],
         "ELASTICSEARCH_URL": f"http://localhost:{stack['opensearchPort']}",
         "INDEX_PREFIX": prefix,
         "ELASTICSEARCH_INDEX": f"{prefix}_datahub_usage_event",
