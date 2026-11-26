@@ -103,7 +103,7 @@ abs = [
     "tableschema>=1.20.2,<2.0.0",
     "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 abs-slim = [
@@ -117,7 +117,7 @@ abs-slim = [
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 aerospike = [
@@ -177,7 +177,7 @@ bigquery = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 bigquery-queries = [
@@ -193,7 +193,7 @@ bigquery-queries = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 bigquery-slim = [
@@ -204,7 +204,7 @@ bigquery-slim = [
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 cassandra = [
@@ -262,7 +262,11 @@ confluence = [
     "unstructured[md]==0.27.37",
 ]
 
-csv-enricher = []
+csv-enricher = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "smart-open[s3]>=5.2.1,<8.0.0",
+]
 
 cube = [
     "requests<3.0.0",
@@ -394,7 +398,7 @@ delta-lake = [
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 dlt = [
@@ -462,7 +466,7 @@ excel = [
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 fabric-data-factory = [
@@ -511,7 +515,7 @@ fivetran = [
     "sqlglot[c]==30.22.0",
     "tenacity>=8.0.1,<9.0.0",
     "tzdata>=2022.7,<2030",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 flink = [
@@ -537,7 +541,7 @@ gcs = [
     "tableschema>=1.20.2,<2.0.0",
     "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 gcs-slim = [
@@ -553,10 +557,14 @@ gcs-slim = [
     "tableschema>=1.20.2,<2.0.0",
     "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 github-documents = []
+
+gitlab-documents = [
+    "tenacity>=8.0.1,<9.0.0",
+]
 
 glue = [
     "boto3>=1.35.0,<2.0.0",
@@ -917,7 +925,7 @@ qlik-sense = [
     "parse>=1.19.0,<2.0.0",
     "requests<3.0.0",
     "sqlglot[c]==30.22.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
     "websocket-client<2.0.0",
 ]
 
@@ -949,7 +957,7 @@ redshift = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 redshift-slim = [
@@ -961,7 +969,7 @@ redshift-slim = [
     "sqlalchemy-redshift>=1.0.0,<2.0.0",
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 s3 = [
@@ -977,7 +985,7 @@ s3 = [
     "tableschema>=1.20.2,<2.0.0",
     "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 s3-slim = [
@@ -993,7 +1001,7 @@ s3-slim = [
     "tableschema>=1.20.2,<2.0.0",
     "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 sac = [
@@ -1044,7 +1052,7 @@ snowflake = [
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 snowflake-queries = [
@@ -1060,7 +1068,7 @@ snowflake-queries = [
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 snowflake-slim = [
@@ -1072,7 +1080,7 @@ snowflake-slim = [
     "snowflake-connector-python>=4.7.3,<5.0.0",
     "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 snowflake-summary = [
@@ -1088,7 +1096,7 @@ snowflake-summary = [
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 ]
 
 snowplow = [
@@ -1360,7 +1368,7 @@ all = [
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
     "websocket-client<2.0.0",
     "zstd<1.5.6.8",
 ]
@@ -1559,7 +1567,7 @@ dev = [
     "unstructured[md]==0.27.37",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
     "websocket-client<2.0.0",
     "zstd<1.5.6.8",
 ]
@@ -1758,7 +1766,7 @@ docs = [
     "unstructured[md]==0.27.37",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
     "websocket-client<2.0.0",
     "zstd<1.5.6.8",
 ]
@@ -1843,7 +1851,7 @@ integration-tests = [
     "thrift-sasl>=0.4.3,<1.0.0",
     "ujson>=5.12.1,<6.0.0",
     "vcrpy>=8.2.0,<9.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
     "zstd<1.5.6.8",
 ]
 
@@ -1970,6 +1978,7 @@ demo-data = "datahub.ingestion.source.demo_data:DemoDataSource"
 unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"
 github-documents = "datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource"
+gitlab-documents = "datahub.ingestion.source.gitlab_documents.gitlab_documents_source:GitLabDocumentsSource"
 gcs = "datahub.ingestion.source.gcs.gcs_source:GCSSource"
 sql-queries = "datahub.ingestion.source.sql_queries:SqlQueriesSource"
 dlt = "datahub.ingestion.source.dlt.dlt:DltSource"
@@ -2052,6 +2061,7 @@ file = "datahub.ingestion.reporting.file_reporter:FileReporter"
 s3 = "datahub.ingestion.fs.s3_fs:S3FileSystem"
 file = "datahub.ingestion.fs.local_fs:LocalFileSystem"
 http = "datahub.ingestion.fs.http_fs:HttpFileSystem"
+https = "datahub.ingestion.fs.http_fs:HttpFileSystem"
 
 [tool.setuptools.dynamic]
 version = {attr = "datahub._version.__version__"}

@@ -7,8 +7,10 @@ import static com.linkedin.metadata.Constants.DATASET_USAGE_STATISTICS_ASPECT_NA
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_TRANSFORM_LOGIC_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VIEW_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
@@ -49,6 +51,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpStatus;
 
@@ -383,13 +386,68 @@ public final class EntityAuthorizationUtils {
 
     return resolved.stream()
         .map(
-            proposal ->
-                Pair.of(
-                    proposal.getFirst(),
-                    authorizationResults.getOrDefault(
-                        effectiveAuthorizationKeys.get(proposal.getSecond()),
-                        HttpStatus.SC_INTERNAL_SERVER_ERROR)))
+            proposal -> {
+              int status =
+                  authorizationResults.getOrDefault(
+                      effectiveAuthorizationKeys.get(proposal.getSecond()),
+                      HttpStatus.SC_INTERNAL_SERVER_ERROR);
+              String aspectName = aspectName(proposal.getFirst());
+              if (isSubResourceCheckedAspect(aspectName)) {
+                status =
+                    coarseSubResourceStatus(
+                        opContext,
+                        proposal.getSecond().getFirst(),
+                        proposal.getSecond().getSecond(),
+                        aspectName,
+                        entityExists);
+              }
+              return Pair.of(proposal.getFirst(), status);
+            })
         .toList();
+  }
+
+  /**
+   * Aspects that hold only the sub-resource their validator checks. The gate accepts the same
+   * privilege set and a wildcard sub-resource, so a policy with a list is not rejected before the
+   * validator sees the diff. The validator then applies the list to the real URNs.
+   *
+   * <p>{@code schemaMetadata} and {@code editableSchemaMetadata} are excluded on purpose: they hold
+   * more than tags, so they keep the entity privilege check. A column tag privilege alone must not
+   * admit a write to them.
+   */
+  private static boolean isSubResourceCheckedAspect(@Nullable String aspectName) {
+    return STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)
+        || GLOBAL_TAGS_ASPECT_NAME.equals(aspectName);
+  }
+
+  @Nullable
+  private static String aspectName(@Nonnull Object item) {
+    if (item instanceof MetadataChangeProposal mcp) {
+      return mcp.getAspectName();
+    }
+    if (item instanceof BatchItem batchItem) {
+      return batchItem.getAspectName();
+    }
+    return null;
+  }
+
+  private static int coarseSubResourceStatus(
+      @Nonnull OperationContext opContext,
+      @Nonnull ChangeType changeType,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      @Nullable Map<Urn, Boolean> entityExists) {
+    // A missing answer is not "does not exist". Treating it as a create would let Create Entity
+    // authorize a property or tag write on an entity that may already exist.
+    if (AuthUtil.subResourceWriteOperationNeedsExistence(changeType, urn)
+        && (entityExists == null || entityExists.get(urn) == null)) {
+      return HttpStatus.SC_FORBIDDEN;
+    }
+    boolean exists = entityExists != null && Boolean.TRUE.equals(entityExists.get(urn));
+    return AuthUtil.isCoarseSubResourceWriteAuthorized(
+            opContext, changeType, urn, aspectName, exists)
+        ? HttpStatus.SC_OK
+        : HttpStatus.SC_FORBIDDEN;
   }
 
   /**

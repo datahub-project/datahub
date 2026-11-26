@@ -9,6 +9,7 @@ import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.ModelValidationException;
+import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import java.util.Map;
 import org.testng.annotations.Test;
 
@@ -943,6 +944,59 @@ public class SearchableAnnotationExtensionTest {
     assertTrue(annotation.isCopyToOther());
     assertEquals(annotation.resolvedForV3().getSearchLabel().get(), "location");
     assertEquals(annotation.resolvedForV3().getFieldName(), "path");
+  }
+
+  @Test
+  public void testCopyToOtherAcceptsRichTextWithAnUnindexedRoot() {
+    DataMap v3 = new DataMap();
+    v3.put("copyToOther", true);
+    v3.put("queryByDefault", false);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "RICH_TEXT");
+    annotationMap.put("v3", v3);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "body", DataSchema.Type.STRING, "test context");
+
+    assertTrue(annotation.isCopyToOther());
+    FieldMapping root = FieldMapping.rootOf(annotation.getV3Mappings());
+    assertFalse(root.isIndex());
+    assertFalse(root.isDocValues());
+    assertFalse(annotation.aspectIndexed());
+  }
+
+  @Test
+  public void testTextRootStaysIndexedWhenMappingsAreOmitted() {
+    DataMap v3 = new DataMap();
+    v3.put("copyToOther", true);
+    v3.put("queryByDefault", false);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "TEXT");
+    annotationMap.put("v3", v3);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "body", DataSchema.Type.STRING, "test context");
+
+    FieldMapping root = FieldMapping.rootOf(annotation.getV3Mappings());
+    assertTrue(root.isIndex());
+    assertTrue(root.isDocValues());
+  }
+
+  @Test
+  public void testCopyToOtherRejectsANonStringFieldType() {
+    DataMap v3 = new DataMap();
+    v3.put("copyToOther", true);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "BOOLEAN");
+    annotationMap.put("v3", v3);
+
+    assertThrows(
+        ModelValidationException.class,
+        () ->
+            SearchableAnnotation.fromPegasusAnnotationObject(
+                annotationMap, "flag", DataSchema.Type.BOOLEAN, "test context"));
   }
 
   @Test

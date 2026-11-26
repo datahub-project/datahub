@@ -11,6 +11,7 @@ from datahub.ingestion.source.data_lake_common.object_store import (
     GCSObjectStore,
     S3ObjectStore,
 )
+from datahub.utilities.str_enum import StrEnum
 
 # Qlik Cloud names a file a data connection reads as
 # qri:file:<scheme>://<connection>#<path>#<item>, and its lineage graph hides
@@ -21,12 +22,18 @@ FILE_QRI_RE = re.compile(
 CONNECT_PROPERTY_RE = re.compile(r"(?P<key>[A-Za-z][\w.]*)=(?P<value>[^;\"]*)")
 
 
+class FilePlatform(StrEnum):
+    ABS = "abs"
+    S3 = "s3"
+    GCS = "gcs"
+
+
 class FileConnector(BaseModel):
     """A Qlik file connector, as `GET /api/v1/data-sources` describes it: the
     DataHub platform its files are on, and the connection properties its
     `qriDefinition` builds the connection part of a file's QRI from."""
 
-    platform: str
+    platform: FilePlatform
     qri_scheme: str
     connection_properties: List[str]
     # The connection property that names the bucket or container, with any
@@ -36,25 +43,25 @@ class FileConnector(BaseModel):
 
 FILE_CONNECTORS: Dict[str, FileConnector] = {
     "File_AzureStorageConnector": FileConnector(
-        platform="abs",
+        platform=FilePlatform.ABS,
         qri_scheme="adls",
         connection_properties=["blobContainerPath"],
         location_property="blobContainerPath",
     ),
     "File_AmazonS3Connector": FileConnector(
-        platform="s3",
+        platform=FilePlatform.S3,
         qri_scheme="s3",
         connection_properties=["region", "bucketName"],
         location_property="bucketName",
     ),
     "File_AmazonS3ConnectorV2": FileConnector(
-        platform="s3",
+        platform=FilePlatform.S3,
         qri_scheme="s3",
         connection_properties=["region", "bucketName"],
         location_property="bucketName",
     ),
     "File_GoogleCloudStorageConnector": FileConnector(
-        platform="gcs",
+        platform=FilePlatform.GCS,
         qri_scheme="gcs",
         connection_properties=["bucketName"],
         location_property="bucketName",
@@ -78,7 +85,7 @@ class FileCandidates(BaseModel):
     platform and the id of the connection part the QRI gives."""
 
     references: List[FileReference] = []
-    platform: Optional[str] = None
+    platform: Optional[FilePlatform] = None
     connection_id: str = ""
 
 
@@ -86,7 +93,7 @@ class FileStorage(BaseModel):
     """Where a file data connection's files are: a DataHub platform and the
     bucket or container, with any folder inside it, file paths are under."""
 
-    platform: str
+    platform: FilePlatform
     location: str
     # The id of the connection part of its files' secure QRIs, when the
     # connection's properties are known.
@@ -109,7 +116,7 @@ def connect_properties(connect_statement: str) -> Dict[str, str]:
     }
 
 
-def file_connector_platform(connect_statement: str) -> Optional[str]:
+def file_connector_platform(connect_statement: str) -> Optional[FilePlatform]:
     """The DataHub platform of the files a data connection reads, or None
     when it is not an Azure Storage, Amazon S3 or Google Cloud Storage one."""
     connector = FILE_CONNECTORS.get(
@@ -130,6 +137,13 @@ def file_storage_of_connection(connect_statement: str) -> Optional[FileStorage]:
     location = properties.get(connector.location_property, "").strip("/")
     if not all(values) or not location:
         return None
+    # Qlik Cloud saves an Azure container as an HTTPS URL, but DataHub names
+    # files on storage from the container or bucket on.
+    if "://" in location:
+        storage = file_storage_of_uri(location)
+        if storage is None or storage.platform != connector.platform:
+            return None
+        location = storage.location
     return FileStorage(
         platform=connector.platform,
         location=location,
@@ -158,11 +172,14 @@ def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
             filter(None, [azure.container_name, azure.object_path.strip("/")])
         )
         return FileStorage(
-            platform="abs",
+            platform=FilePlatform.ABS,
             location=location,
             likely_qri_connection_id=qri_part_id(location),
         )
-    for platform, store in (("s3", S3ObjectStore), ("gcs", GCSObjectStore)):
+    for platform, store in (
+        (FilePlatform.S3, S3ObjectStore),
+        (FilePlatform.GCS, GCSObjectStore),
+    ):
         if store.is_uri(uri):
             bucket = store.get_bucket_name(uri)
             if bucket:
@@ -173,7 +190,7 @@ def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
                     ),
                     # An S3 connection's QRI part also holds its region.
                     likely_qri_connection_id=qri_part_id(bucket)
-                    if platform == "gcs"
+                    if platform == FilePlatform.GCS
                     else None,
                 )
     return None
@@ -201,6 +218,9 @@ class FileSourceResolver:
                 self._by_path_id.setdefault(qri_part_id(path), []).append(
                     FileReference(connection=reference.connection, path=path)
                 )
+
+    def references(self) -> List[FileReference]:
+        return [ref for refs in self._by_path_id.values() for ref in refs]
 
     def candidates(self, file_qri: str) -> FileCandidates:
         match = FILE_QRI_RE.match(file_qri)

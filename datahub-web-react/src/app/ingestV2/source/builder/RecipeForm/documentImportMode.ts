@@ -33,5 +33,6 @@ function createDocumentImportModeField(defaultMode: DocumentImportModeValue): Re
 }
 
 export const GITHUB_DOCUMENTS_IMPORT_MODE = createDocumentImportModeField('NATIVE');
+export const GITLAB_DOCUMENTS_IMPORT_MODE = createDocumentImportModeField('NATIVE');
 export const NOTION_DOCUMENTS_IMPORT_MODE = createDocumentImportModeField('EXTERNAL');
 export const CONFLUENCE_DOCUMENTS_IMPORT_MODE = createDocumentImportModeField('EXTERNAL');

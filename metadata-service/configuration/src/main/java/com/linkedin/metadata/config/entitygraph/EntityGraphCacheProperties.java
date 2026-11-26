@@ -27,6 +27,7 @@ public class EntityGraphCacheProperties {
   public static final String FULL_SNAPSHOTS_MAP = SNAPSHOTS_MAP_PREFIX + RESERVED_PARTIAL_GRAPH_ID;
   public static final String STATUS_MAP = "entityGraphStatus";
   public static final String INVALIDATION_GENERATION_MAP = "entityGraphInvalidationGeneration";
+  public static final String VISIBILITY_WATERMARK_MAP = "entityGraphVisibilityWatermark";
 
   @Nonnull
   public static String partialSnapshotsMapName(@Nonnull String graphId) {
@@ -161,6 +162,34 @@ public class EntityGraphCacheProperties {
     private ScrollConfig scroll;
     @JsonMerge private GraphBindings bindings;
     @JsonMerge private GraphEviction eviction;
+    @JsonMerge private GraphInvalidation invalidation;
+  }
+
+  /**
+   * How a synchronous write invalidates this graph. The source index (graph or search index) does
+   * not show a write until its bulk flush and {@code refresh_interval} have passed, so dropping the
+   * cache at write time lets the next rebuild republish the pre-write topology.
+   */
+  @Data
+  @Builder
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class GraphInvalidation {
+    /** Defaults to {@link InvalidationVisibility#NONE} (drop at write time) when unset. */
+    private InvalidationVisibility visibility;
+
+    /**
+     * Extra seconds added to the computed visibility bound to absorb clock skew and scheduling
+     * jitter. Defaults to 0 when unset.
+     */
+    private Integer marginSeconds;
+
+    /**
+     * Longest a full-walk write-back is expected to take. A write-back that does not say when its
+     * walk started is rejected when a write became searchable within this many seconds, because it
+     * may have read the index before that write. Defaults to the rebuild lease when unset.
+     */
+    private Integer maxWalkSeconds;
   }
 
   @Data
@@ -204,7 +233,11 @@ public class EntityGraphCacheProperties {
     @JsonAlias("maxStaleSeconds")
     private int intervalSeconds;
 
-    /** FULL + LAZY only: {@code SYNC} blocks expand on rebuild; {@code BACKGROUND} fail-closed. */
+    /**
+     * {@code SYNC} rebuilds on the request thread. {@code BACKGROUND} is LAZY + FULL only and
+     * fail-closed until fresh. {@code STALE_WHILE_REVALIDATE} is LAZY + PARTIAL only: serve the
+     * previous component snapshot and rebuild it in the background.
+     */
     private RebuildExecution rebuildExecution;
   }
 
@@ -259,8 +292,21 @@ public class EntityGraphCacheProperties {
     LAZY
   }
 
+  /**
+   * {@code NONE}: drop the cached graph at write time. {@code SUBMIT_BOUND}: keep serving the
+   * cached graph and treat it as stale once the configured bulk flush and refresh interval have
+   * elapsed. {@code FLUSH_AWAIT}: flush pending writes first (at most once per request), then use
+   * the same bound with only the refresh interval left.
+   */
+  public enum InvalidationVisibility {
+    NONE,
+    SUBMIT_BOUND,
+    FLUSH_AWAIT
+  }
+
   public enum RebuildExecution {
     SYNC,
-    BACKGROUND
+    BACKGROUND,
+    STALE_WHILE_REVALIDATE
   }
 }

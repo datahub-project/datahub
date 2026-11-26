@@ -16,7 +16,7 @@ Think of them like skills for your data agents: small pieces of know-how that an
 
 Context Documents come from two places:
 
-- **People** write them in DataHub, or import them from Notion, Confluence, or GitHub.
+- **People** write them in DataHub, or import them from Notion, Confluence, GitHub, or GitLab.
 - **[Context Generation](./context-generation.md)** (DataHub Cloud) writes them from your analytics exhaust: the queries analysts run, plus BI and semantic models. Each one is a map for a business question your team answers again and again.
 
 Once **published**, documents are visible to your team, to [Ask DataHub](../ask-datahub.md), and to any agent connected through the [MCP server](../mcp.md). Assign them to a [domain](../../../domains.md) to limit them to that domain's agents.
@@ -34,7 +34,7 @@ Context Documents are first-class citizens in DataHub. You can:
 - **Link related assets** — Connect to the tables, dashboards, charts, domains, data products, and glossary terms they describe. Agents see related documents whenever they look up those assets.
 - **Control visibility** — Publish to share with your organization and AI agents, or keep as draft
 - **Track version history** — See changes over time and restore previous versions
-- **Import from external sources** — Bring in docs from Notion, Confluence, or GitHub
+- **Import from external sources** — Bring in docs from Notion, Confluence, GitHub, or GitLab
 - **Generate from real usage** — On DataHub Cloud, [Context Generation](./context-generation.md) writes documents from query history and BI definitions
 
 ## Creating a Document
@@ -70,6 +70,7 @@ By default, all sources create **Native** (editable) documents in DataHub. Switc
 | **Notion**     | One-way (Notion → DataHub)              | Native by default; optionally External (read-only). No sync-back.                        | [Import from Notion](./import-notion.md)         |
 | **Confluence** | One-way (Confluence → DataHub)          | Native by default; optionally External (read-only). No sync-back.                        | [Import from Confluence](./import-confluence.md) |
 | **GitHub**     | Import; sync-back on DataHub Cloud only | Native by default; optionally External (read-only). Sync-back is **DataHub Cloud only**. | [Import from GitHub](./import-github.md)         |
+| **GitLab**     | One-way (GitLab → DataHub)              | Native by default; optionally External (read-only). No sync-back.                        | [Import from GitLab](./import-gitlab.md)         |
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/context-document-import.png"/>
@@ -157,3 +158,4 @@ Context Documents are accessible via:
 - [Notion ingestion source](../../../generated/ingestion/sources/notion.md)
 - [Confluence ingestion source](../../../generated/ingestion/sources/confluence.md)
 - [GitHub Documents ingestion source](../../../generated/ingestion/sources/github.md)
+- [GitLab Documents ingestion source](../../../generated/ingestion/sources/gitlab.md)

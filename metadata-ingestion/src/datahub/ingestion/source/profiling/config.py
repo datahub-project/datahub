@@ -50,13 +50,28 @@ class ProfilingBaseConfig(ProfilingMethodConfig):
         default_factory=OperationConfig,
         description="Experimental feature. To specify operation configs.",
     )
-    limit: Optional[int] = Field(
+    limit: Annotated[
+        Optional[pydantic.PositiveInt],
+        SupportedSources(["bigquery", "snowflake"]),
+    ] = Field(
         default=None,
-        description="Max number of documents to profile. By default, profiles all documents.",
+        description="Max number of rows to profile, taken in storage order — not a random "
+        "sample, use `sample_size` for that. Sampling takes precedence: where "
+        "`use_sampling` applies, the table is sampled and this is not applied. Only "
+        "BigQuery and Snowflake apply it; wherever it is not applied the run warns and "
+        "the profile is labelled from whatever was applied instead. By default, profiles all "
+        "rows.",
     )
-    offset: Optional[int] = Field(
+    offset: Annotated[
+        Optional[pydantic.NonNegativeInt],
+        SupportedSources(["bigquery", "snowflake"]),
+    ] = Field(
         default=None,
-        description="Offset in documents to profile. By default, uses no offset.",
+        description="Number of rows to skip before the profiled window. Whether it applies "
+        "without a `limit` is up to the source: the SQL profiler declines an offset on its "
+        "own, because skipping rows without bounding them scans more rather than less. "
+        "Only BigQuery and Snowflake apply it; wherever it is not applied the run warns. "
+        "By default, uses no offset.",
     )
     profile_table_level_only: bool = Field(
         default=False,
@@ -118,6 +133,17 @@ class ProfilingBaseConfig(ProfilingMethodConfig):
 
 
 class ProfilingConfig(ProfilingBaseConfig):
+    """Shared profiling options.
+
+    This layer is deliberately not opinionated: it validates that a value is
+    usable on its own (a limit must be positive) and otherwise records the
+    request untouched. It does not reconcile options that pull against each
+    other -- a limit alongside sampling, an offset with no limit -- because
+    whether they conflict depends on the platform, which this object cannot
+    see. The adapter decides and reports what it applied; the profiler warns
+    about anything the recipe asked for that did not happen.
+    """
+
     report_dropped_profiles: bool = Field(
         default=False,
         description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",
@@ -332,15 +358,22 @@ class ProfilingConfig(ProfilingBaseConfig):
         "If not specified, profile the latest partition. Only Bigquery supports this.",
     )
     use_sampling: Annotated[bool, SupportedSources(["bigquery", "snowflake"])] = Field(
-        default=True,
-        description="Whether to profile column level stats on sample of table. Only BigQuery and Snowflake support this. "
-        "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
+        # Defaults to False here and is overridden to True by the two sources that
+        # implement sampling, so the flag is never on where it does nothing.
+        default=False,
+        description="Whether to profile column level stats on a sample of the table rather than all "
+        "of it. Only BigQuery and Snowflake implement sampling, and it is on by default there; "
+        "on every other source this option has no effect. Smaller tables are not sampled.",
     )
 
-    sample_size: Annotated[int, SupportedSources(["bigquery", "snowflake"])] = Field(
+    sample_size: Annotated[
+        int, SupportedSources(["bigquery", "kafka", "snowflake"])
+    ] = Field(
         default=10000,
-        description="Number of rows to be sampled from table for column level profiling."
-        "Applicable only if `use_sampling` is set to True.",
+        description="Number of rows to be sampled from table for column level profiling. "
+        "On BigQuery and Snowflake this applies only when `use_sampling` is on. Kafka "
+        "reads it independently of `use_sampling`, as the number of messages to sample, "
+        "and chooses between them with its own `sampling_strategy`.",
     )
 
     profile_external_tables: Annotated[
@@ -475,3 +508,23 @@ class ProfilingConfig(ProfilingBaseConfig):
             for flag in config_dict
             if flag in _PROFILING_FLAGS_TO_REPORT or flag.startswith("include_field_")
         }
+
+
+def coerce_profiling_config_instance(v: object) -> object:
+    """Normalize a `profiling` block so a source's own ProfilingConfig subclass can validate it.
+
+    A code caller may pass a ProfilingConfig instance rather than a YAML dict.
+    Re-validating it as the subclass runs ProfilingConfig's inherited
+    before-validators, which assume a dict and raise on a model instance, so it
+    has to be dumped back to plain data first.
+
+    `exclude_unset` is what makes the dump safe: a full dump carries every
+    field at *this* class's default, which would pin a field the subclass
+    overrides -- `use_sampling`, which BigQuery and Snowflake turn back on --
+    to the shared default and silently profile the whole table. Only the fields
+    the caller (or a before-validator) actually set survive, so everything else
+    falls through to the subclass's own defaults.
+    """
+    if isinstance(v, ProfilingConfig):
+        return v.model_dump(exclude_unset=True)
+    return v

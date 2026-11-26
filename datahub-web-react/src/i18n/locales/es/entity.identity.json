@@ -45,6 +45,7 @@
     "inviteToken.copyTooltip": "Copiar enlace de invitación.",
     "inviteToken.createError": "No se pudo crear el token de invitación para el rol {{roleName}}: \n {{error}}",
     "inviteToken.footerText": "Copie un enlace de invitación para enviarlo a sus usuarios. Cuando se unan, los usuarios se asignarán automáticamente al rol seleccionado.",
+    "inviteToken.footerTextNoRole": "Copie un enlace de invitación para enviarlo a sus usuarios. Podrán crear una cuenta y no se les asignará ningún rol.",
     "inviteToken.generateNewLinkTooltip": "Genere un nuevo enlace. Los enlaces antiguos dejarán de ser válidos.",
     "inviteToken.generateSuccess": "Nuevo enlace de invitación generado",
     "inviteToken.modalTitle": "Compartir enlace de invitación",

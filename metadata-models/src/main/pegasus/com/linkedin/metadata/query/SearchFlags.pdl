@@ -143,6 +143,28 @@ record SearchFlags {
   minScore: optional float
 
   /**
+   * Raw cosine floor, from -1 to 1, on the hits a vector rung (retrieval.combine: vector)
+   * retrieves. A hit below it is dropped and a hit at it is kept; the window is not refilled.
+   * With no floor in effect it sets one. With retrieval.minSimilarity, or else
+   * semanticSearch.minSimilarity, in effect it can only raise it: the higher of the two applies.
+   * A profile whose metric is not cosine rejects it. Only a vector rung reads it, as on semantic
+   * search through the semantic search template. Semantic search on its legacy path rejects it.
+   */
+  minSimilarity: optional float
+
+  /**
+   * On GraphQL, semantic search through the semantic search template, and searchAcrossEntities and
+   * search through a template named in searchTemplate, such as semantic, answer a query they could
+   * not embed with an error naming why: timeout, rejected, reserveExhausted, budgetExhausted, or
+   * failed. With this flag set they serve keyword search results for the same request instead,
+   * without the named template, and SearchResultMetadata.keywordFallback marks them with that
+   * reason. Those results cover every requested entity type, not only the ones semantic search
+   * covers. Only a failed query embedding falls back: a failed kNN or facet request, and
+   * similarity, still fail. Semantic search on its legacy path fails as it does without the flag.
+   */
+  keywordFallbackOnEmbeddingFailure: optional boolean = false
+
+  /**
    * Caller-selected search template URN. When set, selection skips classification, sub-intent,
    * and engine lookup. The resolved template is not written back onto this field.
    */

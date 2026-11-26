@@ -128,9 +128,9 @@ module.exports = {
     //   },
     // }),
     announcementBar: {
-      id: "announcement-4",
+      id: "announcement-5",
       content:
-        '<div class="shimmer-banner"><span>CONTEXT 2026: Join the virtual summit on context management, November 4</span><a href="https://datahub.com/context/" target="_blank" class="button"><div>Save my spot<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><span>CONTEXT 2026: All sessions available on demand</span><a href="https://datahub.com/context/" target="_blank" class="button"><div>Watch now<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
@@ -374,9 +374,6 @@ module.exports = {
         googleTagManager: {
           containerId: 'GTM-5M8T9HNN',
         },
-        gtag: {
-          trackingID: "G-H5QDNJNMHY",
-        },
       },
     ],
   ],
@@ -416,6 +413,14 @@ module.exports = {
           {
             from: '/docs/features/feature-guides/file-upload-download',
             to: '/docs/features/feature-guides/asset-profiles',
+          },
+          {
+            from: '/docs/managed-datahub/observe/data-contract',
+            to: '/docs/managed-datahub/observe/assertions',
+          },
+          {
+            from: '/docs/api/tutorials/data-contracts',
+            to: '/docs/api/tutorials/assertions',
           },
           {
             from: '/docs/posts',

@@ -81,6 +81,7 @@ export const DEFAULT_APP_CONFIG = {
         browserWebVitalsEnabled: false,
         businessAttributeEntityEnabled: false,
         dataContractsEnabled: false,
+        showApplicationsFeatureToggle: false,
         editableDatasetNameEnabled: false,
         themeV2Enabled: false,
         themeV2Default: false,
@@ -119,7 +120,9 @@ export const DEFAULT_APP_CONFIG = {
         structuredPropertiesInPoliciesEnabled: false,
         multipleDataProductsPerAsset: false,
         showTestsInHealthIcon: false,
+        mcpServerEnabled: false,
         i18nEnabled: true,
+        showGithubStarPrompt: false,
     },
     chromeExtensionConfig: {
         enabled: false,

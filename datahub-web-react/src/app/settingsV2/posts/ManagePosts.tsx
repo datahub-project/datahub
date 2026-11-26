@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
+import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { PostList } from '@app/settingsV2/posts/PostsList';
 
 const PageContainer = styled.div`
@@ -30,18 +31,22 @@ const ListContainer = styled.div`
 export default function ManagePosts() {
     const { t } = useTranslation('settings.posts');
     const [isCreatingPost, setIsCreatingPost] = useState(false);
+    const showPinnedLinks = !useShowHomePageRedesign();
 
     return (
         <PageContainer data-testid="managePostsV2">
             <PageHeader>
-                <PageTitle title={t('pageTitle')} subTitle={t('pageSubTitle')} />
+                <PageTitle
+                    title={t('pageTitle')}
+                    subTitle={t(showPinnedLinks ? 'pageSubTitle' : 'announcement.pageSubTitle')}
+                />
                 <Button
                     variant="filled"
                     data-testid="posts-create-post-v2"
                     icon={{ icon: Plus }}
                     onClick={() => setIsCreatingPost(true)}
                 >
-                    {t('createNewPost')}
+                    {t(showPinnedLinks ? 'createNewPost' : 'announcement.createNewPost')}
                 </Button>
             </PageHeader>
             <ListContainer>

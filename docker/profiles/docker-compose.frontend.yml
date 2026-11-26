@@ -22,6 +22,8 @@ x-datahub-frontend-service: &datahub-frontend-service
     DATAHUB_BASE_PATH: ${DATAHUB_BASE_PATH:-/}
     DATAHUB_GMS_BASE_PATH: ${DATAHUB_GMS_BASE_PATH:-/}
     LOG_AGGREGATOR_ENDPOINT: ${LOG_AGGREGATOR_ENDPOINT:-}
+    # /mcp is proxied to datahub-ai-service (docker-compose.ai.yml).
+    DATAHUB_AI_SERVICE_URL: ${DATAHUB_AI_SERVICE_URL:-http://datahub-ai-service:9005}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 

@@ -23,6 +23,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Mapping,
     Optional,
     Sequence,
     Set,
@@ -30,6 +31,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 from unittest.mock import MagicMock, NonCallableMock, create_autospec, patch
 
@@ -42,6 +44,9 @@ from cryptography.x509.oid import NameOID
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.filters import RawSearchFilter
+from datahub.ingestion.graph.openapi import ScrollResult
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeConfig,
@@ -76,13 +81,26 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
+from datahub.ingestion.source.snowflake.snowflake_tag_entities import (
+    SnowflakeTagPlatformResource,
+    SnowflakeTagPlatformResourceId,
+    SnowflakeTagPlatformResourceRepository,
+)
+from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
+    SnowflakeTagResolver,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
 )
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
-from datahub.metadata.schema_classes import _Aspect
+from datahub.metadata.schema_classes import (
+    PlatformResourceInfoClass,
+    SerializedValueClass,
+    _Aspect,
+)
+from datahub.metadata.urns import PlatformResourceUrn
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 # --- preserve_column_case sweep -----------------------------------------------
@@ -191,6 +209,141 @@ def aspects(
         if aspect is not None:
             found[wu.get_urn()] = aspect
     return found
+
+
+# --- Tag platform resources ---------------------------------------------------
+
+
+def tag_record(
+    tag: SnowflakeTag,
+    *urns: str,
+    with_value: bool = True,
+    managed: bool = True,
+    platform_instance: Optional[str] = None,
+) -> SnowflakeTagPlatformResource:
+    """A stored record for ``tag``; managed means sync-back wrote it."""
+    entity = SnowflakeTagPlatformResource.create_default(
+        SnowflakeTagPlatformResourceId.from_snowflake_tag(
+            tag, platform_instance, with_value=with_value
+        ),
+        managed_by_datahub=managed,
+    )
+    for urn in urns:
+        entity.datahub_linked_resources().add(urn)
+    return entity
+
+
+def fake_tag_repository(
+    records: Sequence[SnowflakeTagPlatformResource],
+    in_datahub: Optional[Mapping[str, Sequence[_Aspect]]] = None,
+    load_error: Optional[Exception] = None,
+    read_error: Optional[Exception] = None,
+    malformed: int = 0,
+) -> SnowflakeTagPlatformResourceRepository:
+    """A repository over a fake graph storing ``records``.
+
+    The graph's scroll honours the platform-instance filter, as GMS does.
+    ``in_datahub`` are the aspects entities hold now, by URN; ``read_error``
+    makes reading them fail. ``write_meanwhile`` stores a record as another
+    writer does after the run started. ``malformed`` adds
+    records whose value is not a valid record.
+    """
+    stored: Dict[str, Tuple[PlatformResourceInfoClass, Optional[str]]] = {}
+    for record in records:
+        resource = record.as_platform_resource()
+        assert resource.resource_info is not None
+        stored[str(PlatformResourceUrn(resource.id))] = (
+            resource.resource_info.to_resource_info(),
+            resource.data_platform_instance.platform_instance
+            if resource.data_platform_instance
+            else None,
+        )
+    for i in range(malformed):
+        stored[str(PlatformResourceUrn(f"malformed{i}"))] = (
+            PlatformResourceInfoClass(
+                resourceType="SnowflakeTagPlatformResource",
+                primaryKey=f"malformed{i}",
+                value=SerializedValueClass(
+                    blob=b"{not json", contentType="JSON", schemaType="JSON"
+                ),
+            ),
+            None,
+        )
+    readable = {urn: info for urn, (info, _instance) in stored.items()}
+
+    def scroll_entities(
+        *,
+        filter: RawSearchFilter,
+        scroll_id: Optional[str] = None,
+        count: int = 10,
+        **_: object,
+    ) -> ScrollResult:
+        if load_error is not None:
+            raise load_error
+        instances = [
+            str(value)
+            for clause in filter
+            for rule in clause["and"]
+            if rule["field"] == "platformInstance"
+            for value in cast(List[str], rule["values"])
+        ]
+        matching = [
+            urn
+            for urn, (_info, instance) in stored.items()
+            if not instances or instance in instances
+        ]
+        start = int(scroll_id or 0)
+        page = matching[start : start + count]
+        return ScrollResult(
+            scroll_id=str(start + count) if start + count < len(matching) else None,
+            entities={
+                urn: {PlatformResourceInfoClass.ASPECT_NAME: (stored[urn][0], None)}
+                for urn in page
+            },
+            total_count=len(matching),
+        )
+
+    def get_entities(
+        entity_name: str, urns: List[str], aspects: Optional[List[str]] = None
+    ) -> Dict[str, Dict[str, Tuple[_Aspect, None]]]:
+        return {
+            urn: {PlatformResourceInfoClass.ASPECT_NAME: (readable[urn], None)}
+            for urn in urns
+            if urn in readable
+        }
+
+    graph = create_autospec(DataHubGraph, instance=True)
+    graph.readable_records = readable
+    graph.scroll_entities.side_effect = scroll_entities
+    graph.get_entities.side_effect = get_entities
+
+    def get_aspect(entity_urn: str, aspect_type: Type[A]) -> Optional[A]:
+        if read_error is not None:
+            raise read_error
+        for aspect in (in_datahub or {}).get(entity_urn, []):
+            if isinstance(aspect, aspect_type):
+                return aspect
+        return None
+
+    graph.get_aspect.side_effect = get_aspect
+    return SnowflakeTagPlatformResourceRepository(graph)
+
+
+def write_meanwhile(
+    repository: SnowflakeTagPlatformResourceRepository,
+    record: SnowflakeTagPlatformResource,
+) -> None:
+    """Stores ``record`` as another writer (sync-back) does during a run: direct
+    reads see it, the run-start scroll did not."""
+    resource = record.as_platform_resource()
+    assert resource.resource_info is not None
+    readable = cast(
+        Dict[str, PlatformResourceInfoClass],
+        repository.graph.readable_records,  # type: ignore[attr-defined]
+    )
+    readable[str(PlatformResourceUrn(resource.id))] = (
+        resource.resource_info.to_resource_info()
+    )
 
 
 def make_v2_config(**overrides: object) -> SnowflakeV2Config:
@@ -368,7 +521,9 @@ def tag(name: str = "PII", value: str = "yes") -> SnowflakeTag:
 
 
 def make_gen(
-    aggregator: Optional[NonCallableMock] = None, **config_overrides: object
+    aggregator: Optional[NonCallableMock] = None,
+    tag_repository: Optional[SnowflakeTagPlatformResourceRepository] = None,
+    **config_overrides: object,
 ) -> SnowflakeSchemaGenerator:
     """A ``SnowflakeSchemaGenerator`` over an autospecced data dictionary.
 
@@ -387,18 +542,26 @@ def make_gen(
         }
     )
     report = SnowflakeV2Report()
+    identifiers = SnowflakeIdentifierBuilder(
+        identifier_config=config, structured_reporter=report
+    )
     gen = SnowflakeSchemaGenerator(
         config=config,
         report=report,
         connection=fake_connection(lambda _sql: []),
         filters=SnowflakeFilter(filter_config=config, structured_reporter=report),
-        identifiers=SnowflakeIdentifierBuilder(
-            identifier_config=config, structured_reporter=report
-        ),
+        identifiers=identifiers,
         domain_registry=None,
         profiler=None,
         aggregator=aggregator,
         snowsight_url_builder=None,
+        tag_resolver=SnowflakeTagResolver(
+            repository=tag_repository,
+            config=config,
+            report=report,
+            identifiers=identifiers,
+            platform_instance=None,
+        ),
     )
     data_dictionary = create_autospec(SnowflakeDataDictionary, instance=True)
     data_dictionary.get_pk_constraints_for_schema.return_value = {}
