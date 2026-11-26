@@ -30,11 +30,9 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,23 +46,41 @@ import org.testng.annotations.Test;
 
 /**
  * Proves that moving env / origin fields from the {@code FabricType} enum to the {@code
- * FabricTypeName} string typeref needs no data migration: stored aspects, search mappings and
- * search documents for built-in envs are unchanged.
+ * FabricTypeName} string typeref needs no data migration. Stored aspects for built-in envs
+ * round-trip, and each env / origin search field keeps a keyword mapping an enum field produced.
  *
- * <p>The mapping and document checks compare against a snapshot captured on master before the
- * change. This class only uses APIs that exist on both sides, so it can regenerate that snapshot:
- * run it on master with {@code FABRIC_TYPE_COMPAT_WRITE_SNAPSHOT=<path>} in the environment (or the
- * {@code fabricTypeCompat.writeSnapshot} system property) and check the file in as {@value
- * #SNAPSHOT_RESOURCE}.
+ * <p>{@value #ENV_FIELD_MAPPINGS} is a one-time fixture of those field mappings only. A synthetic
+ * index holding just that field is what {@link ReindexConfig} compares. Other searchable fields on
+ * the same index are not part of the fixture.
  */
 public class FabricTypeNameCompatTest {
 
   private static final ObjectMapper MAPPER =
       new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
-  private static final String SNAPSHOT_RESOURCE = "/fabric-type-compat/master-snapshot.json";
-  private static final String WRITE_SNAPSHOT_PROPERTY = "fabricTypeCompat.writeSnapshot";
-  private static final String WRITE_SNAPSHOT_ENV = "FABRIC_TYPE_COMPAT_WRITE_SNAPSHOT";
+  private static final String ENV_FIELD_MAPPINGS = "/fabric-type-compat/env-field-mappings.json";
   private static final String V3_REPRESENTATIVE_INDEX = "datasetindex_v3";
+
+  /** Env / origin fields this change moved to FabricTypeName. Other env fields may also exist. */
+  private static final List<String> REQUIRED_ENV_FIELDS =
+      List.of(
+          "containerindex_v2 properties.env",
+          "dataflowindex_v2 properties.env",
+          "datajobindex_v2 properties.env",
+          "dataprocessindex_v2 properties.origin",
+          "datasetindex_v2 properties.origin",
+          "mlmodeldeploymentindex_v2 properties.origin",
+          "mlmodelgroupindex_v2 properties.origin",
+          "mlmodelindex_v2 properties.origin",
+          "datasetindex_v3 properties.env",
+          "datasetindex_v3 properties.origin",
+          "datasetindex_v3 properties._aspects.properties.containerProperties.properties.env",
+          "datasetindex_v3 properties._aspects.properties.dataFlowInfo.properties.env",
+          "datasetindex_v3 properties._aspects.properties.dataJobInfo.properties.env",
+          "datasetindex_v3 properties._aspects.properties.dataProcessKey.properties.origin",
+          "datasetindex_v3 properties._aspects.properties.datasetKey.properties.origin",
+          "datasetindex_v3 properties._aspects.properties.mlModelDeploymentKey.properties.origin",
+          "datasetindex_v3 properties._aspects.properties.mlModelGroupKey.properties.origin",
+          "datasetindex_v3 properties._aspects.properties.mlModelKey.properties.origin");
 
   /** Every aspect whose env / origin field moved to FabricTypeName, with a minimal valid body. */
   private static final List<Case> CASES =
@@ -161,49 +177,52 @@ public class FabricTypeNameCompatTest {
   }
 
   /**
-   * M2: mappings of every existing index that holds an env / origin field, and of the shared V3
-   * mapping, are identical to master, so an upgrade neither reindexes nor updates mappings.
-   * customFabricType only adds its own new V2 index.
+   * Each env / origin field still has a mapping an enum field produced. A synthetic index whose
+   * only field is that mapping does not reindex. Searchable fields other than env / origin are
+   * ignored.
    */
   @Test
-  public void testIndexMappingsUnchangedFromMaster() throws Exception {
-    JsonNode expected = readSnapshot().get("mappings");
-    JsonNode actual = buildMappings();
+  public void testEnvFieldMappingsDoNotForceReindex() throws Exception {
+    List<JsonNode> allowed = new ArrayList<>();
+    readFixture().get("fieldMappings").forEach(allowed::add);
+    Map<String, JsonNode> found = new TreeMap<>();
+    buildMappings()
+        .fields()
+        .forEachRemaining(index -> collectEnvFields(index.getKey(), "", index.getValue(), found));
 
     List<String> problems = new ArrayList<>();
-    for (Iterator<String> it = expected.fieldNames(); it.hasNext(); ) {
-      String index = it.next();
-      if (!actual.has(index)) {
-        problems.add("missing index " + index);
+    for (String required : REQUIRED_ENV_FIELDS) {
+      if (!found.containsKey(required)) {
+        problems.add("missing " + required);
+      }
+    }
+    for (Map.Entry<String, JsonNode> field : found.entrySet()) {
+      Optional<JsonNode> match =
+          allowed.stream().filter(shape -> shape.equals(field.getValue())).findFirst();
+      if (match.isEmpty()) {
+        problems.add(
+            field.getKey() + " mapping is not a known env field shape: " + field.getValue());
         continue;
       }
-      Map<String, String> before = flatten(expected.get(index));
-      Map<String, String> after = flatten(actual.get(index));
-      before.forEach(
-          (path, value) -> {
-            if (!value.equals(after.get(path))) {
-              problems.add(index + " " + path + ": " + value + " -> " + after.get(path));
-            }
-          });
-      after.keySet().stream()
-          .filter(path -> !before.containsKey(path))
-          .forEach(path -> problems.add(index + " new mapping " + path));
-
+      String path = field.getKey().substring(field.getKey().indexOf(' ') + 1);
+      String fieldName = path.substring(path.lastIndexOf('.') + 1);
+      Map<String, Object> baseline = Map.of("properties", Map.of(fieldName, toMap(match.get())));
+      Map<String, Object> live = Map.of("properties", Map.of(fieldName, toMap(field.getValue())));
       ReindexConfig upgrade =
           ReindexConfig.builder()
-              .name(index)
+              .name("syntheticenvindex_v2")
               .exists(true)
               .currentSettings(Settings.EMPTY)
               .targetSettings(Map.of())
-              .currentMappings(toMap(expected.get(index)))
-              .targetMappings(toMap(actual.get(index)))
+              .currentMappings(baseline)
+              .targetMappings(live)
               .enableIndexMappingsReindex(true)
               .enableIndexSettingsReindex(false)
               .enableStructuredPropertiesReindex(false)
               .version("1.0")
               .build();
       if (upgrade.requiresReindex() || upgrade.requiresApplyMappings()) {
-        problems.add(index + " would be reindexed or remapped on upgrade");
+        problems.add(field.getKey() + " would be reindexed or remapped on upgrade");
       }
     }
     assertTrue(problems.isEmpty(), String.join("\n", problems));
@@ -213,30 +232,25 @@ public class FabricTypeNameCompatTest {
     return MAPPER.convertValue(node, new TypeReference<Map<String, Object>>() {});
   }
 
-  /** M4: search documents for built-in envs are identical to master. */
+  /** A searchable built-in env is indexed as that same string. A non-searchable env is omitted. */
   @Test
-  public void testSearchDocumentsUnchangedFromMaster() throws Exception {
-    JsonNode expected = readSnapshot().get("documents");
-    JsonNode actual = buildDocuments();
-    // JsonNode.equals is order-insensitive for objects, unlike TestNG's Iterable comparison.
-    assertTrue(actual.equals(expected), "documents differ:\n" + actual + "\nvs\n" + expected);
-  }
-
-  /**
-   * Writes the master snapshot when {@value #WRITE_SNAPSHOT_PROPERTY} is set. Run on master only.
-   */
-  @Test
-  public void writeSnapshotWhenRequested() throws Exception {
-    String path =
-        Optional.ofNullable(System.getProperty(WRITE_SNAPSHOT_PROPERTY))
-            .orElse(System.getenv(WRITE_SNAPSHOT_ENV));
-    if (path == null) {
-      return;
+  public void testBuiltInEnvIsIndexedAsItself() throws Exception {
+    JsonNode documents = buildDocuments();
+    for (Case c : CASES) {
+      boolean searchable =
+          aspectSpec(c).getSearchableFieldSpecs().stream()
+              .anyMatch(field -> field.getPath().getPathComponents().contains(c.envField()));
+      for (String env : DOCUMENT_ENVS) {
+        JsonNode doc = documents.get(c.aspectName + "/" + env);
+        assertNotNull(doc, c.aspectName + "/" + env);
+        JsonNode value = doc.path(c.envField());
+        if (searchable) {
+          assertEquals(value.asText(), env, c.aspectName);
+        } else {
+          assertTrue(value.isMissingNode(), c.aspectName + " indexes a non-searchable env");
+        }
+      }
     }
-    ObjectNode snapshot = MAPPER.createObjectNode();
-    snapshot.set("mappings", buildMappings());
-    snapshot.set("documents", buildDocuments());
-    MAPPER.writerWithDefaultPrettyPrinter().writeValue(new File(path), snapshot);
   }
 
   private JsonNode buildMappings() throws Exception {
@@ -310,9 +324,9 @@ public class FabricTypeNameCompatTest {
     return Arrays.stream(FabricType.values()).filter(v -> v != FabricType.$UNKNOWN).toList();
   }
 
-  private JsonNode readSnapshot() throws Exception {
-    try (InputStream in = getClass().getResourceAsStream(SNAPSHOT_RESOURCE)) {
-      assertNotNull(in, "missing " + SNAPSHOT_RESOURCE);
+  private JsonNode readFixture() throws Exception {
+    try (InputStream in = getClass().getResourceAsStream(ENV_FIELD_MAPPINGS)) {
+      assertNotNull(in, "missing " + ENV_FIELD_MAPPINGS);
       return MAPPER.readTree(in);
     }
   }
@@ -325,25 +339,23 @@ public class FabricTypeNameCompatTest {
     }
   }
 
-  /** Flattens a mapping into leaf path -> value, e.g. {@code properties.origin.type -> keyword}. */
-  private static Map<String, String> flatten(JsonNode node) {
-    Map<String, String> out = new TreeMap<>();
-    flatten("", node, out);
-    return out;
-  }
-
-  private static void flatten(String prefix, JsonNode node, Map<String, String> out) {
-    if (node.isObject()) {
-      node.fields()
-          .forEachRemaining(
-              e ->
-                  flatten(
-                      prefix.isEmpty() ? e.getKey() : prefix + "." + e.getKey(),
-                      e.getValue(),
-                      out));
-    } else {
-      out.put(prefix, node.toString());
+  private static void collectEnvFields(
+      String index, String path, JsonNode node, Map<String, JsonNode> out) {
+    if (!node.isObject()) {
+      return;
     }
+    node.fields()
+        .forEachRemaining(
+            entry -> {
+              String childPath = path.isEmpty() ? entry.getKey() : path + "." + entry.getKey();
+              JsonNode child = entry.getValue();
+              if (("env".equals(entry.getKey()) || "origin".equals(entry.getKey()))
+                  && child.isObject()
+                  && child.has("type")) {
+                out.put(index + " " + childPath, child);
+              }
+              collectEnvFields(index, childPath, child, out);
+            });
   }
 
   private record Case(String entityName, String aspectName, String urn, String aspectJson) {

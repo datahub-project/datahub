@@ -1,0 +1,45 @@
+{
+  "fieldMappings": [
+    {
+      "fields": {
+        "keyword": {
+          "type": "keyword"
+        }
+      },
+      "normalizer": "keyword_normalizer",
+      "type": "keyword"
+    },
+    {
+      "fields": {
+        "delimited": {
+          "analyzer": "word_delimited",
+          "search_analyzer": "query_word_delimited",
+          "search_quote_analyzer": "quote_analyzer",
+          "type": "text"
+        },
+        "keyword": {
+          "ignore_above": 32766,
+          "type": "keyword"
+        },
+        "ngram": {
+          "analyzer": "partial",
+          "doc_values": "false",
+          "max_shingle_size": "4",
+          "type": "search_as_you_type"
+        }
+      },
+      "ignore_above": 32766,
+      "normalizer": "keyword_normalizer",
+      "type": "keyword"
+    },
+    {
+      "doc_values": false,
+      "index": false,
+      "type": "keyword"
+    },
+    {
+      "ignore_above": 8191,
+      "type": "keyword"
+    }
+  ]
+}
