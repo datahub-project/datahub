@@ -311,6 +311,10 @@ def _is_stored_qvd(store: UnmappedFileStore) -> bool:
     )
 
 
+def _file_display_name(name: str) -> str:
+    return name[: -len(QVD_EXTENSION)] if name.lower().endswith(QVD_EXTENSION) else name
+
+
 def _is_qvd(dataset: Union[QlikDataset, ListedDataset]) -> bool:
     return dataset.type.upper() == "QVD" or dataset.name.lower().endswith(QVD_EXTENSION)
 
@@ -3480,6 +3484,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 entityUrn=urn,
                 aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_QVD]),
             ).as_workunit(is_primary_source=False)
+            # Only the name, so a source that ingests the file keeps the rest.
+            patch = DatasetPatchBuilder(urn).set_display_name(
+                _file_display_name(posixpath.basename(DatasetUrn.from_string(urn).name))
+            )
+            yield from _patch_workunits(patch, is_primary_source=False)
 
     def _link_unmapped_file(self, app_id: str, urn: str) -> None:
         self._linked_unmapped_files.add(urn)
@@ -4790,9 +4799,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=DatasetProperties(
-                name=name[: -len(QVD_EXTENSION)]
-                if name.lower().endswith(QVD_EXTENSION)
-                else name,
+                name=_file_display_name(name),
                 qualifiedName=path,
                 customProperties={
                     Constant.TYPE: subtype,

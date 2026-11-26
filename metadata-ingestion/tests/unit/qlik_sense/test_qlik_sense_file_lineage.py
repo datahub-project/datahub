@@ -372,11 +372,12 @@ def test_file_on_a_mapped_windows_share_takes_the_on_prem_dataset(
     assert urn == SHARE_ORDERS_QVD
     # No source ingests QVDs on a share the on-prem run doesn't read, so the
     # file is typed here, never as the source that could remove it as stale.
-    [subtypes] = list(source._gen_storage_qvd_types())
+    subtypes, name = list(source._gen_storage_qvd_types())
     assert subtypes.get_urn() == SHARE_ORDERS_QVD
     aspect = subtypes.get_aspect_of_type(SubTypesClass)
     assert aspect is not None and aspect.typeNames == ["QVD"]
     assert not subtypes.is_primary_source
+    assert name.get_urn() == SHARE_ORDERS_QVD and not name.is_primary_source
 
 
 GATEWAY_STATEMENT = 'CUSTOM CONNECT TO "sourceType=DG_File_local;path=' + SHARE + ';"'
@@ -444,7 +445,7 @@ def test_file_read_as_a_qvd_on_a_mapped_share_takes_the_on_prem_dataset(
         ).urn
         == urn
     )
-    [subtypes] = list(source._gen_storage_qvd_types())
+    subtypes, _ = list(source._gen_storage_qvd_types())
     assert subtypes.get_urn() == urn
     aspect = subtypes.get_aspect_of_type(SubTypesClass)
     assert aspect is not None and aspect.typeNames == ["QVD"]

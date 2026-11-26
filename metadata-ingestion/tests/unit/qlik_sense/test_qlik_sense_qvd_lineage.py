@@ -337,6 +337,12 @@ def _run(
                 aspects.setdefault(wu.get_urn(), {}).setdefault("patch", []).extend(
                     op["path"] for op in json.loads(wu.metadata.aspect.value)
                 )
+                if wu.metadata.aspectName == DatasetPropertiesClass.ASPECT_NAME:
+                    aspects[wu.get_urn()]["patched_name"] = next(
+                        op["value"]
+                        for op in json.loads(wu.metadata.aspect.value)
+                        if op["path"] == "/name"
+                    )
                 if wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME:
                     aspects[wu.get_urn()].setdefault("lineage_ops", []).extend(
                         (op["op"], _pointer_parts(op["path"]))
@@ -422,15 +428,17 @@ def test_qvds_of_a_storage_connection_take_the_file_dataset_qlik_cloud_uses() ->
         for u in aspects[_urn("report-app.sales")]["UpstreamLineageClass"].upstreams
     ] == [STORAGE_QVD]
     # Another platform's dataset: only its lineage and, as no storage source
-    # ingests QVDs, its subtype are written, never as the source that could
-    # remove it when stale.
+    # ingests QVDs, its subtype and name are written, never as the source that
+    # could remove it when stale.
     assert set(aspects[STORAGE_QVD]) == {
         "patch",
         "lineage_ops",
+        "patched_name",
         "not_primary_source",
         "SubTypesClass",
     }
     assert aspects[STORAGE_QVD]["SubTypesClass"].typeNames == ["QVD"]
+    assert aspects[STORAGE_QVD]["patched_name"] == "orders"
     assert not source.reporter.unresolved_qvd_paths
 
 
