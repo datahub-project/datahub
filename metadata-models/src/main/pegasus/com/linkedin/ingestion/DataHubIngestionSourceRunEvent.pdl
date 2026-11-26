@@ -44,7 +44,7 @@ record DataHubIngestionSourceRunEvent includes TimeseriesAspectBase {
   status: string
 
   /**
-   * The ingestion source's type when the run was requested, e.g. mysql or bigquery, so the run
+   * The ingestion source's type when the event was recorded, e.g. mysql or bigquery, so the run
    * history can be filtered by platform.
    */
   @TimeseriesField = {}

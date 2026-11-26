@@ -16,7 +16,6 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -43,7 +42,15 @@ public class IngestionSourceRunEventValidator extends AspectPayloadValidator {
     return AspectPluginConfig.builder()
         .enabled(true)
         .className(IngestionSourceRunEventValidator.class.getName())
-        .supportedOperations(List.of(ChangeType.UPSERT.toString()))
+        .supportedOperations(
+            Stream.of(
+                    ChangeType.CREATE,
+                    ChangeType.CREATE_ENTITY,
+                    ChangeType.UPSERT,
+                    ChangeType.UPDATE,
+                    ChangeType.PATCH)
+                .map(ChangeType::toString)
+                .toList())
         .supportedEntityAspectNames(
             Stream.of(
                     INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,

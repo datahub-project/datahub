@@ -13,7 +13,6 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
 import com.linkedin.ingestion.DataHubIngestionSourceRunSummary;
-import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -110,11 +109,21 @@ public final class IngestionSourceRunEvents {
             .setLastRunRequestedAtMillis(requestedAt)
             .setLastRunStatus(status);
     if (SUCCESS_STATUSES.contains(status)) {
-      summary.setLastSuccessfulRunRequestedAtMillis(requestedAt);
+      setLastSuccess(summary, executionRequestUrn, requestedAt);
     } else if (FAILURE_STATUSES.contains(status)) {
       summary.setLastFailedRunRequestedAtMillis(requestedAt);
     }
     return summary;
+  }
+
+  /** Sets the summary's last successful run. */
+  public static void setLastSuccess(
+      @Nonnull DataHubIngestionSourceRunSummary summary,
+      @Nonnull Urn executionRequestUrn,
+      long requestedAt) {
+    summary
+        .setLastSuccessfulExecutionRequest(executionRequestUrn)
+        .setLastSuccessfulRunRequestedAtMillis(requestedAt);
   }
 
   /**
@@ -138,7 +147,11 @@ public final class IngestionSourceRunEvents {
       return false;
     }
     DataHubIngestionSourceRunSummary before = copy(proposed);
-    if (!isSameOrNewerRun(stored, proposed)) {
+    if (!isSameOrNewer(
+        proposed.getLastRunRequestedAtMillis(),
+        proposed.getLastExecutionRequest(),
+        stored.getLastRunRequestedAtMillis(),
+        stored.getLastExecutionRequest())) {
       proposed
           .setLastExecutionRequest(stored.getLastExecutionRequest())
           .setLastRunRequestedAtMillis(stored.getLastRunRequestedAtMillis())
@@ -146,53 +159,63 @@ public final class IngestionSourceRunEvents {
     }
     boolean rollsBackStoredSuccess =
         ROLLBACK_STATUSES.contains(before.getLastRunStatus())
-            && Objects.equals(
-                stored.getLastSuccessfulRunRequestedAtMillis(),
-                before.getLastRunRequestedAtMillis());
+            && before.getLastExecutionRequest().equals(stored.getLastSuccessfulExecutionRequest());
     if (!rollsBackStoredSuccess) {
-      setOrRemove(
-          proposed,
-          true,
-          later(
-              stored.getLastSuccessfulRunRequestedAtMillis(),
-              proposed.getLastSuccessfulRunRequestedAtMillis()));
+      keepLaterSuccess(stored, proposed);
     }
-    setOrRemove(
+    setOrRemoveLastFailure(
         proposed,
-        false,
         later(
             stored.getLastFailedRunRequestedAtMillis(),
             proposed.getLastFailedRunRequestedAtMillis()));
     return !before.equals(proposed);
   }
 
-  private static boolean isSameOrNewerRun(
+  private static void keepLaterSuccess(
       @Nonnull DataHubIngestionSourceRunSummary stored,
       @Nonnull DataHubIngestionSourceRunSummary proposed) {
-    if (stored.getLastExecutionRequest().equals(proposed.getLastExecutionRequest())) {
-      return true;
+    if (!stored.hasLastSuccessfulRunRequestedAtMillis()) {
+      return;
     }
-    int byTime =
-        Long.compare(proposed.getLastRunRequestedAtMillis(), stored.getLastRunRequestedAtMillis());
-    // Ties break on the urn so every writer agrees on the latest run.
-    return byTime != 0
-        ? byTime > 0
-        : proposed
-                .getLastExecutionRequest()
-                .toString()
-                .compareTo(stored.getLastExecutionRequest().toString())
-            > 0;
+    long storedAt = stored.getLastSuccessfulRunRequestedAtMillis();
+    if (proposed.hasLastSuccessfulRunRequestedAtMillis()) {
+      long proposedAt = proposed.getLastSuccessfulRunRequestedAtMillis();
+      boolean proposedIsLater =
+          stored.hasLastSuccessfulExecutionRequest() && proposed.hasLastSuccessfulExecutionRequest()
+              ? isSameOrNewer(
+                  proposedAt,
+                  proposed.getLastSuccessfulExecutionRequest(),
+                  storedAt,
+                  stored.getLastSuccessfulExecutionRequest())
+              : proposedAt >= storedAt;
+      if (proposedIsLater) {
+        return;
+      }
+    }
+    proposed.setLastSuccessfulRunRequestedAtMillis(storedAt);
+    if (stored.hasLastSuccessfulExecutionRequest()) {
+      proposed.setLastSuccessfulExecutionRequest(stored.getLastSuccessfulExecutionRequest());
+    } else {
+      proposed.removeLastSuccessfulExecutionRequest();
+    }
   }
 
-  private static void setOrRemove(
-      @Nonnull DataHubIngestionSourceRunSummary summary, boolean success, @Nullable Long value) {
-    if (success) {
-      if (value != null) {
-        summary.setLastSuccessfulRunRequestedAtMillis(value);
-      } else {
-        summary.removeLastSuccessfulRunRequestedAtMillis();
-      }
-    } else if (value != null) {
+  private static boolean isSameOrNewer(
+      long proposedRequestedAt,
+      @Nonnull Urn proposedRun,
+      long storedRequestedAt,
+      @Nonnull Urn storedRun) {
+    if (proposedRun.equals(storedRun)) {
+      return true;
+    }
+    int byTime = Long.compare(proposedRequestedAt, storedRequestedAt);
+    // Ties break on the urn so every writer agrees on the latest run.
+    return byTime != 0 ? byTime > 0 : proposedRun.toString().compareTo(storedRun.toString()) > 0;
+  }
+
+  private static void setOrRemoveLastFailure(
+      @Nonnull DataHubIngestionSourceRunSummary summary, @Nullable Long value) {
+    if (value != null) {
       summary.setLastFailedRunRequestedAtMillis(value);
     } else {
       summary.removeLastFailedRunRequestedAtMillis();

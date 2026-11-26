@@ -21,7 +21,9 @@ import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
 import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesValidator;
 import com.linkedin.metadata.forms.validation.FormPromptValidator;
+import com.linkedin.metadata.ingestion.hooks.IngestionSourceRunSummaryMutator;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
+import com.linkedin.metadata.ingestion.validation.IngestionSourceRunEventValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
@@ -294,6 +296,34 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
         context.getBean("ExecuteIngestionAuthValidator", AspectPayloadValidator.class);
     assertNotNull(validator);
     assertTrue(validator instanceof ExecuteIngestionAuthValidator);
+  }
+
+  @Test
+  public void testIngestionSourceRunEventValidatorBeanCreation() {
+    AspectPayloadValidator validator =
+        context.getBean("ingestionSourceRunEventValidator", AspectPayloadValidator.class);
+    assertTrue(validator instanceof IngestionSourceRunEventValidator);
+    assertEquals(
+        validator.getConfig().getSupportedEntityAspectNames().stream()
+            .map(name -> name.getEntityName() + "/" + name.getAspectName())
+            .toList(),
+        List.of(
+            "dataHubIngestionSource/dataHubIngestionSourceRunEvent",
+            "dataHubIngestionSource/dataHubIngestionSourceRunSummary"));
+    assertEquals(
+        validator.getConfig().getSupportedOperations(),
+        IngestionSourceRunSummaryMutator.pluginConfig().getSupportedOperations());
+  }
+
+  @Test
+  public void testIngestionSourceRunSummaryMutatorBeanCreation() {
+    MutationHook mutator = context.getBean("ingestionSourceRunSummaryMutator", MutationHook.class);
+    assertTrue(mutator instanceof IngestionSourceRunSummaryMutator);
+    assertEquals(
+        mutator.getConfig().getSupportedEntityAspectNames().stream()
+            .map(name -> name.getEntityName() + "/" + name.getAspectName())
+            .toList(),
+        List.of("dataHubIngestionSource/dataHubIngestionSourceRunSummary"));
   }
 
   @Test

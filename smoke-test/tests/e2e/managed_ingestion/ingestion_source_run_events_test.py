@@ -34,6 +34,12 @@ _CREATE_RUN = """mutation createIngestionExecutionRequest($input: CreateIngestio
     createIngestionExecutionRequest(input: $input)
 }"""
 
+_LIST_RUNS = """query listExecutionRequests($input: ListExecutionRequestsInput!) {
+    listExecutionRequests(input: $input) {
+        total
+    }
+}"""
+
 _LIST_SOURCES = """query listIngestionSources($input: ListIngestionSourcesInput!) {
     listIngestionSources(input: $input) {
         ingestionSources {
@@ -127,6 +133,26 @@ def _set_status(graph_client: DataHubGraph, run_urn: str, status: str) -> None:
 
 
 @with_test_retry()
+def _ensure_run_indexed(auth_session, run_urn: str, status: str) -> None:
+    """The hook looks up the replacement for a rolled-back success in the search index."""
+    total = execute_graphql(
+        auth_session,
+        _LIST_RUNS,
+        {
+            "input": {
+                "start": 0,
+                "count": 1,
+                "filters": [
+                    {"field": "urn", "values": [run_urn]},
+                    {"field": "executionResultStatus", "values": [status]},
+                ],
+            }
+        },
+    )["data"]["listExecutionRequests"]["total"]
+    assert total == 1
+
+
+@with_test_retry()
 def _ensure_listed(
     auth_session,
     source_urns: List[str],
@@ -214,6 +240,27 @@ def test_older_run_finishing_late_keeps_the_latest_run(
     older_event = _ensure_run_event(graph_client, source, older_run, "TIMEOUT")
     summary = _ensure_summary(graph_client, source, newer_run, "PENDING")
     assert summary.lastFailedRunRequestedAtMillis == older_event.requestedAtMillis
+
+
+def test_rollback_of_the_last_success_restores_the_previous_one(
+    auth_session, graph_client, source_urns, run_urns
+):
+    source = source_urns[0]
+    earlier_run = _run(auth_session, source, run_urns)
+    time.sleep(0.05)
+    later_run = _run(auth_session, source, run_urns)
+    _set_status(graph_client, earlier_run, "SUCCESS")
+    _ensure_run_indexed(auth_session, earlier_run, "SUCCESS")
+    _set_status(graph_client, later_run, "SUCCESS")
+    later_summary = _ensure_summary(graph_client, source, later_run, "SUCCESS")
+    assert later_summary.lastSuccessfulExecutionRequest == later_run
+
+    _set_status(graph_client, later_run, "ROLLED_BACK")
+
+    earlier_event = _ensure_run_event(graph_client, source, earlier_run, "SUCCESS")
+    summary = _ensure_summary(graph_client, source, later_run, "ROLLED_BACK")
+    assert summary.lastSuccessfulExecutionRequest == earlier_run
+    assert summary.lastSuccessfulRunRequestedAtMillis == earlier_event.requestedAtMillis
 
 
 def test_run_event_does_not_create_missing_source(graph_client):

@@ -10,7 +10,8 @@ import com.linkedin.common.Urn
  *
  * Writes are merged with the stored summary when they are committed: the latest run only moves to
  * a newer request (or a new status of the same request), and the last success and failure times
- * only move forward, except that a rolled-back run stops being the last success.
+ * only move forward, except that a rolled-back run stops being the last success once the previous
+ * successful run is visible in the execution request index.
  */
 @Aspect = {
   "name": "dataHubIngestionSourceRunSummary"
@@ -50,8 +51,19 @@ record DataHubIngestionSourceRunSummary {
   lastRunStatus: string
 
   /**
+   * The most recent run whose status is SUCCESS.
+   */
+  @UrnValidation = {
+    "exist": false,
+    "strict": true,
+    "entityTypes": [ "dataHubExecutionRequest" ]
+  }
+  lastSuccessfulExecutionRequest: optional Urn
+
+  /**
    * Request time of the most recent run whose status is SUCCESS. A run that is later rolled back
-   * is replaced by the previous successful run.
+   * is replaced by the previous successful run, once that run is visible in the execution request
+   * index.
    */
   @Searchable = {
     "fieldName": "lastSuccessfulRunRequestedAtMillis",

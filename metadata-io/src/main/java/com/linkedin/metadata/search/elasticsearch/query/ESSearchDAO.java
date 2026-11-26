@@ -2061,7 +2061,9 @@ public class ESSearchDAO {
   @WithSpan
   @Nonnull
   public Map<Urn, LatestIngestionRuns> getLatestIngestionRuns(
-      @Nonnull OperationContext opContext, @Nonnull Set<Urn> ingestionSourceUrns) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> ingestionSourceUrns,
+      @Nonnull Set<Urn> excludedExecutionRequests) {
     if (ingestionSourceUrns.isEmpty()) {
       return Map.of();
     }
@@ -2074,7 +2076,8 @@ public class ESSearchDAO {
                 Lists.partition(
                     new ArrayList<>(ingestionSourceUrns), INGESTION_RUN_STATS_URN_BATCH_SIZE)) {
               final SearchRequest searchRequest =
-                  buildLatestIngestionRunsRequest(opContext, new HashSet<>(batch));
+                  buildLatestIngestionRunsRequest(
+                      opContext, new HashSet<>(batch), excludedExecutionRequests);
               final SearchResponse searchResponse =
                   SearchTookMetrics.time(
                       opContext,
@@ -2096,7 +2099,9 @@ public class ESSearchDAO {
 
   @VisibleForTesting
   public SearchRequest buildLatestIngestionRunsRequest(
-      @Nonnull OperationContext opContext, @Nonnull Set<Urn> ingestionSourceUrns) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> ingestionSourceUrns,
+      @Nonnull Set<Urn> excludedExecutionRequests) {
     final String[] urnStrings =
         ingestionSourceUrns.stream().map(Urn::toString).toArray(String[]::new);
     final String sourceField =
@@ -2111,6 +2116,11 @@ public class ESSearchDAO {
 
     final BoolQueryBuilder query =
         QueryBuilders.boolQuery().filter(QueryBuilders.termsQuery(sourceField, urnStrings));
+    if (!excludedExecutionRequests.isEmpty()) {
+      query.mustNot(
+          QueryBuilders.termsQuery(
+              "urn", excludedExecutionRequests.stream().map(Urn::toString).toList()));
+    }
     ESUtils.applyDefaultSearchFilters(
         opContext,
         List.of(Constants.EXECUTION_REQUEST_ENTITY_NAME),

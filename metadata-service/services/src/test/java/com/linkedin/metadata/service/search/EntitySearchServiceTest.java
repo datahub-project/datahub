@@ -270,7 +270,9 @@ public class EntitySearchServiceTest {
     @Nonnull
     @Override
     public Map<Urn, LatestIngestionRuns> getLatestIngestionRuns(
-        @Nonnull OperationContext opContext, @Nonnull Set<Urn> ingestionSourceUrns) {
+        @Nonnull OperationContext opContext,
+        @Nonnull Set<Urn> ingestionSourceUrns,
+        @Nonnull Set<Urn> excludedExecutionRequests) {
       return Map.of();
     }
 

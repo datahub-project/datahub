@@ -233,8 +233,21 @@ public interface EntitySearchService {
    * @return map of ingestion source urn -> {@link LatestIngestionRuns}
    */
   @Nonnull
+  default Map<Urn, LatestIngestionRuns> getLatestIngestionRuns(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> ingestionSourceUrns) {
+    return getLatestIngestionRuns(opContext, ingestionSourceUrns, Set.of());
+  }
+
+  /**
+   * As {@link #getLatestIngestionRuns(OperationContext, Set)}, ignoring the execution requests in
+   * {@code excludedExecutionRequests}, e.g. runs being rolled back that the index may still show
+   * with their earlier status.
+   */
+  @Nonnull
   Map<Urn, LatestIngestionRuns> getLatestIngestionRuns(
-      @Nonnull OperationContext opContext, @Nonnull Set<Urn> ingestionSourceUrns);
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> ingestionSourceUrns,
+      @Nonnull Set<Urn> excludedExecutionRequests);
 
   /**
    * Gets a list of groups/entities that match given browse request.
