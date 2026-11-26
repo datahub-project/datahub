@@ -117,10 +117,7 @@ export function NavLinksMenu(props: Props) {
     const showSettings = true;
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showIngestion =
-        isIngestionEnabled &&
-        me &&
-        ((me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets) ||
-            config?.featureFlags?.viewIngestionSourcePrivilegesEnabled);
+        isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
 
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
