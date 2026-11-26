@@ -5,13 +5,13 @@ from datahub.ingestion.source.qlik_sense.constants import UNQUALIFIED_TABLES_SKI
 from datahub.ingestion.source.qlik_sense.data_classes import (
     DATABASE_QRI_PREFIX,
     App,
-    LineageTable,
 )
 from datahub.ingestion.source.qlik_sense.lib_path import _named_space
 from datahub.ingestion.source.qlik_sense.reload_sql import (
     READ_QUERY_TYPES,
     RELOAD_SQL_RE,
     RELOAD_UNPARSED_SQL_RE,
+    _add_reload_column_lineage,
     _database_qri_platform,
     _label_parts,
     _names_identifier,
@@ -39,12 +39,11 @@ from datahub.ingestion.source.qlik_sense.source_utils import (
     _bounded_list,
     _describe_error,
     _error_type,
-    _refs_of_field_sources,
 )
+from datahub.ingestion.source.qlik_sense.table_matching import _lineage_table_identifier
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
-    column_refs_to_schema_field_urns,
     create_lineage_sql_parsed_result,
     create_schema_resolver,
 )
@@ -240,7 +239,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
                 continue
             lineage = ScriptTableLineage(
                 label=table.label,
-                identifier=self._lineage_table_identifier(app.id, table),
+                identifier=_lineage_table_identifier(app.id, table),
             )
             for group in untraced[table.qri]:
                 urn = self._reload_sql_source(app, parsed, group)
@@ -252,9 +251,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
                     # With several such sources, which one the table is isn't
                     # known, so neither are the graph fields it loads.
                     (source_qri,) = group.labels
-                    self._add_reload_column_lineage(
-                        lineage, table, parsed, source_qri, urn
-                    )
+                    _add_reload_column_lineage(lineage, table, parsed, source_qri, urn)
             if lineage.upstream_urns:
                 self.reporter.reload_sql_tables_with_lineage += 1
                 lineages[table.qri] = lineage
@@ -307,51 +304,6 @@ class ReloadSqlMixin(SourceResolutionMixin):
             # dataset DataHub holds.
             self.reporter.reload_sql_tables_not_in_datahub.append(f"{app.id}: {urn}")
         return urn
-
-    @staticmethod
-    def _add_reload_column_lineage(
-        lineage: ScriptTableLineage,
-        table: LineageTable,
-        parsed: _ParsedReloadSql,
-        source_qri: str,
-        urn: str,
-    ) -> None:
-        """Maps the graph table's fields to the columns of `urn` that the one
-        reload statement reading it selects under the same name."""
-        statements = [s for s in parsed.statements if urn in s.upstream_urns]
-        if len(statements) != 1:
-            # Another statement reading the table may load another table.
-            return
-        # The ids of the source's columns each field loads, when the graph's
-        # field level names them.
-        source_field_ids: Dict[str, Set[str]] = {}
-        for field, field_qris in table.field_source_qris.items():
-            for field_qri in field_qris:
-                table_qri, _, field_id = field_qri.rpartition("#")
-                if table_qri == source_qri:
-                    source_field_ids.setdefault(field, set()).add(field_id)
-        # The graph table's fields are Qlik's names, which may differ in case
-        # from the columns.
-        fields = {field.lower(): field for field in table.fields}
-        for column in statements[0].result.column_lineage or []:
-            field_name = fields.get(column.downstream.column.lower())
-            if field_name is None:
-                continue
-            refs = [ref for ref in column.upstreams if ref.table == urn]
-            if source_field_ids:
-                # A LOAD over the SQL may rename fields, which the reload SQL
-                # doesn't show, so the graph decides which column each loads.
-                refs = _refs_of_field_sources(
-                    refs, field_name, source_field_ids.get(field_name, set())
-                )
-            if not refs:
-                continue
-            upstreams = lineage.column_upstreams.setdefault(field_name, [])
-            upstreams.extend(
-                upstream
-                for upstream in column_refs_to_schema_field_urns(refs)
-                if upstream not in upstreams
-            )
 
     def _read_database_source_labels(self, app: App) -> None:
         """Labels the graph tables' database sources by, such as `dbo.orders`,

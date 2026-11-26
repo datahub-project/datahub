@@ -32,7 +32,10 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     _CataloguedFile,
     _FileSourceResolution,
 )
-from datahub.ingestion.source.qlik_sense.source_utils import _is_qvd
+from datahub.ingestion.source.qlik_sense.source_utils import (
+    _is_qvd,
+    _qlik_dataset_identifier,
+)
 
 
 class FileIdentityMixin(DashboardMixin):
@@ -78,7 +81,7 @@ class FileIdentityMixin(DashboardMixin):
         )
         return {
             dataset.secure_qri: self._gen_qlik_dataset_urn(
-                self._qlik_dataset_identifier(dataset.space_id, dataset.name)
+                _qlik_dataset_identifier(dataset.space_id, dataset.name)
             )
             for dataset in allowed
             if dataset.secure_qri is not None

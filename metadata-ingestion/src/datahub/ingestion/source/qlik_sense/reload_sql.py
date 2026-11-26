@@ -7,12 +7,17 @@ import datahub.emitter.mce_builder as builder
 from datahub.ingestion.source.qlik_sense.data_classes import (
     DATABASE_QRI_PREFIX,
     KNOWN_DATA_PLATFORM_MAPPING,
+    LineageTable,
     ReloadStatement,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
+from datahub.ingestion.source.qlik_sense.source_utils import _refs_of_field_sources
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sql_parsing_common import QueryType
-from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    column_refs_to_schema_field_urns,
+)
 
 # A reload statement that ran SQL: Qlik keeps the `SQL` prefix when the script
 # used one, and a bare `SELECT` or `WITH` is SQL too.
@@ -336,3 +341,48 @@ def _merged_lineage(
     return script_table.model_copy(
         update={"upstream_urns": upstream_urns, "column_upstreams": column_upstreams}
     )
+
+
+def _add_reload_column_lineage(
+    lineage: ScriptTableLineage,
+    table: LineageTable,
+    parsed: _ParsedReloadSql,
+    source_qri: str,
+    urn: str,
+) -> None:
+    """Maps the graph table's fields to the columns of `urn` that the one
+    reload statement reading it selects under the same name."""
+    statements = [s for s in parsed.statements if urn in s.upstream_urns]
+    if len(statements) != 1:
+        # Another statement reading the table may load another table.
+        return
+    # The ids of the source's columns each field loads, when the graph's
+    # field level names them.
+    source_field_ids: Dict[str, Set[str]] = {}
+    for field, field_qris in table.field_source_qris.items():
+        for field_qri in field_qris:
+            table_qri, _, field_id = field_qri.rpartition("#")
+            if table_qri == source_qri:
+                source_field_ids.setdefault(field, set()).add(field_id)
+    # The graph table's fields are Qlik's names, which may differ in case
+    # from the columns.
+    fields = {field.lower(): field for field in table.fields}
+    for column in statements[0].result.column_lineage or []:
+        field_name = fields.get(column.downstream.column.lower())
+        if field_name is None:
+            continue
+        refs = [ref for ref in column.upstreams if ref.table == urn]
+        if source_field_ids:
+            # A LOAD over the SQL may rename fields, which the reload SQL
+            # doesn't show, so the graph decides which column each loads.
+            refs = _refs_of_field_sources(
+                refs, field_name, source_field_ids.get(field_name, set())
+            )
+        if not refs:
+            continue
+        upstreams = lineage.column_upstreams.setdefault(field_name, [])
+        upstreams.extend(
+            upstream
+            for upstream in column_refs_to_schema_field_urns(refs)
+            if upstream not in upstreams
+        )

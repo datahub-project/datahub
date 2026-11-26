@@ -9,7 +9,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.qlik_sense.config import Constant
 from datahub.ingestion.source.qlik_sense.data_classes import (
-    FIELD_TYPE_MAPPING,
     AppKey,
     QlikDataset,
     SchemaField as QlikDatasetSchemaField,
@@ -20,6 +19,8 @@ from datahub.ingestion.source.qlik_sense.source.base import QlikSourceBase
 from datahub.ingestion.source.qlik_sense.source_utils import (
     _dataset_display_name,
     _dataset_subtype,
+    _gen_schema_field,
+    _qlik_dataset_identifier,
     _qlik_field_id,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -30,7 +31,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
-    NullType,
     SchemaField,
     SchemaMetadata,
 )
@@ -40,7 +40,6 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    SchemaFieldDataTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -156,26 +155,10 @@ class EntityEmitMixin(QlikSourceBase):
         else:
             return None
 
-    @staticmethod
-    def _gen_schema_field(field: QlikDatasetSchemaField) -> SchemaField:
-        return SchemaField(
-            fieldPath=field.name,
-            type=SchemaFieldDataTypeClass(
-                type=(
-                    FIELD_TYPE_MAPPING.get(field.dataType, NullType)()
-                    if field.dataType
-                    else NullType()
-                )
-            ),
-            nativeDataType=field.dataType if field.dataType else "",
-            nullable=field.nullable,
-            isPartOfKey=field.primaryKey,
-        )
-
     def _gen_schema_fields(
         self, schema: List[QlikDatasetSchemaField]
     ) -> List[SchemaField]:
-        return [self._gen_schema_field(field) for field in schema]
+        return [_gen_schema_field(field) for field in schema]
 
     def _gen_schema_metadata(
         self, dataset_identifier: str, dataset_schema: List[QlikDatasetSchemaField]
@@ -221,14 +204,8 @@ class EntityEmitMixin(QlikSourceBase):
             entityUrn=dataset_urn, aspect=dataset_properties
         ).as_workunit()
 
-    @staticmethod
-    def _qlik_dataset_identifier(space_id: str, name: str) -> str:
-        return f"{space_id}.{name}".lower()
-
     def _gen_dataset_workunit(self, dataset: QlikDataset) -> Iterable[MetadataWorkUnit]:
-        dataset_identifier = self._qlik_dataset_identifier(
-            dataset.spaceId, dataset.name
-        )
+        dataset_identifier = _qlik_dataset_identifier(dataset.spaceId, dataset.name)
         dataset_urn = self._gen_qlik_dataset_urn(dataset_identifier)
         if dataset.stored_from_qris is not None:
             self._dataset_store_sources[dataset_urn] = dataset.stored_from_qris

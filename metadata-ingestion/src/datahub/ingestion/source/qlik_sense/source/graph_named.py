@@ -14,6 +14,7 @@ from datahub.ingestion.source.qlik_sense.lib_path import (
     _path_key,
     _path_space,
 )
+from datahub.ingestion.source.qlik_sense.lineage_utils import _patch_upstreams
 from datahub.ingestion.source.qlik_sense.reload_sql import _reload_files
 from datahub.ingestion.source.qlik_sense.source.file_entities import FileEntitiesMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
@@ -195,7 +196,7 @@ class GraphNamedMixin(FileEntitiesMixin):
                 if (writer := self._app_table_urns_by_qri.get(qri)) is not None
                 and writer != urn
             }
-            yield from self._patch_upstreams(
+            yield from _patch_upstreams(
                 urn, sorted(writer_urns), DatasetLineageType.COPY
             )
         if self.reporter.graph_named_datasets_without_path:

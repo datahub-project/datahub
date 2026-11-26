@@ -10,6 +10,11 @@ from websocket import WebSocketBadStatusException
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.qlik_sense.chart_fields import (
+    _app_field_key,
+    _get_chart_input_fields,
+    _index_app_fields,
+)
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
@@ -799,7 +804,7 @@ def test_onprem_reads_chart_field_expressions(
 def test_chart_input_fields_match_app_fields() -> None:
     orders = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
     customers = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = _index_app_fields(
         {
             orders: [SchemaField(name="order_id"), SchemaField(name="Net Sales")],
             customers: [
@@ -821,7 +826,7 @@ def test_chart_input_fields_match_app_fields() -> None:
 
     assert [
         (field.dataset_urn, field.field.name)
-        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+        for field in _get_chart_input_fields(chart, app_fields)
     ] == [
         (orders, "Net Sales"),
         (customers, "Region"),
@@ -970,7 +975,7 @@ def test_chart_inputs_when_fields_are_unknown(
         "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)",
     ]
     # A SQL SELECT * script table has no known columns.
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = _index_app_fields(
         {app_tables[0]: [], app_tables[1]: [SchemaField(name="Region")]}
     )
 
@@ -997,7 +1002,7 @@ def test_field_names_match_in_any_case_only_for_script_tables() -> None:
     model_a = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.a,PROD)"
     model_b = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.b,PROD)"
     script = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = _index_app_fields(
         {
             model_a: [SchemaField(name="ID")],
             model_b: [SchemaField(name="id")],
@@ -1010,14 +1015,14 @@ def test_field_names_match_in_any_case_only_for_script_tables() -> None:
 
     assert [
         (field.dataset_urn, field.field.name)
-        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+        for field in _get_chart_input_fields(chart, app_fields)
     ] == [(model_a, "ID"), (script, "amount")]
 
 
 def test_exact_match_does_not_hide_script_table_in_other_case() -> None:
     model = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.a,PROD)"
     script = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = _index_app_fields(
         {model: [SchemaField(name="order_id")], script: [SchemaField(name="ORDER_ID")]},
         script_table_urns={script},
     )
@@ -1026,27 +1031,22 @@ def test_exact_match_does_not_hide_script_table_in_other_case() -> None:
 
     assert [
         (field.dataset_urn, field.field.name)
-        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+        for field in _get_chart_input_fields(chart, app_fields)
     ] == [(model, "order_id"), (script, "ORDER_ID")]
 
 
 def test_qualified_field_name_matches_before_derived_field() -> None:
     table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = _index_app_fields(
         {table: [SchemaField(name="Orders.Region"), SchemaField(name="Orders")]}
     )
 
-    assert QlikSenseSource._app_field_key("Orders.Region", app_fields) == (
-        "Orders.Region"
-    )
-    assert QlikSenseSource._app_field_key("Orders.autoCalendar.Year", app_fields) == (
-        "Orders"
-    )
-    assert QlikSenseSource._app_field_key("Customers.Region", app_fields) is None
+    assert _app_field_key("Orders.Region", app_fields) == ("Orders.Region")
+    assert _app_field_key("Orders.autoCalendar.Year", app_fields) == ("Orders")
+    assert _app_field_key("Customers.Region", app_fields) is None
     # A field whose own name contains a dot keeps it when a suffix is derived.
     assert (
-        QlikSenseSource._app_field_key("Orders.Region.autoCalendar.Year", app_fields)
-        == "Orders.Region"
+        _app_field_key("Orders.Region.autoCalendar.Year", app_fields) == "Orders.Region"
     )
 
 
@@ -1109,9 +1109,7 @@ def test_input_fields_are_kept_when_measures_were_unread(
     chart.fields_complete = False
     chart.fields_unread = fields_unread
     table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
-        {table: [SchemaField(name="Region")]}
-    )
+    app_fields = _index_app_fields({table: [SchemaField(name="Region")]})
 
     inputs = source._chart_inputs([chart], {}, app_fields, [table], False)
     workunits = list(source._gen_charts_workunit([chart], inputs, "app-1"))

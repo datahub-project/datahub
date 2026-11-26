@@ -10,6 +10,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     SchemaField as QlikDatasetSchemaField,
 )
+from datahub.ingestion.source.qlik_sense.lineage_utils import _stale_field_lineage
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     CANONICAL_ABSOLUTE_PATH_RE,
     AppQvdLineage,
@@ -311,7 +312,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
                 fields_unknown = {
                     write.table_urn for write in writes if write.fields is None
                 }
-                for lineage in self._stale_field_lineage(
+                for lineage in _stale_field_lineage(
                     current.fineGrainedLineages or [],
                     fine_grained,
                     owned - fields_unknown,

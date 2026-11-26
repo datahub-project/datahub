@@ -1,4 +1,4 @@
-from typing import Collection, Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -8,6 +8,12 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
+from datahub.ingestion.source.qlik_sense.chart_fields import (
+    _app_field_key,
+    _chart_field_names,
+    _gen_chart_info_patch,
+    _get_chart_input_fields,
+)
 from datahub.ingestion.source.qlik_sense.config import Constant
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
@@ -15,16 +21,17 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     AppFieldIndex,
     Chart,
     ChartInputs,
-    SchemaField as QlikDatasetSchemaField,
     Sheet,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     expand_variables,
-    expression_names,
     reads_unknown_fields,
 )
 from datahub.ingestion.source.qlik_sense.source.app_tables import AppTablesMixin
-from datahub.ingestion.source.qlik_sense.source_utils import _patch_workunits
+from datahub.ingestion.source.qlik_sense.source_utils import (
+    _gen_schema_field,
+    _patch_workunits,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
@@ -35,7 +42,6 @@ from datahub.metadata.schema_classes import (
     InputFieldsClass,
 )
 from datahub.metadata.urns import DatasetUrn
-from datahub.specific.chart import ChartPatchBuilder
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -95,7 +101,7 @@ class DashboardMixin(AppTablesMixin):
                     ]
                 }
             )
-            fields = self._get_chart_input_fields(expanded, app_fields)
+            fields = _get_chart_input_fields(expanded, app_fields)
             inputs[chart.qId] = ChartInputs(
                 fields=fields,
                 tables=self._get_chart_inputs(
@@ -134,9 +140,7 @@ class DashboardMixin(AppTablesMixin):
             if inputs is None:
                 # Unknown inputs would overwrite the ones the last full read
                 # emitted, so only the other chart fields are patched.
-                yield from self._gen_chart_info_patch(
-                    chart_urn, chart, custom_properties
-                )
+                yield from _gen_chart_info_patch(chart_urn, chart, custom_properties)
             else:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=chart_urn,
@@ -160,7 +164,7 @@ class DashboardMixin(AppTablesMixin):
                                 schemaFieldUrn=builder.make_schema_field_urn(
                                     field.dataset_urn, field.field.name
                                 ),
-                                schemaField=self._gen_schema_field(field.field),
+                                schemaField=_gen_schema_field(field.field),
                             )
                             for field in inputs.fields
                         ]
@@ -172,53 +176,6 @@ class DashboardMixin(AppTablesMixin):
                 entity_type="chart",
                 entity_urn=chart_urn,
             )
-
-    @staticmethod
-    def _gen_chart_info_patch(
-        chart_urn: str, chart: Chart, custom_properties: Dict[str, str]
-    ) -> Iterable[MetadataWorkUnit]:
-        # GMS creates missing chart info from its patch template, which also
-        # stamps lastModified. An empty stamp here would erase the last one.
-        patch = ChartPatchBuilder(chart_urn)
-        if chart.title:
-            patch.set_title(chart.title)
-        if chart.visualization:
-            patch.set_description(chart.visualization)
-        for key, value in custom_properties.items():
-            patch.add_custom_property(key, value)
-        yield from _patch_workunits(patch, is_primary_source=True)
-
-    @staticmethod
-    def _chart_field_names(expression: str, app_fields: AppFieldIndex) -> List[str]:
-        # A dimension is usually a bare field name, which may contain spaces.
-        return (
-            [expression] if app_fields.get(expression) else expression_names(expression)
-        )
-
-    @staticmethod
-    def _app_field_key(name: str, app_fields: AppFieldIndex) -> Optional[str]:
-        """The app field a chart name reads. A derived field such as
-        Date.autoCalendar.Year reads its base field, the longest leading part
-        of the name that is a field (field names can contain dots), unless a
-        field of that exact name exists."""
-        key = name
-        while not app_fields.get(key) and "." in key:
-            key = key.rsplit(".", 1)[0]
-        return key if app_fields.get(key) else None
-
-    @staticmethod
-    def _get_chart_input_fields(
-        chart: Chart, app_fields: AppFieldIndex
-    ) -> List[AppField]:
-        matched: Dict[str, AppField] = {}
-        for expression in chart.field_expressions:
-            for name in DashboardMixin._chart_field_names(expression, app_fields):
-                key = DashboardMixin._app_field_key(name, app_fields)
-                for app_field in app_fields.get(key) if key else []:
-                    matched.setdefault(
-                        f"{app_field.dataset_urn}.{app_field.field.name}", app_field
-                    )
-        return list(matched.values())
 
     def _get_chart_inputs(
         self,
@@ -237,8 +194,8 @@ class DashboardMixin(AppTablesMixin):
         unmatched = [
             name
             for expression in chart.field_expressions
-            for name in self._chart_field_names(expression, app_fields)
-            if self._app_field_key(name, app_fields) is None
+            for name in _chart_field_names(expression, app_fields)
+            if _app_field_key(name, app_fields) is None
         ]
         if (
             not chart.fields_complete
@@ -250,41 +207,6 @@ class DashboardMixin(AppTablesMixin):
         # Otherwise every name is known: a chart that reads no field of the
         # app, such as a text object, has no input table.
         return list(dict.fromkeys(field.dataset_urn for field in chart_fields))
-
-    @staticmethod
-    def _index_app_fields(
-        tables: Dict[str, List[QlikDatasetSchemaField]],
-        script_table_urns: Collection[str] = (),
-    ) -> AppFieldIndex:
-        index = AppFieldIndex()
-        for dataset_urn, fields in tables.items():
-            for field in fields:
-                app_field = AppField(dataset_urn=dataset_urn, field=field)
-                index.exact.setdefault(field.name, []).append(app_field)
-                if dataset_urn in script_table_urns:
-                    index.folded.setdefault(field.name.lower(), []).append(app_field)
-        return index
-
-    @staticmethod
-    def _tables_without_chart_path(
-        app: App, chart_inputs: Dict[str, ChartInputs], table_urns: List[str]
-    ) -> List[str]:
-        """The app's tables no chart links to the app. A table reaches the app
-        through a chart only if the chart's sheet is written with its charts,
-        which needs all of them to have been read."""
-        charts_on_complete_sheets = {
-            chart.qId
-            for sheet in app.sheets
-            if sheet.charts_complete
-            for chart in sheet.charts
-        }
-        charted = {
-            urn
-            for chart_id, inputs in chart_inputs.items()
-            if chart_id in charts_on_complete_sheets
-            for urn in inputs.tables
-        }
-        return [urn for urn in table_urns if urn not in charted]
 
     def _gen_app_dashboard_workunit(
         self,

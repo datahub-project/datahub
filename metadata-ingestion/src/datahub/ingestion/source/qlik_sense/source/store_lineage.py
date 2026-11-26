@@ -6,6 +6,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     SchemaField as QlikDatasetSchemaField,
 )
 from datahub.ingestion.source.qlik_sense.lib_path import _is_data_files
+from datahub.ingestion.source.qlik_sense.lineage_utils import _stale_field_lineage
 from datahub.ingestion.source.qlik_sense.qvd_lineage import QvdWrite, stored_fields
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     ParsedScript,
@@ -383,7 +384,7 @@ class StoreLineageMixin(OnPremQvdMixin):
                     and dataset_urn not in self._dataset_store_fields_unknown
                     and dataset_urn not in self._unnamed_field_lineage
                 ):
-                    for lineage in self._stale_field_lineage(
+                    for lineage in _stale_field_lineage(
                         current.fineGrainedLineages or [], stored_fields, owned
                     ):
                         patch.remove_fine_grained_lineage(lineage)

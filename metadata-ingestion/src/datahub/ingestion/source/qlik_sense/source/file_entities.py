@@ -14,16 +14,15 @@ from datahub.ingestion.source.qlik_sense.lib_path import (
     _is_ambiguous_connection,
     _lib_connection,
     _lib_path,
-    _lib_path_parts,
     _lib_path_segments,
     _path_key,
 )
 from datahub.ingestion.source.qlik_sense.qvd_lineage import CANONICAL_ABSOLUTE_PATH_RE
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     LIB_PATH_RE,
-    SPACE_SEPARATOR,
 )
 from datahub.ingestion.source.qlik_sense.source.store_lineage import StoreLineageMixin
+from datahub.ingestion.source.qlik_sense.source_utils import _voted_segments
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
@@ -71,7 +70,7 @@ class FileEntitiesMixin(StoreLineageMixin):
         lowercase, so the same space, connection or folder would otherwise be
         named in several spellings."""
         spellings = self._lib_path_spellings()
-        segments = _lib_path_segments(path) or self._voted_segments(path, spellings)
+        segments = _lib_path_segments(path) or _voted_segments(path, spellings)
         if segments is None:
             return path
         spelled = []
@@ -82,26 +81,6 @@ class FileEntitiesMixin(StoreLineageMixin):
                 min(votes, key=lambda name: (-votes[name], name)) if votes else segment
             )
         return _lib_path(spelled)
-
-    @staticmethod
-    def _voted_segments(
-        path: str, spellings: Dict[str, Counter[str]]
-    ) -> Optional[List[str]]:
-        """The segments of a path whose space and connection can't be told
-        apart, when exactly one way of splitting them is spelled elsewhere."""
-        match = LIB_PATH_RE.match(path)
-        if not match or "$(" in path:
-            return None
-        connection = match.group("connection")
-        splits = [
-            [connection[:i].strip(), connection[i + 1 :].strip()]
-            for i, char in enumerate(connection)
-            if char == SPACE_SEPARATOR
-        ]
-        known = [split for split in splits if _path_key("/".join(split)) in spellings]
-        if len(known) != 1:
-            return None
-        return [*known[0], *_lib_path_parts(match.group("path"))]
 
     def _lib_path_spellings(self) -> Dict[str, Counter[str]]:
         paths = [

@@ -12,6 +12,10 @@ from datahub.ingestion.source.qlik_sense.app_state import (
     AppCheckpoint,
     UnmappedFileStore,
 )
+from datahub.ingestion.source.qlik_sense.chart_fields import (
+    _index_app_fields,
+    _tables_without_chart_path,
+)
 from datahub.ingestion.source.qlik_sense.config import Constant
 from datahub.ingestion.source.qlik_sense.constants import (
     APP_PARTLY_READ_TITLE,
@@ -36,6 +40,15 @@ from datahub.ingestion.source.qlik_sense.source_models import (
 from datahub.ingestion.source.qlik_sense.source_utils import (
     _app_field_names,
     _own_table_urns,
+    _read_errors_context,
+)
+from datahub.ingestion.source.qlik_sense.table_matching import (
+    _graph_tables_unresolved,
+    _lineage_table_identifier,
+    _match_script_tables,
+    _merge_tables,
+    _name_unknown_tables,
+    _tables_unknown,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
     STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
@@ -251,8 +264,8 @@ class ItemsMixin(OnPremBinaryMixin):
                 table_urns_by_qri=self._app_table_urns(app),
                 # So a later run that keeps the app can't take its tables as
                 # complete, nor a 404 as the app having no tables.
-                tables_unknown=self._tables_unknown(app),
-                graph_tables_unresolved=self._graph_tables_unresolved(app),
+                tables_unknown=_tables_unknown(app),
+                graph_tables_unresolved=_graph_tables_unresolved(app),
                 qvds=self._app_qvds.get(app.id),
                 data_model_fields=self._app_model_fields.get(app.id),
                 binary_tables=app.id in self._apps_with_binary_tables,
@@ -298,7 +311,7 @@ class ItemsMixin(OnPremBinaryMixin):
             )
         self._app_space_ids[app.id] = app.spaceId
         script_tables = self._build_script_tables(app, parsed=parsed)
-        self._name_unknown_tables(app, script_tables)
+        _name_unknown_tables(app, script_tables)
         qvd_lineage = (
             self._app_qvd_lineage(app, parsed, script_tables)
             if not self._on_cloud
@@ -306,7 +319,7 @@ class ItemsMixin(OnPremBinaryMixin):
         )
         binary_load = None
         if qvd_lineage is not None:
-            script_tables = self._merge_tables(script_tables, qvd_lineage.tables)
+            script_tables = _merge_tables(script_tables, qvd_lineage.tables)
             # Read, even with no tables, so a BINARY load from it isn't
             # reported as from an app the run didn't read.
             if app.id in self._binary_source_apps:
@@ -315,11 +328,9 @@ class ItemsMixin(OnPremBinaryMixin):
             binary_load = self._binary_load(app, parsed)
             if binary_load.tables:
                 self._apps_with_binary_tables.add(app.id)
-            script_tables = self._merge_tables(script_tables, binary_load.tables)
+            script_tables = _merge_tables(script_tables, binary_load.tables)
         self._use_data_model_field_names(script_tables)
-        matched_script_tables = self._match_script_tables(
-            app.lineage_tables, script_tables
-        )
+        matched_script_tables = _match_script_tables(app.lineage_tables, script_tables)
         matched_ids = {id(table) for table in matched_script_tables.values()}
         script_tables = [
             table for table in script_tables if id(table) not in matched_ids
@@ -331,7 +342,7 @@ class ItemsMixin(OnPremBinaryMixin):
         self._register_app_tables(app)
         for table in app.lineage_tables:
             matched = matched_script_tables.get(table.qri)
-            identifier = self._lineage_table_identifier(app.id, table)
+            identifier = _lineage_table_identifier(app.id, table)
             urn = self._gen_qlik_dataset_urn(identifier)
             table_fields[urn] = self._table_schema(
                 identifier,
@@ -368,7 +379,7 @@ class ItemsMixin(OnPremBinaryMixin):
             )
         )
         yield from container_workunits
-        app_fields = self._index_app_fields(table_fields, script_table_urns)
+        app_fields = _index_app_fields(table_fields, script_table_urns)
         has_unknown_schema = any(not fields for fields in table_fields.values())
         chart_inputs = (
             None
@@ -386,7 +397,7 @@ class ItemsMixin(OnPremBinaryMixin):
             owner_username,
             None
             if chart_inputs is None
-            else self._tables_without_chart_path(app, chart_inputs, input_tables_urns),
+            else _tables_without_chart_path(app, chart_inputs, input_tables_urns),
         )
         yield from self._gen_sheets_workunit(app, chart_inputs)
         yield from self._gen_app_tables_workunit(app.tables, app.id)
@@ -501,7 +512,7 @@ class ItemsMixin(OnPremBinaryMixin):
                     message="Nothing from this read of the app is emitted. Its "
                     "metadata stays as of its last complete read until a read of "
                     "it completes.",
-                    context=self._read_errors_context(item),
+                    context=_read_errors_context(item),
                 )
                 return
             if partial_read == _PartialRead.LIMIT_REACHED:
@@ -510,7 +521,7 @@ class ItemsMixin(OnPremBinaryMixin):
                     message="Its last complete read is no longer kept, so this "
                     "partial read is ingested. Stale metadata removal is skipped "
                     "for this run.",
-                    context=self._read_errors_context(item),
+                    context=_read_errors_context(item),
                 )
             elif not item.read_complete:
                 # Reporting a failure also stops stale entity removal from
@@ -519,7 +530,7 @@ class ItemsMixin(OnPremBinaryMixin):
                     title=APP_PARTLY_READ_TITLE,
                     message="Some sheets, charts, tables or load script lineage "
                     "of this app could not be read from Qlik.",
-                    context=self._read_errors_context(item),
+                    context=_read_errors_context(item),
                 )
             if item.script_read_failed:
                 self.reporter.warning(
@@ -536,9 +547,3 @@ class ItemsMixin(OnPremBinaryMixin):
             )
         elif isinstance(item, QlikDataset):
             yield from self._gen_dataset_workunit(item)
-
-    @staticmethod
-    def _read_errors_context(app: App) -> str:
-        first, *rest = app.read_errors
-        more = f" (and {len(rest)} more)" if rest else ""
-        return f"{app.id}: {first}{more}"

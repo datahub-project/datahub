@@ -42,6 +42,7 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     UntypedTable,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import _refs_of_field_sources
+from datahub.ingestion.source.qlik_sense.table_matching import _name_unknown_tables
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DatasetPropertiesClass,
@@ -1989,7 +1990,7 @@ def test_unnamed_script_table_takes_its_data_model_name() -> None:
         column_upstreams={"sku": [], "price": []},
     )
 
-    QlikSenseSource._name_unknown_tables(app, [unnamed, unknown_columns, named])
+    _name_unknown_tables(app, [unnamed, unknown_columns, named])
 
     assert (unnamed.label, unnamed.identifier) == ("Orders", "etl-app.orders")
     assert (unknown_columns.label, unknown_columns.identifier) == (

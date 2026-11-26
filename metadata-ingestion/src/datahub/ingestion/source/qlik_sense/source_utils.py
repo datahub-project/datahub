@@ -1,19 +1,36 @@
+from collections import Counter
 from typing import Dict, Iterable, List, Mapping, Optional, Set, TypeVar, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.qlik_sense.constants import QLIK_APP_QRI_RE, QVD_EXTENSION
+from datahub.ingestion.source.qlik_sense.constants import (
+    ENTITY_CHECK_BATCH_SIZE,
+    QLIK_APP_QRI_RE,
+    QVD_EXTENSION,
+)
 from datahub.ingestion.source.qlik_sense.data_classes import (
+    FIELD_TYPE_MAPPING,
     App,
     ListedDataset,
     QlikDataset,
+    SchemaField as QlikDatasetSchemaField,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
+from datahub.ingestion.source.qlik_sense.lib_path import _lib_path_parts, _path_key
 from datahub.ingestion.source.qlik_sense.qvd_lineage import QvdWrite
+from datahub.ingestion.source.qlik_sense.script_lineage import (
+    LIB_PATH_RE,
+    SPACE_SEPARATOR,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
+from datahub.metadata.com.linkedin.pegasus2avro.schema import NullType, SchemaField
+from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnRef
 from datahub.utilities.urns.error import InvalidUrnError
+from datahub.utilities.urns.urn import guess_entity_type
 
 MappingT = TypeVar("MappingT")
 
@@ -136,3 +153,70 @@ def _error_type(error: Optional[Exception]) -> str:
     # SQL parser errors quote the statement, which can hold credentials when a
     # script statement was split wrongly, so only the type goes in the report.
     return type(error).__name__ if error else "unknown"
+
+
+def _gen_schema_field(field: QlikDatasetSchemaField) -> SchemaField:
+    return SchemaField(
+        fieldPath=field.name,
+        type=SchemaFieldDataTypeClass(
+            type=(
+                FIELD_TYPE_MAPPING.get(field.dataType, NullType)()
+                if field.dataType
+                else NullType()
+            )
+        ),
+        nativeDataType=field.dataType if field.dataType else "",
+        nullable=field.nullable,
+        isPartOfKey=field.primaryKey,
+    )
+
+
+def _qlik_dataset_identifier(space_id: str, name: str) -> str:
+    return f"{space_id}.{name}".lower()
+
+
+def _voted_segments(
+    path: str, spellings: Dict[str, Counter[str]]
+) -> Optional[List[str]]:
+    """The segments of a path whose space and connection can't be told
+    apart, when exactly one way of splitting them is spelled elsewhere."""
+    match = LIB_PATH_RE.match(path)
+    if not match or "$(" in path:
+        return None
+    connection = match.group("connection")
+    splits = [
+        [connection[:i].strip(), connection[i + 1 :].strip()]
+        for i, char in enumerate(connection)
+        if char == SPACE_SEPARATOR
+    ]
+    known = [split for split in splits if _path_key("/".join(split)) in spellings]
+    if len(known) != 1:
+        return None
+    return [*known[0], *_lib_path_parts(match.group("path"))]
+
+
+def _entities_present(graph: DataHubGraph, urns: List[str]) -> bool:
+    """Whether every entity the app's last read produced is in DataHub and
+    not soft-deleted, which also catches entities the sink failed to write
+    and hard-deleted ones. Entities stale removal deleted after they left
+    Qlik are not in the checkpoint."""
+    by_type: Dict[str, List[str]] = {}
+    for urn in urns:
+        by_type.setdefault(guess_entity_type(urn), []).append(urn)
+    for entity_type, typed_urns in by_type.items():
+        for start in range(0, len(typed_urns), ENTITY_CHECK_BATCH_SIZE):
+            batch = typed_urns[start : start + ENTITY_CHECK_BATCH_SIZE]
+            entities = graph.get_entities(
+                entity_type, batch, aspects=[Status.ASPECT_NAME]
+            )
+            for urn in batch:
+                status = entities.get(urn, {}).get(Status.ASPECT_NAME)
+                if status is None or getattr(status[0], "removed", True):
+                    return False
+    return True
+
+
+def _read_errors_context(app: App) -> str:
+    first, *rest = app.read_errors
+    more = f" (and {len(rest)} more)" if rest else ""
+    return f"{app.id}: {first}{more}"

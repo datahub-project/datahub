@@ -2,18 +2,18 @@ import copy
 import hashlib
 import json
 import logging
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from datahub._version import __version__
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
 from datahub.ingestion.source.qlik_sense.config import Constant
-from datahub.ingestion.source.qlik_sense.constants import ENTITY_CHECK_BATCH_SIZE
 from datahub.ingestion.source.qlik_sense.source.connections import DataConnectionMixin
-from datahub.ingestion.source.qlik_sense.source_utils import _describe_error
-from datahub.metadata.com.linkedin.pegasus2avro.common import Status
+from datahub.ingestion.source.qlik_sense.source_utils import (
+    _describe_error,
+    _entities_present,
+)
 from datahub.metadata.schema_classes import ContainerPropertiesClass
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -105,7 +105,7 @@ class IncrementalMixin(DataConnectionMixin):
                 != previous.fingerprint
             ):
                 return False
-            return self._entities_present(graph, previous.urns)
+            return _entities_present(graph, previous.urns)
         except Exception as e:
             logger.debug(f"Unable to read app container {container_urn}", exc_info=True)
             self._change_check_failures.append(
@@ -113,27 +113,6 @@ class IncrementalMixin(DataConnectionMixin):
                 f"{_describe_error(e)}"
             )
             return False
-
-    @staticmethod
-    def _entities_present(graph: DataHubGraph, urns: List[str]) -> bool:
-        """Whether every entity the app's last read produced is in DataHub and
-        not soft-deleted, which also catches entities the sink failed to write
-        and hard-deleted ones. Entities stale removal deleted after they left
-        Qlik are not in the checkpoint."""
-        by_type: Dict[str, List[str]] = {}
-        for urn in urns:
-            by_type.setdefault(guess_entity_type(urn), []).append(urn)
-        for entity_type, typed_urns in by_type.items():
-            for start in range(0, len(typed_urns), ENTITY_CHECK_BATCH_SIZE):
-                batch = typed_urns[start : start + ENTITY_CHECK_BATCH_SIZE]
-                entities = graph.get_entities(
-                    entity_type, batch, aspects=[Status.ASPECT_NAME]
-                )
-                for urn in batch:
-                    status = entities.get(urn, {}).get(Status.ASPECT_NAME)
-                    if status is None or getattr(status[0], "removed", True):
-                        return False
-        return True
 
     def _gen_fingerprint_workunit(
         self, container_workunits: List[MetadataWorkUnit], fingerprint: str

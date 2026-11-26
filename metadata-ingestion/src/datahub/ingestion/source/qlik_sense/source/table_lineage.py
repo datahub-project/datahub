@@ -16,6 +16,10 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     SchemaField as QlikDatasetSchemaField,
 )
 from datahub.ingestion.source.qlik_sense.lib_path import _named_space
+from datahub.ingestion.source.qlik_sense.lineage_utils import (
+    _patch_upstreams,
+    _script_column_lineage,
+)
 from datahub.ingestion.source.qlik_sense.reload_sql import _merged_lineage
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     VARIABLE_REFERENCE_RE,
@@ -23,15 +27,11 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ResolvedConnection,
     ScriptTable,
     ScriptTableLineage,
-    app_table_identifier,
-    apply_crosstable,
-    apply_preceding_loads,
     drop_condition_variables,
     has_qualified_name,
     is_connector_sql,
     parse_script,
     redact_connection,
-    select_list_size,
 )
 from datahub.ingestion.source.qlik_sense.source.graph_named import GraphNamedMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
@@ -49,6 +49,11 @@ from datahub.ingestion.source.qlik_sense.source_utils import (
     _error_type,
     _qlik_app_id,
 )
+from datahub.ingestion.source.qlik_sense.table_matching import (
+    _lineage_table_identifier,
+    _merge_script_table,
+    _script_table_fields,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     DatasetProperties,
@@ -58,7 +63,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
-    column_refs_to_schema_field_urns,
 )
 
 logger = logging.getLogger(__name__)
@@ -113,62 +117,6 @@ class TableLineageMixin(GraphNamedMixin):
                 f"App {app_id} script table {script_table.label!r} reads no tables"
             )
         return None
-
-    @staticmethod
-    def _merge_script_table(
-        tables: Dict[_ScriptTableKey, ScriptTableLineage],
-        app_id: str,
-        script_table: ScriptTable,
-        connection_name: Optional[str],
-        upstream_urns: List[str],
-        result: SqlParsingResult,
-    ) -> None:
-        # Loads of one dataset URN are one table, so labels that differ only
-        # in case are merged. Mapping tables are a separate namespace, so a
-        # mapping load is kept apart.
-        identifier = app_table_identifier(app_id, script_table.label)
-        lineage = tables.setdefault(
-            _ScriptTableKey(identifier=identifier, mapping=script_table.mapping),
-            ScriptTableLineage(
-                label=script_table.label,
-                identifier=identifier,
-                label_unknown=script_table.label_unknown,
-                connection=connection_name,
-                mapping=script_table.mapping,
-            ),
-        )
-        lineage.upstream_urns.extend(
-            urn for urn in upstream_urns if urn not in lineage.upstream_urns
-        )
-        sql_columns: Dict[str, List[str]] = {}
-        for column in result.column_lineage or []:
-            sql_columns.setdefault(column.downstream.column, []).extend(
-                column_refs_to_schema_field_urns(
-                    ref for ref in column.upstreams if ref.table in upstream_urns
-                )
-            )
-        fields: Optional[Dict[str, List[str]]] = apply_preceding_loads(
-            script_table.preceding_loads, sql_columns
-        )
-        if script_table.reshaped:
-            # Only a CrossTable whose fields are known keeps column lineage;
-            # otherwise the fields are not the columns and only table lineage
-            # is kept.
-            selected = [
-                column.downstream.column for column in result.column_lineage or []
-            ]
-            fields = apply_crosstable(
-                script_table.crosstable,
-                script_table.preceding_loads,
-                sql_columns,
-                # The parser lists columns in SELECT order, but leaves out a *
-                # and repeats a name selected twice, which would shift slots.
-                sql_columns_in_order=len(set(selected))
-                == len(selected)
-                == select_list_size(script_table.sql),
-            )
-        for field, upstreams in (fields or {}).items():
-            lineage.column_upstreams.setdefault(field, []).extend(upstreams)
 
     def _parsed_script(self, app: App) -> ParsedScript:
         # Parsed before an on-prem app's read is checked and again when it is
@@ -246,7 +194,7 @@ class TableLineageMixin(GraphNamedMixin):
                 urn for urn in result.in_tables if urn not in upstream_urns
             )
             if upstream_urns:
-                self._merge_script_table(
+                _merge_script_table(
                     tables, app.id, script_table, connection_name, upstream_urns, result
                 )
         if unqualified:
@@ -279,7 +227,7 @@ class TableLineageMixin(GraphNamedMixin):
             dataset_urn = self._gen_qlik_dataset_urn(table.identifier)
             yield from self._gen_app_table_entity(
                 table.identifier,
-                self._table_schema(table.identifier, self._script_table_fields(table)),
+                self._table_schema(table.identifier, _script_table_fields(table)),
                 app_id,
             )
             yield MetadataChangeProposalWrapper(
@@ -301,22 +249,18 @@ class TableLineageMixin(GraphNamedMixin):
                     link.model_copy(
                         update={
                             "upstream_urns": table.upstream_urns,
-                            "script_fields": self._script_column_lineage(
-                                dataset_urn, table
-                            )
+                            "script_fields": _script_column_lineage(dataset_urn, table)
                             or [],
                         }
                     )
                 )
                 continue
             if not replace_lineage:
-                yield from self._patch_upstreams(
+                yield from _patch_upstreams(
                     dataset_urn,
                     table.upstream_urns,
                     DatasetLineageType.TRANSFORMED,
-                    self._column_lineage(
-                        self._script_column_lineage(dataset_urn, table)
-                    ),
+                    self._column_lineage(_script_column_lineage(dataset_urn, table)),
                 )
                 continue
             yield MetadataChangeProposalWrapper(
@@ -327,7 +271,7 @@ class TableLineageMixin(GraphNamedMixin):
                         for urn in table.upstream_urns
                     ],
                     fineGrainedLineages=self._column_lineage(
-                        self._script_column_lineage(dataset_urn, table)
+                        _script_column_lineage(dataset_urn, table)
                     ),
                 ),
             ).as_workunit()
@@ -348,7 +292,7 @@ class TableLineageMixin(GraphNamedMixin):
                     if script_table is None
                     else _merged_lineage(script_table, reload_table)
                 )
-            identifier = self._lineage_table_identifier(app.id, table)
+            identifier = _lineage_table_identifier(app.id, table)
             dataset_urn = self._gen_qlik_dataset_urn(identifier)
             # The reload SQL only adds lineage: the fields stay the script's,
             # or the graph's, plus those the SQL gives lineage to.
@@ -390,7 +334,7 @@ class TableLineageMixin(GraphNamedMixin):
                 script_upstream_urns=script_table.upstream_urns if script_table else [],
                 incomplete_reason=self._incomplete_reason(app, table),
                 script_fields=(
-                    self._script_column_lineage(dataset_urn, script_table) or []
+                    _script_column_lineage(dataset_urn, script_table) or []
                     if script_table
                     else []
                 ),
@@ -519,7 +463,7 @@ class TableLineageMixin(GraphNamedMixin):
         self._only_added_tables.setdefault(
             _OnlyAddedTablesKey(app_id=pending.app_id, reason=reason), []
         ).append(pending.table_label)
-        yield from self._patch_upstreams(
+        yield from _patch_upstreams(
             pending.dataset_urn,
             upstream_urns,
             DatasetLineageType.TRANSFORMED,
