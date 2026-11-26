@@ -72,6 +72,7 @@ import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValid
 import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesValidator;
 import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.ingestion.IngestionMetricsEmitter;
+import com.linkedin.metadata.ingestion.hooks.IngestionSourceRunSummaryMutator;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.IngestionSourceRunEventValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
@@ -363,6 +364,13 @@ public class SpringStandardPluginConfiguration {
     log.info("Initialized {}", IngestionSourceRunEventValidator.class.getName());
     return new IngestionSourceRunEventValidator()
         .setConfig(IngestionSourceRunEventValidator.pluginConfig());
+  }
+
+  @Bean
+  public MutationHook ingestionSourceRunSummaryMutator() {
+    log.info("Initialized {}", IngestionSourceRunSummaryMutator.class.getName());
+    return new IngestionSourceRunSummaryMutator()
+        .setConfig(IngestionSourceRunSummaryMutator.pluginConfig());
   }
 
   @Bean

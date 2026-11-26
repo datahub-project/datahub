@@ -15,6 +15,19 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Ingestion sources record their run history ([#20668](https://github.com/datahub-project/datahub/pull/20668))
+
+Ingestion sources can now be sorted and filtered by their last run. A new MAE consumer hook
+records each run's status changes on the source, and a non-blocking system update fills this in
+for existing sources from their latest runs. Nothing needs to change to upgrade.
+
+- To turn the hook off, set `ENABLE_INGESTION_SOURCE_RUN_EVENTS_HOOK=false`. Sources then stop
+  updating their last run.
+- To skip the system update, set `BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_EVENTS_ENABLED=false`.
+  Its page size is `BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_EVENTS_BATCH_SIZE` (default 500).
+- To run the system update again for every source, for example after the hook was turned off for a
+  while, set `REPROCESS_INGESTION_SOURCE_RUN_EVENTS=true` for one system update.
+
 ### Pinned links removed from Settings > Home Page ([#21466](https://github.com/datahub-project/datahub/pull/21466))
 
 If the home page redesign is enabled (`SHOW_HOME_PAGE_REDESIGN=true`, the default), the

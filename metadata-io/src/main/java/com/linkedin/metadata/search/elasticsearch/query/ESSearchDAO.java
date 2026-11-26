@@ -21,6 +21,7 @@ import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.ingestion.IngestionSourceRunEvents;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteEntity;
@@ -2125,11 +2126,15 @@ public class ESSearchDAO {
             .subAggregation(latestRunAgg(timeField))
             .subAggregation(
                 AggregationBuilders.filter(
-                        SUCCESSFUL_RUNS_AGG, QueryBuilders.termQuery(statusField, "SUCCESS"))
+                        SUCCESSFUL_RUNS_AGG,
+                        QueryBuilders.termsQuery(
+                            statusField, IngestionSourceRunEvents.SUCCESS_STATUSES))
                     .subAggregation(latestRunAgg(timeField)))
             .subAggregation(
                 AggregationBuilders.filter(
-                        FAILED_RUNS_AGG, QueryBuilders.termQuery(statusField, "FAILURE"))
+                        FAILED_RUNS_AGG,
+                        QueryBuilders.termsQuery(
+                            statusField, IngestionSourceRunEvents.FAILURE_STATUSES))
                     .subAggregation(latestRunAgg(timeField)));
 
     final SearchRequest request =

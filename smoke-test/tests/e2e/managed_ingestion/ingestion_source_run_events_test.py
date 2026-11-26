@@ -10,6 +10,7 @@ from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     DataHubIngestionSourceRunEventClass,
+    DataHubIngestionSourceRunSummaryClass,
     ExecutionRequestResultClass,
 )
 from tests.e2e.utils import delete_urn, execute_graphql, unique_suffix, with_test_retry
@@ -106,6 +107,26 @@ def _ensure_run_event(
 
 
 @with_test_retry()
+def _ensure_summary(
+    graph_client: DataHubGraph, source_urn: str, run_urn: str, status: str
+) -> DataHubIngestionSourceRunSummaryClass:
+    summary = graph_client.get_aspect(source_urn, DataHubIngestionSourceRunSummaryClass)
+    assert summary is not None
+    assert summary.lastExecutionRequest == run_urn
+    assert summary.lastRunStatus == status
+    return summary
+
+
+def _set_status(graph_client: DataHubGraph, run_urn: str, status: str) -> None:
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=run_urn, aspect=ExecutionRequestResultClass(status=status)
+        ),
+        emit_mode=EmitMode.SYNC_PRIMARY,
+    )
+
+
+@with_test_retry()
 def _ensure_listed(
     auth_session,
     source_urns: List[str],
@@ -149,13 +170,15 @@ def test_list_sorts_by_last_run(auth_session, graph_client, source_urns, run_urn
     time.sleep(0.05)
     second_run = _run(auth_session, second, run_urns)
 
-    first_event = _ensure_run_event(graph_client, first, first_run, "PENDING")
-    second_event = _ensure_run_event(graph_client, second, second_run, "PENDING")
-    assert second_event.requestedAtMillis > first_event.requestedAtMillis
+    first_summary = _ensure_summary(graph_client, first, first_run, "PENDING")
+    second_summary = _ensure_summary(graph_client, second, second_run, "PENDING")
+    assert (
+        second_summary.lastRunRequestedAtMillis > first_summary.lastRunRequestedAtMillis
+    )
     _ensure_listed(auth_session, source_urns, [second, first])
 
     newer_first_run = _run(auth_session, first, run_urns)
-    _ensure_run_event(graph_client, first, newer_first_run, "PENDING")
+    _ensure_summary(graph_client, first, newer_first_run, "PENDING")
     _ensure_listed(auth_session, source_urns, [first, second])
 
 
@@ -167,17 +190,30 @@ def test_list_filters_by_last_run_status(
     pending_run = _run(auth_session, pending, run_urns)
     _ensure_run_event(graph_client, pending, pending_run, "PENDING")
 
-    graph_client.emit_mcp(
-        MetadataChangeProposalWrapper(
-            entityUrn=succeeded_run,
-            aspect=ExecutionRequestResultClass(status="SUCCESS"),
-        ),
-        emit_mode=EmitMode.SYNC_PRIMARY,
-    )
+    _set_status(graph_client, succeeded_run, "SUCCESS")
 
     event = _ensure_run_event(graph_client, succeeded, succeeded_run, "SUCCESS")
-    assert event.successfulRunRequestedAtMillis == event.requestedAtMillis
+    assert event.sourceType == "mysql"
+    assert event.executorId == "smoke-no-executor"
+    summary = _ensure_summary(graph_client, succeeded, succeeded_run, "SUCCESS")
+    assert summary.lastSuccessfulRunRequestedAtMillis == event.requestedAtMillis
     _ensure_listed(auth_session, source_urns, [succeeded], status="SUCCESS")
+
+
+def test_older_run_finishing_late_keeps_the_latest_run(
+    auth_session, graph_client, source_urns, run_urns
+):
+    source = source_urns[0]
+    older_run = _run(auth_session, source, run_urns)
+    time.sleep(0.05)
+    newer_run = _run(auth_session, source, run_urns)
+    _ensure_summary(graph_client, source, newer_run, "PENDING")
+
+    _set_status(graph_client, older_run, "TIMEOUT")
+
+    older_event = _ensure_run_event(graph_client, source, older_run, "TIMEOUT")
+    summary = _ensure_summary(graph_client, source, newer_run, "PENDING")
+    assert summary.lastFailedRunRequestedAtMillis == older_event.requestedAtMillis
 
 
 def test_run_event_does_not_create_missing_source(graph_client):
@@ -192,6 +228,25 @@ def test_run_event_does_not_create_missing_source(graph_client):
                     executionRequest="urn:li:dataHubExecutionRequest:smoke-missing",
                     requestedAtMillis=1,
                     status="SUCCESS",
+                ),
+            ),
+            emit_mode=EmitMode.SYNC_PRIMARY,
+        )
+
+    assert not graph_client.exists(missing_source)
+
+
+def test_run_summary_does_not_create_missing_source(graph_client):
+    missing_source = f"urn:li:dataHubIngestionSource:smoke-missing-{unique_suffix()}"
+
+    with pytest.raises(OperationalError):
+        graph_client.emit_mcp(
+            MetadataChangeProposalWrapper(
+                entityUrn=missing_source,
+                aspect=DataHubIngestionSourceRunSummaryClass(
+                    lastExecutionRequest="urn:li:dataHubExecutionRequest:smoke-missing",
+                    lastRunRequestedAtMillis=1,
+                    lastRunStatus="SUCCESS",
                 ),
             ),
             emit_mode=EmitMode.SYNC_PRIMARY,

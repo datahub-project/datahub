@@ -74,10 +74,11 @@ public class ESSearchDAOLatestIngestionRunsTest {
     assertTrue(source.contains("\"field\":\"ingestionSource.keyword\""), source);
     assertTrue(source.contains("\"top_hits\""), source);
     assertTrue(source.contains("requestTimeMs"), source);
-    assertTrue(
-        source.contains("{\"executionResultStatus.keyword\":{\"value\":\"SUCCESS\""), source);
-    assertTrue(
-        source.contains("{\"executionResultStatus.keyword\":{\"value\":\"FAILURE\""), source);
+    assertTrue(source.contains("{\"executionResultStatus.keyword\":[\"SUCCESS\"]"), source);
+    // Every failed status, e.g. TIMEOUT, counts as a failed run, but CANCELLED does not.
+    assertTrue(source.contains("\"TIMEOUT\""), source);
+    assertTrue(source.contains("\"ROLLBACK_FAILED\""), source);
+    assertFalse(source.contains("CANCELLED"), source);
   }
 
   @Test
@@ -103,7 +104,7 @@ public class ESSearchDAOLatestIngestionRunsTest {
 
     assertFalse(source.contains(".keyword"), source);
     assertTrue(source.contains("\"field\":\"ingestionSource\""), source);
-    assertTrue(source.contains("{\"executionResultStatus\":{\"value\":\"SUCCESS\""), source);
+    assertTrue(source.contains("{\"executionResultStatus\":[\"SUCCESS\"]"), source);
     assertTrue(source.contains("\"_entityType\":{\"value\":\"dataHubExecutionRequest\""), source);
   }
 

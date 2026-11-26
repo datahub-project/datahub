@@ -5,12 +5,12 @@ import com.linkedin.timeseries.TimeseriesAspectBase
 
 /**
  * A change in the status of one of the ingestion source's runs, recorded each time an execution
- * request for the source is created or its result status changes.
+ * request for the source is created or its result status changes. Each event holds facts about
+ * that one run only; the source's latest run, last success and last failure are kept in
+ * dataHubIngestionSourceRunSummary.
  *
- * Every event carries all of the source's searchable fields, which are copied onto its search
- * document, so the source can be sorted and filtered by its latest run. Events can be written out
- * of order, so the search document only takes the last-run fields from an event whose request is
- * at least as new as the indexed one, and only moves the last success and failure times forward.
+ * A rollback changes an old run's status, so it adds events for that run to the history. Events
+ * have no retention, as for assertionRunEvent; there are a few per run.
  */
 @Aspect = {
   "name": "dataHubIngestionSourceRunEvent",
@@ -34,47 +34,25 @@ record DataHubIngestionSourceRunEvent includes TimeseriesAspectBase {
    * Time at which the execution request was created, as epoch at UTC in milliseconds.
    */
   @TimeseriesField = {}
-  @Searchable = {
-    "fieldName": "lastRunRequestedAtMillis",
-    "fieldType": "DATETIME",
-    "queryByDefault": false
-  }
   requestedAtMillis: long
 
   /**
-   * Status of the run as reported by the executor, e.g. RUNNING, SUCCESS, FAILURE or DUPLICATE,
-   * or PENDING before the executor reports a result. A DUPLICATE request is newer than the run it
-   * duplicates, so it becomes the source's last run, as in the run history.
+   * Status of the run as reported by the executor, e.g. RUNNING, SUCCESS, FAILURE, TIMEOUT or
+   * ROLLED_BACK, or PENDING before the executor reports a result.
    */
   @TimeseriesField = {}
-  @Searchable = {
-    "fieldName": "lastRunStatus",
-    "fieldType": "KEYWORD",
-    "queryByDefault": false
-  }
   status: string
 
   /**
-   * Request time of the source's most recent successful run as of this event: this run's
-   * requestedAtMillis on a SUCCESS event, otherwise carried over from the previous event. A
-   * snapshot for the source's search document, so it is not indexed in the run history.
+   * The ingestion source's type when the run was requested, e.g. mysql or bigquery, so the run
+   * history can be filtered by platform.
    */
-  @Searchable = {
-    "fieldName": "lastSuccessfulRunRequestedAtMillis",
-    "fieldType": "DATETIME",
-    "queryByDefault": false
-  }
-  successfulRunRequestedAtMillis: optional long
+  @TimeseriesField = {}
+  sourceType: optional string
 
   /**
-   * Request time of the source's most recent FAILURE run as of this event: this run's
-   * requestedAtMillis on a FAILURE event, otherwise carried over from the previous event. A
-   * snapshot for the source's search document, so it is not indexed in the run history.
+   * The executor the run was requested on.
    */
-  @Searchable = {
-    "fieldName": "lastFailedRunRequestedAtMillis",
-    "fieldType": "DATETIME",
-    "queryByDefault": false
-  }
-  failedRunRequestedAtMillis: optional long
+  @TimeseriesField = {}
+  executorId: optional string
 }

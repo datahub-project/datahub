@@ -3,6 +3,7 @@ package com.linkedin.metadata.ingestion.validation;
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
@@ -26,9 +27,9 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * Rejects a run event for an ingestion source that does not exist. A timeseries write also upserts
- * the entity's key aspect, so an event for a deleted source would otherwise recreate it as an empty
- * entity that the source list cannot render.
+ * Rejects a run event or run summary for an ingestion source that does not exist. Either write also
+ * upserts the entity's key aspect, so a write for a deleted source would otherwise recreate it as
+ * an empty entity that the source list cannot render.
  */
 @Setter
 @Getter
@@ -44,11 +45,16 @@ public class IngestionSourceRunEventValidator extends AspectPayloadValidator {
         .className(IngestionSourceRunEventValidator.class.getName())
         .supportedOperations(List.of(ChangeType.UPSERT.toString()))
         .supportedEntityAspectNames(
-            List.of(
-                AspectPluginConfig.EntityAspectName.builder()
-                    .entityName(INGESTION_SOURCE_ENTITY_NAME)
-                    .aspectName(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME)
-                    .build()))
+            Stream.of(
+                    INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
+                    INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME)
+                .map(
+                    aspectName ->
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(INGESTION_SOURCE_ENTITY_NAME)
+                            .aspectName(aspectName)
+                            .build())
+                .toList())
         .build();
   }
 
