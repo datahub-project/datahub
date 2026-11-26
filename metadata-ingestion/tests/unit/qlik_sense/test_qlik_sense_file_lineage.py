@@ -420,6 +420,48 @@ def test_other_files_on_a_mapped_share_keep_the_dataset_named_by_connection(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_added_lineage_drops_edges_to_other_names_of_a_linked_file(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {
+            "Sales Space:Share": {
+                "storage_uri": SHARE,
+                "platform_instance": "qlik_onprem",
+            }
+        },
+        {},
+        script="Targets: LOAD * FROM [lib://Sales Space:Share/Ref/Targets.xlsx] (ooxml);\n",
+    )
+    file_qri = _file_qri("local", SHARE, "Ref/Targets.xlsx")
+    urn = source._file_source_resolution("app-1", file_qri).urn
+    assert urn == make_dataset_urn("qlik-sense", "sales space:share/ref/targets.xlsx")
+
+    [workunit] = source._patch_upstreams(
+        make_dataset_urn("qlik-sense", "app-1.targets"), [urn], "TRANSFORMED"
+    )
+
+    # Earlier runs named the file from its QRI, or on the share as only its
+    # QVDs are, before it resolved to its connection's dataset.
+    assert isinstance(workunit.metadata, MetadataChangeProposalClass)
+    assert workunit.metadata.aspect is not None
+    ops = json.loads(workunit.metadata.aspect.value)
+    removed = sorted(
+        op["path"].split("/")[-1].replace("~1", "/")
+        for op in ops
+        if op["op"] == "remove"
+    )
+    assert removed == sorted(
+        [
+            make_dataset_urn("qlik-sense", file_qri.rsplit("#", 1)[0].lower()),
+            "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,"
+            "qlik_onprem.//files.example.com/qlik/qvd/ref/targets.xlsx,PROD)",
+        ]
+    )
+    assert [op["op"] for op in ops if op["op"] != "remove"] == ["add"]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_file_read_as_a_qvd_on_a_mapped_share_takes_the_on_prem_dataset(
     mock_api_cls: MagicMock,
 ) -> None:

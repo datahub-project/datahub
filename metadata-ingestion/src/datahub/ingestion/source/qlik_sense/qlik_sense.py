@@ -965,6 +965,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # QVDs on storage or a Windows share that lineage links this run. No
         # storage source ingests QVDs, so they are typed here.
         self._linked_storage_qvds: Set[str] = set()
+        # Other names of a file this run resolves for certain, such as from
+        # its QRI or connection before its storage was mapped, by its URN.
+        self._superseded_file_urns: DefaultDict[str, Set[str]] = defaultdict(set)
         # Files on a Windows share, which are Qlik Sense datasets of the on-prem
         # recipe, not this one's.
         self._share_file_urns: Set[str] = set()
@@ -2993,7 +2996,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _file_urn(
         self, storage: FileStorage, detail: Optional[FileStorageDetail], path: str
     ) -> str:
-        urn = file_dataset_urn(
+        urn = self._storage_file_urn(storage, detail, path)
+        if storage.platform == FilePlatform.WINDOWS_SHARE:
+            self._share_file_urns.add(urn)
+        return urn
+
+    def _storage_file_urn(
+        self, storage: FileStorage, detail: Optional[FileStorageDetail], path: str
+    ) -> str:
+        return file_dataset_urn(
             storage,
             # As Qlik Cloud names it, so lineage joins whichever way it was read.
             normalized_file_path(path),
@@ -3004,9 +3015,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             else self.config.env,
             lowercase=detail.convert_urns_to_lowercase if detail else False,
         )
-        if storage.platform == FilePlatform.WINDOWS_SHARE:
-            self._share_file_urns.add(urn)
-        return urn
 
     def _unmapped_file_urn(
         self, connection: str, path: str, space_id: str
@@ -3014,6 +3022,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """A Qlik dataset for a file on a connection whose storage is unknown,
         named by the connection and path, so the apps that write and read it
         still join. DataFiles hold Qlik's own datasets."""
+        qualified = self._connection_file_name(connection, path, space_id)
+        if qualified is None:
+            return None
+        urn = self._gen_qlik_dataset_urn(qualified.lower())
+        self._add_unmapped_file(urn, f"lib://{qualified}")
+        return urn
+
+    def _connection_file_name(
+        self, connection: str, path: str, space_id: str
+    ) -> Optional[str]:
         lib_connection = _lib_connection(connection)
         space, name = lib_connection.space, lib_connection.name
         if not space:
@@ -3030,9 +3048,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             or any(char in qualified for char in ",()")
         ):
             return None
-        urn = self._gen_qlik_dataset_urn(qualified.lower())
-        self._add_unmapped_file(urn, f"lib://{qualified}")
-        return urn
+        return qualified
 
     def _add_unmapped_file(self, urn: str, spelling: str) -> None:
         # Apps may spell the file in different case and are read in no fixed
@@ -3469,9 +3485,35 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._link_unmapped_file(app_id, urn)
         else:
             self._note_storage_qvd(urn, urn in qvd_urns)
+        self._note_superseded_names(urn, file_qri, candidates.references, space_id)
         return _FileSourceResolution(
             urn=urn, on_known_storage=unresolved.on_known_storage
         )
+
+    def _note_superseded_names(
+        self,
+        urn: str,
+        file_qri: str,
+        references: List[FileReference],
+        space_id: str,
+    ) -> None:
+        """The file's other names, which earlier runs may have linked before
+        its storage was mapped or its resolution fixed: from its QRI, its
+        connection and path, and its storage or share."""
+        names: Set[str] = set()
+        qri = FILE_QRI_RE.match(file_qri)
+        if qri:
+            names.add(self._gen_qlik_dataset_urn(qri.group(0).lower()))
+        for reference in references:
+            qualified = self._connection_file_name(
+                reference.connection, reference.path, space_id
+            )
+            if qualified is not None:
+                names.add(self._gen_qlik_dataset_urn(qualified.lower()))
+            match = self._connection_storage(reference.connection, space_id)
+            if match[0] is not None:
+                names.add(self._storage_file_urn(match[0], match[1], reference.path))
+        self._superseded_file_urns[urn].update(names - {urn})
 
     def _note_storage_qvd(self, urn: str, qvd: bool) -> None:
         if qvd:
@@ -3572,26 +3614,28 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[List[FineGrainedLineage]]:
         return (lineages or None) if self.config.include_column_lineage else None
 
-    @staticmethod
     def _patch_upstreams(
+        self,
         dataset_urn: str,
         upstream_urns: List[str],
         lineage_type: str,
         fine_grained: Optional[List[FineGrainedLineage]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """Adds lineage without replacing the edges an earlier run wrote."""
+        """Adds lineage without replacing the edges an earlier run wrote,
+        except edges to other names of a file it links, which can't be right."""
         if not upstream_urns and not fine_grained:
             return
-        yield convert_upstream_lineage_to_patch(
-            dataset_urn,
-            UpstreamLineage(
-                upstreams=[
-                    Upstream(dataset=urn, type=lineage_type) for urn in upstream_urns
-                ],
-                fineGrainedLineages=fine_grained or None,
-            ),
-            None,
-        )
+        patch = DatasetPatchBuilder(dataset_urn)
+        for urn in upstream_urns:
+            patch.add_upstream_lineage(Upstream(dataset=urn, type=lineage_type))
+        for lineage in fine_grained or []:
+            patch.add_fine_grained_lineage(lineage)
+        superseded = {
+            name for urn in upstream_urns for name in self._superseded_file_urns[urn]
+        }
+        for name in sorted(superseded - set(upstream_urns)):
+            patch.remove_upstream_lineage(name)
+        yield from _patch_workunits(patch, is_primary_source=True)
 
     def _parse_reload_sql(self, app: App, labels: List[str]) -> _ParsedReloadSql:
         """The SQL statements of the app's last reload that may read a table
