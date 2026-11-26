@@ -90,9 +90,17 @@ class OmniSourceConfig(
         default=True,
         description=(
             "Resolve Omni owner IDs to email addresses via the Omni SCIM users API "
-            "and use the lowercased email as the DataHub user ID, so owners match "
-            "users provisioned in DataHub by SSO. Requires an Organization API key. "
+            "and use the email as the DataHub user ID, so owners match users "
+            "provisioned in DataHub by SSO. Requires an Organization API key. "
             "Owners that cannot be resolved fall back to the Omni user ID."
+        ),
+    )
+    lowercase_owner_emails: bool = Field(
+        default=True,
+        description=(
+            "Lowercase owner emails resolved through resolve_owner_emails before "
+            "building DataHub user URNs. Disable if your DataHub user IDs keep the "
+            "email's original case."
         ),
     )
     model_pattern: AllowDenyPattern = Field(

@@ -46,7 +46,7 @@ def test_list_users_follows_scim_offset_paging() -> None:
 @pytest.mark.parametrize(
     "user, expected",
     [
-        ({"userName": " Jane.Doe@Example.com "}, "jane.doe@example.com"),
+        ({"userName": " Jane.Doe@Example.com "}, "Jane.Doe@Example.com"),
         (
             {
                 "emails": [
@@ -54,7 +54,7 @@ def test_list_users_follows_scim_offset_paging() -> None:
                     {"primary": True, "value": "Main@Example.com"},
                 ]
             },
-            "main@example.com",
+            "Main@Example.com",
         ),
         ({"userName": "not-an-email"}, None),
         ({}, None),

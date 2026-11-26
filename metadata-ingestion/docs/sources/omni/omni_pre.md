@@ -39,6 +39,6 @@ If the Omni API key does not have permission to list connections (`403 Forbidden
 
 #### Owner resolution
 
-Omni identifies document owners by an internal user ID. By default (`resolve_owner_emails: true`), the connector lists users from the Omni SCIM users API once per run and uses each owner's lowercased email address as the DataHub user ID, for example `urn:li:corpuser:jane.doe@example.com`. This matches DataHub users provisioned through SSO with email-based usernames.
+Omni identifies document owners by an internal user ID. By default (`resolve_owner_emails: true`), the connector lists users from the Omni SCIM users API once per run and uses each owner's lowercased email address as the DataHub user ID, for example `urn:li:corpuser:jane.doe@example.com`. This matches DataHub users provisioned through SSO with email-based usernames. If your DataHub user IDs keep the email's original case, set `lowercase_owner_emails: false`.
 
 If the users API cannot be read, or an owner is not in the user list, that owner falls back to the Omni user ID and the ingestion report records a warning (or lists the ID under `owners_unresolved`).

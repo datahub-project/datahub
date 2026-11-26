@@ -578,6 +578,16 @@ def test_owner_resolved_to_lowercased_email() -> None:
 
 
 @time_machine.travel(FROZEN_TIME)
+def test_owner_email_case_kept_when_lowercasing_disabled() -> None:
+    source = _build_source({"lowercase_owner_emails": False})
+    events = _collect_workunits(source)
+
+    assert _owner_urns(events, ADMIN_DASHBOARD_URN) == [
+        "urn:li:corpuser:Admin.User@example.com"
+    ]
+
+
+@time_machine.travel(FROZEN_TIME)
 def test_owner_missing_from_user_list_falls_back_to_omni_id() -> None:
     source = _build_source()
     events = _collect_workunits(source)

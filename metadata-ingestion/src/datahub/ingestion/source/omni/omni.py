@@ -92,7 +92,7 @@ def _scim_user_email(user: Dict[str, Any]) -> Optional[str]:
         email = chosen.get("value") if isinstance(chosen, dict) else None
     if not isinstance(email, str) or "@" not in email:
         return None
-    return email.strip().lower()
+    return email.strip()
 
 
 @dataclass(frozen=True)
@@ -1146,6 +1146,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 user_id = user.get("id")
                 email = _scim_user_email(user)
                 if user_id and email:
+                    if self.config.lowercase_owner_emails:
+                        email = email.lower()
                     self._owner_email_by_id[str(user_id)] = email
             self._owner_lookup_succeeded = True
         except Exception as exc:
