@@ -55,6 +55,7 @@
     "executions.summaryRunning": "Ingestionを実行中...",
     "executions.summarySucceededWithWarnings": "Ingestionは一部の警告付きで完了しました。",
     "executions.summarySuccess": "Ingestionはエラーや警告なく完了しました。",
+    "executions.summaryTimedOut": "インジェストが制限時間内に完了しませんでした。",
     "executions.summaryUnknown": "Ingestionのステータスを認識できませんでした。",
     "executions.viewMore": "もっと見る",
     "filters.allStatuses": "すべてのステータス",
@@ -163,5 +164,6 @@
     "status.succeeded": "成功",
     "status.succeededWithWarnings": "警告付きで成功",
     "status.success": "成功",
+    "status.timedOut": "タイムアウト",
     "status.upForRetry": "再試行待ち"
 }

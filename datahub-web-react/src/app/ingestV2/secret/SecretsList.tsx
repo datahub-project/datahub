@@ -303,7 +303,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                     </SearchContainer>
                 </StyledTabToolbar>
                 {!loading && totalSecrets === 0 ? (
-                    <EmptySources sourceType={t('secret.secretsNoun')} isEmptySearchResult={!!query} />
+                    <EmptySources sourceType={t('secret.secretsNoun')} emptyReason={query ? 'search' : undefined} />
                 ) : (
                     <>
                         <TableContainer>

@@ -55,6 +55,7 @@
     "executions.summaryRunning": "A betöltés folyamatban van...",
     "executions.summarySucceededWithWarnings": "A betöltés néhány figyelmeztetéssel fejeződött be.",
     "executions.summarySuccess": "A betöltés hibák és figyelmeztetések nélkül fejeződött be.",
+    "executions.summaryTimedOut": "A betöltés nem fejeződött be az időkorláton belül.",
     "executions.summaryUnknown": "A betöltés állapota nem ismerhető fel.",
     "executions.viewMore": "Több megtekintése",
     "filters.allStatuses": "Összes állapot",
@@ -164,5 +165,6 @@
     "status.succeeded": "Sikeres",
     "status.succeededWithWarnings": "Sikeres figyelmeztetésekkel",
     "status.success": "Siker",
+    "status.timedOut": "Időtúllépés",
     "status.upForRetry": "Újrapróbálásra vár"
 }

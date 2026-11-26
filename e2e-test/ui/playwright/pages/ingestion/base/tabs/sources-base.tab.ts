@@ -256,6 +256,9 @@ export abstract class SourcesBaseTab extends BaseTab {
               ],
             },
           });
+          if (response.errors) {
+            throw new Error(`listIngestionSources failed: ${JSON.stringify(response.errors)}`);
+          }
           return (response.data as { listIngestionSources?: { total: number } })?.listIngestionSources?.total;
         },
         { timeout: TIMEOUTS.EXTRA_LONG },
@@ -274,6 +277,10 @@ export abstract class SourcesBaseTab extends BaseTab {
           .filter((name): name is string => !!name && sourceNames.includes(name));
       })
       .toEqual(sourceNames);
+  }
+
+  async expectLastRunShown(sourceName: string): Promise<void> {
+    await expect(this.getLastRunCell(sourceName)).toHaveText(/ago/);
   }
 
   async clickLastRunCell(sourceName: string): Promise<void> {

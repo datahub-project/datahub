@@ -23,6 +23,7 @@ import {
     EXECUTION_REQUEST_STATUS_RUNNING,
     EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
     EXECUTION_REQUEST_STATUS_SUCCESS,
+    EXECUTION_REQUEST_STATUS_TIMEOUT,
     EXECUTION_REQUEST_STATUS_UP_FOR_RETRY,
 } from '@app/ingestV2/executions/constants';
 
@@ -41,6 +42,7 @@ export const getExecutionRequestStatusIcon = (status: string): React.ComponentTy
         case EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS:
             return WarningCircle;
         case EXECUTION_REQUEST_STATUS_FAILURE:
+        case EXECUTION_REQUEST_STATUS_TIMEOUT:
             return X;
         case EXECUTION_REQUEST_STATUS_CANCELLED:
             return Prohibit;
@@ -69,6 +71,7 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
         (status === EXECUTION_REQUEST_STATUS_SUCCESS && i18next.t('ingestion:status.success')) ||
         (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS && i18next.t('ingestion:status.success')) ||
         (status === EXECUTION_REQUEST_STATUS_FAILURE && i18next.t('ingestion:status.failed')) ||
+        (status === EXECUTION_REQUEST_STATUS_TIMEOUT && i18next.t('ingestion:status.timedOut')) ||
         (status === EXECUTION_REQUEST_STATUS_CANCELLED && i18next.t('ingestion:status.cancelled')) ||
         (status === EXECUTION_REQUEST_STATUS_UP_FOR_RETRY && i18next.t('ingestion:status.upForRetry')) ||
         (status === EXECUTION_REQUEST_STATUS_ROLLED_BACK && i18next.t('ingestion:status.rolledBack')) ||
@@ -89,6 +92,7 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
         (status === EXECUTION_REQUEST_STATUS_SUCCESS && 'green') ||
         (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS && 'yellow') ||
         (status === EXECUTION_REQUEST_STATUS_FAILURE && 'red') ||
+        (status === EXECUTION_REQUEST_STATUS_TIMEOUT && 'red') ||
         (status === EXECUTION_REQUEST_STATUS_UP_FOR_RETRY && 'yellow') ||
         (status === EXECUTION_REQUEST_STATUS_CANCELLED && 'gray') ||
         (status === EXECUTION_REQUEST_STATUS_ROLLED_BACK && 'yellow') ||
@@ -111,6 +115,8 @@ export const getExecutionRequestSummaryText = (status: string) => {
             return i18next.t('ingestion:executions.summarySucceededWithWarnings');
         case EXECUTION_REQUEST_STATUS_FAILURE:
             return i18next.t('ingestion:executions.summaryFailure');
+        case EXECUTION_REQUEST_STATUS_TIMEOUT:
+            return i18next.t('ingestion:executions.summaryTimedOut');
         case EXECUTION_REQUEST_STATUS_CANCELLED:
             return i18next.t('ingestion:executions.summaryCancelled');
         case EXECUTION_REQUEST_STATUS_ROLLED_BACK:

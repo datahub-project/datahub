@@ -55,6 +55,7 @@
     "executions.summaryRunning": "La Ingestion se está ejecutando...",
     "executions.summarySucceededWithWarnings": "La Ingestion se completó con algunas advertencias.",
     "executions.summarySuccess": "La Ingestion se completó sin errores ni advertencias.",
+    "executions.summaryTimedOut": "La ingesta no finalizó dentro de su límite de tiempo.",
     "executions.summaryUnknown": "Estado de la Ingestion no reconocido.",
     "executions.viewMore": "Ver más",
     "filters.allStatuses": "Todos los estados",
@@ -164,5 +165,6 @@
     "status.succeeded": "Correcto",
     "status.succeededWithWarnings": "Correcto con advertencias",
     "status.success": "Correcto",
+    "status.timedOut": "Tiempo agotado",
     "status.upForRetry": "Pendiente de reintento"
 }

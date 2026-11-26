@@ -55,6 +55,7 @@
     "executions.summaryRunning": "L'ingestion est en cours...",
     "executions.summarySucceededWithWarnings": "L'ingestion s'est terminée avec des avertissements.",
     "executions.summarySuccess": "L'ingestion s'est terminée sans erreur ni avertissement.",
+    "executions.summaryTimedOut": "L'ingestion ne s'est pas terminée dans le délai imparti.",
     "executions.summaryUnknown": "Statut de l'ingestion non reconnu.",
     "executions.viewMore": "Afficher plus",
     "filters.allStatuses": "Tous les statuts",
@@ -164,5 +165,6 @@
     "status.succeeded": "Réussi",
     "status.succeededWithWarnings": "Réussi avec avertissements",
     "status.success": "Succès",
+    "status.timedOut": "Délai dépassé",
     "status.upForRetry": "À réessayer"
 }

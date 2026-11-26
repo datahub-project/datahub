@@ -55,6 +55,7 @@
     "executions.summaryRunning": "資料擷取執行中...",
     "executions.summarySucceededWithWarnings": "資料擷取已完成，但出現部分警告。",
     "executions.summarySuccess": "資料擷取已完成，沒有錯誤或警告。",
+    "executions.summaryTimedOut": "擷取未在時間限制內完成。",
     "executions.summaryUnknown": "無法辨識資料擷取狀態。",
     "executions.viewMore": "檢視更多",
     "filters.allStatuses": "所有狀態",
@@ -163,5 +164,6 @@
     "status.succeeded": "成功",
     "status.succeededWithWarnings": "成功（含警告）",
     "status.success": "成功",
+    "status.timedOut": "逾時",
     "status.upForRetry": "待重試"
 }

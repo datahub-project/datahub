@@ -39,7 +39,7 @@ interface Props {
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
-    showLastRunSort?: boolean;
+    showLastRunControls?: boolean;
     isLoading?: boolean;
     shouldPreserveParams: React.MutableRefObject<boolean>;
     isLastPage?: boolean;
@@ -57,7 +57,7 @@ function IngestionSourceTable({
     onView,
     onDelete,
     onChangeSort,
-    showLastRunSort,
+    showLastRunControls,
     isLoading,
     shouldPreserveParams,
     isLastPage,
@@ -79,8 +79,11 @@ function IngestionSourceTable({
         timezone: source.schedule?.timezone,
         execCount: source.executions?.total || 0,
         lastExecUrn: source.executions?.executionRequests?.[0]?.urn,
-        // Matches the lastRunRequestedAtMillis sort key, and is set before the executor starts.
-        lastExecTime: source.executions?.executionRequests?.[0]?.input?.requestedAt,
+        // With the last-run controls on, show the request time: it is the lastRunRequestedAtMillis sort
+        // key, and is set before the executor starts.
+        lastExecTime: showLastRunControls
+            ? source.executions?.executionRequests?.[0]?.input?.requestedAt
+            : source.executions?.executionRequests?.[0]?.result?.startTimeMs,
         lastExecStatus: getSourceStatus(source, sourcesToRefetch, executedUrns),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
         owners: source.ownership?.owners,
@@ -134,7 +137,7 @@ function IngestionSourceTable({
             key: LAST_RUN_SORT_FIELD,
             render: (record) => <DateTimeColumn time={record.lastExecTime} showRelative />,
             width: '20%',
-            sorter: !!showLastRunSort,
+            sorter: !!showLastRunControls,
             onCellClick: (record) => navigateToRunHistory(record),
             cellWrapper: (content, record) => wrapDateTimeColumnWithHover(content, record.lastExecTime),
         },

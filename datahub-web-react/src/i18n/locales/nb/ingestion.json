@@ -55,6 +55,7 @@
     "executions.summaryRunning": "Ingestion kjører...",
     "executions.summarySucceededWithWarnings": "Ingestion ble fullført med noen advarsler.",
     "executions.summarySuccess": "Ingestion ble fullført uten feil eller advarsler.",
+    "executions.summaryTimedOut": "Inntaket ble ikke fullført innen tidsgrensen.",
     "executions.summaryUnknown": "Ingestion-status ikke gjenkjent.",
     "executions.viewMore": "Vis mer",
     "filters.allStatuses": "Alle statuser",
@@ -164,5 +165,6 @@
     "status.succeeded": "Vellykket",
     "status.succeededWithWarnings": "Vellykket med advarsler",
     "status.success": "Vellykket",
+    "status.timedOut": "Tidsavbrudd",
     "status.upForRetry": "Klar for nytt forsøk"
 }

@@ -21,6 +21,8 @@ const LAST_RUN_SOURCE_URNS = [
   'urn:li:dataHubIngestionSource:playwright-v3-last-run-older',
   'urn:li:dataHubIngestionSource:playwright-v3-last-run-newer',
 ];
+const PENDING_RUN_SOURCE = 'playwright v3 pending run';
+const PENDING_RUN_SOURCE_URN = 'urn:li:dataHubIngestionSource:playwright-v3-pending-run';
 
 test.use({ featureName: 'ingestion-v3' });
 
@@ -189,5 +191,16 @@ test.describe('ingestion sources', () => {
 
     await ingestionPage.sourcesTab.expectSourceVisible(LAST_RUN_NEWER_SOURCE);
     await ingestionPage.sourcesTab.expectSourceNotVisible(LAST_RUN_OLDER_SOURCE);
+  });
+
+  test('show when a pending run was requested', async () => {
+    await ingestionPage.sourcesTab.waitForLastRunsIndexed([PENDING_RUN_SOURCE_URN]);
+    await ingestionPage.goto();
+    await ingestionPage.sourcesTab.typeSearchQuery(PENDING_RUN_SOURCE);
+
+    await ingestionPage.sourcesTab.selectResultStatusFilter('PENDING');
+
+    await ingestionPage.sourcesTab.expectSourceVisible(PENDING_RUN_SOURCE);
+    await ingestionPage.sourcesTab.expectLastRunShown(PENDING_RUN_SOURCE);
   });
 });

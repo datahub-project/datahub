@@ -55,6 +55,7 @@
     "executions.summaryRunning": "Загрузка выполняется...",
     "executions.summarySucceededWithWarnings": "Загрузка завершена с некоторыми предупреждениями.",
     "executions.summarySuccess": "Загрузка завершена без ошибок и предупреждений.",
+    "executions.summaryTimedOut": "Загрузка не завершилась в отведённое время.",
     "executions.summaryUnknown": "Статус загрузки не распознан.",
     "executions.viewMore": "Показать больше",
     "filters.allStatuses": "Все статусы",
@@ -165,6 +166,7 @@
     "status.succeeded": "Успешно",
     "status.succeededWithWarnings": "Успешно с предупреждениями",
     "status.success": "Успех",
+    "status.timedOut": "Превышено время ожидания",
     "status.upForRetry": "Ожидает повтора",
     "filters.sourceType": "Тип источника"
 }

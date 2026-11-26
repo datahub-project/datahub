@@ -55,6 +55,7 @@
     "executions.summaryRunning": "数据引入正在运行…",
     "executions.summarySucceededWithWarnings": "数据引入已完成，但存在一些警告。",
     "executions.summarySuccess": "数据引入已完成，无错误和警告。",
+    "executions.summaryTimedOut": "摄取未在时间限制内完成。",
     "executions.summaryUnknown": "无法识别数据引入状态。",
     "executions.viewMore": "查看更多",
     "filters.allStatuses": "所有状态",
@@ -163,5 +164,6 @@
     "status.succeeded": "成功",
     "status.succeededWithWarnings": "成功（有警告）",
     "status.success": "成功",
+    "status.timedOut": "超时",
     "status.upForRetry": "待重试"
 }

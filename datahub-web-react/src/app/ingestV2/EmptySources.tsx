@@ -6,16 +6,17 @@ import { useTranslation } from 'react-i18next';
 
 import { EmptyContainer } from '@app/govern/structuredProperties/styledComponents';
 
+export type EmptySourcesReason = 'search' | 'lastRunFilter';
+
 interface Props {
     sourceType?: string;
-    isEmptySearchResult?: boolean;
-    isEmptyLastRunResult?: boolean;
+    emptyReason?: EmptySourcesReason;
 }
 
-const EmptySources = ({ sourceType, isEmptySearchResult, isEmptyLastRunResult }: Props) => {
+const EmptySources = ({ sourceType, emptyReason }: Props) => {
     const { t } = useTranslation('ingestion');
 
-    if (isEmptySearchResult) {
+    if (emptyReason === 'search') {
         return (
             <EmptyContainer>
                 <EmptyState
@@ -26,7 +27,7 @@ const EmptySources = ({ sourceType, isEmptySearchResult, isEmptyLastRunResult }:
             </EmptyContainer>
         );
     }
-    if (isEmptyLastRunResult) {
+    if (emptyReason === 'lastRunFilter') {
         // Latest-run fields are filled in after an upgrade and as runs are recorded, so a source that
         // has run can be missing from the results for a while.
         return (

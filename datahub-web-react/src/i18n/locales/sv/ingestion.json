@@ -55,6 +55,7 @@
     "executions.summaryRunning": "Ingestion körs...",
     "executions.summarySucceededWithWarnings": "Ingestion slutfördes med vissa varningar.",
     "executions.summarySuccess": "Ingestion slutfördes utan fel eller varningar.",
+    "executions.summaryTimedOut": "Inmatningen slutfördes inte inom tidsgränsen.",
     "executions.summaryUnknown": "Ingestion-status kändes inte igen.",
     "executions.viewMore": "Visa mer",
     "filters.allStatuses": "Alla status",
@@ -164,5 +165,6 @@
     "status.succeeded": "Lyckades",
     "status.succeededWithWarnings": "Lyckades med varningar",
     "status.success": "Lyckades",
+    "status.timedOut": "Tidsgräns överskriden",
     "status.upForRetry": "Väntar på nytt försök"
 }

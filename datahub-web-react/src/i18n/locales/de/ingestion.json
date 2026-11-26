@@ -55,6 +55,7 @@
     "executions.summaryRunning": "Ingestion läuft...",
     "executions.summarySucceededWithWarnings": "Ingestion mit Warnungen abgeschlossen.",
     "executions.summarySuccess": "Ingestion ohne Fehler oder Warnungen abgeschlossen.",
+    "executions.summaryTimedOut": "Die Aufnahme wurde nicht innerhalb des Zeitlimits abgeschlossen.",
     "executions.summaryUnknown": "Ingestion-Status nicht erkannt.",
     "executions.viewMore": "Mehr anzeigen",
     "filters.allStatuses": "Alle Status",
@@ -164,5 +165,6 @@
     "status.succeeded": "Erfolgreich",
     "status.succeededWithWarnings": "Erfolgreich mit Warnungen",
     "status.success": "Erfolgreich",
+    "status.timedOut": "Zeitüberschreitung",
     "status.upForRetry": "Wird wiederholt"
 }

@@ -248,5 +248,25 @@
       "value": "{\"status\":\"FAILURE\",\"startTimeMs\":1700000100000,\"durationMs\":5000}",
       "contentType": "application/json"
     }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-v3-pending-run",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright v3 pending run\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"playwright-no-executor\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-v3-pending-run",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestInput",
+    "aspect": {
+      "value": "{\"task\":\"RUN_INGEST\",\"args\":{},\"executorId\":\"playwright-no-executor\",\"source\":{\"type\":\"INGESTION_SOURCE\",\"ingestionSource\":\"urn:li:dataHubIngestionSource:playwright-v3-pending-run\"},\"requestedAt\":1700000200000}",
+      "contentType": "application/json"
+    }
   }
 ]

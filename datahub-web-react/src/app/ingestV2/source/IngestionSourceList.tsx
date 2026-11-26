@@ -2,11 +2,11 @@ import { Pagination, SearchBar, SimpleSelect, toast } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
-import { useDebounce, usePrevious } from 'react-use';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import EmptySources from '@app/ingestV2/EmptySources';
+import EmptySources, { EmptySourcesReason } from '@app/ingestV2/EmptySources';
 import { useIngestionContext } from '@app/ingestV2/IngestionContext';
 import { CLI_EXECUTOR_ID, DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import CancelExecutionConfirmation from '@app/ingestV2/executions/components/columns/CancelExecutionConfirmation';
@@ -19,12 +19,14 @@ import ResultStatusFilter, {
 } from '@app/ingestV2/shared/components/filters/ResultStatusFilter';
 import SourceTypeFilter from '@app/ingestV2/shared/components/filters/SourceTypeFilter';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
+import useResetPageOnChange from '@app/ingestV2/shared/hooks/useResetPageOnChange';
 import IngestionSourceRefetcher from '@app/ingestV2/source/IngestionSourceRefetcher';
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
 import { removeFromListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import {
     DEFAULT_SOURCE_SORT_CRITERION,
+    LAST_RUN_SORT_FIELD,
     getIngestionSourceSystemFilter,
     getLastRunControls,
     getSortInput,
@@ -37,6 +39,7 @@ import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import useUrlParamsPagination from '@app/sharedV2/pagination/useUrlParamsPagination';
 import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useQueryParamSortCriterion } from '@app/sharedV2/sorting/useQueryParamSortCriterion';
+import { useAppConfig } from '@app/useAppConfig';
 import { PageRoutes } from '@conf/Global';
 
 import {
@@ -196,15 +199,18 @@ export const IngestionSourceList = ({
         sortFromUrl,
         lastRunStatus,
     );
+    const { loaded: appConfigLoaded } = useAppConfig();
+
+    // With the controls off these params are ignored, so drop them rather than leave them in the URL.
+    useEffect(() => {
+        if (!appConfigLoaded || showLastRunControls) return;
+        if (lastRunStatus) setLastRunStatus('');
+        if (sortFromUrl?.field === LAST_RUN_SORT_FIELD) setSort(undefined);
+    }, [appConfigLoaded, showLastRunControls, lastRunStatus, setLastRunStatus, sortFromUrl, setSort]);
 
     const sourceFilter = useMemo(() => sourceFilterFromUrl ?? IngestionSourceType.ALL, [sourceFilterFromUrl]);
-    const prevSourceFilter = usePrevious(sourceFilter);
 
     const sourceTypes = useMemo(() => sourceTypesFromUrl ?? [], [sourceTypesFromUrl]);
-    const prevSourceTypes = usePrevious(sourceTypes);
-    // '' rather than undefined when unset, so usePrevious's undefined only means first render.
-    const lastRunStatusKey = lastRunStatus ?? '';
-    const prevLastRunStatusKey = usePrevious(lastRunStatusKey);
 
     // Debounce the search query
     useDebounce(
@@ -221,25 +227,9 @@ export const IngestionSourceList = ({
         [searchInput],
     );
 
-    // When source filter changes, reset page to 1
-    useEffect(() => {
-        if (prevSourceFilter !== undefined && prevSourceFilter !== sourceFilter) {
-            setPage(1);
-        }
-    }, [sourceFilter, setPage, prevSourceFilter]);
-
-    // When source type filter changes, reset page to 1
-    useEffect(() => {
-        if (prevSourceTypes !== undefined && prevSourceTypes !== sourceTypes) {
-            setPage(1);
-        }
-    }, [sourceTypes, setPage, prevSourceTypes]);
-
-    useEffect(() => {
-        if (prevLastRunStatusKey !== undefined && prevLastRunStatusKey !== lastRunStatusKey) {
-            setPage(1);
-        }
-    }, [lastRunStatusKey, setPage, prevLastRunStatusKey]);
+    useResetPageOnChange(sourceFilter, setPage);
+    useResetPageOnChange(sourceTypes, setPage);
+    useResetPageOnChange(lastRunStatus, setPage);
 
     /**
      * Show or hide system ingestion sources using a hidden command S command.
@@ -264,6 +254,11 @@ export const IngestionSourceList = ({
         }
         return draftFilters;
     }, [sourceFilter, hideSystemSources, sourceTypes, activeLastRunStatus]);
+
+    // A status filter is narrower than a search, so it is the more likely reason for no results.
+    let emptyReason: EmptySourcesReason | undefined;
+    if (activeLastRunStatus) emptyReason = 'lastRunFilter';
+    else if (query) emptyReason = 'search';
 
     const queryInputs = useMemo(
         () => ({
@@ -511,6 +506,7 @@ export const IngestionSourceList = ({
                             />
                             {showLastRunControls && (
                                 <ResultStatusFilter
+                                    includePending
                                     values={activeLastRunStatus ? [activeLastRunStatus] : undefined}
                                     onUpdate={(values) =>
                                         setLastRunStatus(values[0] === RESULT_STATUS_ALL_VALUE ? '' : values[0])
@@ -524,11 +520,7 @@ export const IngestionSourceList = ({
                     </StyledTabToolbar>
                 </HeaderContainer>
                 {!loading && data?.listIngestionSources?.total === 0 ? (
-                    <EmptySources
-                        sourceType={t('source.sourcesNoun')}
-                        isEmptySearchResult={!!query}
-                        isEmptyLastRunResult={!!activeLastRunStatus}
-                    />
+                    <EmptySources sourceType={t('source.sourcesNoun')} emptyReason={emptyReason} />
                 ) : (
                     <>
                         <TableContainer>
@@ -541,7 +533,7 @@ export const IngestionSourceList = ({
                                 onView={onView}
                                 onDelete={onDelete}
                                 onChangeSort={onChangeSort}
-                                showLastRunSort={showLastRunControls}
+                                showLastRunControls={showLastRunControls}
                                 isLoading={
                                     loading && (!data || data?.listIngestionSources?.ingestionSources?.length === 0)
                                 }

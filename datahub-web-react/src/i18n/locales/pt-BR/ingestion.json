@@ -55,6 +55,7 @@
     "executions.summaryRunning": "Ingestion em andamento...",
     "executions.summarySucceededWithWarnings": "Ingestion concluída com alguns avisos.",
     "executions.summarySuccess": "Ingestion concluída sem erros ou avisos.",
+    "executions.summaryTimedOut": "A ingestão não terminou dentro do limite de tempo.",
     "executions.summaryUnknown": "Status de ingestion não reconhecido.",
     "executions.viewMore": "Ver Mais",
     "filters.allStatuses": "Todos os Status",
@@ -164,5 +165,6 @@
     "status.succeeded": "Sucesso",
     "status.succeededWithWarnings": "Sucesso com Avisos",
     "status.success": "Sucesso",
+    "status.timedOut": "Tempo Esgotado",
     "status.upForRetry": "Aguardando Nova Tentativa"
 }
