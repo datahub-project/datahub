@@ -121,7 +121,6 @@ class ItemsMixin(OnPremBinaryMixin):
             self._apps_tables_known.add(app_id)
             if previous.graph_tables_unresolved:
                 self._apps_graph_tables_unresolved.add(app_id)
-        assert self.stale_entity_removal_handler is not None
         for urn in previous.urns:
             self._keep_in_stale_state(urn)
         return previous

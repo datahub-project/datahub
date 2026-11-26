@@ -246,10 +246,7 @@ class SourceResolutionMixin(FileIdentityMixin):
     def _keep_graph_named_urns(self, app_id: str) -> None:
         """Keeps the datasets the app's last read named from its upstream
         graph, as this run could not name them again."""
-        if (
-            self.stale_entity_removal_handler is None
-            or app_id in self._apps_graph_named_kept
-        ):
+        if app_id in self._apps_graph_named_kept:
             return
         self._apps_graph_named_kept.add(app_id)
         failures: List[str] = []

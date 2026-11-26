@@ -174,8 +174,7 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
             pipeline_name=ctx.pipeline_name,
             run_id=ctx.run_id,
             stale_job_id=self.stale_entity_removal_handler.job_id
-            if self.stale_entity_removal_handler
-            and self.stale_entity_removal_handler.is_checkpointing_enabled()
+            if self.stale_entity_removal_handler.is_checkpointing_enabled()
             else None,
         )
         self._fingerprint_salt = None
@@ -214,18 +213,13 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
         return cls(config, ctx)
 
     def get_excluded_workunit_processors(self):
-        return (
-            [AutoStaleEntityRemovalProcessor]
-            if self.stale_entity_removal_handler
-            else []
-        )
+        return [AutoStaleEntityRemovalProcessor]
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         processors = super().get_workunit_processors()
-        if self.stale_entity_removal_handler:
-            processors.append(
-                partial(auto_stale_entity_removal, self.stale_entity_removal_handler)
-            )
+        processors.append(
+            partial(auto_stale_entity_removal, self.stale_entity_removal_handler)
+        )
         return processors
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

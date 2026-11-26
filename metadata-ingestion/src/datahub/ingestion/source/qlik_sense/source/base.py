@@ -45,7 +45,7 @@ class QlikSourceBase:
     app_state: QlikAppStateHandler
     # Owned here rather than by the automatic processor so that entities of
     # apps skipped as unchanged or only partly read can be kept in the state.
-    stale_entity_removal_handler: Optional[StaleEntityRemovalHandler]
+    stale_entity_removal_handler: StaleEntityRemovalHandler
 
     _data_connections: Optional[Dict[str, DataConnectionInfo]]
     # The files each app's load script reads, to resolve the files in its
