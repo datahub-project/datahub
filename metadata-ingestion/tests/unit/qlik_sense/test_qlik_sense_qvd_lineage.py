@@ -591,6 +591,30 @@ def test_qvd_writers_are_kept_when_data_connections_could_not_be_listed() -> Non
     assert not any(_upstreams(aspects, urn, "remove") for urn in aspects)
 
 
+def test_qvd_lineage_warning_says_why_an_apps_writes_are_unknown() -> None:
+    source, _ = _run(
+        [
+            _app(
+                "report-app",
+                REPORT_SCRIPT
+                + "Orders: LOAD 1 AS id AUTOGENERATE 1;\n"
+                + "STORE Orders INTO [lib://QVD Data/staged/orders.qvd] (qvd);\n"
+                + "STORE Orders INTO [lib://Unknown/x.qvd] (qvd);",
+            )
+        ]
+    )
+    contexts = [
+        context
+        for warning in source.reporter.warnings
+        if warning.title == "Lineage of Qlik QVDs only added to"
+        for context in warning.context
+    ]
+    assert any(
+        "report-app: a STORE path could not be resolved" in context
+        for context in contexts
+    )
+
+
 def test_storage_qvd_writes_are_added_when_data_connections_could_not_be_listed() -> (
     None
 ):
