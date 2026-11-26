@@ -236,8 +236,11 @@ roll back below it.
 
 - If the feature was never turned on, you can roll back to an earlier release as usual.
 - Once custom environments are in use, an earlier release can't read or update the assets that use
-  them, so don't roll back below this release. Turning the setting off again stops new uses, but
-  existing custom environments and the assets in them stay as they are.
+  them, so don't roll back below this release.
+
+Treat turning the feature on as a one-time step. If you turn it off again after custom environments
+are in use, writes to the assets that use them, including re-ingestion, are rejected until you turn
+it back on; those assets can still be read.
 
 The Java `FabricType` enum and the Python `FabricTypeClass` still list only the built-in
 environments. If your own code reads an asset's environment through them, a custom value reads as

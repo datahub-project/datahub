@@ -61,7 +61,7 @@ DataHub checks the environment of every write that introduces it: creating an as
 - a deprecated custom environment;
 - any custom environment while custom environments are turned off.
 
-A write that keeps an asset's current environment is always accepted. Assets already in a deprecated environment, or created before custom environments were turned off, can still be read, updated and re-ingested.
+While custom environments are on, a write that keeps an asset's current environment is always accepted, so assets already in a deprecated environment can still be updated and re-ingested.
 
 ### Deprecation and deletion
 
@@ -82,7 +82,6 @@ The GraphQL API has the `customFabricType` and `listCustomFabricTypes` queries a
 - The **Manage Environments** platform privilege (`MANAGE_CUSTOM_FABRIC_TYPES`) allows creating, editing, deprecating and deleting custom environments. The default Admin and Editor policies grant it.
 - Using an environment needs no extra privilege: anyone who may write an asset may put it in any accepted environment.
 - Custom environments are readable by everyone, so environment names can be shown wherever assets appear.
-- Metadata policies can be limited to assets in specific environments with the **Environments** resource filter, built-in or custom. See [Policies](../../../authorization/policies.md).
 
 ## Turning custom environments on
 
@@ -91,7 +90,10 @@ Custom environments are controlled by the `CUSTOM_FABRIC_TYPES_ENABLED` setting 
 - every GMS and consumer runs a release that supports custom environments; and
 - you won't roll back to a release without them.
 
-Once assets use a custom environment, an earlier release can't read or update them. Turning the setting off again stops new uses but leaves existing custom environments and the assets in them as they are. See the custom environments entry in [Breaking Changes by Version](../../../how/breaking-changes.md).
+Turning it on is meant to be a one-time, controlled step, not a switch to flip back and forth. Once assets use a custom environment:
+
+- an earlier release can't read or update them; and
+- turning the setting off again rejects writes to those assets, including re-ingestion, and lineage that refers to them, until it is turned back on. They can still be read. See the custom environments entry in [Breaking Changes by Version](../../../how/breaking-changes.md).
 
 ## Notable Exceptions
 
