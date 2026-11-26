@@ -117,3 +117,29 @@ CREATE TABLE special_types (
 -- of -1. Scoped to this table: raw_orders/processed_orders were created after
 -- the ANALYZE above and intentionally cover the never-analyzed (-1) branch.
 ANALYZE special_types;
+
+-- Declarative partitioning: each partition is listed as its own table unless
+-- include_table_partitions is false. logs_child uses table inheritance, which is
+-- not partitioning, so it is ingested either way.
+CREATE SCHEMA partitioned;
+
+CREATE TABLE partitioned.events (
+    id INT,
+    created_at DATE NOT NULL
+) PARTITION BY RANGE (created_at);
+
+CREATE TABLE partitioned.events_2022_02 PARTITION OF partitioned.events
+    FOR VALUES FROM ('2022-02-01') TO ('2022-03-01');
+
+CREATE TABLE partitioned.events_2022_03 PARTITION OF partitioned.events
+    FOR VALUES FROM ('2022-03-01') TO ('2022-04-01');
+
+CREATE TABLE partitioned.logs (id INT);
+
+CREATE TABLE partitioned.logs_child () INHERITS (partitioned.logs);
+
+-- Keep the new tables off the never-analyzed (-1) row-count branch, which
+-- raw_orders/processed_orders already cover.
+ANALYZE partitioned.events;
+ANALYZE partitioned.logs;
+ANALYZE partitioned.logs_child;

@@ -9,6 +9,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     Union,
@@ -421,6 +422,17 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
         "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
+    include_table_partitions: bool = Field(
+        default=True,
+        description=(
+            "Ingest each partition of a declaratively partitioned table "
+            "(PARTITION BY, Postgres 10+) as its own dataset. Set to false to "
+            "ingest only the parent partitioned table and skip its partitions. "
+            "Child tables created with table inheritance (INHERITS) are not "
+            "partitions and are always ingested; use table_pattern to exclude them."
+        ),
+    )
+
     include_query_lineage: bool = Field(
         default=False,
         description=(
@@ -576,6 +588,10 @@ class PostgresSource(SQLAlchemySource):
         self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = (
             config.rds_iam_token_manager()
         )
+
+        # loop_tables and loop_profiler_requests both list tables, so a skipped
+        # partition is seen twice per run; this keeps the report count exact.
+        self._skipped_table_partitions: Set[str] = set()
 
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
         if self.config.include_query_lineage:
@@ -740,6 +756,42 @@ class PostgresSource(SQLAlchemySource):
         return view_names + [
             name for name in materialized_view_names if name not in known
         ]
+
+    def _get_table_names(self, inspector: Inspector, schema: str) -> List[str]:
+        table_names = super()._get_table_names(inspector, schema)
+        if self.config.include_table_partitions:
+            return table_names
+        try:
+            with inspector.engine.connect() as conn:
+                partitions = {
+                    row.table_name
+                    for row in conn.execute(
+                        PostgresQuery.get_table_partitions(), {"schema": schema}
+                    )
+                }
+        except Exception as e:
+            self.report.warning(
+                title="Failed to list table partitions",
+                message="Partitions in this schema will be ingested as regular tables. "
+                "Detecting partitions requires Postgres 10+ and read access to pg_catalog.",
+                context=schema,
+                exc=e,
+            )
+            return table_names
+
+        kept: List[str] = []
+        for table in table_names:
+            if table not in partitions:
+                kept.append(table)
+                continue
+            dataset_name = self.get_identifier(
+                schema=schema, entity=table, inspector=inspector
+            )
+            if dataset_name not in self._skipped_table_partitions:
+                self._skipped_table_partitions.add(dataset_name)
+                self.report.num_table_partitions_skipped += 1
+                self.report.table_partitions_skipped.append(dataset_name)
+        return kept
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits_internal()

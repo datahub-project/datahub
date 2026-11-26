@@ -1,0 +1,629 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "postgres",
+                "env": "PROD",
+                "database": "postgrestest"
+            },
+            "name": "postgrestest",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:postgres"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:10576b964a216403b9353b41026355fa",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:10576b964a216403b9353b41026355fa",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "postgres",
+                "env": "PROD",
+                "database": "postgrestest",
+                "schema": "partitioned"
+            },
+            "name": "partitioned",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:10576b964a216403b9353b41026355fa",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:10576b964a216403b9353b41026355fa",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:postgres"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:10576b964a216403b9353b41026355fa",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:10576b964a216403b9353b41026355fa",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:10576b964a216403b9353b41026355fa"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "events",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "postgrestest.partitioned.events",
+            "platform": "urn:li:dataPlatform:postgres",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "created_at",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DATE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                },
+                {
+                    "id": "urn:li:container:10576b964a216403b9353b41026355fa",
+                    "urn": "urn:li:container:10576b964a216403b9353b41026355fa"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.logs_child,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:10576b964a216403b9353b41026355fa"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.logs_child,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.logs_child,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "logs_child",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.logs_child,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "postgrestest.partitioned.logs_child",
+            "platform": "urn:li:dataPlatform:postgres",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.logs_child,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.logs_child,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                },
+                {
+                    "id": "urn:li:container:10576b964a216403b9353b41026355fa",
+                    "urn": "urn:li:container:10576b964a216403b9353b41026355fa"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.logs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:10576b964a216403b9353b41026355fa"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.logs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.logs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "logs",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.logs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "postgrestest.partitioned.logs",
+            "platform": "urn:li:dataPlatform:postgres",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.logs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.partitioned.logs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                },
+                {
+                    "id": "urn:li:container:10576b964a216403b9353b41026355fa",
+                    "urn": "urn:li:container:10576b964a216403b9353b41026355fa"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

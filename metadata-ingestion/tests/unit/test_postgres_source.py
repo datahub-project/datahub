@@ -223,6 +223,76 @@ def test_view_names_survive_materialized_view_listing_failure():
     assert source.report.warnings
 
 
+def _partitioned_inspector(partition_rows: Any) -> MagicMock:
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = [
+        "customers",
+        "events",
+        "events_2026_10",
+        "events_2026_11",
+    ]
+    inspector.engine.connect.return_value = FakeConnection(
+        {"relispartition": partition_rows}
+    )
+    return inspector
+
+
+def test_table_names_include_partitions_by_default():
+    source = PostgresSource(
+        PostgresConfig.model_validate({**_base_config(), "database": "db"}),
+        PipelineContext(run_id="test"),
+    )
+    inspector = _partitioned_inspector([])
+
+    assert len(source._get_table_names(inspector, "public")) == 4
+    inspector.engine.connect.assert_not_called()
+
+
+def test_table_names_skip_partitions_when_disabled():
+    source = PostgresSource(
+        PostgresConfig.model_validate(
+            {**_base_config(), "database": "db", "include_table_partitions": False}
+        ),
+        PipelineContext(run_id="test"),
+    )
+    inspector = _partitioned_inspector(
+        lambda params: (
+            [
+                SimpleNamespace(table_name="events_2026_10"),
+                SimpleNamespace(table_name="events_2026_11"),
+            ]
+            if params == {"schema": "public"}
+            else []
+        )
+    )
+
+    # loop_tables and loop_profiler_requests both list tables; count each once.
+    for _ in range(2):
+        assert source._get_table_names(inspector, "public") == ["customers", "events"]
+
+    assert source.report.num_table_partitions_skipped == 2
+    assert list(source.report.table_partitions_skipped) == [
+        "db.public.events_2026_10",
+        "db.public.events_2026_11",
+    ]
+
+
+def test_table_names_keep_partitions_when_listing_them_fails():
+    source = PostgresSource(
+        PostgresConfig.model_validate(
+            {**_base_config(), "database": "db", "include_table_partitions": False}
+        ),
+        PipelineContext(run_id="test"),
+    )
+    inspector = _partitioned_inspector(
+        RuntimeError('column "relispartition" does not exist')
+    )
+
+    assert len(source._get_table_names(inspector, "public")) == 4
+    assert source.report.num_table_partitions_skipped == 0
+    assert source.report.warnings
+
+
 def test_database_in_identifier():
     config = PostgresConfig.model_validate({**_base_config(), "database": "postgres"})
     mock_inspector = mock.MagicMock()

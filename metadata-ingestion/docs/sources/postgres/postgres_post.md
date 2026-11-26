@@ -184,6 +184,24 @@ Navigate to a dataset in DataHub and check the "Lineage" tab. You should see ups
    - Run ingestion daily or weekly to capture lineage from new queries
    - More frequent ingestion provides more up-to-date lineage graphs
 
+#### Partitioned tables
+
+By default, each partition of a declaratively partitioned table (`PARTITION BY`, PostgreSQL 10+) is ingested as its own dataset, alongside the parent table. For tables partitioned by day or month, this can add hundreds of near-duplicate datasets.
+
+To ingest only the parent table and skip its partitions, set `include_table_partitions` to `false`:
+
+```yaml
+source:
+  type: postgres
+  config:
+    # ...
+    include_table_partitions: false
+```
+
+Partitions are detected through `pg_class.relispartition`, so new partitions are skipped automatically without updating `table_pattern`. Sub-partitions are skipped too. The ingestion report lists skipped partitions under `num_table_partitions_skipped` and `table_partitions_skipped`.
+
+Child tables created with table inheritance (`INHERITS`) are not partitions and are always ingested. Use `table_pattern` to exclude them.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

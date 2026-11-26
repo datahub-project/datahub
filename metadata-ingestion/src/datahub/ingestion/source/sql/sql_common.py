@@ -780,7 +780,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         data_reader = self.make_data_reader(inspector)
         with data_reader or contextlib.nullcontext():
             try:
-                for table in inspector.get_table_names(schema):
+                for table in self._get_table_names(inspector, schema):
                     dataset_name = self.get_identifier(
                         schema=schema, entity=table, inspector=inspector
                     )
@@ -1226,6 +1226,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
 
+    def _get_table_names(self, inspector: Inspector, schema: str) -> List[str]:
+        """Names of the tables loop_tables ingests and loop_profiler_requests
+        profiles. Override to drop table-like objects the dialect lists but the
+        source should skip (e.g. partitions of a partitioned table)."""
+        return inspector.get_table_names(schema)
+
     def _get_view_names(self, inspector: Inspector, schema: str) -> List[str]:
         """Names of the views loop_views ingests. Override to add view-like
         objects the dialect lists separately (e.g. materialized views)."""
@@ -1492,7 +1498,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             except NotImplementedError:
                 logger.debug("Source does not support generating profile candidates.")
 
-        for table in inspector.get_table_names(schema):
+        for table in self._get_table_names(inspector, schema):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )

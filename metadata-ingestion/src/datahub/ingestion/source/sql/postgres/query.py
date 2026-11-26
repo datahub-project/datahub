@@ -48,6 +48,23 @@ class PostgresQuery:
         return " AND ".join(filters)
 
     @staticmethod
+    def get_table_partitions() -> TextClause:
+        """List tables in a schema that are partitions of a partitioned table.
+
+        relispartition was added in Postgres 10, alongside declarative
+        partitioning. Use with: connection.execute(query, {"schema": schema})
+        """
+        return text(
+            """
+        SELECT c.relname AS table_name
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = :schema
+          AND c.relispartition
+        """
+        )
+
+    @staticmethod
     def check_pg_stat_statements_enabled() -> TextClause:
         """Check if pg_stat_statements extension is installed."""
         return text(
