@@ -57,7 +57,7 @@ vi.mock('@app/sharedV2/modals/ConfirmationModal', () => ({
         isOpen ? (
             <div>
                 <div>{modalTitle}</div>
-                <button type="button" data-testid="modal-confirm-button" onClick={handleConfirm} />
+                <button type="button" aria-label="Confirm" data-testid="modal-confirm-button" onClick={handleConfirm} />
             </div>
         ) : null,
 }));
@@ -140,9 +140,7 @@ describe('EnvironmentActions', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
         fireEvent.click(screen.getByTestId('modal-confirm-button'));
 
-        await waitFor(() =>
-            expect(toast.error).toHaveBeenCalledWith('Failed to delete environment: still in use'),
-        );
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to delete environment: still in use'));
         expect(toast.success).not.toHaveBeenCalled();
         await waitFor(() => expect(screen.queryByTestId('modal-confirm-button')).not.toBeInTheDocument());
     });

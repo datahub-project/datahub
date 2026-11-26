@@ -70,7 +70,7 @@ describe('EnvironmentBuilderModal', () => {
         fireEvent.click(screen.getByTestId('environment-builder-save'));
 
         await waitFor(() => expect(createCustomFabricType).toHaveBeenCalledTimes(1));
-        const input = createCustomFabricType.mock.calls[0][0].variables.input;
+        const { input } = createCustomFabricType.mock.calls[0][0].variables;
         expect(input.id).toBe('PERF_TEST');
         expect(input.displayName).toBeUndefined();
         expect(input.description).toBeUndefined();
