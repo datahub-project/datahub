@@ -15,6 +15,30 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Domain and glossary child listings are paged, and totals no longer hide restricted children
+
+The GraphQL `relationships` field for `IsPartOf` (the children of a domain, glossary term group or glossary term) now pages its results and limits the work it does per request, whether or not search access controls are enabled:
+
+- If `count` is omitted, at most 100 children are returned. Before, every child was returned. Set `GRAPHQL_QUERY_DIRECT_CHILD_DEFAULT_COUNT` to change this default.
+- `count` is capped at 1000. A larger value is treated as 1000, and a negative `start` or `count` is treated as 0. Set `GRAPHQL_QUERY_DIRECT_CHILD_MAX_COUNT` to change the cap.
+- `total` is now the number of children that exist, including any the viewer cannot see. Before, with search access controls enabled, it excluded children the viewer cannot see. A page can therefore hold fewer entries than `count` even when more children follow.
+- `count: 0` returns only `total`, with no per-child permission checks.
+- Children are returned in URN order, so an offset selects the same children on every request.
+
+If you read these children through the API, request them in pages and keep going while `start + count` is less than `total`. The web UI's glossary delete check only needs `total`, so it now requests `count: 0`.
+
+### Snowflake default `table_types` includes interactive tables ([PR #21476](https://github.com/datahub-project/datahub/pull/21476))
+
+- **(Ingestion / Snowflake)** The Snowflake source now includes `'INTERACTIVE TABLE'` in the default `table_types` set, so interactive tables are discovered and ingested as datasets with subtype `Interactive Table` on a default recipe. Recipes that set `table_types` explicitly are unchanged. **Action:** none required. To keep interactive tables out of ingestion, set `table_types` to a set that omits `'INTERACTIVE TABLE'` (for example `BASE TABLE` and `EXTERNAL TABLE` only).
+
+### Remote executor logs ingestion run output ([#21529](https://github.com/datahub-project/datahub/pull/21529))
+
+The remote executor copies each run's output into its container log (`DATAHUB_EXECUTOR_PRINT_SUBPROCESS_LOGS`, default `true`). To turn it off, set:
+
+- Helm: `global.datahub.executor.ingestions.print_subprocess_logs: false`, through values, not `extraEnvs`.
+- Terraform: `executor_ingestions_print_subprocess_logs = false` in `datahub`.
+- CloudFormation: `DataHubIngestionsPrintSubprocessLogs=false`.
+
 ### Pinned links removed from Settings > Home Page ([#21466](https://github.com/datahub-project/datahub/pull/21466))
 
 If the home page redesign is enabled (`SHOW_HOME_PAGE_REDESIGN=true`, the default), the
@@ -44,6 +68,15 @@ Three cases now require the **Delete Entity** privilege on the item itself:
 If someone sees an "Unauthorized" error when cleaning up these items, give them the **Delete Entity** privilege on those items, or have an admin delete them.
 
 Through the GraphQL API, a query can no longer be created unless it is attached to at least one dataset. The UI always attaches a query to a dataset, so it is not affected.
+
+### `applications` on Metric and SemanticModel in GraphQL ([#21576](https://github.com/datahub-project/datahub/pull/21576))
+
+The `applications` field on the `Metric` and `SemanticModel` GraphQL types now returns the
+applications the metric or semantic model belongs to, as it does on other entities. Its type changed
+from `EntityRelationshipsResult` to a list of `ApplicationAssociation`. The old field always returned
+null, so no data is lost, but a query that selects the old shape, such as
+`applications { total relationships { entity { urn } } }`, now fails validation. Select
+`applications { application { urn properties { name } } }` instead.
 
 ### Semantic search template sends an entity URN to similarity ([#21474](https://github.com/datahub-project/datahub/pull/21474))
 

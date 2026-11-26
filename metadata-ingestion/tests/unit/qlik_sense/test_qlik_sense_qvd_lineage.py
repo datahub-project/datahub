@@ -404,9 +404,16 @@ def test_qvds_of_a_storage_connection_take_the_file_dataset_qlik_cloud_uses() ->
         u.dataset
         for u in aspects[_urn("report-app.sales")]["UpstreamLineageClass"].upstreams
     ] == [STORAGE_QVD]
-    # Another platform's dataset: only its lineage is written, and never as
-    # the source that could remove it when stale.
-    assert set(aspects[STORAGE_QVD]) == {"patch", "lineage_ops", "not_primary_source"}
+    # Another platform's dataset: only its lineage and, as no storage source
+    # ingests QVDs, its subtype are written, never as the source that could
+    # remove it when stale.
+    assert set(aspects[STORAGE_QVD]) == {
+        "patch",
+        "lineage_ops",
+        "not_primary_source",
+        "SubTypesClass",
+    }
+    assert aspects[STORAGE_QVD]["SubTypesClass"].typeNames == ["QVD"]
     assert not source.reporter.unresolved_qvd_paths
 
 

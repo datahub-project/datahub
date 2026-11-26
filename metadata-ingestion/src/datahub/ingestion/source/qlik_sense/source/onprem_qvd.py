@@ -74,6 +74,8 @@ class OnPremQvdMixin(ReloadSqlMixin):
             self._unlabelled_qvd_loads += 1
         self.reporter.qvds_found += len(lineage.paths)
         self.reporter.storage_qvds_resolved += len(lineage.storage_urns)
+        for storage_urn in lineage.storage_urns:
+            self._note_storage_qvd(storage_urn)
         if app.script is None or app.script_read_failed:
             # QVDs the script writes can't be known, so their lineage is kept.
             self._apps_qvds_unknown[app.id] = QvdsUnknownReason.SCRIPT_UNREAD
@@ -324,6 +326,6 @@ class OnPremQvdMixin(ReloadSqlMixin):
         )
 
     def _is_own_dataset(self, urn: str) -> bool:
-        return DatasetUrn.from_string(urn).platform == builder.make_data_platform_urn(
-            self.platform
-        )
+        return urn not in self._share_file_urns and DatasetUrn.from_string(
+            urn
+        ).platform == builder.make_data_platform_urn(self.platform)

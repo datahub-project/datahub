@@ -47,9 +47,11 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     MetadataChangeProposalClass,
+    SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
+from tests.unit.qlik_sense.qlik_fakes import ON_PREM
 
 CLOUD_CONFIG = {"tenant_hostname": "tenant.example.com", "api_key": "key"}
 CONNECTION = "Sales Space:Lake"
@@ -266,6 +268,17 @@ def test_file_storage_of_connection(
             "S3://sales-bucket/raw",
             FileStorage(platform="s3", location="sales-bucket/raw"),
         ),
+        # A Data Gateway connection's Windows share, named as on-prem names it.
+        (
+            "\\\\Files.example.com\\Qlik\\QVD\\",
+            FileStorage(platform="qlik-sense", location="//files.example.com/qlik/qvd"),
+        ),
+        (
+            "//files.example.com/qlik",
+            FileStorage(platform="qlik-sense", location="//files.example.com/qlik"),
+        ),
+        # A server without a share.
+        ("\\\\files.example.com", None),
         ("https://example.com/sales", None),
         # An Azure URI with no container.
         ("abfss://@account.dfs.core.windows.net/sales", None),
@@ -290,6 +303,66 @@ def test_unsupported_storage_uri_is_rejected() -> None:
                 },
             }
         )
+
+
+def test_windows_share_mapping_is_rejected_on_prem() -> None:
+    # On-prem names files on shares by their path already.
+    with pytest.raises(ValidationError, match="Windows share"):
+        QlikSourceConfig.model_validate(
+            {
+                "on_prem": ON_PREM,
+                "file_connection_to_storage": {
+                    "QVDs": {"storage_uri": "\\\\files.example.com\\qlik"}
+                },
+            }
+        )
+
+
+SHARE = "\\\\Files.example.com\\Qlik\\QVD"
+SHARE_SCRIPT = """
+Orders:
+LOAD * FROM [lib://Sales Space:Share/Orders/Orders.QVD] (qvd);
+STORE Orders INTO [lib://Sales Space:Share/Out/Orders.qvd] (qvd);
+"""
+# As Qlik Sense Enterprise with platform_instance qlik_onprem names the files.
+SHARE_ORDERS_QVD = (
+    "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,"
+    "qlik_onprem.//files.example.com/qlik/qvd/orders/orders.qvd,PROD)"
+)
+SHARE_OUT_QVD = (
+    "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,"
+    "qlik_onprem.//files.example.com/qlik/qvd/out/orders.qvd,PROD)"
+)
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_on_a_mapped_windows_share_takes_the_on_prem_dataset(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {
+            "Sales Space:Share": {
+                "storage_uri": SHARE,
+                "platform_instance": "qlik_onprem",
+            }
+        },
+        {},
+        script=SHARE_SCRIPT,
+    )
+
+    # The Data Gateway connection's QRI part is its path as written.
+    urn = source._file_source_resolution(
+        "app-1", _file_qri("local", SHARE, "Orders/Orders.QVD")
+    ).urn
+
+    assert urn == SHARE_ORDERS_QVD
+    # No source ingests QVDs on a share the on-prem run doesn't read, so the
+    # file is typed here, never as the source that could remove it as stale.
+    [subtypes] = list(source._gen_storage_qvd_types())
+    assert subtypes.get_urn() == SHARE_ORDERS_QVD
+    aspect = subtypes.get_aspect_of_type(SubTypesClass)
+    assert aspect is not None and aspect.typeNames == ["QVD"]
+    assert not subtypes.is_primary_source
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -1029,6 +1102,28 @@ def test_stored_qvd_on_mapped_storage_links_the_stored_table(
         if mapped
         else {}
     )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stored_qvd_on_a_mapped_windows_share_links_the_on_prem_dataset(
+    mock_api_cls: MagicMock,
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {
+            "Sales Space:Share": {
+                "storage_uri": SHARE,
+                "platform_instance": "qlik_onprem",
+            }
+        },
+        [],
+        script=SHARE_SCRIPT,
+    )
+
+    writes = _graph_app_writes(source, app)
+
+    assert writes[SHARE_OUT_QVD] == f"not primary patch:{ORDERS}"
+    assert SHARE_OUT_QVD in source._linked_storage_qvds
 
 
 @pytest.mark.parametrize("stored_label", ["Customers", "AllCustomers"])

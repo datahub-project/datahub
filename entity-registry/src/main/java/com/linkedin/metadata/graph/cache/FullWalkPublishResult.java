@@ -9,6 +9,15 @@ public enum FullWalkPublishResult {
   REJECTED_NOT_PARTIAL,
   REJECTED_SOURCE,
   REJECTED_GENERATION,
+
+  /** The walk started before the stored component was built, so it would move the cache back. */
+  REJECTED_OUTDATED,
+
+  /**
+   * The graph defers invalidation, a write became searchable recently, and the write-back did not
+   * say when the walk started, so it may predate that write.
+   */
+  REJECTED_START_UNKNOWN,
   REJECTED_BOUNDS,
   REJECTED_SPLIT_COMPONENTS,
   REJECTED_EMPTY_CREATE

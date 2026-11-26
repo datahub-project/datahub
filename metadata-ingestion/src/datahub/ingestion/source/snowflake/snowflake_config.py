@@ -661,9 +661,10 @@ class SnowflakeV2Config(
     )
 
     table_types: Set[str] = Field(
-        default={"BASE TABLE", "EXTERNAL TABLE"},
+        default={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"},
         description="Set of Snowflake TABLE_TYPE values to include in ingestion. "
-        "Currently Supported values: 'BASE TABLE', 'EXTERNAL TABLE'. "
+        "Currently Supported values: 'BASE TABLE', 'EXTERNAL TABLE', "
+        "'INTERACTIVE TABLE'. "
         "Remove 'EXTERNAL TABLE' to exclude external tables from ingestion.",
     )
 

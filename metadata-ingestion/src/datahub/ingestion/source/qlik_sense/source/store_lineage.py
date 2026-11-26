@@ -143,6 +143,7 @@ class StoreLineageMixin(OnPremQvdMixin):
             if write not in writes.setdefault(file_urn, []):
                 writes[file_urn].append(write)
                 self.reporter.file_stores_linked += 1
+                self._note_storage_qvd(file_urn)
         previous = self._usable_checkpoint(app.id, [])
         previous_files = previous.stored_file_urns if previous else []
         currents = {

@@ -13,8 +13,11 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.source.qlik_sense.file_lineage import file_storage_of_uri
-from datahub.ingestion.source.qlik_sense.qvd_lineage import canonical_path
+from datahub.ingestion.source.qlik_sense.file_lineage import (
+    FilePlatform,
+    canonical_path,
+    file_storage_of_uri,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -219,9 +222,12 @@ class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         description="Where the connection's files are, as an `abfss://<container>@<account>"
         ".dfs.core.windows.net/<folder>`, `s3://<bucket>/<folder>` or "
         "`gs://<bucket>/<folder>` URI, or Azure HTTPS. An Azure URI must name the "
-        "container; `wasb://` and `wasbs://` are not accepted. Read from the data "
-        "connection when not set, which needs the API key's user to see the "
-        "connection.",
+        "container; `wasb://` and `wasbs://` are not accepted. On Qlik Cloud, a "
+        "Data Gateway connection's Windows share is its `\\\\<server>\\<share>\\<folder>` "
+        "path: its files take the Qlik Sense datasets the Qlik Sense Enterprise "
+        "recipe whose `platform_instance` and `env` the entry sets gives them. "
+        "Read from the data connection when not set, which needs the API key's "
+        "user to see the connection, except for a Windows share.",
     )
 
     convert_urns_to_lowercase: bool = Field(
@@ -236,7 +242,8 @@ class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         if value is not None and file_storage_of_uri(value) is None:
             raise ValueError(
                 f"Unsupported storage_uri {value!r}: use an abfss:// or Azure HTTPS "
-                "URI that names the container, or an s3:// or gs:// URI"
+                "URI that names the container, an s3:// or gs:// URI, or a "
+                "\\\\server\\share path"
             )
         return value
 
@@ -498,8 +505,8 @@ class QlikSourceConfig(
     )
     file_connection_to_storage: Dict[str, FileStorageDetail] = Field(
         default={},
-        description="Where the files of Azure Storage, Amazon S3 and Google Cloud "
-        "Storage data connections are in DataHub, for lineage from the files apps "
+        description="Where the files of Azure Storage, Amazon S3, Google Cloud "
+        "Storage and, on Qlik Cloud, Data Gateway file data connections are in DataHub, for lineage from the files apps "
         "load and the QVDs they store. Use the data connection name as key, as load "
         "scripts write it (`<space>:<connection>` or `<connection>`), in any case. Set "
         "`storage_uri` when the API key's user cannot see the connection, and "
@@ -538,6 +545,19 @@ class QlikSourceConfig(
                 raise ValueError(
                     "On-prem, file_connection_to_storage entries need a storage_uri: "
                     + ", ".join(missing)
+                )
+            shares = [
+                name
+                for name, detail in self.file_connection_to_storage.items()
+                if detail.storage_uri
+                and (storage := file_storage_of_uri(detail.storage_uri)) is not None
+                and storage.platform == FilePlatform.WINDOWS_SHARE
+            ]
+            if shares:
+                # Its folder connections already name their files by path.
+                raise ValueError(
+                    "On-prem, file_connection_to_storage can't map to a Windows "
+                    "share: " + ", ".join(shares)
                 )
             return self
         if not self.tenant_hostname or self.api_key is None:

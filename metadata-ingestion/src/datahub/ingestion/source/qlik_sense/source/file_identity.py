@@ -1,11 +1,16 @@
 from functools import cached_property, partial
-from typing import Callable, Dict, Optional, Set
+from typing import Callable, Dict, Iterable, Optional, Set
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.qlik_sense.config import Constant, FileStorageDetail
+from datahub.ingestion.source.qlik_sense.constants import QVD_EXTENSION
 from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FILE_QRI_RE,
     PLATFORM_BY_QRI_SCHEME,
+    FilePlatform,
     FileReference,
     FileSourceResolver,
     FileStorage,
@@ -36,6 +41,8 @@ from datahub.ingestion.source.qlik_sense.source_utils import (
     is_qvd_dataset,
     qlik_dataset_identifier,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
+from datahub.metadata.urns import DatasetUrn
 
 
 class FileIdentityMixin(DashboardMixin):
@@ -164,7 +171,7 @@ class FileIdentityMixin(DashboardMixin):
     def _file_urn(
         self, storage: FileStorage, detail: Optional[FileStorageDetail], path: str
     ) -> str:
-        return file_dataset_urn(
+        urn = file_dataset_urn(
             storage,
             # As Qlik Cloud names it, so lineage joins whichever way it was read.
             normalized_file_path(path),
@@ -175,6 +182,9 @@ class FileIdentityMixin(DashboardMixin):
             else self.config.env,
             lowercase=detail.convert_urns_to_lowercase if detail else False,
         )
+        if storage.platform == FilePlatform.WINDOWS_SHARE:
+            self._share_file_urns.add(urn)
+        return urn
 
     def _unmapped_file_urn(
         self, connection: str, path: str, space_id: str
@@ -344,9 +354,23 @@ class FileIdentityMixin(DashboardMixin):
         urn = next(iter(urns))
         if urn in unmapped:
             self._link_unmapped_file(app_id, urn)
+        else:
+            self._note_storage_qvd(urn)
         return FileSourceResolution(
             urn=urn, on_known_storage=unresolved.on_known_storage
         )
+
+    def _note_storage_qvd(self, urn: str) -> None:
+        if DatasetUrn.from_string(urn).name.lower().endswith(QVD_EXTENSION):
+            self._linked_storage_qvds.add(urn)
+
+    def _gen_storage_qvd_types(self) -> Iterable[MetadataWorkUnit]:
+        for urn in sorted(self._linked_storage_qvds):
+            # Not this source's dataset, so never removed as stale.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_QVD]),
+            ).as_workunit(is_primary_source=False)
 
     def _link_unmapped_file(self, app_id: str, urn: str) -> None:
         self._linked_unmapped_files.add(urn)

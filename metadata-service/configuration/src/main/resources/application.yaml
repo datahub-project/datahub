@@ -2438,6 +2438,10 @@ graphQL:
     maxParentDepth: ${GRAPHQL_QUERY_MAX_PARENT_DEPTH:50}
     # Relationship resolution cap per request (cycle/unbounded protection)
     maxVisitedUrns: ${GRAPHQL_QUERY_MAX_VISITED_URNS:20000}
+    # Domain and glossary child listing (relationships IsPartOf): page size when the caller omits
+    # count, and the most children one request may return. Each returned child costs a view check.
+    directChildDefaultCount: ${GRAPHQL_QUERY_DIRECT_CHILD_DEFAULT_COUNT:100}
+    directChildMaxCount: ${GRAPHQL_QUERY_DIRECT_CHILD_MAX_COUNT:1000}
     # Max datasets per siblingGroups request; 0 (the default) turns the query off, which hides
     # "Show siblings" in search and keeps the dataset "Composed of" list as before. Each request walks
     # up to 1,000 members per dataset and, with view authorization on, view-checks every member:

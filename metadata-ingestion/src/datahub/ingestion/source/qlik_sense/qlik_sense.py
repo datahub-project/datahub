@@ -102,6 +102,8 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
         self._script_spellings = {}
         self._script_spellings_built_from = None
         self._linked_unmapped_files = set()
+        self._linked_storage_qvds = set()
+        self._share_file_urns = set()
         self._kept_storage_file_stores = {}
         self._unmapped_file_stores = defaultdict(dict)
         self._app_end_of_run_urns = defaultdict(set)
@@ -260,6 +262,7 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
         graph_named_apps = self._read_graph_named_reloads()
         yield from self._gen_unmapped_file_entities()
         yield from self._gen_graph_named_resources(graph_named_apps)
+        yield from self._gen_storage_qvd_types()
         self._record_end_of_run_urns()
         self._report_end_of_run()
         if self.reporter.failures:

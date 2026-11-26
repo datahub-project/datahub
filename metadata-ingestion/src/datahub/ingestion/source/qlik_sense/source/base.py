@@ -70,6 +70,12 @@ class QlikSourceBase:
     _script_spellings: Dict[str, Counter[str]]
     _script_spellings_built_from: Optional[List[str]]
     _linked_unmapped_files: Set[str]
+    # QVDs on storage or a Windows share that lineage links this run. No
+    # storage source ingests QVDs, so they are typed here.
+    _linked_storage_qvds: Set[str]
+    # Files on a Windows share, which are Qlik Sense datasets of the on-prem
+    # recipe, not this one's.
+    _share_file_urns: Set[str]
     # Tables kept apps store into files on storage that was unknown when
     # their last read recorded them.
     _kept_storage_file_stores: Dict[str, List[str]]
