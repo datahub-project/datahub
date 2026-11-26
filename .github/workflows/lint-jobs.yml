@@ -301,6 +301,9 @@ jobs:
       - name: Check p0 test dependencies
         run: python ./.github/scripts/check_p0_dependencies.py
 
+      - name: Check smoke test backend markers
+        run: python ./.github/scripts/check_backend_markers.py
+
       # Restore-only: this workflow is pull_request-only, so a save here would be
       # ref-scoped to the PR and never shared. The entry is written by
       # ci-cache-warmup.yml (push to master) on both cache backends under this exact key.

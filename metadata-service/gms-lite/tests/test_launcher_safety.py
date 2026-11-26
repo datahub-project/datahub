@@ -33,6 +33,7 @@ from _opensearch_manager import (  # noqa: E402
     SharedOpenSearchManager,
     delete_prefixes,
     ensure_data_major,
+    env_seconds,
     selected_major,
     wait_for_ready,
 )
@@ -75,6 +76,7 @@ class LauncherSafetyTest(unittest.TestCase):
                         stack.load_credentials(directory),
                         True,
                         major,
+                        9002,
                     )
                     self.assertEqual(
                         env["ELASTICSEARCH_SHIM_ENGINE_TYPE"], f"OPENSEARCH_{major}"
@@ -243,6 +245,7 @@ class LauncherSafetyTest(unittest.TestCase):
                     stack.load_credentials(directory),
                     True,
                     "3",
+                    9002,
                 )
             env = stack.instance_env(
                 stack.read_env_file(env_file),
@@ -253,6 +256,7 @@ class LauncherSafetyTest(unittest.TestCase):
                 stack.load_credentials(directory),
                 True,
                 "3",
+                9002,
             )
             other = stack.instance_env(
                 {},
@@ -263,6 +267,7 @@ class LauncherSafetyTest(unittest.TestCase):
                 stack.load_credentials(directory),
                 True,
                 "3",
+                9002,
             )
             self.assertEqual(env["POLICY_CACHE_REFRESH_INTERVAL_SECONDS"], "10")
             self.assertEqual(env["SERVER_PORT"], "8090")
@@ -317,6 +322,16 @@ class LauncherSafetyTest(unittest.TestCase):
                     for key, expected_value in stack.SEARCH_CONNECTION_ENV.items():
                         self.assertEqual(upgrade_env[key], expected_value, key)
 
+    def test_shared_region_placeholder_is_not_blanked(self) -> None:
+        # Blanking AWS_REGION would also empty the Bedrock embedding region that falls back to it.
+        self.assertNotIn("AWS_REGION", stack.SEARCH_CONNECTION_ENV)
+        self.assertEqual(
+            stack.SEARCH_CONNECTION_ENV["ELASTICSEARCH_CLUSTERS_PRIMARY_REGION"], ""
+        )
+        self.assertEqual(
+            stack.SEARCH_CONNECTION_ENV["POSTGRES_PGCRON_IAM_AWSREGION"], ""
+        )
+
     def test_search_override_paths_match_shipped_yaml(self) -> None:
         yaml = (
             BIN_DIR.parents[2]
@@ -340,14 +355,12 @@ class LauncherSafetyTest(unittest.TestCase):
             parents.append((len(indent), key))
             names = tuple(re.findall(r"\$\{([A-Z_0-9]+):", value))
             path = ".".join(key for _, key in parents)
-            # Bedrock keeps the host region. The line still names AWS_REGION, which the
-            # search-cluster and pgCron entries clear, so it would otherwise match here.
-            if path == (
-                "elasticsearch.entityIndex.semanticSearch"
-                ".embeddingProvider.bedrock.awsRegion"
+            matched = placeholders.intersection(names)
+            # A shared placeholder (AWS_REGION) also feeds unrelated settings, which are not pinned.
+            if matched and (
+                path in stack.SEARCH_CONNECTION_PROPERTIES
+                or not matched <= stack.SHARED_PLACEHOLDERS
             ):
-                continue
-            if placeholders.intersection(names):
                 found[path] = names
         expected = {
             path: names
@@ -505,6 +518,24 @@ def get_shared(directory: str, connection: Connection) -> None:
 
 
 class SharedOpenSearchSafetyTest(unittest.TestCase):
+    def test_knn_requirement_is_checked_when_reusing_a_node(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            manager = FakeManager(
+                Path(temporary), env={"OPENSEARCH_KNN_ENABLED": "true"}
+            )
+            manager.shared_dir.mkdir(exist_ok=True)
+            manager.pid_file.write_text("1")
+            manager.port_file.write_text("12345")
+            with patch("_opensearch_manager.request_json", return_value=[]):
+                with self.assertRaisesRegex(RuntimeError, "k-NN"):
+                    manager.get_or_start()
+            for component in ("opensearch-knn", "org.opensearch.knn.plugin.KNNPlugin"):
+                with patch(
+                    "_opensearch_manager.request_json",
+                    return_value=[{"component": component}],
+                ):
+                    self.assertEqual(manager.get_or_start(), 12345)
+
     def test_data_markers_prevent_cross_major_reuse(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -584,10 +615,12 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
                 stderr: int,
                 text: bool,
                 start_new_session: bool,
+                env: dict[str, str] | None,
             ) -> subprocess.Popen[str]:
                 child = popen(
                     command,
                     cwd=cwd,
+                    env=env,
                     stdin=stdin,
                     stdout=stdout,
                     stderr=stderr,
@@ -907,6 +940,77 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
                 "/_template/abc_legacy",
             },
         )
+
+
+class BootDiagnosticsTest(unittest.TestCase):
+    def test_phase_schema_accumulates_instances_and_retains_failed_phase(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "timings.json"
+            with patch("time.monotonic", side_effect=count()):
+                timings = stack.BootTimings(path)
+                timings.warm = False
+                with timings.phase("system_update"):
+                    pass
+                with self.assertRaises(RuntimeError):
+                    with timings.phase("system_update"):
+                        raise RuntimeError("failed upgrade")
+            result = json.loads(path.read_text())
+            self.assertEqual(set(result), {"warm", "total_s", "phases"})
+            self.assertEqual(result["phases"], {"system_update": 2})
+            self.assertFalse(result["warm"])
+            self.assertGreaterEqual(result["total_s"], 2)
+
+    def test_timeout_validation(self) -> None:
+        for value in ("", "0", "240", "-1", "one", "1.5"):
+            with (
+                self.subTest(value=value),
+                patch.dict(os.environ, {"TEST_SECONDS": value}),
+            ):
+                if value in ("-1", "one", "1.5"):
+                    with self.assertRaises(SystemExit) as error:
+                        env_seconds("TEST_SECONDS", 900)
+                    self.assertIn("TEST_SECONDS", str(error.exception))
+                else:
+                    self.assertEqual(
+                        env_seconds("TEST_SECONDS", 900), int(value) if value else 900
+                    )
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(env_seconds("TEST_SECONDS", 900), 900)
+
+    def test_bulk_ack_and_frontend_issuer_are_slot_aware(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            env = stack.instance_env(
+                {},
+                "gms-0",
+                9080,
+                9200,
+                directory,
+                stack.load_credentials(directory),
+                True,
+                "2",
+                10002,
+            )
+            self.assertEqual(env["ES_BULK_ACK_AFTER_TRANSFER"], "true")
+            self.assertEqual(env["DATAHUB_BASE_URL"], "http://localhost:10002")
+
+    def test_upgrade_jvm_options_preserve_quoted_arguments(self) -> None:
+        processes = Mock()
+        processes.start.return_value.wait.return_value = 0
+        with tempfile.TemporaryDirectory() as temporary:
+            stack.run_upgrade(
+                processes,
+                {
+                    "GMS_LITE_UPGRADE_JAVA_OPTS": '-XX:TieredStopAtLevel=1 "-Dlabel=two words"'
+                },
+                Path(temporary),
+                "gms-0",
+                "1g",
+                "SystemUpdate",
+            )
+        command = processes.start.call_args.args[0]
+        self.assertIn("-XX:TieredStopAtLevel=1", command)
+        self.assertIn("-Dlabel=two words", command)
 
 
 if __name__ == "__main__":

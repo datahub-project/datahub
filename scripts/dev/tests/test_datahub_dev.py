@@ -1,12 +1,14 @@
 """Unit tests for security-relevant guards in datahub_dev.py."""
 
 import argparse
-import json
+import os
+import subprocess
 import sys
-import time
 from pathlib import Path
-
 import pytest
+import json
+import time
+
 
 # Add the scripts/dev directory to the path so we can import datahub_dev
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -62,7 +64,9 @@ def test_dev_env_omits_blank_aws_profile(tmp_path, monkeypatch, isolated_home):
     assert "AWS_PROFILE" not in datahub_dev._dev_env()
 
 
-def test_dev_env_publishes_every_promoted_key_for_gradle(tmp_path, monkeypatch, isolated_home):
+def test_dev_env_publishes_every_promoted_key_for_gradle(
+    tmp_path, monkeypatch, isolated_home
+):
     monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
 
     published = datahub_dev._dev_env()["DATAHUB_DEV_PROMOTED_ENV_KEYS"].split(",")
@@ -76,7 +80,9 @@ def isolated_home(tmp_path, monkeypatch):
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setattr(datahub_dev, "DATAHUB_DEV_DIR", tmp_path / "dev")
-    monkeypatch.setattr(datahub_dev, "INSTANCES_FILE", tmp_path / "dev" / "instances.json")
+    monkeypatch.setattr(
+        datahub_dev, "INSTANCES_FILE", tmp_path / "dev" / "instances.json"
+    )
     (tmp_path / "dev").mkdir()
     monkeypatch.delenv("DATAHUB_DEV_AWS_DIR", raising=False)
     monkeypatch.delenv("DATAHUB_DEV_GCLOUD_DIR", raising=False)
@@ -111,7 +117,9 @@ def test_dev_env_promotes_cloud_session_settings(tmp_path, monkeypatch, isolated
     assert "UNRELATED_SETTING" not in env
 
 
-def test_dev_env_shell_value_wins_over_saved_value(tmp_path, monkeypatch, isolated_home):
+def test_dev_env_shell_value_wins_over_saved_value(
+    tmp_path, monkeypatch, isolated_home
+):
     env_file = tmp_path / "test.env"
     env_file.write_text("AWS_REGION=eu-central-2\n")
     monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
@@ -219,7 +227,9 @@ def test_dev_env_keeps_unwritable_gcloud_dir_that_has_content(
     assert "DATAHUB_DEV_GCLOUD_DIR" not in env
 
 
-def test_dev_env_mounts_existing_cloud_config_dirs(tmp_path, monkeypatch, isolated_home):
+def test_dev_env_mounts_existing_cloud_config_dirs(
+    tmp_path, monkeypatch, isolated_home
+):
     (isolated_home / ".aws").mkdir(parents=True)
     (isolated_home / ".config" / "gcloud").mkdir(parents=True)
     monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
@@ -232,7 +242,9 @@ def test_dev_env_mounts_existing_cloud_config_dirs(tmp_path, monkeypatch, isolat
     assert (isolated_home / ".aws" / "sso" / "cache").is_dir()
 
 
-def test_dev_env_makes_gcp_credentials_path_absolute(tmp_path, monkeypatch, isolated_home):
+def test_dev_env_makes_gcp_credentials_path_absolute(
+    tmp_path, monkeypatch, isolated_home
+):
     key_file = tmp_path / "key.json"
     key_file.write_text("{}")
     monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
@@ -242,7 +254,9 @@ def test_dev_env_makes_gcp_credentials_path_absolute(tmp_path, monkeypatch, isol
     assert datahub_dev._dev_env()["GOOGLE_APPLICATION_CREDENTIALS"] == str(key_file)
 
 
-def test_dev_env_drops_missing_gcp_credentials_file(tmp_path, monkeypatch, isolated_home):
+def test_dev_env_drops_missing_gcp_credentials_file(
+    tmp_path, monkeypatch, isolated_home
+):
     monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
     monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", str(tmp_path / "missing.json"))
 
@@ -313,7 +327,6 @@ def test_env_list_pending_restart_false_after_sentinel(tmp_path, monkeypatch, ca
 
 def test_env_list_pending_restart_true_after_newer_env(tmp_path, monkeypatch, capsys):
     """pending_restart=true when env file is newer than sentinel."""
-    import os
 
     sentinel = tmp_path / "test.applied.env"
     env_file = tmp_path / "test.env"
@@ -483,3 +496,94 @@ def test_shell_env_clears_profile_before_exporting_url(tmp_path, monkeypatch, ca
         "unset DATAHUB_PROFILE",
         "export DATAHUB_GMS_URL=http://localhost:9080",
     ]
+
+
+def test_local_frontend_uses_gradle_preparation_and_assigned_port(
+    tmp_path, monkeypatch
+):
+    import datahub_dev_local
+
+    stack_dir = tmp_path / "stack"
+    stack_dir.mkdir()
+    (stack_dir / "stack.json").write_text('{"frontendPort": 10002}')
+    monkeypatch.setattr(datahub_dev, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(datahub_dev, "WORKTREE_ID", "test-worktree")
+    monkeypatch.setattr(
+        datahub_dev_local, "local_data_dir", lambda worktree_id: stack_dir
+    )
+    captured = {}
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        captured["kwargs"] = kwargs
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(datahub_dev.subprocess, "run", fake_run)
+    # A real frontend on this machine may hold the port; the test is about the command.
+    monkeypatch.setattr(datahub_dev, "_is_port_free", lambda port: True)
+
+    assert datahub_dev.cmd_frontend(argparse.Namespace(local=True, preview=False)) == 0
+    assert captured["command"][0:2] == ["./gradlew", ":datahub-web-react:yarnServe"]
+    assert "-PfrontendPort=10002" in captured["command"]
+    assert "-PfrontendMode=lite" in captured["command"]
+
+
+def test_frontend_local_reuses_running_hmr_server(tmp_path, monkeypatch):
+    import datahub_dev_local
+
+    stack_dir = tmp_path / "stack"
+    stack_dir.mkdir()
+    (stack_dir / "stack.json").write_text('{"frontendPort": 10002}')
+    monkeypatch.setattr(datahub_dev, "WORKTREE_ID", "test-worktree")
+    monkeypatch.setattr(
+        datahub_dev_local, "local_data_dir", lambda worktree_id: stack_dir
+    )
+    monkeypatch.setattr(
+        datahub_dev_local, "_load_pids", lambda path: {"frontend": 12345}
+    )
+    monkeypatch.setattr(datahub_dev_local, "_http_ok", lambda url, timeout=3: True)
+    monkeypatch.setattr(datahub_dev, "_is_port_free", lambda port: False)
+    monkeypatch.setattr(
+        datahub_dev.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("started duplicate frontend")
+        ),
+    )
+
+    assert datahub_dev.cmd_frontend(argparse.Namespace(local=True, preview=False)) == 0
+
+
+def test_docker_frontend_uses_gradle_preparation(tmp_path, monkeypatch):
+    monkeypatch.setattr(datahub_dev, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(datahub_dev, "_frontend_url", lambda: "http://localhost:10002")
+    captured = {}
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(datahub_dev.subprocess, "run", fake_run)
+
+    assert datahub_dev.cmd_frontend(argparse.Namespace(local=False, preview=False)) == 0
+    assert captured["command"][0:2] == ["./gradlew", ":datahub-web-react:yarnServe"]
+    # Vite proxies to this worktree's mapped Play port, not yarnServe's default.
+    assert "-Pproxy=http://localhost:10002" in captured["command"]
+
+
+def test_preview_without_build_requires_existing_bundle(tmp_path, monkeypatch):
+    monkeypatch.setattr(datahub_dev, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        datahub_dev.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("started without dist")
+        ),
+    )
+
+    assert (
+        datahub_dev.cmd_frontend(
+            argparse.Namespace(local=False, preview=True, build=False)
+        )
+        == 1
+    )

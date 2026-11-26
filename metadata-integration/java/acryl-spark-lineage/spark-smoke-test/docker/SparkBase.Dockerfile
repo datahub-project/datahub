@@ -7,7 +7,7 @@ ENV SHARED_WORKSPACE=${shared_workspace}
 
 # -- Layer: Apache Spark
 
-ARG spark_version=3.5.8
+ARG spark_version=3.5.10
 ARG hadoop_version=3
 
 # Common curl options for all downloads: fail on HTTP errors, follow redirects, and — critically —

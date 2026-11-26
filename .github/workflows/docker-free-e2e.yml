@@ -1,0 +1,320 @@
+name: "Docker-free E2E"
+
+# End-to-end tests on the Docker-free stack (`datahub-dev.sh start --local`); the pytest
+# smoke suite for now, Playwright later. The pytest job is shaped like pytest_tests in
+# docker-unified.yml so it can become a reusable workflow.
+#
+# Pull requests run it only with the docker-free:pytests label. Test failures fail the run,
+# on pull requests and on master.
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+concurrency:
+  # Adding an unrelated label gets its own group, so it does not cancel a running lane.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}${{ github.event.action == 'labeled' && github.event.label.name != 'docker-free:pytests' && format('-{0}', github.run_id) || '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  actions: read # smoke-test-retry reads the previous attempt's artifacts
+
+jobs:
+  build:
+    name: Build stack
+    # Forks get no secrets. A labeled event runs only for this lane's label.
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event.action != 'labeled' || github.event.label.name == 'docker-free:pytests') &&
+      contains(github.event.pull_request.labels.*.name, 'docker-free:pytests'))
+    # 4 vCPU / 16 GB, as Build all images in docker-unified; yarnBuild needs 16 GB.
+    # GitHub-hosted (same size) where the repository has no Depot project.
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04-4' || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    outputs:
+      pytest_matrix: ${{ steps.set-matrix.outputs.pytest_matrix }}
+      smoke_tier: ${{ steps.set-matrix.outputs.smoke_tier }}
+      smart_testing_mode: ${{ steps.set-matrix.outputs.smart_testing_mode }}
+      smart_tags: ${{ steps.set-matrix.outputs.smart_tags }}
+      batch_plan: ${{ steps.set-matrix.outputs.batch_plan }}
+      uv_cache_key: ${{ steps.cache-keys.outputs.uv_cache_key }}
+      uv_cache_key_prefix: ${{ steps.cache-keys.outputs.uv_cache_key_prefix }}
+      yarn_cache_key: ${{ steps.cache-keys.outputs.yarn_cache_key }}
+      yarn_cache_key_prefix: ${{ steps.cache-keys.outputs.yarn_cache_key_prefix }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - name: Compute dependency cache keys
+        id: cache-keys
+        # The docker-unified buckets (its setup job); restored read-only here.
+        run: |
+          {
+            echo "uv_cache_key=docker-unified-${{ runner.os }}-uv-${{ hashFiles(
+              './datahub-actions/pyproject.toml',
+              './datahub-actions/setup.py',
+              './smoke-test/requirements.txt',
+              './smoke-test/pyproject.toml',
+              './metadata-ingestion/pyproject.toml',
+              './metadata-ingestion/setup.py') }}"
+            echo "uv_cache_key_prefix=docker-unified-${{ runner.os }}-uv-"
+            echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
+            echo "yarn_cache_key_prefix=docker-unified-${{ runner.os }}-yarn-"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set matrix
+        id: set-matrix
+        env:
+          # Smart testing stays off for this lane. Turning it on means adding the plan
+          # step from smoke_test_matrix (plan_pytest_batches.sh with SMOKE_BACKEND=local)
+          # and emitting its batch_count; the batch job already reads these outputs.
+          SMART_TESTING_MODE: "off"
+          # docker-unified.yml packs the full suite into 5 batches; tests run about
+          # twice as long on this stack, and each batch boots its own stack.
+          FULL_BATCH_COUNT: "9"
+        run: |
+          items=""
+          for ((i=0;i<FULL_BATCH_COUNT;i++)); do
+            items="${items:+$items,}{\"batch\":\"$i\",\"batch_count\":\"$FULL_BATCH_COUNT\"}"
+          done
+          {
+            echo "pytest_matrix={\"include\":[$items]}"
+            echo "smoke_tier=full"
+            echo "smart_testing_mode=$SMART_TESTING_MODE"
+            echo "smart_tags="
+            echo "batch_plan=false"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        with:
+          node: true
+
+      - uses: ./.github/actions/restore-dependency-caches
+        with:
+          uv_cache_key: ${{ steps.cache-keys.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ steps.cache-keys.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ steps.cache-keys.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ steps.cache-keys.outputs.yarn_cache_key_prefix }}
+
+      - name: Build jars, the embedded OpenSearch node and the frontend bundle
+        # Gradle's Depot remote build cache (settings.gradle); scoped to the steps that run Gradle.
+        env:
+          DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+        run: |
+          ./gradlew \
+            :metadata-service:war:bootJar \
+            :datahub-upgrade:bootJar \
+            :metadata-service:opensearch-embedded:installDist \
+            :datahub-web-react:yarnBuild \
+            -Pknn -x test
+
+      # A tarball, because upload-artifact drops the executable bits the OpenSearch
+      # distribution needs. The docker-free-stack action unpacks it.
+      - name: Pack stack
+        run: |
+          tar -cf gms-lite-build.tar \
+            metadata-service/war/build/libs/war.war \
+            datahub-upgrade/build/libs/datahub-upgrade.jar \
+            metadata-service/opensearch-embedded/build/install \
+            datahub-web-react/dist
+          ls -lh gms-lite-build.tar
+
+      - name: Upload stack
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gms-lite-build
+          path: gms-lite-build.tar
+          compression-level: 0
+          # "Re-run failed jobs" within a day reuses it.
+          retention-days: 1
+          overwrite: true
+
+  pytest_tests:
+    name: Docker-free Pytest Smoke Tests (Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
+    needs: build
+    # 4 vCPU / 16 GB, as pytest_tests in docker-unified: 3 xdist workers, GMS (2 GB
+    # heap), OpenSearch and the frontend preview.
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04-4' || 'ubuntu-24.04' }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.build.outputs.pytest_matrix) }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - uses: ./.github/actions/restore-dependency-caches
+        with:
+          uv_cache_key: ${{ needs.build.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ needs.build.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ needs.build.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ needs.build.outputs.yarn_cache_key_prefix }}
+
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+        with:
+          aggressive: "false"
+
+      - name: Parse previous results for retry
+        id: retry-check
+        if: github.run_attempt > 1
+        uses: ./.github/actions/smoke-test-retry
+        with:
+          test_strategy: pytests
+          batch: ${{ matrix.batch }}
+          artifact_prefix: Test Results (docker-free smoke tests)
+          run_id: ${{ github.run_id }}
+          github_token: ${{ github.token }}
+
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        with:
+          node: true
+
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
+
+      - name: Install dependencies
+        if: steps.retry-check.outputs.parse_result != 'all_passed'
+        run: ./metadata-ingestion/scripts/install_deps.sh
+
+      - name: Boot stack
+        if: steps.retry-check.outputs.parse_result != 'all_passed'
+        uses: ./.github/actions/docker-free-stack
+        env:
+          DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+        with:
+          job: smoke-test
+          frontend: preview
+          heap: 2g
+
+      # As "Build datahub cli" in pytest_tests: smoke.sh installs ../metadata-ingestion
+      # as an editable package, which needs the generated model classes.
+      - name: Build datahub cli
+        if: steps.retry-check.outputs.parse_result != 'all_passed'
+        env:
+          DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+        run: ./gradlew :metadata-ingestion:install
+
+      - name: Smoke test
+        id: smoke
+        if: steps.retry-check.outputs.parse_result != 'all_passed'
+        env:
+          DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+          RUN_QUICKSTART: false
+          CLEANUP_DATA: "false"
+          TEST_STRATEGY: pytests
+          # Deselects tests marked requires(...) for what the local stack lacks, and
+          # set-test-env-vars.sh keeps the GMS URL that Boot stack exported.
+          SMOKE_BACKEND: local
+          BATCH_COUNT: ${{ matrix.batch_count }}
+          BATCH_NUMBER: ${{ matrix.batch }}
+          SMOKE_TIER: ${{ needs.build.outputs.smoke_tier }}
+          # Smart testing plumbing, as in pytest_tests; off for this lane (see Set matrix).
+          SMOKE_SMART_TESTING: ${{ needs.build.outputs.smart_testing_mode }}
+          SMOKE_SMART_TAGS: ${{ needs.build.outputs.smart_tags }}
+          SMOKE_BATCH_PLAN: ${{ needs.build.outputs.batch_plan == 'true' && format('{0}/pytest-smoke-plan/pytest-smoke-plan.json', github.workspace) || '' }}
+          PYTEST_XDIST_WORKERS: "3"
+          FILTERED_TESTS: ${{ steps.retry-check.outputs.filtered_tests_file || '' }}
+          # See pytest_tests: a retry runs a smaller set, so it takes the stronger wait.
+          DATAHUB_TEST_FORCE_LEGACY_WAIT: ${{ github.run_attempt > 1 && 'true' || '' }}
+        run: |
+          if [[ -n "$FILTERED_TESTS" && -f "$FILTERED_TESTS" ]]; then
+            echo "RETRY MODE: running only failed pytest modules:"
+            cat "$FILTERED_TESTS"
+          elif (( ${{ github.run_attempt }} > 1 )); then
+            echo "RETRY MODE: Running all tests (fallback)"
+          fi
+          echo "GMS: $DATAHUB_GMS_URL, frontend: ${DATAHUB_FRONTEND_URL:-none}"
+          # No `./gradlew --stop` as in pytest_tests: the frontend preview runs under Gradle,
+          # and stopping the daemons takes it down.
+          ./smoke-test/smoke.sh
+
+      - name: Store logs
+        if: failure()
+        run: |
+          scripts/dev/datahub-dev.sh status || true
+          mkdir -p local_logs
+          for service in launcher gms system-update frontend opensearch; do
+            scripts/dev/datahub-dev.sh logs "$service" -n 100000 > "local_logs/$service.log" 2>&1 || true
+          done
+
+      - name: Upload logs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: logs-docker-free-pytests-${{ matrix.batch }}
+          path: |
+            local_logs/
+            ~/.datahub/local/stacks/*/timings.json
+            ~/.datahub/local/stacks/*/resolved-env.json
+            ~/.datahub/local/stacks/*/launcher.log
+            ~/.datahub/local/stacks/*/frontend.log
+            ~/.datahub/local/stacks/*/logs/
+            smoke-test/test-results/pytest-smoke.log
+          retention-days: 5
+
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: Test Results (docker-free smoke tests) pytests ${{ matrix.batch }}
+          test-results-paths: |
+            **/junit.*.xml
+            !**/binary/**
+          junit-file-globs: |
+            **/junit.*.xml
+
+      - name: Send failed test metrics to PostHog
+        if: failure()
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          SMART_MODE: ${{ needs.build.outputs.smart_testing_mode }}
+        run: |
+          if [ -z "$POSTHOG_API_KEY" ]; then
+            echo "POSTHOG_API_KEY not configured, skipping test failure metrics"
+            exit 0
+          fi
+
+          TEMP_DIR=$(mktemp -d)
+          mkdir -p "$TEMP_DIR/test-results"
+          find . -name "junit.*.xml" -not -path "*/node_modules/*" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+
+          python3 .github/scripts/send_failed_tests_to_posthog.py \
+            --input-dir "$TEMP_DIR/test-results" \
+            --posthog-api-key "$POSTHOG_API_KEY" \
+            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
+            --repository "${{ github.repository }}" \
+            --workflow-name "${{ github.workflow }}" \
+            --branch "${GH_HEAD_REF}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --batch "${{ matrix.batch }}" \
+            --batch-label "docker-free" \
+            --batch-count "${{ strategy.job-total }}" \
+            --test-strategy "pytests" \
+            --smart-mode "$SMART_MODE"
+
+          rm -rf "$TEMP_DIR"
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          override_branch: ${{ github.head_ref || github.ref_name }}
+
+      - name: Stop stack
+        if: always()
+        run: scripts/dev/datahub-dev.sh stop || true

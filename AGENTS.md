@@ -495,7 +495,7 @@ scripts/dev/datahub-dev.sh <command>
 
 Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `suspend`,
 `setup`, `frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`,
-`sync-flags`, `reset`, `nuke`, `instances list/clean`, `shell-env`).
+`sync-flags`, `reset`, `nuke`, `instances list/clean/repair`, `indices list/drop/prune`, `shell-env`).
 
 ### Docker-free stack
 
@@ -519,11 +519,40 @@ and `shell-env` recognize local stacks. Local `nuke` removes this stack's data,
 indices, profiles and registry entry without restarting; `nuke --keep-data` only
 stops it and clears stale H2 locks. The shared search node survives both commands.
 Unmarked local registry entries are read-only and keep their slots reserved.
+Service env values come from the layered files under `env/` (see [env/README.md](env/README.md)).
+`start --local --job smoke-test` adds the smoke job layer `smoke-test/env/`, as in CI; restarts keep it.
+`smoke-test/check_env_parity.py` compares the smoke values with the Docker quickstart's.
+`start --local --timeout 600 --verbose` streams the launcher log; `status` reports boot timings.
+
+```bash
+# Smoke-test / Playwright env from this stack's stack.json (URLs, index prefix, admin login).
+# `test <path>` applies it automatically on a local stack; use this for pytest or Playwright run by hand.
+eval "$(scripts/dev/datahub-dev.sh shell-env --tests)"
+
+# Logs: no argument lists them; services are gms, gms-N, system-update, restore-indices,
+# frontend, launcher, opensearch (gms-N/<service> for other instances)
+scripts/dev/datahub-dev.sh logs
+scripts/dev/datahub-dev.sh logs gms -n 50
+scripts/dev/datahub-dev.sh logs frontend -f
+```
+
+`frontend --local --preview --detach` serves the built `dist/` bundle in the background. It returns once the frontend's `/health` answers, logs to `frontend.log`, and shows in `status`; `stop` and `nuke` end it. Stop the HMR server first (`stop`, or `start --local --no-frontend`), since both use the same port.
+
+**Removing a worktree:** run `nuke` before `git worktree remove`, so the shared OpenSearch drops
+this stack's indices. `instances clean` and `indices list|drop|prune` are dry runs without `--yes`
+and act only on stacks with matching ownership records.
+
+**Capacity:** `max_docker_instances` and `max_docker_free_instances` in `~/.datahub/dev/config.json`
+each limit how many stacks of that kind run at once (default 4 each). Stopped stacks keep their
+slots and ports reserved but don't count. The older `max_local_instances` key is a deprecated
+fallback, used only when the new keys are absent.
 
 Start refreshes CLI profiles `local-<worktree-id>` and `local-<worktree-id>-gms-N`
 without changing the machine default. Select the default instance for this shell
 with `eval "$(scripts/dev/datahub-dev.sh shell-env)"`. Stop retains the profiles.
 See [scripts/dev/README.md](scripts/dev/README.md) for details and offline tests.
+
+**CI:** `.github/workflows/docker-free-e2e.yml` runs the pytest smoke suite on this stack (label `docker-free:pytests` on a PR). See [`smoke-test/README.md`](smoke-test/README.md#the-docker-free-pytest-lane-in-ci).
 
 ### End-to-End Workflow
 
@@ -599,7 +628,8 @@ from other worktrees/compose projects that occupy the same ports.
 
 ```json
 {
-  "max_local_instances": 2,
+  "max_docker_instances": 4,
+  "max_docker_free_instances": 4,
   "max_remote_instances": 10,
   "runner": "/path/to/your-runner.sh"
 }

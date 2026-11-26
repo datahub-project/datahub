@@ -13,6 +13,7 @@ import datahub_dev_local as local
 @pytest.fixture(autouse=True)
 def isolated_dev_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(datahub_dev.CONFIG, "local_extension", None)
     monkeypatch.setattr(local, "_http_ok", lambda *args, **kwargs: False)
     directory = tmp_path / ".datahub/dev"
     monkeypatch.setattr(datahub_dev, "DATAHUB_DEV_DIR", directory)
