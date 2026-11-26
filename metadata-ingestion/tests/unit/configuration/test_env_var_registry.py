@@ -159,6 +159,52 @@ def test_duplicate_declaration_with_different_metadata_is_rejected():
         )
 
 
+# Variables whose caveat the reference page is the single source of truth for. Each was
+# documented with a warning somewhere else (cli.md, a topic page) before this page existed;
+# losing the warning in the move is the specific regression these guard against.
+RISK_CAVEATS_THAT_MUST_SURVIVE = {
+    "DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH": "incremental_lineage",
+    "DATAHUB_DATASET_URN_TO_LOWER": "duplicate",
+    "DATAHUB_DEBUG": "sensitive",
+    "DATAHUB_SKIP_CONFIG": "--profile",
+    "DATAHUB_DISABLE_SECRET_MASKING": "credential",
+}
+
+
+def test_risky_variables_say_what_goes_wrong():
+    """A warning mark with no explanation is worse than no mark.
+
+    `risky=True` renders a warning on the row; the description has to tell the reader what
+    actually breaks, or they are left alarmed and none the wiser.
+    """
+    thin = [
+        spec.name
+        for spec in get_registry(include_undocumented=True)
+        if spec.risky and len(spec.description.strip()) < 80
+    ]
+    assert not thin, (
+        "These are marked risky but their description is too thin to be useful: "
+        f"{thin}. Say what changing it actually does."
+    )
+
+
+def test_known_risk_caveats_are_not_lost():
+    registry = {spec.name: spec for spec in get_registry(include_undocumented=True)}
+    missing = []
+    for name, needle in RISK_CAVEATS_THAT_MUST_SURVIVE.items():
+        spec = registry.get(name)
+        if spec is None:
+            missing.append(f"{name}: no longer declared")
+        elif needle.lower() not in spec.description.lower():
+            missing.append(f"{name}: description no longer mentions {needle!r}")
+    assert not missing, (
+        "Risk caveats dropped from the reference page:\n"
+        + "\n".join(f"  {m}" for m in missing)
+        + "\n\nThis page is the single source of truth for these variables, so a caveat that "
+        "disappears here disappears for users."
+    )
+
+
 def test_internal_variables_are_not_documented():
     documented = {spec.name for spec in get_registry()}
     internal = {

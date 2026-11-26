@@ -52,6 +52,7 @@ from datahub.utilities.str_enum import StrEnum
 
 declare_env_var(
     name="DATAHUB_INCLUDE_ENV_IN_CONTAINER_PROPERTIES",
+    risky=True,
     type=bool,
     group=EnvVarGroup.MISC,
     default=True,

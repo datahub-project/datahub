@@ -99,6 +99,8 @@ def backtick_known_names(text: str, known: "frozenset[str]") -> str:
 
 def format_description(spec: EnvVarSpec, known: "frozenset[str]") -> str:
     parts: List[str] = []
+    if spec.risky:
+        parts.append("⚠️ **Changing this has side effects.**")
     if spec.deprecated:
         replacement = f" Use `{spec.replaced_by}` instead." if spec.replaced_by else ""
         version = f" since {spec.deprecated_in}" if spec.deprecated_in else ""
@@ -127,6 +129,12 @@ def render(specs: List[EnvVarSpec]) -> str:
     by_group: Dict[EnvVarGroup, List[EnvVarSpec]] = {}
     for spec in specs:
         by_group.setdefault(spec.group, []).append(spec)
+
+    # Basic first, then advanced, then experimental, so a reader meets the variables they are
+    # most likely to need before the tuning knobs. Sorted here rather than relying on the
+    # caller, so the ordering holds however the specs arrive.
+    for group_specs in by_group.values():
+        group_specs.sort(key=lambda spec: (spec.tier.order, spec.name))
 
     known = frozenset(spec.name for spec in specs)
 

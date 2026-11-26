@@ -62,6 +62,15 @@ def test_secret_and_autodetected_rows_are_flagged() -> None:
     )
 
 
+def test_risky_rows_carry_a_warning_mark_first() -> None:
+    rendered = format_description(spec(risky=True), frozenset())
+    assert rendered.startswith("⚠️ **Changing this has side effects.**")
+
+
+def test_non_risky_rows_carry_no_warning_mark() -> None:
+    assert "⚠️" not in format_description(spec(), frozenset())
+
+
 def test_choices_and_recipe_field_are_rendered() -> None:
     rendered = format_description(
         spec(choices=("SYNC", "ASYNC"), recipe_field="mode"), frozenset()
@@ -85,6 +94,21 @@ def test_known_names_are_backticked_once() -> None:
 def test_pipes_in_descriptions_do_not_break_the_table() -> None:
     rendered = format_description(spec(description="Either a | or b."), frozenset())
     assert "\\|" in rendered
+
+
+def test_rows_are_ordered_basic_then_advanced_then_experimental() -> None:
+    out = render(
+        [
+            spec(name="DATAHUB_C_EXPERIMENTAL", tier=EnvVarTier.EXPERIMENTAL),
+            spec(name="DATAHUB_A_ADVANCED", tier=EnvVarTier.ADVANCED),
+            spec(name="DATAHUB_B_BASIC", tier=EnvVarTier.BASIC),
+        ]
+    )
+    assert (
+        out.index("DATAHUB_B_BASIC")
+        < out.index("DATAHUB_A_ADVANCED")
+        < out.index("DATAHUB_C_EXPERIMENTAL")
+    ), "tier must beat name when ordering a group"
 
 
 def test_render_groups_in_declaration_order_and_tags_non_default_tiers() -> None:

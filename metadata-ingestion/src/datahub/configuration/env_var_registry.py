@@ -45,6 +45,10 @@ class EnvVarTier(Enum):
     """Subject to change or removal without a deprecation cycle. Do not depend on these."""
 
     @property
+    def order(self) -> int:
+        return list(type(self)).index(self)
+
+    @property
     def display_name(self) -> str:
         return self.value.title()
 
@@ -78,6 +82,10 @@ class EnvVarSpec:
     tier: EnvVarTier = EnvVarTier.ADVANCED
     audience: EnvVarAudience = EnvVarAudience.USER
     secret: bool = False
+    risky: bool = False
+    """Changing this has a consequence a user would not expect from the name alone --
+    duplicate entities, dropped lineage, credentials in logs. Rendered with a warning mark,
+    and the description must say what actually goes wrong."""
     choices: Optional[Tuple[str, ...]] = None
     type_label: Optional[str] = None
     recipe_field: Optional[str] = None
@@ -100,21 +108,28 @@ class EnvVarSpec:
         return not self.hidden and self.audience is not EnvVarAudience.INTERNAL
 
 
-def summarize_docstring(doc: Optional[str]) -> str:
-    """First paragraph of a docstring, collapsed onto one line.
+def summarize_docstring(doc: Optional[str], *, full: bool = False) -> str:
+    """A docstring collapsed onto one line: the first paragraph, or all of it when ``full``.
 
-    Table cells cannot hold the multi-paragraph docstrings some of these accessors carry,
-    so the reference page shows the summary and leaves the rest to the prose sections.
+    Table cells cannot hold the multi-paragraph docstrings some of these accessors carry, so
+    the default is the opening summary. ``full`` is for variables marked ``risky``: their
+    caveat usually lives in a later paragraph, and truncating it is exactly how a warning gets
+    silently lost on the way to the docs.
     """
     if not doc:
         return ""
-    paragraph: List[str] = []
+    lines: List[str] = []
     for raw_line in doc.strip().splitlines():
         line = raw_line.strip()
         if not line:
-            break
-        paragraph.append(line)
-    return " ".join(paragraph)
+            if not full:
+                break
+            # Paragraph break inside a collapsed cell; keep the sentences apart.
+            if lines and not lines[-1].endswith(" "):
+                lines.append("")
+            continue
+        lines.append(line)
+    return " ".join(part for part in lines if part)
 
 
 _REGISTRY: Dict[str, EnvVarSpec] = {}
@@ -152,6 +167,7 @@ def env_var(
     tier: EnvVarTier = EnvVarTier.ADVANCED,
     audience: EnvVarAudience = EnvVarAudience.USER,
     secret: bool = False,
+    risky: bool = False,
     choices: Optional[Sequence[str]] = None,
     type_label: Optional[str] = None,
     recipe_field: Optional[str] = None,
@@ -172,7 +188,9 @@ def env_var(
     """
 
     def wrapper(func: F) -> F:
-        resolved_description = description or summarize_docstring(func.__doc__)
+        resolved_description = description or summarize_docstring(
+            func.__doc__, full=risky
+        )
         if not resolved_description:
             raise ValueError(
                 f"Environment variable {name} needs a description: give {func.__name__} "
@@ -187,6 +205,7 @@ def env_var(
             tier=tier,
             audience=audience,
             secret=secret,
+            risky=risky,
             choices=tuple(choices) if choices is not None else None,
             type_label=type_label,
             recipe_field=recipe_field,
@@ -213,6 +232,7 @@ def declare_env_var(
     tier: EnvVarTier = EnvVarTier.ADVANCED,
     audience: EnvVarAudience = EnvVarAudience.USER,
     secret: bool = False,
+    risky: bool = False,
     choices: Optional[Sequence[str]] = None,
     type_label: Optional[str] = None,
     recipe_field: Optional[str] = None,
@@ -237,6 +257,7 @@ def declare_env_var(
             tier=tier,
             audience=audience,
             secret=secret,
+            risky=risky,
             choices=tuple(choices) if choices is not None else None,
             type_label=type_label,
             recipe_field=recipe_field,
@@ -256,7 +277,9 @@ def get_registry(*, include_undocumented: bool = False) -> List[EnvVarSpec]:
         for spec in _REGISTRY.values()
         if include_undocumented or spec.is_documented
     ]
-    return sorted(specs, key=lambda spec: (spec.group.order, spec.name))
+    return sorted(
+        specs, key=lambda spec: (spec.group.order, spec.tier.order, spec.name)
+    )
 
 
 def get_accessor(name: str) -> Optional[Callable[[], object]]:

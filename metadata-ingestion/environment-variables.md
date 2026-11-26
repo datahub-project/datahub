@@ -71,9 +71,12 @@ Two things to know when ingestion runs on the DataHub executor rather than your 
   variable — `DATAHUB_DEBUG=1` does **not** enable debug logging.
 - **Default** is what the code falls back to when the variable is unset. `_(unset)_` means there
   is no fallback and the feature stays off or is configured elsewhere.
-- Rows tagged **_Basic_** are the ones most people need. Untagged rows are advanced tuning whose
-  defaults suit nearly everyone. **_Experimental_** rows may change or disappear without a
-  deprecation cycle.
+- Rows tagged **_Basic_** are the ones most people need, and come first in each section.
+  Untagged rows are advanced tuning whose defaults suit nearly everyone. **_Experimental_** rows
+  come last and may change or disappear without a deprecation cycle.
+- ⚠️ marks a variable whose effect goes beyond what its name suggests — it can create duplicate
+  entities, drop lineage, or put credentials in logs. The description says what actually
+  happens. Read it before changing one of these in an existing deployment.
 - **Detected, not set by you** marks variables DataHub or the surrounding platform sets and the
   SDK only reads. Setting them by hand usually does nothing useful and sometimes breaks things.
 - **Deprecated** rows name their replacement. They still work, for now.

@@ -27,6 +27,7 @@ from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 
 declare_env_var(
     name="DATAHUB_ENABLE_SECRET_MASKING",
+    risky=True,
     type=bool,
     group=EnvVarGroup.EXECUTOR,
     default=True,

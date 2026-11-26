@@ -317,6 +317,7 @@ declare_env_var(
     name="DATAHUB_SEARCH_TAG",
     type=str,
     group=EnvVarGroup.DOCKER,
+    risky=True,
     description=(
         "Image tag for the quickstart search container. Pinned to an OpenSearch 2.x tag "
         "automatically when the install already holds 2.x indices, which 3.x cannot read."
@@ -326,7 +327,12 @@ declare_env_var(
     name="DATAHUB_SEARCH_VOLUME",
     type=str,
     group=EnvVarGroup.DOCKER,
-    description="Docker volume holding the quickstart search data, pinned alongside DATAHUB_SEARCH_TAG.",
+    risky=True,
+    description=(
+        "Docker volume holding the quickstart search data, pinned alongside DATAHUB_SEARCH_TAG. "
+        "Pointing it at a volume written by a different OpenSearch major leaves the indices "
+        "unreadable."
+    ),
 )
 
 

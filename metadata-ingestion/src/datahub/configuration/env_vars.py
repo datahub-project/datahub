@@ -136,6 +136,7 @@ def get_system_client_secret() -> Optional[str]:
 
 @env_var(
     name="DATAHUB_SKIP_CONFIG",
+    risky=True,
     type=bool,
     group=EnvVarGroup.CONNECTION,
     default=False,
@@ -143,7 +144,10 @@ def get_system_client_secret() -> Optional[str]:
     choices=["true", "false"],
 )
 def get_skip_config() -> bool:
-    """Skip reading ~/.datahubenv, so connection settings come from the environment only."""
+    """Skip loading saved connection files, so connection settings come from the environment only.
+
+    Cannot be combined with `--profile`, and `DATAHUB_PROFILE` is ignored when it is set.
+    """
     return os.getenv("DATAHUB_SKIP_CONFIG", "").lower() == "true"
 
 
@@ -732,14 +736,20 @@ def get_test_mode() -> Optional[str]:
     default=False,
     tier=EnvVarTier.BASIC,
     choices=["true"],
+    risky=True,
 )
 def get_debug() -> bool:
-    """Enable debug logging, as `--debug` does. Debug logs can contain credentials; avoid on production runs."""
+    """Enable debug logging, the same as passing `--debug`.
+
+    Debug logs expose sensitive information. Avoid it on production instances, especially with
+    UI ingestion, where run logs are readable by anyone who can see the run.
+    """
     return os.getenv("DATAHUB_DEBUG", "").lower() in ("true", "1")
 
 
 @env_var(
     name="DATAHUB_DISABLE_SECRET_MASKING",
+    risky=True,
     type=bool,
     group=EnvVarGroup.LOGGING,
     default=False,
@@ -904,6 +914,7 @@ def get_sql_agg_skip_joins() -> bool:
 
 @env_var(
     name="DATAHUB_SQL_AGG_MAX_QUERIES_PER_DOWNSTREAM",
+    risky=True,
     type=int,
     group=EnvVarGroup.SQL,
     default=0,
@@ -956,9 +967,17 @@ def get_sql_lineage_timeout_seconds() -> int:
     name="DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH",
     type=int,
     group=EnvVarGroup.SQL,
+    risky=True,
 )
 def get_max_transform_operation_length() -> Optional[int]:
-    """Characters of transformOperation kept before "..." in fine-grained lineage; None when unset."""
+    """Truncate `transformOperation` in fine-grained lineage to N characters, for the rare case where column-level lineage aspects grow too large.
+
+    Set it to at least 1; a value is kept unchanged when it is at most N + 3 characters, since
+    truncating would not make it shorter. Unset means no truncation.
+
+    With `incremental_lineage`, changing this leaves entries already stored under the old value
+    in place -- they are only rewritten by a run with `incremental_lineage: false`.
+    """
     var = "DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH"
     if not os.getenv(var, "").strip():
         return None
@@ -970,6 +989,7 @@ def get_max_transform_operation_length() -> Optional[int]:
 
 @env_var(
     name="DATAHUB_DATASET_URN_TO_LOWER",
+    risky=True,
     type=str,
     group=EnvVarGroup.SQL,
     default="false",
@@ -997,6 +1017,7 @@ def get_kafka_schema_registry_url() -> Optional[str]:
 
 @env_var(
     name="DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS",
+    risky=True,
     type=bool,
     group=EnvVarGroup.CONNECTORS,
     default=True,
