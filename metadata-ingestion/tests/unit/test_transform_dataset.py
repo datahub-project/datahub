@@ -20,7 +20,7 @@ import pytest
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
-from datahub.configuration.common import TransformerSemantics
+from datahub.configuration.common import ConfigurationError, TransformerSemantics
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api import workunit
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
@@ -64,6 +64,9 @@ from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
     MultipleAspectTransformer,
     SingleAspectTransformer,
+)
+from datahub.ingestion.transformer.dataset_dataproduct_based_on_tags import (
+    DatasetTagDataProductMapper,
 )
 from datahub.ingestion.transformer.dataset_domain import (
     PatternAddDatasetDomain,
@@ -3500,6 +3503,213 @@ def test_pattern_dataset_schema_tags_transformation_patch(
     assert builder.make_tag_urn("pii") in global_tags_urn
     assert builder.make_tag_urn("FirstName") in global_tags_urn
     assert builder.make_tag_urn("Name") in global_tags_urn
+
+
+def test_dataproduct_mapping_based_on_tags_with_valid_tags(
+    mock_datahub_graph_instance,
+):
+    tagged_dataset = builder.make_dataset_urn("bigquery", "tagged")
+    untagged_dataset = builder.make_dataset_urn("bigquery", "untagged")
+    finance_tag = builder.make_tag_urn("finance_certified")
+    finance_dataproduct = "urn:li:dataProduct:finance"
+
+    pipeline_context = PipelineContext(run_id="dataproduct_tags")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    def fake_get_tags(entity_urn: str) -> Optional[models.GlobalTagsClass]:
+        if entity_urn == tagged_dataset:
+            return models.GlobalTagsClass(tags=[TagAssociationClass(tag=finance_tag)])
+        return None
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+
+    transformer = DatasetTagDataProductMapper.create(
+        {"dataproduct_mapping": {"finance_certified": finance_dataproduct}},
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [
+                    make_generic_dataset(entity_urn=tagged_dataset),
+                    make_generic_dataset(entity_urn=untagged_dataset),
+                    EndOfStream(),
+                ]
+            ]
+        )
+    )
+
+    assert len(outputs) == 4
+    assert outputs[2].record.entityUrn == finance_dataproduct
+    assert outputs[2].record.aspectName == "dataProductProperties"
+    assets = json.loads(outputs[2].record.aspect.value.decode("utf-8"))
+    assert [item["value"]["destinationUrn"] for item in assets] == [tagged_dataset]
+
+
+def test_dataproduct_mapping_based_on_tags_with_no_matching_tags(
+    mock_datahub_graph_instance,
+):
+    dataset_urn = builder.make_dataset_urn("bigquery", "example1")
+    non_matching_tag = builder.make_tag_urn("unrelated")
+
+    pipeline_context = PipelineContext(run_id="dataproduct_tags_no_match")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(tags=[TagAssociationClass(tag=non_matching_tag)])
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+
+    transformer = DatasetTagDataProductMapper.create(
+        {"dataproduct_mapping": {"finance_certified": "urn:li:dataProduct:finance"}},
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [
+                    make_generic_dataset(entity_urn=dataset_urn),
+                    EndOfStream(),
+                ]
+            ]
+        )
+    )
+
+    assert len(outputs) == 2
+    assert isinstance(outputs[1].record, EndOfStream)
+
+
+def test_dataproduct_mapping_based_on_tags_first_mapped_tag_in_config_wins(
+    mock_datahub_graph_instance,
+):
+    dataset_urn = builder.make_dataset_urn("bigquery", "example1")
+    tag_one = builder.make_tag_urn("finance_certified")
+    tag_two = builder.make_tag_urn("customer_360")
+    finance_dataproduct = "urn:li:dataProduct:finance"
+    customer_dataproduct = "urn:li:dataProduct:customer-360"
+
+    pipeline_context = PipelineContext(run_id="dataproduct_tags_first_match")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(
+            tags=[
+                TagAssociationClass(tag=tag_one),
+                TagAssociationClass(tag=tag_two),
+            ]
+        )
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+
+    transformer = DatasetTagDataProductMapper.create(
+        {
+            "dataproduct_mapping": {
+                "customer_360": customer_dataproduct,
+                "finance_certified": finance_dataproduct,
+            }
+        },
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [
+                    make_generic_dataset(entity_urn=dataset_urn),
+                    EndOfStream(),
+                ]
+            ]
+        )
+    )
+
+    # The dataset's first tag maps to finance, but the config lists customer_360 first.
+    assert len(outputs) == 3
+    assert outputs[1].record.entityUrn == customer_dataproduct
+    assets = json.loads(outputs[1].record.aspect.value.decode("utf-8"))
+    assert [item["value"]["destinationUrn"] for item in assets] == [dataset_urn]
+
+
+def test_dataproduct_mapping_based_on_tags_requires_a_graph():
+    with pytest.raises(ConfigurationError):
+        DatasetTagDataProductMapper.create(
+            {
+                "dataproduct_mapping": {
+                    "finance_certified": "urn:li:dataProduct:finance"
+                }
+            },
+            PipelineContext(run_id="dataproduct_tags_no_graph"),
+        )
+
+
+def test_dataproduct_mapping_based_on_tags_with_empty_tags(
+    mock_datahub_graph_instance,
+):
+    dataset_urn = builder.make_dataset_urn("bigquery", "example1")
+
+    pipeline_context = PipelineContext(run_id="dataproduct_tags_empty")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(tags=[])
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+
+    transformer = DatasetTagDataProductMapper.create(
+        {"dataproduct_mapping": {"finance_certified": "urn:li:dataProduct:finance"}},
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [
+                    make_generic_dataset(entity_urn=dataset_urn),
+                    EndOfStream(),
+                ]
+            ]
+        )
+    )
+
+    assert len(outputs) == 2
+    assert isinstance(outputs[1].record, EndOfStream)
+
+
+def test_dataproduct_mapping_based_on_tags_with_no_tags(mock_datahub_graph_instance):
+    dataset_urn = builder.make_dataset_urn("bigquery", "example1")
+
+    pipeline_context = PipelineContext(run_id="dataproduct_tags_none")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    def fake_get_tags(entity_urn: str) -> Optional[models.GlobalTagsClass]:
+        return None
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+
+    transformer = DatasetTagDataProductMapper.create(
+        {"dataproduct_mapping": {"finance_certified": "urn:li:dataProduct:finance"}},
+        pipeline_context,
+    )
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [
+                    make_generic_dataset(entity_urn=dataset_urn),
+                    EndOfStream(),
+                ]
+            ]
+        )
+    )
+
+    assert len(outputs) == 2
+    assert isinstance(outputs[1].record, EndOfStream)
 
 
 def test_simple_dataset_data_product_transformation(mock_time):
