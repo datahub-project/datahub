@@ -941,6 +941,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.metrics.trivialDataFetchersEnabled",
           "graphQL.query.complexityLimit",
           "graphQL.query.depthLimit",
+          "graphQL.query.directChildDefaultCount",
+          "graphQL.query.directChildMaxCount",
           "graphQL.query.introspectionEnabled",
           "graphQL.query.maxParentDepth",
           "graphQL.query.maxSiblingGroupUrns",

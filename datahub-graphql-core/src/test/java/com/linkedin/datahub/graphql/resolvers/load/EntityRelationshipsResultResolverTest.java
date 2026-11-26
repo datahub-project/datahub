@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -18,10 +19,14 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.SessionActorIdentity;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -56,8 +61,11 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -1274,7 +1282,7 @@ public class EntityRelationshipsResultResolverTest {
     glossaryInput.setDirection(RelationshipDirection.INCOMING);
     glossaryInput.setIncludeSoftDelete(false);
     glossaryInput.setStart(0);
-    glossaryInput.setCount(1);
+    glossaryInput.setCount(10);
     when(mockEnv.getArgument(eq("input"))).thenReturn(glossaryInput);
     when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
 
@@ -1304,6 +1312,260 @@ public class EntityRelationshipsResultResolverTest {
       assertEquals(
           glossaryValues, Set.of(term.toString(), parentNode.toString(), grandparent.toString()));
     }
+  }
+
+  private static final ViewAuthorizationConfiguration VIEW_AUTH_ALL_RESTRICTED =
+      ViewAuthorizationConfiguration.builder()
+          .enabled(true)
+          .effectiveUnrestrictedEntityTypes(Set.of())
+          .build();
+
+  private record GlossaryChildListing(
+      QueryContext queryContext, OperationContext opContext, EntityGraphCache cache) {
+
+    Authorizer authorizer() {
+      return queryContext.getAuthorizer();
+    }
+  }
+
+  private static List<Urn> glossaryTerms(int count) {
+    return IntStream.range(0, count)
+        .mapToObj(i -> UrnUtils.getUrn(String.format("urn:li:glossaryTerm:term%04d", i)))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Serves {@code children} as the direct children of {@code parent} from the entity graph cache,
+   * with the given View Authorization configuration (null keeps the default test configuration,
+   * which has it off) and the system actor when {@code asSystem} is set.
+   */
+  private GlossaryChildListing givenGlossaryChildren(
+      Urn parent,
+      List<Urn> children,
+      @Nullable ViewAuthorizationConfiguration viewAuthorization,
+      boolean asSystem) {
+    GlossaryNode glossarySource = new GlossaryNode();
+    glossarySource.setUrn(parent.toString());
+    when(mockEnv.getSource()).thenReturn(glossarySource);
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    stubParentAncestorWalk(entityGraphCache, "glossary");
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder().graphId("glossary").source(GraphSnapshotSource.GRAPH).build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.GLOSSARY))
+        .thenReturn(Optional.of(binding));
+    Set<String> vertices = new HashSet<>();
+    vertices.add(parent.toString());
+    children.forEach(child -> vertices.add(child.toString()));
+    when(entityGraphCache.expand(
+            eq("glossary"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of(parent.toString())),
+            anyInt(),
+            eq(1),
+            eq(ReadMode.CACHED)))
+        .thenReturn(GraphReadResult.fromVertices(vertices));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    var builder =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build());
+    if (viewAuthorization != null) {
+      builder.operationContextConfig(
+          baseContext.getOperationContextConfig().toBuilder()
+              .viewAuthorizationConfiguration(viewAuthorization)
+              .build());
+    }
+    OperationContext opContext =
+        builder.build(
+            asSystem
+                ? baseContext.getSystemActorContext().getAuthentication()
+                : baseContext.getSessionAuthentication(),
+            false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+    when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
+    return new GlossaryChildListing(queryContext, opContext, entityGraphCache);
+  }
+
+  private EntityRelationshipsResult listGlossaryChildren(
+      @Nullable Integer start, @Nullable Integer count)
+      throws ExecutionException, InterruptedException {
+    RelationshipsInput glossaryInput = new RelationshipsInput();
+    glossaryInput.setTypes(List.of("IsPartOf"));
+    glossaryInput.setDirection(RelationshipDirection.INCOMING);
+    glossaryInput.setIncludeSoftDelete(false);
+    glossaryInput.setStart(start);
+    glossaryInput.setCount(count);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(glossaryInput);
+    return resolver.get(mockEnv).get();
+  }
+
+  private static List<String> relationshipUrns(EntityRelationshipsResult result) {
+    return result.getRelationships().stream()
+        .map(relationship -> relationship.getEntity().getUrn())
+        .collect(Collectors.toList());
+  }
+
+  private static Set<String> authorizedResources(Authorizer authorizer) {
+    ArgumentCaptor<AuthorizationRequest> requests =
+        ArgumentCaptor.forClass(AuthorizationRequest.class);
+    verify(authorizer, atLeast(0)).authorize(requests.capture());
+    return requests.getAllValues().stream()
+        .flatMap(request -> request.getResourceSpec().stream())
+        .map(EntitySpec::getEntity)
+        .collect(Collectors.toSet());
+  }
+
+  @Test
+  public void testChildListingWithCountZeroReturnsTotalAndChecksNothing()
+      throws ExecutionException, InterruptedException {
+    Urn parent = UrnUtils.getUrn("urn:li:glossaryNode:parent");
+    GlossaryChildListing listing =
+        givenGlossaryChildren(parent, glossaryTerms(5), VIEW_AUTH_ALL_RESTRICTED, false);
+
+    EntityRelationshipsResult result = listGlossaryChildren(0, 0);
+
+    assertEquals(result.getTotal(), 5);
+    assertEquals(result.getCount(), 0);
+    assertTrue(result.getRelationships().isEmpty());
+    assertTrue(authorizedResources(listing.authorizer()).isEmpty());
+    assertTrue(
+        listing.opContext().getAuthorizationContext().getSessionResourceFieldOverrides().isEmpty());
+    verify(listing.cache(), never())
+        .expand(
+            eq("glossary"),
+            any(),
+            eq(TraversalDirection.FORWARD),
+            anySet(),
+            anyInt(),
+            anyInt(),
+            any());
+  }
+
+  @Test
+  public void testChildListingChecksAndSeedsOnlyTheRequestedPage()
+      throws ExecutionException, InterruptedException {
+    Urn parent = UrnUtils.getUrn("urn:li:glossaryNode:parent");
+    List<Urn> children = glossaryTerms(2095);
+    GlossaryChildListing listing =
+        givenGlossaryChildren(parent, children, VIEW_AUTH_ALL_RESTRICTED, false);
+
+    EntityRelationshipsResult result = listGlossaryChildren(10, 50);
+
+    List<String> expectedPage =
+        children.stream().skip(10).limit(50).map(Urn::toString).collect(Collectors.toList());
+    assertEquals(result.getTotal(), 2095);
+    assertEquals(relationshipUrns(result), expectedPage);
+    assertEquals(authorizedResources(listing.authorizer()), Set.copyOf(expectedPage));
+    assertEquals(
+        listing.opContext().getAuthorizationContext().getSessionResourceFieldOverrides().size(),
+        50);
+  }
+
+  @Test
+  public void testChildListingReturnsShortPageWithUnfilteredTotalWhenChildrenAreHidden()
+      throws ExecutionException, InterruptedException {
+    Urn parent = UrnUtils.getUrn("urn:li:glossaryNode:parent");
+    List<Urn> children = glossaryTerms(4);
+    GlossaryChildListing listing =
+        givenGlossaryChildren(parent, children, VIEW_AUTH_ALL_RESTRICTED, false);
+    String hidden = children.get(1).toString();
+    when(listing.authorizer().authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            inv -> {
+              AuthorizationRequest request = inv.getArgument(0);
+              boolean denied =
+                  request
+                      .getResourceSpec()
+                      .map(spec -> hidden.equals(spec.getEntity()))
+                      .orElse(false);
+              return new AuthorizationResult(
+                  request,
+                  denied ? AuthorizationResult.Type.DENY : AuthorizationResult.Type.ALLOW,
+                  "");
+            });
+
+    EntityRelationshipsResult result = listGlossaryChildren(0, 3);
+
+    assertEquals(
+        relationshipUrns(result), List.of(children.get(0).toString(), children.get(2).toString()));
+    assertEquals(result.getCount(), 2);
+    assertEquals(result.getTotal(), 4);
+  }
+
+  @Test
+  public void testChildListingHonorsConfiguredPageLimits()
+      throws ExecutionException, InterruptedException {
+    Urn parent = UrnUtils.getUrn("urn:li:glossaryNode:parent");
+    GlossaryChildListing listing = givenGlossaryChildren(parent, glossaryTerms(50), null, false);
+    when(listing.queryContext().getDirectChildDefaultCount()).thenReturn(3);
+    when(listing.queryContext().getDirectChildMaxCount()).thenReturn(5);
+
+    assertEquals(listGlossaryChildren(0, null).getRelationships().size(), 3);
+    assertEquals(listGlossaryChildren(0, 40).getRelationships().size(), 5);
+  }
+
+  @Test
+  public void testChildListingAppliesDefaultAndMaximumCountAndClampsNegatives()
+      throws ExecutionException, InterruptedException {
+    Urn parent = UrnUtils.getUrn("urn:li:glossaryNode:parent");
+    List<Urn> children = glossaryTerms(1200);
+    givenGlossaryChildren(parent, children, null, false);
+
+    EntityRelationshipsResult omittedCount = listGlossaryChildren(0, null);
+    assertEquals(omittedCount.getRelationships().size(), 100);
+    assertEquals(omittedCount.getTotal(), 1200);
+
+    EntityRelationshipsResult oversizedCount = listGlossaryChildren(0, 5000);
+    assertEquals(oversizedCount.getRelationships().size(), 1000);
+
+    EntityRelationshipsResult negativeStart = listGlossaryChildren(-5, 3);
+    assertEquals(negativeStart.getStart(), 0);
+    assertEquals(
+        relationshipUrns(negativeStart),
+        children.subList(0, 3).stream().map(Urn::toString).collect(Collectors.toList()));
+
+    EntityRelationshipsResult negativeCount = listGlossaryChildren(0, -1);
+    assertTrue(negativeCount.getRelationships().isEmpty());
+    assertEquals(negativeCount.getTotal(), 1200);
+  }
+
+  @Test
+  public void testChildListingRunsNoViewChecksWhenViewAuthorizationDoesNotApply()
+      throws ExecutionException, InterruptedException {
+    Urn parent = UrnUtils.getUrn("urn:li:glossaryNode:parent");
+    List<Urn> children = glossaryTerms(20);
+
+    GlossaryChildListing disabled = givenGlossaryChildren(parent, children, null, false);
+    assertEquals(listGlossaryChildren(0, 20).getRelationships().size(), 20);
+    assertTrue(authorizedResources(disabled.authorizer()).isEmpty());
+
+    GlossaryChildListing unrestrictedType =
+        givenGlossaryChildren(
+            parent,
+            children,
+            ViewAuthorizationConfiguration.builder()
+                .enabled(true)
+                .effectiveUnrestrictedEntityTypes(Set.of("glossaryTerm"))
+                .build(),
+            false);
+    assertEquals(listGlossaryChildren(0, 20).getRelationships().size(), 20);
+    assertTrue(authorizedResources(unrestrictedType.authorizer()).isEmpty());
+
+    GlossaryChildListing systemActor =
+        givenGlossaryChildren(parent, children, VIEW_AUTH_ALL_RESTRICTED, true);
+    assertEquals(listGlossaryChildren(0, 20).getRelationships().size(), 20);
+    assertTrue(authorizedResources(systemActor.authorizer()).isEmpty());
   }
 
   /** The child listing resolves the parent's ancestors once; return just the parent. */

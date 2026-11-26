@@ -42,6 +42,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -603,29 +604,36 @@ public class EntityRelationshipsResultResolver
       existentChildUrns = null;
     }
 
-    List<Urn> candidates =
+    // Sorted so that an offset selects the same children on every request.
+    List<Urn> children =
         childUrns.stream()
             .filter(childUrn -> existentChildUrns == null || existentChildUrns.contains(childUrn))
+            .sorted(Comparator.comparing(Urn::toString))
             .collect(Collectors.toList());
-    seedChildHierarchyField(context, spec, hierarchyField, parentUrn, candidates);
-    List<Urn> viewable =
-        candidates.stream()
+
+    final int resolvedStart = Math.max(0, start != null ? start : 0);
+    // Each returned child costs a view check, so the page size is bounded by configuration and
+    // the listing does not scale with the size of the group.
+    final int pageSize =
+        Math.min(
+            context.getDirectChildMaxCount(),
+            Math.max(0, count != null ? count : context.getDirectChildDefaultCount()));
+    // View checks run on the requested slice only, so a viewer who cannot see some children gets a
+    // short page, and the total counts every child. A count of 0 asks only for the total and
+    // checks nothing.
+    final List<Urn> slice =
+        pageSize == 0
+            ? List.of()
+            : children.stream().skip(resolvedStart).limit(pageSize).collect(Collectors.toList());
+    seedChildHierarchyField(context, spec, hierarchyField, parentUrn, slice);
+    final List<Urn> page =
+        slice.stream()
             .filter(childUrn -> canView(context.getOperationContext(), childUrn))
             .collect(Collectors.toList());
 
-    int resolvedStart = start != null ? start : 0;
-    int resolvedCount = count != null ? count : viewable.size();
-    List<Urn> page =
-        resolvedCount <= 0
-            ? List.of()
-            : viewable.stream()
-                .skip(resolvedStart)
-                .limit(resolvedCount)
-                .collect(Collectors.toList());
-
     EntityRelationshipsResult result = new EntityRelationshipsResult();
     result.setStart(resolvedStart);
-    result.setTotal(viewable.size());
+    result.setTotal(children.size());
     result.setCount(page.size());
     result.setRelationships(
         page.stream()
