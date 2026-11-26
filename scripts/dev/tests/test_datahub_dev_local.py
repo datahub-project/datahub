@@ -755,9 +755,10 @@ def test_fresh_clears_data_and_retains_instance_record(
     assert (data_dir / "env-overrides.env").read_text() == ""
 
 
+@pytest.mark.parametrize("task", ["yarnServe", "yarnPreview"])
 @pytest.mark.parametrize("valid", [True, False])
 def test_frontend_ownership_requires_task_and_exact_stack_path(
-    entry: dict[str, object], monkeypatch: pytest.MonkeyPatch, valid: bool
+    entry: dict[str, object], monkeypatch: pytest.MonkeyPatch, valid: bool, task: str
 ) -> None:
     data_dir = register(entry)
     command = [
@@ -765,7 +766,7 @@ def test_frontend_ownership_requires_task_and_exact_stack_path(
         "-jar",
         "/repo/gradle/wrapper/gradle-wrapper.jar",
         "--no-daemon",
-        ":datahub-web-react:yarnServe",
+        f":datahub-web-react:{task}",
         "-PfrontendMode=lite",
         f"-PfrontendStackFile={data_dir / 'stack.json'}"
         + (".other" if not valid else ""),
@@ -896,7 +897,8 @@ def test_status_requires_enabled_frontend(
     )
     status = json.loads(capsys.readouterr().out)
     assert status["ready"] is expected
-    assert ("frontend" in status["services"]) is not no_frontend
+    # The recorded frontend PID is shown either way; it gates readiness only when enabled.
+    assert status["services"]["frontend"].get("required", True) is not no_frontend
 
 
 def test_wait_keeps_polling_until_frontend_is_healthy(
@@ -1243,3 +1245,184 @@ def test_plugin_artifacts_are_reused_on_warm_start(
     monkeypatch.setattr(local.subprocess, "Popen", launch)
     assert local.cmd_start_local(0, local.local_ports(0), "abc123", repo) == 0
     run.assert_not_called()
+
+
+def full_stack(**overrides: object) -> dict[str, object]:
+    stack: dict[str, object] = {
+        "default": "gms-0",
+        "instances": {
+            "gms-0": "http://localhost:9080",
+            "gms-1": "http://localhost:9081",
+        },
+        "indexPrefixes": {"gms-0": "lite_abc123_0", "gms-1": "lite_abc123_1"},
+        "opensearchPort": 9201,
+        "frontendPort": 10002,
+        "systemClientId": "__datahub_system",
+        "systemClientSecret": "s3cret",
+        "adminTokens": {"gms-0": "tok0", "gms-1": "tok1"},
+        "services": {
+            "integrations": {"gms-0": "http://localhost:10003", "gms-1": "http://x:1"},
+            "executor": {"gms-0": "http://localhost:10004"},
+        },
+    }
+    stack.update(overrides)
+    return stack
+
+
+def test_stack_test_env_uses_default_instance_and_logs_in() -> None:
+    env = local.stack_test_env(full_stack())
+    assert env["DATAHUB_GMS_URL"] == "http://localhost:9080"
+    assert env["INDEX_PREFIX"] == "lite_abc123_0"
+    assert env["ELASTICSEARCH_INDEX"] == "lite_abc123_0_datahub_usage_event"
+    assert env["ELASTICSEARCH_URL"] == "http://localhost:9201"
+    assert env["DATAHUB_FRONTEND_URL"] == env["BASE_URL"] == "http://localhost:10002"
+    assert env["DATAHUB_INTEGRATIONS_SERVICE_URL"] == "http://localhost:10003"
+    assert env["DATAHUB_EXECUTOR_URL"] == "http://localhost:10004"
+    assert env["DATAHUB_SYSTEM_CLIENT_SECRET"] == "s3cret"
+    assert env["SMOKE_BACKEND"] == "local"
+    assert (env["ADMIN_USERNAME"], env["ADMIN_PASSWORD"]) == ("datahub", "datahub")
+    assert "DATAHUB_GMS_TOKEN" not in env
+
+
+def test_stack_test_env_omits_services_that_are_off() -> None:
+    env = local.stack_test_env(
+        full_stack(
+            services={"integrations": {"gms-1": "http://x:1"}},
+            frontendPort=None,
+            systemClientId=None,
+        )
+    )
+    assert (
+        not {
+            "DATAHUB_INTEGRATIONS_SERVICE_URL",
+            "DATAHUB_EXECUTOR_URL",
+            "DATAHUB_FRONTEND_URL",
+            "BASE_URL",
+            "DATAHUB_SYSTEM_CLIENT_ID",
+        }
+        & env.keys()
+    )
+
+
+def test_shell_env_tests_and_smoke_env_read_stack_json(
+    entry: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    data_dir = register(entry)
+    (data_dir / "stack.json").write_text(json.dumps(full_stack()))
+    monkeypatch.setattr(dev, "WORKTREE_ID", "abc123")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://other-worktree")
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "stale")
+    assert dev.cmd_shell_env(argparse.Namespace(tests=True)) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "unset DATAHUB_PROFILE DATAHUB_GMS_TOKEN"
+    assert "export DATAHUB_GMS_URL=http://localhost:9080" in lines
+    env = dev._smoke_test_env()
+    assert env["DATAHUB_GMS_URL"] == "http://localhost:9080"
+    assert "DATAHUB_GMS_TOKEN" not in env
+
+
+def test_shell_env_tests_without_stack_json_fails(
+    entry: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    register(entry)
+    monkeypatch.setattr(dev, "WORKTREE_ID", "abc123")
+    assert dev.cmd_shell_env(argparse.Namespace(tests=True)) == 1
+
+
+def test_detached_preview_is_recorded_shown_and_stopped(
+    entry: dict[str, object],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    entry["local_options"] = {"processes": 1, "no_frontend": True}
+    data_dir = register(entry)
+    (data_dir / "stack.json").write_text(json.dumps({"frontendPort": 9002}))
+    local._save_pids(data_dir / "pids.json", {"launcher": 456})
+    monkeypatch.setattr(local, "_occupied_stack_port", lambda *args, **kwargs: None)
+    launch = Mock(return_value=Mock(pid=123, **{"poll.return_value": None}))
+    monkeypatch.setattr(local.subprocess, "Popen", launch)
+    monkeypatch.setattr(local, "_http_ok", lambda url, timeout=3.0: True)
+    assert (
+        local.launch_frontend(
+            "abc123", local.local_ports(0), tmp_path, preview=True, build=True
+        )
+        == 0
+    )
+    command = launch.call_args.args[0]
+    assert command.index(":datahub-web-react:yarnBuild") < command.index(
+        ":datahub-web-react:yarnPreview"
+    )
+    assert local._load_pids(data_dir / "pids.json") == {
+        "launcher": 456,
+        "frontend": 123,
+    }
+
+    running = {123}
+    monkeypatch.setattr(
+        local, "_owned_by", lambda pid, directory, unknown=False: pid in running
+    )
+    manager = Mock()
+    manager.status.return_value = {"healthy": False}
+    monkeypatch.setattr(local, "opensearch_manager", lambda *args: manager)
+    local.cmd_status_local("abc123", local.local_ports(0))
+    assert capsys.readouterr().out.count('"pid": 123') == 1
+    monkeypatch.setattr(local.os, "getpgid", lambda pid: pid)
+    kill = Mock(side_effect=lambda pgid, sig: running.discard(pgid))
+    monkeypatch.setattr(local.os, "killpg", kill)
+    assert local.cmd_stop_local("abc123", names={"frontend"}) == 0
+    kill.assert_called_once_with(123, signal.SIGTERM)
+    assert local._load_pids(data_dir / "pids.json") == {"launcher": 456}
+
+
+def test_log_names_resolve_to_files_the_stack_wrote(
+    entry: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data_dir = register(entry)
+    (data_dir / "stack.json").write_text(
+        json.dumps({"default": "gms-0", "opensearchShared": False})
+    )
+    (data_dir / "logs").mkdir()
+    for name in (
+        "logs/gms-0-gms",
+        "logs/gms-1-gms",
+        "logs/gms-0-systemupdate",
+        "logs/gms-1-integrations",
+        "logs/opensearch",
+        "frontend",
+    ):
+        (data_dir / f"{name}.log").write_text("line\n")
+    files = local.log_files("abc123")
+    assert set(files) == {
+        "frontend",
+        "gms-0-gms",
+        "gms-1-gms",
+        "gms-0-systemupdate",
+        "gms-1-integrations",
+        "opensearch",
+    }
+    expected = {
+        "gms": "logs/gms-0-gms.log",
+        "gms-1": "logs/gms-1-gms.log",
+        "system-update": "logs/gms-0-systemupdate.log",
+        "gms-1/integrations": "logs/gms-1-integrations.log",
+        "gms-1-integrations": "logs/gms-1-integrations.log",
+        "frontend": "frontend.log",
+        "opensearch": "logs/opensearch.log",
+    }
+    for service, path in expected.items():
+        assert local.resolve_log(files, service, "gms-0") == data_dir / path
+    assert local.resolve_log(files, "executor", "gms-0") is None
+
+    run = Mock(return_value=Mock(returncode=0))
+    monkeypatch.setattr(local.subprocess, "run", run)
+    assert local.cmd_logs_local("abc123", "gms", 50, follow=False) == 0
+    assert run.call_args.args[0] == [
+        "tail",
+        "-n",
+        "50",
+        str(data_dir / "logs/gms-0-gms.log"),
+    ]
+    assert local.cmd_logs_local("abc123", "executor", 50, follow=False) == 1

@@ -522,6 +522,20 @@ Unmarked local registry entries are read-only and keep their slots reserved.
 Service env values come from the layered files under `env/` (see [env/README.md](env/README.md)).
 `start --local --timeout 600 --verbose` streams the launcher log; `status` reports boot timings.
 
+```bash
+# Smoke-test / Playwright env from this stack's stack.json (URLs, index prefix, admin login).
+# `test <path>` applies it automatically on a local stack; use this for pytest or Playwright run by hand.
+eval "$(scripts/dev/datahub-dev.sh shell-env --tests)"
+
+# Logs: no argument lists them; services are gms, gms-N, system-update, restore-indices,
+# frontend, launcher, opensearch (gms-N/<service> for other instances)
+scripts/dev/datahub-dev.sh logs
+scripts/dev/datahub-dev.sh logs gms -n 50
+scripts/dev/datahub-dev.sh logs frontend -f
+```
+
+`frontend --local --preview --detach` serves the built `dist/` bundle in the background. It returns once the frontend's `/health` answers, logs to `frontend.log`, and shows in `status`; `stop` and `nuke` end it. Stop the HMR server first (`stop`, or `start --local --no-frontend`), since both use the same port.
+
 **Removing a worktree:** run `nuke` before `git worktree remove`, so the shared OpenSearch drops
 this stack's indices. `instances clean` and `indices list|drop|prune` are dry runs without `--yes`
 and act only on stacks with matching ownership records.

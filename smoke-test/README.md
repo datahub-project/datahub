@@ -38,6 +38,13 @@ export DATAHUB_VERSION=v1.0.0rc3-SNAPSHOT  # or current version
 export TEST_STRATEGY=pytests
 ```
 
+On the Docker-free stack (`scripts/dev/datahub-dev.sh start --local`), `datahub-dev.sh test <path>`
+takes the test env from the stack's `stack.json`:
+GMS, frontend, OpenSearch and running-service URLs, the index prefix and usage index, the admin
+login (no `DATAHUB_GMS_TOKEN`; tests log in as `datahub`/`datahub`) and `SMOKE_BACKEND=local`.
+To run pytest or Playwright directly, first run
+`eval "$(scripts/dev/datahub-dev.sh shell-env --tests)"` from the repo root.
+
 ### Running Tests
 
 ```bash

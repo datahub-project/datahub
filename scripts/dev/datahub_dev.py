@@ -1501,6 +1501,19 @@ def _smoke_test_env() -> Dict[str, str]:
     """
     env = _dev_env()
     env.pop("DATAHUB_PROFILE", None)
+    instance = _get_instance()
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if local.is_owned_entry(instance):
+            # stack.json is authoritative: a URL exported for another worktree must not win.
+            env.pop("DATAHUB_GMS_TOKEN", None)
+            try:
+                env.update(local.load_test_env(WORKTREE_ID))
+            except (OSError, ValueError, KeyError) as error:
+                raise SystemExit(
+                    f"ERROR: no usable stack.json; is the local stack up? ({error})"
+                ) from error
     gms_base_path = env.get("DATAHUB_GMS_BASE_PATH", "")
     instance_gms_url = _gms_url()
     if gms_base_path == "/" or not gms_base_path:
@@ -2218,6 +2231,11 @@ def cmd_frontend(args: argparse.Namespace) -> int:
             "ERROR: no frontend dist/ bundle exists; add --build to create one before preview."
         )
         return 1
+    if getattr(args, "detach", False):
+        if not getattr(args, "local", False):
+            _log("ERROR: --detach requires --local.")
+            return 1
+        return _detach_local_frontend(preview, build)
     task = (
         ":datahub-web-react:yarnPreview" if preview else ":datahub-web-react:yarnServe"
     )
@@ -2292,6 +2310,67 @@ def cmd_frontend(args: argparse.Namespace) -> int:
         except KeyboardInterrupt:
             _log("\nFrontend dev server stopped.")
             return 0
+
+
+def _detach_local_frontend(preview: bool, build: bool) -> int:
+    """Run the local frontend in the background; ``stop`` and ``nuke`` end it via pids.json."""
+    instance = _get_instance()
+    if not instance or instance.get("mode") != "local":
+        _log("ERROR: no local stack for this worktree; run 'start --local' first.")
+        return 1
+    import datahub_dev_local as local
+
+    if not local.is_owned_entry(instance):
+        _log("ERROR: refusing to start a frontend for an unmanaged local instance")
+        return 1
+    if not (local.local_data_dir(WORKTREE_ID) / "stack.json").exists():
+        _log(
+            "ERROR: the local stack is not ready (no stack.json); run 'start --local' first."
+        )
+        return 1
+    return local.launch_frontend(
+        WORKTREE_ID,
+        instance["ports"],
+        REPO_ROOT,
+        # A fresh production build alone can take several minutes.
+        timeout=1800 if build else 900,
+        preview=preview,
+        build=build,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Command: logs
+# ---------------------------------------------------------------------------
+
+
+def cmd_logs(args: argparse.Namespace) -> int:
+    """Print a service's log; without a service, list this stack's logs (local mode)."""
+    instance = _get_instance()
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if not local.is_owned_entry(instance):
+            _log("ERROR: refusing to inspect an unmanaged local instance")
+            return 1
+        return local.cmd_logs_local(WORKTREE_ID, args.service, args.lines, args.follow)
+    command = [
+        "docker",
+        "compose",
+        "-p",
+        COMPOSE_PROJECT,
+        "logs",
+        "--tail",
+        str(args.lines),
+    ]
+    if args.follow:
+        command.append("--follow")
+    if args.service:
+        command.append(args.service)
+    try:
+        return subprocess.run(command, cwd=REPO_ROOT).returncode
+    except KeyboardInterrupt:
+        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -3046,6 +3125,17 @@ def cmd_shell_env(args: argparse.Namespace) -> int:
         if not local.is_owned_entry(instance):
             print("# Unmanaged local instance; no environment exported")
             return 1
+        if getattr(args, "tests", False):
+            try:
+                test_env = local.load_test_env(WORKTREE_ID)
+            except (OSError, ValueError, KeyError) as error:
+                _log(f"ERROR: no usable stack.json; is the local stack up? ({error})")
+                return 1
+            # The CLI ranks DATAHUB_PROFILE above DATAHUB_GMS_URL; tests log in for their token.
+            print("unset DATAHUB_PROFILE DATAHUB_GMS_TOKEN")
+            for key, value in test_env.items():
+                print(f"export {key}={shlex.quote(value)}")
+            return 0
         print(f"export DATAHUB_PROFILE={local.profile_name(WORKTREE_ID)}")
         print(
             f"export DATAHUB_GMS_URL={shlex.quote('http://localhost:' + str(instance['ports']['gms']))}"
@@ -3054,6 +3144,9 @@ def cmd_shell_env(args: argparse.Namespace) -> int:
         print("unset DATAHUB_GMS_TOKEN")
         return 0
 
+    if getattr(args, "tests", False):
+        _log("ERROR: --tests needs a local stack ('start --local').")
+        return 1
     gms = _gms_url()
     # The CLI ranks DATAHUB_PROFILE above DATAHUB_GMS_URL; clear it so this shell
     # targets the worktree instance rather than a previously selected profile.
@@ -3128,6 +3221,20 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Build a fresh production bundle before --preview",
     )
+    fe_p.add_argument(
+        "--detach",
+        action="store_true",
+        help="With --local: run in the background (log: frontend.log), return once /health answers; 'stop' ends it",
+    )
+
+    # logs
+    logs_p = subparsers.add_parser(
+        "logs",
+        help="Show a service log (local: gms, gms-N, system-update, integrations, executor, frontend, launcher, opensearch; no service lists them)",
+    )
+    logs_p.add_argument("service", nargs="?")
+    logs_p.add_argument("-n", "--lines", type=int, default=100)
+    logs_p.add_argument("-f", "--follow", action="store_true")
 
     # docs
     docs_p = subparsers.add_parser(
@@ -3389,12 +3496,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # shell-env
-    subparsers.add_parser(
+    shell_env_p = subparsers.add_parser(
         "shell-env",
         help=(
             "Print shell export statements for this instance's CLI environment. "
             "Usage: eval $(datahub-dev.sh shell-env)"
         ),
+    )
+    shell_env_p.add_argument(
+        "--tests",
+        action="store_true",
+        help="Local stacks: print the smoke-test and Playwright environment from stack.json",
     )
 
     extension = extensions.load(CONFIG.local_extension)
@@ -3425,6 +3537,7 @@ def _main() -> int:
         "status": cmd_status,
         "setup": cmd_setup,
         "frontend": cmd_frontend,
+        "logs": cmd_logs,
         "docs": cmd_docs,
         "start": cmd_start,
         "stop": cmd_stop,
