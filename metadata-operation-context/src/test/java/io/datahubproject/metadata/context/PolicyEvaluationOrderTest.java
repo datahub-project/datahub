@@ -8,6 +8,10 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
+import com.linkedin.policy.PolicyMatchCondition;
+import com.linkedin.policy.PolicyMatchCriterion;
+import com.linkedin.policy.PolicyMatchCriterionArray;
+import com.linkedin.policy.PolicyMatchFilter;
 import org.testng.annotations.Test;
 
 public class PolicyEvaluationOrderTest {
@@ -25,6 +29,21 @@ public class PolicyEvaluationOrderTest {
         1);
     assertEquals(
         PolicyEvaluationOrder.cost(policy(new DataHubResourceFilter().setAllResources(true))), 0);
+  }
+
+  @Test
+  public void deprecatedUrnAliasIsAnsweredFromTheSpec() {
+    DataHubResourceFilter filter =
+        new DataHubResourceFilter()
+            .setFilter(
+                new PolicyMatchFilter()
+                    .setCriteria(
+                        new PolicyMatchCriterionArray(
+                            new PolicyMatchCriterion()
+                                .setField("RESOURCE_URN")
+                                .setValues(new StringArray("urn:li:dataset:x"))
+                                .setCondition(PolicyMatchCondition.EQUALS))));
+    assertEquals(PolicyEvaluationOrder.cost(policy(filter)), 1);
   }
 
   @Test

@@ -21,7 +21,8 @@ import javax.annotation.Nonnull;
 public final class PolicyEvaluationOrder {
 
   /** Criteria answered from the request's own resource spec, without fetching anything. */
-  private static final Set<String> SPEC_ONLY_FIELDS = Set.of("TYPE", "RESOURCE_TYPE", "URN");
+  private static final Set<String> SPEC_ONLY_FIELDS =
+      Set.of("TYPE", "RESOURCE_TYPE", "URN", "RESOURCE_URN");
 
   /** Cheapest first; ties keep their existing relative order when used with a stable sort. */
   public static final Comparator<DataHubPolicyInfo> CHEAPEST_FIRST =
