@@ -102,8 +102,9 @@ def reported_bool(
 
 
 def get_payload_max_length() -> int:
-    val = os.environ.get("ACRYL_EXECUTOR_GMS_PAYLOAD_MAX_LENGTH")
-    return int(val) if val and val.isdigit() else DEFAULT_GMS_PAYLOAD_MAX_LENGTH
+    return env_to_int(
+        "ACRYL_EXECUTOR_GMS_PAYLOAD_MAX_LENGTH", DEFAULT_GMS_PAYLOAD_MAX_LENGTH
+    )
 
 
 def get_bundled_venv_path() -> str:
@@ -111,15 +112,11 @@ def get_bundled_venv_path() -> str:
 
 
 def get_dependency_resolution_enabled() -> bool:
-    return string_to_bool(
-        os.environ.get("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "true")
-    )
+    return env_to_bool("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "true")
 
 
 def get_print_subprocess_logs() -> bool:
-    return string_to_bool(
-        os.environ.get("DATAHUB_EXECUTOR_PRINT_SUBPROCESS_LOGS", "true")
-    )
+    return env_to_bool("DATAHUB_EXECUTOR_PRINT_SUBPROCESS_LOGS", "true")
 
 
 EXTRA_PIP_REQUIREMENTS_ENABLED_ENV = "INGESTION_EXTRA_PIP_REQUIREMENTS_ENABLED"
@@ -127,7 +124,7 @@ EXTRA_PIP_REQUIREMENTS_ALLOWLIST_ENV = "INGESTION_EXTRA_PIP_REQUIREMENTS_ALLOWLI
 
 
 def get_extra_pip_requirements_enabled() -> bool:
-    return string_to_bool(os.environ.get(EXTRA_PIP_REQUIREMENTS_ENABLED_ENV, "true"))
+    return env_to_bool(EXTRA_PIP_REQUIREMENTS_ENABLED_ENV, "true")
 
 
 def get_extra_pip_requirements_allowlist() -> Optional[str]:
