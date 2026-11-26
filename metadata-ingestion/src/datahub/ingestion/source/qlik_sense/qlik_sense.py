@@ -950,6 +950,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._script_spellings: Dict[str, Counter[str]] = {}
         self._script_spellings_built_from: Optional[List[str]] = None
         self._linked_unmapped_files: Set[str] = set()
+        # QVDs on storage or a Windows share that lineage links this run. No
+        # storage source ingests QVDs, so they are typed here.
+        self._linked_storage_qvds: Set[str] = set()
+        # Files on a Windows share, which are Qlik Sense datasets of the on-prem
+        # recipe, not this one's.
+        self._share_file_urns: Set[str] = set()
         # Tables kept apps store into files on storage that was unknown when
         # their last read recorded them.
         self._kept_storage_file_stores: Dict[str, List[str]] = {}
@@ -2935,7 +2941,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _file_urn(
         self, storage: FileStorage, detail: Optional[FileStorageDetail], path: str
     ) -> str:
-        return file_dataset_urn(
+        urn = file_dataset_urn(
             storage,
             # As Qlik Cloud names it, so lineage joins whichever way it was read.
             normalized_file_path(path),
@@ -2946,6 +2952,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             else self.config.env,
             lowercase=detail.convert_urns_to_lowercase if detail else False,
         )
+        if storage.platform == FilePlatform.WINDOWS_SHARE:
+            self._share_file_urns.add(urn)
+        return urn
 
     def _unmapped_file_urn(
         self, connection: str, path: str, space_id: str
@@ -3105,6 +3114,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if write not in writes.setdefault(file_urn, []):
                 writes[file_urn].append(write)
                 self.reporter.file_stores_linked += 1
+                self._note_storage_qvd(file_urn)
         previous = self._usable_checkpoint(app.id, [])
         previous_files = previous.stored_file_urns if previous else []
         currents = {
@@ -3364,9 +3374,23 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         urn = next(iter(urns))
         if urn in unmapped:
             self._link_unmapped_file(app_id, urn)
+        else:
+            self._note_storage_qvd(urn)
         return _FileSourceResolution(
             urn=urn, on_known_storage=unresolved.on_known_storage
         )
+
+    def _note_storage_qvd(self, urn: str) -> None:
+        if DatasetUrn.from_string(urn).name.lower().endswith(QVD_EXTENSION):
+            self._linked_storage_qvds.add(urn)
+
+    def _gen_storage_qvd_types(self) -> Iterable[MetadataWorkUnit]:
+        for urn in sorted(self._linked_storage_qvds):
+            # Not this source's dataset, so never removed as stale.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_QVD]),
+            ).as_workunit(is_primary_source=False)
 
     def _link_unmapped_file(self, app_id: str, urn: str) -> None:
         self._linked_unmapped_files.add(urn)
@@ -4451,6 +4475,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._unlabelled_qvd_loads += 1
         self.reporter.qvds_found += len(lineage.paths)
         self.reporter.storage_qvds_resolved += len(lineage.storage_urns)
+        for storage_urn in lineage.storage_urns:
+            self._note_storage_qvd(storage_urn)
         if app.script is None or app.script_read_failed:
             # QVDs the script writes can't be known, so their lineage is kept.
             self._apps_qvds_unknown[app.id] = "its load script could not be read"
@@ -5485,9 +5511,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _is_own_dataset(self, urn: str) -> bool:
-        return DatasetUrn.from_string(urn).platform == builder.make_data_platform_urn(
-            self.platform
-        )
+        return urn not in self._share_file_urns and DatasetUrn.from_string(
+            urn
+        ).platform == builder.make_data_platform_urn(self.platform)
 
     def _check_missing_lineage_graph(self, app: App) -> None:
         # Qlik also answers 404 for lineage it has not computed yet, so a 404
@@ -5907,6 +5933,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         graph_named_apps = self._read_graph_named_reloads()
         yield from self._gen_unmapped_file_entities()
         yield from self._gen_graph_named_resources(graph_named_apps)
+        yield from self._gen_storage_qvd_types()
         self._record_end_of_run_urns()
         if self.qlik_api.opened_without_data:
             self.reporter.warning(

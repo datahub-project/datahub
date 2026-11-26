@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import posixpath
 import re
 from typing import Dict, List, Optional
 
@@ -26,6 +27,9 @@ class FilePlatform(StrEnum):
     ABS = "abs"
     S3 = "s3"
     GCS = "gcs"
+    # Files on a Windows share, which Qlik Sense Enterprise ingests as Qlik
+    # Sense datasets named by their path.
+    WINDOWS_SHARE = "qlik-sense"
 
 
 class FileConnector(BaseModel):
@@ -69,9 +73,14 @@ FILE_CONNECTORS: Dict[str, FileConnector] = {
 }
 
 
-# The DataHub platform of the files each file QRI scheme names.
+# The DataHub platform of the files each file QRI scheme names. A Qlik Data
+# Gateway file connection (`DG_File_local`) reads a Windows share.
 PLATFORM_BY_QRI_SCHEME = {
-    connector.qri_scheme: connector.platform for connector in FILE_CONNECTORS.values()
+    **{
+        connector.qri_scheme: connector.platform
+        for connector in FILE_CONNECTORS.values()
+    },
+    "local": FilePlatform.WINDOWS_SHARE,
 }
 
 
@@ -102,6 +111,12 @@ class FileStorage(BaseModel):
     # when only a storage URI is known. A match only tells candidates apart,
     # as the connection's own property may be spelled differently.
     likely_qri_connection_id: Optional[str] = None
+
+
+def canonical_path(path: str) -> str:
+    """One spelling per file: forward slashes, no `.` or `..`, lower case, as
+    Windows paths are case-insensitive. `//server/share` keeps its UNC prefix."""
+    return posixpath.normpath(path.strip().replace("\\", "/")).lower()
 
 
 def qri_part_id(text: str) -> str:
@@ -153,8 +168,19 @@ def file_storage_of_connection(connect_statement: str) -> Optional[FileStorage]:
 
 def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
     """The storage an Azure (`abfss://`, `abfs://` or Azure HTTPS), `s3://` or
-    `gs://` URI names."""
+    `gs://` URI, or a `\\\\server\\share` path, names."""
     uri = uri.strip()
+    if uri.startswith(("\\\\", "//")) and "://" not in uri:
+        location = canonical_path(uri)
+        # `//` alone, or a server without a share, is no share.
+        if len([part for part in location.split("/") if part]) < 2:
+            return None
+        return FileStorage(
+            platform=FilePlatform.WINDOWS_SHARE,
+            location=location,
+            # A Data Gateway connection's QRI part is its path as written.
+            likely_qri_connection_id=qri_part_id(uri),
+        )
     scheme, separator, rest = uri.partition("://")
     if separator:
         # Schemes are case-insensitive; the helpers below expect lower case.
@@ -243,6 +269,14 @@ def file_dataset_urn(
     env: str,
     lowercase: bool = False,
 ) -> str:
+    if storage.platform == FilePlatform.WINDOWS_SHARE:
+        # As Qlik Sense Enterprise names a file on a share, so both join.
+        return make_dataset_urn_with_platform_instance(
+            platform=storage.platform,
+            name=canonical_path(f"{storage.location}/{path}"),
+            platform_instance=platform_instance,
+            env=env,
+        )
     name = f"{storage.location}/{path}"
     return make_dataset_urn_with_platform_instance(
         platform=storage.platform,
