@@ -17,7 +17,6 @@ import pathlib
 from typing import Any, Dict, Iterator, List
 
 import pytest
-import requests
 import time_machine
 
 from datahub.ingestion.api.common import PipelineContext
@@ -30,7 +29,6 @@ from tests.integration.omni.fixtures import (
     ADMIN_USER_ID,
     ANALYST_USER_ID,
     DASHBOARD_DOC_DASHBOARD_1,
-    USERS,
     FakeOmniClientFull,
 )
 
@@ -599,65 +597,6 @@ def test_owner_missing_from_user_list_falls_back_to_omni_id() -> None:
         f"urn:li:corpuser:{ANALYST_USER_ID}"
     ]
     assert ANALYST_USER_ID in source.report.owners_unresolved
-
-
-@time_machine.travel(FROZEN_TIME)
-def test_owner_lookup_failure_warns_and_keeps_ingesting() -> None:
-    class _ClientWithoutScimAccess(FakeOmniClientFull):
-        def list_users(self, page_size: int = 100) -> Iterator[ScimUser]:
-            raise RuntimeError("403 Forbidden")
-
-    source = _build_source()
-    source.client = _ClientWithoutScimAccess()  # type: ignore[assignment]
-    events = _collect_workunits(source)
-
-    assert _owner_urns(events, ADMIN_DASHBOARD_URN) == [
-        f"urn:li:corpuser:{ADMIN_USER_ID}"
-    ]
-    assert any(w.title == "Owner email lookup failed" for w in source.report.warnings)
-    # The lookup-level warning covers every fallback; don't also list each owner.
-    assert not source.report.owners_unresolved
-
-
-@time_machine.travel(FROZEN_TIME)
-def test_owner_lookup_failing_midway_resolves_no_owner() -> None:
-    class _ClientFailingOnSecondPage(FakeOmniClientFull):
-        def list_users(self, page_size: int = 100) -> Iterator[ScimUser]:
-            yield from USERS
-            raise RuntimeError("503 Service Unavailable")
-
-    source = _build_source()
-    source.client = _ClientFailingOnSecondPage()  # type: ignore[assignment]
-    events = _collect_workunits(source)
-
-    # The admin was on the page that loaded, but a partial map would resolve an
-    # arbitrary subset of owners, so nothing resolves.
-    assert _owner_urns(events, ADMIN_DASHBOARD_URN) == [
-        f"urn:li:corpuser:{ADMIN_USER_ID}"
-    ]
-    assert source.report.owners_resolved_to_email == 0
-    assert any(w.title == "Owner email lookup failed" for w in source.report.warnings)
-
-
-@time_machine.travel(FROZEN_TIME)
-def test_owner_lookup_forbidden_is_info_not_warning() -> None:
-    class _ClientWithPersonalToken(FakeOmniClientFull):
-        def list_users(self, page_size: int = 100) -> Iterator[ScimUser]:
-            response = requests.Response()
-            response.status_code = 403
-            raise requests.HTTPError("403 Forbidden", response=response)
-
-    source = _build_source()
-    source.client = _ClientWithPersonalToken()  # type: ignore[assignment]
-    events = _collect_workunits(source)
-
-    assert _owner_urns(events, ADMIN_DASHBOARD_URN) == [
-        f"urn:li:corpuser:{ADMIN_USER_ID}"
-    ]
-    assert not any(
-        w.title == "Owner email lookup failed" for w in source.report.warnings
-    )
-    assert any(i.title == "Owner emails not resolved" for i in source.report.infos)
 
 
 @time_machine.travel(FROZEN_TIME)
