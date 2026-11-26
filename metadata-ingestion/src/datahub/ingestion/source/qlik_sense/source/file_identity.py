@@ -2,10 +2,15 @@ import posixpath
 from functools import cached_property, partial
 from typing import Callable, Dict, Iterable, List, Optional, Set
 
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.qlik_sense.config import Constant, FileStorageDetail
+from datahub.ingestion.source.qlik_sense.constants import ENTITY_CHECK_BATCH_SIZE
 from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FILE_QRI_RE,
@@ -38,12 +43,18 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     FileStorageMatch,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
+    bounded_list,
     file_display_name,
     is_qvd_dataset,
     patch_workunits,
     qlik_dataset_identifier,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
+from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
+    DataPlatformInstanceClass,
+)
 from datahub.metadata.urns import DatasetUrn
 from datahub.specific.dataset import DatasetPatchBuilder
 
@@ -211,6 +222,8 @@ class FileIdentityMixin(DashboardMixin):
         urn = self._storage_file_urn(storage, detail, path)
         if storage.platform == FilePlatform.WINDOWS_SHARE:
             self._share_file_urns.add(urn)
+            if detail is not None and detail.platform_instance:
+                self._share_file_instances[urn] = detail.platform_instance
         return urn
 
     def _storage_file_urn(
@@ -483,6 +496,60 @@ class FileIdentityMixin(DashboardMixin):
                 file_display_name(posixpath.basename(DatasetUrn.from_string(urn).name))
             )
             yield from patch_workunits(patch, is_primary_source=False)
+        yield from self._gen_share_qvd_placement()
+
+    def _gen_share_qvd_placement(self) -> Iterable[MetadataWorkUnit]:
+        # A share QVD the on-prem recipe never reads would otherwise sit outside
+        # its platform instance. The instance is the one that recipe writes.
+        instances = {
+            urn: make_dataplatform_instance_urn(self.platform, instance)
+            for urn, instance in self._share_file_instances.items()
+            if urn in self._linked_storage_qvds
+        }
+        for urn, instance_urn in sorted(instances.items()):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=instance_urn,
+                ),
+            ).as_workunit(is_primary_source=False)
+        # The on-prem recipe's browse path places the file in its share
+        # folders, so one is only written where none exists.
+        for urn in sorted(self._without_browse_path(sorted(instances))):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=BrowsePathsV2Class(
+                    path=[BrowsePathEntryClass(id=instances[urn], urn=instances[urn])]
+                ),
+            ).as_workunit(is_primary_source=False)
+
+    def _without_browse_path(self, dataset_urns: List[str]) -> Set[str]:
+        graph = self.ctx.graph
+        if graph is None or not dataset_urns:
+            return set()
+        missing: Set[str] = set()
+        for start in range(0, len(dataset_urns), ENTITY_CHECK_BATCH_SIZE):
+            batch = dataset_urns[start : start + ENTITY_CHECK_BATCH_SIZE]
+            try:
+                entities = graph.get_entities(
+                    "dataset", batch, aspects=[BrowsePathsV2Class.ASPECT_NAME]
+                )
+            except Exception as e:
+                self.reporter.warning(
+                    title="Unable to read browse paths of share QVDs from DataHub",
+                    message="These QVDs on a Windows share get no browse path "
+                    "this run.",
+                    context=bounded_list(batch),
+                    exc=e,
+                )
+                continue
+            missing.update(
+                urn
+                for urn in batch
+                if not entities.get(urn, {}).get(BrowsePathsV2Class.ASPECT_NAME)
+            )
+        return missing
 
     def _link_unmapped_file(self, app_id: str, urn: str) -> None:
         self._linked_unmapped_files.add(urn)

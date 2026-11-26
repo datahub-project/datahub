@@ -81,6 +81,8 @@ class QlikSourceBase:
     # Files on a Windows share, which are Qlik Sense datasets of the on-prem
     # recipe, not this one's.
     _share_file_urns: Set[str]
+    # The on-prem recipe's platform_instance of each such file, by its URN.
+    _share_file_instances: Dict[str, str]
     # Tables kept apps store into files on storage that was unknown when
     # their last read recorded them.
     _kept_storage_file_stores: Dict[str, List[str]]
