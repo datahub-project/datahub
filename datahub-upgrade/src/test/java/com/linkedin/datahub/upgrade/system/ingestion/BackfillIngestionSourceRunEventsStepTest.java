@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NA
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -39,6 +40,7 @@ import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
+import com.linkedin.ingestion.DataHubIngestionSourceRunSummary;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.EntityService;
@@ -53,8 +55,6 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -82,44 +82,19 @@ public class BackfillIngestionSourceRunEventsStepTest {
 
   private final Map<Urn, LatestIngestionRuns> latestRuns = new HashMap<>();
   private final Map<Urn, Map<String, RecordTemplate>> store = new HashMap<>();
-  private final Map<Urn, DataHubIngestionSourceRunEvent> recorded = new HashMap<>();
   private EntityService<?> entityService;
   private SearchService searchService;
   private EntitySearchService entitySearchService;
-  private TimeseriesAspectService timeseriesAspectService;
   private UpgradeContext context;
 
   @BeforeMethod
   public void setup() throws Exception {
     latestRuns.clear();
     store.clear();
-    recorded.clear();
     entityService = mock(EntityService.class);
     searchService = mock(SearchService.class);
     entitySearchService = mock(EntitySearchService.class);
-    timeseriesAspectService = mock(TimeseriesAspectService.class);
     context = mock(UpgradeContext.class);
-    when(timeseriesAspectService.getLatestTimeseriesAspectValuesStrict(
-            any(OperationContext.class), any(), any(), any()))
-        .thenAnswer(
-            invocation -> {
-              Set<Urn> sources = invocation.getArgument(1);
-              Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> result =
-                  new HashMap<>();
-              sources.stream()
-                  .filter(recorded::containsKey)
-                  .forEach(
-                      source ->
-                          result.put(
-                              source,
-                              Map.of(
-                                  INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
-                                  new com.linkedin.metadata.aspect.EnvelopedAspect()
-                                      .setAspect(
-                                          GenericRecordUtils.serializeAspect(
-                                              recorded.get(source))))));
-              return result;
-            });
     when(context.opContext()).thenReturn(OP_CONTEXT);
     when(entitySearchService.getLatestIngestionRuns(any(OperationContext.class), any()))
         .thenAnswer(
@@ -144,30 +119,32 @@ public class BackfillIngestionSourceRunEventsStepTest {
   }
 
   @Test
-  public void testOneEventPerSourceCarriesLastSuccessAndFailure() {
-    // The index keeps only the newest event per source in a batch, so the latest run's event
-    // must carry the last success and failure times itself.
+  public void testSummaryAndEventsFromTheLatestRuns() {
     source(SOURCE_A);
     run(SUCCESS_RUN, SOURCE_A, 100, "SUCCESS");
-    run(FAILED_RUN, SOURCE_A, 200, "FAILURE");
+    run(FAILED_RUN, SOURCE_A, 200, "TIMEOUT");
     run(LATEST_RUN, SOURCE_A, 300, "RUNNING");
     latestRuns.put(SOURCE_A, new LatestIngestionRuns(LATEST_RUN, SUCCESS_RUN, FAILED_RUN));
     stubScroll(page(null, SOURCE_A));
 
     assertEquals(execute(), DataHubUpgradeState.SUCCEEDED);
 
-    DataHubIngestionSourceRunEvent event = eventOf(capturedItems(1).get(0));
-    assertEquals(event.getExecutionRequest(), LATEST_RUN);
-    assertEquals(event.getStatus(), "RUNNING");
-    assertEquals(event.getSuccessfulRunRequestedAtMillis(), Long.valueOf(100));
-    assertEquals(event.getFailedRunRequestedAtMillis(), Long.valueOf(200));
+    List<MCPItem> items = capturedItems(4);
+    DataHubIngestionSourceRunSummary summary = summaryOf(items);
+    assertEquals(summary.getLastExecutionRequest(), LATEST_RUN);
+    assertEquals(summary.getLastRunStatus(), "RUNNING");
+    assertEquals(summary.getLastSuccessfulRunRequestedAtMillis(), Long.valueOf(100));
+    assertEquals(summary.getLastFailedRunRequestedAtMillis(), Long.valueOf(200));
+    assertEquals(
+        eventsOf(items).stream().map(DataHubIngestionSourceRunEvent::getStatus).toList(),
+        List.of("TIMEOUT", "SUCCESS", "RUNNING"));
+    assertEquals(eventsOf(items).get(0).getSourceType(), "mysql");
     verifyMarkerWritten(true);
   }
 
   @Test
   public void testOnlySourcesWithoutARecordedRunAreScrolled() {
-    // A source the hook has already recorded is current; backfilling it from search could
-    // replace a newer run with an older one.
+    // A source with a summary is kept current by the hook.
     stubScroll(page(null));
 
     assertEquals(execute(), DataHubUpgradeState.SUCCEEDED);
@@ -198,7 +175,9 @@ public class BackfillIngestionSourceRunEventsStepTest {
 
     assertEquals(execute(), DataHubUpgradeState.SUCCEEDED);
 
-    assertEquals(eventOf(capturedItems(1).get(0)).getStatus(), "SUCCESS");
+    List<MCPItem> items = capturedItems(2);
+    assertEquals(eventsOf(items).size(), 1);
+    assertEquals(summaryOf(items).getLastSuccessfulRunRequestedAtMillis(), Long.valueOf(300));
   }
 
   @Test
@@ -226,7 +205,8 @@ public class BackfillIngestionSourceRunEventsStepTest {
     assertEquals(execute(), DataHubUpgradeState.SUCCEEDED);
 
     assertEquals(
-        capturedItems(2).stream().map(MCPItem::getUrn).toList(), List.of(SOURCE_A, SOURCE_B));
+        capturedItems(4).stream().map(MCPItem::getUrn).distinct().toList(),
+        List.of(SOURCE_A, SOURCE_B));
     @SuppressWarnings("unchecked")
     ArgumentCaptor<List<SortCriterion>> sort = ArgumentCaptor.forClass(List.class);
     verify(searchService, atLeastOnce())
@@ -257,38 +237,19 @@ public class BackfillIngestionSourceRunEventsStepTest {
   }
 
   @Test
-  public void testFailedRecordedEventReadWritesNothingAndFails() {
-    // A source whose read failed would look unrecorded, and its backfilled event would replace the
-    // hook's newer one.
+  public void testReprocessRewritesEverySource() {
+    // Every source is scrolled; the summary merge keeps anything newer the hook recorded, and a
+    // same-run summary repairs a status the hook failed to record.
     source(SOURCE_A);
     run(LATEST_RUN, SOURCE_A, 300, "SUCCESS");
     latestRuns.put(SOURCE_A, new LatestIngestionRuns(LATEST_RUN, LATEST_RUN, null));
-    stubScroll(page(null, SOURCE_A));
-    when(timeseriesAspectService.getLatestTimeseriesAspectValuesStrict(
-            any(OperationContext.class), any(), any(), any()))
-        .thenThrow(new IllegalStateException("subquery failed"));
-
-    assertEquals(execute(), DataHubUpgradeState.FAILED);
-
-    verify(entityService, never())
-        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
-    verifyMarkerWritten(false);
-  }
-
-  @Test
-  public void testReprocessRewritesRecordedSources() {
-    // A source recorded from an older run is scrolled again and gets the newer run.
-    source(SOURCE_A);
-    run(LATEST_RUN, SOURCE_A, 300, "SUCCESS");
-    latestRuns.put(SOURCE_A, new LatestIngestionRuns(LATEST_RUN, LATEST_RUN, null));
-    recorded.put(SOURCE_A, recordedEvent(SUCCESS_RUN, 100));
     stubScroll(page(null, SOURCE_A));
 
     assertEquals(step(true).executable().apply(context).result(), DataHubUpgradeState.SUCCEEDED);
 
-    DataHubIngestionSourceRunEvent event = eventOf(capturedItems(1).get(0));
-    assertEquals(event.getExecutionRequest(), LATEST_RUN);
-    assertEquals(event.getRequestedAtMillis(), 300L);
+    DataHubIngestionSourceRunSummary summary = summaryOf(capturedItems(2));
+    assertEquals(summary.getLastExecutionRequest(), LATEST_RUN);
+    assertEquals(summary.getLastRunStatus(), "SUCCESS");
     verify(searchService)
         .scrollAcrossEntities(
             any(OperationContext.class),
@@ -299,25 +260,6 @@ public class BackfillIngestionSourceRunEventsStepTest {
             any(),
             any(),
             anyInt());
-  }
-
-  @Test
-  public void testSourceWithAnEqualOrNewerRecordedRunIsNotRewritten() {
-    // The hook can record a run after the scroll page was read; the backfill must not replace it.
-    source(SOURCE_A);
-    source(SOURCE_B);
-    run(LATEST_RUN, SOURCE_A, 300, "SUCCESS");
-    run(RUN_B, SOURCE_B, 300, "SUCCESS");
-    latestRuns.put(SOURCE_A, new LatestIngestionRuns(LATEST_RUN, LATEST_RUN, null));
-    latestRuns.put(SOURCE_B, new LatestIngestionRuns(RUN_B, RUN_B, null));
-    recorded.put(SOURCE_A, recordedEvent(LATEST_RUN, 300));
-    recorded.put(SOURCE_B, recordedEvent(RUN_B, 400));
-    stubScroll(page(null, SOURCE_A, SOURCE_B));
-
-    assertEquals(step(true).executable().apply(context).result(), DataHubUpgradeState.SUCCEEDED);
-
-    verify(entityService, never())
-        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
   }
 
   @Test
@@ -335,21 +277,7 @@ public class BackfillIngestionSourceRunEventsStepTest {
 
   private BackfillIngestionSourceRunEventsStep step(boolean reprocessEnabled) {
     return new BackfillIngestionSourceRunEventsStep(
-        OP_CONTEXT,
-        entityService,
-        searchService,
-        entitySearchService,
-        timeseriesAspectService,
-        reprocessEnabled,
-        500);
-  }
-
-  private static DataHubIngestionSourceRunEvent recordedEvent(Urn runUrn, long requestedAt) {
-    return new DataHubIngestionSourceRunEvent()
-        .setTimestampMillis(requestedAt)
-        .setExecutionRequest(runUrn)
-        .setRequestedAtMillis(requestedAt)
-        .setStatus("SUCCESS");
+        OP_CONTEXT, entityService, searchService, entitySearchService, reprocessEnabled, 500);
   }
 
   private DataHubUpgradeState execute() {
@@ -426,8 +354,6 @@ public class BackfillIngestionSourceRunEventsStepTest {
     List<MCPItem> items =
         captor.getAllValues().stream().flatMap(batch -> batch.getMCPItems().stream()).toList();
     assertEquals(items.size(), expectedCount);
-    items.forEach(
-        item -> assertEquals(item.getAspectName(), INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME));
     return items;
   }
 
@@ -440,9 +366,26 @@ public class BackfillIngestionSourceRunEventsStepTest {
             anyBoolean());
   }
 
-  private static DataHubIngestionSourceRunEvent eventOf(MCPItem item) {
+  private static List<DataHubIngestionSourceRunEvent> eventsOf(List<MCPItem> items) {
+    return items.stream()
+        .filter(item -> INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME.equals(item.getAspectName()))
+        .map(item -> aspectOf(item, DataHubIngestionSourceRunEvent.class))
+        .toList();
+  }
+
+  private static DataHubIngestionSourceRunSummary summaryOf(List<MCPItem> items) {
+    List<DataHubIngestionSourceRunSummary> summaries =
+        items.stream()
+            .filter(item -> INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME.equals(item.getAspectName()))
+            .map(item -> aspectOf(item, DataHubIngestionSourceRunSummary.class))
+            .toList();
+    assertEquals(summaries.size(), 1);
+    return summaries.get(0);
+  }
+
+  private static <T extends RecordTemplate> T aspectOf(MCPItem item, Class<T> clazz) {
     return RecordUtils.toRecordTemplate(
-        DataHubIngestionSourceRunEvent.class,
+        clazz,
         item.getMetadataChangeProposal().getAspect().getValue().asString(StandardCharsets.UTF_8));
   }
 }

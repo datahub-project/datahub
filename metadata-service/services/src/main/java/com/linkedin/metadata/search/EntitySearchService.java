@@ -224,8 +224,9 @@ public interface EntitySearchService {
 
   /**
    * For each of {@code ingestionSourceUrns}, returns its newest execution request, and its newest
-   * SUCCESS and FAILURE requests, by request time, computed in a single aggregation over the
-   * execution request index. Sources with no execution requests are absent from the returned map.
+   * successful and failed requests (as {@code IngestionSourceRunEvents} classifies statuses), by
+   * request time, computed in a single aggregation over the execution request index. Sources with
+   * no execution requests are absent from the returned map.
    *
    * @param opContext the operation context
    * @param ingestionSourceUrns the ingestion sources to look up

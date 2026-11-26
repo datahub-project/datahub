@@ -1,0 +1,73 @@
+namespace com.linkedin.ingestion
+
+import com.linkedin.common.Urn
+
+/**
+ * Derived.
+ * The ingestion source's latest run, and the request times of its latest successful and failed
+ * runs, so sources can be sorted and filtered by them. Kept up to date from the source's
+ * execution requests; each run's history is in dataHubIngestionSourceRunEvent.
+ *
+ * Writes are merged with the stored summary when they are committed: the latest run only moves to
+ * a newer request (or a new status of the same request), and the last success and failure times
+ * only move forward, except that a rolled-back run stops being the last success.
+ */
+@Aspect = {
+  "name": "dataHubIngestionSourceRunSummary"
+}
+record DataHubIngestionSourceRunSummary {
+
+  /**
+   * The source's most recent execution request.
+   */
+  @UrnValidation = {
+    "exist": false,
+    "strict": true,
+    "entityTypes": [ "dataHubExecutionRequest" ]
+  }
+  lastExecutionRequest: Urn
+
+  /**
+   * Time at which the most recent execution request was created, as epoch at UTC in milliseconds.
+   */
+  @Searchable = {
+    "fieldName": "lastRunRequestedAtMillis",
+    "fieldType": "DATETIME",
+    "queryByDefault": false
+  }
+  lastRunRequestedAtMillis: long
+
+  /**
+   * Status of the most recent execution request, copied as-is from its result, or PENDING before
+   * the executor reports one. A newer DUPLICATE request becomes the latest run. A success with
+   * warnings is SUCCESS; warnings are not stored on the result status.
+   */
+  @Searchable = {
+    "fieldName": "lastRunStatus",
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
+  lastRunStatus: string
+
+  /**
+   * Request time of the most recent run whose status is SUCCESS. A run that is later rolled back
+   * is replaced by the previous successful run.
+   */
+  @Searchable = {
+    "fieldName": "lastSuccessfulRunRequestedAtMillis",
+    "fieldType": "DATETIME",
+    "queryByDefault": false
+  }
+  lastSuccessfulRunRequestedAtMillis: optional long
+
+  /**
+   * Request time of the most recent failed run: one whose status is FAILURE, TIMEOUT, ABORTED or
+   * ROLLBACK_FAILED. CANCELLED is not a failure, since a user chose to stop the run.
+   */
+  @Searchable = {
+    "fieldName": "lastFailedRunRequestedAtMillis",
+    "fieldType": "DATETIME",
+    "queryByDefault": false
+  }
+  lastFailedRunRequestedAtMillis: optional long
+}

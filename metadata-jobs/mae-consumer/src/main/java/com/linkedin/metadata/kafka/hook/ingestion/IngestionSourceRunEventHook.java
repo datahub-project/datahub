@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAM
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
@@ -16,18 +17,20 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
-import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
-import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
+import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
+import com.linkedin.ingestion.DataHubIngestionSourceInfo;
+import com.linkedin.ingestion.DataHubIngestionSourceRunSummary;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.ingestion.IngestionSourceRunEvents;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
-import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,9 +46,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
 /**
- * Records a {@code dataHubIngestionSourceRunEvent} on an ingestion source when one of its execution
- * requests is created or changes status, so the source can be sorted and filtered by its latest
- * run.
+ * When one of an ingestion source's execution requests is created or changes status, records a
+ * {@code dataHubIngestionSourceRunEvent} for the run and updates the source's {@code
+ * dataHubIngestionSourceRunSummary}, so the source can be sorted and filtered by its latest run.
  *
  * <p>This is a hook rather than a post-commit MCP side effect because side-effect writes are
  * ingested through the async MCP path, which drops timeseries aspects.
@@ -55,29 +58,29 @@ import org.springframework.stereotype.Component;
 @Import({
   EntityRegistryFactory.class,
   RestliEntityClientFactory.class,
-  TimeseriesAspectServiceFactory.class
+  EntitySearchServiceFactory.class
 })
 public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
 
-  // RESTATE is excluded so restore-indices replays of old runs do not rewrite the latest run.
+  // RESTATE is excluded so restore-indices replays of old runs do not add history events.
   private static final Set<ChangeType> SUPPORTED_CHANGE_TYPES =
       Set.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY);
   private static final String FAILURE_METRIC = "ingestionSourceRunEvent_failure";
 
   private final SystemEntityClient systemEntityClient;
-  private final TimeseriesAspectService timeseriesAspectService;
+  private final EntitySearchService entitySearchService;
   private final boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public IngestionSourceRunEventHook(
       @Nonnull final SystemEntityClient systemEntityClient,
-      @Nonnull final TimeseriesAspectService timeseriesAspectService,
+      @Nonnull final EntitySearchService entitySearchService,
       @Nonnull @Value("${ingestionSourceRunEvents.hook.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${ingestionSourceRunEvents.hook.consumerGroupSuffix}")
           String consumerGroupSuffix) {
     this.systemEntityClient = systemEntityClient;
-    this.timeseriesAspectService = timeseriesAspectService;
+    this.entitySearchService = entitySearchService;
     this.isEnabled = isEnabled;
     this.consumerGroupSuffix = consumerGroupSuffix;
   }
@@ -85,9 +88,9 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
   @VisibleForTesting
   public IngestionSourceRunEventHook(
       @Nonnull final SystemEntityClient systemEntityClient,
-      @Nonnull final TimeseriesAspectService timeseriesAspectService,
+      @Nonnull final EntitySearchService entitySearchService,
       @Nonnull Boolean isEnabled) {
-    this(systemEntityClient, timeseriesAspectService, isEnabled, "");
+    this(systemEntityClient, entitySearchService, isEnabled, "");
   }
 
   @Override
@@ -107,6 +110,10 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
     invokeBatch(operationContext, List.of(event));
   }
 
+  /**
+   * A failed read propagates, so the batch is reported as failed; a failed write costs only its own
+   * run and is counted in {@code ingestionSourceRunEvent_failure}.
+   */
   @Override
   public void invokeBatch(
       @Nonnull final OperationContext operationContext,
@@ -119,17 +126,8 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
             .map(IngestionSourceRunEventHook::runChange)
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
-    if (changes.isEmpty()) {
-      return;
-    }
-    try {
+    if (!changes.isEmpty()) {
       record(operationContext, changes);
-    } catch (Exception e) {
-      failed(operationContext, changes.size());
-      log.error(
-          "Failed to record ingestion source run events for execution requests {}",
-          changes.stream().map(RunChange::executionRequest).collect(Collectors.toList()),
-          e);
     }
   }
 
@@ -147,10 +145,7 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
     if (EXECUTION_REQUEST_INPUT_ASPECT_NAME.equals(event.getAspectName())) {
       return event.getPreviousAspectValue() == null
           ? new RunChange(
-              event.getEntityUrn(),
-              aspect(event, false, ExecutionRequestInput.class),
-              null,
-              eventTime(event))
+              event.getEntityUrn(), aspect(event, false, ExecutionRequestInput.class), null)
           : null;
     }
     if (EXECUTION_REQUEST_RESULT_ASPECT_NAME.equals(event.getAspectName())) {
@@ -159,20 +154,14 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
       // The executor rewrites a running result every few seconds; only a status change is an
       // event.
       return previous == null || !Objects.equals(previous.getStatus(), result.getStatus())
-          ? new RunChange(event.getEntityUrn(), null, result, eventTime(event))
+          ? new RunChange(event.getEntityUrn(), null, result)
           : null;
     }
     return null;
   }
 
-  /**
-   * MCLs for different runs of a source arrive on different partitions, so an older run's event can
-   * be processed after a newer run's. Every status change is recorded; the source's search document
-   * only takes its last-run fields from the newest request, and its last success and failure times
-   * only move forward (see {@code OrderedSearchFields}).
-   */
-  private void record(@Nonnull OperationContext operationContext, @Nonnull List<RunChange> changes)
-      throws Exception {
+  private void record(
+      @Nonnull OperationContext operationContext, @Nonnull List<RunChange> changes) {
     Map<Urn, ExecutionRequestInput> inputs =
         executionRequestInputs(
             operationContext,
@@ -187,37 +176,46 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
           }
         });
 
-    Set<Urn> sourceUrns = existingSources(operationContext, sourceUrns(changes, inputs));
-    Map<Urn, DataHubIngestionSourceRunEvent> latestEvents =
-        latestEvents(operationContext, sourceUrns);
+    Map<Urn, DataHubIngestionSourceInfo> sources =
+        existingSources(
+            operationContext,
+            changes.stream()
+                .map(change -> sourceUrn(change, inputs))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet()));
+    Map<Urn, Long> successesAfterRollback =
+        successesAfterRollback(operationContext, changes, inputs);
 
     for (RunChange change : changes) {
-      ExecutionRequestInput input = inputs.get(change.executionRequest());
-      Urn sourceUrn = IngestionSourceRunEvents.ingestionSourceUrn(input);
-      if (sourceUrn == null || !sourceUrns.contains(sourceUrn)) {
+      Urn sourceUrn = sourceUrn(change, inputs);
+      DataHubIngestionSourceInfo source = sourceUrn != null ? sources.get(sourceUrn) : null;
+      if (source == null) {
         continue;
       }
-      DataHubIngestionSourceRunEvent event =
-          IngestionSourceRunEvents.buildEvent(
-              change.executionRequest(),
-              input,
-              change.result(),
-              change.timestampMillis(),
-              latestEvents.get(sourceUrn));
+      ExecutionRequestInput input = inputs.get(change.executionRequest());
+      DataHubIngestionSourceRunSummary summary =
+          IngestionSourceRunEvents.buildSummary(change.executionRequest(), input, change.result());
+      Long successAfterRollback = successesAfterRollback.get(change.executionRequest());
+      if (successAfterRollback != null) {
+        summary.setLastSuccessfulRunRequestedAtMillis(successAfterRollback);
+      }
       try {
-        systemEntityClient.ingestProposal(
+        systemEntityClient.batchIngestProposals(
             operationContext,
-            AspectUtils.buildMetadataChangeProposal(
-                sourceUrn, INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, event),
+            List.of(
+                AspectUtils.buildMetadataChangeProposal(
+                    sourceUrn,
+                    INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
+                    IngestionSourceRunEvents.buildEvent(
+                        change.executionRequest(), input, change.result(), source.getType())),
+                AspectUtils.buildMetadataChangeProposal(
+                    sourceUrn, INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME, summary)),
             false);
-        // Later changes in this batch carry outcomes forward from this event; search does not
-        // have it yet.
-        latestEvents.put(sourceUrn, event);
       } catch (Exception e) {
-        failed(operationContext, 1);
+        failed(operationContext);
         log.error(
-            "Failed to record a {} run event for execution request {} on ingestion source {}",
-            event.getStatus(),
+            "Failed to record a {} run for execution request {} on ingestion source {}",
+            summary.getLastRunStatus(),
             change.executionRequest(),
             sourceUrn,
             e);
@@ -225,97 +223,121 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
     }
   }
 
-  @Nonnull
-  private static Set<Urn> sourceUrns(
-      @Nonnull List<RunChange> changes, @Nonnull Map<Urn, ExecutionRequestInput> inputs) {
-    return changes.stream()
-        .map(
-            change ->
-                IngestionSourceRunEvents.ingestionSourceUrn(inputs.get(change.executionRequest())))
-        .filter(Objects::nonNull)
-        .collect(Collectors.toSet());
-  }
-
   /**
-   * Each source's latest recorded event, read for the whole batch in one request. The read is
-   * strict: a source missing because its query failed would look like one with no history, and its
-   * new event would drop the outcomes carried forward from the previous one.
+   * For each run being rolled back, keyed by its execution request, the request time of its
+   * source's latest successful run as the execution-request index now has it. That replaces the
+   * rolled-back run if it was the last success (see {@link IngestionSourceRunEvents#merge}); a run
+   * with no entry leaves the source with no last success. While the index still shows the
+   * rolled-back run as the latest success, or the replacement cannot be read, the rolled-back run's
+   * own time is used, which leaves the last success unchanged until its next rollback status.
    */
   @Nonnull
-  private Map<Urn, DataHubIngestionSourceRunEvent> latestEvents(
-      @Nonnull OperationContext operationContext, @Nonnull Set<Urn> sourceUrns) {
-    Map<Urn, DataHubIngestionSourceRunEvent> latest = new HashMap<>();
-    if (sourceUrns.isEmpty()) {
-      return latest;
+  private Map<Urn, Long> successesAfterRollback(
+      @Nonnull OperationContext operationContext,
+      @Nonnull List<RunChange> changes,
+      @Nonnull Map<Urn, ExecutionRequestInput> inputs) {
+    List<RunChange> rollbacks =
+        changes.stream()
+            .filter(
+                change ->
+                    change.result() != null
+                        && IngestionSourceRunEvents.ROLLBACK_STATUSES.contains(
+                            change.result().getStatus())
+                        && sourceUrn(change, inputs) != null)
+            .collect(Collectors.toList());
+    Map<Urn, Long> successes = new HashMap<>();
+    if (rollbacks.isEmpty()) {
+      return successes;
     }
-    timeseriesAspectService
-        .getLatestTimeseriesAspectValuesStrict(
-            operationContext, sourceUrns, Set.of(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME), null)
+    Map<Urn, Urn> latestSuccesses = new HashMap<>();
+    entitySearchService
+        .getLatestIngestionRuns(
+            operationContext,
+            rollbacks.stream().map(change -> sourceUrn(change, inputs)).collect(Collectors.toSet()))
         .forEach(
-            (sourceUrn, aspects) -> {
-              com.linkedin.metadata.aspect.EnvelopedAspect event =
-                  aspects.get(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
-              if (event != null) {
-                GenericAspect value = event.getAspect();
-                latest.put(
-                    sourceUrn,
-                    GenericRecordUtils.deserializeAspect(
-                        value.getValue(),
-                        value.getContentType(),
-                        DataHubIngestionSourceRunEvent.class));
+            (sourceUrn, runs) -> {
+              if (runs.getLatestSuccessfulRun() != null) {
+                latestSuccesses.put(sourceUrn, runs.getLatestSuccessfulRun());
               }
             });
-    return latest;
+    Map<Urn, ExecutionRequestInput> successInputs =
+        executionRequestInputs(operationContext, new HashSet<>(latestSuccesses.values()));
+    for (RunChange rollback : rollbacks) {
+      Urn latestSuccess = latestSuccesses.get(sourceUrn(rollback, inputs));
+      if (latestSuccess == null) {
+        continue;
+      }
+      ExecutionRequestInput replacement =
+          latestSuccess.equals(rollback.executionRequest())
+              ? null
+              : successInputs.get(latestSuccess);
+      successes.put(
+          rollback.executionRequest(),
+          (replacement != null ? replacement : inputs.get(rollback.executionRequest()))
+              .getRequestedAt());
+    }
+    return successes;
   }
 
-  /** Sources that still exist; an event for a deleted source would recreate it. */
+  @Nullable
+  private static Urn sourceUrn(
+      @Nonnull RunChange change, @Nonnull Map<Urn, ExecutionRequestInput> inputs) {
+    return IngestionSourceRunEvents.ingestionSourceUrn(inputs.get(change.executionRequest()));
+  }
+
+  /** Sources that still exist; a write for a deleted source would recreate it. */
   @Nonnull
-  private Set<Urn> existingSources(
-      @Nonnull OperationContext operationContext, @Nonnull Set<Urn> sourceUrns) throws Exception {
-    if (sourceUrns.isEmpty()) {
-      return Set.of();
-    }
-    return systemEntityClient
-        .batchGetV2(operationContext, sourceUrns, Set.of(INGESTION_INFO_ASPECT_NAME))
-        .entrySet()
-        .stream()
-        .filter(source -> source.getValue().getAspects().containsKey(INGESTION_INFO_ASPECT_NAME))
-        .map(Map.Entry::getKey)
-        .collect(Collectors.toSet());
+  private Map<Urn, DataHubIngestionSourceInfo> existingSources(
+      @Nonnull OperationContext operationContext, @Nonnull Set<Urn> sourceUrns) {
+    Map<Urn, DataHubIngestionSourceInfo> sources = new HashMap<>();
+    batchGet(operationContext, sourceUrns, INGESTION_INFO_ASPECT_NAME)
+        .forEach(
+            (urn, info) ->
+                sources.put(urn, new DataHubIngestionSourceInfo(info.getValue().data())));
+    return sources;
   }
 
   @Nonnull
   private Map<Urn, ExecutionRequestInput> executionRequestInputs(
-      @Nonnull OperationContext operationContext, @Nonnull Set<Urn> executionRequestUrns)
-      throws Exception {
+      @Nonnull OperationContext operationContext, @Nonnull Set<Urn> executionRequestUrns) {
     Map<Urn, ExecutionRequestInput> inputs = new HashMap<>();
-    if (executionRequestUrns.isEmpty()) {
-      return inputs;
-    }
-    systemEntityClient
-        .batchGetV2(
-            operationContext, executionRequestUrns, Set.of(EXECUTION_REQUEST_INPUT_ASPECT_NAME))
+    batchGet(operationContext, executionRequestUrns, EXECUTION_REQUEST_INPUT_ASPECT_NAME)
         .forEach(
-            (urn, response) -> {
-              EnvelopedAspect input =
-                  response.getAspects().get(EXECUTION_REQUEST_INPUT_ASPECT_NAME);
-              if (input != null) {
-                inputs.put(urn, new ExecutionRequestInput(input.getValue().data()));
-              }
-            });
+            (urn, input) -> inputs.put(urn, new ExecutionRequestInput(input.getValue().data())));
     return inputs;
   }
 
-  private static void failed(@Nonnull OperationContext operationContext, int count) {
+  @Nonnull
+  private Map<Urn, EnvelopedAspect> batchGet(
+      @Nonnull OperationContext operationContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull String aspectName) {
+    Map<Urn, EnvelopedAspect> aspects = new HashMap<>();
+    if (urns.isEmpty()) {
+      return aspects;
+    }
+    try {
+      systemEntityClient
+          .batchGetV2(operationContext, urns, Set.of(aspectName))
+          .forEach(
+              (urn, response) -> {
+                EnvelopedAspect aspect = response.getAspects().get(aspectName);
+                if (aspect != null) {
+                  aspects.put(urn, aspect);
+                }
+              });
+    } catch (Exception e) {
+      throw new IllegalStateException("Failed to read " + aspectName + " for " + urns, e);
+    }
+    return aspects;
+  }
+
+  private static void failed(@Nonnull OperationContext operationContext) {
     operationContext
         .getMetricUtils()
         .ifPresent(
             metricUtils ->
-                metricUtils.increment(IngestionSourceRunEventHook.class, FAILURE_METRIC, count));
-  }
-
-  private static long eventTime(@Nonnull MetadataChangeLog event) {
-    return event.hasCreated() ? event.getCreated().getTime() : System.currentTimeMillis();
+                metricUtils.increment(IngestionSourceRunEventHook.class, FAILURE_METRIC, 1));
   }
 
   @Nullable
@@ -334,6 +356,5 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
   private record RunChange(
       @Nonnull Urn executionRequest,
       @Nullable ExecutionRequestInput input,
-      @Nullable ExecutionRequestResult result,
-      long timestampMillis) {}
+      @Nullable ExecutionRequestResult result) {}
 }

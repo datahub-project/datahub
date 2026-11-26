@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAM
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -14,6 +15,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertThrows;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -29,8 +32,12 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.execution.ExecutionRequestSource;
+import com.linkedin.ingestion.DataHubIngestionSourceConfig;
+import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
-import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.ingestion.DataHubIngestionSourceRunSummary;
+import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.LatestIngestionRuns;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -38,6 +45,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -53,13 +61,13 @@ public class IngestionSourceRunEventHookTest {
 
   private static final Urn SOURCE = UrnUtils.getUrn("urn:li:dataHubIngestionSource:source-a");
   private static final Urn RUN = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:run");
-  private static final Urn NEWER_RUN = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:newer");
+  private static final Urn EARLIER_RUN = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:earlier");
 
   private final Map<Urn, ExecutionRequestInput> inputs = new HashMap<>();
   private final Set<Urn> sources = new HashSet<>();
   private OperationContext opContext;
   private SystemEntityClient client;
-  private TimeseriesAspectService timeseriesAspectService;
+  private EntitySearchService entitySearchService;
   private IngestionSourceRunEventHook hook;
 
   @BeforeMethod
@@ -68,10 +76,10 @@ public class IngestionSourceRunEventHookTest {
     sources.clear();
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     client = mock(SystemEntityClient.class);
-    timeseriesAspectService = mock(TimeseriesAspectService.class);
-    hook = new IngestionSourceRunEventHook(client, timeseriesAspectService, true);
+    entitySearchService = mock(EntitySearchService.class);
+    hook = new IngestionSourceRunEventHook(client, entitySearchService, true);
     sources.add(SOURCE);
-    inputs.put(RUN, input());
+    inputs.put(RUN, input(SOURCE, 100L));
     when(client.batchGetV2(any(OperationContext.class), any(), any()))
         .thenAnswer(
             invocation -> {
@@ -79,10 +87,7 @@ public class IngestionSourceRunEventHookTest {
               Map<Urn, EntityResponse> responses = new HashMap<>();
               for (Urn urn : urns) {
                 if (sources.contains(urn)) {
-                  responses.put(
-                      urn,
-                      response(
-                          INGESTION_INFO_ASPECT_NAME, new ExecutionRequestResult().setStatus("x")));
+                  responses.put(urn, response(INGESTION_INFO_ASPECT_NAME, sourceInfo()));
                 } else if (inputs.containsKey(urn)) {
                   responses.put(
                       urn, response(EXECUTION_REQUEST_INPUT_ASPECT_NAME, inputs.get(urn)));
@@ -93,25 +98,30 @@ public class IngestionSourceRunEventHookTest {
   }
 
   @Test
-  public void testNewRequestRecordsPendingEvent() throws Exception {
-    hook.invoke(opContext, mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(), null));
+  public void testNewRequestRecordsPendingRun() throws Exception {
+    hook.invoke(opContext, mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, inputs.get(RUN), null));
 
-    DataHubIngestionSourceRunEvent event = emitted();
+    DataHubIngestionSourceRunEvent event = emittedEvents(1).get(0);
     assertEquals(event.getStatus(), "PENDING");
     assertEquals(event.getExecutionRequest(), RUN);
     assertEquals(event.getRequestedAtMillis(), 100L);
-    assertEquals(event.getTimestampMillis(), 42L);
+    assertEquals(event.getSourceType(), "mysql");
+    assertEquals(event.getExecutorId(), "default");
+    DataHubIngestionSourceRunSummary summary = emittedSummaries(1).get(0);
+    assertEquals(summary.getLastExecutionRequest(), RUN);
+    assertEquals(summary.getLastRunStatus(), "PENDING");
+    assertFalse(summary.hasLastSuccessfulRunRequestedAtMillis());
   }
 
   @Test
-  public void testStatusChangeRecordsEvent() throws Exception {
+  public void testTimeoutCountsAsAFailedRun() throws Exception {
     hook.invoke(
         opContext,
-        mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("SUCCESS"), result("RUNNING")));
+        mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("TIMEOUT"), result("RUNNING")));
 
-    DataHubIngestionSourceRunEvent event = emitted();
-    assertEquals(event.getStatus(), "SUCCESS");
-    assertEquals(event.getSuccessfulRunRequestedAtMillis(), Long.valueOf(100L));
+    assertEquals(emittedEvents(1).get(0).getStatus(), "TIMEOUT");
+    assertEquals(
+        emittedSummaries(1).get(0).getLastFailedRunRequestedAtMillis(), Long.valueOf(100L));
   }
 
   @Test
@@ -120,16 +130,16 @@ public class IngestionSourceRunEventHookTest {
         opContext,
         List.of(
             mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("RUNNING"), result("RUNNING")),
-            mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(), input())));
+            mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, inputs.get(RUN), inputs.get(RUN))));
 
     verify(client, never()).batchGetV2(any(OperationContext.class), any(), any());
-    verify(client, never()).ingestProposal(any(), any(), anyBoolean());
+    verify(client, never()).batchIngestProposals(any(), any(), anyBoolean());
   }
 
   @Test
   public void testBatchSharesReads() throws Exception {
     Urn otherRun = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:other");
-    inputs.put(otherRun, input().setRequestedAt(50L));
+    inputs.put(otherRun, input(SOURCE, 50L));
 
     hook.invokeBatch(
         opContext,
@@ -143,59 +153,70 @@ public class IngestionSourceRunEventHookTest {
 
     // One read for the results' inputs and one for the source.
     verify(client, times(2)).batchGetV2(any(OperationContext.class), any(), any());
-    verify(timeseriesAspectService, times(1))
-        .getLatestTimeseriesAspectValuesStrict(any(), eq(Set.of(SOURCE)), any(), any());
-    List<DataHubIngestionSourceRunEvent> events = allEmitted(2);
-    // The older run's failure carries the success just recorded for the newer run.
-    assertEquals(events.get(1).getRequestedAtMillis(), 50L);
-    assertEquals(events.get(1).getSuccessfulRunRequestedAtMillis(), Long.valueOf(100L));
-    assertEquals(events.get(1).getFailedRunRequestedAtMillis(), Long.valueOf(50L));
+    verify(entitySearchService, never()).getLatestIngestionRuns(any(), any());
+    List<DataHubIngestionSourceRunSummary> summaries = emittedSummaries(2);
+    assertEquals(summaries.get(1).getLastRunRequestedAtMillis(), 50L);
+    assertEquals(summaries.get(1).getLastFailedRunRequestedAtMillis(), Long.valueOf(50L));
   }
 
   @Test
-  public void testOlderRunFinishingLateIsRecorded() throws Exception {
-    // The index decides which run is the source's last; the outcome is still recorded.
-    latestEvent(event(200L, 200L));
+  public void testRollbackProposesThePreviousSuccess() throws Exception {
+    inputs.put(EARLIER_RUN, input(SOURCE, 60L));
+    when(entitySearchService.getLatestIngestionRuns(any(), eq(Set.of(SOURCE))))
+        .thenReturn(Map.of(SOURCE, new LatestIngestionRuns(RUN, EARLIER_RUN, null)));
 
     hook.invoke(
         opContext,
-        mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("SUCCESS"), result("RUNNING")));
+        mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("ROLLED_BACK"), result("SUCCESS")));
 
-    DataHubIngestionSourceRunEvent event = emitted();
-    assertEquals(event.getRequestedAtMillis(), 100L);
-    assertEquals(event.getSuccessfulRunRequestedAtMillis(), Long.valueOf(200L));
+    DataHubIngestionSourceRunSummary summary = emittedSummaries(1).get(0);
+    assertEquals(summary.getLastRunStatus(), "ROLLED_BACK");
+    assertEquals(summary.getLastSuccessfulRunRequestedAtMillis(), Long.valueOf(60L));
   }
 
   @Test
-  public void testLastSuccessCarriesForwardOntoAFailure() throws Exception {
-    latestEvent(event(80L, 80L));
+  public void testRollbackKeepsTheSuccessWhileTheIndexStillShowsIt() throws Exception {
+    when(entitySearchService.getLatestIngestionRuns(any(), eq(Set.of(SOURCE))))
+        .thenReturn(Map.of(SOURCE, new LatestIngestionRuns(RUN, RUN, null)));
 
     hook.invoke(
         opContext,
-        mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("FAILURE"), result("RUNNING")));
+        mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("ROLLING_BACK"), result("SUCCESS")));
 
-    DataHubIngestionSourceRunEvent event = emitted();
-    assertEquals(event.getSuccessfulRunRequestedAtMillis(), Long.valueOf(80L));
-    assertEquals(event.getFailedRunRequestedAtMillis(), Long.valueOf(100L));
+    assertEquals(
+        emittedSummaries(1).get(0).getLastSuccessfulRunRequestedAtMillis(), Long.valueOf(100L));
+  }
+
+  @Test
+  public void testRollbackOfTheOnlySuccessProposesNone() throws Exception {
+    when(entitySearchService.getLatestIngestionRuns(any(), eq(Set.of(SOURCE))))
+        .thenReturn(Map.of(SOURCE, new LatestIngestionRuns(RUN, null, null)));
+
+    hook.invoke(
+        opContext,
+        mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("ROLLED_BACK"), result("SUCCESS")));
+
+    assertFalse(emittedSummaries(1).get(0).hasLastSuccessfulRunRequestedAtMillis());
   }
 
   @Test
   public void testDeletedSourceIsSkipped() throws Exception {
     sources.clear();
 
-    hook.invoke(opContext, mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(), null));
+    hook.invoke(opContext, mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, inputs.get(RUN), null));
 
-    verify(client, never()).ingestProposal(any(), any(), anyBoolean());
+    verify(client, never()).batchIngestProposals(any(), any(), anyBoolean());
   }
 
   @Test
   public void testRestateIsIgnored() throws Exception {
-    MetadataChangeLog restate = mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(), null);
+    MetadataChangeLog restate =
+        mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, inputs.get(RUN), null);
     restate.setChangeType(ChangeType.RESTATE);
 
     hook.invoke(opContext, restate);
 
-    verify(client, never()).ingestProposal(any(), any(), anyBoolean());
+    verify(client, never()).batchIngestProposals(any(), any(), anyBoolean());
   }
 
   @Test
@@ -203,95 +224,67 @@ public class IngestionSourceRunEventHookTest {
     Urn otherSource = UrnUtils.getUrn("urn:li:dataHubIngestionSource:source-b");
     Urn otherRun = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:other");
     sources.add(otherSource);
-    inputs.put(otherRun, input(otherSource));
+    inputs.put(otherRun, input(otherSource, 100L));
     MetricUtils metricUtils = mock(MetricUtils.class);
     OperationContext withMetrics = mock(OperationContext.class);
     when(withMetrics.getMetricUtils()).thenReturn(Optional.of(metricUtils));
-    when(client.ingestProposal(eq(withMetrics), any(), anyBoolean()))
+    when(client.batchIngestProposals(eq(withMetrics), any(), anyBoolean()))
         .thenThrow(new RemoteInvocationException("down"))
-        .thenReturn("ok");
+        .thenReturn(List.of());
 
     hook.invokeBatch(
         withMetrics,
         List.of(
-            mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(), null),
-            mcl(otherRun, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(otherSource), null)));
+            mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, inputs.get(RUN), null),
+            mcl(otherRun, EXECUTION_REQUEST_INPUT_ASPECT_NAME, inputs.get(otherRun), null)));
 
-    verify(client, times(2)).ingestProposal(eq(withMetrics), any(), anyBoolean());
+    verify(client, times(2)).batchIngestProposals(eq(withMetrics), any(), anyBoolean());
     verify(metricUtils).increment(eq(IngestionSourceRunEventHook.class), any(String.class), eq(1d));
   }
 
   @Test
-  public void testFailedLatestEventReadWritesNothingAndCountsTheBatch() throws Exception {
-    // An empty result from a failed read would look like a source with no history, and the new
-    // event would drop the success and failure times carried forward from the previous one.
-    MetricUtils metricUtils = mock(MetricUtils.class);
-    OperationContext withMetrics = mock(OperationContext.class);
-    when(withMetrics.getMetricUtils()).thenReturn(Optional.of(metricUtils));
-    when(timeseriesAspectService.getLatestTimeseriesAspectValuesStrict(
-            eq(withMetrics), any(), any(), any()))
-        .thenThrow(new IllegalStateException("subquery failed"));
+  public void testFailedReadFailsTheBatch() throws Exception {
+    when(client.batchGetV2(any(OperationContext.class), any(), any()))
+        .thenThrow(new RemoteInvocationException("down"));
 
-    hook.invokeBatch(
-        withMetrics,
-        List.of(
-            mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("SUCCESS"), result("RUNNING"))));
-
-    verify(client, never()).ingestProposal(any(), any(), anyBoolean());
-    verify(metricUtils).increment(eq(IngestionSourceRunEventHook.class), any(String.class), eq(1d));
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            hook.invoke(
+                opContext,
+                mcl(
+                    RUN,
+                    EXECUTION_REQUEST_RESULT_ASPECT_NAME,
+                    result("SUCCESS"),
+                    result("RUNNING"))));
+    verify(client, never()).batchIngestProposals(any(), any(), anyBoolean());
   }
 
-  private List<DataHubIngestionSourceRunEvent> allEmitted(int count) throws Exception {
-    ArgumentCaptor<MetadataChangeProposal> captor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(client, times(count)).ingestProposal(any(), captor.capture(), eq(false));
+  private List<DataHubIngestionSourceRunEvent> emittedEvents(int count) throws Exception {
+    return emitted(
+        count, INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, DataHubIngestionSourceRunEvent.class);
+  }
+
+  private List<DataHubIngestionSourceRunSummary> emittedSummaries(int count) throws Exception {
+    return emitted(
+        count, INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME, DataHubIngestionSourceRunSummary.class);
+  }
+
+  @SuppressWarnings("unchecked")
+  private <T extends RecordTemplate> List<T> emitted(int count, String aspectName, Class<T> clazz)
+      throws Exception {
+    ArgumentCaptor<Collection<MetadataChangeProposal>> captor =
+        ArgumentCaptor.forClass(Collection.class);
+    verify(client, times(count)).batchIngestProposals(any(), captor.capture(), eq(false));
     return captor.getAllValues().stream()
+        .flatMap(Collection::stream)
+        .filter(proposal -> aspectName.equals(proposal.getAspectName()))
+        .peek(proposal -> assertEquals(proposal.getEntityUrn(), SOURCE))
         .map(
             proposal ->
                 GenericRecordUtils.deserializeAspect(
-                    proposal.getAspect().getValue(),
-                    proposal.getAspect().getContentType(),
-                    DataHubIngestionSourceRunEvent.class))
+                    proposal.getAspect().getValue(), proposal.getAspect().getContentType(), clazz))
         .toList();
-  }
-
-  private DataHubIngestionSourceRunEvent emitted() throws Exception {
-    ArgumentCaptor<MetadataChangeProposal> captor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(client).ingestProposal(any(), captor.capture(), eq(false));
-    MetadataChangeProposal proposal = captor.getValue();
-    assertEquals(proposal.getEntityUrn(), SOURCE);
-    assertEquals(proposal.getAspectName(), INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
-    return GenericRecordUtils.deserializeAspect(
-        proposal.getAspect().getValue(),
-        proposal.getAspect().getContentType(),
-        DataHubIngestionSourceRunEvent.class);
-  }
-
-  private void latestEvent(DataHubIngestionSourceRunEvent event) {
-    when(timeseriesAspectService.getLatestTimeseriesAspectValuesStrict(
-            any(), eq(Set.of(SOURCE)), eq(Set.of(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME)), any()))
-        .thenReturn(
-            Map.of(
-                SOURCE,
-                Map.of(
-                    INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
-                    new com.linkedin.metadata.aspect.EnvelopedAspect()
-                        .setAspect(GenericRecordUtils.serializeAspect(event)))));
-  }
-
-  private static DataHubIngestionSourceRunEvent event(
-      long requestedAt, @Nullable Long successfulRequestedAt) {
-    DataHubIngestionSourceRunEvent event =
-        new DataHubIngestionSourceRunEvent()
-            .setTimestampMillis(1L)
-            .setExecutionRequest(NEWER_RUN)
-            .setRequestedAtMillis(requestedAt)
-            .setStatus("SUCCESS");
-    if (successfulRequestedAt != null) {
-      event.setSuccessfulRunRequestedAtMillis(successfulRequestedAt);
-    }
-    return event;
   }
 
   private static MetadataChangeLog mcl(
@@ -311,20 +304,23 @@ public class IngestionSourceRunEventHookTest {
     return event;
   }
 
-  private static ExecutionRequestInput input() {
-    return input(SOURCE);
-  }
-
-  private static ExecutionRequestInput input(Urn sourceUrn) {
+  private static ExecutionRequestInput input(Urn sourceUrn, long requestedAt) {
     return new ExecutionRequestInput()
         .setTask("RUN_INGEST")
         .setExecutorId("default")
-        .setRequestedAt(100L)
+        .setRequestedAt(requestedAt)
         .setArgs(new StringMap())
         .setSource(
             new ExecutionRequestSource()
                 .setType("SCHEDULED_INGESTION_SOURCE")
                 .setIngestionSource(sourceUrn));
+  }
+
+  private static DataHubIngestionSourceInfo sourceInfo() {
+    return new DataHubIngestionSourceInfo()
+        .setName("source")
+        .setType("mysql")
+        .setConfig(new DataHubIngestionSourceConfig().setRecipe("{}"));
   }
 
   private static ExecutionRequestResult result(String status) {

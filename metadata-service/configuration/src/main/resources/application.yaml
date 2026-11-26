@@ -1859,7 +1859,7 @@ assertions:
     consumerGroupSuffix: ${ASSERTIONS_HOOK_CONSUMER_GROUP_SUFFIX:}
 ingestionSourceRunEvents:
   hook:
-    enabled: ${ENABLE_INGESTION_SOURCE_RUN_EVENTS_HOOK:true} # Records ingestion source run events so sources can be sorted and filtered by their latest run
+    enabled: ${ENABLE_INGESTION_SOURCE_RUN_EVENTS_HOOK:true} # Records ingestion source run events and run summaries so sources can be sorted and filtered by their latest run
     consumerGroupSuffix: ${INGESTION_SOURCE_RUN_EVENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 bootstrap:
@@ -1960,11 +1960,11 @@ systemUpdate:
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_CLL_LIMIT:0}
   ingestionSourceRunEvents:
-    # Records one dataHubIngestionSourceRunEvent for each ingestion source with no recorded run,
-    # from its latest run (carrying its latest successful and failed runs). New runs are recorded
-    # by IngestionSourceRunEventHook. Each batch makes one execution request aggregation.
-    # Reprocess also checks sources the hook has already recorded, and writes only where the
-    # latest run is newer than the recorded one.
+    # Writes the dataHubIngestionSourceRunSummary of each ingestion source without one, and a
+    # dataHubIngestionSourceRunEvent for its latest, latest successful and latest failed runs. New
+    # runs are recorded by IngestionSourceRunEventHook. Each batch makes one execution request
+    # aggregation. Reprocess rewrites every source; the summary is merged on write, so it never
+    # moves backwards, and a summary for the same run repairs its status.
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_EVENTS_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_EVENTS_BATCH_SIZE:500}
     reprocess:
@@ -2423,8 +2423,8 @@ cache:
           dataPlatformInfo: 86400 # 1 day
         dataPlatformInstance:
           dataPlatformInstanceKey: 300 # 5 min
-        # Read by IngestionSourceRunEventHook. Source info is only an existence check, and the
-        # run-event validator reads it again on write.
+        # Read by IngestionSourceRunEventHook for the source's type and to check it exists; the
+        # run validator reads it again on write.
         dataHubIngestionSource:
           dataHubIngestionSourceInfo: 10
         # Written when the request is created and not changed after.

@@ -2,6 +2,7 @@ package com.linkedin.metadata.ingestion.validation;
 
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
+import com.linkedin.ingestion.DataHubIngestionSourceRunSummary;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -72,6 +74,15 @@ public class IngestionSourceRunEventValidatorTest {
     assertEquals(errors.get(0).getSubType(), ValidationSubType.VALIDATION);
   }
 
+  @Test
+  public void testSummaryForDeletedSourceIsRejected() {
+    List<AspectValidationException> errors =
+        validate(summary(SOURCE_URN), summary(DELETED_SOURCE_URN));
+
+    assertEquals(errors.size(), 1);
+    assertEquals(errors.get(0).getAspectGroup().getFirst(), DELETED_SOURCE_URN);
+  }
+
   private List<AspectValidationException> validate(BatchItem... items) {
     return validator
         .validateProposed(OperationFingerprint.EMPTY, List.of(items), retrieverContext, null)
@@ -89,6 +100,20 @@ public class IngestionSourceRunEventValidatorTest {
                 .setExecutionRequest(UrnUtils.getUrn("urn:li:dataHubExecutionRequest:run"))
                 .setRequestedAtMillis(1L)
                 .setStatus("SUCCESS"))
+        .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+        .build(aspectRetriever);
+  }
+
+  private BatchItem summary(Urn sourceUrn) {
+    return ChangeItemImpl.builder()
+        .changeType(ChangeType.UPSERT)
+        .urn(sourceUrn)
+        .aspectName(INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME)
+        .recordTemplate(
+            new DataHubIngestionSourceRunSummary()
+                .setLastExecutionRequest(UrnUtils.getUrn("urn:li:dataHubExecutionRequest:run"))
+                .setLastRunRequestedAtMillis(1L)
+                .setLastRunStatus("SUCCESS"))
         .auditStamp(AuditStampUtils.createDefaultAuditStamp())
         .build(aspectRetriever);
   }

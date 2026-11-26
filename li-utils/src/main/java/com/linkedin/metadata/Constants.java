@@ -415,6 +415,8 @@ public class Constants {
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
   public static final String INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME =
       "dataHubIngestionSourceRunEvent";
+  public static final String INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME =
+      "dataHubIngestionSourceRunSummary";
 
   // DataHub Secret
   public static final String SECRET_VALUE_ASPECT_NAME = "dataHubSecretValue";
@@ -432,6 +434,8 @@ public class Constants {
   public static final String EXECUTION_REQUEST_STATUS_ABORTED = "ABORTED";
   public static final String EXECUTION_REQUEST_STATUS_DUPLICATE = "DUPLICATE";
   public static final String EXECUTION_REQUEST_STATUS_ROLLING_BACK = "ROLLING_BACK";
+  public static final String EXECUTION_REQUEST_STATUS_ROLLED_BACK = "ROLLED_BACK";
+  public static final String EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED = "ROLLBACK_FAILED";
 
   // DataHub Access Token
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";

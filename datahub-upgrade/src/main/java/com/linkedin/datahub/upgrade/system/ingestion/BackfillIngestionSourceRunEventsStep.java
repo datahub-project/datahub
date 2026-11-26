@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NA
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 
 import com.datahub.util.RecordUtils;
@@ -22,7 +23,8 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
-import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
+import com.linkedin.ingestion.DataHubIngestionSourceInfo;
+import com.linkedin.ingestion.DataHubIngestionSourceRunSummary;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
@@ -36,16 +38,13 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.QueryUtils;
-import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.CriterionUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeState;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -59,9 +58,11 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Records {@code dataHubIngestionSourceRunEvent}s for existing ingestion sources: one for the
- * latest successful run, one for the latest failed run and one for the latest run. Runs started
- * after the upgrade are recorded by {@code IngestionSourceRunEventHook}.
+ * Writes each existing ingestion source's {@code dataHubIngestionSourceRunSummary} from its latest,
+ * latest successful and latest failed runs, and a {@code dataHubIngestionSourceRunEvent} for each
+ * of those runs. Runs started after the upgrade are recorded by {@code
+ * IngestionSourceRunEventHook}. The summary is merged with any the hook has written since (see
+ * {@code IngestionSourceRunSummaryMutator}), so the backfill never moves it backwards.
  */
 @Slf4j
 public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
@@ -77,7 +78,6 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
   private final EntityService<?> entityService;
   private final SearchService searchService;
   private final EntitySearchService entitySearchService;
-  private final TimeseriesAspectService timeseriesAspectService;
   private final boolean reprocessEnabled;
   private final Integer batchSize;
 
@@ -86,14 +86,12 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
       EntityService<?> entityService,
       SearchService searchService,
       EntitySearchService entitySearchService,
-      TimeseriesAspectService timeseriesAspectService,
       boolean reprocessEnabled,
       Integer batchSize) {
     this.opContext = opContext;
     this.entityService = entityService;
     this.searchService = searchService;
     this.entitySearchService = entitySearchService;
-    this.timeseriesAspectService = timeseriesAspectService;
     this.reprocessEnabled = reprocessEnabled;
     this.batchSize = batchSize;
   }
@@ -116,7 +114,7 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
         scrollId = backfillBatch(auditStamp, scrollId, failedSources);
       } while (scrollId != null);
 
-      // Without the marker the next system update retries; rewriting an event is a no-op.
+      // Without the marker the next system update retries; rewriting is a no-op.
       if (!failedSources.isEmpty()) {
         log.error(
             "{} failed for {} ingestion source(s): {}", id(), failedSources.size(), failedSources);
@@ -160,8 +158,8 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
                         .setSkipAggregates(true)),
             List.of(INGESTION_SOURCE_ENTITY_NAME),
             "*",
-            // Sources the hook has already recorded a run for are current. A forced reprocess
-            // scrolls every source, but still skips a source whose recorded run is as new.
+            // Sources with a summary are kept current by the hook. A forced reprocess rewrites
+            // every source, which also repairs a status the hook failed to record.
             reprocessEnabled
                 ? null
                 : QueryUtils.newFilter(CriterionUtils.buildNotExistsCriterion(LAST_RUN_FIELD_NAME)),
@@ -175,141 +173,116 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
     Set<Urn> sourceUrns =
         page.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toSet());
     try {
-      Map<Urn, LatestIngestionRuns> runsBySource =
-          entitySearchService.getLatestIngestionRuns(opContext, sourceUrns);
-      List<MetadataChangeProposal> events = runEvents(runsBySource);
-      if (!events.isEmpty()) {
-        entityService.ingestProposal(
-            opContext,
+      List<MetadataChangeProposal> proposals =
+          proposals(entitySearchService.getLatestIngestionRuns(opContext, sourceUrns));
+      if (!proposals.isEmpty()) {
+        // The proposals are for unrelated sources, so one rejected proposal (e.g. for a source
+        // deleted since it was read) must not cost the rest of the page.
+        AspectsBatchImpl batch =
             AspectsBatchImpl.builder()
-                .mcps(events, auditStamp, opContext.getRetrieverContext())
-                .build(opContext),
-            false);
+                .mcps(proposals, auditStamp, opContext.getRetrieverContext())
+                .buildSkippingRejected(opContext);
+        for (Pair<MetadataChangeProposal, Exception> rejected : batch.getRejectedProposals()) {
+          log.warn(
+              "Skipped a {} for ingestion source {}",
+              rejected.getFirst().getAspectName(),
+              rejected.getFirst().getEntityUrn(),
+              rejected.getSecond());
+        }
+        entityService.ingestProposal(opContext, batch, false);
       }
     } catch (RuntimeException e) {
-      log.warn("Failed to backfill run events for ingestion sources {}", sourceUrns, e);
+      log.warn("Failed to backfill run summaries for ingestion sources {}", sourceUrns, e);
       failedSources.addAll(sourceUrns);
     }
     return page.getScrollId();
   }
 
   @Nonnull
-  private List<MetadataChangeProposal> runEvents(
+  private List<MetadataChangeProposal> proposals(
       @Nonnull Map<Urn, LatestIngestionRuns> runsBySource) {
     if (runsBySource.isEmpty()) {
       return List.of();
     }
-    Set<Urn> runUrns =
-        runsBySource.values().stream().flatMap(this::runUrns).collect(Collectors.toSet());
     Map<Urn, EntityResponse> runs =
         entityResponses(
             EXECUTION_REQUEST_ENTITY_NAME,
-            runUrns,
+            runsBySource.values().stream().flatMap(this::runUrns).collect(Collectors.toSet()),
             Set.of(EXECUTION_REQUEST_INPUT_ASPECT_NAME, EXECUTION_REQUEST_RESULT_ASPECT_NAME));
     Map<Urn, EntityResponse> sources =
         entityResponses(
             INGESTION_SOURCE_ENTITY_NAME,
             runsBySource.keySet(),
             Set.of(INGESTION_INFO_ASPECT_NAME));
-    Map<Urn, DataHubIngestionSourceRunEvent> recorded = recordedEvents(runsBySource.keySet());
 
     List<MetadataChangeProposal> proposals = new ArrayList<>();
     runsBySource.forEach(
         (sourceUrn, latestRuns) -> {
           // Search can still return a source that was deleted; writing would recreate it.
-          EntityResponse source = sources.get(sourceUrn);
-          if (source == null || !source.getAspects().containsKey(INGESTION_INFO_ASPECT_NAME)) {
+          DataHubIngestionSourceInfo source =
+              aspect(
+                  sources.get(sourceUrn),
+                  INGESTION_INFO_ASPECT_NAME,
+                  DataHubIngestionSourceInfo.class);
+          ExecutionRequestInput latestInput = input(runs, latestRuns.getLatestRun());
+          if (source == null || latestInput == null) {
             return;
           }
-          // One event per source: the index keeps only the last event per source in a batch, so
-          // the latest run's event carries the last success and failure times itself.
-          DataHubIngestionSourceRunEvent event =
-              runEvent(
-                  latestRuns.getLatestRun(),
-                  runs.get(latestRuns.getLatestRun()),
-                  requestedAt(runs, latestRuns.getLatestSuccessfulRun()),
-                  requestedAt(runs, latestRuns.getLatestFailedRun()));
-          // The scroll filter is applied when the page is read, so the hook may have recorded a
-          // run since. The source document keeps the last event written, so never write an
-          // older one.
-          DataHubIngestionSourceRunEvent current = recorded.get(sourceUrn);
-          if (event != null
-              && (current == null
-                  || current.getRequestedAtMillis() < event.getRequestedAtMillis())) {
-            proposals.add(
-                AspectUtils.buildMetadataChangeProposal(
-                    sourceUrn, INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, event));
+          runUrns(latestRuns)
+              .filter(runUrn -> input(runs, runUrn) != null)
+              .forEach(
+                  runUrn ->
+                      proposals.add(
+                          AspectUtils.buildMetadataChangeProposal(
+                              sourceUrn,
+                              INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
+                              IngestionSourceRunEvents.buildEvent(
+                                  runUrn,
+                                  input(runs, runUrn),
+                                  result(runs, runUrn),
+                                  source.getType()))));
+
+          DataHubIngestionSourceRunSummary summary =
+              IngestionSourceRunEvents.buildSummary(
+                  latestRuns.getLatestRun(), latestInput, result(runs, latestRuns.getLatestRun()));
+          ExecutionRequestInput success = input(runs, latestRuns.getLatestSuccessfulRun());
+          if (success != null) {
+            summary.setLastSuccessfulRunRequestedAtMillis(success.getRequestedAt());
           }
+          ExecutionRequestInput failure = input(runs, latestRuns.getLatestFailedRun());
+          if (failure != null) {
+            summary.setLastFailedRunRequestedAtMillis(failure.getRequestedAt());
+          }
+          proposals.add(
+              AspectUtils.buildMetadataChangeProposal(
+                  sourceUrn, INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME, summary));
         });
     return proposals;
-  }
-
-  /**
-   * The events already recorded for the sources. The read is strict: a source whose query failed
-   * would look like one with no event, and the backfill would replace the hook's newer event.
-   */
-  @Nonnull
-  private Map<Urn, DataHubIngestionSourceRunEvent> recordedEvents(@Nonnull Set<Urn> sourceUrns) {
-    Map<Urn, DataHubIngestionSourceRunEvent> recorded = new HashMap<>();
-    timeseriesAspectService
-        .getLatestTimeseriesAspectValuesStrict(
-            opContext, sourceUrns, Set.of(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME), null)
-        .forEach(
-            (sourceUrn, aspects) -> {
-              com.linkedin.metadata.aspect.EnvelopedAspect latest =
-                  aspects.get(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
-              if (latest != null) {
-                GenericAspect value = latest.getAspect();
-                recorded.put(
-                    sourceUrn,
-                    GenericRecordUtils.deserializeAspect(
-                        value.getValue(),
-                        value.getContentType(),
-                        DataHubIngestionSourceRunEvent.class));
-              }
-            });
-    return recorded;
   }
 
   @Nonnull
   private Stream<Urn> runUrns(@Nonnull LatestIngestionRuns latestRuns) {
     return Stream.of(
-            latestRuns.getLatestRun(),
+            latestRuns.getLatestFailedRun(),
             latestRuns.getLatestSuccessfulRun(),
-            latestRuns.getLatestFailedRun())
-        .filter(Objects::nonNull);
+            latestRuns.getLatestRun())
+        .filter(Objects::nonNull)
+        .distinct();
   }
 
   @Nullable
-  private static Long requestedAt(@Nonnull Map<Urn, EntityResponse> runs, @Nullable Urn runUrn) {
-    ExecutionRequestInput input =
-        runUrn != null
-            ? aspect(
-                runs.get(runUrn), EXECUTION_REQUEST_INPUT_ASPECT_NAME, ExecutionRequestInput.class)
-            : null;
-    return input != null ? input.getRequestedAt() : null;
+  private static ExecutionRequestInput input(
+      @Nonnull Map<Urn, EntityResponse> runs, @Nullable Urn runUrn) {
+    return runUrn != null
+        ? aspect(runs.get(runUrn), EXECUTION_REQUEST_INPUT_ASPECT_NAME, ExecutionRequestInput.class)
+        : null;
   }
 
   @Nullable
-  private static DataHubIngestionSourceRunEvent runEvent(
-      @Nonnull Urn runUrn,
-      @Nullable EntityResponse run,
-      @Nullable Long lastSuccessfulRequestedAtMillis,
-      @Nullable Long lastFailedRequestedAtMillis) {
-    ExecutionRequestInput input =
-        aspect(run, EXECUTION_REQUEST_INPUT_ASPECT_NAME, ExecutionRequestInput.class);
-    if (input == null) {
-      return null;
-    }
-    ExecutionRequestResult result =
-        aspect(run, EXECUTION_REQUEST_RESULT_ASPECT_NAME, ExecutionRequestResult.class);
-    return IngestionSourceRunEvents.buildEvent(
-        runUrn,
-        input,
-        result,
-        IngestionSourceRunEvents.statusTimeMillis(input, result),
-        lastSuccessfulRequestedAtMillis,
-        lastFailedRequestedAtMillis);
+  private static ExecutionRequestResult result(
+      @Nonnull Map<Urn, EntityResponse> runs, @Nonnull Urn runUrn) {
+    return aspect(
+        runs.get(runUrn), EXECUTION_REQUEST_RESULT_ASPECT_NAME, ExecutionRequestResult.class);
   }
 
   @Nonnull

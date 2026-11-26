@@ -381,6 +381,7 @@ entities:
     aspects:
       - dataHubIngestionSourceInfo
       - dataHubIngestionSourceRunEvent
+      - dataHubIngestionSourceRunSummary
       - ownership
   - name: dataHubSecret
     category: internal

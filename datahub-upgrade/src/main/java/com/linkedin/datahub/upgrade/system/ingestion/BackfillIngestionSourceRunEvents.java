@@ -6,7 +6,6 @@ import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 
@@ -19,7 +18,6 @@ public class BackfillIngestionSourceRunEvents implements NonBlockingSystemUpgrad
       EntityService<?> entityService,
       SearchService searchService,
       EntitySearchService entitySearchService,
-      TimeseriesAspectService timeseriesAspectService,
       boolean enabled,
       boolean reprocessEnabled,
       Integer batchSize) {
@@ -31,7 +29,6 @@ public class BackfillIngestionSourceRunEvents implements NonBlockingSystemUpgrad
                     entityService,
                     searchService,
                     entitySearchService,
-                    timeseriesAspectService,
                     reprocessEnabled,
                     batchSize))
             : ImmutableList.of();
