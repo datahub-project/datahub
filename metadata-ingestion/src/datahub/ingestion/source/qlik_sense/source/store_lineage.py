@@ -5,6 +5,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     SchemaField as QlikDatasetSchemaField,
 )
+from datahub.ingestion.source.qlik_sense.file_lineage import FilePlatform
 from datahub.ingestion.source.qlik_sense.lib_path import is_data_files
 from datahub.ingestion.source.qlik_sense.lineage_utils import stale_field_lineage
 from datahub.ingestion.source.qlik_sense.qvd_lineage import QvdWrite, stored_fields
@@ -65,8 +66,15 @@ class StoreLineageMixin(OnPremQvdMixin):
                 info = self._find_data_connection(store.file.connection, app.spaceId)
                 # A visible connection of another connector, such as SFTP, has
                 # no storage to map; its file is named by connection and path,
-                # as its readers' lineage graphs name it.
-                listed_without_storage = info is not None and info.file_platform is None
+                # as its readers' lineage graphs name it. So is a visible Data
+                # Gateway connection, until it is mapped to its share.
+                unmapped_share = (
+                    info is not None
+                    and info.file_platform == FilePlatform.WINDOWS_SHARE
+                )
+                listed_without_storage = info is not None and (
+                    info.file_platform is None or unmapped_share
+                )
                 if not listed_without_storage:
                     # Its file may be a storage file the app stored into before.
                     complete = False
@@ -74,7 +82,7 @@ class StoreLineageMixin(OnPremQvdMixin):
                     store.file.connection,
                     store.file.path,
                     app.spaceId,
-                    report=not listed_without_storage,
+                    report=not listed_without_storage or unmapped_share,
                 )
                 if unmapped_urn is not None:
                     file_urns[index] = unmapped_urn

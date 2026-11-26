@@ -160,6 +160,14 @@ class FileIdentityMixin(DashboardMixin):
         )
         info = self._find_data_connection(connection, space_id)
         visible = info.file_storage if info else None
+        if (
+            detail is None
+            and visible is not None
+            and visible.platform == FilePlatform.WINDOWS_SHARE
+        ):
+            # Only a mapping gives the platform_instance of the on-prem recipe
+            # that names the share's files.
+            return FileStorageMatch(storage=None, detail=None)
         if detail is not None and detail.storage_uri:
             storage = file_storage_of_uri(detail.storage_uri)
             if storage is not None and visible is not None:
@@ -246,9 +254,16 @@ class FileIdentityMixin(DashboardMixin):
             ),
             set(),
         )
+        # A share's QRI part is its path as written, so a mapping that spells it
+        # so names the connection exactly.
+        connection_id = storage.qri_connection_id or (
+            storage.likely_qri_connection_id
+            if storage.platform == FilePlatform.WINDOWS_SHARE
+            else None
+        )
         return (
-            storage.qri_connection_id in connections
-            if storage.qri_connection_id is not None
+            connection_id in connections
+            if connection_id is not None
             else bool(connections)
         )
 

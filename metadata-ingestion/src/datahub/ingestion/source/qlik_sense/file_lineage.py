@@ -70,17 +70,19 @@ FILE_CONNECTORS: Dict[str, FileConnector] = {
         connection_properties=["bucketName"],
         location_property="bucketName",
     ),
+    # A Data Gateway file connection, which reads a Windows share.
+    "DG_File_local": FileConnector(
+        platform=FilePlatform.WINDOWS_SHARE,
+        qri_scheme="local",
+        connection_properties=["path"],
+        location_property="path",
+    ),
 }
 
 
-# The DataHub platform of the files each file QRI scheme names. A Qlik Data
-# Gateway file connection (`DG_File_local`) reads a Windows share.
+# The DataHub platform of the files each file QRI scheme names.
 PLATFORM_BY_QRI_SCHEME = {
-    **{
-        connector.qri_scheme: connector.platform
-        for connector in FILE_CONNECTORS.values()
-    },
-    "local": FilePlatform.WINDOWS_SHARE,
+    connector.qri_scheme: connector.platform for connector in FILE_CONNECTORS.values()
 }
 
 
@@ -133,7 +135,8 @@ def connect_properties(connect_statement: str) -> Dict[str, str]:
 
 def file_connector_platform(connect_statement: str) -> Optional[FilePlatform]:
     """The DataHub platform of the files a data connection reads, or None
-    when it is not an Azure Storage, Amazon S3 or Google Cloud Storage one."""
+    when it is not an Azure Storage, Amazon S3, Google Cloud Storage or Data
+    Gateway file one."""
     connector = FILE_CONNECTORS.get(
         connect_properties(connect_statement).get("sourceType", "")
     )
@@ -152,6 +155,12 @@ def file_storage_of_connection(connect_statement: str) -> Optional[FileStorage]:
     location = properties.get(connector.location_property, "").strip("/")
     if not all(values) or not location:
         return None
+    if connector.platform == FilePlatform.WINDOWS_SHARE:
+        storage = file_storage_of_uri(properties[connector.location_property])
+        if storage is None:
+            return None
+        storage.qri_connection_id = qri_part_id("/".join(values))
+        return storage
     # Qlik Cloud saves an Azure container as an HTTPS URL, but DataHub names
     # files on storage from the container or bucket on.
     if "://" in location:
