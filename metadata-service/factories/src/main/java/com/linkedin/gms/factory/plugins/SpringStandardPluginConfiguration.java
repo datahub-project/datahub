@@ -73,6 +73,7 @@ import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesVa
 import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.ingestion.IngestionMetricsEmitter;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
+import com.linkedin.metadata.ingestion.validation.IngestionSourceRunEventValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.roles.sideeffects.RoleReferenceDetachSideEffect;
@@ -355,6 +356,13 @@ public class SpringStandardPluginConfiguration {
     return new DomainReferenceDetachSideEffect()
         .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
         .setConfig(config);
+  }
+
+  @Bean
+  public AspectPayloadValidator ingestionSourceRunEventValidator() {
+    log.info("Initialized {}", IngestionSourceRunEventValidator.class.getName());
+    return new IngestionSourceRunEventValidator()
+        .setConfig(IngestionSourceRunEventValidator.pluginConfig());
   }
 
   @Bean

@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappin
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.elasticsearch.update.OrderedSearchFields;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
@@ -1221,6 +1222,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         searchDocumentProjector.newEntityDocument(
             preparedBatch.urn(), preparedBatch.entitySpec(), opContext.getEntityRegistry());
     boolean hasProjection = false;
+    final List<OrderedSearchFields.Update> orderedUpdates = new ArrayList<>();
     for (List<MCLItem> aspectEvents :
         UpdateIndicesUtil.groupUpdatesByAspect(preparedBatch.originalEvents()).values()) {
       final MCLItem event = aspectEvents.get(aspectEvents.size() - 1);
@@ -1273,6 +1275,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         if (event.getAspectSpec().isTimeseries() && throttleSummary != null) {
           throttleSummary.recordWritten(TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
         }
+        if (OrderedSearchFields.isOrdered(event.getAspectName())) {
+          orderedUpdates.addAll(orderedUpdates(opContext, preparedBatch, aspectEvents));
+          OrderedSearchFields.split(event.getAspectName(), document);
+        }
       }
     }
     // The hard-delete placeholder stays in the index with removed=true. A partial update leaves
@@ -1309,6 +1315,110 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                 : V3SearchDocumentWrite.Kind.MERGE),
         carriesDelete);
     appendLiveRunIds(opContext, preparedBatch, carriesDelete, updateOnly);
+    applyOrderedUpdates(opContext, preparedBatch, orderedUpdates, carriesDelete, updateOnly);
+  }
+
+  /**
+   * Script updates for an aspect whose fields only move forward, one per event in batch order. The
+   * partial document holds only the aspect's last event in the batch, which may be the older run,
+   * so those fields are removed from it and written by the scripts instead.
+   */
+  @Nonnull
+  private List<OrderedSearchFields.Update> orderedUpdates(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final PreparedUrnBatch preparedBatch,
+      @Nonnull final List<MCLItem> aspectEvents) {
+    final List<OrderedSearchFields.Update> updates = new ArrayList<>();
+    for (MCLItem event : aspectEvents) {
+      if (event.getChangeType() == ChangeType.DELETE) {
+        continue;
+      }
+      // The identity fields go into the script's upsert, so it never creates a bare document.
+      final ObjectNode eventDocument =
+          searchDocumentProjector.newEntityDocument(
+              preparedBatch.urn(), preparedBatch.entitySpec(), opContext.getEntityRegistry());
+      searchDocumentProjector
+          .projectAspect(opContext, event, null)
+          .ifPresent(
+              projected -> searchDocumentProjector.applyProjection(eventDocument, projected));
+      OrderedSearchFields.split(event.getAspectName(), eventDocument).ifPresent(updates::add);
+    }
+    return updates;
+  }
+
+  /**
+   * Applies the ordered-field scripts on every index the live merge just wrote, queued after it.
+   * Where the merge only updates an existing document (a fill target, or the alias during an
+   * in-place fill), the scripts do not upsert either.
+   */
+  private void applyOrderedUpdates(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final PreparedUrnBatch preparedBatch,
+      @Nonnull final List<OrderedSearchFields.Update> updates,
+      final boolean carriesDelete,
+      final boolean updateOnly) {
+    if (updates.isEmpty()) {
+      return;
+    }
+    for (OrderedSearchFields.Update update : updates) {
+      if (updateOnly) {
+        applyOrderedUpdate(
+            opContext, preparedBatch.indexName(), preparedBatch.docId(), update, false);
+      } else {
+        elasticSearchService.applyScriptUpdateBySearchGroup(
+            opContext,
+            preparedBatch.searchGroup(),
+            preparedBatch.docId(),
+            update.script(),
+            update.params(),
+            update.upsert());
+      }
+    }
+    if (incrementalReindexWriteTargets == null) {
+      return;
+    }
+    incrementalReindexWriteTargets
+        .oldBackingIndexFor(preparedBatch.indexName())
+        .ifPresent(
+            indexName -> {
+              try {
+                updates.forEach(
+                    update ->
+                        applyOrderedUpdate(
+                            opContext, indexName, preparedBatch.docId(), update, !updateOnly));
+              } catch (RuntimeException e) {
+                log.error(
+                    "Rollback dual-write of ordered fields to '{}' failed for urn '{}'",
+                    indexName,
+                    preparedBatch.urn(),
+                    e);
+              }
+            });
+    if (carriesDelete) {
+      incrementalReindexWriteTargets
+          .fillTargetFor(preparedBatch.indexName())
+          .ifPresent(
+              indexName ->
+                  updates.forEach(
+                      update ->
+                          applyOrderedUpdate(
+                              opContext, indexName, preparedBatch.docId(), update, false)));
+    }
+  }
+
+  private void applyOrderedUpdate(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final String indexName,
+      @Nonnull final String docId,
+      @Nonnull final OrderedSearchFields.Update update,
+      final boolean createIfMissing) {
+    elasticSearchService.applyScriptUpdateByIndexName(
+        opContext,
+        indexName,
+        docId,
+        update.script(),
+        update.params(),
+        createIfMissing ? update.upsert() : null);
   }
 
   /**

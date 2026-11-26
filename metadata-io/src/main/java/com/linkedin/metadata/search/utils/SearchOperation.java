@@ -13,6 +13,7 @@ public enum SearchOperation {
   GRAPH("graph"),
   GRAPH_QUERY_PIT("graphQueryPit"),
   INCIDENT_STATS("incidentStats"),
+  INGESTION_RUN_STATS("ingestionRunStats"),
   PLATFORM_ENTITY_COUNTS("platformEntityCounts"),
   SYSTEM_METADATA("systemMetadata"),
   TIMESERIES("timeseries");
