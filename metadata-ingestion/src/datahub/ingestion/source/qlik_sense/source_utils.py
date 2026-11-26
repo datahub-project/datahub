@@ -45,6 +45,10 @@ def get_ignoring_case(mapping: Mapping[str, MappingT], name: str) -> Optional[Ma
     return mapping[matches[0]] if len(matches) == 1 else None
 
 
+def file_display_name(name: str) -> str:
+    return name[: -len(QVD_EXTENSION)] if name.lower().endswith(QVD_EXTENSION) else name
+
+
 def is_stored_qvd(store: UnmappedFileStore) -> bool:
     return (
         store.path.lower().endswith(QVD_EXTENSION) if store.qvd is None else store.qvd

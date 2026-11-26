@@ -22,7 +22,10 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     LIB_PATH_RE,
 )
 from datahub.ingestion.source.qlik_sense.source.store_lineage import StoreLineageMixin
-from datahub.ingestion.source.qlik_sense.source_utils import voted_segments
+from datahub.ingestion.source.qlik_sense.source_utils import (
+    file_display_name,
+    voted_segments,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
@@ -154,9 +157,7 @@ class FileEntitiesMixin(StoreLineageMixin):
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=DatasetProperties(
-                name=name[: -len(QVD_EXTENSION)]
-                if name.lower().endswith(QVD_EXTENSION)
-                else name,
+                name=file_display_name(name),
                 qualifiedName=path,
                 customProperties={
                     Constant.TYPE: subtype,

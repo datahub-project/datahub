@@ -1,3 +1,4 @@
+import posixpath
 from functools import cached_property, partial
 from typing import Callable, Dict, Iterable, Optional, Set
 
@@ -37,10 +38,14 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     FileStorageMatch,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
+    file_display_name,
     is_qvd_dataset,
+    patch_workunits,
     qlik_dataset_identifier,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
+from datahub.metadata.urns import DatasetUrn
+from datahub.specific.dataset import DatasetPatchBuilder
 
 
 class FileIdentityMixin(DashboardMixin):
@@ -425,6 +430,11 @@ class FileIdentityMixin(DashboardMixin):
                 entityUrn=urn,
                 aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_QVD]),
             ).as_workunit(is_primary_source=False)
+            # Only the name, so a source that ingests the file keeps the rest.
+            patch = DatasetPatchBuilder(urn).set_display_name(
+                file_display_name(posixpath.basename(DatasetUrn.from_string(urn).name))
+            )
+            yield from patch_workunits(patch, is_primary_source=False)
 
     def _link_unmapped_file(self, app_id: str, urn: str) -> None:
         self._linked_unmapped_files.add(urn)
