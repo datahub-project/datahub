@@ -149,7 +149,7 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
     // Apply user filters when searching for CorpUser entities
     const defaultFilters = useMemo(() => {
         if (entityTypes.includes(EntityType.CorpUser)) {
-            return getUserFilters();
+            return getUserFilters(entityTypes);
         }
         return undefined;
     }, [entityTypes]);

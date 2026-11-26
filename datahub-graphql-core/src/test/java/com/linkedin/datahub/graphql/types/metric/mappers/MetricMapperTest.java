@@ -4,7 +4,9 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
@@ -241,6 +243,44 @@ public class MetricMapperTest {
       assertEquals(result.getAiContext().getInstructions(), "Use for financial reporting.");
       assertEquals(result.getAiContext().getSynonyms().size(), 2);
       assertEquals(result.getAiContext().getSynonyms().get(0), "rev");
+    }
+  }
+
+  @Test
+  public void testMapApplicationsSkipsApplicationsTheViewerCannotSee() throws URISyntaxException {
+    EntityResponse entityResponse = createBaseEntityResponse();
+
+    Urn visibleApp = Urn.createFromString("urn:li:application:visible");
+    Urn hiddenApp = Urn.createFromString("urn:li:application:hidden");
+    addAspect(
+        entityResponse,
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        new Applications().setApplications(new UrnArray(visibleApp, hiddenApp)));
+
+    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
+      authMock.when(() -> AuthorizationUtils.canView(any(), eq(metricUrn))).thenReturn(true);
+      authMock.when(() -> AuthorizationUtils.canView(any(), eq(visibleApp))).thenReturn(true);
+      authMock.when(() -> AuthorizationUtils.canView(any(), eq(hiddenApp))).thenReturn(false);
+
+      Metric result = MetricMapper.map(mockQueryContext, entityResponse);
+
+      assertEquals(result.getApplications().size(), 1);
+      assertEquals(
+          result.getApplications().get(0).getApplication().getUrn(), visibleApp.toString());
+      assertEquals(result.getApplications().get(0).getAssociatedUrn(), METRIC_URN);
+    }
+  }
+
+  @Test
+  public void testMapAbsentApplicationsAspectLeavesFieldNull() {
+    EntityResponse entityResponse = createBaseEntityResponse();
+
+    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
+      authMock.when(() -> AuthorizationUtils.canView(any(), eq(metricUrn))).thenReturn(true);
+
+      Metric result = MetricMapper.map(mockQueryContext, entityResponse);
+
+      assertNull(result.getApplications());
     }
   }
 

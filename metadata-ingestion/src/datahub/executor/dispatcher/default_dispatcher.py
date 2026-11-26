@@ -24,7 +24,6 @@ from datahub.executor.request.execution_request import ExecutionRequest
 from datahub.executor.request.signal_request import SignalRequest
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 def dispatch_async(

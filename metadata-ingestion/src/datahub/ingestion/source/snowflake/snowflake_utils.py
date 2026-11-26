@@ -257,6 +257,7 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.ICEBERG_TABLE,
             SnowflakeObjectDomain.STREAM,
             SnowflakeObjectDomain.DYNAMIC_TABLE,
+            SnowflakeObjectDomain.INTERACTIVE_TABLE,
         ):
             return False
         if _is_sys_table(dataset_name):

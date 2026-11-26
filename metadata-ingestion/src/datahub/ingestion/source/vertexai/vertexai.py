@@ -48,6 +48,8 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     PLATFORM,
     REGION_DISCOVERY_FAILED,
     REGION_UNCHECKED,
+    REGION_UNCHECKED_AFTER_DISCOVERY,
+    REGION_UNCHECKED_AFTER_DISCOVERY_NONE_READ,
     REGION_UNCHECKED_TITLE,
     REGION_UNKNOWN,
     REGION_UNKNOWN_TITLE,
@@ -259,9 +261,7 @@ class VertexAISource(StatefulIngestionSourceBase):
     def _resolve_project_regions(self) -> Dict[str, List[str]]:
         """Resolve regions for each project (either discover via API or use config)."""
         if not self.config.discover_regions:
-            configured = self.config.regions or (
-                [self.config.region] if self.config.region else []
-            )
+            configured = self.config.get_listed_regions()
             if not self._configured_regions_listed(configured):
                 return {}
             return {p: self._readable_regions(p, configured) for p in self._projects}
@@ -350,6 +350,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         exc: Optional[Exception],
         fail_run: bool,
         checked_in: Optional[str],
+        keep_entities: bool = True,
     ) -> None:
         emit = self.report.failure if fail_run else self.report.warning
         checked = f", checked_in={checked_in}" if checked_in else ""
@@ -359,7 +360,8 @@ class VertexAISource(StatefulIngestionSourceBase):
             self.report.report_lost_read(project_id, context, temporary=temporary)
             emit(title=title, message=message, context=context, exc=exc)
             self._report_pipeline_links_elsewhere(context)
-            self._keep_project_entities(Scope(project=project_id), cause=exc)
+            if keep_entities:
+                self._keep_project_entities(Scope(project=project_id), cause=exc)
 
     def _initialize_builders_and_extractors(self) -> None:
         """Initialize URN builders and resource extractors."""
@@ -416,6 +418,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             state_handler=self.state_handler,
             get_scope_fn=self._current_scope,
             stopped_scopes=self._stopped,
+            carry_forward=self._carry,
             rate_limiter=self._rate_limiter,
         )
         self.training_extractor = VertexAITrainingExtractor(
@@ -949,8 +952,16 @@ class VertexAISource(StatefulIngestionSourceBase):
                 raise ValueError("The location list holds no usable region")
             return discovered
         except Exception as e:
-            region = self.config.region
-            if region and _sdk_reads(region) and region.lower() != GLOBAL_LOCATION:
+            if classify_error(e) is ErrorKind.PROJECT_WIDE:
+                # The API is off or the project is invalid, so no region can be read.
+                self._handle_project_error(project_id, e)
+                return []
+            listed = self.config.get_listed_regions()
+            readable = [
+                r for r in listed if _sdk_reads(r) and r.lower() != GLOBAL_LOCATION
+            ]
+            unreadable = [r for r in listed if not _sdk_reads(r)]
+            if readable:
                 self.report.warning(
                     title="Region discovery failed",
                     message=REGION_DISCOVERY_FAILED,
@@ -962,32 +973,34 @@ class VertexAISource(StatefulIngestionSourceBase):
                     classify_error(e),
                     e,
                 )
-                # Entity names carry no region, so the configured region's
-                # earlier entities cannot be told from the unread regions'.
+                # Entity names carry no region, so the listed regions' earlier
+                # entities cannot be told from the unread regions'.
                 self._keep_project_entities(
                     Scope(project=project_id, kind=DetailCalls.REGION_DISCOVERY),
                     cause=e,
                 )
-                return [region]
-            if (
-                region
-                and not _sdk_reads(region)
-                and classify_error(e) is not ErrorKind.PROJECT_WIDE
-            ):
-                # Discovery just failed, so no list can tell this region from a typo.
+            if unreadable:
+                # Discovery just failed, so no list can tell these regions from a typo.
                 self._fail_configured_regions(
                     project_ids=[project_id],
-                    regions=[region],
+                    regions=unreadable,
                     title=REGION_UNCHECKED_TITLE,
-                    message=REGION_UNCHECKED,
+                    message=(
+                        REGION_UNCHECKED_AFTER_DISCOVERY
+                        if readable
+                        else REGION_UNCHECKED_AFTER_DISCOVERY_NONE_READ
+                    ),
                     exc=e,
                     fail_run=bool(self.config.project_ids),
                     checked_in=None,
+                    # A readable listed region already kept the project above.
+                    keep_entities=not readable,
                 )
-            else:
-                # No region to read (none, or `global`), or the API is off.
+            elif not readable:
+                # No region to read: none listed, or only `global`.
                 self._handle_project_error(project_id, e)
-            return []
+            # `global` goes on to `_readable_regions`, which warns it out.
+            return [r for r in listed if _sdk_reads(r)] if readable else []
 
     def _get_job_lineage_from_ml_metadata(
         self, job: VertexAiResourceNoun

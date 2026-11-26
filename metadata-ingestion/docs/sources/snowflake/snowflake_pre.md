@@ -52,6 +52,8 @@ grant select on all external tables in database "<your-database>" to role datahu
 grant select on future external tables in database "<your-database>" to role datahub_role;
 grant select on all dynamic tables in database "<your-database>" to role datahub_role;
 grant select on future dynamic tables in database "<your-database>" to role datahub_role;
+grant select on all interactive tables in database "<your-database>" to role datahub_role;
+grant select on future interactive tables in database "<your-database>" to role datahub_role;
 
 // Create a new DataHub user and assign the DataHub role to it
 create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';
@@ -116,6 +118,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 - `monitor` on `tasks` is required to list tasks via `SHOW TASKS`. Only needed if `include_tasks: true`.
 - `monitor` on `pipes` is required to list pipes via `SHOW PIPES`. Only needed if `include_pipes: true`. Snowflake does not support bulk grants on pipes, so existing pipes need a per-pipe `grant monitor on pipe ...` (future grants are fine) or the account-level `MONITOR EXECUTION` privilege (which exposes every pipe and task in the account). Pipes without one of these are missing from `SHOW PIPES` and therefore not ingested.
 - `monitor` on `dynamic tables` is required for DataHub to extract their lineage, both table-level and column-level.
+- `select` on `interactive tables` is required for DataHub to extract their SQL definition, target lag and definition lineage. `SHOW INTERACTIVE TABLES` lists only tables the role has `SELECT` on, so `USAGE` on the database and schema without `SELECT` returns 0 rows and definition and lag are then missing.
 - `usage` on `procedures` is required for stored procedures to appear in `information_schema.procedures`. Only needed if `include_procedures: true` (the default). DataHub never calls procedures, but `usage` also allows calling them, and procedures run with their owner's rights by default, so anyone holding this role's credential could run them. Grant it only on the schemas you want ingested, or set `include_procedures: false`. Snowflake hides the definition of owner's-rights and secure procedures from roles that don't own them, so those may be ingested without code or lineage, or not at all.
 
 This represents the bare minimum privileges required to extract databases, schemas, views, and tables from Snowflake.

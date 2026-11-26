@@ -44,6 +44,7 @@ class DatasetSubTypes(StrEnum):
     EVENTBRIDGE_EVENT_BUS = "Event Bus"
     SEMANTIC_VIEW = "Semantic View"
     DYNAMIC_TABLE = "Dynamic Table"
+    INTERACTIVE_TABLE = "Interactive Table"
     API_ENDPOINT = "API Endpoint"
     SLACK_CHANNEL = "Slack Channel"
     PROJECTIONS = "Projections"
