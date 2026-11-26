@@ -25,6 +25,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FilePlatform,
     FileStorage,
+    file_connector_platform,
     file_storage_of_connection,
     file_storage_of_uri,
     qri_part_id,
@@ -247,6 +248,20 @@ def test_path_resolves_with_the_variables_of_the_last_reload(
             None,
         ),
         ('CUSTOM CONNECT TO "provider=qix-datafiles.exe;path=mydatafiles;"', None),
+        # A Data Gateway connection's share; its QRI part is the path as written.
+        (
+            'CUSTOM CONNECT TO "provider=QlikConnectorsStorageProviderCommonService.exe;'
+            "sourceType=DG_File_local;gatewayInstance=gw-1;"
+            'path=\\\\Files.example.com\\Qlik\\QVD;"',
+            FileStorage(
+                platform="qlik-sense",
+                location="//files.example.com/qlik/qvd",
+                qri_connection_id=qri_part_id("\\\\Files.example.com\\Qlik\\QVD"),
+                likely_qri_connection_id=qri_part_id(
+                    "\\\\Files.example.com\\Qlik\\QVD"
+                ),
+            ),
+        ),
     ],
 )
 def test_file_storage_of_connection(
@@ -363,6 +378,55 @@ def test_file_on_a_mapped_windows_share_takes_the_on_prem_dataset(
     aspect = subtypes.get_aspect_of_type(SubTypesClass)
     assert aspect is not None and aspect.typeNames == ["QVD"]
     assert not subtypes.is_primary_source
+
+
+GATEWAY_STATEMENT = 'CUSTOM CONNECT TO "sourceType=DG_File_local;path=' + SHARE + ';"'
+# As the data connection listing gives a visible Data Gateway connection.
+GATEWAY = DataConnectionInfo(
+    name="Share",
+    file_platform=file_connector_platform(GATEWAY_STATEMENT),
+    file_storage=file_storage_of_connection(GATEWAY_STATEMENT),
+)
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_visible_gateway_connection_without_a_mapping_is_named_by_its_connection(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source({}, {"Sales Space:Share": GATEWAY}, script=SHARE_SCRIPT)
+
+    # Without the on-prem recipe's platform_instance, the share's dataset is
+    # unknown, so the file is named by connection and path, as stores of it are.
+    assert source._file_source_resolution(
+        "app-1", _file_qri("local", SHARE, "Orders/Orders.QVD")
+    ).urn == make_dataset_urn("qlik-sense", "sales space:share/orders/orders.qvd")
+    assert source.reporter.unresolved_file_connections == ["Sales Space:Share"]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_visible_gateway_connection_mapped_to_an_instance_takes_the_on_prem_dataset(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {"Sales Space:Share": {"platform_instance": "qlik_onprem"}},
+        {"Sales Space:Share": GATEWAY},
+        script=SHARE_SCRIPT,
+    )
+
+    assert (
+        source._file_source_resolution(
+            "app-1", _file_qri("local", SHARE, "Orders/Orders.QVD")
+        ).urn
+        == SHARE_ORDERS_QVD
+    )
+    # The same path on another share is not this connection's file.
+    assert (
+        source._file_source_resolution(
+            "app-1",
+            _file_qri("local", "\\\\other.example.com\\qvd", "Orders/Orders.QVD"),
+        ).urn
+        is None
+    )
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -1124,6 +1188,35 @@ def test_stored_qvd_on_a_mapped_windows_share_links_the_on_prem_dataset(
 
     assert writes[SHARE_OUT_QVD] == f"not primary patch:{ORDERS}"
     assert SHARE_OUT_QVD in source._linked_storage_qvds
+
+
+@pytest.mark.parametrize("catalogued_share", [SHARE, "\\\\other.example.com\\qvd"])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_stored_qvd_on_a_mapped_share_is_left_to_its_catalogued_dataset_only(
+    mock_api_cls: MagicMock, catalogued_share: str
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {
+            "Sales Space:Share": {
+                "storage_uri": SHARE,
+                "platform_instance": "qlik_onprem",
+            }
+        },
+        [],
+        script=SHARE_SCRIPT,
+    )
+    # Qlik catalogues a file at the same path, on this share or another one.
+    source.__dict__["_dataset_urns_by_secure_qri"] = {
+        _file_qri("local", catalogued_share, "Out/Orders.qvd"): make_dataset_urn(
+            "qlik-sense", "space-1.orders.qvd"
+        )
+    }
+
+    writes = _graph_app_writes(source, app)
+
+    # Apps link to the catalogued dataset of their own share's file instead.
+    assert (SHARE_OUT_QVD in writes) == (catalogued_share != SHARE)
 
 
 @pytest.mark.parametrize("stored_label", ["Customers", "AllCustomers"])

@@ -2930,6 +2930,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         info = self._find_data_connection(connection, space_id)
         visible = info.file_storage if info else None
+        if (
+            detail is None
+            and visible is not None
+            and visible.platform == FilePlatform.WINDOWS_SHARE
+        ):
+            # Only a mapping gives the platform_instance of the on-prem recipe
+            # that names the share's files.
+            return None, None
         if detail is not None and detail.storage_uri:
             storage = file_storage_of_uri(detail.storage_uri)
             if storage is not None and visible is not None:
@@ -3036,8 +3044,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 info = self._find_data_connection(store.file.connection, app.spaceId)
                 # A visible connection of another connector, such as SFTP, has
                 # no storage to map; its file is named by connection and path,
-                # as its readers' lineage graphs name it.
-                listed_without_storage = info is not None and info.file_platform is None
+                # as its readers' lineage graphs name it. So is a visible Data
+                # Gateway connection, until it is mapped to its share.
+                unmapped_share = (
+                    info is not None
+                    and info.file_platform == FilePlatform.WINDOWS_SHARE
+                )
+                listed_without_storage = info is not None and (
+                    info.file_platform is None or unmapped_share
+                )
                 if not listed_without_storage:
                     # Its file may be a storage file the app stored into before.
                     complete = False
@@ -3045,7 +3060,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     store.file.connection,
                     store.file.path,
                     app.spaceId,
-                    report=not listed_without_storage,
+                    report=not listed_without_storage or unmapped_share,
                 )
                 if unmapped_urn is not None:
                     file_urns[index] = unmapped_urn
@@ -3223,9 +3238,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         connections = self._catalogued_files.get(
             (storage.platform, qri_part_id(normalized_file_path(path))), set()
         )
+        # A share's QRI part is its path as written, so a mapping that spells it
+        # so names the connection exactly.
+        connection_id = storage.qri_connection_id or (
+            storage.likely_qri_connection_id
+            if storage.platform == FilePlatform.WINDOWS_SHARE
+            else None
+        )
         return (
-            storage.qri_connection_id in connections
-            if storage.qri_connection_id is not None
+            connection_id in connections
+            if connection_id is not None
             else bool(connections)
         )
 

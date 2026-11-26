@@ -225,9 +225,10 @@ class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         "container; `wasb://` and `wasbs://` are not accepted. On Qlik Cloud, a "
         "Data Gateway connection's Windows share is its `\\\\<server>\\<share>\\<folder>` "
         "path: its files take the Qlik Sense datasets the Qlik Sense Enterprise "
-        "recipe whose `platform_instance` and `env` the entry sets gives them. "
-        "Read from the data connection when not set, which needs the API key's "
-        "user to see the connection, except for a Windows share.",
+        "recipe whose `platform_instance` and `env` the entry sets gives them, "
+        "so such a connection is only linked when it has an entry. Read from the "
+        "data connection when not set, which needs the API key's user to see the "
+        "connection.",
     )
 
     convert_urns_to_lowercase: bool = Field(
