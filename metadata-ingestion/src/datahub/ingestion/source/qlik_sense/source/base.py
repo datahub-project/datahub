@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import DefaultDict, Dict, List, Optional, Set, Tuple
+from typing import DefaultDict, Dict, List, Optional, Set
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -20,6 +20,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import DataConnectionInf
 from datahub.ingestion.source.qlik_sense.source_models import (
     PendingStoredFile,
     PendingTableLineage,
+    UntypedTable,
     _BinaryLink,
     _OnlyAddedTablesKey,
     _ParsedApp,
@@ -168,9 +169,7 @@ class QlikSourceBase:
     _dataset_store_fields_unknown: Set[str]
     # Graph tables whose fields have no type, such as a table the script
     # drops after storing it, by URN.
-    # Values are UntypedTable, typed as the tuple it is so that plain tuples
-    # still fit.
-    _untyped_tables: Dict[str, Tuple[str, List[QlikDatasetSchemaField]]]
+    _untyped_tables: Dict[str, UntypedTable]
     _dataset_field_types: Dict[str, Dict[str, Optional[str]]]
     # Field names seen this run, by their field id in Qlik's lineage graph.
     _field_names_by_id: Dict[str, str]

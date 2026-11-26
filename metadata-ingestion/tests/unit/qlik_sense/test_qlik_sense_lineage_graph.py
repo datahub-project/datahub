@@ -35,11 +35,13 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     UNREAD_SPACES,
     ReadErrors,
 )
-from datahub.ingestion.source.qlik_sense.qlik_sense import (
-    QlikSenseSource,
-    _refs_of_field_sources,
-)
+from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
+from datahub.ingestion.source.qlik_sense.source_models import (
+    ResolvedSource,
+    UntypedTable,
+)
+from datahub.ingestion.source.qlik_sense.source_utils import _refs_of_field_sources
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DatasetPropertiesClass,
@@ -1779,9 +1781,12 @@ def test_kept_app_carries_whether_its_graph_tables_are_unresolved(
 
     source._keep_unchanged_app(UnchangedApp(id="dm-app", fingerprint="f"))
 
-    assert source._resolve_source(f"{DATA_MODEL_APP}#Ord", "x", None) == (orders, None)
+    assert source._resolve_source(f"{DATA_MODEL_APP}#Ord", "x", None) == ResolvedSource(
+        urn=orders, unknown_reason=None
+    )
     # A graph table its last read had no URN for may still be one of its tables.
-    urn, unknown = source._resolve_source(f"{DATA_MODEL_APP}#Cust", "x", None)
+    resolved = source._resolve_source(f"{DATA_MODEL_APP}#Cust", "x", None)
+    urn, unknown = resolved.urn, resolved.unknown_reason
     assert urn is None
     assert (unknown is not None) is graph_tables_unresolved
     recorded = source.app_state.record.call_args.args[1]
@@ -2249,9 +2254,9 @@ def test_untyped_graph_table_takes_types_from_the_dataset_it_stores(
     curve, curve_table = _urn("etl-app.curve"), f"{ETL_APP}#Curve"
     source._app_table_urns_by_qri = {curve_table: curve}
     source._untyped_tables = {
-        curve: (
-            "etl-app.curve",
-            [
+        curve: UntypedTable(
+            identifier="etl-app.curve",
+            schema_fields=[
                 SchemaField(name="Day"),
                 SchemaField(name="Year"),
                 SchemaField(name="Id"),
@@ -4172,7 +4177,7 @@ def test_kept_reader_of_a_graph_named_dataset_counts_toward_its_path(
 
     assert apps_by_urn[prices].apps == {"report-app", "kept-app"}
     # The kept app may load another file of that name, so no path is certain.
-    path, _ = source._graph_named_path("prices.qvd", apps_by_urn[prices])
+    path = source._graph_named_path("prices.qvd", apps_by_urn[prices]).path
     assert path is None
 
 
@@ -4219,7 +4224,7 @@ def test_kept_reader_of_a_left_out_graph_named_dataset_counts_toward_its_path(
     apps_by_urn = source._read_graph_named_reloads()
 
     assert apps_by_urn[prices].apps == {"report-app", "kept-app"}
-    path, _ = source._graph_named_path("prices.qvd", apps_by_urn[prices])
+    path = source._graph_named_path("prices.qvd", apps_by_urn[prices]).path
     assert path is None
 
 

@@ -98,12 +98,14 @@ class GraphNamedMixin(FileEntitiesMixin):
                     paths.setdefault(_path_key(file.path), file.path)
         reloads_unread = bool(apps.apps & self._reload_files_unread)
         if len(paths) == 1 and not reloads_unread:
-            return GraphNamedPath(next(iter(paths.values())), True)
+            return GraphNamedPath(path=next(iter(paths.values())), all_read=True)
         if len(paths) != 1:
             for path in paths.values():
                 self._note_unseen_space(_path_space(path), _SpaceNeed.DATASETS)
         # An unread reload may hold another file with the label.
-        return GraphNamedPath(None, not apps.graph_unread and not reloads_unread)
+        return GraphNamedPath(
+            path=None, all_read=not apps.graph_unread and not reloads_unread
+        )
 
     def _leave_out_unplaced(self, urn: str, label: str, all_read: bool) -> None:
         """A dataset the graph names but whose path is not certain is not
@@ -152,14 +154,15 @@ class GraphNamedMixin(FileEntitiesMixin):
         upstreams."""
         emitted: Set[str] = set()
         for urn, label in self._graph_named_resources.items():
-            path, all_read = self._graph_named_path(label, apps_by_urn[urn])
+            named = self._graph_named_path(label, apps_by_urn[urn])
+            path = named.path
             if path is None:
-                self._leave_out_unplaced(urn, label, all_read)
+                self._leave_out_unplaced(urn, label, named.all_read)
                 continue
             path = self._script_spelling(path)
             if _is_ambiguous_lib_path(path):
                 # Its space can't be told from its connection.
-                self._leave_out_unplaced(urn, label, all_read)
+                self._leave_out_unplaced(urn, label, named.all_read)
                 continue
             emitted.add(urn)
             self._note_unseen_space(_path_space(path), _SpaceNeed.DATASETS)

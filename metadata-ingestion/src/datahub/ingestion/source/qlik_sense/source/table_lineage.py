@@ -362,7 +362,9 @@ class TableLineageMixin(GraphNamedMixin):
                 )
             schema = self._table_schema(identifier, fields)
             if schema and all(field.dataType is None for field in schema):
-                self._untyped_tables[dataset_urn] = UntypedTable(identifier, schema)
+                self._untyped_tables[dataset_urn] = UntypedTable(
+                    identifier=identifier, schema_fields=schema
+                )
             yield from self._gen_app_table_entity(identifier, schema, app.id)
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,

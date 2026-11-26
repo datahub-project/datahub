@@ -1,4 +1,4 @@
-from typing import Dict, List, NamedTuple, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from pydantic import BaseModel, ConfigDict
 
@@ -20,26 +20,34 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.utilities.str_enum import StrEnum
 
 
-class ResolvedSource(NamedTuple):
+class ResolvedSource(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     urn: Optional[str]
     # Why the source could not be told this run, if so.
     unknown_reason: Optional[str]
 
 
-class GraphNamedPath(NamedTuple):
+class GraphNamedPath(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     path: Optional[str]
     # Whether the apps that may give the path were all read.
     all_read: bool
 
 
-class FileStorageMatch(NamedTuple):
+class FileStorageMatch(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     storage: Optional[FileStorage]
     detail: Optional[FileStorageDetail]
 
 
-class UntypedTable(NamedTuple):
+class UntypedTable(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     identifier: str
-    schema: List[QlikDatasetSchemaField]
+    schema_fields: List[QlikDatasetSchemaField]
 
 
 class _SpaceNeed(StrEnum):

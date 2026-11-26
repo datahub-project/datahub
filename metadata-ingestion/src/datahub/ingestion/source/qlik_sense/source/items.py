@@ -137,7 +137,8 @@ class ItemsMixin(OnPremBinaryMixin):
         if lib_path is None:
             return None
         # The recorded connection is space-qualified, so no app space applies.
-        storage, detail = self._file_storage(lib_path.group("connection"), "")
+        match = self._file_storage(lib_path.group("connection"), "")
+        storage, detail = match.storage, match.detail
         if storage is None:
             return None
         path = lib_path.group("path")

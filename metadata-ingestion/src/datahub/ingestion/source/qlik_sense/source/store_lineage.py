@@ -56,7 +56,8 @@ class StoreLineageMixin(OnPremQvdMixin):
         for index, store in enumerate(stores):
             if store.file.connection is None:
                 continue
-            storage, detail = self._file_storage(store.file.connection, app.spaceId)
+            match = self._file_storage(store.file.connection, app.spaceId)
+            storage, detail = match.storage, match.detail
             if storage is None:
                 if _is_data_files(store.file.connection):
                     continue
@@ -303,7 +304,8 @@ class StoreLineageMixin(OnPremQvdMixin):
                             dataset_types[field]
                         )
         for table_urn, field_types in types.items():
-            identifier, schema = self._untyped_tables[table_urn]
+            untyped = self._untyped_tables[table_urn]
+            identifier, schema = untyped.identifier, untyped.schema_fields
             # Columns traced from a load script may have their case changed by
             # the SQL parser, so a field matches a stored one of another case
             # when no other stored field folds to the same name.

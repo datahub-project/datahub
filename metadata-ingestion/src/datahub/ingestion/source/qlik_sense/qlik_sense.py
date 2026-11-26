@@ -35,9 +35,6 @@ from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import QlikBaseAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.source.end_of_run import EndOfRunMixin
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    _refs_of_field_sources as _refs_of_field_sources,
-)
 from datahub.ingestion.source.state.entity_removal_state import (
     GenericCheckpointState,
 )

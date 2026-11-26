@@ -155,8 +155,8 @@ class FileIdentityMixin(DashboardMixin):
             if storage is not None and visible is not None:
                 # The connection's own properties still check the QRI.
                 storage.qri_connection_id = visible.qri_connection_id
-            return FileStorageMatch(storage, detail)
-        return FileStorageMatch(visible, detail)
+            return FileStorageMatch(storage=storage, detail=detail)
+        return FileStorageMatch(storage=visible, detail=detail)
 
     def _file_urn(
         self, storage: FileStorage, detail: Optional[FileStorageDetail], path: str
@@ -287,7 +287,8 @@ class FileIdentityMixin(DashboardMixin):
         unmapped: Set[str] = set()
         unknown = False
         for reference in candidates.references:
-            storage, detail = self._file_storage(reference.connection, space_id)
+            match = self._file_storage(reference.connection, space_id)
+            storage, detail = match.storage, match.detail
             if storage is None:
                 info = self._find_data_connection(reference.connection, space_id)
                 if _is_data_files(reference.connection) or (

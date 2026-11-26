@@ -2234,7 +2234,7 @@ def test_connection_is_found_regardless_of_case(
             },
         )
 
-    storage, _ = source._file_storage("SALES SPACE:LAKE", "space-1")
+    storage = source._file_storage("SALES SPACE:LAKE", "space-1").storage
 
     assert (storage.platform if storage else None) == expected
 
@@ -2352,7 +2352,7 @@ def test_bracketed_connection_finds_its_storage(
             },
         )
 
-    storage, _ = source._file_storage(connection, "space-1")
+    storage = source._file_storage(connection, "space-1").storage
 
     assert storage is not None and storage.platform == FilePlatform.ABS
 

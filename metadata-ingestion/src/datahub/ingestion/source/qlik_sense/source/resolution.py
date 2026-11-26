@@ -52,7 +52,8 @@ class SourceResolutionMixin(FileIdentityMixin):
         result incomplete. `own_app_id` is the app whose table it is."""
         resolved = _ResolvedSources()
         for source_qri in source_qris:
-            urn, unknown = self._resolve_source(source_qri, dataset_urn, own_app_id)
+            source = self._resolve_source(source_qri, dataset_urn, own_app_id)
+            urn, unknown = source.urn, source.unknown_reason
             if unknown and unknown not in resolved.unknown_reasons:
                 resolved.unknown_reasons.append(unknown)
             if urn and urn not in resolved.urns:
@@ -328,14 +329,14 @@ class SourceResolutionMixin(FileIdentityMixin):
             upstreams: List[str] = []
             for field_qri in source_qris:
                 table_qri, _, field_id = field_qri.rpartition("#")
-                urn, _ = self._resolve_source(
+                urn = self._resolve_source(
                     table_qri,
                     dataset_urn,
                     own_app_id,
                     name_from_graph=bool(
                         {table_qri, table_qri.rpartition("#")[0]} & table_sources
                     ),
-                )
+                ).urn
                 name = (
                     field
                     if _qlik_field_id(field) == field_id
