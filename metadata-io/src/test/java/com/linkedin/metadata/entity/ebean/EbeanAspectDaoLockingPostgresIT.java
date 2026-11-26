@@ -347,8 +347,21 @@ public class EbeanAspectDaoLockingPostgresIT {
     assertTrue(locks.get(0).contains("urn:li:corpuser:B"));
     assertTrue(locks.get(0).contains("urn:li:corpuser:c"));
 
-    long maxReads = sql.stream().filter(line -> line.toLowerCase().contains("max(")).count();
-    assertEquals(maxReads, 2L, "max(version) stays paged at 2, got: " + sql);
+    // Postgres renders findIds() as "select urn, aspect, version" plus a bind comment, not max(.
+    List<String> versionReads =
+        sql.stream()
+            .filter(line -> !line.toLowerCase().contains("for update"))
+            .filter(line -> line.contains("urn:li:corpuser:"))
+            .toList();
+    assertEquals(versionReads.size(), 2, "version read stays paged at 2, got: " + sql);
+    assertTrue(
+        versionReads.get(0).contains("urn:li:corpuser:B")
+            && versionReads.get(0).contains("urn:li:corpuser:a"),
+        "first page must be the two-key slice, got: " + versionReads.get(0));
+    assertTrue(
+        versionReads.get(1).contains("urn:li:corpuser:c")
+            && !versionReads.get(1).contains("urn:li:corpuser:a"),
+        "second page must be only the remaining key, got: " + versionReads.get(1));
   }
 
   private void saveAspect(String urn, String aspectName) {
