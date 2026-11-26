@@ -782,7 +782,7 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 ## Maintaining AGENTS.md files
 
 Root holds cross-project rules; module-specific rules live in the nearest `AGENTS.md`
-(nearest file wins). `CLAUDE.md` files are one-line `@AGENTS.md` shims.
+(nearest file wins). Where an `AGENTS.md` exists, its `CLAUDE.md` is a one-line `@AGENTS.md` shim.
 
 - While developing or reviewing a PR, when you make or receive an architectural or
   strategic decision that is not derivable from the code (a pattern to follow, a trap, a

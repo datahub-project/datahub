@@ -18,12 +18,10 @@ Review-time mirror of these rules: `metadata-ingestion/.cursor/BUGBOT.md`.
 ## Structure
 
 - Split by duty: `constants.py`, `models.py`, `config.py`, `client.py`, `source.py`, plus
-  `lineage.py`, `mapper.py`, `usage.py` as needed. Match Power BI, Airbyte, Redshift, BigID
-  and Grafana.
+  `lineage.py`, `mapper.py`, `usage.py` as needed. `source/airbyte/` is the reference layout.
 - Hoist magic strings into module-level constants; pre-compile regexes in `constants.py`.
 - No top-of-file docstrings in connector modules; comments only where they add context.
-  Remove leftover agent artifacts (`ponytail:` markers, "on behalf of" signatures, comments
-  that narrate the diff).
+  Remove leftover agent artifacts (agent signatures, comments that narrate the diff).
 - Lazy imports only for opt-in features the connector does not always depend on.
 - Parse external API responses into dataclasses; never pass raw response dicts around.
 - XML: never the stdlib `xml` parser; use `defusedxml` as `source/sap_common/edmx.py` does.
@@ -47,13 +45,16 @@ Configs". On top of that:
 
 ## URNs, platform instance, env, casing
 
-- Build dataset URNs with `make_dataset_urn_with_platform_instance`
-  (`src/datahub/emitter/mce_builder.py`), not the SDK's `DatasetUrn.create_from_ids`.
+- One URN builder per source, consistent with its casing config: prefer
+  `make_dataset_urn_with_platform_instance` (`src/datahub/emitter/mce_builder.py`).
+  `DatasetUrn.create_from_ids` never lowercases, so mixing the two splits entities.
 - Match the URN the owning source emits (lowercasing, `convert_urns_to_lowercase`,
   multi-part names); a mismatch creates duplicate entities. See
   `docs/dev_guides/lineage_urn_casing.md`.
-- Sources never emit `dataPlatformInfo`; new platforms go in
-  `metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml`.
+- Register new platforms in
+  `metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml`
+  rather than emitting `dataPlatformInfo` from a source; self-registration (`source/sqlmesh/`)
+  is the exception for a platform only that source creates.
 
 ## Reporting
 
@@ -121,13 +122,13 @@ Configs". On top of that:
 ## New connectors and PRs
 
 - Registration chain: `setup.py` entry point → `../gradlew :metadata-ingestion:updateLockFile`
-  → `datahub.json` regenerates via Gradle (`scripts/connector_registry.py`, never by hand)
+  → `../gradlew :metadata-ingestion:connectorRegistry` regenerates `datahub.json` (never by hand)
   → UI tile in `datahub-web-react/src/app/ingestV2/source/builder/sources.json` (checked by
   `tests/unit/test_ingestion_source_tiles_completeness.py`) → logos → docs per
   `docs/sources/AGENTS.md` → subtypes in `source/common/subtypes.py`.
 - Vendored code keeps its licence header and gets an entry in the repo-root `NOTICE`.
 - Before committing, run the connector in debug mode to a file sink and read the full log.
-  Secrets for live tests live only in temporary paths such as `/tmp/*.env`.
+  Credentials for live tests stay outside the checkout and never reach the PR.
 - Breaking recipe, URN or default changes: entry in `docs/how/breaking-changes.md` under the
   next unreleased version, leading with the PR number, plus the connector's `_pre.md`.
   Prefer transparent upgrades and dual-read over breaking existing recipes.

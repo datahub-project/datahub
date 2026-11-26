@@ -8,7 +8,8 @@ Formatters already cover these files. This checks what they cannot:
 
 Findings recorded in the baseline file are tolerated so existing files can be
 cleaned up incrementally. The baseline only shrinks: an entry that no longer
-triggers is itself an error until removed with ``--update-baseline``.
+triggers is itself an error until its line is removed (or the baseline is
+regenerated with ``--update-baseline``, which lints every tracked file).
 """
 
 from __future__ import annotations
@@ -42,7 +43,6 @@ FENCE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
 BACKTICK_RE = re.compile(r"`([^`\n]+)`")
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 PATH_TOKEN_RE = re.compile(r"^[A-Za-z0-9_./-]+$")
-PATH_FORBIDDEN_CHARS = set("*<>{}$()=|?\"' ")
 LINE_SUFFIX_RE = re.compile(r":\d+(-\d+)?$")
 
 
@@ -85,33 +85,48 @@ def tracked_agent_files(root: Path, tracked: list[str]) -> list[Path]:
     return files
 
 
-def _is_gitignored(path: str, root: Path) -> bool:
+def gitignored(paths: list[str], root: Path) -> set[str]:
+    """Return the subset of ``paths`` that git would ignore (one subprocess call).
+
+    A directory pattern such as ``foo/`` only matches a path with a trailing
+    slash, so callers pass both forms when they mean a directory.
+    """
+    if not paths:
+        return set()
     result = subprocess.run(
-        ["git", "check-ignore", "-q", "--no-index", path],
+        ["git", "check-ignore", "--no-index", "--stdin"],
         cwd=root,
+        input="\n".join(paths) + "\n",
         capture_output=True,
+        text=True,
     )
-    return result.returncode == 0
+    # Exit code 1 means "nothing ignored"; 128 means "not a git repo".
+    return {line for line in result.stdout.splitlines() if line}
 
 
 def line_budget_for(path: Path) -> int:
     return LINE_BUDGETS.get(path.name, DEFAULT_LINE_BUDGET)
 
 
-def _is_path_candidate(token: str) -> bool:
-    """A backticked token is checked only when it looks like a concrete repo path.
+def normalize_token(token: str) -> str:
+    token = token.split("#", 1)[0]
+    token = LINE_SUFFIX_RE.sub("", token)
+    return token.rstrip("/")
+
+
+def is_path_candidate(token: str) -> bool:
+    """Whether a backticked token looks like a concrete repo path worth checking.
 
     Skipped: tokens without a slash, URLs, absolute/flag/import-like tokens,
-    ellipses, single-segment directory names (`tests/`), and two-word phrases
-    with no file extension (`try/finally`, `origin/master`).
+    ellipses, single-segment directory names (``tests/``), and two-word phrases
+    with no file extension (``try/finally``, ``origin/master``). A ``:line``
+    suffix or ``#anchor`` is stripped first.
     """
     if "/" not in token or "://" in token or "..." in token:
         return False
     if token.startswith(("/", "-", "@", "~")):
         return False
-    if PATH_FORBIDDEN_CHARS.intersection(token):
-        return False
-    if not PATH_TOKEN_RE.match(token):
+    if not PATH_TOKEN_RE.match(normalize_token(token)):
         return False
     segments = [s for s in token.split("/") if s]
     if len(segments) < 2:
@@ -119,37 +134,32 @@ def _is_path_candidate(token: str) -> bool:
     return "." in segments[-1] or token.endswith("/") or len(segments) >= 3
 
 
-def _normalize_token(token: str) -> str:
-    token = token.split("#", 1)[0]
-    token = LINE_SUFFIX_RE.sub("", token)
-    return token.rstrip("/")
-
-
-def _resolves(token: str, file_path: Path, root: Path, tracked: list[str]) -> bool:
-    """True when the token names something real: a file or directory relative to
-    the instruction file or any of its parents, a gitignored (generated) path, or
-    a path suffix that some tracked file contains (docs often name files by their
-    tail, e.g. `source/sql/sql_config.py`)."""
-    if not token:
-        return True
+def _parent_candidates(token: str, file_path: Path, root: Path) -> list[Path]:
+    candidates: list[Path] = []
     directory = file_path.parent
     while True:
-        candidate = directory / token
-        # Directory ignore patterns (`foo/`) only match a path with a trailing slash.
+        candidates.append(directory / token)
+        if directory == root or root not in directory.parents:
+            return candidates
+        directory = directory.parent
+
+
+def tracked_tail_match(token: str, tracked: list[str]) -> bool:
+    """Whether some tracked path equals ``token`` or ends with it at a segment
+    boundary (docs often name files by their tail, e.g. ``source/sql/sql_config.py``)."""
+    needle = "/" + token
+    for path in tracked:
+        haystack = "/" + path
         if (
-            candidate.exists()
-            or _is_gitignored(str(candidate), root)
-            or _is_gitignored(str(candidate) + "/", root)
+            haystack == needle
+            or haystack.endswith(needle)
+            or (needle + "/") in haystack
         ):
             return True
-        if directory == root or root not in directory.parents:
-            break
-        directory = directory.parent
-    needle = "/" + token
-    return any(("/" + path).find(needle) >= 0 for path in tracked)
+    return False
 
 
-def _referenced_tokens(lines: list[str]) -> Iterable[tuple[int, str]]:
+def referenced_tokens(lines: list[str]) -> Iterable[tuple[int, str]]:
     in_fence = False
     fence_marker = ""
     for index, line in enumerate(lines, start=1):
@@ -165,7 +175,7 @@ def _referenced_tokens(lines: list[str]) -> Iterable[tuple[int, str]]:
             continue
         for match in BACKTICK_RE.finditer(line):
             token = match.group(1).strip()
-            if _is_path_candidate(token):
+            if is_path_candidate(token):
                 yield index, token
         for match in MARKDOWN_LINK_RE.finditer(line):
             target = match.group(1)
@@ -198,12 +208,34 @@ def lint_file(
             )
         )
 
-    seen: set[str] = set()
-    for line_no, token in _referenced_tokens(lines):
-        normalized = _normalize_token(token)
-        if normalized in seen or _resolves(normalized, path, root, tracked):
+    # First pass: everything resolvable without git. Second pass: one batched
+    # git check-ignore for what is left, so generated (gitignored) paths count.
+    unresolved: dict[str, tuple[int, str]] = {}
+    for line_no, token in referenced_tokens(lines):
+        normalized = normalize_token(token)
+        if not normalized or normalized in unresolved:
             continue
-        seen.add(normalized)
+        if any(c.exists() for c in _parent_candidates(normalized, path, root)):
+            continue
+        if tracked_tail_match(normalized, tracked):
+            continue
+        unresolved[normalized] = (line_no, token)
+
+    ignore_probe: list[str] = []
+    for normalized in unresolved:
+        for candidate in _parent_candidates(normalized, path, root):
+            ignore_probe.append(str(candidate))
+            ignore_probe.append(str(candidate) + "/")
+    ignored = gitignored(ignore_probe, root)
+
+    for normalized, (line_no, token) in unresolved.items():
+        probes = {
+            form
+            for c in _parent_candidates(normalized, path, root)
+            for form in (str(c), str(c) + "/")
+        }
+        if probes & ignored:
+            continue
         findings.append(
             Finding(
                 rel,
@@ -266,19 +298,23 @@ def apply_baseline(
     return unexpected, stale
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "paths",
         nargs="*",
-        help="Files to lint. Defaults to every tracked agent-instruction file.",
+        help="Files to lint. Defaults to every tracked agent-instruction file. "
+        "With explicit paths, stale baseline entries are not reported.",
     )
     parser.add_argument(
         "--update-baseline",
         action="store_true",
-        help="Rewrite the baseline file with the current findings and exit 0.",
+        help="Rewrite the baseline file with the current findings over every tracked "
+        "agent-instruction file and exit 0. Cannot be combined with explicit paths.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.update_baseline and args.paths:
+        parser.error("--update-baseline lints every tracked file; do not pass paths")
 
     root = Path(__file__).resolve().parents[2]
     baseline_path = root / BASELINE_FILE
@@ -306,14 +342,16 @@ def main() -> int:
         return 0
 
     unexpected, stale = apply_baseline(findings, load_baseline(baseline_path))
+    if args.paths:
+        stale = []  # a subset run cannot tell whether other entries still apply
     if unexpected or stale:
         print("Agent-instruction docs lint failed:", file=sys.stderr)
         for finding in unexpected:
             print(finding, file=sys.stderr)
         for entry in stale:
             print(
-                f"{BASELINE_FILE.as_posix()}: stale entry no longer needed or too loose: "
-                f"{entry.replace(chr(9), ' ')} (run with --update-baseline)",
+                f"{BASELINE_FILE.as_posix()}: entry no longer triggers; delete this line: "
+                f"{entry.replace(chr(9), ' ')}",
                 file=sys.stderr,
             )
         return 1

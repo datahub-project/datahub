@@ -13,8 +13,9 @@ confidentiality, commits, PRs). Nested guides own the detail:
 
 ## Build and Test Commands
 
-Always go through Gradle: never run `pytest`, `ruff` or `mypy` directly and never activate
-the venv by hand (root `AGENTS.md`, "Python Virtual Environments").
+Agents go through Gradle: do not run `pytest`, `ruff` or `mypy` directly or activate the
+venv by hand (root `AGENTS.md`, "Python Virtual Environments"). `developing.md` shows the
+equivalent direct commands for a human working in an activated venv.
 
 ```bash
 # From metadata-ingestion/
@@ -22,7 +23,7 @@ the venv by hand (root `AGENTS.md`, "Python Virtual Environments").
 ../gradlew :metadata-ingestion:lintFix      # ruff fix + format; run after every change
 ../gradlew :metadata-ingestion:lint         # ruff + mypy, as CI runs them
 ../gradlew :metadata-ingestion:testQuick    # Unit tests (tests/unit, no Docker)
-../gradlew :metadata-ingestion:testFull     # Unit + Docker integration tests
+../gradlew :metadata-ingestion:testFull     # Every testpath: unit, integration, performance
 ../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_file.py            # One file or directory
 ../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_file.py::test_name # One test
 ```
@@ -37,7 +38,7 @@ symlinking it (Nix, immutable filesystems, Windows, some containers).
   (`sql_parsing/`), shared utilities (`utilities/`), test helpers shipped with the package
   (`testing/`)
 - `src/datahub/metadata/`: generated model classes, not checked in
-- `tests/unit/`, `tests/integration/`: all tests; never under `src/`
+- `tests/unit/`, `tests/integration/`, `tests/performance/`: all tests; never under `src/`
 - `docs/sources/`: hand-authored connector docs; `docs/dev_guides/`: stateful ingestion,
   profiling, classification, reporting and telemetry, URN casing, probes
 - `developing.md`: published developer guide (code layout, style, dependency policy,
@@ -54,8 +55,9 @@ markers and coverage. Connector conventions: `src/datahub/ingestion/source/AGENT
 ## Dependencies and Entry Points
 
 `setup.py` is the source of truth for dependencies, extras and source entry points
-(`entry_points["datahub.ingestion.source.plugins"]`). `pyproject.toml`, `uv.lock` and
-`constraints.txt` are generated from it; never edit them by hand.
+(`entry_points["datahub.ingestion.source.plugins"]`). The dependency block of
+`pyproject.toml`, plus `uv.lock` and `constraints.txt`, are generated from it; never edit
+those by hand. The `[tool.*]` sections of `pyproject.toml` (ruff, isort) are hand-maintained.
 
 ```bash
 ../gradlew :metadata-ingestion:updateLockFile   # after any setup.py change

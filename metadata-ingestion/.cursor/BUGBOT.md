@@ -1,6 +1,6 @@
 # metadata-ingestion Bugbot rules
 
-Authoring rules these mirror: `src/datahub/ingestion/source/AGENTS.md`, `tests/AGENTS.md`.
+Review-time rules; authoring guides: `src/datahub/ingestion/source/AGENTS.md`, `tests/AGENTS.md`.
 
 ## Secrets
 
@@ -17,13 +17,12 @@ credential inside a URL / connection-string field is not registered, then:
 
 If Python uses the stdlib `xml` package to parse untrusted XML, then:
 
-- High security. Use a safe XML library (see HANA-related ingestion code).
+- High security. Use `defusedxml` as `sap_common/edmx.py` does.
 
 ## Packaging
 
-If `metadata-ingestion/setup.py` changes (deps, entry points, extras) but
-`pyproject.toml` / `uv.lock` / `constraints.txt` are not regenerated in the same PR,
-or those generated files are hand-edited, then:
+If `setup.py` changes but the generated dependency block of `pyproject.toml`,
+`uv.lock` or `constraints.txt` is not regenerated (or they are hand-edited), then:
 
 - High: CI `checkLockFile` will fail. Run the project's lockfile update task.
 
