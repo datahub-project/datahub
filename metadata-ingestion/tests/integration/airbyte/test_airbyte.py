@@ -9,8 +9,6 @@ import time_machine
 
 from datahub.testing import mce_helpers
 from tests.integration.airbyte.airbyte_test_setup import (  # type: ignore[import-untyped]
-    AIRBYTE_API_PORT,
-    AIRBYTE_CHART_VERSION,
     BASIC_AUTH_PASSWORD,
     BASIC_AUTH_USERNAME,
     cleanup_airbyte,
@@ -18,6 +16,7 @@ from tests.integration.airbyte.airbyte_test_setup import (  # type: ignore[impor
     get_airbyte_credentials,
     init_test_data,
     install_abctl,
+    install_airbyte,
     is_mysql_ready,
     is_postgres_ready,
     setup_airbyte_connections,
@@ -120,36 +119,7 @@ def airbyte_service(
     except Exception as e:
         print(f"Status check failed: {e}, proceeding with install...")
 
-    print("\nInstalling Airbyte with abctl...")
-    install_cmd = [
-        str(abctl_path),
-        "local",
-        "install",
-        "--chart-version",
-        AIRBYTE_CHART_VERSION,
-        "--port",
-        str(AIRBYTE_API_PORT),
-        "--no-browser",
-        "--insecure-cookies",
-    ]
-
-    try:
-        result = subprocess.run(
-            install_cmd,
-            cwd=test_resources_dir,
-            capture_output=True,
-            text=True,
-            timeout=600,
-        )
-
-        if result.returncode != 0:
-            print(f"abctl install failed: {result.stderr}")
-            raise RuntimeError("Failed to install Airbyte")
-
-        print("Airbyte installation completed")
-
-    except subprocess.TimeoutExpired as e:
-        raise RuntimeError("abctl install timed out") from e
+    install_airbyte(abctl_path, test_resources_dir)
 
     # Credentials must be fetched BEFORE onboarding so the onboarding call can authenticate.
     get_airbyte_credentials(abctl_path, test_resources_dir)
@@ -165,8 +135,10 @@ def airbyte_service(
 
     # Airbyte schema discovery only finds tables present at connection-creation time,
     # so we have to confirm the source databases are populated before we register them.
+    # Right after the install the runner is busy starting Airbyte's pods, so
+    # `docker exec` health checks can be slow for a while.
     print("\nVerifying test databases have data before creating Airbyte connections...")
-    max_verify_attempts = 10
+    max_verify_attempts = 30
     for _attempt in range(max_verify_attempts):
         if is_postgres_ready("test-postgres") and is_mysql_ready("test-mysql"):
             print("Databases are ready")

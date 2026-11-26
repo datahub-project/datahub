@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.OpenSearchStatusException;
@@ -36,7 +37,7 @@ public class BuildIndicesPreStep implements UpgradeStep {
   private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents;
   private final List<ElasticSearchIndexed> services;
   private final ConfigurationProvider configurationProvider;
-  private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
+  private final Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties;
 
   @Override
   public String id() {
@@ -54,7 +55,7 @@ public class BuildIndicesPreStep implements UpgradeStep {
       OperationContext opContext = context.opContext();
       try {
         List<ReindexConfig> indexConfigs =
-            IndexUtils.getIndicesNeedingReindex(opContext, services, structuredProperties);
+            IndexUtils.getIndicesNeedingReindex(opContext, services, structuredProperties.get());
 
         for (ReindexConfig indexConfig : indexConfigs) {
           SearchClientShim<?> searchClient =

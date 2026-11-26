@@ -213,6 +213,16 @@ def test_events_skips_error_sleep_after_close() -> None:
     mock_consumer.wait_after_error.assert_not_called()
 
 
+def test_stop_before_events_does_not_poll() -> None:
+    source = _make_source()
+    source._consumer = MagicMock()
+    source.request_stop()
+
+    assert list(source.events()) == []
+    source._consumer.poll_route_keys.assert_not_called()
+    assert source.running is False
+
+
 def test_close_sets_running_false_and_closes_consumer() -> None:
     source = _make_source()
     mock_consumer = MagicMock()

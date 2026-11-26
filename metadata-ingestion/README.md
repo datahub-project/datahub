@@ -68,7 +68,7 @@ client.entities.upsert(dataset)
 
 ### Ingest via the DataHub UI
 
-No CLI required — configure and run ingestion directly from the DataHub UI under **Ingestion → Create new source**.
+No CLI required — configure and run ingestion directly from the DataHub UI under **Data Sources → Create Source**.
 
 ## Ingestion methods
 

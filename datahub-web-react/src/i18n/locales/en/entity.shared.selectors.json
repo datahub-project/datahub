@@ -10,5 +10,12 @@
     "customOwnershipType": "Custom Ownership Type",
     "ingestionSource": "Ingestion Source",
     "groupBy.displayValue": "Group {{label}}",
-    "groupBy.group": "Group"
+    "groupBy.group": "Group",
+    "selectItems.addMoreSection": "Add more",
+    "selectItems.entitiesLabel": "entities",
+    "selectItems.itemsLabel": "items",
+    "selectItems.noEntityFound": "No {{entityName}} found",
+    "selectItems.removeAll": "Remove All",
+    "selectItems.searchForEntity": "Search for {{entityName}}...",
+    "selectItems.selectedSection": "Selected"
 }

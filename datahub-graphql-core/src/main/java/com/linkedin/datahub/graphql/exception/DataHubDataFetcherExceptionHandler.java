@@ -1,13 +1,19 @@
 package com.linkedin.datahub.graphql.exception;
 
 import com.datahub.util.exception.DatabaseTransactionConflictException;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.graph.LineageTimeoutException;
+import com.linkedin.metadata.search.QueryEmbeddingException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNoAnchorException;
+import com.linkedin.metadata.service.async.delete.PartialHardDeleteException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
 import graphql.language.SourceLocation;
+import io.datahubproject.metadata.exception.ActorAccessException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -18,15 +24,20 @@ import lombok.extern.slf4j.Slf4j;
 public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionHandler {
 
   private static final String DEFAULT_ERROR_MESSAGE = "An unknown error occurred.";
+  private static final String ERROR_SOURCE_VALIDATION = "VALIDATION";
 
   /**
-   * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → {@link
-   * ValidationException} → {@link IllegalArgumentException} → {@link
+   * Priority (first match wins via cause walk): {@link QueryEmbeddingException} → {@link
+   * SearchTemplateNoAnchorException} → {@link DataHubGraphQLException} → metadata-io's {@code
+   * ValidationException} → {@link ValidationException} → {@link IllegalArgumentException} → {@link
    * DatabaseTransactionConflictException} → {@link LineageTimeoutException} → {@link
-   * IllegalStateException} → {@link RuntimeException} → fallback. Conflict must stay above {@code
-   * RuntimeException} because {@code DatabaseTransactionConflictException} extends {@code
-   * RetryLimitReached} (a RuntimeException). {@code LineageTimeoutException} stays above {@code
-   * RuntimeException} so a graph-query deadline maps to DEADLINE_EXCEEDED, not SERVER_ERROR.
+   * PartialHardDeleteException} → {@link IllegalStateException} → {@link ActorAccessException} →
+   * {@link RuntimeException} → fallback. Conflict must stay above {@code RuntimeException} because
+   * {@code DatabaseTransactionConflictException} extends {@code RetryLimitReached} (a
+   * RuntimeException). {@code LineageTimeoutException} stays above {@code RuntimeException} so a
+   * graph-query deadline maps to DEADLINE_EXCEEDED, not SERVER_ERROR. {@code ActorAccessException}
+   * stays above {@code RuntimeException} so a privilege denial maps to UNAUTHORIZED, not
+   * SERVER_ERROR.
    */
   @Override
   public CompletableFuture<DataFetcherExceptionHandlerResult> handleException(
@@ -34,6 +45,39 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     Throwable exception = handlerParameters.getException();
     SourceLocation sourceLocation = handlerParameters.getSourceLocation();
     ResultPath path = handlerParameters.getPath();
+
+    // A search template's vector rung could not embed the query, from any resolver that passes
+    // SearchFlags.searchTemplate. First, so the typed error a resolver throws for it, which maps
+    // to the same code, is logged the same way, and before the IllegalArgumentException branch: a
+    // provider fault under it is not the caller's. A timeout or a throttle is expected under load,
+    // so it is a warning without the stack trace.
+    QueryEmbeddingException queryEmbeddingException =
+        findFirstThrowableCauseOfClass(exception, QueryEmbeddingException.class);
+    if (queryEmbeddingException != null) {
+      final DataHubGraphQLErrorCode code = QueryEmbeddingErrorCodes.of(queryEmbeddingException);
+      if (code == DataHubGraphQLErrorCode.SERVER_ERROR) {
+        log.error("Failed to execute", queryEmbeddingException);
+      } else {
+        log.warn("Failed to execute: {}", queryEmbeddingException.getMessage());
+      }
+      return completedResult(
+          extractErrorMessage(queryEmbeddingException), code, path, sourceLocation);
+    }
+
+    // A similarity search whose query names no entity it can use as its anchor, from any resolver
+    // that passes SearchFlags.searchTemplate or reaches similarity through a route. The request,
+    // not the service, is at fault. Before the DataHubGraphQLException branch, so the bad request
+    // a resolver throws for it is logged the same way.
+    SearchTemplateNoAnchorException noAnchorException =
+        findFirstThrowableCauseOfClass(exception, SearchTemplateNoAnchorException.class);
+    if (noAnchorException != null) {
+      log.warn("Failed to execute: {}", noAnchorException.getMessage());
+      return completedResult(
+          extractErrorMessage(noAnchorException),
+          DataHubGraphQLErrorCode.BAD_REQUEST,
+          path,
+          sourceLocation);
+    }
 
     DataHubGraphQLException graphQLException =
         findFirstThrowableCauseOfClass(exception, DataHubGraphQLException.class);
@@ -46,15 +90,51 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
           sourceLocation);
     }
 
+    // Before the graphql-layer ValidationException branch: that branch would surface this
+    // exception's logs/REST message when it is a cause.
+    com.linkedin.metadata.entity.validation.ValidationException metadataValidationException =
+        findFirstThrowableCauseOfClass(
+            exception, com.linkedin.metadata.entity.validation.ValidationException.class);
+    if (metadataValidationException != null) {
+      log.error(
+          "Failed to execute: {}",
+          metadataValidationException.getValidationExceptionCollection(),
+          metadataValidationException);
+      // getMessage() may be the collection dump (payload and actor); only validator text goes out.
+      ValidationExceptionCollection collection =
+          metadataValidationException.getValidationExceptionCollection();
+      String userFacingMessage =
+          collection != null
+              ? collection.getCollectiveMessage()
+              : metadataValidationException.getMessage();
+      boolean hasValidatorMessage = userFacingMessage != null && !userFacingMessage.isEmpty();
+      String message = hasValidatorMessage ? userFacingMessage : DEFAULT_ERROR_MESSAGE;
+      // Authorization failures are 403 without the marker, as in the OpenAPI handler.
+      if (collection != null
+          && collection.getSubTypes().contains(ValidationSubType.AUTHORIZATION)) {
+        return completedResult(message, DataHubGraphQLErrorCode.UNAUTHORIZED, path, sourceLocation);
+      }
+      return completedResult(
+          message,
+          DataHubGraphQLErrorCode.BAD_REQUEST,
+          path,
+          sourceLocation,
+          hasValidatorMessage ? ERROR_SOURCE_VALIDATION : null);
+    }
+
     ValidationException validationException =
         findFirstThrowableCauseOfClass(exception, ValidationException.class);
     if (validationException != null) {
       log.error("Failed to execute", validationException);
+      // VALIDATION messages are shown verbatim: only the text the caller wrote, never causes.
+      String message = validationException.getMessage();
+      boolean hasMessage = message != null && !message.isEmpty();
       return completedResult(
-          extractErrorMessage(validationException),
+          hasMessage ? message : DEFAULT_ERROR_MESSAGE,
           DataHubGraphQLErrorCode.BAD_REQUEST,
           path,
-          sourceLocation);
+          sourceLocation,
+          hasMessage ? ERROR_SOURCE_VALIDATION : null);
     }
 
     IllegalArgumentException illException =
@@ -89,6 +169,18 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
           sourceLocation);
     }
 
+    // Above IllegalStateException, which it extends: the message tells the caller to delete again.
+    PartialHardDeleteException partialHardDelete =
+        findFirstThrowableCauseOfClass(exception, PartialHardDeleteException.class);
+    if (partialHardDelete != null) {
+      log.warn("Failed to execute", partialHardDelete);
+      return completedResult(
+          extractErrorMessage(partialHardDelete),
+          DataHubGraphQLErrorCode.CONFLICT,
+          path,
+          sourceLocation);
+    }
+
     IllegalStateException illegalStateException =
         findFirstThrowableCauseOfClass(exception, IllegalStateException.class);
     if (illegalStateException != null) {
@@ -96,6 +188,17 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       return completedResult(
           extractErrorMessage(illegalStateException),
           DataHubGraphQLErrorCode.SERVER_ERROR,
+          path,
+          sourceLocation);
+    }
+
+    ActorAccessException actorAccessException =
+        findFirstThrowableCauseOfClass(exception, ActorAccessException.class);
+    if (actorAccessException != null) {
+      log.error("Failed to execute", actorAccessException);
+      return completedResult(
+          extractErrorMessage(actorAccessException),
+          DataHubGraphQLErrorCode.UNAUTHORIZED,
           path,
           sourceLocation);
     }
@@ -136,7 +239,17 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       DataHubGraphQLErrorCode errorCode,
       ResultPath path,
       SourceLocation sourceLocation) {
-    DataHubGraphQLError error = new DataHubGraphQLError(message, path, sourceLocation, errorCode);
+    return completedResult(message, errorCode, path, sourceLocation, null);
+  }
+
+  private CompletableFuture<DataFetcherExceptionHandlerResult> completedResult(
+      String message,
+      DataHubGraphQLErrorCode errorCode,
+      ResultPath path,
+      SourceLocation sourceLocation,
+      String errorSource) {
+    DataHubGraphQLError error =
+        new DataHubGraphQLError(message, path, sourceLocation, errorCode, errorSource);
     return CompletableFuture.completedFuture(
         DataFetcherExceptionHandlerResult.newResult().error(error).build());
   }

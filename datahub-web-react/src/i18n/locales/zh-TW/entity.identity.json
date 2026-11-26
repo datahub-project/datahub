@@ -44,6 +44,7 @@
     "inviteToken.copyTooltip": "複製邀請連結。",
     "inviteToken.createError": "無法為角色 {{roleName}} 建立邀請權杖：\n {{error}}",
     "inviteToken.footerText": "複製邀請連結並傳送給你的使用者。使用者加入後，將自動被指派到所選的角色。",
+    "inviteToken.footerTextNoRole": "複製邀請連結並傳送給你的使用者。他們可以建立帳號，但不會被指派任何角色。",
     "inviteToken.generateNewLinkTooltip": "產生新的連結。所有舊連結都將失效。",
     "inviteToken.generateSuccess": "已產生新的邀請連結",
     "inviteToken.modalTitle": "分享邀請連結",
@@ -117,6 +118,7 @@
     "users.columns.name": "名稱",
     "users.columns.role": "角色",
     "users.columns.status": "狀態",
+    "users.copyUrn": "複製 URN",
     "users.deleteUser": "刪除使用者",
     "users.emptyTitle": "沒有使用者！",
     "users.groups.overflowTitle": "群組",
@@ -145,5 +147,6 @@
     "users.statusFilter.placeholder": "狀態",
     "users.statusFilter.suspended": "已停權",
     "users.statusInactive": "未啟用",
-    "users.statusNoUrn": "無 URN"
+    "users.statusNoUrn": "無 URN",
+    "users.urnCopied": "已將 URN 複製到剪貼簿"
 }

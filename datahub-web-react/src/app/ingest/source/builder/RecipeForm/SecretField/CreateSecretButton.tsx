@@ -1,27 +1,27 @@
 import { blue } from '@ant-design/colors';
-import { PlusOutlined } from '@ant-design/icons';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { SecretBuilderModal } from '@app/ingest/secret/SecretBuilderModal';
-import { SecretBuilderState } from '@app/ingest/secret/types';
+import { SecretBuilderState } from '@app/ingestV2/secret/types';
 
 import { useCreateSecretMutation } from '@graphql/ingestion.generated';
 
 const CreateButton = styled(Button)`
-    align-items: center;
-    display: flex;
-    justify-content: center;
-    margin: 8px 12px 4px 12px;
-    width: calc(100% - 24px);
+    && {
+        align-items: center;
+        display: flex;
+        justify-content: center;
+        margin: 8px 12px 4px 12px;
+        width: calc(100% - 24px);
 
-    &:hover {
-        color: ${blue[5]};
-    }
+        &:hover {
+            color: ${blue[5]};
+        }
 
-    .anticon-plus {
-        margin-right: 5px;
+        gap: 5px;
     }
 `;
 
@@ -61,7 +61,7 @@ function CreateSecretButton({ initialState, onSubmit, refetchSecrets }: Props) {
     return (
         <>
             <CreateButton onClick={() => setIsCreateModalVisible(true)} type="text" data-testid="create-secret-button">
-                <PlusOutlined /> Create Secret
+                <Plus /> Create Secret
             </CreateButton>
             {isCreateModalVisible && (
                 <SecretBuilderModal

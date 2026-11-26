@@ -4,13 +4,18 @@ from __future__ import annotations
 
 import pytest
 
+import shard_pack
 from shard_pack import (
     ModuleShard,
     items_for_batch,
+    items_for_scopes,
+    max_predicted_wall,
     pack_module_plans,
     pack_modules,
     plan_collected_items,
+    size_batches,
 )
+from utilities.backends import Backend
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM_INTERNAL)
@@ -161,3 +166,102 @@ def test_timeline_classes_pack_by_class_makespan_not_file_sum() -> None:
     assert max(walls) == pytest.approx(303.2)
     assigned = {path for plan in plans for path in plan.module_paths}
     assert assigned == {s.path for s in shards}
+
+
+class _PlainItem:
+    def __init__(self, nodeid: str) -> None:
+        self.nodeid = nodeid
+
+    def get_closest_marker(self, name: str) -> object | None:
+        return None
+
+
+_SIZING_WEIGHTS = {f"tests.m{i}::test_fn": 100.0 for i in range(6)}
+_SIZING_ITEMS = [_PlainItem(f"tests/m{i}.py::test_fn") for i in range(6)]
+
+
+def test_size_batches_picks_fewest_batches_meeting_target() -> None:
+    # Six 100s modules, one xdist worker: 3 batches hold the 200s long pole
+    # that 6 batches (100s) would beat, so a 200s target needs exactly 3.
+    packed = size_batches(
+        _SIZING_ITEMS,
+        max_batches=6,
+        xdist_workers=1,
+        target_wall=200.0,
+        test_weights=_SIZING_WEIGHTS,
+    )
+    assert len(packed.plans) == 3
+    assert max_predicted_wall(packed) == pytest.approx(200.0)
+
+
+def test_size_batches_target_floors_at_slowest_scope() -> None:
+    # One 500s module can never beat 500s; stop adding batches once it is
+    # alone rather than spending all of max_batches on it.
+    items = [*_SIZING_ITEMS[:4], _PlainItem("tests/big.py::test_fn")]
+    weights = {**_SIZING_WEIGHTS, "tests.big::test_fn": 500.0}
+    packed = size_batches(
+        items, max_batches=5, xdist_workers=1, target_wall=60.0, test_weights=weights
+    )
+    assert len(packed.plans) == 2
+    assert max_predicted_wall(packed) == pytest.approx(500.0)
+
+
+def test_size_batches_never_exceeds_max() -> None:
+    packed = size_batches(
+        _SIZING_ITEMS,
+        max_batches=4,
+        xdist_workers=1,
+        target_wall=1.0,
+        test_weights=_SIZING_WEIGHTS,
+    )
+    assert len(packed.plans) == 4
+
+
+def test_size_batches_empty_selection_has_no_batches() -> None:
+    packed = size_batches(
+        [], max_batches=20, xdist_workers=3, target_wall=60.0, test_weights={}
+    )
+    assert packed.plans == []
+
+
+def test_items_for_scopes_keeps_whole_loadscopes() -> None:
+    items = [
+        _PlainItem("tests/a.py::TestA::test_one"),
+        _PlainItem("tests/a.py::TestA::test_two"),
+        _PlainItem("tests/a.py::test_loose"),
+        _PlainItem("tests/b.py::test_fn"),
+    ]
+    kept = items_for_scopes(items, ["tests/a.py::TestA", "tests/missing.py"])
+    assert [item.nodeid for item in kept] == [
+        "tests/a.py::TestA::test_one",
+        "tests/a.py::TestA::test_two",
+    ]
+
+
+def test_local_backend_packs_on_docker_free_weights(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Each backend reads its own <stem>.json and <stem>_meta.json default.
+    (tmp_path / "pytest_test_weights.json").write_text(
+        '[{"testId": "tests.a::test_fn", "duration": "10.000s"}]'
+    )
+    (tmp_path / "pytest_test_weights_docker_free.json").write_text(
+        '[{"testId": "tests.a::test_fn", "duration": "90.000s"}]'
+    )
+    (tmp_path / "pytest_test_weights_docker_free_meta.json").write_text(
+        '{"defaultTestWeightSeconds": 7.0}'
+    )
+    monkeypatch.setattr(shard_pack, "_WEIGHTS_DIR", tmp_path)
+    items = [_PlainItem("tests/a.py::test_fn"), _PlainItem("tests/b.py::test_new")]
+
+    def totals(backend: Backend) -> dict[str, float]:
+        packed = plan_collected_items(
+            items,
+            batch_count=1,
+            xdist_workers=1,
+            weights_stem=backend.weights_stem,
+        )
+        return {shard.path: shard.total_seconds for shard in packed.shards}
+
+    assert totals(Backend.LOCAL) == {"tests/a.py": 90.0, "tests/b.py": 7.0}
+    assert totals(Backend.DOCKER)["tests/a.py"] == 10.0

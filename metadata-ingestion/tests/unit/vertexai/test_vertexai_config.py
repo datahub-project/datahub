@@ -1,10 +1,13 @@
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.gcp_project_filter import GcpProject
 from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAISource
+from datahub.ingestion.source.vertexai.vertexai_builder import VertexAIURIParser
 from datahub.utilities.ratelimiter import RateLimiter
 
 
@@ -232,3 +235,51 @@ def test_rate_limit_creates_shared_rate_limiter() -> None:
     assert source.training_extractor.rate_limiter is source._rate_limiter
     assert source.pipeline_extractor.rate_limiter is source._rate_limiter
     assert source.experiment_extractor.rate_limiter is source._rate_limiter
+
+
+def test_platform_instance_map_refuses_an_env_that_does_not_exist() -> None:
+    with pytest.raises(ValueError, match="env must be one of"):
+        VertexAIConfig.model_validate(
+            {
+                "region": "us-central1",
+                "project_ids": ["project-1"],
+                "platform_instance_map": {"gcs": {"env": "NOT_AN_ENV"}},
+            }
+        )
+
+
+def test_platform_instance_map_env_reaches_the_dataset_urn_in_any_case() -> None:
+    def upstream_urn(env: str) -> str:
+        config = VertexAIConfig.model_validate(
+            {
+                "region": "us-central1",
+                "project_ids": ["project-1"],
+                "platform_instance_map": {
+                    "gcs": {"env": env, "platform_instance": "my-gcs"}
+                },
+            }
+        )
+        parser = VertexAIURIParser(
+            env=config.env,
+            platform="vertexai",
+            platform_instance_map=config.platform_instance_map,
+        )
+        (urn,) = parser.dataset_urns_from_artifact_uri("gs://my-bucket/path/data")
+        return urn
+
+    # The map's env, not the recipe's (PROD), names the upstream environment.
+    assert upstream_urn("dev") == upstream_urn("DEV")
+    assert upstream_urn("dev").endswith(",DEV)")
+
+
+def test_docs_recipe_validates() -> None:
+    recipe_path = (
+        Path(__file__).parents[3]
+        / "docs"
+        / "sources"
+        / "vertexai"
+        / "vertexai_recipe.yml"
+    )
+    recipe = yaml.safe_load(recipe_path.read_text())
+
+    VertexAIConfig.model_validate(recipe["source"]["config"])

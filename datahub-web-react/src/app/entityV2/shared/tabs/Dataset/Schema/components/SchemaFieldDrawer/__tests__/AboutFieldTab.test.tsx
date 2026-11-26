@@ -12,7 +12,7 @@ vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/S
         properties.fieldProfile ? <div data-testid="stats-tab-wrapper" /> : null,
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useMutationUrn: () => 'urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)',
     useBaseEntity: () => ({}),
     useRouteToTab: () => vi.fn(),
@@ -20,11 +20,11 @@ vi.mock('@app/entity/shared/EntityContext', () => ({
     useRefetch: () => vi.fn(),
 }));
 
-vi.mock('@app/shared/hooks/useFileUpload', () => ({
+vi.mock('@app/sharedV2/hooks/useFileUpload', () => ({
     default: () => ({ uploadFile: vi.fn() }),
 }));
 
-vi.mock('@app/shared/hooks/useFileUploadAnalyticsCallbacks', () => ({
+vi.mock('@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks', () => ({
     default: () => ({ onFileUploadStart: vi.fn(), onFileUploadSuccess: vi.fn(), onFileUploadError: vi.fn() }),
 }));
 

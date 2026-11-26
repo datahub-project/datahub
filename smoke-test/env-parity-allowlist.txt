@@ -1,0 +1,37 @@
+# Intended differences between the Docker quickstart's smoke env and the Docker-free stack's
+# (smoke-test/check_env_parity.py). One line per difference: `service KEY-GLOB  # reason`.
+# A line that no longer matches a difference fails the check, so remove it when the lanes agree.
+# Keys the launcher pins (source `protected` in --print-env) are never compared and need no line.
+
+# Storage and transport: H2 and the in-memory pgqueue replace MySQL, Kafka and Neo4j.
+gms EBEAN_*  # H2 file database per instance instead of MySQL
+gms DATAHUB_MESSAGING_TRANSPORT  # pgqueue transport instead of Kafka
+gms DATAHUB_PGQUEUE_*  # in-memory pgqueue store
+gms KAFKA_*  # no Kafka; GMS serves the schema registry on its own port
+gms NEO4J_*  # graph lives in OpenSearch on both stacks; the compose anchor still sets Neo4j keys
+gms MAE_CONSUMER_ENABLED  # consumers run inside GMS instead of standalone containers
+gms MCE_CONSUMER_ENABLED  # consumers run inside GMS instead of standalone containers
+gms MCP_CONSUMER_BATCH_ENABLED  # Kafka-only batch listeners
+gms SPRING_KAFKA_CONSUMER_PROPERTIES_AUTO_COMMIT_INTERVAL_MS  # Kafka-only
+
+# Search: one shared embedded OpenSearch node, isolated by index prefix.
+gms ELASTICSEARCH_PROTOCOL  # compose anchor value; http is the default
+gms ELASTICSEARCH_NUM_*  # one node: no replicas, one shard
+gms SKIP_CREATE_USAGE_EVENT_INDICES_STEP  # embedded node has no ISM plugin; the launcher creates the index
+gms ELASTICSEARCH_IMPLEMENTATION  # compose anchor value; the launcher pins the engine with ELASTICSEARCH_SHIM_ENGINE_TYPE
+gms ES_BULK_FLUSH_PERIOD  # bulk tuning for the shared node
+gms ES_BULK_REQUESTS_LIMIT  # bulk tuning for the shared node
+gms ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS  # quickstart passes it to system-update only
+
+# Processes, ports, paths and credentials.
+gms GMS_LITE_INSTANCE  # local stack instance name
+gms ENTITY_REGISTRY_CONFIG_PATH  # source tree path instead of the image path
+gms BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE  # system-update finishes before GMS starts
+gms JAVA_OPTS  # container JVM flags; the launcher sets -Xmx itself
+gms GMS_LIFECYCLE_TIMEOUT  # container shutdown tuning
+gms SERVER_SHUTDOWN_MODE  # container shutdown tuning
+gms EXTRACT_JAR_ENABLED  # container image startup
+gms LOG_AGGREGATOR_ENDPOINT  # VictoriaLogs container
+
+# Services that only the Docker quickstart runs.
+gms DATAHUB_SERVER_TYPE  # telemetry label of the compose quickstart

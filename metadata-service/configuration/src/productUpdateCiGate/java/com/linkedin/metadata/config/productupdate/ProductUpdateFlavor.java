@@ -16,15 +16,15 @@ import javax.annotation.Nonnull;
  * tracks.
  *
  * <p>Core and cloud version independently, so each flavor resolves its own latest release. Both
- * release histories keep unreleased notes under a draft heading ({@code ## Next} / {@code next.md})
- * that is promoted to a versioned one at release cut, so drafting notes on master does not make a
- * flavor look out of date — only actually cutting a release does.
+ * release histories keep unreleased notes under a draft heading ({@code ## Unreleased} / {@code
+ * next.md}) that is promoted to a versioned one at release cut, so drafting notes on master does
+ * not make a flavor look out of date — only actually cutting a release does.
  */
 public enum ProductUpdateFlavor {
   CORE(
       "DataHub Core",
       "metadata-service/configuration/src/main/resources/product-update.json",
-      "docs/how/updating-datahub.md") {
+      "docs/how/breaking-changes.md") {
     @Override
     @Nonnull
     Optional<ReleaseVersion> findLatestRelease(@Nonnull Path repoRoot) {
@@ -66,7 +66,7 @@ public enum ProductUpdateFlavor {
   };
 
   /**
-   * A released section in updating-datahub.md. Supports both the current {@code ## v1.7.0} and
+   * A released section in breaking-changes.md. Supports both the current {@code ## v1.7.0} and
    * historical {@code ## 1.3.0} convention, plus optional annotations after the version.
    */
   private static final Pattern VERSIONED_HEADING =

@@ -23,6 +23,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -93,8 +94,7 @@ public class ListSemanticModelEntitiesResolver
           final Filter finalFilter =
               inputFilter == null
                   ? membershipFilter
-                  : com.linkedin.datahub.graphql.resolvers.search.SearchUtils.combineFilters(
-                      inputFilter, membershipFilter);
+                  : FilterUtils.combineFilters(inputFilter, membershipFilter);
 
           final SearchFlags searchFlags;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();

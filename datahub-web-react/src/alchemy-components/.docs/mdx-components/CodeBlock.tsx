@@ -4,16 +4,19 @@ import React from 'react';
 export const CodeBlock = () => {
     const context = React.useContext(DocsContext);
 
-    const { primaryStory } = context as any;
-    const component = context ? primaryStory.component.__docgenInfo.displayName : '';
+    const { primaryStory } = (context ?? {}) as any;
+    const component = primaryStory?.component;
+    // Stories without a `component` (e.g. Toast's imperative API) or whose component has no docgen
+    // info have nothing meaningful to import, so skip the snippet instead of crashing the page.
+    const name = component?.__docgenInfo?.displayName ?? component?.displayName;
 
-    if (!context || !primaryStory) return null;
+    if (!name) return null;
 
     return (
         <div>
             <Source
                 code={`
-					import { ${component} } from '@components';
+					import { ${name} } from '@components';
 				`}
                 format
                 dark

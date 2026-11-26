@@ -2,8 +2,8 @@ import { MockedProvider } from '@apollo/client/testing';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 
-import { EntityAndType } from '@app/entity/shared/types';
 import { SearchSelectUrnInput } from '@app/entityV2/shared/components/styled/search/SearchSelectUrnInput';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { EntityType } from '@types';

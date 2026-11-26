@@ -268,7 +268,6 @@ export class PageApiMocker implements ApiMocker {
           json as {
             data?: {
               me?: {
-                corpUser?: { settings?: { appearance?: Record<string, boolean> } };
                 platformPrivileges?: Record<string, boolean>;
               };
             };
@@ -276,14 +275,6 @@ export class PageApiMocker implements ApiMocker {
         ).data?.me;
 
         if (meData) {
-          // Mirror themeV2Enabled to the user appearance settings.
-          if ('themeV2Enabled' in flags && typeof flags.themeV2Enabled === 'boolean') {
-            const appearance = meData.corpUser?.settings?.appearance;
-            if (appearance) {
-              appearance.showThemeV2 = flags.themeV2Enabled;
-            }
-          }
-
           // Apply platform privilege overrides directly to the getMe response.
           if (Object.keys(platformPrivilegeOverrides).length > 0 && meData.platformPrivileges) {
             Object.assign(meData.platformPrivileges, platformPrivilegeOverrides);

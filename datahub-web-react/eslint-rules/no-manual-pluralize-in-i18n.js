@@ -1,8 +1,8 @@
 /**
  * ESLint rule: no-manual-pluralize-in-i18n
  *
- * Disallows the manual pluralization helpers from `@app/shared/textUtil`
- * (`pluralize`, `forcePluralize`, `pluralizeIfIrregular`) in files that have
+ * Disallows the manual pluralization helpers from `@app/sharedV2/textUtil`
+ * (`pluralize`, `pluralizeIfIrregular`) in files that have
  * already been migrated to i18n.
  *
  * These helpers hardcode English plural rules — a naive `+s` suffix plus a
@@ -26,8 +26,8 @@
  * it only fires on files that are expected to be fully translated.
  */
 
-const TEXT_UTIL_SOURCE_REGEX = /(^|\/)shared\/textUtil$/;
-const RESTRICTED_NAMES = new Set(['pluralize', 'forcePluralize', 'pluralizeIfIrregular']);
+const TEXT_UTIL_SOURCE_REGEX = /(^|\/)sharedV2\/textUtil$/;
+const RESTRICTED_NAMES = new Set(['pluralize', 'pluralizeIfIrregular']);
 
 const MESSAGE =
     "Don't use `{{name}}` from textUtil in i18n'ed files — it hardcodes English plural rules. " +

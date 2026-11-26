@@ -10,10 +10,16 @@ import com.linkedin.common.Urn
 record QuerySubject {
   /**
    * An entity which is the subject of a query.
+   *
+   * Shares the incident `entities` root. Both values are URNs, so this stays
+   * fieldType URN: a KEYWORD here keeps the shared mapping from creating
+   * entities_urn, and active-incident filters then match nothing.
+   * queryByDefault stays false so the URN is not added to unqualified V2 search.
    */
   @Searchable = {
     "fieldName": "entities",
-    "fieldType": "KEYWORD",
+    "fieldType": "URN",
+    "queryByDefault": false
   }
   entity: Urn
 }

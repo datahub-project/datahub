@@ -1,0 +1,143 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_fk.customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.dataset.DatasetProperties": {
+              "name": "customers",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.schema.SchemaMetadata": {
+              "schemaName": "customers",
+              "platform": "urn:li:dataPlatform:postgres",
+              "version": 0,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                  "rawSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "tenant_id",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "integer",
+                  "recursive": false,
+                  "isPartOfKey": true
+                },
+                {
+                  "fieldPath": "id",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "integer",
+                  "recursive": false,
+                  "isPartOfKey": true
+                }
+              ],
+              "primaryKeys": [
+                "tenant_id",
+                "id"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_fk.orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.dataset.DatasetProperties": {
+              "name": "orders",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.schema.SchemaMetadata": {
+              "schemaName": "orders",
+              "platform": "urn:li:dataPlatform:postgres",
+              "version": 0,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                  "rawSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "id",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "integer",
+                  "recursive": false,
+                  "isPartOfKey": true
+                },
+                {
+                  "fieldPath": "tenant_id",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "integer",
+                  "recursive": false,
+                  "isPartOfKey": false
+                },
+                {
+                  "fieldPath": "customer_id",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "integer",
+                  "recursive": false,
+                  "isPartOfKey": false
+                }
+              ],
+              "primaryKeys": [
+                "id"
+              ],
+              "foreignKeys": [
+                {
+                  "name": "fk_orders_customers",
+                  "sourceFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_fk.orders,PROD),tenant_id)",
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_fk.orders,PROD),customer_id)"
+                  ],
+                  "foreignFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_fk.customers,PROD),tenant_id)",
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_fk.customers,PROD),id)"
+                  ],
+                  "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_fk.customers,PROD)"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]

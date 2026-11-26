@@ -2,6 +2,15 @@
 
 We always welcome contributions to help make DataHub better. Take a moment to read this document if you would like to contribute.
 
+## Setting Up Your Development Environment
+
+To build DataHub from source and run your local changes:
+
+1. Follow the [Developer's Guide](developers.md) to install the required tools and build the project.
+2. Use [Using Docker Images During Development](docker/development.md) to run your local build (for example, `./gradlew quickstartDebug`) and reload changes as you work.
+
+Just want to try DataHub without building it? Use the [Quickstart Guide](quickstart.md) instead.
+
 ## Provide Feedback
 
 Have ideas about how to make DataHub better? Head over to [DataHub Feature Requests](https://feature-requests.datahubproject.io/) and tell us all about it!
@@ -32,7 +41,7 @@ Before you submit your Pull Request (PR), consider the following guidelines:
 - Open a pull request (PR) following [GitHub’s standard workflow](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request-from-a-fork).
 - Please make sure to follow our [PR Title Format](#pr-title-format) for clarity and consistency.
 - PRs are squashed and merged, resulting in a single commit with the PR title as the commit message.
-- If there are any breaking changes, potential downtime, deprecations, or big features, please add an update in [Updating DataHub under Next](how/updating-datahub.md).
+- If there are any breaking changes, potential downtime, deprecations, or big features, please add an update in [Breaking Changes under Next](how/breaking-changes.md).
 - That's it! Thank you for your contribution!
 
 ### Product-update CTA merge check

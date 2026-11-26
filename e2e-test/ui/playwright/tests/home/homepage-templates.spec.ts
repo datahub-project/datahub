@@ -1,6 +1,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { HomePage } from '../../pages/home.page';
 import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.describe('Homepage Templates', () => {
   let homePage: HomePage;
@@ -12,7 +13,7 @@ test.describe('Homepage Templates', () => {
     await homePage.waitForPageLoad();
   });
 
-  test('template loads with proper structure', async () => {
+  test('template loads with proper structure', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     const isLoaded = await homePage.isTemplateLoadedProperly();
     expect(isLoaded).toBe(true);
   });

@@ -3,15 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { MainSection, StyledTitle, SummaryHeader, VerticalDivider } from '@app/entityV2/chart/summary/styledComponents';
+import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { SummaryColumns } from '@app/entityV2/shared/summary/ListComponents';
 import SummaryCreatedBySection from '@app/entityV2/shared/summary/SummaryCreatedBySection';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetDashboardQuery } from '@graphql/dashboard.generated';
 import { useGetSearchResultsQuery } from '@graphql/search.generated';
@@ -53,7 +53,7 @@ export default function DashboardSummaryOverview() {
     const { t } = useTranslation('entity.types');
     const { loading } = useEntityData();
     const dashboard = useBaseEntity<GetDashboardQuery>()?.dashboard;
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const charts = (dashboard?.charts?.relationships?.map((r) => r.entity) || []) as Entity[];
 

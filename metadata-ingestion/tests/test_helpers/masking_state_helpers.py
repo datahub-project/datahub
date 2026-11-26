@@ -5,10 +5,21 @@ isolated. Shared between the unit and integration suites so the cleanup
 cannot drift.
 """
 
+import contextlib
+import logging
+import os
 import sys
+from io import StringIO
+from typing import Iterator
+from unittest import mock
+
+import pytest
 
 import datahub.masking.bootstrap as masking_bootstrap
-from datahub.masking.masking_filter import uninstall_masking_filter
+from datahub.masking.masking_filter import (
+    install_masking_filter,
+    uninstall_masking_filter,
+)
 from datahub.masking.secret_registry import SecretRegistry
 
 
@@ -19,3 +30,70 @@ def reset_masking_process_state() -> None:
     masking_bootstrap._bootstrap_completed = False
     masking_bootstrap._bootstrap_error = None
     SecretRegistry.reset_instance()
+
+
+@contextlib.contextmanager
+def capture_masked_log(logger_name: str) -> Iterator[StringIO]:
+    """Capture `logger_name`'s DEBUG output with the secret masking filter
+    installed, the way the CLI runs. Secrets must be registered inside the
+    block. The registry is cleared in place on entry and exit (see
+    `_isolate_secret_registry` for why not `reset_instance()`), and masking is
+    forced on whatever DATAHUB_DISABLE_SECRET_MASKING says."""
+    stream = StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    target = logging.getLogger(logger_name)
+    previous_level = target.level
+    with mock.patch.dict(os.environ):
+        os.environ.pop("DATAHUB_DISABLE_SECRET_MASKING", None)
+        uninstall_masking_filter()
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        target.setLevel(logging.DEBUG)
+        target.addHandler(handler)
+        install_masking_filter(secret_registry=registry, install_stdout_wrapper=False)
+        try:
+            yield stream
+        finally:
+            target.removeHandler(handler)
+            target.setLevel(previous_level)
+            uninstall_masking_filter()
+            registry.clear()
+
+
+@pytest.fixture
+def _isolate_secret_registry(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """The registry is a process-global singleton and masking is opt-out, so a
+    secret registered by one test stays registered for the rest of the session
+    and would silently mask it out of a later test's output. Loading a stdin
+    envelope now registers, so contain it here rather than leave an
+    order-dependent flake for someone to find.
+
+    Not autouse: a test driving `datahub recipe` opts in with
+    `pytestmark = pytest.mark.usefixtures("_isolate_secret_registry")`."""
+    # Imported here, not at the top: the root conftest loads this module for
+    # every test, and only the ones opting in need the CLI module.
+    import datahub.cli.recipe_cli as rc
+
+    # Cleared IN PLACE rather than replaced. SecretMaskingFilter caches the
+    # registry it was built with (masking_filter.py: `self._registry =
+    # secret_registry or SecretRegistry.get_instance()`), and the `recipe`
+    # group installs those filters on process-global handlers that outlive
+    # this fixture. reset_instance() swaps the singleton underneath them, so
+    # every handler installed by an earlier test goes on masking against a
+    # dead registry and a later test's secrets reach the output unmasked --
+    # the very leak this fixture exists to prevent, arriving by a different
+    # door. Verified: with reset_instance(), an already-built filter masks
+    # nothing registered afterwards; with clear(), it picks up the new
+    # secrets and forgets the old ones.
+    SecretRegistry.get_instance().clear()
+
+    # The stdin envelope globals, for the same reason and in the same place,
+    # rather than in each test's body. Tests that dispatch the CLI get this
+    # from the `recipe` group callback too; the ones calling
+    # rc._load_recipe("-") directly bypass the group, so the fixture is what
+    # covers them.
+    monkeypatch.setattr(rc, "_stdin_secrets", {})
+
+    yield
+    SecretRegistry.get_instance().clear()

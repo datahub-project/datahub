@@ -55,6 +55,7 @@ public class CreateTablesStepTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             false, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -79,6 +80,7 @@ public class CreateTablesStepTest {
     when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
     when(mockPreparedStatement.executeUpdate()).thenReturn(1);
     when(mockResultSet.next()).thenReturn(false); // Default: database doesn't exist
+    when(mockConnection.getAutoCommit()).thenReturn(true);
 
     when(mockConnection.createStatement()).thenReturn(mockStatement);
     when(mockStatement.execute(anyString())).thenReturn(false);
@@ -86,6 +88,36 @@ public class CreateTablesStepTest {
     // Setup mock to return SqlUpdate mock when sqlUpdate is called (for table creation)
     when(mockDatabase.sqlUpdate(anyString())).thenReturn(mockSqlUpdate);
     when(mockSqlUpdate.execute()).thenReturn(1); // Return 1 for successful execution
+  }
+
+  /**
+   * Stubs JDBC prepareStatement responses for Postgres SqlSetup: database existence, optional
+   * schema existence, current_schema() verification, and postSetup invalid-index checks.
+   */
+  private static void stubPostgresPreparedStatements(
+      Connection connection, String metadataSchema, boolean schemaExists) throws SQLException {
+    when(connection.getAutoCommit()).thenReturn(true);
+    when(connection.prepareStatement(anyString()))
+        .thenAnswer(
+            invocation -> {
+              String sql = invocation.getArgument(0);
+              PreparedStatement ps = mock(PreparedStatement.class);
+              ResultSet rs = mock(ResultSet.class);
+              when(ps.executeQuery()).thenReturn(rs);
+              when(ps.executeUpdate()).thenReturn(1);
+              if (sql.contains("current_schema()")) {
+                when(rs.next()).thenReturn(true);
+                when(rs.getString(1)).thenReturn(metadataSchema);
+              } else if (sql.contains("pg_namespace")) {
+                when(rs.next()).thenReturn(schemaExists);
+              } else if (sql.contains("pg_database")) {
+                when(rs.next()).thenReturn(false);
+              } else {
+                // postSetup invalid-index probe, etc.
+                when(rs.next()).thenReturn(false);
+              }
+              return ps;
+            });
   }
 
   @Test
@@ -123,6 +155,7 @@ public class CreateTablesStepTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             false, // createUser
             false, // iamAuthEnabled
             DatabaseType.POSTGRES, // dbType
@@ -138,12 +171,7 @@ public class CreateTablesStepTest {
             false, // createSchemaVersionIndex
             null);
     CreateTablesStep postgresStep = new CreateTablesStep(mockDatabase, postgresSetupArgs);
-    when(mockDatabase.dataSource()).thenReturn(mockDataSource);
-    when(mockDataSource.getConnection()).thenReturn(mockConnection);
-    when(mockConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
-    when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
-    when(mockPreparedStatement.executeUpdate()).thenReturn(1);
-    when(mockResultSet.next()).thenReturn(false); // Database doesn't exist
+    stubPostgresPreparedStatements(mockConnection, "public", true);
 
     Function<UpgradeContext, UpgradeStepResult> executable = postgresStep.executable();
     assertNotNull(executable);
@@ -324,6 +352,7 @@ public class CreateTablesStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -339,17 +368,33 @@ public class CreateTablesStepTest {
             false,
             null);
     CreateTablesStep postgresStep = new CreateTablesStep(mockDatabase, postgresArgs);
-
-    // Mock that database exists (ResultSet.next() returns true)
-    when(mockResultSet.next()).thenReturn(true);
+    // Override pg_database existence to true (schema verify still returns testdb)
+    when(mockConnection.prepareStatement(anyString()))
+        .thenAnswer(
+            invocation -> {
+              String sql = invocation.getArgument(0);
+              PreparedStatement ps = mock(PreparedStatement.class);
+              ResultSet rs = mock(ResultSet.class);
+              when(ps.executeQuery()).thenReturn(rs);
+              when(ps.executeUpdate()).thenReturn(1);
+              if (sql.contains("current_schema()")) {
+                when(rs.next()).thenReturn(true);
+                when(rs.getString(1)).thenReturn("testdb");
+              } else if (sql.contains("pg_database")) {
+                when(rs.next()).thenReturn(true);
+              } else if (sql.contains("pg_namespace")) {
+                when(rs.next()).thenReturn(true);
+              } else {
+                when(rs.next()).thenReturn(false);
+              }
+              return ps;
+            });
 
     Function<UpgradeContext, UpgradeStepResult> executable = postgresStep.executable();
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     verify(mockConnection).prepareStatement(contains("SELECT 1 FROM pg_database"));
-    verify(mockPreparedStatement).setString(1, "testdb");
-    verify(mockPreparedStatement).executeQuery();
   }
 
   @Test
@@ -379,6 +424,7 @@ public class CreateTablesStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -394,17 +440,35 @@ public class CreateTablesStepTest {
             false,
             null);
     CreateTablesStep postgresStep = new CreateTablesStep(mockDatabase, postgresArgs);
-
-    // Mock database check failure - PreparedStatement throws exception
-    when(mockPreparedStatement.executeQuery()).thenThrow(new SQLException("Check failed"));
+    when(mockConnection.prepareStatement(anyString()))
+        .thenAnswer(
+            invocation -> {
+              String sql = invocation.getArgument(0);
+              PreparedStatement ps = mock(PreparedStatement.class);
+              if (sql.contains("pg_database")) {
+                when(ps.executeQuery()).thenThrow(new SQLException("Check failed"));
+                return ps;
+              }
+              ResultSet rs = mock(ResultSet.class);
+              when(ps.executeQuery()).thenReturn(rs);
+              when(ps.executeUpdate()).thenReturn(1);
+              if (sql.contains("current_schema()")) {
+                when(rs.next()).thenReturn(true);
+                when(rs.getString(1)).thenReturn("testdb");
+              } else if (sql.contains("pg_namespace")) {
+                // CREATE SCHEMA ran on the table connection; later setSearchPath checks existence.
+                when(rs.next()).thenReturn(true);
+              } else {
+                when(rs.next()).thenReturn(false);
+              }
+              return ps;
+            });
 
     Function<UpgradeContext, UpgradeStepResult> executable = postgresStep.executable();
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     verify(mockConnection).prepareStatement(contains("SELECT 1 FROM pg_database"));
-    verify(mockPreparedStatement).setString(1, "testdb");
-    verify(mockPreparedStatement).executeQuery();
   }
 
   @Test
@@ -439,6 +503,7 @@ public class CreateTablesStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -470,6 +535,7 @@ public class CreateTablesStepTest {
         new SqlSetupArgs(
             true,
             false,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -499,6 +565,7 @@ public class CreateTablesStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -513,12 +580,134 @@ public class CreateTablesStepTest {
             "testdb",
             false,
             null);
+
+    Connection createDbConn = mock(Connection.class);
+    Connection selectConn = mock(Connection.class);
+    Connection schemaAndTableConn = mock(Connection.class);
+    Connection dropLegacyConn = mock(Connection.class);
+    Connection ensureIndexesConn = mock(Connection.class);
+    Connection collationConn = mock(Connection.class);
+    Statement schemaAndTableStmt = mock(Statement.class);
+    Statement dropLegacyStmt = mock(Statement.class);
+    Statement ensureIndexesStmt = mock(Statement.class);
+    Statement collationStmt = mock(Statement.class);
+
+    when(mockDataSource.getConnection())
+        .thenReturn(createDbConn)
+        .thenReturn(selectConn)
+        .thenReturn(schemaAndTableConn)
+        .thenReturn(dropLegacyConn)
+        .thenReturn(ensureIndexesConn)
+        .thenReturn(collationConn);
+
+    stubPostgresPreparedStatements(createDbConn, "testdb", true);
+    stubPostgresPreparedStatements(selectConn, "testdb", true);
+    stubPostgresPreparedStatements(schemaAndTableConn, "testdb", true);
+    stubPostgresPreparedStatements(dropLegacyConn, "testdb", true);
+    stubPostgresPreparedStatements(ensureIndexesConn, "testdb", true);
+    stubPostgresPreparedStatements(collationConn, "testdb", true);
+
+    when(schemaAndTableConn.createStatement()).thenReturn(schemaAndTableStmt);
+    when(dropLegacyConn.createStatement()).thenReturn(dropLegacyStmt);
+    when(ensureIndexesConn.createStatement()).thenReturn(ensureIndexesStmt);
+    when(collationConn.createStatement()).thenReturn(collationStmt);
+    when(schemaAndTableStmt.execute(anyString())).thenReturn(false);
+    when(dropLegacyStmt.execute(anyString())).thenReturn(false);
+    when(ensureIndexesStmt.execute(anyString())).thenReturn(false);
+
+    CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
+    step.createTables(args);
+
+    // CREATE TABLE must share the schema/search_path connection (not Ebean sqlUpdate / other
+    // pool connections).
+    verify(mockDatabase, never()).sqlUpdate(anyString());
+    verify(schemaAndTableStmt).execute("CREATE SCHEMA IF NOT EXISTS testdb");
+    verify(schemaAndTableStmt).execute("SET search_path TO testdb, public");
+    verify(schemaAndTableStmt).execute(contains("CREATE TABLE IF NOT EXISTS"));
+    verify(dropLegacyStmt).execute("SET search_path TO testdb, public");
+    verify(dropLegacyStmt).execute("DROP INDEX CONCURRENTLY IF EXISTS urnindex");
+    verify(dropLegacyStmt).execute("DROP INDEX CONCURRENTLY IF EXISTS aspectindex");
+    verify(dropLegacyStmt).execute("DROP INDEX CONCURRENTLY IF EXISTS versionindex");
+    verify(dropLegacyStmt, never()).execute(contains("CREATE TABLE"));
+    verify(ensureIndexesStmt).execute("SET search_path TO testdb, public");
+    verify(ensureIndexesStmt)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS timeIndex ON metadata_aspect_v2 (createdon);");
+    verify(ensureIndexesStmt)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_v0_urn_aspect ON metadata_aspect_v2 (urn, aspect) WHERE version = 0;");
+    verify(ensureIndexesStmt)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_corpuser_aspect_v0 ON metadata_aspect_v2 (urn, aspect) WHERE urn LIKE 'urn:li:corpuser:%' AND version = 0;");
+    verify(ensureIndexesStmt)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_corpgroup_aspect_v0 ON metadata_aspect_v2 (urn, aspect) WHERE urn LIKE 'urn:li:corpGroup:%' AND version = 0;");
+    verify(ensureIndexesStmt, never()).execute(contains("CREATE TABLE"));
+    verify(collationStmt).execute("SET search_path TO testdb, public");
+  }
+
+  @Test
+  public void testCreateTablesPostgresSkipsCreateSchemaWhenDisabled() throws SQLException {
+    SqlSetupArgs args =
+        new SqlSetupArgs(
+            true,
+            true,
+            false, // createSchema — pre-provisioned
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            5432,
+            "testdb",
+            "dhub",
+            false,
+            null);
+    stubPostgresPreparedStatements(mockConnection, "dhub", true);
     CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
 
     step.createTables(args);
 
-    verify(mockDatabase, times(1)).sqlUpdate(contains("CREATE TABLE IF NOT EXISTS"));
-    verify(mockStatement, times(9)).execute(anyString());
+    verify(mockStatement, never()).execute(contains("CREATE SCHEMA"));
+    verify(mockStatement, atLeastOnce()).execute("SET search_path TO dhub, public");
+    verify(mockStatement).execute(contains("CREATE TABLE IF NOT EXISTS"));
+  }
+
+  @Test
+  public void testCreateTablesPostgresFailsWhenPreProvisionedSchemaMissing() throws SQLException {
+    SqlSetupArgs args =
+        new SqlSetupArgs(
+            true,
+            false,
+            false, // createSchema — pre-provisioned but missing
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            5432,
+            "testdb",
+            "dhub",
+            false,
+            null);
+    stubPostgresPreparedStatements(mockConnection, "dhub", false);
+    CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
+
+    try {
+      step.createTables(args);
+      throw new AssertionError("Expected SQLException for missing pre-provisioned schema");
+    } catch (SQLException e) {
+      assertTrue(e.getMessage().contains("does not exist"));
+    }
+    verify(mockStatement, never()).execute(contains("CREATE TABLE"));
   }
 
   @Test
@@ -528,6 +717,7 @@ public class CreateTablesStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -542,15 +732,17 @@ public class CreateTablesStepTest {
             "testdb",
             true,
             null);
+    stubPostgresPreparedStatements(mockConnection, "testdb", true);
     CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
-    when(mockResultSet.next()).thenReturn(false);
 
     step.createTables(args);
 
-    // createDatabase + ensureSchema + selectDatabase + dropLegacyIndexes + ensureAspectIndexes
-    // + ensureCollation (no-op for Postgres but still opens a connection) + postSetup
+    // createDatabase + selectDatabase + ensureSchema/createTables + dropLegacyIndexes
+    // + ensureAspectIndexes + ensureCollation + postSetup
     verify(mockDataSource, times(7)).getConnection();
-    verify(mockStatement, times(10)).execute(anyString());
+    // ensureSchema+CREATE TABLE (3) + setSearchPath+3 drops (4) + setSearchPath+4 indexes (5)
+    // + setSearchPath for collation (1) + setSearchPath+CREATE INDEX (2) = 15
+    verify(mockStatement, times(15)).execute(anyString());
     verify(mockStatement)
         .execute(
             "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");

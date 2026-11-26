@@ -1,7 +1,8 @@
-import { Dropdown } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
+import { Dropdown } from '@components/components/Dropdown';
 import { NestedOption } from '@components/components/Select/Nested/NestedOption';
 import { NestedSelectOption } from '@components/components/Select/Nested/types';
 import { filterNestedSelectOptions } from '@components/components/Select/Nested/utils';
@@ -22,6 +23,15 @@ import { CustomOptionRenderer, SelectLabelProps, SelectSizeOptions } from '@comp
 import { getFooterButtonSize } from '@components/components/Select/utils';
 
 const NO_PARENT_VALUE = 'no_parent_value';
+
+// Inside the scrolling list so it shares the list's width, keeping its content aligned with the
+// options when a scrollbar takes up space.
+const StickyDropdownHeader = styled.div`
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: ${(props) => props.theme.colors.bg};
+`;
 
 export interface SelectProps<OptionType extends NestedSelectOption = NestedSelectOption> {
     options: OptionType[];
@@ -49,11 +59,15 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     shouldAlwaysSyncParentValues?: boolean;
     hideParentCheckbox?: boolean;
     implicitlySelectChildren?: boolean;
+    // Overrides implicitlySelectChildren: options it returns true for show as checked and disabled.
+    isOptionImplicitlySelected?: (option: OptionType, selectedOptions: OptionType[]) => boolean;
     selectChildrenWithParent?: boolean;
     shouldDisplayConfirmationFooter?: boolean;
     selectLabelProps?: SelectLabelProps;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
     renderCustomSelectedValue?: (option: OptionType) => React.ReactNode;
+    // Rendered inside the dropdown, pinned above the options as they scroll.
+    dropdownHeader?: React.ReactNode;
     dataTestId?: string;
 }
 
@@ -93,11 +107,13 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     shouldAlwaysSyncParentValues = false,
     hideParentCheckbox = false,
     implicitlySelectChildren = true,
+    isOptionImplicitlySelected,
     selectChildrenWithParent = true,
     shouldDisplayConfirmationFooter = selectDefaults.shouldDisplayConfirmationFooter,
     selectLabelProps,
     renderCustomOptionText,
     renderCustomSelectedValue,
+    dropdownHeader,
     dataTestId,
     ...props
 }: SelectProps<OptionType>) => {
@@ -296,6 +312,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                                 />
                             )}
                             <OptionList>
+                                {dropdownHeader && <StickyDropdownHeader>{dropdownHeader}</StickyDropdownHeader>}
                                 {rootOptions.map((option) => {
                                     const isParentOptionLabelExpanded = stagedOptions.find(
                                         (opt) => opt.parentValue === option.value,
@@ -317,6 +334,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                                             hideParentCheckbox={hideParentCheckbox}
                                             isParentOptionLabelExpanded={!!isParentOptionLabelExpanded}
                                             implicitlySelectChildren={implicitlySelectChildren}
+                                            isOptionImplicitlySelected={isOptionImplicitlySelected}
                                             selectChildrenWithParent={selectChildrenWithParent}
                                             renderCustomOptionText={renderCustomOptionText}
                                         />

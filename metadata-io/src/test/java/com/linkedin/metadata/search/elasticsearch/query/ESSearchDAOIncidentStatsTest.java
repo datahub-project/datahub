@@ -79,9 +79,9 @@ public class ESSearchDAOIncidentStatsTest {
     assertTrue(source.contains("ACTIVE"), "expected active-state filter");
   }
 
-  /** V3 entity indices keep entities at the root, without a .keyword subfield. */
+  /** V3 stores the complete URN on entities_urn and scopes the query to the entity type. */
   @Test
-  public void testBuildActiveIncidentStatsRequestUsesRootEntitiesFieldOnV3() {
+  public void testBuildActiveIncidentStatsRequestOnV3() {
     EntityIndexConfiguration entityIndex =
         EntityIndexConfiguration.builder()
             .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
@@ -101,9 +101,11 @@ public class ESSearchDAOIncidentStatsTest {
             .source()
             .toString();
 
+    assertTrue(source.contains("\"entities_urn\""), source);
+    assertFalse(source.contains("\"entities\""), source);
     assertFalse(source.contains("entities.keyword"), source);
-    assertTrue(source.contains("\"field\":\"entities\""), source);
-    assertTrue(source.contains("{\"entities\":["), source);
+    assertTrue(source.contains("{\"entities_urn\":["), source);
+    assertTrue(source.contains("\"_entityType\":{\"value\":\"incident\""), source);
   }
 
   @Test

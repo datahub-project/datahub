@@ -6,14 +6,14 @@ import { ENTITY_INDEX_FILTER_NAME } from '@app/search/utils/constants';
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { DOMAINS_FILTER_NAME, OWNERS_FILTER_NAME, TAGS_FILTER_NAME } from '@app/searchV2/utils/constants';
 
-import { EntityType, FilterOperator, SortOrder } from '@types';
+import { EntityType, SortOrder } from '@types';
 
 describe('getGlossaryScrollInput', () => {
     it('scopes to roots when parentNode is null', () => {
         const result = getGlossaryScrollInput({ parentNode: null });
         expect(result.input.orFilters).toEqual([
             {
-                and: [{ field: 'parentNode', condition: FilterOperator.Exists, negated: true }],
+                and: [{ field: 'hasParentNode', values: ['false'] }],
             },
         ]);
         expect(result.input.types).toEqual([EntityType.GlossaryNode, EntityType.GlossaryTerm]);

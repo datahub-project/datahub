@@ -11,6 +11,8 @@ import static org.testng.Assert.assertEquals;
 import com.linkedin.metadata.search.elasticsearch.update.BulkItemRequeueSupport;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.search.elasticsearch.update.BulkWriteResultTracker;
+import com.linkedin.metadata.search.elasticsearch.update.V3BulkWriteAccounting;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.Collections;
 import java.util.function.Consumer;
 import org.opensearch.action.DocWriteRequest;
@@ -122,6 +124,46 @@ public class BulkListenerFailureHandlingTest {
   }
 
   @Test
+  public void testCreateConflictCompletesWithoutRequeue() {
+    BulkWriteResultTracker tracker = new BulkWriteResultTracker();
+    tracker.recordEnqueued(1);
+    Consumer<DocWriteRequest<?>> requeue = mock(Consumer.class);
+    BulkItemRequeueSupport support = new BulkItemRequeueSupport(true, 3, requeue);
+    BulkListener listener =
+        BulkListener.create(WriteRequest.RefreshPolicy.NONE, null, tracker, support);
+
+    IndexRequest createRequest =
+        new IndexRequest("idx")
+            .id("1")
+            .source(Collections.emptyMap())
+            .opType(DocWriteRequest.OpType.CREATE);
+    BulkRequest bulkRequest = new BulkRequest().add(createRequest);
+
+    BulkItemResponse.Failure failure = mock(BulkItemResponse.Failure.class);
+    when(failure.getStatus()).thenReturn(RestStatus.CONFLICT);
+    when(failure.getMessage()).thenReturn("version_conflict_engine_exception");
+
+    BulkItemResponse item = mock(BulkItemResponse.class);
+    when(item.isFailed()).thenReturn(true);
+    when(item.getFailure()).thenReturn(failure);
+    when(item.getFailureMessage()).thenReturn("version_conflict_engine_exception");
+    when(item.getOpType()).thenReturn(DocWriteRequest.OpType.CREATE);
+    when(item.status()).thenReturn(RestStatus.CONFLICT);
+
+    BulkResponse response = mock(BulkResponse.class);
+    when(response.hasFailures()).thenReturn(true);
+    when(response.getItems()).thenReturn(new BulkItemResponse[] {item});
+    when(response.getIngestTookInMillis()).thenReturn(BulkResponse.NO_INGEST_TOOK);
+    when(response.getTook()).thenReturn(org.opensearch.common.unit.TimeValue.timeValueMillis(1));
+    when(response.buildFailureMessage()).thenReturn("conflict");
+
+    listener.afterBulk(1L, bulkRequest, response);
+    verify(requeue, never()).accept(any());
+    assertEquals(tracker.getPendingItems(), 0);
+    assertEquals(tracker.getUnrecoveredTransferFailures(), 0);
+  }
+
+  @Test
   public void testNonRetriableIsTransferFailure() {
     BulkWriteResultTracker tracker = new BulkWriteResultTracker();
     tracker.recordEnqueued(1);
@@ -155,5 +197,46 @@ public class BulkListenerFailureHandlingTest {
     verify(requeue, never()).accept(any());
     assertEquals(tracker.getPendingItems(), 0);
     assertEquals(tracker.getUnrecoveredTransferFailures(), 1);
+  }
+
+  @Test
+  public void testV3AccountingAppliesOnlyWhenTheClassifierIsWired() {
+    V3BulkWriteAccounting.resetForTests();
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    BulkResponse response = v3ConflictResponse();
+
+    BulkListener.create(WriteRequest.RefreshPolicy.NONE, metricUtils, null, null)
+        .afterBulk(1L, new BulkRequest(), response);
+    assertEquals(V3BulkWriteAccounting.snapshot().staleVersionRejected(), 0);
+    verify(metricUtils, never())
+        .increment(BulkListener.class, V3BulkWriteAccounting.STALE_VERSION_REJECTED_METRIC, 1d);
+
+    BulkListener.create(
+            WriteRequest.RefreshPolicy.NONE,
+            metricUtils,
+            null,
+            null,
+            null,
+            V3BulkWriteAccounting::classifyOpenSearchResponse)
+        .afterBulk(2L, new BulkRequest(), response);
+    assertEquals(V3BulkWriteAccounting.snapshot().staleVersionRejected(), 1);
+    verify(metricUtils)
+        .increment(BulkListener.class, V3BulkWriteAccounting.STALE_VERSION_REJECTED_METRIC, 1d);
+  }
+
+  private static BulkResponse v3ConflictResponse() {
+    BulkItemResponse item = mock(BulkItemResponse.class);
+    when(item.isFailed()).thenReturn(true);
+    when(item.getIndex()).thenReturn("datasetindex_v3");
+    when(item.getOpType()).thenReturn(DocWriteRequest.OpType.INDEX);
+    when(item.status()).thenReturn(RestStatus.CONFLICT);
+    when(item.getFailureMessage()).thenReturn("version_conflict_engine_exception");
+    BulkResponse response = mock(BulkResponse.class);
+    when(response.hasFailures()).thenReturn(true);
+    when(response.getItems()).thenReturn(new BulkItemResponse[] {item});
+    when(response.getIngestTookInMillis()).thenReturn(BulkResponse.NO_INGEST_TOOK);
+    when(response.getTook()).thenReturn(org.opensearch.common.unit.TimeValue.timeValueMillis(1));
+    when(response.buildFailureMessage()).thenReturn("conflict");
+    return response;
   }
 }

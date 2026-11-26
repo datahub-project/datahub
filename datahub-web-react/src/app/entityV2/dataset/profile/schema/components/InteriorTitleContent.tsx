@@ -1,7 +1,6 @@
 import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
@@ -12,6 +11,7 @@ import NullableLabel, {
     PrimaryKeyLabel,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/ConstraintLabels';
 import getFieldForeignKeyConstraints from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldForeignKeyConstraints';
+import Highlight from '@app/sharedV2/text/Highlight';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 
 import { SchemaMetadata, SubResourceType } from '@types';
@@ -40,11 +40,12 @@ const DeprecatedContainer = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 
+// Both schema tables style their first column as the row title, so the field path inherits it.
 const FieldPathText = styled(Typography.Text)<{ $isCompact: boolean }>`
-    font-size: 12px;
+    font-size: inherit;
     line-height: ${(props) => (props.$isCompact ? '14px' : '24px')};
-    font-weight: 600;
-    color: ${(props) => props.theme.colors.textSecondary};
+    font-weight: inherit;
+    color: inherit;
 
     display: flex;
     align-items: center;
@@ -58,7 +59,8 @@ type InteriorTitleProps = {
     fieldPath: string;
     record: ExtendedSchemaFields;
     isCompact?: boolean;
-    setExpandedDrawerFieldPath?: (fieldPath: string | null) => void;
+    isPrimaryKey: boolean;
+    openFieldDrawer?: (fieldPath: string) => void;
 };
 
 export const InteriorTitleContent = ({
@@ -68,7 +70,8 @@ export const InteriorTitleContent = ({
     fieldPath,
     record,
     isCompact,
-    setExpandedDrawerFieldPath,
+    isPrimaryKey,
+    openFieldDrawer,
 }: InteriorTitleProps) => {
     const fieldPathWithoutAnnotations = translateFieldPath(fieldPath);
     const parentPathWithoutAnnotations = translateFieldPath(record.parent?.fieldPath || '');
@@ -116,12 +119,12 @@ export const InteriorTitleContent = ({
             </FieldPathContainer>
             {!isCompact && (
                 <>
-                    {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
+                    {isPrimaryKey && <PrimaryKeyLabel />}
                     {record.isPartitioningKey && <PartitioningKeyLabel />}
                     {record.nullable && <NullableLabel />}
                     {/* {record.nullable && <NullableLabel />} */}
-                    {getFieldForeignKeyConstraints(schemaMetadata, fieldPath).length > 0 && (
-                        <ClickableForeignKeyLabel onClick={() => setExpandedDrawerFieldPath?.(fieldPath)} />
+                    {openFieldDrawer && getFieldForeignKeyConstraints(schemaMetadata, fieldPath).length > 0 && (
+                        <ClickableForeignKeyLabel onClick={() => openFieldDrawer(fieldPath)} />
                     )}
                 </>
             )}

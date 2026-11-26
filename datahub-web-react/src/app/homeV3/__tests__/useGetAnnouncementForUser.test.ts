@@ -1,9 +1,10 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetLastViewedAnnouncementTime } from '@app/homeV2/shared/useGetLastViewedAnnouncementTime';
 import { useGetAnnouncementsForUser } from '@app/homeV3/announcements/useGetAnnouncementsForUser';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useListPostsQuery } from '@graphql/post.generated';
 import { useUpdateUserHomePageSettingsMutation } from '@graphql/user.generated';
@@ -142,16 +143,15 @@ describe('useGetAnnouncementsForUser', () => {
         const mockUpdateUserHomePageSettings = vi.fn(() => Promise.resolve());
         (useUpdateUserHomePageSettingsMutation as any).mockReturnValue([mockUpdateUserHomePageSettings]);
 
-        const { result, waitForNextUpdate } = renderHook(() => useGetAnnouncementsForUser());
+        const { result } = renderHook(() => useGetAnnouncementsForUser());
 
         expect(result.current.announcements.map((p) => p.urn)).toEqual(['urn:2', 'urn:3']);
 
-        await act(async () => {
+        act(() => {
             result.current.onDismissAnnouncement('urn:2');
-            await waitForNextUpdate?.();
         });
 
-        expect(result.current.announcements.map((p) => p.urn)).toEqual(['urn:3']);
+        await waitFor(() => expect(result.current.announcements.map((p) => p.urn)).toEqual(['urn:3']));
         expect(refetchUser).toHaveBeenCalled();
     });
 

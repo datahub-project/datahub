@@ -528,6 +528,40 @@ def _get_cli_context() -> Dict[str, str]:
     return {}
 
 
+# Set on every wrapper this decorator produces, and the only reliable way to
+# recognise one. cli_utils.enable_auto_decorators used to look for "telemetry" in
+# __module__ and "with_telemetry" in __name__, but the wrapper below carries
+# @wraps(func) and so advertises the *wrapped* function's identity -- the check
+# could never match, and every explicitly decorated command got a second,
+# auto-applied wrapper on top. An attribute survives @wraps in both directions.
+TELEMETRY_WRAPPED_ATTR = "__datahub_telemetry_wrapped__"
+
+
+def is_telemetry_wrapped(func: object) -> bool:
+    """Whether `func` already has a with_telemetry wrapper anywhere in its chain.
+
+    Bounded by identity rather than by depth. The walk has to terminate --
+    wraps(f)(f) sets f.__wrapped__ = f, a cycle this codebase has already met
+    once -- but a fixed cap ends it by ANSWERING, and the answer it gives is
+    False. enable_auto_decorators reads False as "needs a wrapper", so a
+    chain longer than the cap got a second one and every function-call event
+    for that command fired twice: the exact defect this detection exists to
+    prevent, reintroduced by the guard against a different one.
+
+    In practice @wraps copies __dict__, so the marker propagates to every
+    wrapper above it and depth rarely mattered. A decorator that sets
+    __wrapped__ without copying __dict__ is the shape that reached the cap.
+    """
+    current: object = func
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        if getattr(current, TELEMETRY_WRAPPED_ATTR, False):
+            return True
+        seen.add(id(current))
+        current = getattr(current, "__wrapped__", None)
+    return False
+
+
 def with_telemetry(
     *, capture_kwargs: Optional[List[str]] = None
 ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
@@ -607,6 +641,8 @@ def with_telemetry(
                 telemetry_instance.capture_exception(e)
                 raise e
 
+        # After @wraps, which would otherwise not carry it.
+        setattr(wrapper, TELEMETRY_WRAPPED_ATTR, True)
         return wrapper
 
     return with_telemetry_decorator

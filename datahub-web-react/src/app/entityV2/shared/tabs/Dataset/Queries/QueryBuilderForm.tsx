@@ -6,8 +6,8 @@ import styled from 'styled-components';
 
 import { QueryBuilderState } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import { SQL_LANGUAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
+import { Editor as MarkdownEditor } from '@app/sharedV2/editor/Editor';
 import { useMonacoTheme } from '@app/theme/useMonacoTheme';
-import { Editor as MarkdownEditor } from '@src/alchemy-components';
 
 const EditorWrapper = styled.div`
     border: 1px solid ${(props) => props.theme.colors.border};

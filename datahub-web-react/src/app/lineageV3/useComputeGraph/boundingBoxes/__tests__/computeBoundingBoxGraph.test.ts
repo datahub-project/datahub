@@ -1,8 +1,11 @@
 import { FetchStatus, LineageEntity, NodeContext, addToAdjacencyList, createEdgeId } from '@app/lineageV3/common';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import computeBoundingBoxGraph from '@app/lineageV3/useComputeGraph/boundingBoxes/computeBoundingBoxGraph';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, LineageDirection } from '@types';
+
+const entityRegistry = getTestEntityRegistry();
 
 const DP = 'urn:li:dataProduct:DP';
 const A = 'urn:li:dataset:A';
@@ -80,6 +83,7 @@ function renderedUrns(
             outputPortsOnly: false,
             boundingBoxEntities: new Map(),
         },
+        entityRegistry,
         false,
     );
     return flowNodes.map((flowNode) => (flowNode.data as LineageEntity).urn).filter((urn) => urn !== DP);

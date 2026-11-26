@@ -1,4 +1,3 @@
-import { Pill } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +13,7 @@ import {
     TagsWrapper,
 } from '@components/components/MultiValueInput/components';
 import { MultiValueInputProps } from '@components/components/MultiValueInput/types';
+import { Pill } from '@components/components/Pills';
 
 export const MultiValueInput = ({
     values,

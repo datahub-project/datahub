@@ -110,22 +110,22 @@ def _parse_flat_indices_state(result_block: dict) -> dict[str, dict]:
     Real-stack ``BuildIndicesIncremental_<version>.result`` shape::
 
         {
-          "dashboardindex_v2.status": "COMPLETED",
-          "dashboardindex_v2.taskId": "...",
-          "dashboardindex_v2.nextIndexName": "...",
-          "dashboardindex_v2.sourceDocCount": "19",
-          "dashboardindex_v2.requiresDataBackfill": "true",
-          "schemafieldindex_v2.status": "COMPLETED",
+          "dashboardindex_v3.status": "COMPLETED",
+          "dashboardindex_v3.taskId": "...",
+          "dashboardindex_v3.nextIndexName": "...",
+          "dashboardindex_v3.sourceDocCount": "19",
+          "dashboardindex_v3.requiresDataBackfill": "true",
+          "schemafieldindex_v3.status": "COMPLETED",
           ...
         }
 
     Returns the unflattened form::
 
         {
-          "dashboardindex_v2": {"status": "COMPLETED", "taskId": "...",
+          "dashboardindex_v3": {"status": "COMPLETED", "taskId": "...",
                                 "sourceDocCount": 19,
                                 "requiresDataBackfill": True, ...},
-          "schemafieldindex_v2": {...},
+          "schemafieldindex_v3": {...},
         }
     """
     per_alias: dict[str, dict] = {}

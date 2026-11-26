@@ -5,14 +5,14 @@ import { useTheme } from 'styled-components';
 
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import ClickOutside from '@app/sharedV2/ClickOutside';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
+import { BrowserWrapper } from '@app/sharedV2/tags/BrowserWrapper';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';

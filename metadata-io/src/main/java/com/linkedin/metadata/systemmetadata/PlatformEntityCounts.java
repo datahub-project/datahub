@@ -7,7 +7,10 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -104,15 +107,13 @@ public class PlatformEntityCounts {
     boolean useV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     String indexName =
         EntitySearchIndexResolver.indexName(opContext, entityType, entityIndexConfiguration);
+    // V3 root fields carry the V2 .keyword subfield
     String aggField =
-        useV3
-            ? PLATFORM_FIELD
-            : ESUtils.toKeywordField(
-                opContext, PLATFORM_FIELD, false, opContext.getAspectRetriever());
+        ESUtils.toKeywordField(opContext, PLATFORM_FIELD, false, opContext.getAspectRetriever());
     QueryBuilder query = QueryBuilders.matchAllQuery();
     if (useV3) {
       QueryBuilder entityTypeQuery =
-          EntitySearchIndexResolver.entityTypeQuery(List.of(entityType), entityIndexConfiguration);
+          EntityFilter.entityTypeQuery(List.of(entityType), entityIndexConfiguration);
       if (entityTypeQuery != null) {
         query = entityTypeQuery;
       }
@@ -142,8 +143,12 @@ public class PlatformEntityCounts {
     SearchResponse response;
     try {
       response =
-          SearchClients.forEntityIndices(opContext, request)
-              .search(opContext, request, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.PLATFORM_ENTITY_COUNTS,
+              () ->
+                  SearchClients.forEntityIndices(opContext, request)
+                      .search(opContext, request, RequestOptions.DEFAULT));
     } catch (OpenSearchStatusException e) {
       if (e.status() == RestStatus.NOT_FOUND) {
         log.debug("Entity index {} not found; returning empty platform counts", indexName);

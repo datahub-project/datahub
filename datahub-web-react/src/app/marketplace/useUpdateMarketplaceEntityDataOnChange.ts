@@ -1,12 +1,12 @@
 import isEqual from 'lodash/isEqual';
 import { useEffect } from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import {
     MarketplaceEntityData,
     useMaybeMarketplaceEntityContext,
 } from '@app/marketplace/context/MarketplaceEntityContext';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 
 import { EntityType } from '@types';
 

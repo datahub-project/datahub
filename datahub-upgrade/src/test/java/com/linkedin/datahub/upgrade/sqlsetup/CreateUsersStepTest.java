@@ -43,6 +43,7 @@ public class CreateUsersStepTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -107,6 +108,7 @@ public class CreateUsersStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -246,6 +248,7 @@ public class CreateUsersStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             true,
             true,
             DatabaseType.MYSQL,
@@ -278,6 +281,7 @@ public class CreateUsersStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             true,
             false,
             DatabaseType.MYSQL,
@@ -368,6 +372,7 @@ public class CreateUsersStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             true,
             false,
             DatabaseType.MYSQL,
@@ -396,6 +401,7 @@ public class CreateUsersStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             true,
             false,
             DatabaseType.MYSQL,
@@ -424,6 +430,7 @@ public class CreateUsersStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false, // createUser disabled
             false,
             DatabaseType.MYSQL,
@@ -457,6 +464,7 @@ public class CreateUsersStepTest {
           new SqlSetupArgs(
               true,
               true,
+              true, // createSchema
               true,
               true,
               DatabaseType.MYSQL,
@@ -490,6 +498,7 @@ public class CreateUsersStepTest {
           new SqlSetupArgs(
               true,
               true,
+              true, // createSchema
               true,
               false,
               DatabaseType.MYSQL,

@@ -57,7 +57,7 @@ test {
 def productUpdateInputs = files(
     file("${projectDir}/src/main/resources/product-update.json"),
     file("${projectDir}/src/main/resources/product-update-saas.json"),
-    file("${rootProject.projectDir}/docs/how/updating-datahub.md"),
+    file("${rootProject.projectDir}/docs/how/breaking-changes.md"),
     fileTree("${rootProject.projectDir}/docs/managed-datahub/release-notes") { include '*.md' },
     file("${rootProject.projectDir}/datahub-web-react/src/i18n/locales"),
 )

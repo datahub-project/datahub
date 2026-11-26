@@ -53,7 +53,10 @@ Put new tests in `tests/e2e/<feature>/`, not `test_e2e.py`. Connector tests are 
   you are asserting search/index.
 - **Auth:** `auth_session` / `graph_client`. Extra users:
   `make_step_actor_user()`. Config: `utilities/env_vars.py`, not `os.getenv` or
-  `localhost:8080`. GraphQL: `execute_graphql()` (it already checks `data` /
+  `localhost:8080`. The same goes for other service URLs and index names
+  (executor, OpenSearch, `INDEX_PREFIX`): read them through `env_vars` with the
+  Docker value as the default, so the tests also run on the Docker-free stack.
+  GraphQL: `execute_graphql()` (it already checks `data` /
   `errors`) — assert the fields you care about. Ingest:
   `ingest_file_via_rest()`.
 - **Reuse helpers.** Do not copy-paste `addTag` or roll a local `uuid` when  
@@ -73,13 +76,93 @@ pytestmark = pytest.mark.domain(Domain.CATALOG)
 # pytestmark = pytest.mark.domain(Domain.CATALOG, Domain.INGESTION)
 ```
 
-| Marker                  | When                                                                                                       |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `domain(...)`           | **Required.** `platform`, `observe`, `ingestion`, `ai`, `catalog`.                                         |
-| `p0`                    | Must run on every PR.                                                                                      |
-| `global_policy_mutator` | Disables default policies / mutates shared platform policy. CI runs these serially after parallel modules. |
+| Marker                  | When                                                                                                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `domain(...)`           | **Required.** `platform`, `observe`, `ingestion`, `ai`, `catalog`.                                                                                                         |
+| `p0`                    | Must run on every PR.                                                                                                                                                      |
+| `global_policy_mutator` | Disables default policies / mutates shared platform policy. CI runs these serially after parallel modules.                                                                 |
+| `requires(...)`         | Backend capabilities beyond GMS the test needs, from the `Capability` enum in `utilities/backends.py`. Add only when the test really needs one (see Backend capabilities). |
+| `docker_canary`         | A `p0` test that proves a Docker image works; runs in the Docker canary lane next to the Docker-free lane.                                                                 |
 
 Keep `@pytest.mark.dependency()` chains short (ideally ≤3).
+
+### Backend capabilities
+
+Smoke tests run on the Docker quickstart or on the Docker-free local stack
+(`scripts/dev/datahub-dev.sh start --local`: GMS over H2, embedded OpenSearch,
+in-memory pgQueue). A test that needs something the local stack lacks declares
+it, on the module or the test:
+
+```python
+from utilities.backends import Capability
+
+pytestmark = pytest.mark.requires(Capability.KAFKA)
+```
+
+| Capability                  | Needed when the test                                                   |
+| --------------------------- | ---------------------------------------------------------------------- |
+| `kafka`                     | Produces to or consumes from Kafka, or asserts Kafka-only behavior.    |
+| `sql_db`                    | Connects to the MySQL/Postgres metadata store (e.g. the pgQueue sink). |
+| `docker`                    | Shells out to the `docker` CLI.                                        |
+| `play_frontend`             | Asserts behavior of the Play frontend server (encodings, gzip).        |
+| `executor_image`            | Relies on plugins bundled in the Docker executor image.                |
+| `object_storage`            | Reads or writes the object-storage archive.                            |
+| `integrations`              | Needs the integrations service (available on both stacks).             |
+| `docker_free_investigation` | Fails on the Docker-free stack for a reason still under investigation. |
+
+`SMOKE_BACKEND` (`docker` by default, or `local`) selects the stack;
+`utilities/backends.py` lists what `local` provides. `SMOKE_BACKEND_MODE=canary`
+runs only the tests the local stack cannot run, plus `docker_canary` tests.
+Tests are deselected, never skipped. An unknown capability fails collection.
+A test that uses only GMS, GraphQL, OpenAPI or the SDK needs no marker.
+
+Two checks catch a missing marker. The pre-commit hook and CI lint
+(`.github/scripts/check_backend_markers.py`) flag a module that calls the Kafka
+or SQL helpers in `tests/e2e/utils.py` or runs the `docker` CLI without naming
+that capability. On `SMOKE_BACKEND=local`, those helpers raise an error naming
+the marker to add.
+
+### Smart-testing tags
+
+PR test selection uses concept tags from `.github/smart-testing/taxonomy.yaml`,
+mirrored as enums in `smart_testing/taxonomy.py`. Tag a new module by adding
+an entry to `smart_testing/test_tags.yaml` (preferred), or with markers in
+source. Tests and tags for features only this repository has go in the
+optional overlays (`test_tags.overlay.yaml`, `taxonomy.overlay.yaml`), so the
+base files stay shared:
+
+```python
+from smart_testing.taxonomy import FeatureUser, TechnicalLayer
+
+pytestmark = [
+    pytest.mark.feature_user(FeatureUser.LINEAGE),
+    pytest.mark.technical_layer(TechnicalLayer.GRAPHQL),
+]
+```
+
+Selection happens per module on feature tags (`feature_user`, `feature_dev`,
+`compound`). Untagged modules always run. CI sets `SMOKE_SMART_TESTING`:
+
+- `off` (the default): nothing is loaded.
+- `shadow`: tags are applied and the would-be selection is recorded as the JUnit
+  property `smart_selected`, but nothing is skipped.
+- `active`: CI's `smoke_test_matrix` job selects modules and plans batches
+  (`TEST_STRATEGY=plan ./smoke.sh`), so the matrix has only as many batches as
+  the selection fills. Each batch job runs the scopes planned for it
+  (`SMOKE_BATCH_PLAN`). If the PR has no tags, the p0 tier runs. A PR with
+  no feature tags runs only the canary (always-run plus its changed tests)
+  when it changes fewer than 15 files, else the p0 tier. A PR that changes
+  the shared pytest harness (`change-type: pytest-plumbing`, set from the
+  paths in `taxonomy.yaml`: root conftests, `tests/e2e/utils.py`,
+  `utilities/`, `smart_testing/`, batch planning, runner scripts, weights
+  and dependencies) also runs `plumbing_sample` from `test_tags.yaml`. The
+  `run-all-tests` label runs the full suite with smart testing off.
+
+After adding, changing, or deleting tests, run `/datahub-test-taxonomy tag` to update
+`test_tags.yaml` for this branch's changes.
+
+An unknown tag is logged as an error during collection. To try it locally:
+`SMOKE_SMART_TESTING=active SMOKE_SMART_TAGS='{"feature-user": ["lineage"]}' pytest --collect-only -q`.
 
 ## Isolation
 

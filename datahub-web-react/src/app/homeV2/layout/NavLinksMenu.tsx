@@ -1,4 +1,9 @@
 import { Tooltip } from '@components';
+import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { ShieldCheck } from '@phosphor-icons/react/dist/csr/ShieldCheck';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -10,15 +15,10 @@ import { NavMenuItem, NavSubMenuItem } from '@app/homeV2/layout/types';
 import { HOME_PAGE_INGESTION_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
 import { useHandleOnboardingTour } from '@app/onboarding/useHandleOnboardingTour';
 import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
+import { getThemeMenuItemDescription } from '@app/sharedV2/githubStar/githubStar.utils';
 import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { HelpLinkRoutes, PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
-
-import AnalyticsMenuIcon from '@images/analyticsMenuIcon.svg?react';
-import GovernMenuIcon from '@images/governMenuIcon.svg?react';
-import HelpMenuIcon from '@images/help-icon.svg?react';
-import IngestionMenuIcon from '@images/ingestionMenuIcon.svg?react';
-import SettingsMenuIcon from '@images/settingsMenuIcon.svg?react';
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
     opacity: 1;
@@ -131,7 +131,7 @@ export function NavLinksMenu(props: Props) {
     // Help menu options
     const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
         title: value.label,
-        description: value.description || '',
+        description: getThemeMenuItemDescription(value, !!config?.featureFlags?.showGithubStarPrompt),
         link: value.path || null,
         isHidden: false,
         target: '_blank',
@@ -141,14 +141,14 @@ export function NavLinksMenu(props: Props) {
     // Menu Items
     const menuItems: Array<NavMenuItem> = [
         {
-            icon: AnalyticsMenuIcon,
+            icon: ChartBar,
             title: t('navLinks.analytics.title'),
             description: t('navLinks.analytics.description'),
             link: PageRoutes.ANALYTICS,
             isHidden: !showAnalytics,
         },
         {
-            icon: GovernMenuIcon,
+            icon: ShieldCheck,
             title: t('navLinks.govern.title'),
             description: t('navLinks.govern.description'),
             link: null,
@@ -192,21 +192,21 @@ export function NavLinksMenu(props: Props) {
             },
         },
         {
-            icon: IngestionMenuIcon,
+            icon: Plugs,
             title: t('navLinks.ingestion.title'),
             description: t('navLinks.ingestion.description'),
             link: PageRoutes.INGESTION,
             isHidden: !showIngestion,
         },
         {
-            icon: SettingsMenuIcon,
+            icon: Gear,
             title: t('navLinks.settings.title'),
             description: t('navLinks.settings.description'),
             link: PageRoutes.SETTINGS,
             isHidden: !showSettings,
         },
         {
-            icon: HelpMenuIcon,
+            icon: Question,
             title: t('navLinks.help.title'),
             description: t('navLinks.help.description'),
             link: null,

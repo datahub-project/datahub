@@ -4,6 +4,7 @@ import React, { ReactNode, useMemo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { clearSecretListCache } from '@app/ingestV2/secret/cacheUtils';
 import { RecipeFormItem } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/RecipeFormItem';
 import CreateSecretButton from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/SecretField/CreateSecretButton';
@@ -57,6 +58,8 @@ export function SecretField({ field, updateFormValue }: CommonFieldProps) {
         [secrets],
     );
     const apolloClient = useApolloClient();
+    // The backend rejects createSecret without this privilege, so don't offer it.
+    const canManageSecrets = !!useUserContext().platformPrivileges?.manageSecrets;
 
     return (
         <RecipeFormItem
@@ -75,14 +78,18 @@ export function SecretField({ field, updateFormValue }: CommonFieldProps) {
                     return (
                         <>
                             {menu}
-                            <StyledDivider />
-                            <CreateSecretButton
-                                onSubmit={(state) => {
-                                    updateFormValue(field.name, encodeSecret(state.name as string));
-                                    setTimeout(() => clearSecretListCache(apolloClient), 3000);
-                                }}
-                                refetchSecrets={refetchSecrets}
-                            />
+                            {canManageSecrets && (
+                                <>
+                                    <StyledDivider />
+                                    <CreateSecretButton
+                                        onSubmit={(state) => {
+                                            updateFormValue(field.name, encodeSecret(state.name as string));
+                                            setTimeout(() => clearSecretListCache(apolloClient), 3000);
+                                        }}
+                                        refetchSecrets={refetchSecrets}
+                                    />
+                                </>
+                            )}
                         </>
                     );
                 }}

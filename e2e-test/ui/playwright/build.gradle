@@ -1,11 +1,7 @@
 apply plugin: 'com.github.node-gradle.node'
 
 node {
-  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
-    download = false
-  } else {
-    download = true
-  }
+  download = !rootProject.ext.useSystemNode
 
   version = rootProject.ext.nodeVersion
   yarnVersion = rootProject.ext.yarnVersion
@@ -17,6 +13,8 @@ node {
 }
 
 task yarnInstall(type: YarnTask) {
+  // Shares the yarn cache with the other yarn installs (see yarnInstallLock in the root build.gradle).
+  usesService(rootProject.ext.yarnInstallLock)
   args = ['install', '--network-timeout', '300000']
 }
 

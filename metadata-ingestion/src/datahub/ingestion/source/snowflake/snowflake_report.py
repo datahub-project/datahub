@@ -105,11 +105,26 @@ class SnowflakeV2Report(
     schemas_scanned: int = 0
     databases_scanned: int = 0
     tags_scanned: int = 0
+    # Snowflake tags that DataHub sync-back created are recognised through their
+    # PlatformResource record and never taken from Snowflake; when a whole aspect
+    # is written, the values DataHub holds for them are kept instead.
+    num_tags_skipped_datahub_managed: int = 0
+    num_structured_properties_skipped_datahub_managed: int = 0
+    num_managed_tags_preserved_from_datahub: int = 0
+    num_managed_structured_properties_preserved_from_datahub: int = 0
+    # Entities whose tags or properties were left unchanged for the run because
+    # DataHub's current aspect could not be read.
+    num_datahub_aspect_read_failures: int = 0
+    num_tag_platform_resource_lookup_failures: int = 0
+    num_tag_platform_resources_unparseable: int = 0
+    num_tag_platform_resource_invalid_urns: int = 0
     streams_scanned: int = 0
     procedures_scanned: int = 0
     streamlit_apps_scanned: int = 0
     semantic_views_scanned: int = 0
     stages_scanned: int = 0
+    num_stage_external_lineage_resolved: int = 0
+    num_stage_external_lineage_dropped: int = 0
     tasks_scanned: int = 0
     pipes_scanned: int = 0
 
@@ -131,6 +146,10 @@ class SnowflakeV2Report(
     # keying bug fixed in #19143, and of the graph-history query's filters excluding
     # everything on an edition whose output differs from the documented one.
     num_dynamic_tables_missing_graph_info: int = 0
+    # SHOW INTERACTIVE TABLES lists only tables the role can SELECT; others never appear.
+    num_interactive_tables_missing_from_show: int = 0
+    num_interactive_tables_failed_get_ddl: int = 0
+    num_interactive_tables_without_definition: int = 0
     num_structured_property_templates_created: int = 0
     # sqlglot parse failures while resolving metric-to-metric derivedFrom refs;
     # best-effort, the metric is still emitted without those edges.

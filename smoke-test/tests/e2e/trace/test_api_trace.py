@@ -5,12 +5,16 @@ import pytest
 from opensearchpy import OpenSearch
 
 from tests.e2e.utils import delete_urn, delete_urns, wait_for_writes_to_sync
+from utilities import env_vars
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
-es = OpenSearch(["http://localhost:9200"])
+es = OpenSearch([env_vars.get_elasticsearch_url()])
+_SYSTEM_METADATA_INDEX = "_".join(
+    filter(None, [env_vars.get_index_prefix(), "system_metadata_service_v1"])
+)
 
 
 generated_urns = {
@@ -249,7 +253,8 @@ def test_missing_elasticsearch_async_write(auth_session, graph_client):
         }
     }
 
-    # Simulate dropped write
+    # A fresh write whose search metadata is already gone stays pending until the commit
+    # grace elapses. That grace covers the mapping put and the system-metadata refresh.
     delete_elasticsearch_system_metadata(urn)
     wait_until_system_metadata_deleted(urn)
 
@@ -261,11 +266,13 @@ def test_missing_elasticsearch_async_write(auth_session, graph_client):
     assert resp.json() == {
         urn: {
             aspect_name: {
-                "success": False,
+                "success": True,
                 "primaryStorage": {"writeStatus": "ACTIVE_STATE"},
                 "searchStorage": {
-                    "writeStatus": "ERROR",
-                    "writeMessage": "Consumer has processed past the offset.",
+                    "writeStatus": "PENDING",
+                    "writeMessage": (
+                        "Consumer has processed past the offset; waiting for search visibility."
+                    ),
                 },
             }
         }
@@ -460,7 +467,7 @@ def extract_trace_system_metadata(system_metadata):
 
 def delete_elasticsearch_trace(trace_id, timeout=10, refresh_interval=3):
     field_name = "telemetryTraceId"
-    index_name = "system_metadata_service_v1"
+    index_name = _SYSTEM_METADATA_INDEX
 
     update_body = {
         "query": {"term": {field_name: trace_id}},
@@ -484,7 +491,7 @@ def delete_elasticsearch_trace(trace_id, timeout=10, refresh_interval=3):
 
 
 def delete_elasticsearch_system_metadata(urn, timeout=10, refresh_interval=1):
-    index_name = "system_metadata_service_v1"
+    index_name = _SYSTEM_METADATA_INDEX
 
     update_body = {"query": {"term": {"urn": urn}}}
 
@@ -505,7 +512,7 @@ def delete_elasticsearch_system_metadata(urn, timeout=10, refresh_interval=1):
 
 
 def wait_until_system_metadata_deleted(urn, timeout=30, poll_interval=1):
-    index_name = "system_metadata_service_v1"
+    index_name = _SYSTEM_METADATA_INDEX
     deadline = time.time() + timeout
 
     while time.time() < deadline:

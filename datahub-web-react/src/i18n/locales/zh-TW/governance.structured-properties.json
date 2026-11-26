@@ -18,8 +18,11 @@
     "allowedValues.addTooltip": "將新值加入允許清單",
     "allowedValues.anyValueAllowed": "系統將允許任何 <type>{{valueType}}</type> 值",
     "allowedValues.descriptionPlaceholder": "請提供說明",
+    "allowedValues.descriptionTooltip": "新增說明",
+    "allowedValues.dragTooltip": "拖曳以重新排序",
     "allowedValues.editExistingTooltip": "不允許編輯既有的允許值",
     "allowedValues.fieldTooltip": "定義此屬性的有效值集合。若未提供任何值，系統將允許所有值",
+    "allowedValues.hideDescriptionTooltip": "隱藏說明",
     "allowedValues.removeTooltip": "從允許值清單中移除",
     "allowedValues.title": "允許的值",
     "allowedValues.updateButton": "更新允許的值",
@@ -33,6 +36,7 @@
     "appliesTo.title": "適用於",
     "appliesTo.titleCapitalized": "適用於",
     "appliesTo.tooltip": "選取可加入此屬性的實體類型",
+    "badgeReplaceError": "已儲存結構化屬性，但無法更新資料資產徽章。",
     "create.nameError": "請輸入名稱",
     "create.namePlaceholder": "請提供名稱",
     "create.propertyType": "屬性類型",
@@ -64,6 +68,7 @@
     "page.subtitle": "為你的資料資產建立及管理自訂屬性",
     "page.title": "結構化屬性",
     "permissionTooltip": "必須具備管理結構化屬性的權限。請洽詢你的 DataHub 管理員。",
+    "table.allowedPlatformsColumn": "平台",
     "table.confirmDeleteText": "你確定要刪除嗎？系統會先軟刪除此屬性，接著永久刪除，並從目前套用此屬性的所有資料資產上移除。此屬性的限定名稱可能仍保留在搜尋索引中，在受影響的索引重建之前，無法用於新的屬性。",
     "table.confirmDeleteTitle": "確認刪除",
     "table.copyUrn": "複製 URN",
@@ -75,6 +80,7 @@
     "table.entityTypesColumn": "實體類型",
     "table.noPropertiesYet": "尚未建立任何屬性！",
     "table.noSearchResults": "沒有搜尋結果！",
+    "table.typeColumn": "類型",
     "updateError": "無法更新結構化屬性。",
     "updateSuccess": "已更新結構化屬性！",
     "valueType.dateDescription": "特定日期",
@@ -94,5 +100,6 @@
     "valueType.textDescription": "字串值",
     "valueType.textLabel": "文字",
     "valueType.textListDescription": "一組字串值",
-    "valueType.textListLabel": "文字 - 清單"
+    "valueType.textListLabel": "文字 - 清單",
+    "viewTitle": "檢視結構化屬性"
 }

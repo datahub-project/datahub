@@ -1,22 +1,20 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { Typography } from 'antd';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import EntityIcon from '@app/entity/shared/components/styled/EntityIcon';
+import EntityIcon from '@app/entityV2/shared/components/styled/EntityIcon';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
+import Highlight from '@app/sharedV2/text/Highlight';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Tooltip } from '@src/alchemy-components';
 import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
 import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
 import ActorPill from '@src/app/sharedV2/owners/ActorPill';
 import { Entity, EntityType, MetadataAttribution, OwnerType } from '@src/types.generated';
-
-import ExternalLink from '@images/link-out.svg?react';
 
 const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean }>`
     font-family: 'Manrope';
@@ -26,7 +24,8 @@ const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean 
     display: block;
     width: 100%;
 
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         font-size: ${(props) => props.size}px;
     }
 
@@ -39,7 +38,7 @@ const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean 
         `}
 `;
 
-const StyledIcon = styled(Icon)`
+const StyledIcon = styled(ArrowSquareOut)`
     margin-left: 6px;
 `;
 
@@ -163,7 +162,7 @@ export default function StructuredPropertyValue({
                         {entityRegistry.getDisplayName(value.entity.type, value.entity)}
                     </EntityName>
                     <Link to={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
-                        <StyledIcon component={ExternalLink} />
+                        <StyledIcon size={12} />
                     </Link>
                 </EntityWrapper>
             );

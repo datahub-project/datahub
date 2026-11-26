@@ -7,11 +7,10 @@ import { Button } from '@components/components/Button';
 import { getExtensionFromFileName } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileIcon } from '@components/components/FileNode/FileIcon';
 import { FileNodeProps } from '@components/components/FileNode/types';
+import { StyledSpinner } from '@components/components/Loader/components';
 import { Text } from '@components/components/Text';
 import { Tooltip } from '@components/components/Tooltip';
 import { getFontSize } from '@components/theme/utils';
-
-import Loading from '@app/shared/Loading';
 
 const Container = styled.div<{ $border?: boolean; $fontSize?: string }>`
     display: flex;
@@ -34,6 +33,12 @@ const FileDetails = styled.span`
     font-weight: 600;
     width: 100%;
     padding: 4px;
+`;
+
+const SpinnerWrapper = styled.div`
+    display: flex;
+    justify-content: center;
+    width: 20px;
 `;
 
 const SpaceFiller = styled.div`
@@ -96,7 +101,9 @@ export function FileNode({
         return (
             <Container $border={border} className={className} $fontSize={fontSize}>
                 <FileDetails>
-                    <Loading height={18} width={20} marginTop={0} />
+                    <SpinnerWrapper>
+                        <StyledSpinner $height={18} />
+                    </SpinnerWrapper>
                     <Tooltip title={fileName}>
                         <FileName type="span">{t('fileNode.uploading', { fileName })}</FileName>
                     </Tooltip>

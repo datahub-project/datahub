@@ -8,7 +8,7 @@ import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/Struct
 import { PropertyRow, ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
 import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import EntityRegistry from '@src/app/entityV2/EntityRegistry';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 /**
  * How many values of one property render before the user has to ask for more. Matches the other
@@ -83,7 +83,7 @@ export default function StructuredPropertyValueList({
     dataTestId,
 }: Props) {
     const { t } = useTranslation('entity.profile.tabs');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const values = useMemo(() => propertyRow.values ?? [], [propertyRow.values]);
     const [query, setQuery] = useState('');
     const [shownCount, setShownCount] = useState(maxValuesToShow);

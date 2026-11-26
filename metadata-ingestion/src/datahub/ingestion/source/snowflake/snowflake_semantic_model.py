@@ -27,7 +27,10 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SNOWFLAKE_FIELD_TYPE_MAPPINGS,
     SnowflakeIdentifierBuilder,
 )
-from datahub.ingestion.source.sql.sql_utils import get_domain_wu
+from datahub.ingestion.source.sql.sql_utils import (
+    add_table_to_schema_container,
+    get_domain_wu,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateType,
     NullType,
@@ -659,6 +662,11 @@ class SnowflakeSemanticModelMapper:
             ),
         ).as_workunit()
 
+        yield from add_table_to_schema_container(
+            dataset_urn=logical_dataset_urn,
+            parent_container_key=self.identifiers.gen_schema_key(db_name, schema_name),
+        )
+
         yield from self._gen_common_entity_aspects(
             entity_urn=logical_dataset_urn,
             browse_path=self._browse_path_entries(db_name, schema_name)
@@ -1111,12 +1119,12 @@ class SnowflakeSemanticModelMapper:
                     ),
                 )
             )
-        entries.append(
-            BrowsePathEntryClass(id=self.identifiers.snowflake_identifier(db_name))
-        )
-        entries.append(
-            BrowsePathEntryClass(id=self.identifiers.snowflake_identifier(schema_name))
-        )
+        # Id-only db/schema entries render as separate browse folders, and an
+        # explicit browsePathsV2 wins over the path derived from container.
+        db_urn = self.identifiers.gen_database_key(db_name).as_urn()
+        entries.append(BrowsePathEntryClass(id=db_urn, urn=db_urn))
+        schema_urn = self.identifiers.gen_schema_key(db_name, schema_name).as_urn()
+        entries.append(BrowsePathEntryClass(id=schema_urn, urn=schema_urn))
         return entries
 
     def _gen_view_tags(

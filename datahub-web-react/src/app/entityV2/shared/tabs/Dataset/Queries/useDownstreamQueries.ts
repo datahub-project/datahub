@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import { MAX_QUERIES_COUNT } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
 import { filterQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
 import { mapQuery } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/mapQuery';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
-import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LINEAGE_FILTER_PAGINATION, isQuery } from '@app/lineageV3/common';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';

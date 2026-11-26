@@ -73,6 +73,33 @@ The associations in the list above are an _intersection_ or an _AND_ operation. 
 `1. resource type: dataset` and `3. resources tagged: 'myTag'`, it will apply to datasets that are tagged with tag 'myTag'.
 :::
 
+##### Match Conditions
+
+Each resource filter has a match condition that controls how its values are compared against the asset. You can set the condition for each filter in the policy builder UI, or through the `condition` field of a criterion in the API.
+
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies/policy-match-condition.png"/>
+</p>
+
+| Condition     | UI label    | The filter matches an asset when...                                                           |
+| ------------- | ----------- | --------------------------------------------------------------------------------------------- |
+| `EQUALS`      | Equals      | The asset has at least one of the selected values. This is the default.                       |
+| `NOT_EQUALS`  | Not Equals  | The asset has none of the selected values.                                                    |
+| `STARTS_WITH` | Starts With | At least one of the asset's values starts with the entered prefix (for example a URN prefix). |
+
+For example, a policy with resource type `Equals dataset` and domain `Not Equals Finance` applies to every dataset that is not in the Finance domain.
+
+Keep the following in mind when using conditions:
+
+- **Hierarchies are respected.** Domain and container filters compare against the asset's full parent chain. `Not Equals`
+  on a domain or container therefore also excludes assets in its nested child domains or containers.
+- **`Starts With` compares raw values.** For resource URNs, tags, domains, containers, and glossary terms, the prefix is
+  matched against the URN, for example `urn:li:tag:pii_` matches `urn:li:tag:pii_email` and `urn:li:tag:pii_phone`.
+- **Resource types do not offer `Starts With` in the UI.** The privileges you can choose depend on the selected resource
+  types, so a prefix would leave no privileges to select. Use `Equals` or `Not Equals` instead.
+- **Changing to or from `Starts With` clears the filter's values**, because a prefix and a list of selected assets are
+  not interchangeable. Switching between `Equals` and `Not Equals` keeps your selections.
+
 ##### Domain-Based Policy Targeting
 
 Policies can be targeted to assets based on **Domains**. This allows you to apply permissions to all assets within a specific business domain.
@@ -474,7 +501,7 @@ These privileges are for DataHub operators to access & manage the administrative
 | Manage Secrets                  | Allow actor to create & remove Secrets stored inside DataHub.                                                                                                                             |
 | Manage Users & Groups           | Allow actor to create, remove, and update users and groups on DataHub.                                                                                                                    |
 | Manage All Access Tokens        | Allow actor to create, list and revoke access tokens on behalf of users in DataHub. Be careful - Actors with this privilege are effectively super users that can impersonate other users. |
-| Manage User Credentials         | Allow actor to manage credentials for native DataHub users, including inviting new users and resetting passwords                                                                          |     |
+| Manage User Credentials         | Allow actor to manage credentials for native DataHub users, including inviting new users and resetting passwords. Attaching a role to an invite link also requires Manage Policies.       |     |
 | Manage Connections              | Allow actor to manage connections to external DataHub platforms.                                                                                                                          |
 
 #### Product Features
@@ -484,6 +511,7 @@ These privileges are for DataHub operators to access & manage the administrative
 | Manage Home Page Posts          | Allow actor to create and delete home page posts                                                                                                                                                                                      |
 | Manage Business Attribute       | Allow actor to create, update, delete Business Attribute                                                                                                                                                                              |
 | Manage Documentation Forms      | Allow actor to manage forms assigned to assets to assist in documentation efforts.                                                                                                                                                    |
+| Manage Documents                | Allow actor to view, create, edit, move, delete, and import any document.                                                                                                                                                             |
 | Manage Metadata Ingestion       | Allow actor to create, remove, and update Metadata Ingestion sources. Recipes run as Python on the ingestion executor — grant only to trusted operators. See [Ingestion executor security](../docker/ingestion-executor-security.md). |
 | Manage Features                 | Umbrella privilege to manage all features.                                                                                                                                                                                            |
 | View Analytics                  | Allow actor to view the DataHub analytics dashboard.                                                                                                                                                                                  |
@@ -502,11 +530,12 @@ These privileges are for DataHub operators to access & manage the administrative
 
 #### Entity Management
 
-| Platform Privileges | Description                                               |
-| ------------------- | --------------------------------------------------------- |
-| Manage Domains      | Allow actor to create and remove Asset Domains.           |
-| Manage Glossaries   | Allow actor to create, edit, and remove Glossary Entities |
-| Manage Tags         | Allow actor to create and remove Tags.                    |
+| Platform Privileges      | Description                                                          |
+| ------------------------ | -------------------------------------------------------------------- |
+| Manage Domains           | Allow actor to create and remove Asset Domains.                      |
+| Manage All Data Products | Allow actor to create, edit, and remove Data Products in any Domain. |
+| Manage Glossaries        | Allow actor to create, edit, and remove Glossary Entities            |
+| Manage Tags              | Allow actor to create and remove Tags.                               |
 
 #### System Management
 
@@ -553,6 +582,7 @@ These privileges are to view & modify any entity within DataHub.
 | Edit Description              | Allow actor to edit the description (documentation) of an entity.                                                                                                                                                                                                                                             |
 | Edit Links                    | Allow actor to edit links associated with an entity.                                                                                                                                                                                                                                                          |
 | Edit Status                   | Allow actor to edit the status of an entity (soft deleted or not).                                                                                                                                                                                                                                            |
+| Edit Lifecycle Stage          | Allow actor to set or clear the lifecycle stage of an entity, e.g. Draft or Published.                                                                                                                                                                                                                        |
 | Edit Domain                   | Allow actor to edit the Domain of an entity.                                                                                                                                                                                                                                                                  |
 | Edit Data Product             | Allow actor to add or remove Data Product membership **from an asset** (asset profile / `batchAddToDataProducts`, `batchRemoveFromDataProducts`, unset via `batchSetDataProduct`). Does not authorize editing a Data Product's `assets` list from the product page — see **Manage Data Products**.            |
 | Edit Deprecation              | Allow actor to edit the Deprecation status of an entity.                                                                                                                                                                                                                                                      |
@@ -594,18 +624,32 @@ These privileges are to view & modify any entity within DataHub.
 
 Some APIs authorize against **related** entities rather than only the URN in the request. These rules apply across GraphQL, Rest.li, and MCP ingestion (unless the change uses a system ingestion source).
 
+#### Documents
+
+| To...                   | You need                                                                   | Granted by default to           |
+| ----------------------- | -------------------------------------------------------------------------- | ------------------------------- |
+| Create a document       | **Edit Entity** or **Create Entity** on documents, or **Manage Documents** | Admins and Editors              |
+| Edit or move a document | **Edit Entity** on the document, or **Manage Documents**                   | Admins, Editors, and its owners |
+| Delete a document       | **Delete** on the document, or **Manage Documents**                        | Admins and its owners           |
+| Manage any document     | **Manage Documents**                                                       | Admins                          |
+
+Editors can create and edit documents but cannot delete documents they don't own. Document owners
+can always delete their own documents.
+
 #### Data Products
 
-| Operation                                                                             | Privilege evaluated                                                                                | Resource                                        |
-| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Create Data Product                                                                   | **Manage Data Products**                                                                           | Domain from create input                        |
-| Update / delete Data Product                                                          | **Manage Data Products**                                                                           | **At least one** Domain on the product          |
-| Change `dataProductProperties.assets` (MCP / ingestion)                               | **Manage Data Products** on any product Domain **or** **Edit Data Product** on every changed asset | Product Domain(s) and/or each changed **asset** |
-| Change `dataProductProperties.assets` (product page / `batchSetDataProduct` with urn) | **Manage Data Products**                                                                           | **At least one** Domain on the product          |
-| Add/remove Data Product from asset profile                                            | **Edit Data Product**                                                                              | Target **asset**                                |
-| Rename Data Product (`updateName`)                                                    | **Manage Data Products** on any Domain **or** **Edit Entity** on the Data Product                  | Domains and/or product URN                      |
+| Operation                                                                                           | Privilege evaluated                                                                                | Resource                                        |
+| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Create Data Product                                                                                 | **Manage Data Products** or **Manage All Data Products**                                           | Domain from create input                        |
+| Create Data Product with no Domain                                                                  | **Manage All Data Products**                                                                       | Platform                                        |
+| Update / delete Data Product                                                                        | **Manage Data Products**                                                                           | **At least one** Domain on the product          |
+| Change `dataProductProperties.assets` (MCP / ingestion)                                             | **Manage Data Products** on any product Domain **or** **Edit Data Product** on every changed asset | Product Domain(s) and/or each changed **asset** |
+| Change `dataProductProperties.assets` (product page / `batchSetDataProduct` with urn)               | **Manage Data Products**                                                                           | **At least one** Domain on the product          |
+| Add/remove Data Product from asset profile                                                          | **Edit Data Product**                                                                              | Target **asset**                                |
+| Rename Data Product (`updateName`)                                                                  | **Manage Data Products** on any Domain **or** **Edit Entity** on the Data Product                  | Domains and/or product URN                      |
+| Set, change or remove the Domain of a Data Product (`setDomain` / `batchSetDomain` / `unsetDomain`) | **Edit Domain** or **Edit Entity** on the product, or **Manage All Data Products**                 | Product URN / Platform                          |
 
-Domain URNs are read from the product's `domains` aspect, preferring `domainAssociations` and falling back to the legacy `domains` array. Duplicate entries are deduplicated. Products with no Domain associations are denied for product-side manage operations. Product and asset Domains do not need to match — authorization succeeds when either product-side manage or asset-side edit checks pass.
+Domain URNs are read from the product's `domains` aspect, preferring `domainAssociations` and falling back to the legacy `domains` array. Duplicate entries are deduplicated. **Manage All Data Products** is a platform privilege that allows the product-side operations above (create, update, rename, delete, and changing a product's assets from the product page) on any Data Product, with or without a Domain. It does not affect the asset-profile row, which still requires **Edit Data Product** on the asset. Without it, products with no Domain associations are denied for product-side manage operations, except that **Edit Entity** on the product or **Manage Domains** also allows managing a product that has no Domain. Product and asset Domains do not need to match — authorization succeeds when either product-side manage or asset-side edit checks pass.
 
 **Known issue:** Domain alignment is not enforced after membership is written. Changing a product's or asset's `domains` aspect does not re-validate or prune existing `assets` links.
 
@@ -732,6 +776,24 @@ sub-resource targeted by the action rather than the primary entity. For example,
 user set/change/remove only that structured property on matching assets. `NOT_EQUALS` is supported to block
 specific properties. These policies apply by default in the UI and can be configured to apply
 to API operations as well through the `MCP_VALIDATION_PRIVILEGE_CONSTRAINTS` environment variable which should be applied globally (GMS, MCE Consumer, and DataHub Upgrade specifically), which is enabled by default.
+
+A policy grants a write when its resource filter matches the asset and its privilege covers the
+operation. Policies are combined with OR: one policy with no `privilegeConstraints` list still
+grants the whole privilege even when another policy lists sub-resources. A list scopes only the
+policy that contains it, and only when the action names sub-resources. An action that names none
+is not filtered by the list. A list of tag URNs allows only those tag edits. It does not match a
+structured-property URN, so it does not allow that property write. A list of structured-property
+URNs allows only those properties. A criterion of type `structuredProperty` with no property URNs
+matches every structured property. A tag or domain on the resource filter (`resources.filter`)
+selects which assets the policy applies to; it is not a sub-resource list.
+
+The privilege can be the entity's update privilege (**Edit Entity**, and **Manage Documents** on
+documents) or the aspect privilege (**Edit Entity Properties** for every property, **Edit Entity
+Tags** for tags, **Edit Dataset Column Properties** or **Edit Entity** on the parent dataset or
+the schema field for a column). Creating an asset that does not exist yet uses **Create Entity**.
+Deleting the aspect uses **Delete Entity**. Answering a form prompt first checks that the form is
+on the asset and that the answer sets the property the prompt asks for. An assigned user or group
+can answer that property without the property privilege. A user who is not assigned still needs it.
 
 Example JSON of a policy with constraints:
 

@@ -115,8 +115,11 @@ SELECT refresh_date, description FROM analytics_schema.simple_analytics WHERE re
 
 -- Note: V$SQL is a cache, not a persistent query log
 -- The DML queries executed above (INSERT INTO staging_schema.employee_backup, 
--- INSERT INTO staging_schema.daily_revenue) may or may not be in V$SQL when the 
--- connector runs, depending on Oracle's cache behavior.
+-- INSERT INTO staging_schema.daily_revenue, and the UPDATE inside
+-- sales_schema.process_order called by 01_setup.sql) may or may not be in V$SQL
+-- when the connector runs, depending on Oracle's cache behavior and on which
+-- statements fall inside max_queries_to_extract. test_oracle.py filters them out
+-- of both the output and the golden file.
 -- The test validates that include_query_usage works and extracts any queries present in V$SQL.
 -- This is the expected behavior for V$SQL-based query usage extraction.
 -- Staging tables are in STAGING_SCHEMA to avoid cluttering test configurations.

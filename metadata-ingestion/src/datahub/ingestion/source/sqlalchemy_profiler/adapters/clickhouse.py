@@ -25,18 +25,13 @@ class ClickHouseAdapter(PlatformAdapter):
     ) -> ProfilingContext:
         # ClickHouse session-scoped temp tables are incompatible with connection-pool
         # cross-connection reads, so this adapter never creates temp tables.
-        unsupported = []
+        # limit/offset go unapplied here, which the profiler warns about
+        # centrally from what this adapter does not report on context.applied.
         if context.custom_sql:
-            unsupported.append("custom_sql")
-        if self.config.limit:
-            unsupported.append("limit")
-        if self.config.offset:
-            unsupported.append("offset")
-        if unsupported:
             self.report.warning(
                 title="Profiling: ClickHouse SQLAlchemy profiler options ignored",
-                message="custom_sql, limit, and offset are not supported on the SQLAlchemy profiler path; full-table profiling will be used instead",
-                context=f"{context.pretty_name}: ignored options: {unsupported}",
+                message="custom_sql is not supported on the SQLAlchemy profiler path; full-table profiling will be used instead",
+                context=context.pretty_name,
             )
         return super().setup_profiling(context, conn)
 
@@ -54,40 +49,9 @@ class ClickHouseAdapter(PlatformAdapter):
     def get_mean_expr(self, column: str) -> ColumnElement[Any]:
         return sa.func.avg(sa.column(column))
 
-    def get_column_stdev(
-        self, table: sa.Table, column: str, conn: ProfilingConnection
-    ) -> Optional[Any]:
-        # ClickHouse's `stddev` is an alias for `stddevPop` (population), so we
-        # call `stddevSamp` explicitly to match sample-stddev semantics.
-        try:
-            result = conn.execute_aggregate(
-                table, sa.func.stddevSamp(sa.column(column))
-            ).scalar()
-        except SQLAlchemyError as e:
-            self.report.warning(
-                title="Profiling: failed to compute stdev",
-                message="ClickHouse stddevSamp() query failed; column stdev unavailable",
-                context=_format_context(table, column),
-                exc=e,
-            )
-            return None
-
-        if result is not None:
-            return result
-
-        # NULL stddev → disambiguate undefined (≤1 row) from zero variance.
-        # Reported separately so a failure here is not blamed on stddevSamp above.
-        try:
-            non_null_count = self.get_column_non_null_count(table, column, conn)
-        except SQLAlchemyError as e:
-            self.report.warning(
-                title="Profiling: failed to disambiguate stdev null result",
-                message="Non-null count query failed after stddevSamp() returned NULL",
-                context=_format_context(table, column),
-                exc=e,
-            )
-            return None
-        return None if non_null_count <= 1 else 0.0
+    def get_stdev_expr(self, column: str) -> ColumnElement[Any]:
+        # ClickHouse's `stddev` is an alias for `stddevPop` (population).
+        return sa.func.stddevSamp(sa.column(column))
 
     def get_column_quantiles(
         self,

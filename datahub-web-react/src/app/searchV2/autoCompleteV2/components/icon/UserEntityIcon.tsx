@@ -4,21 +4,22 @@ import { EntityIconProps } from '@app/searchV2/autoCompleteV2/components/icon/ty
 import { Avatar } from '@src/alchemy-components';
 import { AvatarSizeOptions } from '@src/alchemy-components/theme/config';
 import { isCorpUser } from '@src/app/entityV2/user/utils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
-// Avatar only exposes a fixed set of size tokens (smallest is 18px), so a caller-provided
+// Avatar only exposes a fixed set of size tokens (smallest is 18px / `sm`), so a caller-provided
 // px `size` picks the nearest token rather than rendering at an exact size.
 function getAvatarSizeOption(size?: number): AvatarSizeOptions {
     if (size === undefined) return 'md';
-    if (size <= 18) return 'sm';
-    if (size <= 24) return 'md';
-    if (size <= 28) return 'lg';
-    if (size <= 32) return 'xl';
+    // Prefer `sm` (18px) over clipping — never pick a token larger than the requested slot when possible.
+    if (size < 24) return 'sm';
+    if (size < 28) return 'md';
+    if (size < 32) return 'lg';
+    if (size < 36) return 'xl';
     return '2xl';
 }
 
 export default function UserEntityIcon({ entity, size }: EntityIconProps) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     if (!isCorpUser(entity)) return null;
 

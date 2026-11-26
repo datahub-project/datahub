@@ -19,6 +19,7 @@ import {
   LINK_URL_BASE,
   LINK_URL_BASE_UPDATED,
 } from '../../../pages/entity/summary-tab/constants';
+import { DomainTag, TestTag } from '../../../utils/test-tags';
 
 const FEATURE_FLAGS = {
   showNavBarRedesign: true,
@@ -38,7 +39,7 @@ test.describe('About Section Tests', () => {
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   });
 
-  test('about section - description', async () => {
+  test('about section - description', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await summaryTabPage.ensureAboutSectionVisible();
 
     const timestamp = Date.now();

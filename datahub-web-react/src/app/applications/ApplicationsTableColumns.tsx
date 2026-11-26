@@ -4,7 +4,6 @@ import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVerti
 import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -13,7 +12,8 @@ import { ItemType } from '@components/components/Menu/types';
 
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
 import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
-import { useEntityRegistry, useEntityRegistryV2 } from '@app/useEntityRegistry';
+import Highlight from '@app/sharedV2/text/Highlight';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityType, Ownership } from '@src/types.generated';
 
 const ApplicationName = styled.div`
@@ -81,7 +81,7 @@ export const ApplicationDescriptionColumn = React.memo(
 );
 
 export const ApplicationOwnersColumn = React.memo(({ owners }: { owners: Ownership }) => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const ownerList = owners?.owners || [];
 
     if (ownerList.length === 0) return <>-</>;

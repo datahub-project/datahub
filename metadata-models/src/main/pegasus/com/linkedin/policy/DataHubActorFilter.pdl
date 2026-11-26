@@ -13,7 +13,7 @@ record DataHubActorFilter {
    */
   @Searchable = {
     "/*": {
-      "fieldType": "URN",
+      "fieldType": "URN"
     }
   }
   users: optional array[Urn]
@@ -23,7 +23,7 @@ record DataHubActorFilter {
    */
   @Searchable = {
     "/*": {
-      "fieldType": "URN",
+      "fieldType": "URN"
     }
   }
   groups: optional array[Urn]
@@ -66,6 +66,9 @@ record DataHubActorFilter {
   }
   @Searchable = {
     "/*": {
+      "v3": {
+        "queryByDefault": true
+      },
       "fieldType": "URN",
     }
   }

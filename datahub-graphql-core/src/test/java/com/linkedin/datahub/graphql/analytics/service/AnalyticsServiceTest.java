@@ -316,7 +316,7 @@ public class AnalyticsServiceTest {
   }
 
   @Test
-  public void testBarChartAggregatesV3EntityFieldsWithoutKeywordSubfield() throws Exception {
+  public void testBarChartAggregatesV3EntityKeywordSubfields() throws Exception {
     AnalyticsService v3Service =
         new AnalyticsService(mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
     SearchResponse empty = emptyFilteredResponse();
@@ -333,12 +333,10 @@ public class AnalyticsServiceTest {
         Optional.empty(),
         false);
 
-    // V3 entity indices keep these URN fields as keyword at the root, with no .keyword subfield
+    // V3 entity indices map the V2 .keyword subfields, so the field names are kept as given
     String source = request.getValue().source().toString();
-    assertTrue(source.contains("\"field\":\"domains\""), source);
-    assertTrue(source.contains("\"field\":\"platform\""), source);
-    assertFalse(source.contains("domains.keyword"), source);
-    assertFalse(source.contains("platform.keyword"), source);
+    assertTrue(source.contains("\"field\":\"domains.keyword\""), source);
+    assertTrue(source.contains("\"field\":\"platform.keyword\""), source);
   }
 
   @Test
@@ -361,7 +359,7 @@ public class AnalyticsServiceTest {
             false),
         List.of());
     verify(mockClient, times(1)).search(any(), any(SearchRequest.class), any());
-    // The usage index is not a V3 entity index, so its .keyword field names are kept
+    // Field names pass through as given
     assertTrue(request.getValue().source().toString().contains("actorUrn.keyword"));
   }
 

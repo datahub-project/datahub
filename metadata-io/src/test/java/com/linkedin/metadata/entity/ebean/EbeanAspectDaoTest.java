@@ -54,6 +54,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -529,6 +530,29 @@ public class EbeanAspectDaoTest {
     }
   }
 
+  /** Every version of every aspect counts, for the exact urn only, not one that starts with it. */
+  @Test
+  public void countUrnRowsCountsEveryVersionOfEveryAspect() {
+    final String urnA = "urn:li:corpuser:count_rows";
+    // Each lookalike would match urnA under a LIKE: "_" is a single-character wildcard, and a
+    // trailing "%" would match a longer urn.
+    final String underscoreLookalike = "urn:li:corpuser:countXrows";
+    final String prefixLookalike = "urn:li:corpuser:count_rows2";
+    insertAspect(urnA, "corpUserKey", 0, "key");
+    insertAspect(urnA, "status", 0, "v0");
+    insertAspect(urnA, "status", 1, "v1");
+    insertAspect(urnA, "status", 2, "v2");
+    for (final String lookalike : List.of(underscoreLookalike, prefixLookalike)) {
+      insertAspect(lookalike, "corpUserKey", 0, "key");
+      insertAspect(lookalike, "status", 0, "v0");
+    }
+
+    assertEquals(testDao.countUrnRows(opContext, urnA), 4);
+    assertEquals(testDao.countUrnRows(opContext, underscoreLookalike), 2);
+    assertEquals(testDao.countUrnRows(opContext, prefixLookalike), 2);
+    assertEquals(testDao.countUrnRows(opContext, "urn:li:corpuser:count_rows_none"), 0);
+  }
+
   @Test(dataProvider = "writabilityConfig")
   public void testDeleteAspectWithWritability(boolean canWrite, String description) {
     // Set writability
@@ -841,6 +865,54 @@ public class EbeanAspectDaoTest {
     assertFalse(
         sql.get(0).toLowerCase().contains("for update"),
         String.format("Expected no FOR UPDATE when optimisticLocking=true, got: %s", sql));
+  }
+
+  /**
+   * The delete's up-front check must hold until the transaction ends, so under optimistic locking
+   * {@code getLatestAspectsLocked} still takes the row locks; asserted on the lock flag the DAO
+   * hands the query builder, which is what decides whether FOR UPDATE is issued.
+   */
+  @Test
+  public void testGetLatestAspectsLockedTakesRowLocksEvenWhenOptimisticLockingOn() {
+    final EbeanAspectDao spyDao = spy(newOptimisticDao());
+
+    spyDao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          spyDao.getLatestAspectsLocked(
+              opContext, Map.of("urn:li:corpuser:testOptLockLocked", Set.of("status")));
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+
+    assertTrue(lockFlagHandedToQuery(spyDao), "expected row locks to be taken");
+  }
+
+  @Test
+  public void testGetLatestAspectsForUpdateStillDoesNotLockRowsWhenOptimisticLockingOn() {
+    final EbeanAspectDao spyDao = spy(newOptimisticDao());
+
+    spyDao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          spyDao.getLatestAspects(
+              opContext, Map.of("urn:li:corpuser:testOptLockPlain", Set.of("status")), true);
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+
+    assertFalse(lockFlagHandedToQuery(spyDao), "expected no row locks to be taken");
+  }
+
+  /** The {@code lockRows} flag of the one batch-get query the spied DAO ran. */
+  private static boolean lockFlagHandedToQuery(EbeanAspectDao spyDao) {
+    final ArgumentCaptor<Boolean> lockRows = ArgumentCaptor.forClass(Boolean.class);
+    verify(spyDao)
+        .batchGetSelectString(
+            any(), anyList(), anyInt(), anyInt(), lockRows.capture(), anyBoolean());
+    return lockRows.getValue();
   }
 
   @Test
@@ -1664,5 +1736,285 @@ public class EbeanAspectDaoTest {
     assertFalse(
         EbeanAspectDao.isDuplicateKeyCause(
             new PersistenceException("Duplicate entry 'foo' for key 'PRIMARY'")));
+  }
+
+  private EbeanAspectDao newDaoWithQueryKeysCount(
+      int queryKeysCountForBatch, boolean optimisticLocking) {
+    EbeanAspectDao dao =
+        new EbeanAspectDao(
+            PrimaryStorageTestUtils.ebeanResolver(server),
+            EbeanConfiguration.builder().queryKeysCountForBatch(queryKeysCountForBatch).build(),
+            mock(MetricUtils.class),
+            List.of(),
+            null,
+            optimisticLocking);
+    dao.setWritable(true);
+    return dao;
+  }
+
+  @Test
+  public void testGetNextVersionsLockPagesInGlobalKeyOrder() {
+    EbeanAspectDao dao = newDaoWithQueryKeysCount(2, false);
+    List<String> sortedUrns =
+        List.of(
+            "urn:li:corpuser:gnvLockA",
+            "urn:li:corpuser:gnvLockB",
+            "urn:li:corpuser:gnvLockC",
+            "urn:li:corpuser:gnvLockD",
+            "urn:li:corpuser:gnvLockE");
+    Map<String, Set<String>> urnAspects = new LinkedHashMap<>();
+    for (int i = sortedUrns.size() - 1; i >= 0; i--) {
+      urnAspects.put(sortedUrns.get(i), Set.of(STATUS_ASPECT_NAME));
+    }
+
+    LoggedSql.start();
+    dao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          dao.getNextVersions(opContext, urnAspects, true);
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+    List<String> lockSql = forUpdateStatements(snapshotStoppedSql(), "gnvLock");
+
+    assertEquals(lockSql.size(), 3, "unpaged lock would emit one FOR UPDATE, got: " + lockSql);
+    List<String> boundUrns = new ArrayList<>();
+    boolean bindsExposed = false;
+    for (String stmt : lockSql) {
+      List<String> pageUrns = urnsInAppearanceOrder(stmt, sortedUrns);
+      if (pageUrns.isEmpty()) {
+        int keyCount = countIdInTuples(stmt);
+        assertTrue(
+            keyCount > 0 && keyCount <= 2,
+            "each lock page must bind at most 2 keys, got " + keyCount + " in " + stmt);
+      } else {
+        bindsExposed = true;
+        assertTrue(
+            pageUrns.size() <= 2,
+            "each lock page must bind at most 2 keys, got " + pageUrns + " in " + stmt);
+        boundUrns.addAll(pageUrns);
+      }
+    }
+    if (bindsExposed) {
+      assertEquals(
+          boundUrns, sortedUrns, "lock binds must follow the global sort, got: " + lockSql);
+    }
+  }
+
+  @Test
+  public void testGetNextVersionsLockPagesInCodePointOrder() {
+    EbeanAspectDao dao = newDaoWithQueryKeysCount(1, false);
+    String e000Urn = "urn:li:x:" + "\uE000";
+    String u10000Urn = "urn:li:x:" + "\uD800\uDC00";
+    Map<String, Set<String>> urnAspects = new LinkedHashMap<>();
+    urnAspects.put(u10000Urn, Set.of(STATUS_ASPECT_NAME));
+    urnAspects.put(e000Urn, Set.of(STATUS_ASPECT_NAME));
+
+    LoggedSql.start();
+    dao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          dao.getNextVersions(opContext, urnAspects, true);
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+    List<String> lockSql = forUpdateStatements(snapshotStoppedSql(), "urn:li:x:");
+
+    assertEquals(
+        lockSql.size(), 2, "page size 1 must emit two FOR UPDATE statements, got: " + lockSql);
+    assertEquals(
+        urnsInAppearanceOrder(lockSql.get(0), List.of(e000Urn, u10000Urn)),
+        List.of(e000Urn),
+        "first FOR UPDATE must bind U+E000, got: " + lockSql.get(0));
+    assertEquals(
+        urnsInAppearanceOrder(lockSql.get(1), List.of(e000Urn, u10000Urn)),
+        List.of(u10000Urn),
+        "second FOR UPDATE must bind U+10000, got: " + lockSql.get(1));
+  }
+
+  @Test
+  public void testGetNextVersionsComputesMaxAcrossPages() {
+    EbeanAspectDao dao = newDaoWithQueryKeysCount(2, false);
+    List<String> sortedUrns =
+        List.of(
+            "urn:li:corpuser:gnvMaxA",
+            "urn:li:corpuser:gnvMaxB",
+            "urn:li:corpuser:gnvMaxC",
+            "urn:li:corpuser:gnvMaxD",
+            "urn:li:corpuser:gnvMaxE");
+    String page1Urn = sortedUrns.get(0);
+    String missingUrn = sortedUrns.get(2);
+    String page3Urn = sortedUrns.get(4);
+    Map<String, Set<String>> urnAspects = new LinkedHashMap<>();
+    for (int i = sortedUrns.size() - 1; i >= 0; i--) {
+      urnAspects.put(sortedUrns.get(i), Set.of(STATUS_ASPECT_NAME));
+    }
+    insertAspectHistory(dao, page1Urn, 0L, 1L, 2L);
+    insertAspectHistory(dao, page3Urn, 0L, 1L);
+
+    LoggedSql.start();
+    Map<String, Map<String, Long>> versions = new HashMap<>();
+    dao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          versions.putAll(dao.getNextVersions(opContext, urnAspects, true));
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+    List<String> sql = snapshotStoppedSql();
+
+    assertEquals(versions.get(page1Urn).get(STATUS_ASPECT_NAME), Long.valueOf(3L));
+    assertEquals(versions.get(page3Urn).get(STATUS_ASPECT_NAME), Long.valueOf(2L));
+    assertEquals(versions.get(missingUrn).get(STATUS_ASPECT_NAME), Long.valueOf(0L));
+    List<String> maxSql = maxVersionSelects(sql, "gnvMax");
+    assertEquals(maxSql.size(), 3, "max(version) must be issued once per page, got: " + sql);
+    for (int page = 0; page < maxSql.size(); page++) {
+      int start = page * 2;
+      Set<String> expectedPage =
+          Set.copyOf(sortedUrns.subList(start, Math.min(start + 2, sortedUrns.size())));
+      List<String> pageUrns = urnsInAppearanceOrder(maxSql.get(page), sortedUrns);
+      assertFalse(pageUrns.isEmpty(), "max select must expose page URNs, got: " + maxSql.get(page));
+      assertEquals(
+          Set.copyOf(pageUrns),
+          expectedPage,
+          "max select bound the wrong page: " + maxSql.get(page));
+    }
+  }
+
+  @Test
+  public void testGetNextVersionsQueryKeysCountZeroIsOneStatement() {
+    EbeanAspectDao dao = newDaoWithQueryKeysCount(0, false);
+    Map<String, Set<String>> urnAspects = new LinkedHashMap<>();
+    for (int i = 0; i < 400; i++) {
+      urnAspects.put(String.format("urn:li:corpuser:gnvZero%04d", i), Set.of(STATUS_ASPECT_NAME));
+    }
+
+    LoggedSql.start();
+    dao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          dao.getNextVersions(opContext, urnAspects, true);
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+    List<String> sql = snapshotStoppedSql();
+
+    assertEquals(
+        forUpdateStatements(sql, "gnvZero").size(),
+        1,
+        "queryKeysCount=0 must be one FOR UPDATE, got: " + sql);
+    assertEquals(
+        maxVersionSelects(sql, "gnvZero").size(),
+        1,
+        "queryKeysCount=0 must be one max select, got: " + sql);
+  }
+
+  @Test
+  public void testGetNextVersionsOptimisticLockingPagesMaxSkipsForUpdate() {
+    EbeanAspectDao dao = newDaoWithQueryKeysCount(2, true);
+    Map<String, Set<String>> urnAspects = new LinkedHashMap<>();
+    for (String suffix : List.of("A", "B", "C", "D", "E")) {
+      urnAspects.put("urn:li:corpuser:gnvOlPage" + suffix, Set.of(STATUS_ASPECT_NAME));
+    }
+
+    LoggedSql.start();
+    dao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          dao.getNextVersions(opContext, urnAspects, true);
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+    List<String> sql = snapshotStoppedSql();
+
+    assertEquals(
+        forUpdateStatements(sql, "gnvOlPage").size(), 0, "OL must skip FOR UPDATE, got: " + sql);
+    assertEquals(
+        maxVersionSelects(sql, "gnvOlPage").size(),
+        3,
+        "OL max(version) must still be paged, got: " + sql);
+  }
+
+  private void insertAspectHistory(EbeanAspectDao dao, String urn, long... versions) {
+    for (long version : versions) {
+      insertAspectWithSystemMetadata(
+          dao,
+          urn,
+          STATUS_ASPECT_NAME,
+          version,
+          "{\"runId\":\"gnv-history-" + version + "\"}",
+          "v" + version);
+    }
+  }
+
+  private static String withFollowingBind(List<String> sql, int index) {
+    String stmt = sql.get(index);
+    if (stmt.toLowerCase().contains("--bind")) {
+      return stmt;
+    }
+    if (index + 1 < sql.size()) {
+      String next = sql.get(index + 1).trim();
+      String nextLower = next.toLowerCase();
+      if (nextLower.startsWith("--bind") || nextLower.startsWith("bind(")) {
+        return stmt + " " + next;
+      }
+    }
+    return stmt;
+  }
+
+  private static List<String> forUpdateStatements(List<String> sql, String urnMarker) {
+    List<String> matches = new ArrayList<>();
+    for (int i = 0; i < sql.size(); i++) {
+      if (!sql.get(i).toLowerCase().contains("for update")) {
+        continue;
+      }
+      String stmt = withFollowingBind(sql, i);
+      if (stmt.contains(urnMarker)) {
+        matches.add(stmt);
+      }
+    }
+    return matches;
+  }
+
+  private static List<String> maxVersionSelects(List<String> sql, String urnMarker) {
+    List<String> matches = new ArrayList<>();
+    for (int i = 0; i < sql.size(); i++) {
+      String lower = sql.get(i).toLowerCase();
+      if (!lower.contains("from metadata_aspect_v2") || lower.contains("for update")) {
+        continue;
+      }
+      String stmt = withFollowingBind(sql, i);
+      if (stmt.contains(urnMarker)) {
+        matches.add(stmt);
+      }
+    }
+    return matches;
+  }
+
+  private static List<String> urnsInAppearanceOrder(String sql, List<String> urns) {
+    List<String> present = new ArrayList<>();
+    for (String urn : urns) {
+      if (sql.contains(urn)) {
+        present.add(urn);
+      }
+    }
+    present.sort((left, right) -> Integer.compare(sql.indexOf(left), sql.indexOf(right)));
+    return present;
+  }
+
+  private static int countIdInTuples(String sql) {
+    int count = 0;
+    int from = 0;
+    String compact = sql.replaceAll("\\s+", "");
+    while ((from = compact.indexOf("(?,?,?)", from)) >= 0) {
+      count++;
+      from += 7;
+    }
+    return count;
   }
 }

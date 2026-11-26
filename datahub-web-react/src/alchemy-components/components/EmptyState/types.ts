@@ -10,6 +10,9 @@ interface EmptyStateAction {
     icon?: IconProps;
     iconPosition?: 'left' | 'right';
     variant?: 'filled' | 'secondary' | 'text';
+    disabled?: boolean;
+    /** Shown on hover. Required for disabled actions, which do not receive pointer events. */
+    tooltip?: string;
     dataTestId?: string;
 }
 

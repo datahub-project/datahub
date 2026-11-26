@@ -3,8 +3,8 @@ import glob as glob_module
 import logging
 import os
 import re
-from typing import Iterable, List, Optional, Protocol
-from urllib.parse import urlparse
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Protocol
+from urllib.parse import unquote, urlparse
 
 import requests
 
@@ -14,10 +14,14 @@ from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionC
 from datahub.ingestion.source.common.http_connection_config import HTTPConnectionConfig
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 _GLOB_CHARACTERS = frozenset("*?[]")
 _HTTP_URI_PATTERN = re.compile("^https?://")
+_HTTP_URI_AUTHORITY = re.compile(r"^https?://(?P<authority>[^/?#]*)")
 DEFAULT_HTTP_TIMEOUT_SECONDS = 30
 _STREAM_CHUNK_BYTES = 1024 * 1024
 
@@ -30,9 +34,85 @@ def is_http_uri(uri: str) -> bool:
     return bool(_HTTP_URI_PATTERN.match(uri))
 
 
+def _http_url_userinfo(url: str) -> Optional[str]:
+    """The `user[:password]` an http(s) URL embeds before its host, read from the
+    raw string (the last "@" ends it, as in urlparse), or None when it has none."""
+    authority = _HTTP_URI_AUTHORITY.match(url)
+    if not authority:
+        return None
+    userinfo, at, _ = authority.group("authority").rpartition("@")
+    return userinfo if at else None
+
+
+def http_url_secrets(field_name: str, url: str) -> Dict[str, str]:
+    """Credentials embedded in an http(s) URL, keyed for the secret registry:
+    the userinfo password and the whole query string, each verbatim and decoded.
+
+    Read from the raw string, so a URL that doesn't parse is still covered and
+    the verbatim form matches what a library echoes back (requests keeps
+    `user:password@` in the URL it names in errors). The whole query string is
+    registered rather than known signature parameters: a presigned query is a
+    bearer credential, and vendors name its parameters differently."""
+    authority = _HTTP_URI_AUTHORITY.match(url)
+    if not authority:
+        return {}
+    secrets: Dict[str, str] = {}
+    userinfo = _http_url_userinfo(url)
+    if userinfo:
+        _, colon, password = userinfo.partition(":")
+        if colon and password:
+            secrets[f"{field_name}.userinfo_password.verbatim"] = password
+            secrets[f"{field_name}.userinfo_password"] = unquote(password)
+    _, question, query = url[authority.end() :].partition("#")[0].partition("?")
+    if question and query:
+        secrets[f"{field_name}.query.verbatim"] = query
+        secrets[f"{field_name}.query"] = unquote(query)
+    return secrets
+
+
 class FileSizeExceededError(ValueError):
     """A source exceeded the caller's max_bytes cap; callers may treat this as a
     skip rather than a hard read failure."""
+
+
+class ObjectNotFoundError(FileNotFoundError, ValueError):
+    """An object-store key or bucket does not exist.
+
+    A FileNotFoundError, so callers handle a missing object exactly like a
+    missing local file, and still a ValueError, so callers that catch the
+    generic object-store failure keep working.
+    """
+
+
+_NOT_FOUND_ERROR_CODES = frozenset({"NoSuchKey", "NoSuchBucket", "NotFound", "404"})
+
+
+def _is_not_found(e: Exception) -> bool:
+    response = getattr(e, "response", None)
+    if not isinstance(response, dict):
+        return False
+    code = str(response.get("Error", {}).get("Code", ""))
+    status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+    return code in _NOT_FOUND_ERROR_CODES or status == 404
+
+
+def _read_object(uri: str, s3_client: "S3Client", max_bytes: Optional[int]) -> bytes:
+    parsed = urlparse(uri)
+    try:
+        response = s3_client.get_object(
+            Bucket=parsed.netloc, Key=parsed.path.lstrip("/")
+        )
+        return _read_object_store_body(
+            uri, response["Body"], response.get("ContentLength"), max_bytes
+        )
+    except FileSizeExceededError:
+        raise
+    except Exception as e:
+        # The body is streamed after get_object returns, so a transport error
+        # mid-read lands here too and gets the same ValueError as a failed request.
+        if _is_not_found(e):
+            raise ObjectNotFoundError(f"{uri} does not exist: {e}") from e
+        raise ValueError(f"Failed to read {uri} from object store: {e}") from e
 
 
 def _enforce_size_cap(uri: str, size: int, max_bytes: Optional[int]) -> None:
@@ -113,30 +193,12 @@ def read_file_as_bytes(
     if is_s3_uri(uri):
         if not aws_connection:
             raise ValueError(f"AWS connection required for S3 URI: {uri}")
-        parsed = urlparse(uri)
-        try:
-            response = aws_connection.get_s3_client().get_object(
-                Bucket=parsed.netloc, Key=parsed.path.lstrip("/")
-            )
-        except Exception as e:
-            raise ValueError(f"Failed to read {uri} from object store: {e}") from e
-        return _read_object_store_body(
-            uri, response["Body"], response.get("ContentLength"), max_bytes
-        )
+        return _read_object(uri, aws_connection.get_s3_client(), max_bytes)
     if is_gcs_uri(uri):
         if not gcs_connection:
             raise ValueError(f"GCS connection required for GCS URI: {uri}")
-        parsed = urlparse(uri)
-        try:
-            response = (
-                gcs_connection.s3_compatible_connection.get_s3_client().get_object(
-                    Bucket=parsed.netloc, Key=parsed.path.lstrip("/")
-                )
-            )
-        except Exception as e:
-            raise ValueError(f"Failed to read {uri} from object store: {e}") from e
-        return _read_object_store_body(
-            uri, response["Body"], response.get("ContentLength"), max_bytes
+        return _read_object(
+            uri, gcs_connection.s3_compatible_connection.get_s3_client(), max_bytes
         )
     _enforce_size_cap(uri, os.path.getsize(uri), max_bytes)
     with open(uri, "rb") as f:

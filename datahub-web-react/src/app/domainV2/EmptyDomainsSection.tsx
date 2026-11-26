@@ -1,4 +1,4 @@
-import { PlusOutlined } from '@ant-design/icons';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button, Empty, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -60,7 +60,7 @@ function EmptyDomainsSection(props: Props) {
                 }
             >
                 <StyledButton onClick={() => setIsCreatingDomain(true)}>
-                    <PlusOutlined /> {t('empty.createButton')}
+                    <Plus /> {t('empty.createButton')}
                 </StyledButton>
             </StyledEmpty>
         </EmptyDomainContainer>

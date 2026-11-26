@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.common;
 
+import com.datahub.authentication.token.TokenRevocationMap;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.EvictionConfig;
@@ -21,6 +22,7 @@ import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.NearC
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
 import com.linkedin.metadata.config.hazelcast.HazelcastDiscoveryMode;
 import com.linkedin.metadata.config.hazelcast.HazelcastInstanceBootstrapCondition;
+import com.linkedin.metadata.config.hazelcast.HazelcastSerializationAllowListContributor;
 import com.linkedin.metadata.config.hazelcast.RateLimitEndpointEnabledCondition;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
@@ -65,6 +67,12 @@ public class CacheConfig {
   @Value("${searchService.cache.hazelcast.resolve-not-ready-addresses:}")
   private String kubernetesResolveNotReadyAddresses;
 
+  @Value("${searchService.cache.hazelcast.serializationAllowList.classNames:}")
+  private String serializationAllowListClassNames;
+
+  @Value("${searchService.cache.hazelcast.serializationAllowList.packagePrefixes:}")
+  private String serializationAllowListPackagePrefixes;
+
   @Value("${datahub.gms.rateLimits.endpoint.hazelcastMapName:gmsRateLimitEndpointBuckets}")
   private String rateLimitEndpointHazelcastMapName;
 
@@ -95,7 +103,9 @@ public class CacheConfig {
   public HazelcastInstance hazelcastInstance(
       List<MapConfig> hazelcastMapConfigs,
       List<ReplicatedMapConfig> hazelcastReplicatedMapConfigs,
-      ObjectProvider<EntityGraphCacheProperties> effectiveEntityGraphCachePropertiesProvider) {
+      ObjectProvider<EntityGraphCacheProperties> effectiveEntityGraphCachePropertiesProvider,
+      ObjectProvider<HazelcastSerializationAllowListContributor>
+          serializationAllowListContributors) {
     Config config = new Config();
     EntityGraphCacheProperties effectiveEntityGraphCacheProperties =
         effectiveEntityGraphCachePropertiesProvider.getIfAvailable();
@@ -142,6 +152,12 @@ public class CacheConfig {
             new SerializerConfig()
                 .setTypeClass(EntityGraphOperationalStatus.class)
                 .setImplementation(new EntityGraphOperationalStatusSerializer()));
+
+    HazelcastSerializationFilter.apply(
+        config,
+        serializationAllowListContributors.orderedStream().toList(),
+        serializationAllowListClassNames,
+        serializationAllowListPackagePrefixes);
 
     config.setClassLoader(this.getClass().getClassLoader());
     config.setProperty("hazelcast.logging.type", "slf4j");
@@ -206,6 +222,12 @@ public class CacheConfig {
 
   @Bean
   @Conditional(HazelcastInstanceBootstrapCondition.class)
+  public MapConfig accessTokenRevocationMapConfig() {
+    return TokenRevocationMap.mapConfig();
+  }
+
+  @Bean
+  @Conditional(HazelcastInstanceBootstrapCondition.class)
   public ReplicatedMapConfig distributedThrottleMapConfig() {
     ReplicatedMapConfig mapConfig = new ReplicatedMapConfig();
     mapConfig
@@ -264,6 +286,26 @@ public class CacheConfig {
         .setName(EntityGraphCacheProperties.STATUS_MAP)
         .setBackupCount(
             effectiveEntityGraphCacheProperties.getEviction().getHazelcast().getBackupCount());
+  }
+
+  @Bean
+  @ConditionalOnProperty(name = "datahub.gms.entityGraphCache.enabled", havingValue = "true")
+  @ConditionalOnBean(name = "effectiveEntityGraphCacheProperties")
+  public MapConfig entityGraphVisibilityWatermarkMapConfig(
+      EntityGraphCacheProperties effectiveEntityGraphCacheProperties) {
+    // A watermark must outlive the snapshots it supersedes, so it is not size-evicted and takes
+    // the snapshot TTL. Without this config it would inherit the search-cache default TTL, which
+    // can expire it while the snapshots it guards are still served.
+    EntityGraphCacheProperties.HazelcastEviction hazelcastEviction =
+        effectiveEntityGraphCacheProperties.getEviction().getHazelcast();
+    MapConfig mapConfig =
+        new MapConfig()
+            .setName(EntityGraphCacheProperties.VISIBILITY_WATERMARK_MAP)
+            .setBackupCount(hazelcastEviction.getBackupCount());
+    if (hazelcastEviction.getTtlSeconds() > 0) {
+      mapConfig.setTimeToLiveSeconds(hazelcastEviction.getTtlSeconds());
+    }
+    return mapConfig;
   }
 
   private static MapConfig buildEntityGraphFullSnapshotMapConfig(

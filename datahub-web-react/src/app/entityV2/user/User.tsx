@@ -2,14 +2,16 @@ import { User } from '@phosphor-icons/react/dist/csr/User';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { INGESTION_ACTOR_URN } from '@app/entity/shared/constants';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import UserProfile from '@app/entityV2/user/UserProfile';
+import { INGESTION_ACTOR_URN } from '@app/entityV2/shared/constants';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { Preview } from '@app/entityV2/user/preview/Preview';
 
 import { CorpUser, EntityType, SearchResult } from '@types';
+
+const UserProfile = lazyProfileComponent('UserProfile', () => import('@app/entityV2/user/UserProfile'));
 
 /**
  * Definition of the DataHub Dataset entity.

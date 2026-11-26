@@ -58,6 +58,12 @@ logger = logging.getLogger(__name__)
 _DATASET_SOURCES_NOT_FOUND_STATUSES = frozenset({404, 409})
 # Not-founds with zero successes before escalating from info to a warning.
 _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD = 3
+# /workbooks/{id}/schema statuses that may mean the endpoint is gone or refused
+# for this token, or only that one workbook is unreadable. 410 alone is
+# unambiguous; the rest latch after the not-found threshold above.
+_WORKBOOK_SCHEMA_UNAVAILABLE_STATUSES = frozenset({403, 404, 410})
+# /dataModels/{id}/spec: the same reading, for the same reasons.
+_DATA_MODEL_SPEC_UNAVAILABLE_STATUSES = _WORKBOOK_SCHEMA_UNAVAILABLE_STATUSES
 
 
 # Sigma error bodies are short; the cap only guards against an HTML error page
@@ -318,6 +324,8 @@ class SigmaAPI:
         self.config = config
         self.report = report
         self.workspaces: Dict[str, Workspace] = {}
+        # A token without /spec access fails every model: log the first only.
+        self._spec_failure_logged = False
         # Two sets, like the file-path walk: a transient failure is not
         # remembered as dead, but its loss is still counted once.
         self._workspace_lookup_failed: Set[str] = set()
@@ -349,6 +357,16 @@ class SigmaAPI:
         # later 404 should not be read as "nothing ever worked".
         self._dataset_sources_succeeded = False
         self._dataset_sources_not_found_warned = False
+        # /workbooks/{id}/schema is deprecated. A 410, or 403/404 from several
+        # workbooks, before any success latches it off; after one, a failure is
+        # that workbook's alone.
+        self._workbook_schema_succeeded = False
+        self._workbook_schema_refused_ids: Set[str] = set()
+        self._workbook_schema_unavailable = False
+        # /dataModels/{id}/spec latches off the same way.
+        self._data_model_spec_succeeded = False
+        self._data_model_spec_refused_ids: Set[str] = set()
+        self._data_model_spec_unavailable = False
         self.session = requests.Session()
 
         # raise_on_status=False must stay False: get_data_model_by_url_id
@@ -990,8 +1008,13 @@ class SigmaAPI:
         queue: "Deque[str]",
         element: Element,
         workbook: Workbook,
-    ) -> None:
-        """Dispatch one BFS node into upstream_sources or re-enqueue it (join)."""
+    ) -> bool:
+        """Dispatch one BFS node into upstream_sources or re-enqueue it (join).
+
+        Returns False when the node is not in upstream_sources -- dropped, or
+        a customSQL source handled elsewhere -- so the caller can tell the
+        element's upstreams are incomplete.
+        """
         source_type = source_node.get(Constant.TYPE)
         if source_type == "dataset":
             try:
@@ -1005,6 +1028,7 @@ class SigmaAPI:
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
                 )
+                return False
         elif source_type == "sheet":
             element_id = source_node.get(Constant.ELEMENTID)
             if element_id is None:
@@ -1013,7 +1037,7 @@ class SigmaAPI:
                     message="Sheet upstream node missing elementId",
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                 )
-                return
+                return False
             try:
                 upstream_sources[source_node_id] = SheetUpstream(
                     name=source_node.get(Constant.NAME),
@@ -1026,6 +1050,7 @@ class SigmaAPI:
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
                 )
+                return False
         elif source_type == "data-model":
             # Node id shape is "<dataModelUrlId>/<opaque_suffix>"; we carry
             # the prefix and the DM-side ``name`` for name-based matching
@@ -1044,7 +1069,7 @@ class SigmaAPI:
                         f"workbook={workbook.name}"
                     ),
                 )
-                return
+                return False
             try:
                 # Uses the API-reported DM-side name. The edge-only
                 # synthesis path below uses the workbook element's own
@@ -1061,6 +1086,7 @@ class SigmaAPI:
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
                 )
+                return False
         elif source_type == "join":
             queue.append(source_node_id)  # pass-through
         elif source_type == "table":
@@ -1077,7 +1103,7 @@ class SigmaAPI:
                     element.name,
                     workbook.name,
                 )
-                return
+                return False
             url_id = source_node_id[len("inode-") :]
             name = source_node.get(Constant.NAME)
             if not url_id or not isinstance(name, str) or not name:
@@ -1090,13 +1116,17 @@ class SigmaAPI:
                     element.name,
                     workbook.name,
                 )
-                return
+                return False
             upstream_sources[source_node_id] = WarehouseTableUpstream(
                 url_id=url_id,
                 name=name,
             )
         elif source_type == "customSQL":
-            pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint
+            # Handled by _build_workbook_customsql_registry via the
+            # workbook-level lineage endpoint, so it is absent from
+            # upstream_sources: that list is not the chart's full lineage,
+            # whether or not the SQL registers.
+            return False
         else:
             # Warn once per unknown source_type to avoid log spam.
             warn_key = source_type if isinstance(source_type, str) else "<non-str>"
@@ -1111,6 +1141,8 @@ class SigmaAPI:
                         f"this type will be suppressed)"
                     ),
                 )
+            return False
+        return True
 
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook
@@ -1161,12 +1193,16 @@ class SigmaAPI:
             # Reverse adjacency (target nodeId -> source nodeIds). A
             # malformed edge skips itself; others still populate.
             edges_by_target: Dict[str, List[str]] = {}
+            # False once any edge or node is dropped: a partial source list
+            # must not read as the chart's full lineage.
+            complete = True
             for edge in response_dict[Constant.EDGES]:
                 try:
                     edges_by_target.setdefault(edge[Constant.TARGET], []).append(
                         edge[Constant.SOURCE]
                     )
                 except (KeyError, TypeError) as e:
+                    complete = False
                     self.report.warning(
                         message="Skipping malformed Sigma lineage edge",
                         context=f"edge={edge!r}, element={element.name}, workbook={workbook.name}",
@@ -1227,6 +1263,7 @@ class SigmaAPI:
                                 )
                                 self.report.element_dm_edge.synthesized_from_edge_only += 1
                             except ValidationError as e:
+                                complete = False
                                 self.report.warning(
                                     title="Sigma DM upstream synthesis from edge-only node failed",
                                     message="Failed to synthesize Sigma DM upstream from edges-only node",
@@ -1244,6 +1281,7 @@ class SigmaAPI:
                     try:
                         source_node = dependencies[source_node_id]
                     except (KeyError, AttributeError, TypeError) as e:
+                        complete = False
                         self.report.warning(
                             title="Sigma lineage node parse failed",
                             message="Failed to parse Sigma lineage node",
@@ -1253,15 +1291,17 @@ class SigmaAPI:
                         continue
 
                     try:
-                        self._process_lineage_node(
+                        if not self._process_lineage_node(
                             source_node_id,
                             source_node,
                             upstream_sources,
                             queue,
                             element,
                             workbook,
-                        )
+                        ):
+                            complete = False
                     except (KeyError, AttributeError, TypeError, ValidationError) as e:
+                        complete = False
                         # Defence-in-depth; the helper already handles
                         # ValidationError internally.
                         self.report.warning(
@@ -1281,6 +1321,7 @@ class SigmaAPI:
             )
             return {}
 
+        element.upstream_sources_complete = complete
         return upstream_sources
 
     def _get_element_sql_query(
@@ -1345,6 +1386,57 @@ class SigmaAPI:
             # every abort shares one title+message.
             self.report.column_formulas_fetch_partial += 1
         return result, col_ids
+
+    def get_workbook_schema(self, workbook_id: str) -> Optional[Dict[str, Any]]:
+        """GET /workbooks/{id}/schema: each column's formula as a tree whose
+        ``nameRef`` leaves name other columns by id, not by display name.
+
+        Deprecated by Sigma (2023-12) but still served, and nothing else
+        returns formula refs by id, so a failure only means no recovery.
+        """
+        if self._workbook_schema_unavailable:
+            self.report.workbook_schema_skipped += 1
+            return None
+        try:
+            response = self._get_api_call(
+                f"{self.config.api_url}/workbooks/{workbook_id}/schema"
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise TypeError("/schema body is not a JSON object")
+        except Exception as e:
+            detail = self._log_http_error(
+                message=f"Unable to fetch schema for workbook {workbook_id}.",
+                report_warning=False,
+            )
+            self.report.workbook_schema_fetch_failed += 1
+            status = _http_status(e)
+            if (
+                not self._workbook_schema_succeeded
+                and status in _WORKBOOK_SCHEMA_UNAVAILABLE_STATUSES
+            ):
+                self._workbook_schema_refused_ids.add(workbook_id)
+                if (
+                    status == 410
+                    or len(self._workbook_schema_refused_ids)
+                    >= _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD
+                ):
+                    self._workbook_schema_unavailable = True
+            self.report.warning(
+                title="Sigma workbook schema unavailable",
+                message="/workbooks/{id}/schema failed, so chart columns no "
+                "formula reference resolves by name keep pointing at "
+                "themselves in these workbooks. A 410, or a 403/404 from "
+                f"{_DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD} workbooks, before "
+                "any workbook succeeded stops the call for the rest of the run; "
+                "workbook_schema_skipped counts the workbooks not asked.",
+                context=f"workbook {workbook_id} ({detail})",
+            )
+            return None
+        self._workbook_schema_succeeded = True
+        self.report.workbook_schema_fetched += 1
+        return payload
 
     def get_page_elements(
         self,
@@ -1892,7 +1984,16 @@ class SigmaAPI:
                 data_model.urlId = file_meta.urlId
 
         elements = self._get_data_model_elements(data_model.dataModelId)
+        # Every truncated listing bumps one of these; see _paginated_raw_entries.
+        problems_before = (
+            self.report.pagination_aborted
+            + self.report.pagination_malformed_entries_dropped
+        )
         columns = self._get_data_model_columns(data_model.dataModelId)
+        data_model.columns_complete = problems_before == (
+            self.report.pagination_aborted
+            + self.report.pagination_malformed_entries_dropped
+        )
         # ``extract_lineage=False`` is a historical opt-out for the
         # privileged ``/workbooks/{id}/lineage`` surface; users who set
         # it don't expect the connector to call *any* ``/lineage``
@@ -2354,12 +2455,22 @@ class SigmaAPI:
             )
             return None
 
-    def get_file_metadata(self, inode_id: str) -> Optional[Dict[str, Any]]:
-        """Fetch /files/{inodeId} and return the raw JSON dict, or None on
-        non-200 or exception.  Resolves a warehouse-table lineage ``inodeId``
-        (UUID) to its ``urlId`` (alphanumeric slug) and file-system ``path``
-        (``Connection Root/<DB>/<SCHEMA>`` for Snowflake; shape for other
-        platforms is unverified — see TODO in _build_dm_warehouse_url_id_map).
+    def get_file_metadata(
+        self, file_id: str, *, by_url_id: bool = False
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch /files/{id} and return the raw JSON dict, or None on
+        non-200, a non-object body, or exception.  Resolves a warehouse-table
+        lineage ``inodeId`` (UUID) to its ``urlId`` (alphanumeric slug) and
+        file-system ``path`` (``Connection Root/<DB>/<SCHEMA>`` for Snowflake;
+        shape for other platforms is unverified — see TODO in
+        _build_dm_warehouse_url_id_map).
+
+        ``by_url_id`` is for the urlId a Data Model element's ``inode-<urlId>``
+        carries. Sigma's API reference documents only an inodeId here; that
+        /files also accepts a urlId was verified against live tenants. A 404 is
+        then counted as dm_element_warehouse_url_id_unresolvable without a
+        warning, since a deleted file and one the token cannot see look the
+        same; any other failure counts as dm_element_warehouse_url_id_lookup_failed.
 
         Callers are responsible for caching; this method always makes a live
         HTTP call so the instance-level cache on ``SigmaSource`` can be shared
@@ -2370,42 +2481,66 @@ class SigmaAPI:
         emit a rate-limited structured warning so operators can distinguish
         rate-limiting from missing-scope (403/404) from server errors (5xx).
         """
-        logger.debug("Fetching file metadata for inode '%s'.", inode_id)
-        url = f"{self.config.api_url}/files/{quote(inode_id, safe='')}"
+        id_label = "url_id" if by_url_id else "inode_id"
+        logger.debug("Fetching file metadata for %s '%s'.", id_label, file_id)
+        url = f"{self.config.api_url}/files/{quote(file_id, safe='')}"
         try:
             response = self._get_api_call(url)
-            if response.status_code == 200:
-                return response.json()
             status = response.status_code
+            if by_url_id and status == 404:
+                self.report.dm_element_warehouse_url_id_unresolvable += 1
+                return None
+            if status == 200:
+                body = response.json()
+                if isinstance(body, dict):
+                    return body
+                self._count_file_lookup_failure(by_url_id)
+                self.report.warning(
+                    title="Sigma /files lookup returned an unexpected body",
+                    message=(
+                        "Expected a JSON object; warehouse upstream will be "
+                        "missing for this table."
+                    ),
+                    context=f"{id_label}={file_id}, body_type={type(body).__name__}",
+                )
+                return None
+            self._count_file_lookup_failure(by_url_id)
             if status == 429:
-                self.report.dm_element_warehouse_table_lookup_rate_limited += 1
+                if not by_url_id:
+                    self.report.dm_element_warehouse_table_lookup_rate_limited += 1
                 self.report.warning(
                     title="Sigma API rate-limited on /files lookup",
                     message=(
-                        "Retry budget exhausted on a 429 response for a /files inode lookup. "
-                        "Warehouse upstream will be missing for this inode. "
+                        "Retry budget exhausted on a 429 response for a /files lookup. "
+                        "Warehouse upstream will be missing for this table. "
                         "Re-run the ingestion to recover."
                     ),
-                    context=f"inode_id={inode_id}, http_status={status}",
+                    context=f"{id_label}={file_id}, http_status={status}",
                 )
             else:
                 self.report.warning(
                     title="Sigma /files lookup returned non-200",
                     message=(
-                        "Unable to resolve warehouse table metadata for an inode. "
+                        "Unable to resolve warehouse table metadata. "
                         "Warehouse upstream will be missing."
                     ),
-                    context=f"inode_id={inode_id}, http_status={status}",
+                    context=f"{id_label}={file_id}, http_status={status}",
                 )
             return None
         except Exception as e:
+            self._count_file_lookup_failure(by_url_id)
             self.report.warning(
                 title="Sigma /files lookup failed",
-                message="Exception while fetching file metadata for an inode; warehouse upstream skipped.",
-                context=f"inode_id={inode_id}",
+                message="Exception while fetching file metadata; warehouse upstream skipped.",
+                context=f"{id_label}={file_id}",
                 exc=e,
             )
             return None
+
+    def _count_file_lookup_failure(self, by_url_id: bool) -> None:
+        # The inodeId route's caller counts its own failures from the None.
+        if by_url_id:
+            self.report.dm_element_warehouse_url_id_lookup_failed += 1
 
     def get_workbook_lineage(
         self, workbook_id: str
@@ -2499,6 +2634,60 @@ class SigmaAPI:
                 exc=e,
             )
             return None
+
+    def get_data_model_spec(self, data_model_id: str) -> Optional[Dict[str, Any]]:
+        """The Data Model's ``/spec`` document, or None if it cannot be read.
+
+        A failure costs only the lineage /spec adds, so it is counted and
+        reported, never raised.
+        """
+        if self._data_model_spec_unavailable:
+            self.report.data_model_spec_skipped += 1
+            return None
+        url = f"{self.config.api_url}/dataModels/{quote(data_model_id, safe='')}/spec"
+        try:
+            response = self._get_api_call(url)
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as e:
+            self.report.data_model_spec_fetch_failed += 1
+            detail = self._log_http_error(
+                message=f"Unable to fetch /spec for data model {data_model_id!r}. "
+                f"Exception: {e}",
+                report_warning=False,
+            )
+            status = _http_status(e)
+            if (
+                not self._data_model_spec_succeeded
+                and status in _DATA_MODEL_SPEC_UNAVAILABLE_STATUSES
+            ):
+                self._data_model_spec_refused_ids.add(data_model_id)
+                if (
+                    status == 410
+                    or len(self._data_model_spec_refused_ids)
+                    >= _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD
+                ):
+                    self._data_model_spec_unavailable = True
+            # One title, so the report groups these and keeps a sample of
+            # contexts: a 403 on every model is not hidden behind one 503.
+            self.report.warning(
+                title="Sigma Data Model spec unavailable",
+                message=(
+                    "Could not fetch a Data Model's /spec, so its union elements "
+                    "get no column lineage to their branches; "
+                    "data_model_spec_fetch_failed counts the models. A 429 or 5xx "
+                    "is usually fixed by a re-run. A 410, or a 403/404 from "
+                    f"{_DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD} models, before "
+                    "any model succeeded stops the call for the rest of the run; "
+                    "data_model_spec_skipped counts the models not asked."
+                ),
+                context=f"data_model={data_model_id}, {detail}",
+                log=not self._spec_failure_logged,
+            )
+            self._spec_failure_logged = True
+            return None
+        self._data_model_spec_succeeded = True
+        return payload
 
     def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:
         """Fetch a DM by its urlId (not UUID). Used to resolve personal-space

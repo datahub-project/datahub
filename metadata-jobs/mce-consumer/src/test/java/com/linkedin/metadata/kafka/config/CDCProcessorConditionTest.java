@@ -45,6 +45,40 @@ public class CDCProcessorConditionTest {
   }
 
   @Test
+  public void testCondition_MatchesWhenOnlyMcpConsumerEnabled() {
+    // Setup
+    Mockito.when(mockEnvironment.getProperty("mclProcessing.cdcSource.enabled", "false"))
+        .thenReturn("true");
+    Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn(null);
+    Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn("true");
+
+    // Execute
+    boolean result = condition.matches(mockContext, mockMetadata);
+
+    // Verify
+    Assert.assertTrue(
+        result,
+        "CDC condition should match when mclProcessing.cdcSource.enabled and MCP_CONSUMER_ENABLED are true");
+  }
+
+  @Test
+  public void testCondition_NoMatchWhenNeitherConsumerFlagSet() {
+    // Setup
+    Mockito.when(mockEnvironment.getProperty("mclProcessing.cdcSource.enabled", "false"))
+        .thenReturn("true");
+    Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn(null);
+    Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn(null);
+
+    // Execute
+    boolean result = condition.matches(mockContext, mockMetadata);
+
+    // Verify
+    Assert.assertFalse(
+        result,
+        "CDC condition should not match when neither MCE_CONSUMER_ENABLED nor MCP_CONSUMER_ENABLED is set");
+  }
+
+  @Test
   public void testCondition_NoMatchWhenTransportIsPgQueue() {
     Mockito.when(mockEnvironment.getProperty(MessagingTransport.PROPERTY, MessagingTransport.KAFKA))
         .thenReturn(MessagingTransport.PGQUEUE);

@@ -5,11 +5,11 @@ import { getUniqueItemsByKeyFromArrrays } from '@app/searchV2/filtersV2/utils';
 import { isEntityType } from '@src/app/entityV2/shared/utils';
 import { FILTER_DELIMITER } from '@src/app/search/utils/constants';
 import { FeildFacetState } from '@src/app/searchV2/filtersV2/types';
-import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { capitalizeFirstLetterOnly } from '@src/app/sharedV2/textUtil';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 export default function useOptions(facetState: FeildFacetState | undefined, values: string[]) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const valuesFromAggregations = useMemo(
         () => facetState?.facet?.aggregations?.map((aggregation) => aggregation.value) ?? [],

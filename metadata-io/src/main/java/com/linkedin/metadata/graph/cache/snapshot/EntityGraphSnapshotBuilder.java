@@ -98,6 +98,7 @@ public class EntityGraphSnapshotBuilder {
   @Nonnull
   private BuildResult buildFullFromSearch(
       @Nonnull OperationContext opContext, @Nonnull EntityGraphDefinition definition) {
+    long startedAtMillis = System.currentTimeMillis();
     EdgeAccumulator accumulator = new EdgeAccumulator(definition);
 
     boolean anySearchable =
@@ -123,12 +124,14 @@ public class EntityGraphSnapshotBuilder {
         accumulator.getEdges(),
         GraphSnapshotSource.SEARCH.name(),
         EntityGraphCacheKeys.fullCacheKey(definition.getGraphId(), GraphSnapshotSource.SEARCH),
-        TraversalCoverage.fullComplete());
+        TraversalCoverage.fullComplete(),
+        startedAtMillis);
   }
 
   @Nonnull
   private BuildResult buildFullFromGraph(
       @Nonnull OperationContext opContext, @Nonnull EntityGraphDefinition definition) {
+    long startedAtMillis = System.currentTimeMillis();
     EdgeAccumulator accumulator = new EdgeAccumulator(definition);
     boolean graphOk = buildFromGraph(opContext, definition, null, accumulator);
     if (accumulator.isScrollIncomplete()) {
@@ -147,7 +150,8 @@ public class EntityGraphSnapshotBuilder {
         accumulator.getEdges(),
         GraphSnapshotSource.GRAPH.name(),
         EntityGraphCacheKeys.fullCacheKey(definition.getGraphId(), GraphSnapshotSource.GRAPH),
-        TraversalCoverage.fullComplete());
+        TraversalCoverage.fullComplete(),
+        startedAtMillis);
   }
 
   @Nonnull
@@ -161,6 +165,7 @@ public class EntityGraphSnapshotBuilder {
       @Nullable TraversalCoverage existingCoverage,
       @Nullable String existingCacheKey) {
 
+    long startedAtMillis = System.currentTimeMillis();
     if (source == GraphSnapshotSource.SEARCH) {
       boolean anySearchable =
           definition.getResolvedEdges().stream().anyMatch(ResolvedGraphEdge::isSearchable);
@@ -277,7 +282,7 @@ public class EntityGraphSnapshotBuilder {
             ? existingCacheKey
             : EntityGraphCacheKeys.componentCacheKey(definition.getGraphId(), source, fingerprint);
 
-    return snapshotFromEdges(definition, edges, source.name(), cacheKey, coverage);
+    return snapshotFromEdges(definition, edges, source.name(), cacheKey, coverage, startedAtMillis);
   }
 
   @Nonnull
@@ -571,7 +576,8 @@ public class EntityGraphSnapshotBuilder {
       @Nonnull List<DirectedEdge> edges,
       @Nonnull String buildSource,
       @Nonnull String cacheKey,
-      @Nullable TraversalCoverage coverage) {
+      @Nullable TraversalCoverage coverage,
+      long sourceReadStartedAtMillis) {
 
     Set<String> vertices = new LinkedHashSet<>();
     for (DirectedEdge edge : edges) {
@@ -585,7 +591,9 @@ public class EntityGraphSnapshotBuilder {
             .cacheKey(cacheKey)
             .generation(0)
             .buildSource(buildSource)
-            .builtAtMillis(System.currentTimeMillis())
+            // The start of the source read, not the end: a write that became visible while the
+            // build ran may be missing, and the freshness check must be able to tell.
+            .builtAtMillis(sourceReadStartedAtMillis)
             .edges(edges)
             .vertexCount(vertices.size())
             .edgeCount(edges.size())
@@ -863,7 +871,7 @@ public class EntityGraphSnapshotBuilder {
   }
 
   @Nonnull
-  static String topologyFingerprint(@Nonnull List<DirectedEdge> edges) {
+  public static String topologyFingerprint(@Nonnull List<DirectedEdge> edges) {
     List<String> canonical =
         edges.stream()
             .map(DirectedEdge::canonicalLine)
@@ -922,7 +930,7 @@ public class EntityGraphSnapshotBuilder {
 
     void addCanonicalEdge(
         String source, String dest, String relType, int maxVertices, int maxEdges) {
-      if (bypassed || source == null || dest == null) {
+      if (bypassed || source == null || dest == null || source.equals(dest)) {
         return;
       }
       vertices.add(source);
@@ -946,12 +954,17 @@ public class EntityGraphSnapshotBuilder {
     private void bypass(String reason) {
       bypassed = true;
       bypassReason = reason;
+      int maxVertices = definition.getBounds().getMaxVertices();
+      int maxEdges = definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE);
       log.warn(
-          "Graph {} exceeded bounds: reason={} vertices={} edges={}",
+          "Entity graph cache exceeded bounds: graphId={} buildSource={} reason={} vertices={} maxVertices={} edges={} maxEdges={}",
           definition.getGraphId(),
+          definition.getBuildSource(),
           reason,
           vertices.size(),
-          edgesByLine.size());
+          maxVertices,
+          edgesByLine.size(),
+          maxEdges);
     }
 
     boolean isBypassed() {

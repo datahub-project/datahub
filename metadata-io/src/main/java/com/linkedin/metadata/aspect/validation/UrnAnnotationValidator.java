@@ -58,6 +58,10 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
                         .stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+    // Values of each item's stored aspect, loaded only when an entity-type mismatch is found.
+    final StoredAspectValues storedValues =
+        StoredAspectValues.writtenByNewerSchema(operationContext, retrieverContext);
+
     // First check non-database validations
     Map<BatchItem, Set<AspectValidationException>> nonExistenceFailures =
         urnValidationEntries.entrySet().stream()
@@ -101,8 +105,10 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
                             if (annotation.getEntityTypes() != null
                                 && !annotation.getEntityTypes().isEmpty()) {
                               if (annotation.getEntityTypes().stream()
-                                  .noneMatch(
-                                      entityType -> entityType.equals(urn.getEntityType()))) {
+                                      .noneMatch(
+                                          entityType -> entityType.equals(urn.getEntityType()))
+                                  && !storedValues.contains(
+                                      itemEntry.getKey(), fieldPath, urnStr)) {
                                 return Map.entry(
                                     itemEntry.getKey(),
                                     AspectValidationException.forItem(

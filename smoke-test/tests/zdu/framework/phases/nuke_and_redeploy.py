@@ -187,7 +187,8 @@ class NukeAndRedeployPhase(ConfiguredPhase):
         log.info("[nuke] wiping containers + MySQL + OpenSearch volumes")
         self._docker.down_and_wipe(
             timeout_s=self._down_timeout_s,
-            wipe_volumes=["osdata", "mysqldata"],
+            # os3data backs the unversioned profiles; osdata the *-opensearch2 pins.
+            wipe_volumes=["os3data", "osdata", "mysqldata"],
         )
 
         # G20c — point the dev host mounts at the OLD worktree's build outputs
@@ -217,6 +218,10 @@ class NukeAndRedeployPhase(ConfiguredPhase):
             for svc in config.services_in_restart_order
             if (key := PER_SERVICE_VERSION_KEY.get(svc)) is not None
         }
+        # system-update runs the OLD worktree's jar, so it needs the OLD image
+        # too. `head` on Docker Hub can lag master and miss env the jar needs
+        # (e.g. SPRING_PROFILES_ACTIVE=upgrade).
+        old_version_pins["DATAHUB_UPDATE_VERSION"] = config.old_image_tag
         log.info(
             "[nuke] pinning to OLD (%s): %s",
             config.old_image_tag,

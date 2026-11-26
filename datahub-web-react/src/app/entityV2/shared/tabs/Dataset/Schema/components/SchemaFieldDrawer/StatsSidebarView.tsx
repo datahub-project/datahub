@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -9,7 +9,7 @@ import StatsSidebarHeader, {
     StatsViewType,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarHeader';
 import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
-import { getFixedLookbackWindow, toLocalDateString, toLocalTimeString } from '@app/shared/time/timeUtils';
+import { getFixedLookbackWindow, toLocalDateString, toLocalTimeString } from '@app/sharedV2/time/timeUtils';
 
 import { DatasetFieldProfile, DatasetProfile, SchemaField } from '@types';
 
@@ -31,11 +31,6 @@ const LoadingContainer = styled.div`
 const LoadingText = styled.div`
     margin-top: 18px;
     font-size: 12px;
-`;
-
-const StyledLoading = styled(LoadingOutlined)`
-    font-size: 32px;
-    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 export default function StatsSidebarView({
@@ -95,7 +90,7 @@ export default function StatsSidebarView({
 
             {profilesDataLoading && (
                 <LoadingContainer>
-                    <StyledLoading />
+                    <Loader size="md" />
                     <LoadingText>{tc('loading')}</LoadingText>
                 </LoadingContainer>
             )}

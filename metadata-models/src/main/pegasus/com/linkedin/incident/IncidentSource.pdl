@@ -14,6 +14,9 @@ record IncidentSource {
   * Message associated with the incident
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "addToFilters": true,
     "filterNameOverride": "Source"
   }
@@ -33,7 +36,10 @@ record IncidentSource {
   * Reference to an URN related to the source of an incident.
   */
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "copyToOther": true
+    }
   }
   sourceUrn: optional Urn
 }

@@ -6,13 +6,15 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryConte
 import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATAHUB_ROLE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME;
 import static com.linkedin.metadata.Constants.IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME;
 import static com.linkedin.metadata.Constants.IS_PART_OF_RELATIONSHIP_NAME;
 
+import com.datahub.authorization.EntityFieldType;
+import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.SessionActorIdentity;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
@@ -38,21 +40,27 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.ActorContext;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * GraphQL Resolver responsible for fetching relationships between entities in the DataHub graph.
  * All GraphQL "relationships" fields are wired to this resolver (see GmsGraphQLEngine and
  * DocumentResolvers), so cycle detection here covers every recursive relationship resolution path.
  */
+@Slf4j
 public class EntityRelationshipsResultResolver
     implements DataFetcher<CompletableFuture<EntityRelationshipsResult>> {
 
@@ -89,12 +97,6 @@ public class EntityRelationshipsResultResolver
         bindArgument(environment.getArgument("input"), RelationshipsInput.class);
 
     if (context == null) {
-      return CompletableFuture.completedFuture(emptyEntityRelationshipsResult());
-    }
-    // Restricted documents keep urn/type after mapper redaction; do not disclose relationships.
-    final Urn sourceUrn = UrnUtils.getUrn(urn);
-    if (DOCUMENT_ENTITY_NAME.equals(sourceUrn.getEntityType())
-        && !canView(context.getOperationContext(), sourceUrn)) {
       return CompletableFuture.completedFuture(emptyEntityRelationshipsResult());
     }
     if (context
@@ -297,6 +299,13 @@ public class EntityRelationshipsResultResolver
     }
 
     relationships = filterByRelatedEntityTypes(relationships, relatedEntityTypes);
+    if (relationshipTypes.size() > 1) {
+      // A user in a group via both ingested and native membership yields two edges; collapse them
+      // so "my groups" shows each group once (issue #14471). The full set is already in memory
+      // here,
+      // so this dedup is exact and cheap.
+      relationships = dedupByNeighborUrn(relationships);
+    }
     List<EntityRelationship> page = paginateRelationships(relationships, start, count);
     EntityRelationshipsResult result =
         mapEntityRelationshipsFromList(
@@ -379,10 +388,16 @@ public class EntityRelationshipsResultResolver
       total = relationships.size();
       relationships = paginateRelationships(relationships, start, count);
     } else {
-      // When filtering by relatedEntityTypes, page after filter so totals/pages match the
-      // filtered set (same as the live-graph mapper). Cap the pre-filter fetch at the membership
-      // graph's bounds.maxEdges (via MembershipReadSpec) and fail closed if truncated.
+      // A neighbor URN appears at most once per relationship type, so the same member is only
+      // duplicated when more than one type is requested (group members via IsMemberOfGroup +
+      // IsMemberOfNativeGroup, issue #14471). We collapse duplicates within the fetched page and
+      // leave the total as the raw edge count. An exact cross-page/count dedup would require
+      // pre-fetching the whole membership set (up to bounds.maxEdges) on every read — including the
+      // hover-card count that rides on ownershipFields — which costs far more than the rare
+      // dual-membership it corrects. relatedEntityTypes filtering still needs the full set, so that
+      // path alone keeps the capped fetch + fail-closed behavior.
       int fetchCap = spec.getRelatedTypeFilterFetchCap();
+      boolean needsDedup = relationshipTypes.size() > 1;
       int fetchStart = filterByRelatedType ? 0 : (start != null ? start : 0);
       int fetchCount = filterByRelatedType ? fetchCap : (count != null ? count : Integer.MAX_VALUE);
       MembershipNeighborResult result =
@@ -404,6 +419,8 @@ public class EntityRelationshipsResultResolver
                           .setType(neighbor.relationshipType()))
               .collect(Collectors.toList());
       if (filterByRelatedType) {
+        // Filtering pages after the fetch, so fetch the full set (capped) and fail closed if it was
+        // truncated, to keep filtered totals/pages accurate.
         if (result instanceof MembershipNeighborResult.Hit hit
             && hit.total() > relationships.size()) {
           throw new IllegalStateException(
@@ -414,9 +431,17 @@ public class EntityRelationshipsResultResolver
                   + " from membership bounds.maxEdges); refusing truncated filter+page results");
         }
         relationships = filterByRelatedEntityTypes(relationships, relatedEntityTypes);
+        if (needsDedup) {
+          relationships = dedupByNeighborUrn(relationships);
+        }
         total = relationships.size();
         relationships = paginateRelationships(relationships, start, count);
       } else {
+        if (needsDedup) {
+          relationships = dedupByNeighborUrn(relationships);
+        }
+        // Raw edge total when available (keeps hover/search counts cheap); the page above collapses
+        // same-page duplicates. Falls back to the deduped size when no authoritative total exists.
         total =
             result instanceof MembershipNeighborResult.Hit hit ? hit.total() : relationships.size();
       }
@@ -435,6 +460,29 @@ public class EntityRelationshipsResultResolver
     mapped.setTotal(total);
     mapped.setCount(mapped.getRelationships().size());
     return mapped;
+  }
+
+  /**
+   * Collapses membership edges that point at the same neighbor entity via different relationship
+   * types (e.g. a user who is both an ingested and a native group member, issue #14471) so the
+   * count and paged list reflect unique members. Prefers the native (GUI-managed) edge, mirroring
+   * DataHub's "edited copy wins" convention (schemaMetadata, documentation); first-seen order is
+   * otherwise preserved.
+   */
+  @Nonnull
+  private static List<EntityRelationship> dedupByNeighborUrn(
+      @Nonnull final List<EntityRelationship> relationships) {
+    final Map<Urn, EntityRelationship> byNeighbor = new LinkedHashMap<>();
+    for (EntityRelationship rel : relationships) {
+      byNeighbor.merge(
+          rel.getEntity(),
+          rel,
+          (existing, incoming) ->
+              IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME.equals(incoming.getType())
+                  ? incoming
+                  : existing);
+    }
+    return new ArrayList<>(byNeighbor.values());
   }
 
   @Nonnull
@@ -511,7 +559,8 @@ public class EntityRelationshipsResultResolver
         count,
         relationshipDirection,
         includeSoftDelete,
-        HierarchyBindings.domainSpec(context.getOperationContext()));
+        HierarchyBindings.domainSpec(context.getOperationContext()),
+        EntityFieldType.DOMAIN);
   }
 
   private EntityRelationshipsResult mapGlossaryChildRelationships(
@@ -529,7 +578,8 @@ public class EntityRelationshipsResultResolver
         count,
         relationshipDirection,
         includeSoftDelete,
-        HierarchyBindings.glossarySpec(context.getOperationContext()));
+        HierarchyBindings.glossarySpec(context.getOperationContext()),
+        EntityFieldType.GLOSSARY);
   }
 
   private EntityRelationshipsResult mapDirectChildRelationships(
@@ -540,10 +590,12 @@ public class EntityRelationshipsResultResolver
       @Nonnull
           final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection,
       final boolean includeSoftDelete,
-      @Nonnull com.linkedin.metadata.graph.cache.client.HierarchyReadSpec spec) {
+      @Nonnull com.linkedin.metadata.graph.cache.client.HierarchyReadSpec spec,
+      @Nonnull final EntityFieldType hierarchyField) {
+    final Urn parentUrn = UrnUtils.getUrn(urn);
     Set<Urn> childUrns =
         BoundHierarchyAccess.directChildUrns(
-            context.getOperationContext(), spec, UrnUtils.getUrn(urn), includeSoftDelete);
+            context.getOperationContext(), spec, parentUrn, includeSoftDelete);
 
     Set<Urn> existentChildUrns;
     if (!includeSoftDelete && _entityService != null) {
@@ -552,25 +604,36 @@ public class EntityRelationshipsResultResolver
       existentChildUrns = null;
     }
 
-    List<Urn> viewable =
+    // Sorted so that an offset selects the same children on every request.
+    List<Urn> children =
         childUrns.stream()
             .filter(childUrn -> existentChildUrns == null || existentChildUrns.contains(childUrn))
+            .sorted(Comparator.comparing(Urn::toString))
+            .collect(Collectors.toList());
+
+    final int resolvedStart = Math.max(0, start != null ? start : 0);
+    // Each returned child costs a view check, so the page size is bounded by configuration and
+    // the listing does not scale with the size of the group.
+    final int pageSize =
+        Math.min(
+            context.getDirectChildMaxCount(),
+            Math.max(0, count != null ? count : context.getDirectChildDefaultCount()));
+    // View checks run on the requested slice only, so a viewer who cannot see some children gets a
+    // short page, and the total counts every child. A count of 0 asks only for the total and
+    // checks nothing.
+    final List<Urn> slice =
+        pageSize == 0
+            ? List.of()
+            : children.stream().skip(resolvedStart).limit(pageSize).collect(Collectors.toList());
+    seedChildHierarchyField(context, spec, hierarchyField, parentUrn, slice);
+    final List<Urn> page =
+        slice.stream()
             .filter(childUrn -> canView(context.getOperationContext(), childUrn))
             .collect(Collectors.toList());
 
-    int resolvedStart = start != null ? start : 0;
-    int resolvedCount = count != null ? count : viewable.size();
-    List<Urn> page =
-        resolvedCount <= 0
-            ? List.of()
-            : viewable.stream()
-                .skip(resolvedStart)
-                .limit(resolvedCount)
-                .collect(Collectors.toList());
-
     EntityRelationshipsResult result = new EntityRelationshipsResult();
     result.setStart(resolvedStart);
-    result.setTotal(viewable.size());
+    result.setTotal(children.size());
     result.setCount(page.size());
     result.setRelationships(
         page.stream()
@@ -584,6 +647,46 @@ public class EntityRelationshipsResultResolver
                             .setType(IS_PART_OF_RELATIONSHIP_NAME)))
             .collect(Collectors.toList()));
     return result;
+  }
+
+  /**
+   * Seeds each child's hierarchy field (GLOSSARY or DOMAIN) as the child plus its parent's
+   * ancestors, so the per-child {@code canView} checks below reuse one ancestor walk instead of
+   * walking the hierarchy once per child. The value is what the field resolver would compute: a
+   * child's ancestors are its parent and the parent's ancestors. Without this, listing a group with
+   * thousands of children under a policy scoped to that group costs thousands of walks per request.
+   * An override already present for a child is left alone.
+   */
+  private static void seedChildHierarchyField(
+      @Nonnull final QueryContext context,
+      @Nonnull final com.linkedin.metadata.graph.cache.client.HierarchyReadSpec spec,
+      @Nonnull final EntityFieldType hierarchyField,
+      @Nonnull final Urn parentUrn,
+      @Nonnull final List<Urn> children) {
+    if (children.isEmpty()) {
+      return;
+    }
+    final OperationContext opContext = context.getOperationContext();
+    final long startNanos = System.nanoTime();
+    final Set<String> parentChain =
+        BoundHierarchyAccess.expandAncestors(opContext, spec, Set.of(parentUrn)).stream()
+            .map(Urn::toString)
+            .collect(Collectors.toSet());
+    final Map<EntitySpec, Map<EntityFieldType, FieldResolver>> overrides =
+        opContext.getAuthorizationContext().getSessionResourceFieldOverrides();
+    for (Urn child : children) {
+      final Set<String> values = new HashSet<>(parentChain);
+      values.add(child.toString());
+      overrides.putIfAbsent(
+          new EntitySpec(child.getEntityType(), child.toString()),
+          Map.of(hierarchyField, FieldResolver.getResolverFromValues(values)));
+    }
+    log.debug(
+        "Seeded {} for {} children of {} from one ancestor walk ({} ms)",
+        hierarchyField,
+        children.size(),
+        parentUrn,
+        (System.nanoTime() - startNanos) / 1_000_000);
   }
 
   private static EntityRelationshipsResult emptyEntityRelationshipsResult() {

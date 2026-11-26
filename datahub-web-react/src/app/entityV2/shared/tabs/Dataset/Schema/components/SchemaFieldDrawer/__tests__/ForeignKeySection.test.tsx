@@ -7,7 +7,7 @@ import { sampleSchemaWithCompositeFk, sampleSchemaWithPkFk } from '@app/entityV2
 import ForeignKeySection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/ForeignKeySection';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
-import { SchemaField } from '@types';
+import { SchemaField, SchemaMetadata } from '@types';
 
 const findField = (fieldPath: string) =>
     sampleSchemaWithPkFk.fields.find((field) => field.fieldPath === fieldPath) as SchemaField;
@@ -43,7 +43,30 @@ describe('ForeignKeySection', () => {
 
         expect(container).toBeEmptyDOMElement();
     });
-    it('renders every field of a composite constraint and a placeholder for an unresolved dataset', () => {
+    it('waits for the target dataset before showing a constraint', () => {
+        const structuralSchema = {
+            ...sampleSchemaWithPkFk,
+            foreignKeys: sampleSchemaWithPkFk.foreignKeys?.map(
+                (constraint) => constraint && { ...constraint, foreignDataset: null },
+            ),
+        };
+        const section = (schemaMetadata: SchemaMetadata) => (
+            <MockedProvider mocks={[]} addTypename={false}>
+                <TestPageContainer>
+                    <ForeignKeySection expandedField={findField('shipping_address')} schemaMetadata={schemaMetadata} />
+                </TestPageContainer>
+            </MockedProvider>
+        );
+        const { container, rerender } = render(section(structuralSchema));
+
+        expect(container).toBeEmptyDOMElement();
+
+        rerender(section(sampleSchemaWithPkFk));
+
+        expect(screen.getByTestId('foreign-key-constraint')).toBeInTheDocument();
+    });
+
+    it('renders both fields of a composite constraint and skips unresolved constraints', () => {
         render(
             <MockedProvider mocks={[]} addTypename={false}>
                 <TestPageContainer>
@@ -57,7 +80,6 @@ describe('ForeignKeySection', () => {
 
         expect(screen.getByTestId('foreign-key-composite_constraint')).toBeInTheDocument();
         expect(screen.getByText('address_id')).toBeInTheDocument();
-        expect(screen.getByTestId('foreign-key-unresolved_constraint')).toBeInTheDocument();
-        expect(screen.getByText('Related dataset is unavailable')).toBeInTheDocument();
+        expect(screen.queryByTestId('foreign-key-unresolved_constraint')).not.toBeInTheDocument();
     });
 });

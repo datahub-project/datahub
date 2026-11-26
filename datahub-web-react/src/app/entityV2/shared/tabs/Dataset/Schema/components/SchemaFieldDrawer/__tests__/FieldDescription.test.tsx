@@ -4,14 +4,14 @@ import userEvent from '@testing-library/user-event';
 import React from 'react';
 
 import FieldDescription from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDescription';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { SchemaField, SchemaFieldDataType } from '@types';
 
 const { mockUseEntityData } = vi.hoisted(() => ({ mockUseEntityData: vi.fn() }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useMutationUrn: () => 'urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)',
     useRefetch: () => vi.fn(),
     useEntityData: mockUseEntityData,

@@ -15,6 +15,8 @@ Two key concepts:
 - **Extractor Project**: Project containing the service account used to run metadata extraction queries
 - **BigQuery Projects**: Projects from which DataHub collects metadata (tables, lineage, usage, profiling). By default includes the extractor project; configure `project_ids` to specify projects explicitly
 
+With `use_queries_v2: true` (the default), lineage and usage come from each ingested project's own job history. If the jobs that write your tables run in a different project, such as a separate billing or backfill project, make sure that project is ingested too: add it to `project_ids` if you set that, otherwise include it in `project_id_pattern` (and `project_labels`, if set). Grant it the same roles as your other projects, including `roles/bigquery.resourceViewer`. Otherwise those jobs are never read, and their tables show no lineage. Ingested projects are also scanned for their own datasets; use `dataset_pattern` to skip datasets you don't want catalogued.
+
 #### Create a datahub profile in GCP
 
 1. Create a custom role for DataHub following [BigQuery docs](https://cloud.google.com/iam/docs/creating-custom-roles#creating_a_custom_role)

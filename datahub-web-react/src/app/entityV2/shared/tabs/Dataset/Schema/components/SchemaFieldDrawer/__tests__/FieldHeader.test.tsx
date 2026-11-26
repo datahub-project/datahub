@@ -20,6 +20,7 @@ const renderHeader = (fieldPath: string) =>
                     expandedField={findField(fieldPath)}
                     setExpandedDrawerFieldPath={vi.fn()}
                     schemaMetadata={sampleSchemaWithPkFk}
+                    isPrimaryKey={false}
                 />
             </TestPageContainer>
         </MockedProvider>,

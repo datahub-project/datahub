@@ -1,4 +1,3 @@
-import Icon from '@ant-design/icons';
 import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
 import { Database as DatabaseIcon } from '@phosphor-icons/react/dist/csr/Database';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
@@ -49,19 +48,19 @@ export function getSubTypeIcon(subType?: string, size?: number | string): JSX.El
         return <Funnel className={TYPE_ICON_CLASS_NAME} size={iconSize} color="currentColor" />;
     }
     if (lowerSubType === SubType.TableauWorkbook.toLowerCase()) {
-        return <Icon component={TableauWorkbookLogo} className={TYPE_ICON_CLASS_NAME} />;
+        return <TableauWorkbookLogo className={TYPE_ICON_CLASS_NAME} />;
     }
     if (lowerSubType === SubType.TableauPublishedDataSource.toLowerCase()) {
-        return <Icon component={TableauPublishedDataSourceLogo} className={TYPE_ICON_CLASS_NAME} />;
+        return <TableauPublishedDataSourceLogo className={TYPE_ICON_CLASS_NAME} />;
     }
     if (lowerSubType === SubType.TableauEmbeddedDataSource.toLowerCase()) {
-        return <Icon component={TableauEmbeddedDataSourceLogo} className={TYPE_ICON_CLASS_NAME} />;
+        return <TableauEmbeddedDataSourceLogo className={TYPE_ICON_CLASS_NAME} />;
     }
     if (lowerSubType === SubType.TableauWorksheet.toLowerCase()) {
         return <ChartLine className={TYPE_ICON_CLASS_NAME} size={iconSize} color="currentColor" />;
     }
     if (lowerSubType === SubType.VertexAIPipelineTask.toLowerCase()) {
-        return <Icon component={VertexAIPipelineTaskLogo} className={TYPE_ICON_CLASS_NAME} />;
+        return <VertexAIPipelineTaskLogo className={TYPE_ICON_CLASS_NAME} />;
     }
     return undefined;
 }

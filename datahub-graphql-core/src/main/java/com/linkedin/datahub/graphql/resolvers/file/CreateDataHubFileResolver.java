@@ -11,6 +11,8 @@ import com.linkedin.datahub.graphql.generated.CreateDataHubFileResponse;
 import com.linkedin.datahub.graphql.generated.DataHubFile;
 import com.linkedin.datahub.graphql.types.file.DataHubFileMapper;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.ObjectStorageConfiguration;
 import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import graphql.schema.DataFetcher;
@@ -27,6 +29,7 @@ public class CreateDataHubFileResolver
 
   private final DataHubFileService _dataHubFileService;
   @Nullable private final ObjectStorageClient _objectStorageClient;
+  private final ObjectStorageConfiguration _objectStorageConfiguration;
 
   @Override
   public CompletableFuture<CreateDataHubFileResponse> get(DataFetchingEnvironment environment)
@@ -44,7 +47,15 @@ public class CreateDataHubFileResolver
     }
 
     String id = input.getId();
-    String storageKey = input.getStorageKey();
+    // Rebuild the key GetPresignedUploadUrlResolver uploaded to rather than trusting the client's
+    // storageKey: it ignores a custom asset path prefix, and entity deletion deletes this key.
+    String storageKey =
+        String.format(
+            "%s/%s%s%s",
+            _objectStorageConfiguration.getAssetPathPrefix(),
+            id,
+            Constants.S3_FILE_ID_NAME_SEPARATOR,
+            input.getOriginalFileName());
 
     com.linkedin.file.BucketStorageLocation bucketStorageLocation =
         new com.linkedin.file.BucketStorageLocation();

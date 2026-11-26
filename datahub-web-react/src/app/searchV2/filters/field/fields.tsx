@@ -1,22 +1,4 @@
-import {
-    BuildOutlined,
-    DatabaseOutlined,
-    DeleteOutlined,
-    EnvironmentOutlined,
-    FileOutlined,
-    FileTextOutlined,
-    FolderOutlined,
-    LayoutOutlined,
-    TagOutlined,
-    UserOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
-import Icon from '@ant-design/icons/lib/components/Icon';
-import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
-import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
-import { Timer } from '@phosphor-icons/react/dist/csr/Timer';
 import i18next from 'i18next';
-import React from 'react';
 
 import { FieldType, FilterField } from '@app/searchV2/filters/types';
 import {
@@ -46,7 +28,6 @@ import {
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
-import TableIcon from '@src/images/table-icon.svg?react';
 
 import { EntityType } from '@types';
 
@@ -56,7 +37,6 @@ const ENTITY_SUB_TYPE_FILTER: FilterField = {
         return FIELD_TO_LABEL[ENTITY_SUB_TYPE_FILTER_NAME];
     },
     type: FieldType.NESTED_ENTITY_TYPE,
-    icon: <FileOutlined />,
 };
 
 const ENTITY_TYPE_FILTER: FilterField = {
@@ -65,7 +45,6 @@ const ENTITY_TYPE_FILTER: FilterField = {
         return FIELD_TO_LABEL[ENTITY_FILTER_NAME];
     },
     type: FieldType.ENTITY_TYPE,
-    icon: <FileOutlined />,
 };
 
 const TYPE_NAMES_FILTER: FilterField = {
@@ -74,7 +53,6 @@ const TYPE_NAMES_FILTER: FilterField = {
         return FIELD_TO_LABEL[TYPE_NAMES_FILTER_NAME];
     },
     type: FieldType.ENUM,
-    icon: <FileOutlined />,
 };
 
 const PLATFORM_FILTER: FilterField = {
@@ -84,7 +62,6 @@ const PLATFORM_FILTER: FilterField = {
     },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.DataPlatform],
-    icon: <DatabaseOutlined />,
 };
 
 const OWNERS_FILTER: FilterField = {
@@ -94,7 +71,6 @@ const OWNERS_FILTER: FilterField = {
     },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
-    icon: <UserOutlined />,
 };
 
 const DOMAINS_FILTER: FilterField = {
@@ -104,7 +80,6 @@ const DOMAINS_FILTER: FilterField = {
     },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Domain],
-    icon: <Globe />,
 };
 
 const TAGS_FILTER: FilterField = {
@@ -114,7 +89,6 @@ const TAGS_FILTER: FilterField = {
     },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Tag],
-    icon: <TagOutlined />,
 };
 
 const GLOSSARY_TERMS_FILTER: FilterField = {
@@ -124,7 +98,6 @@ const GLOSSARY_TERMS_FILTER: FilterField = {
     },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.GlossaryTerm],
-    icon: <BookmarkSimple />,
 };
 
 const CONTAINER_FILTER: FilterField = {
@@ -134,7 +107,6 @@ const CONTAINER_FILTER: FilterField = {
     },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Container],
-    icon: <FolderOutlined />,
 };
 
 export const PARENT_DOCUMENT_FILTER: FilterField = {
@@ -144,7 +116,6 @@ export const PARENT_DOCUMENT_FILTER: FilterField = {
     },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Document],
-    icon: <FileTextOutlined />,
 };
 
 const FIELD_PATHS_FILTER: FilterField = {
@@ -153,7 +124,6 @@ const FIELD_PATHS_FILTER: FilterField = {
         return FIELD_TO_LABEL[FIELD_PATHS_FILTER_NAME];
     },
     type: FieldType.TEXT,
-    icon: <LayoutOutlined />,
 };
 
 const FIELD_TAGS_FILTER: FilterField = {
@@ -163,7 +133,6 @@ const FIELD_TAGS_FILTER: FilterField = {
     },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Tag],
-    icon: <TagOutlined />,
 };
 
 const FIELD_GLOSSARY_TERMS_FILTER: FilterField = {
@@ -173,7 +142,6 @@ const FIELD_GLOSSARY_TERMS_FILTER: FilterField = {
     },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.GlossaryTerm],
-    icon: <BookmarkSimple />,
 };
 
 const DESCRIPTION_FILTER: FilterField = {
@@ -182,7 +150,6 @@ const DESCRIPTION_FILTER: FilterField = {
         return FIELD_TO_LABEL[DESCRIPTION_FILTER_NAME];
     },
     type: FieldType.TEXT,
-    icon: <FileTextOutlined />,
 };
 
 const FIELD_DESCRIPTIONS_FILTER: FilterField = {
@@ -191,7 +158,6 @@ const FIELD_DESCRIPTIONS_FILTER: FilterField = {
         return FIELD_TO_LABEL[FIELD_DESCRIPTIONS_FILTER_NAME];
     },
     type: FieldType.TEXT,
-    icon: <FileTextOutlined />,
 };
 
 const REMOVED_FILTER: FilterField = {
@@ -200,7 +166,6 @@ const REMOVED_FILTER: FilterField = {
         return FIELD_TO_LABEL[REMOVED_FILTER_NAME];
     },
     type: FieldType.BOOLEAN,
-    icon: <DeleteOutlined />,
 };
 
 const HAS_ACTIVE_INCIDENTS_FILTER: FilterField = {
@@ -209,7 +174,6 @@ const HAS_ACTIVE_INCIDENTS_FILTER: FilterField = {
         return FIELD_TO_LABEL[HAS_ACTIVE_INCIDENTS_FILTER_NAME];
     },
     type: FieldType.BOOLEAN,
-    icon: <WarningOutlined />,
 };
 
 const ORIGIN_FILTER: FilterField = {
@@ -218,7 +182,6 @@ const ORIGIN_FILTER: FilterField = {
         return FIELD_TO_LABEL[ORIGIN_FILTER_NAME];
     },
     type: FieldType.ENUM,
-    icon: <EnvironmentOutlined />,
 };
 
 const DATA_PLATFORM_INSTANCE_FILTER: FilterField = {
@@ -227,7 +190,6 @@ const DATA_PLATFORM_INSTANCE_FILTER: FilterField = {
         return FIELD_TO_LABEL[DATA_PLATFORM_INSTANCE_FILTER_NAME];
     },
     type: FieldType.ENTITY,
-    icon: <DatabaseOutlined />,
     entityTypes: [EntityType.DataPlatformInstance],
 };
 
@@ -246,7 +208,6 @@ export const STRUCTURED_PROPERTY_FILTER: FilterField = {
         return FIELD_TO_LABEL[STRUCTURED_PROPERTIES_FILTER_NAME];
     },
     type: FieldType.TEXT,
-    icon: <Icon component={TableIcon} />,
 };
 
 const HAS_SIBLINGS_FILTER: FilterField = {
@@ -255,7 +216,6 @@ const HAS_SIBLINGS_FILTER: FilterField = {
         return FIELD_TO_LABEL[HAS_SIBLINGS_FILTER_NAME];
     },
     type: FieldType.BOOLEAN,
-    icon: <BuildOutlined />,
 };
 
 const DAY_IN_MILLIS = 24 * 60 * 60 * 1000;
@@ -266,7 +226,6 @@ export const LAST_MODIFIED_FILTER: FilterField = {
         return FIELD_TO_LABEL[LAST_MODIFIED_FILTER_NAME];
     },
     type: FieldType.BUCKETED_TIMESTAMP,
-    icon: <Timer size="1em" />,
     useDatePicker: true,
     get options() {
         return [
@@ -312,7 +271,6 @@ const BROWSE_FILTER: FilterField = {
         return FIELD_TO_LABEL[BROWSE_PATH_V2_FILTER_NAME];
     },
     type: FieldType.BROWSE_PATH,
-    icon: <FolderOutlined />,
 };
 
 export const DEFAULT_FILTER_FIELDS: FilterField[] = [

@@ -6,13 +6,11 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 def test_redshift_and_unity_catalog_probe_hooks_share_one_identifier_function():
     """Ingestion and the probe must agree on the identifier they filter on.
 
-    Redshift used to guarantee that by *routing* through dataset_name in its
-    own probe_filter_target. That override is gone -- the framework builds
-    `container.schema.entity` for every non-SQLAlchemy SQL source, and
-    Qualifier(authoritative=True) is how Redshift says its configured
-    database wins -- so the coupling is asserted here instead of indirected
-    through a per-connector method. Same protection, no per-connector code:
-    if redshift.py ever changes what it filters on, this fails.
+    The framework builds `container.schema.entity` for every non-SQLAlchemy
+    SQL source, and Qualifier(authoritative=True) is how Redshift says its
+    configured database wins, so the coupling to redshift.py is asserted here
+    rather than routed through a per-connector method: if redshift.py ever
+    changes what it filters on, this fails.
 
     Unity Catalog still routes through its own, because its override does
     something the framework cannot: decline when no single catalog is

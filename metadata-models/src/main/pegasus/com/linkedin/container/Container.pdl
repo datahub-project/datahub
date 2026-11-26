@@ -21,7 +21,11 @@ record Container {
     "fieldType": "URN",
     "addToFilters": true,
     "hasValuesFieldName": "hasContainer",
-    "filterNameOverride": "Container"
+    "filterNameOverride": "Container",
+    "v3": {
+      "searchLabel": "container",
+      "copyToOther": true
+    }
   }
   container: Urn
 }

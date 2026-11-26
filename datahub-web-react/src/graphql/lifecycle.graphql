@@ -1,0 +1,34 @@
+fragment glossaryTermLifecycleFields on GlossaryTerm {
+    status {
+        removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
+    }
+}
+
+query listLifecycleStages($entityType: EntityType) {
+    listLifecycleStages(entityType: $entityType) {
+        urn
+        name
+        description
+        userAssignable
+        allowedPreviousStages
+    }
+}
+
+# Whether the viewer can manage a glossary node's children; such editors also see its hidden-stage terms.
+query getGlossaryNodeCanManageChildren($urn: String!) {
+    glossaryNode(urn: $urn) {
+        urn
+        privileges {
+            canManageChildren
+        }
+    }
+}
+
+mutation setLifecycleStage($urn: String!, $lifecycleStageUrn: String) {
+    setLifecycleStage(urn: $urn, lifecycleStageUrn: $lifecycleStageUrn)
+}

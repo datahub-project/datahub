@@ -5,18 +5,42 @@ namespace com.linkedin.repository
  * identified in its source system. Reusable across any synced or native repo.
  */
 @Aspect = {
-  "name": "repositorySource"
+  "name": "repositorySource",
+  "schemaVersion": 2
 }
 record RepositorySource {
 
   /**
    * The web or clone URL of the repository in its source system.
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "externalUrl",
+      "queryByDefault": false
+    }
+  }
   externalUrl: optional string
 
   /**
    * The identifier of the repository in its source system (e.g. a GitHub
    * numeric repo id or an org/name slug).
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   externalId: optional string
 }

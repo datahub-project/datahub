@@ -22,7 +22,9 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -45,6 +47,7 @@ import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class StructuredPropertyPrivilegeConstraintsValidatorTest {
@@ -170,7 +173,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                    any(), any(), anyCollection()))
+                    any(), any(), anyCollection(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -193,7 +196,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                    any(), any(), anyCollection()))
+                    any(), any(), anyCollection(), any()))
         .thenReturn(false);
 
     AspectValidationException ex =
@@ -207,6 +210,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
             .orElse(null);
     Assert.assertNotNull(ex);
     Assert.assertTrue(ex.getMessage().contains("structured property"));
+    Assert.assertEquals(ex.getSubType(), ValidationSubType.AUTHORIZATION);
   }
 
   // The key behavioral test: only added/removed/value-changed property URNs are authorized;
@@ -238,7 +242,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                    any(), any(), anyCollection()))
+                    any(), any(), anyCollection(), any()))
         .thenReturn(true);
 
     Assert.assertFalse(
@@ -258,28 +262,34 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
     authUtilMockedStatic.verify(
         () ->
             AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                any(), eq(TEST_DATASET_URN), eq(expected)));
+                any(), eq(TEST_DATASET_URN), eq(expected), any()));
   }
 
-  // PATCH writes must be enforced too, not just full-aspect UPSERT: this exercises the
-  // ALTERNATE_MCP_VALIDATION path where patches arrive as ProposedItem (not PatchItemImpl).
-  @Test
-  public void testPatchRemoveAuthorizesRemovedProperty() {
+  // A PATCH arrives as a PatchItemImpl by default, or as a ProposedItem under alternate MCP
+  // validation. The constraint must hold for both.
+  @DataProvider(name = "patchItemShapes")
+  public Object[][] patchItemShapes() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  @Test(dataProvider = "patchItemShapes")
+  public void testPatchRemoveAuthorizesRemovedProperty(boolean alternateValidation) {
     // current: p1=v1
     StructuredProperties current = props(Map.of("urn:li:structuredProperty:p1", List.of("v1")));
     stubCurrentAspect(
         TEST_DATASET_URN, STRUCTURED_PROPERTIES_ASPECT_NAME, new Aspect(current.data()));
     Mockito.when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
 
-    // PATCH removing p1 — a ProposedItem carrying a REMOVE op at /properties/<p1>
+    // PATCH removing p1: a REMOVE op at /properties/<p1>
     BatchItem patchItem =
-        structuredPropertiesPatchRemove(TEST_DATASET_URN, "urn:li:structuredProperty:p1");
+        structuredPropertiesPatchRemove(
+            TEST_DATASET_URN, "urn:li:structuredProperty:p1", alternateValidation);
 
     authUtilMockedStatic
         .when(
             () ->
                 AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                    any(), any(), anyCollection()))
+                    any(), any(), anyCollection(), any()))
         .thenReturn(true);
 
     Assert.assertFalse(
@@ -297,7 +307,8 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
             AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
                 any(),
                 eq(TEST_DATASET_URN),
-                eq(Set.of(UrnUtils.getUrn("urn:li:structuredProperty:p1")))));
+                eq(Set.of(UrnUtils.getUrn("urn:li:structuredProperty:p1"))),
+                any()));
   }
 
   // Deleting the whole aspect must authorize every currently-assigned property, not bypass the
@@ -323,7 +334,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                    any(), any(), anyCollection()))
+                    any(), any(), anyCollection(), any()))
         .thenReturn(true);
 
     Assert.assertFalse(
@@ -339,7 +350,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
     authUtilMockedStatic.verify(
         () ->
             AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                any(), eq(TEST_DATASET_URN), eq(expected)));
+                any(), eq(TEST_DATASET_URN), eq(expected), any()));
   }
 
   @Test
@@ -354,7 +365,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
         .when(
             () ->
                 AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
-                    any(), any(), anyCollection()))
+                    any(), any(), anyCollection(), any()))
         .thenReturn(false);
 
     AspectValidationException ex =
@@ -368,6 +379,7 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
             .orElse(null);
     Assert.assertNotNull(ex);
     Assert.assertTrue(ex.getMessage().contains("structured property"));
+    Assert.assertEquals(ex.getSubType(), ValidationSubType.AUTHORIZATION);
   }
 
   /** Builds a DELETE {@link BatchItem} removing the whole {@code structuredProperties} aspect. */
@@ -381,12 +393,13 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
   }
 
   /**
-   * Builds a PATCH {@link ProposedItem} (not a {@link
-   * com.linkedin.metadata.entity.ebean.batch.PatchItemImpl}) removing a structured property, the
-   * same shape {@link com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder}
-   * emits: {@code {"op":"remove","path":"/properties/<propertyUrn>"}}.
+   * Builds a PATCH removing a structured property, as a {@link ProposedItem} or a {@link
+   * PatchItemImpl}, the same shape {@link
+   * com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder} emits: {@code
+   * {"op":"remove","path":"/properties/<propertyUrn>"}}.
    */
-  private BatchItem structuredPropertiesPatchRemove(Urn entityUrn, String propertyUrn) {
+  private BatchItem structuredPropertiesPatchRemove(
+      Urn entityUrn, String propertyUrn, boolean alternateValidation) {
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityUrn(entityUrn);
     mcp.setEntityType(entityUrn.getEntityType());
@@ -407,6 +420,8 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
             .build();
     mcp.setAspect(GenericRecordUtils.serializePatch(genericJsonPatch, OBJECT_MAPPER));
 
-    return ProposedItem.builder().build(mcp, AUDIT_STAMP, TEST_REGISTRY);
+    return alternateValidation
+        ? ProposedItem.builder().build(mcp, AUDIT_STAMP, TEST_REGISTRY)
+        : PatchItemImpl.builder().build(mcp, AUDIT_STAMP, TEST_REGISTRY);
   }
 }

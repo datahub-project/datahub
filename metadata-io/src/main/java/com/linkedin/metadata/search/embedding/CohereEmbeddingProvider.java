@@ -104,43 +104,63 @@ public class CohereEmbeddingProvider implements EmbeddingProvider {
   @Override
   @Nonnull
   public float[] embed(@Nonnull String text, @Nullable String model) {
+    return embed(text, model, MAX_ATTEMPTS, DEFAULT_TIMEOUT);
+  }
+
+  @Override
+  @Nonnull
+  public float[] embed(
+      @Nonnull String text,
+      @Nullable String model,
+      @Nonnull EmbeddingTaskType taskType,
+      @Nonnull Duration timeout) {
+    return embed(
+        text, model, 1, timeout.compareTo(DEFAULT_TIMEOUT) < 0 ? timeout : DEFAULT_TIMEOUT);
+  }
+
+  @Nonnull
+  private float[] embed(
+      @Nonnull String text,
+      @Nullable String model,
+      int maxAttempts,
+      @Nonnull Duration attemptTimeout) {
     Objects.requireNonNull(text, "text cannot be null");
 
     @Nonnull String modelToUse = model != null ? model : defaultModel;
     Exception lastException = null;
 
-    for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        return embedInternal(text, modelToUse);
+        return embedInternal(text, modelToUse, attemptTimeout);
       } catch (RuntimeException e) {
         // Non-retryable: bad API key, malformed response, 4xx errors, etc.
         lastException = e;
         break;
       } catch (Exception e) {
         lastException = e;
-        if (attempt < MAX_ATTEMPTS) {
+        if (attempt < maxAttempts) {
           log.warn(
               "Cohere embedding attempt {}/{} failed for model {}, retrying: {}",
               attempt,
-              MAX_ATTEMPTS,
+              maxAttempts,
               modelToUse,
               e.getMessage());
         }
       }
     }
 
-    log.error(
-        "All {} attempts failed for Cohere embedding with model {}", MAX_ATTEMPTS, modelToUse);
+    log.error("All {} attempts failed for Cohere embedding with model {}", maxAttempts, modelToUse);
     Exception cause = Objects.requireNonNull(lastException);
     throw new RuntimeException(
         String.format(
             "Cohere API call failed for model %s after %d attempts: %s",
-            modelToUse, MAX_ATTEMPTS, cause.getMessage()),
+            modelToUse, maxAttempts, cause.getMessage()),
         cause);
   }
 
   @Nonnull
-  private float[] embedInternal(@Nonnull String text, @Nonnull String modelToUse)
+  private float[] embedInternal(
+      @Nonnull String text, @Nonnull String modelToUse, @Nonnull Duration attemptTimeout)
       throws IOException, InterruptedException {
     // Format: {"texts": ["text"], "model": "embed-english-v3.0", "input_type": "search_query",
     // "truncate": "END"}
@@ -160,7 +180,7 @@ public class CohereEmbeddingProvider implements EmbeddingProvider {
     HttpRequest request =
         HttpRequest.newBuilder()
             .uri(URI.create(endpoint))
-            .timeout(DEFAULT_TIMEOUT)
+            .timeout(attemptTimeout)
             .header("Content-Type", "application/json")
             .header("Authorization", "Bearer " + apiKey)
             .header("Cohere-Version", COHERE_VERSION)

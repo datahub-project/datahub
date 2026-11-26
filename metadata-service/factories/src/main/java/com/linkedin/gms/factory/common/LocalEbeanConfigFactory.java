@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.metadata.config.postgres.JdbcUrlParser;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
@@ -29,6 +30,10 @@ public class LocalEbeanConfigFactory {
 
   @Value("${ebean.url}")
   private String ebeanDatasourceUrl;
+
+  /** Metadata schema ({@code DATAHUB_POSTGRES_SCHEMA}). Applied to Postgres Ebean URLs. */
+  @Value("${postgres.schema:public}")
+  private String postgresMetadataSchema;
 
   @Value("${ebean.minConnections:2}")
   private Integer ebeanMinConnections;
@@ -135,7 +140,8 @@ public class LocalEbeanConfigFactory {
 
     dataSourceConfig.setUsername(ebeanDatasourceUsername);
     dataSourceConfig.setPassword(ebeanDatasourcePassword);
-    dataSourceConfig.setUrl(crossCloudConfig.url);
+    dataSourceConfig.setUrl(
+        JdbcUrlParser.applyPostgresMetadataSchema(crossCloudConfig.url, postgresMetadataSchema));
     dataSourceConfig.setDriver(crossCloudConfig.driver);
     dataSourceConfig.setMinConnections(ebeanMinConnections);
     dataSourceConfig.setMaxConnections(ebeanMaxConnections);

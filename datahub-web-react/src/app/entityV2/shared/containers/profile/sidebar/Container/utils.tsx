@@ -2,6 +2,7 @@ import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '@types';
@@ -86,6 +87,14 @@ export const getContentsSummary = (contents: SearchResults): ContentsSummary => 
     return getContentCountsByType(contents);
 };
 
+function getEntityTypeLabel(entityRegistry: EntityRegistry, type: ContentTypeSummary): string | undefined {
+    if (!type.isEntityType) {
+        return type.type;
+    }
+    const entityType = type.type as EntityType;
+    return type.count === 1 ? entityRegistry.getEntityName(entityType) : entityRegistry.getCollectionName(entityType);
+}
+
 export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry: EntityRegistry): React.ReactNode => {
     return (
         <>
@@ -94,10 +103,7 @@ export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry:
                     <SummaryText>
                         {i18next.t('entity.shared.containers:sidebar.entityTypeCount', {
                             count: type.count,
-                            type: (type.isEntityType
-                                ? entityRegistry.getEntityName(type.type as EntityType)
-                                : type.type
-                            )?.toLocaleLowerCase(),
+                            type: getEntityTypeLabel(entityRegistry, type)?.toLocaleLowerCase(),
                         })}
                         {/* eslint-disable-next-line i18next/no-literal-string -- list separator punctuation, not translatable UI text */}
                         {idx < summary.types.length - 1 && <>, </>}
@@ -109,5 +115,5 @@ export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry:
 };
 
 export const navigateToContainerContents = (urn, type, history, entityRegistry) => {
-    history.push(`${entityRegistry.getEntityUrl(type, urn)}/Contents`);
+    history.push(`${entityRegistry.getEntityUrl(type, urn)}/${EntityTabPath.CONTENTS}`);
 };

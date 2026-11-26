@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.Weigher;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.cache.client.ClientCacheConfig;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
@@ -33,6 +34,9 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
   @Nonnull private final Weigher<K, V> weigher;
   @Nonnull private final BiFunction<C, K, Integer> ttlSecondsFunction;
 
+  /** Optional per-value TTL adjustment. Used to expire negative entries faster than hits. */
+  @Nonnull private final BiFunction<V, Integer, Integer> ttlAdjustment;
+
   public @Nullable V get(@Nonnull K key) {
     return cache.get(key);
   }
@@ -53,7 +57,20 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
     return cache.asMap().keySet();
   }
 
+  @VisibleForTesting
+  LoadingCache<K, V> getCache() {
+    return cache;
+  }
+
   public static class ClientCacheBuilder<K, V, C extends ClientCacheConfig> {
+
+    private BiFunction<V, Integer, Integer> ttlAdjustment = (value, configured) -> configured;
+
+    public ClientCacheBuilder<K, V, C> ttlAdjustment(
+        BiFunction<V, Integer, Integer> ttlAdjustment) {
+      this.ttlAdjustment = ttlAdjustment;
+      return this;
+    }
 
     private ClientCacheBuilder<K, V, C> cache(LoadingCache<K, V> cache) {
       return null;
@@ -91,7 +108,9 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
                   new Expiry<K, V>() {
                     public long expireAfterCreate(
                         @Nonnull K key, @Nonnull V aspect, long currentTime) {
-                      int ttlSeconds = ttlSecondsFunction.apply(config, key);
+                      BiFunction<V, Integer, Integer> adjust =
+                          ttlAdjustment == null ? (value, configured) -> configured : ttlAdjustment;
+                      int ttlSeconds = adjust.apply(aspect, ttlSecondsFunction.apply(config, key));
                       if (ttlSeconds < 0) {
                         ttlSeconds = Integer.MAX_VALUE;
                       }
@@ -133,7 +152,9 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
             config.getName(), cache, metricUtils.getRegistry());
       }
 
-      return new ClientCache<>(config, cache, loadFunction, weigher, ttlSecondsFunction);
+      BiFunction<V, Integer, Integer> adjust =
+          ttlAdjustment == null ? (value, configured) -> configured : ttlAdjustment;
+      return new ClientCache<>(config, cache, loadFunction, weigher, ttlSecondsFunction, adjust);
     }
   }
 }

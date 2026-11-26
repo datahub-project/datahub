@@ -12,10 +12,13 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ShardStatistics;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
+import co.elastic.clients.transport.TransportOptions;
+import co.elastic.clients.transport.rest_client.RestClientOptions;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -29,8 +32,10 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import org.apache.http.client.config.RequestConfig;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.index.query.QueryBuilders;
 import org.testng.annotations.Test;
@@ -313,5 +318,56 @@ public class Es8SearchKnnTest {
     String sent = captor.getValue().toString();
     assertTrue(sent.contains("revenue"), sent);
     assertTrue(sent.contains("1700000000000"), sent);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void searchKnnBoundsTheCallAndFlagsTimedOutResponses() throws IOException {
+    ElasticsearchClient mockClient = mock(ElasticsearchClient.class);
+    when(mockClient.withTransportOptions(any(TransportOptions.class))).thenReturn(mockClient);
+    HitsMetadata<Map> hitsMetadata = mock(HitsMetadata.class);
+    when(hitsMetadata.hits()).thenReturn(List.of());
+    SearchResponse<Map> mockResponse = mock(SearchResponse.class);
+    when(mockResponse.hits()).thenReturn(hitsMetadata);
+    when(mockResponse.timedOut()).thenReturn(true);
+    ArgumentCaptor<SearchRequest> sent = ArgumentCaptor.forClass(SearchRequest.class);
+    when(mockClient.search(sent.capture(), eq(Map.class))).thenReturn(mockResponse);
+    KnnSearchRequest request =
+        KnnSearchRequest.builder()
+            .indexName("document_v3")
+            .vectorField("embeddings.model.chunks.vector")
+            .queryVector(new float[] {0.1f, 0.2f})
+            .k(5)
+            .timeout(Duration.ofMillis(1_500))
+            .build();
+
+    KnnSearchResponse response =
+        Es8SearchClientShim.forTest(mockClient).searchKnn(OP_CONTEXT, request);
+
+    assertTrue(response.partial());
+    assertEquals(sent.getValue().timeout(), "1500ms");
+    ArgumentCaptor<TransportOptions> options = ArgumentCaptor.forClass(TransportOptions.class);
+    verify(mockClient).withTransportOptions(options.capture());
+    RequestConfig config =
+        ((RestClientOptions) options.getValue()).restClientRequestOptions().getRequestConfig();
+    assertEquals(config.getConnectTimeout(), 1_500);
+    assertEquals(config.getConnectionRequestTimeout(), 1_500);
+    assertEquals(config.getSocketTimeout(), 1_500);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void searchKnnFlagsFailedShards() throws IOException {
+    ElasticsearchClient mockClient = mock(ElasticsearchClient.class);
+    HitsMetadata<Map> hitsMetadata = mock(HitsMetadata.class);
+    when(hitsMetadata.hits()).thenReturn(List.of());
+    SearchResponse<Map> mockResponse = mock(SearchResponse.class);
+    when(mockResponse.hits()).thenReturn(hitsMetadata);
+    when(mockResponse.shards())
+        .thenReturn(ShardStatistics.of(b -> b.total(2).successful(1).failed(1)));
+    when(mockClient.search(any(SearchRequest.class), eq(Map.class))).thenReturn(mockResponse);
+
+    assertTrue(
+        Es8SearchClientShim.forTest(mockClient).searchKnn(OP_CONTEXT, testRequest()).partial());
   }
 }

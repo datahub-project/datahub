@@ -49,6 +49,8 @@ ownership:
 
 Valid values depend on the PowerBI access right types for your resources (e.g., dataset, report, dashboard). If `owner_criteria` is not set or is an empty list, all users with `principalType: User` qualify as owners.
 
+With `metadata_api_mode: workspace_apis`, dashboard and report owners come from workspace roles, so a non-empty `owner_criteria` is matched against the role names `Admin`, `Member`, `Contributor` and `Viewer` and must include at least one of them; item-level rights such as `ReadWriteReshareExplore` and `Owner` never match in this mode. In the example above only `Admin` applies, so it keeps workspace Admins. An unset or empty `owner_criteria` still makes every user principal an owner.
+
 #### Admin scan vs. workspace listing
 
 PowerBI ingestion uses two metadata paths per workspace:
@@ -59,6 +61,43 @@ PowerBI ingestion uses two metadata paths per workspace:
 | Workspace listing fallback | The admin scan returns no data for a workspace (permissions, throttling, etc.).    | Reports via the per-workspace `/reports` endpoint; users via `/admin/reports/{id}/users` per report (only when `extract_ownership: true`). | O(workspaces + reports) requests   |
 
 When the fallback engages, the ingestion report includes a **Report Scan Fallback Active** entry per workspace so you can correlate that workspace's slower ingestion with the missing scan output.
+
+#### Workspace APIs mode
+
+`metadata_api_mode: workspace_apis` replaces the admin scan with workspace-scoped calls (see the prerequisites above for the permissions it needs):
+
+| Metadata                               | `admin_scan` (default)                              | `workspace_apis`                                                                                     |
+| -------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Datasets, tables, columns, measures    | Scanner API (`datasetSchema`, `datasetExpressions`) | `GET /groups/{id}/datasets` plus the semantic model's TMDL definition (`getDefinition`)              |
+| Table and column lineage               | M expressions from the scan                         | M expressions from TMDL partitions, through the same parser, so upstream URNs are identical          |
+| DirectLake lineage                     | Scan `relations` and Fabric artifact lists          | Fabric item listing; the lakehouse SQL endpoint referenced by the model is resolved to its lakehouse |
+| Table, column and measure descriptions | Dataset description only                            | TMDL `///` doc comments on tables, columns and measures                                              |
+| Ownership                              | Per-item users from the scan                        | Workspace role assignments (`GET /groups/{id}/users`)                                                |
+| Paginated report to dataset binding    | `/reports/{id}/datasources`                         | The report's `.rdl` definition, falling back to `/reports/{id}/datasources`                          |
+| Endorsements, apps, `modified_since`   | Supported                                           | Not available; the options are rejected                                                              |
+
+`getDefinition` is a long-running operation: the connector polls it and gives up after `scan_timeout` seconds per item. A semantic model whose definition is not fetched is reported as a failure under **Semantic Model Definition Not Fetched** (or **Fabric API Permission Denied** when it was refused); a report as a warning under **Report Definition Not Fetched** (or **Report Definition Permission Denied**). Push and streaming semantic models have no definition to fetch: they are ingested without tables, schema or lineage, reported as a warning under **Semantic Model Definition Not Supported**, and counted in `semantic_model_definitions_unsupported`. The report also carries `fabric_definitions_fetched`, `fabric_definitions_failed`, `semantic_model_definitions_fetched` and `semantic_model_definitions_failed` (the run fails as **No Item Definitions Fetched** when every semantic model definition failed, that is when the second is non-zero and the first is zero), `fabric_lro_timeouts`, `tmdl_tables_parsed` and related counters.
+
+Call volume replaces one scan per `scan_batch_size` workspaces with per-item requests:
+
+- per workspace: the Fabric item listing and the Power BI dataset listing, the report and dashboard listings when `extract_reports` and `extract_dashboards` are enabled, and the workspace users when `extract_ownership` is enabled;
+- per semantic model: one `getDefinition` (a long-running operation, so also its status polls and result fetch) and its parameters, plus its refresh history when `extract_refresh_history` is enabled;
+- per report: its pages, plus one `getDefinition` when `extract_report_field_usage` is enabled; a paginated report instead fetches its `.rdl` definition, and its data sources when that definition yields no dataset binding;
+- per dashboard: its tiles.
+
+Fabric throttles at 500 calls per minute per principal; throttled calls are retried.
+
+##### Enrichment from item definitions
+
+These options are off by default and, except for `extract_refresh_history`, require `workspace_apis` mode:
+
+- `extract_model_relationships`: semantic-model relationships become foreign-key constraints on the `from` table's schema, pointing at the `to` table and column. Inactive relationships are included and marked `(inactive)` in the constraint name.
+- `extract_report_field_usage`: each report's definition is read to find the columns and measures its visuals use. Every report page chart gets an `inputFields` aspect pointing at those schema fields, and the `visualCount` and `visualTypes` custom properties. Fields that reference tables outside the report's dataset are counted under `report_field_references_unresolved`.
+- `extract_refresh_history`: the dataset's most recent refresh (`GET /groups/{id}/datasets/{id}/refreshes`) is emitted as an `Operation` aspect (`customOperationType: REFRESH`) on each of its tables when the refresh completed. Works in both modes and needs only the `Viewer` role.
+
+In `workspace_apis` mode the connector also emits lineage inside a semantic model: DAX calculated tables depend on the model tables they read, and, when `extract_column_level_lineage` is enabled, each measure gets fine-grained lineage from the columns of _other_ model tables its DAX references. References to columns of the measure's own table and to other measures (`[Total Premium]`) are not emitted as edges; the measure's DAX is kept in its schema-field description instead.
+
+Permission problems are reported as failures rather than warnings, because the missing entities would otherwise be soft-deleted by stale-entity removal on a green run: a `401`/`403` from a semantic model's `getDefinition` removes that model's tables and lineage from the run, and a `401`/`403` from the dataset listing (`GET /groups/{id}/datasets`) removes the tables and lineage of every semantic model in that workspace.
 
 #### Lineage
 
@@ -293,9 +332,37 @@ Take into account that the profiling implementation executes a fairly big number
 
 The `profiling_pattern` setting may be used to limit profiling actions to only a certain set of resources in PowerBI. Both allowed and deny rules are matched against the following pattern for every table in a PowerBI Dataset: `workspace_name.dataset_name.table_name`. Users may limit profiling with these settings at table level, dataset level or workspace level.
 
+#### Probing a PowerBI recipe
+
+`datahub recipe probe` checks a PowerBI recipe against the live tenant before a run. It authenticates with the recipe's own service principal and `environment`, uses the same REST endpoints, paging and retries as ingestion, and returns metadata only. It never starts the admin workspace scan. Run it with the read-only service principal that ingestion uses.
+
+| Command            | Parameters  | Returns                                                                                                                            |
+| ------------------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `workspaces`       | `limit`     | Each listed workspace's name, id, type, `type_allowed` (the `workspace_type_filter` verdict) and, with the admin API, state        |
+| `reports`          | `workspace` | The reports in one workspace, by workspace name, with `type` `Report` or `PaginatedReport`, and the workspace's id, type and state |
+| `dashboards`       | `workspace` | The dashboards in one workspace, by workspace name, with the workspace's id, type and state                                        |
+| `admin_api_access` | none        | Whether the credential can call the read-only admin APIs                                                                           |
+| `api`              | `path`      | One raw response from `/groups`, `/groups/{id}/reports` or `/groups/{id}/dashboards`                                               |
+
+The workspace listing follows the recipe: the regular API's member workspaces by default, or the whole tenant with `admin_apis_only`. It is narrowed by `modified_since` the same way ingestion narrows it. If no workspace was modified since that date, ingestion applies no filter and lists every workspace, and the probe does the same and says so. If PowerBI rejects the date, for example because it is more than 30 days ago, the probe fails with an error that names `modified_since`. If the modified-workspaces list cannot be read at all, for example without admin API access, ingestion lists every workspace, and the probe does the same with a warning.
+
+Ingestion keeps a workspace only when it passes `workspace_name_pattern`, `workspace_id_pattern` and `workspace_type_filter` together, and its admin scan also skips any workspace whose state is not `Active`. A name alone answers only the first of these, so save the listing and judge them all from it. The state is judged only when the listing has one, which means with `admin_apis_only`:
+
+```shell
+datahub recipe probe run workspaces --recipe recipe.yml --report-to workspaces.json
+datahub recipe probe filter --recipe recipe.yml --kind Workspace --from-run workspaces.json
+datahub recipe probe run reports --recipe recipe.yml --workspace "Sales"
+```
+
+The id and type rules are judged only from a record that carries the workspace's id and type. With `--name` instead of `--from-run`, there is none, so the result judges the name alone and warns that the id and type rules need such a record. Reports and dashboards have no filters of their own: their workspace's verdict decides, and `extract_reports` and `extract_dashboards` switch them off. Each report and dashboard record carries its workspace's `workspace_id`, `workspace_type` and `workspace_state`, so a saved `reports` or `dashboards` run judged with `--from-run` applies all three workspace rules and the state rule. The same warning still appears there, because the `--parent` workspace itself is judged by name, but the verdicts use the facts on each row. A saved record with an id but no type is a workspace whose type is null, and it is excluded by `workspace_type_filter`, as ingestion excludes it. `reports` and `dashboards` also warn when ingestion would read nothing in the workspace, and name the rule that drops it. With `--parent` and `--name` alone, only the workspace's name is judged.
+
+`admin_api_access: denied` means ingestion still runs but gets none of the workspace scan's metadata: no scan-derived lineage, endorsements or apps, because the scan always uses the admin APIs, even with `admin_apis_only: false`. Paginated-report datasource lineage still comes through the regular API.
+
+Personal workspaces are named after their owner. Unless `workspace_type_filter` includes their type, ingestion skips them, and the probe counts them in a warning without listing them, in `workspaces` and in the `api` command's `/groups` response alike. In the `/groups` response, a record with no type is withheld too, since it may be a personal workspace. The `api` command refuses a path that would be sent differently from how it is written, such as `/./groups` or `/group%73`: write the path as it is sent, with spaces and non-ASCII characters percent-encoded. The `api` command does not allow the admin endpoints, `$expand`, datasets, datasources, parameters or users, so it cannot return these names, email addresses or connection details.
+
 ### Limitations
 
-- Some metadata and lineage fields are only available through admin APIs or specific tenant settings.
+- Some metadata and lineage fields are only available through admin APIs or specific tenant settings. In `workspace_apis` mode endorsements, apps, `modified_since` and per-item owners are not available, and the service principal needs the `Contributor` role rather than read-only access.
 - Lineage quality depends on available model metadata and supported query/source patterns.
 - Large tenants with many workspaces can require longer extraction windows.
 

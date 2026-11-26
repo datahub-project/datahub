@@ -1,36 +1,14 @@
-import { SorterResult } from 'antd/lib/table/interface';
 import * as diff from 'diff';
 
-import { KEY_SCHEMA_PREFIX, UNION_TOKEN, VERSION_PREFIX } from '@app/entityV2/dataset/profile/schema/utils/constants';
+import { KEY_SCHEMA_PREFIX, UNION_TOKEN } from '@app/entityV2/dataset/profile/schema/utils/constants';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 
 import { PlatformSchema, SchemaField } from '@types';
 
 export function filterKeyFieldPath(showKeySchema: boolean | undefined, field: SchemaField) {
     if (showKeySchema === undefined) return true;
     return field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1 ? showKeySchema : !showKeySchema;
-}
-
-export function downgradeV2FieldPath(fieldPath?: string | null) {
-    if (!fieldPath) {
-        return fieldPath;
-    }
-
-    const cleanedFieldPath = fieldPath.replace(KEY_SCHEMA_PREFIX, '').replace(VERSION_PREFIX, '');
-
-    // Remove all bracket annotations (e.g., [0], [*], [key]) from the field path
-    return cleanedFieldPath
-        .split('.')
-        .map((segment) => {
-            // Remove segments that are entirely brackets (e.g., "[0]", "[*]")
-            if (segment.startsWith('[') && segment.endsWith(']')) {
-                return null;
-            }
-            // Remove bracket suffixes from segments (e.g., "addresses[0]" -> "addresses")
-            return segment.replace(/\[[^\]]*\]/g, '');
-        })
-        .filter(Boolean)
-        .join('.');
 }
 
 export function pathMatchesNewPath(fieldPathA?: string | null, fieldPathB?: string | null) {
@@ -166,45 +144,3 @@ export function getRawSchema(schema: PlatformSchema | undefined | null, showKeyS
 
 // we need to calculate excluding collapsed fields because Antd table expects
 // an indexToScroll to only counting based on visible fields
-export function findIndexOfFieldPathExcludingCollapsedFields(
-    fieldPath: string,
-    expandedRows: Set<string>,
-    rows: Array<ExtendedSchemaFields>,
-    sorter: SorterResult<any> | undefined,
-    compareFn: ((a: any, b: any) => number) | undefined,
-) {
-    let index = 0; // This will keep track of the index across recursive calls
-
-    function search(shadowedRows) {
-        let sortedRows = shadowedRows;
-        if (sorter?.order === 'ascend') {
-            sortedRows = shadowedRows.toSorted(compareFn);
-        } else if (sorter?.order === 'descend') {
-            sortedRows = shadowedRows.toSorted(compareFn).toReversed();
-        }
-
-        // eslint-disable-next-line no-restricted-syntax
-        for (const row of sortedRows) {
-            // eslint-disable-next) {
-            // Check if the current row's ID matches the ID we're looking for
-            if (row.fieldPath === fieldPath) {
-                return index;
-            }
-            index++; // Increment index for the current row
-
-            // Check if current row is expanded and has children
-            if (expandedRows.has(row.fieldPath) && row.children && row.children.length) {
-                const foundIndex = search(row.children); // Recursively search children
-                if (foundIndex !== -1) {
-                    // If found in children, return the found index
-                    return foundIndex;
-                }
-            }
-        }
-        // Return -1 if the ID was not found in this branch
-        return -1;
-    }
-
-    // Start the recursive search
-    return search(rows);
-}

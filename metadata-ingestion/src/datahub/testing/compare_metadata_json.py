@@ -13,8 +13,10 @@ from typing import Any, Dict, List, Sequence, Union
 import pytest
 from deepdiff import DeepDiff
 
+from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.file import read_metadata_file
+from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.testing.mcp_diff import CannotCompareMCPs, MCPDiff, get_aspects_by_urn
 from datahub.testing.pytest_hooks import get_golden_settings
 
@@ -45,13 +47,45 @@ def load_json_file(filename: Union[str, os.PathLike]) -> MetadataJson:
         return json.load(f)
 
 
+def expand_mces(metadata: MetadataJson) -> MetadataJson:
+    """Split each MCE record into one MCP record per aspect, serialized like the file sink's MCPs.
+
+    The MCE envelope (proposedDelta, the snapshot type) is dropped, so it is no longer compared.
+    """
+    expanded: MetadataJson = []
+    for record in metadata:
+        if "proposedSnapshot" in record:
+            mce = MetadataChangeEventClass.from_obj(record)
+            expanded.extend(
+                mcp.to_obj(simplified_structure=True) for mcp in mcps_from_mce(mce)
+            )
+        else:
+            expanded.append(record)
+    # to_obj returns OrderedDicts; DeepDiff would report them as type changes
+    # against the plain dicts loaded from the file.
+    return json.loads(json.dumps(expanded))
+
+
 def assert_metadata_files_equal(
     output_path: Union[str, os.PathLike],
     golden_path: Union[str, os.PathLike],
     ignore_paths: Sequence[str] = (),
     ignore_paths_v2: Sequence[str] = (),
     ignore_order: bool = True,
+    golden_mces_as_mcps: bool = False,
+    fail_on_output_mces: bool = False,
 ) -> None:
+    """Fail the test if the output file differs from the golden file.
+
+    With golden_mces_as_mcps, MCEs in the golden are read as one MCP per aspect, so the
+    output is expected to contain MCPs only; fail_on_output_mces enforces this. ignore_paths
+    must use the MCP shape (root[i]['aspect']['json']...), and record indices renumber
+    because one MCE becomes several MCPs. With --update-golden-files, a differing golden
+    is rewritten as MCPs.
+
+    With fail_on_output_mces, the test fails if the output contains any MCE, whatever
+    the golden contains and even with --update-golden-files.
+    """
     settings = get_golden_settings()
 
     golden_exists = os.path.isfile(golden_path)
@@ -67,6 +101,14 @@ def assert_metadata_files_equal(
 
     output = load_json_file(output_path)
 
+    if fail_on_output_mces:
+        mce_count = sum("proposedSnapshot" in record for record in output)
+        if mce_count:
+            pytest.fail(
+                f"Output contains {mce_count} MCE(s); this source must emit MCPs only",
+                pytrace=False,
+            )
+
     if settings.update_golden and not golden_exists:
         shutil.copyfile(str(output_path), str(golden_path))
         return
@@ -78,13 +120,20 @@ def assert_metadata_files_equal(
                 golden_metadata = read_metadata_file(pathlib.Path(golden_path))
                 write_metadata_file(pathlib.Path(temp.name), golden_metadata)
                 golden = load_json_file(temp.name)
+                golden_parsed = True
             except (ValueError, AssertionError) as e:
                 logger.info(f"Error reformatting golden file as MCP/MCEs: {e}")
                 golden = load_json_file(golden_path)
+                golden_parsed = False
+
+    # Expanded here, not in diff_metadata_json, so apply_delta below indexes the list
+    # that was diffed. A golden that does not parse is diffed raw so that
+    # --update-golden-files can still overwrite it.
+    if golden_mces_as_mcps and golden_parsed:
+        golden = expand_mces(golden)
 
     if ignore_paths_v2:
-        golden_json = load_json_file(golden_path)
-        for i, obj in enumerate(golden_json):
+        for i, obj in enumerate(golden):
             aspect_json = obj.get("aspect", {}).get("json", [])
             for j, item in enumerate(aspect_json):
                 if isinstance(item, dict):

@@ -11,9 +11,13 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.test.Snapshot;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
@@ -59,6 +63,9 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -108,7 +115,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     // Create real SearchContext using ESUtils methods
     MappingsBuilder mappingsBuilder =
-        createDelegatingMappingsBuilder(SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+        createDelegatingMappingsBuilder(
+            SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION, getSearchClient());
     SearchContext searchContext =
         SearchContext.builder()
             .indexConvention(indexConvention)
@@ -130,7 +138,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention mockIndexConvention = mock(IndexConvention.class);
     when(mockIndexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
-    settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
+    settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention, false);
     elasticSearchService = buildEntitySearchService(getSearchConfiguration());
     elasticSearchService.reindexAll(operationContext, Collections.emptySet());
     pitElasticSearchService = buildPITEntitySearchService(getSearchConfiguration());
@@ -202,7 +210,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             TEST_ES_SEARCH_CONFIG,
             new V2MappingsBuilder(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+                ESUtils.KEYWORD_MAXLENGTH),
             settingsBuilder,
             searchDAO,
             browseDAO,
@@ -237,7 +246,9 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             TEST_SEARCH_SERVICE_CONFIG,
             esConfig,
             new V2MappingsBuilder(
-                esConfig.getEntityIndex(), OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
+                esConfig.getEntityIndex(),
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+                ESUtils.KEYWORD_MAXLENGTH),
             settingsBuilder,
             searchDAO,
             browseDAO,
@@ -338,6 +349,85 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             0,
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
+  }
+
+  /** Search lists every member of a dataset sibling group, primary or not. */
+  @Test
+  public void testSearchListsEverySiblingMember() throws Exception {
+    Urn dbt = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,db.orders,PROD)");
+    Urn table =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.orders,PROD)");
+    for (Urn urn : List.of(dbt, table)) {
+      ObjectNode document = JsonNodeFactory.instance.objectNode();
+      document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
+      document.set("keyPart1", JsonNodeFactory.instance.textNode("orders"));
+      document.set("hasSiblings", JsonNodeFactory.instance.booleanNode(true));
+      document.set("siblingsPrimary", JsonNodeFactory.instance.booleanNode(urn.equals(dbt)));
+      elasticSearchService.upsertDocument(
+          operationContext, ENTITY_NAME, document.toString(), urn.toString());
+    }
+    syncAfterWrite(getBulkProcessor());
+
+    for (String query : List.of("*", "orders")) {
+      SearchResult result =
+          searchService.searchAcrossEntities(
+              operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+              ImmutableList.of(ENTITY_NAME),
+              query,
+              null,
+              null,
+              0,
+              10);
+      assertEquals(
+          result.getEntities().stream().map(e -> e.getEntity()).collect(Collectors.toSet()),
+          Set.of(dbt, table),
+          query);
+    }
+    clearCache();
+  }
+
+  @Test
+  public void testIncludeExplain() throws Exception {
+    Urn urn = new TestEntityUrn("test", "explained", "VALUE_1");
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
+    document.set("keyPart1", JsonNodeFactory.instance.textNode("explained"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
+    syncAfterWrite(getBulkProcessor());
+
+    OperationContext explainContext =
+        operationContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipCache(true)
+                    .setIncludeExplain(true)
+                    .setSearchType("DFS_QUERY_THEN_FETCH"));
+    SearchResult searchResult =
+        searchService.searchAcrossEntities(
+            explainContext, ImmutableList.of(ENTITY_NAME), "explained", null, null, 0, 10);
+    assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
+    JsonNode explanation =
+        new ObjectMapper()
+            .readTree(searchResult.getEntities().get(0).getExtraFields().get("_explain"));
+    assertTrue(explanation.get("value").floatValue() > 0);
+    assertFalse(explanation.get("description").asText().isEmpty());
+
+    // A scroll over a point in time returns explanations too
+    ScrollResult scrollResult =
+        pitSearchService.scrollAcrossEntities(
+            explainContext,
+            ImmutableList.of(ENTITY_NAME),
+            "explained",
+            null,
+            null,
+            null,
+            "2m",
+            10,
+            null);
+    assertEquals(scrollResult.getEntities().get(0).getEntity(), urn);
+    assertTrue(scrollResult.getEntities().get(0).getExtraFields().containsKey("_explain"));
   }
 
   @Test

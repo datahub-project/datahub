@@ -4,6 +4,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -22,8 +23,13 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
@@ -33,23 +39,24 @@ import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
-import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Semantic search service that issues approximate nearest-neighbour (kNN) queries against semantic
@@ -70,10 +77,10 @@ import lombok.extern.slf4j.Slf4j;
  * <p>REQUIREMENTS:
  *
  * <ul>
- *   <li>Elasticsearch 8.x, or OpenSearch 2.17.0+ (for pre-filtering support with nested kNN
- *       vectors)
- *   <li>Search V3 semantic reads ({@code semanticReadEnabled}): OpenSearch 3.5+ or Elasticsearch
- *       8.18+ on the Search V3 cluster
+ *   <li>Elasticsearch 8.18+, or OpenSearch 2.17.0+ (for pre-filtering support with nested kNN
+ *       vectors). A model that uses faiss cosine needs OpenSearch 2.19+. {@link
+ *       #requireSupportedV3Engine} enforces that floor on the Search V3 client when semantic reads
+ *       are on V3. An unreadable engine version does not fail startup.
  *   <li>Semantic indices with nested vector fields at {@code
  *       embeddings.{modelEmbeddingKey}.chunks.vector}
  * </ul>
@@ -103,10 +110,11 @@ import lombok.extern.slf4j.Slf4j;
  * entity (URN), score (backend score), features (SEARCH_BACKEND_SCORE and QUERY_COUNT when
  * available), and extraFields (stringified copy of {@code _source}).
  *
- * <p>Index selection: by default kNN runs against the V2 semantic indices ({@code
- * <entity>index_v2_semantic}). When Search V3 is on and {@code semanticReadEnabled} is set, it runs
- * against the V3 entity indices whose mappings carry the same {@code embeddings} field (document
- * entities by default) on the Search V3 cluster.
+ * <p>Index selection: kNN reads the same index family as keyword search. With keyword reads on V2
+ * it uses the V2 semantic indices ({@code <entity>index_v2_semantic}). With keyword reads on V3 and
+ * semantic search on, it uses the V3 index for each enabled entity. That mapping carries {@code
+ * embeddings} on every index, including a shared search group. Hits in a shared index are limited
+ * to the requested entity types.
  *
  * <p>Matched fields/highlighting are not set in semantic mode v1. The keyword path derives {@code
  * matchedFields} from highlight fragments, but we do not request highlighting for semantic queries
@@ -123,7 +131,6 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private static final double DEFAULT_OVERSAMPLE_FACTOR = 1.2d; // Lower for pre-filtering
   private static final int MAX_K = 500;
   private static final String DEFAULT_MODEL_EMBEDDING_KEY = "text_embedding_3_large";
-
   private final SearchClientShim<?> searchClient;
   private final EmbeddingProvider embeddingProvider;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
@@ -133,7 +140,6 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private final String vectorField;
   private final int expectedVectorDimension;
   @Nullable private final EntityIndexConfiguration entityIndexConfiguration;
-  private final Set<String> warnedSharedIndexEntities = ConcurrentHashMap.newKeySet();
 
   /**
    * Constructs a semantic entity search service with the default model embedding key.
@@ -280,12 +286,20 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       @Nullable SortCriterion sortCriterion,
       int from,
       @Nullable Integer pageSize) {
-    // 1) Map entity names to the indices holding their vectors: V3 entity indices once semantic
-    // reads are cut over, otherwise the V2 semantic indices
+    // 1) Map entity names to the indices holding their vectors: the V3 index for each enabled
+    // entity when keyword reads use V3 (one shared index may hold several types), otherwise the
+    // V2 semantic indices
     final boolean readV3 = shouldReadSemanticV3(entityIndexConfiguration);
+    final Map<String, String> v3IndicesByEntity =
+        readV3
+            ? v3SemanticIndices(
+                opContext,
+                entityNames,
+                Objects.requireNonNull(entityIndexConfiguration).getSemanticSearch())
+            : Map.of();
     List<String> indices =
         readV3
-            ? v3SemanticIndices(opContext, entityNames)
+            ? new ArrayList<>(new LinkedHashSet<>(v3IndicesByEntity.values()))
             : entityNames.stream()
                 .map(
                     entity -> {
@@ -361,14 +375,25 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             ? ESUtils.buildFilterMap(
                 // Use the new method that delegates to buildFilterQuery
                 transformedFilters, // Use transformed filters instead of raw postFilters
-                // The timeseries flag drops the .keyword suffix, which V3 needs: its keyword and
-                // URN fields have no such subfield, and its text fields are keyword-typed too. The
-                // flag's other effect, the rewrite context, is unused with an empty rewrite chain.
-                readV3,
+                false, // not timeseries
                 searchableFieldTypes,
                 opContext,
-                queryFilterRewriteChain)
+                queryFilterRewriteChain,
+                readV3 && !entitySpecs.isEmpty() ? new SearchFieldResolver(entitySpecs) : null)
             : null;
+    // A shared V3 index holds every entity in its search group. The index name does not identify
+    // the type, so restrict hits to the types this call asked for. An entity-named index already
+    // identifies the type.
+    if (readV3 && searchesSharedIndex(opContext, v3IndicesByEntity)) {
+      finalFilterMap =
+          andFilters(
+              finalFilterMap,
+              Map.of(
+                  "terms",
+                  Map.of(
+                      SearchUtil.INDEX_VIRTUAL_FIELD,
+                      new ArrayList<>(v3IndicesByEntity.keySet()))));
+    }
 
     // Calculate k for oversampling
     int normalizedPageSize = pageSize != null ? pageSize : 10;
@@ -443,107 +468,112 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   }
 
   /**
-   * True when kNN reads V3 entity indices instead of the V2 semantic indices: V3 is on and {@code
-   * semanticReadEnabled} is set. Semantic search itself requires V2 to stay enabled, so there is no
-   * V2-off case to handle here.
+   * True when kNN reads V3 entity indices instead of the V2 semantic indices: semantic search is on
+   * and keyword search reads V3. With both V2 and V3 on, that is {@code keywordReadEnabled}. With
+   * V2 off and V3 on, keyword reads are already on V3.
    */
-  static boolean shouldReadSemanticV3(@Nullable EntityIndexConfiguration entityIndex) {
+  public static boolean shouldReadSemanticV3(@Nullable EntityIndexConfiguration entityIndex) {
     return entityIndex != null
-        && entityIndex.getV3() != null
-        && entityIndex.getV3().isEnabled()
-        && entityIndex.getV3().isSemanticReadEnabled();
+        && entityIndex.getSemanticSearch() != null
+        && entityIndex.getSemanticSearch().isEnabled()
+        && EntitySearchIndexResolver.shouldReadV3(entityIndex);
   }
 
   /**
-   * Refuses semantic reads on a Search V3 cluster that would silently drop facet and View filters.
-   * See {@link #supportsV3SemanticFilters}. Only queries the cluster when the flag is on.
+   * Fails startup when semantic search is enabled but neither index family can serve it. V2
+   * semantic indices need V2 on. V3 serves semantic reads when keyword search reads V3.
+   */
+  public static void requireSemanticIndexTarget(@Nullable EntityIndexConfiguration entityIndex) {
+    if (entityIndex == null
+        || entityIndex.getSemanticSearch() == null
+        || !entityIndex.getSemanticSearch().isEnabled()) {
+      return;
+    }
+    boolean v2Enabled = entityIndex.getV2() != null && entityIndex.getV2().isEnabled();
+    if (v2Enabled || shouldReadSemanticV3(entityIndex)) {
+      return;
+    }
+    throw new IllegalStateException(
+        "elasticsearch.entityIndex.semanticSearch.enabled needs a semantic index to read: set"
+            + " elasticsearch.entityIndex.v2.enabled=true, or turn on Search V3"
+            + " (elasticsearch.entityIndex.v3.enabled=true, with V2 off or"
+            + " elasticsearch.entityIndex.v3.keywordReadEnabled=true)");
+  }
+
+  /**
+   * Refuses Search V3 semantic reads on an engine below the V2 semantic floor: OpenSearch 2.17+, or
+   * 2.19+ when a model uses faiss cosine, and Elasticsearch 8.18+. The old OpenSearch 3.5 refusal
+   * was for k-NN pre-filters under {@code _aspects}. Those filters are top-level fields now. An
+   * unreadable version is skipped. {@code getEngineVersion} returns {@code "unknown"} when cluster
+   * info is restricted, and that is not evidence of an old engine.
    */
   public static void requireSupportedV3Engine(
       @Nullable EntityIndexConfiguration entityIndex, @Nonnull SearchClientShim<?> v3Client) {
-    if (!shouldReadSemanticV3(entityIndex)
-        || entityIndex.getSemanticSearch() == null
-        || !entityIndex.getSemanticSearch().isEnabled()
-        || !isOpenSearch(v3Client)) {
+    if (v3Client == null || !shouldReadSemanticV3(entityIndex)) {
       return;
     }
-    String version = engineVersion(v3Client);
-    int[] majorMinor = majorMinor(version);
-    if (majorMinor == null) {
-      throw new IllegalStateException(
-          "elasticsearch.entityIndex.v3.semanticReadEnabled needs OpenSearch 3.5+ on the Search V3"
-              + " cluster, but its version could not be read (got '"
-              + version
-              + "'); grant the cluster:monitor/main permission or turn the flag off");
+    SearchEngineType engine = v3Client.getEngineType();
+    if (engine == null || engine == SearchEngineType.UNKNOWN) {
+      return;
     }
-    if (!atLeastOpenSearch35(majorMinor)) {
-      throw new IllegalStateException(
-          "elasticsearch.entityIndex.v3.semanticReadEnabled needs OpenSearch 3.5+ or Elasticsearch"
-              + " 8.18+ on the Search V3 cluster, which runs OpenSearch "
-              + version
-              + ": earlier OpenSearch k-NN pre-filters ignore the V3 _aspects fields that facet and"
-              + " View filters use");
-    }
-  }
-
-  /**
-   * False for OpenSearch before 3.5, whose k-NN plugin runs a nested query's pre-filter in the
-   * nested scope for fields under an underscore-prefixed object. V3 keeps every aspect field under
-   * {@code _aspects}, so such filters match nothing there. Elasticsearch applies them.
-   */
-  public static boolean supportsV3SemanticFilters(@Nonnull SearchClientShim<?> client) {
-    if (!isOpenSearch(client)) {
-      return true;
-    }
-    int[] majorMinor = majorMinor(engineVersion(client));
-    return majorMinor != null && atLeastOpenSearch35(majorMinor);
-  }
-
-  private static boolean isOpenSearch(@Nonnull SearchClientShim<?> client) {
-    SearchEngineType engineType = client.getEngineType();
-    return engineType != null && engineType.isOpenSearch();
-  }
-
-  @Nullable
-  private static String engineVersion(@Nonnull SearchClientShim<?> client) {
+    String version = null;
     try {
-      return client.getEngineVersion();
+      version = v3Client.getEngineVersion();
     } catch (IOException e) {
-      return null;
+      version = null;
+    }
+    if (version == null || version.isBlank() || "unknown".equals(version)) {
+      log.warn("Unable to read the Search V3 engine version; skipping the semantic version check");
+      return;
+    }
+    if (engine.isOpenSearch()) {
+      OpenSearchSearchClientShim.assertSemanticSearchSupported(
+          version, faissCosineConfigured(entityIndex));
+      return;
+    }
+    if (engine.isElasticsearch()) {
+      Es8SearchClientShim.assertSemanticSearchSupported(version);
     }
   }
 
-  @Nullable
-  private static int[] majorMinor(@Nullable String version) {
-    if (version == null) {
-      return null;
+  /** True when any configured model stores faiss cosine vectors, which need OpenSearch 2.19+. */
+  private static boolean faissCosineConfigured(@Nonnull EntityIndexConfiguration entityIndex) {
+    SemanticSearchConfiguration semanticSearch = entityIndex.getSemanticSearch();
+    if (semanticSearch == null || semanticSearch.getModels() == null) {
+      return false;
     }
-    String[] parts = version.split("\\.");
-    try {
-      return new int[] {
-        Integer.parseInt(parts[0]), parts.length > 1 ? Integer.parseInt(parts[1]) : 0
-      };
-    } catch (NumberFormatException e) {
-      return null;
+    for (ModelEmbeddingConfig model : semanticSearch.getModels().values()) {
+      if (model == null || model.getKnnEngine() == null || model.getSpaceType() == null) {
+        continue;
+      }
+      String spaceType = model.getSpaceType().trim();
+      if ("faiss".equalsIgnoreCase(model.getKnnEngine().trim())
+          && ("cosine".equalsIgnoreCase(spaceType) || "cosinesimil".equalsIgnoreCase(spaceType))) {
+        return true;
+      }
     }
+    return false;
   }
 
-  private static boolean atLeastOpenSearch35(@Nonnull int[] majorMinor) {
-    return majorMinor[0] > 3 || (majorMinor[0] == 3 && majorMinor[1] >= 5);
+  /** V3 facet and View filters are top-level, so they are not limited to OpenSearch 3.5+. */
+  public static boolean supportsV3SemanticFilters(@Nonnull SearchClientShim<?> client) {
+    return client != null;
   }
 
   /**
-   * V3 entity indices that can serve kNN for {@code entityNames}: entity-named indices of
-   * semantic-enabled entity types, the only V3 indices that get the {@code embeddings} mapping.
-   * With the default {@code enabledEntities} that leaves {@code documentindex_v3}. Entity types in
-   * a shared search-group index are skipped.
+   * V3 indices that can serve kNN for {@code entityNames}, keyed by canonical entity name. The
+   * embeddings mapping is on every V3 index when semantic search is enabled, so an entity in a
+   * shared search group is searched there. An entity type that is not in {@code enabledEntities} is
+   * omitted. Callers that query the index list should distinct it: several entity types can share
+   * one index.
    */
   @Nonnull
-  private List<String> v3SemanticIndices(
-      @Nonnull OperationContext opContext, @Nonnull List<String> entityNames) {
-    SemanticSearchConfiguration semanticConfig =
-        Objects.requireNonNull(entityIndexConfiguration).getSemanticSearch();
+  public static Map<String, String> v3SemanticIndices(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entityNames,
+      @Nullable SemanticSearchConfiguration semanticConfig) {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    Set<String> indices = new LinkedHashSet<>();
+    Map<String, String> indices = new LinkedHashMap<>();
     for (String entityName : entityNames) {
       EntitySpec entitySpec;
       try {
@@ -556,28 +586,18 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
         continue;
       }
       String indexKey = V3IndexKeys.resolve(entitySpec);
-      if (!indexKey.equals(entitySpec.getName())) {
-        if (warnedSharedIndexEntities.add(entitySpec.getName())) {
-          log.warn(
-              "Semantic search on Search V3 skips {}: it is stored in the shared {} index, which"
-                  + " has no embeddings mapping",
-              entitySpec.getName(),
-              indexKey);
-        }
-        continue;
-      }
-      indices.add(indexConvention.getEntityIndexNameV3(opContext, indexKey));
+      indices.put(entitySpec.getName(), indexConvention.getEntityIndexNameV3(opContext, indexKey));
     }
-    return new ArrayList<>(indices);
+    return indices;
   }
 
   /**
-   * Adapts a filter to the V3 mapping. {@code _entityType} becomes an {@code _index} filter on the
-   * V3 index names, resolved like the V2 rewrite (underscores dropped, case ignored), because
-   * GraphQL sends {@code DOCUMENT} while V3 stores {@code document}. Only entity-named V3 indices
-   * are searched, so an index name identifies the entity type. An explicit {@code .keyword} suffix
-   * is dropped: V3 keyword and URN fields have no such subfield, and its text fields are
-   * keyword-typed at the root.
+   * Adapts a filter to the V3 mapping. {@code _entityType} on an entity that has its own V3 index
+   * becomes an {@code _index} filter, resolved like the V2 rewrite (underscores dropped, case
+   * ignored), because GraphQL sends {@code DOCUMENT} while the index name is {@code document}. An
+   * entity in a shared search group keeps {@code _entityType}: the index name is the group, and
+   * several types share it. The stored value is the registry entity name. Other fields keep their
+   * V2 names: the V3 filter builder resolves a {@code .keyword} name to the root field.
    */
   @Nonnull
   private static Filter toV3Filter(@Nonnull OperationContext opContext, @Nonnull Filter filter) {
@@ -597,40 +617,71 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     for (ConjunctiveCriterion conjunction : filter.getOr()) {
       CriterionArray and = new CriterionArray();
       for (Criterion criterion : conjunction.getAnd()) {
-        String field = criterion.getField();
-        if (field.endsWith(ESUtils.KEYWORD_SUFFIX)) {
-          field = field.substring(0, field.length() - ESUtils.KEYWORD_SUFFIX.length());
-        }
-        if (!field.equalsIgnoreCase(SearchUtil.INDEX_VIRTUAL_FIELD)) {
-          and.add(
-              field.equals(criterion.getField())
-                  ? criterion
-                  : buildCriterion(
-                      field,
-                      criterion.getCondition(),
-                      criterion.isNegated(),
-                      criterion.getValues()));
+        if (!StringUtils.removeEnd(criterion.getField(), ESUtils.KEYWORD_SUFFIX)
+            .equalsIgnoreCase(SearchUtil.INDEX_VIRTUAL_FIELD)) {
+          and.add(criterion);
           continue;
         }
         List<String> indexNames = new ArrayList<>();
+        List<String> entityTypeNames = new ArrayList<>();
+        boolean sharedIndex = false;
         for (String value : criterion.getValues()) {
           try {
             EntitySpec entitySpec =
                 opContext.getEntityRegistry().getEntitySpec(String.join("", value.split("_")));
-            indexNames.add(
-                indexConvention.getEntityIndexNameV3(opContext, V3IndexKeys.resolve(entitySpec)));
+            String indexKey = V3IndexKeys.resolve(entitySpec);
+            sharedIndex = sharedIndex || !indexKey.equals(entitySpec.getName());
+            indexNames.add(indexConvention.getEntityIndexNameV3(opContext, indexKey));
+            entityTypeNames.add(entitySpec.getName());
           } catch (RuntimeException e) {
             // Unknown entity type: keep the value so the filter matches nothing, as on V2
             indexNames.add(value);
+            entityTypeNames.add(value);
           }
         }
         and.add(
             buildCriterion(
-                SearchUtil.ES_INDEX_FIELD, Condition.EQUAL, criterion.isNegated(), indexNames));
+                sharedIndex ? SearchUtil.INDEX_VIRTUAL_FIELD : SearchUtil.ES_INDEX_FIELD,
+                Condition.EQUAL,
+                criterion.isNegated(),
+                sharedIndex ? entityTypeNames : indexNames));
       }
       or.add(new ConjunctiveCriterion().setAnd(and));
     }
     return new Filter().setOr(or);
+  }
+
+  /**
+   * True when a requested entity is stored under a search-group index rather than an index named
+   * for that entity.
+   */
+  private static boolean searchesSharedIndex(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, String> indicesByEntity) {
+    if (indicesByEntity.isEmpty()) {
+      return false;
+    }
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    for (Map.Entry<String, String> entry : indicesByEntity.entrySet()) {
+      String entityNamedIndex = indexConvention.getEntityIndexNameV3(opContext, entry.getKey());
+      if (!entry.getValue().equals(entityNamedIndex)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Combines a caller filter with a filter this service always applies. Either side may be absent.
+   */
+  @Nonnull
+  private static Map<String, Object> andFilters(
+      @Nullable Map<String, Object> existing, @Nonnull Map<String, Object> required) {
+    if (existing == null || existing.isEmpty()) {
+      return required;
+    }
+    Map<String, Object> bool = new LinkedHashMap<>();
+    bool.put("filter", List.of(existing, required));
+    return Map.of("bool", bool);
   }
 
   @Nonnull

@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import { useMutationUrn } from '@app/entity/shared/EntityContext';
 import { pathMatchesExact } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { useMutationUrn } from '@app/entityV2/shared/EntityContext';
 import NotesSection from '@app/entityV2/shared/notes/NotesSection';
 import FieldBusinessAttribute from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldBusinessAttribute';
 import FieldDescription from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDescription';
@@ -13,8 +13,9 @@ import FieldTerms from '@app/entityV2/shared/tabs/Dataset/Schema/components/Sche
 import ForeignKeySection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/ForeignKeySection';
 import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
-import useFileUpload from '@app/shared/hooks/useFileUpload';
-import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+import { ForeignKeySchemaMetadata } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldForeignKeyConstraints';
+import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';
 import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import dayjs from '@utils/dayjs';
 
@@ -24,7 +25,6 @@ import {
     EditableSchemaMetadata,
     Post,
     SchemaField,
-    SchemaMetadata,
     UploadDownloadScenario,
     UsageQueryResult,
 } from '@types';
@@ -39,7 +39,7 @@ interface AboutFieldTabProps {
         schemaFields: SchemaField[];
         expandedDrawerFieldPath: string | null;
         editableSchemaMetadata?: EditableSchemaMetadata | null;
-        schemaMetadata?: SchemaMetadata | null;
+        schemaMetadata?: ForeignKeySchemaMetadata | null;
         usageStats?: UsageQueryResult | null;
         fieldProfile: DatasetFieldProfile | undefined;
         profiles: DatasetProfile[];

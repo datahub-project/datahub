@@ -1,8 +1,7 @@
-import { FolderFilled } from '@ant-design/icons';
-import { renderHook } from '@testing-library/react-hooks';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import React from 'react';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { FieldType, FilterField } from '@app/searchV2/filters/types';
 import {
     PlatformIcon,
@@ -32,8 +31,9 @@ import {
     RICH_TEXT_TYPE_URN,
     STRING_TYPE_URN,
     URN_TYPE_URN,
-} from '@src/app/shared/constants';
+} from '@src/app/sharedV2/constants';
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { AggregationMetadata, EntityType, FilterOperator } from '@types';
 
@@ -214,7 +214,7 @@ describe('filter utils - getFilterIconAndLabel', () => {
             null,
         );
 
-        expect(icon).toMatchObject(<FolderFilled style={{ fontSize: undefined }} />);
+        expect(icon).toMatchObject(<Folder size={undefined} weight="fill" />);
         expect(label).toBe('view');
     });
 
@@ -228,7 +228,7 @@ describe('filter utils - getFilterIconAndLabel', () => {
             'TESTING',
         );
 
-        expect(icon).toMatchObject(<FolderFilled style={{ fontSize: 12 }} />);
+        expect(icon).toMatchObject(<Folder size={12} weight="fill" />);
         expect(label).toBe('TESTING');
     });
 });

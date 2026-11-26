@@ -5,8 +5,8 @@ import styled, { useTheme } from 'styled-components';
 
 import { ViewsTable } from '@app/entityV2/view/ViewsTable';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE, searchViews } from '@app/entityV2/view/utils';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 
 import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
 import { DataHubViewType } from '@types';

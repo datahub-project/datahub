@@ -2,7 +2,7 @@ import functools
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Set, Type
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 from datahub.emitter.mce_builder import (
     make_assertion_source,
@@ -21,6 +21,7 @@ from datahub.ingestion.source.montecarlo.client import (
     MonteCarloComparison,
     MonteCarloJobExecution,
     MonteCarloMetricPoint,
+    MonteCarloSchemaChange,
 )
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
 from datahub.ingestion.source.montecarlo.constants import (
@@ -79,7 +80,7 @@ class _IngestedAssertion:
 
     assertion_urn: str
     dataset_urn: str
-    mcon: Optional[str]
+    mcon: str
     definition: MonteCarloAssertionDef
 
 
@@ -127,14 +128,13 @@ def _effective_description(definition: MonteCarloAssertionDef) -> Optional[str]:
 
 
 def _native_parameters(definition: MonteCarloAssertionDef) -> Dict[str, str]:
-    """Native MC fields that don't map to the structured assertion slots, carried
-    on nativeParameters so the UI can render them. severity / data_quality_dimension
-    / resource_id are monitor-level; comparisonType / metric / customMetric are
-    added by the comparisons path when present."""
+    """Native MC fields carried on nativeParameters for the UI to render.
+    where_condition is the Monitor row-filter WHERE clause — NOT the SQL body."""
     params: Dict[str, Any] = {
-        "severity": definition.severity,
+        "severity": definition.priority,
         "data_quality_dimension": definition.data_quality_dimension,
         "resource_id": definition.resource_id,
+        "where_condition": definition.where_condition,
     }
     return _string_map(params)
 
@@ -197,6 +197,9 @@ def _make_custom_assertion_info(
     profile page.
     """
     native_parameters = _native_parameters(definition)
+    # logic is the monitor's SQL body (customSql). whereCondition is a row
+    # filter, not the SQL body, so it is NOT folded into logic — see
+    # _native_parameters.
     logic: Optional[str] = definition.custom_sql
 
     comparisons = definition.comparisons
@@ -290,12 +293,39 @@ def _make_custom_assertion_info(
     )
 
 
+def _schema_change_native_results(
+    schema_change: MonteCarloSchemaChange,
+) -> Dict[str, str]:
+    """Map a joined getSchemaChanges event onto AssertionResult.nativeResults."""
+    native: Dict[str, str] = {}
+    if schema_change.fields_added:
+        native["fieldsAdded"] = ",".join(schema_change.fields_added)
+    if schema_change.fields_removed:
+        native["fieldsRemoved"] = ",".join(schema_change.fields_removed)
+    if schema_change.field_type_changes:
+        native["fieldTypeChanges"] = ",".join(
+            f"{c.field_name}:{c.old_field_type}->{c.new_field_type}"
+            for c in schema_change.field_type_changes
+        )
+    return native
+
+
 class MonteCarloAssertionKey(DatahubKey):
-    """Key for deterministic, stable assertion GUIDs across ingestion runs."""
+    """Key for deterministic, stable assertion GUIDs across ingestion runs.
+
+    Coverage resolved via evaluateAssetSelection always includes
+    ``asset_mcon``, even when only one table resolved this run. Otherwise a
+    1-table TABLE monitor would use the historical monitor-only GUID, then
+    flip on the next run that resolves a second table.
+
+    Definitions whose entity_mcons came from getMonitors/getCustomRules omit
+    ``asset_mcon`` (exclude_none) so existing master URNs do not move.
+    """
 
     platform: str = PLATFORM
     monitor_uuid: str
     instance: Optional[str] = None
+    asset_mcon: Optional[str] = None
 
 
 class MonteCarloAssertionBuilder:
@@ -310,14 +340,19 @@ class MonteCarloAssertionBuilder:
         self.config = config
         self.report = report
         self.resolver = resolver
-        # Maps a monitor/rule uuid to the assertion (and its target dataset) we
-        # emitted for it, so alerts can attach run events to the same entities.
-        self._ingested_by_monitor: Dict[str, _IngestedAssertion] = {}
+        # Maps a monitor/rule uuid to the assertion(s) we emitted for it.
+        # Pattern-scoped TABLE monitors have one entry per covered table so
+        # alerts attach to the table that fired. getMonitors/getCustomRules
+        # definitions keep a single entry (first resolved table).
+        self._ingested_by_monitor: Dict[str, List[_IngestedAssertion]] = {}
 
-    def _assertion_urn(self, monitor_uuid: str) -> str:
+    def _assertion_urn(
+        self, monitor_uuid: str, asset_mcon: Optional[str] = None
+    ) -> str:
         key = MonteCarloAssertionKey(
             monitor_uuid=monitor_uuid,
             instance=self.config.platform_instance,
+            asset_mcon=asset_mcon,
         )
         return make_assertion_urn(key.guid())
 
@@ -328,56 +363,64 @@ class MonteCarloAssertionBuilder:
             self.report.report_dropped(definition.name or definition.uuid)
             return
 
-        # Resolve the monitored asset. We use the first MCON that resolves to a URN;
-        # a monitor without a resolvable asset is skipped with a warning.
+        # Resolve monitored assets. A monitor without a resolvable asset is
+        # skipped with a warning. Pattern-scoped TABLE monitors cover many
+        # tables; CustomAssertionInfo.entity is a single URN, so those fan
+        # out one assertion per table. getMonitors/getCustomRules lists keep
+        # master's one-assertion, monitor_uuid-only URN.
         if not definition.entity_mcons:
-            self.report.warning(
-                title="Monitor has no monitored entities",
-                message="Skipping monitor with no entity_mcons; cannot build a dataset URN.",
-                context=f"monitor_uuid={definition.uuid}",
-            )
+            if not definition.scope_from_asset_selection:
+                self.report.warning(
+                    title="Monitor has no monitored entities",
+                    message="Skipping monitor with no entity_mcons; cannot build a dataset URN.",
+                    context=f"monitor_uuid={definition.uuid}",
+                )
             self.report.report_monitor_dropped_no_mcons()
             return
 
-        dataset_urn: Optional[str] = None
-        resolved_mcon: Optional[str] = None
+        resolved: List[Tuple[str, str]] = []
         for mcon in definition.entity_mcons:
             dataset_urn = self.resolver.dataset_urn_for_mcon(mcon)
             if dataset_urn:
-                resolved_mcon = mcon
-                break
-        if dataset_urn is None:
+                resolved.append((mcon, dataset_urn))
+        if not resolved:
             self.report.report_monitor_dropped_unresolved()
             return
 
-        assertion_urn = self._assertion_urn(definition.uuid)
+        fan_out = definition.scope_from_asset_selection
+        targets = resolved if fan_out else resolved[:1]
+        for mcon, dataset_urn in targets:
+            asset_mcon = mcon if fan_out else None
+            assertion_urn = self._assertion_urn(definition.uuid, asset_mcon=asset_mcon)
 
-        # customProperties keeps only the DataHub-side correlation key; native MC
-        # fields move to nativeType/nativeParameters. mc_monitor_uuid is a
-        # DataHub-internal key for alert/run-event wiring, not a native field.
-        custom_properties: Dict[str, str] = {"mc_monitor_uuid": definition.uuid}
+            # customProperties keeps only the DataHub-side correlation key; native MC
+            # fields move to nativeType/nativeParameters. mc_monitor_uuid is a
+            # DataHub-internal key for alert/run-event wiring, not a native field.
+            custom_properties: Dict[str, str] = {"mc_monitor_uuid": definition.uuid}
 
-        custom_assertion = _make_custom_assertion_info(
-            entity_urn=dataset_urn,
-            native_type=definition.native_type,
-            definition=definition,
-        )
-        yield from self._emit_assertion(
-            assertion_urn=assertion_urn,
-            custom_assertion=custom_assertion,
-            description=_effective_description(definition),
-            custom_properties=custom_properties,
-        )
-        # Register only after the emit succeeded: if _emit_assertion raises, the
-        # assertion is never created this run, and a dangling entry here would let
-        # build_run_event attach a failure run event to a non-existent assertion.
-        self._ingested_by_monitor[definition.uuid] = _IngestedAssertion(
-            assertion_urn=assertion_urn,
-            dataset_urn=dataset_urn,
-            mcon=resolved_mcon,
-            definition=definition,
-        )
-        self.report.report_assertion_emitted()
+            custom_assertion = _make_custom_assertion_info(
+                entity_urn=dataset_urn,
+                native_type=definition.native_type,
+                definition=definition,
+            )
+            yield from self._emit_assertion(
+                assertion_urn=assertion_urn,
+                custom_assertion=custom_assertion,
+                description=_effective_description(definition),
+                custom_properties=custom_properties,
+            )
+            # Register only after the emit succeeded: if _emit_assertion raises, the
+            # assertion is never created this run, and a dangling entry here would let
+            # build_run_event attach a failure run event to a non-existent assertion.
+            self._ingested_by_monitor.setdefault(definition.uuid, []).append(
+                _IngestedAssertion(
+                    assertion_urn=assertion_urn,
+                    dataset_urn=dataset_urn,
+                    mcon=mcon,
+                    definition=definition,
+                )
+            )
+            self.report.report_assertion_emitted()
 
     def _emit_assertion(
         self,
@@ -442,23 +485,28 @@ class MonteCarloAssertionBuilder:
             aspect=platform_instance,
         ).as_workunit()
 
-    def build_run_event(self, alert: MonteCarloAlert) -> Iterable[MetadataWorkUnit]:
-        # An alert can reference multiple monitors; use the first one we actually
-        # ingested an assertion for. Storing only monitor_uuids[0] previously
+    def run_event_targets_for(self, alert: MonteCarloAlert) -> List[_IngestedAssertion]:
+        """Resolve assertion targets for an alert, or emit skip warnings and return []."""
+        return self._run_event_targets(alert)
+
+    def _run_event_targets(self, alert: MonteCarloAlert) -> List[_IngestedAssertion]:
+        if alert.created_time is None:
+            self.report.warning(
+                title="Alert skipped: missing timestamp",
+                message="Alert has no createdTime and cannot be emitted as a run event.",
+                context=f"alert_uuid={alert.uuid}",
+            )
+            self.report.report_alert_skipped_no_timestamp()
+            return []
+
+        # An alert can reference multiple monitors; collect every assertion we
+        # ingested for any of them. Storing only monitor_uuids[0] previously
         # dropped incidents whose first listed monitor was filtered out /
         # unresolved even when a later one was ingested.
-        ingested: Optional[_IngestedAssertion] = None
+        candidates: List[_IngestedAssertion] = []
         for monitor_uuid in alert.monitor_uuids:
-            candidate = self._ingested_by_monitor.get(monitor_uuid)
-            if candidate is not None:
-                ingested = candidate
-                break
-        if ingested is None:
-            # Alert references no monitor we ingested (all filtered out or
-            # unresolved assets). Report it so the drop is visible in the
-            # run report rather than silently lost. An alert with only
-            # asset_mcons (no monitor_uuids) cannot be wired today — the run
-            # event needs an assertion URN, which is keyed by monitor.
+            candidates.extend(self._ingested_by_monitor.get(monitor_uuid) or [])
+        if not candidates:
             self.report.warning(
                 title="Alert skipped: no ingested monitor",
                 message="Alert references no monitor that was ingested this run "
@@ -469,16 +517,45 @@ class MonteCarloAssertionBuilder:
                 f"asset_mcons={alert.asset_mcons}",
             )
             self.report.report_alert_skipped_no_monitor()
+            return []
+
+        alert_mcons = set(alert.asset_mcons)
+        if alert_mcons:
+            fan_out = [c for c in candidates if c.definition.scope_from_asset_selection]
+            non_fan_out = [
+                c for c in candidates if not c.definition.scope_from_asset_selection
+            ]
+            matched_fan_out = [c for c in fan_out if c.mcon in alert_mcons]
+            targets = matched_fan_out + non_fan_out
+            if not targets:
+                self.report.warning(
+                    title="Alert skipped: no ingested monitor",
+                    message="Alert references a monitor that was ingested but none "
+                    "of its assets matched an ingested assertion (coverage "
+                    "truncated, or the alert's table was not resolved).",
+                    context=f"alert_uuid={alert.uuid}, "
+                    f"monitor_uuids={alert.monitor_uuids}, "
+                    f"asset_mcons={alert.asset_mcons}",
+                )
+                self.report.report_alert_skipped_no_monitor()
+                return []
+        else:
+            targets = candidates[:1]
+        return targets
+
+    def build_run_event(
+        self,
+        alert: MonteCarloAlert,
+        *,
+        targets: Optional[List[_IngestedAssertion]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        if targets is None:
+            targets = self._run_event_targets(alert)
+        elif not targets:
             return
-        assertion_urn = ingested.assertion_urn
-        dataset_urn = ingested.dataset_urn
-        if alert.created_time is None:
-            self.report.warning(
-                title="Alert skipped: missing timestamp",
-                message="Alert has no createdTime and cannot be emitted as a run event.",
-                context=f"alert_uuid={alert.uuid}",
-            )
-            self.report.report_alert_skipped_no_timestamp()
+
+        created_time = alert.created_time
+        if created_time is None:
             return
 
         native_results: Dict[str, str] = {}
@@ -488,30 +565,38 @@ class MonteCarloAssertionBuilder:
             native_results["priority"] = alert.priority
         if alert.sub_types:
             native_results["subType"] = ",".join(alert.sub_types)
+        if alert.title:
+            native_results["title"] = alert.title
 
-        run_event = AssertionRunEvent(
-            timestampMillis=datetime_to_ts_millis(alert.created_time),
-            runId=alert.uuid,
-            asserteeUrn=dataset_urn,
-            status=AssertionRunStatus.COMPLETE,
-            assertionUrn=assertion_urn,
-            result=AssertionResult(
-                type=AssertionResultType.FAILURE,
-                nativeResults=native_results or None,
-            ),
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=assertion_urn,
-            aspect=run_event,
-        ).as_workunit(is_primary_source=False)
-        self.report.report_run_event_emitted()
+        for ingested in targets:
+            result_native = dict(native_results)
+            schema_change = alert.schema_changes_by_mcon.get(ingested.mcon)
+            if schema_change is not None:
+                result_native.update(_schema_change_native_results(schema_change))
+            run_event = AssertionRunEvent(
+                timestampMillis=datetime_to_ts_millis(created_time),
+                runId=alert.uuid,
+                asserteeUrn=ingested.dataset_urn,
+                status=AssertionRunStatus.COMPLETE,
+                assertionUrn=ingested.assertion_urn,
+                result=AssertionResult(
+                    type=AssertionResultType.FAILURE,
+                    nativeResults=result_native or None,
+                ),
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=ingested.assertion_urn,
+                aspect=run_event,
+            ).as_workunit(is_primary_source=False)
+            self.report.report_run_event_emitted()
 
-        yield from self._emit_incident_for_alert(
-            assertion_urn=assertion_urn,
-            dataset_urn=dataset_urn,
-            alert=alert,
-            ts_ms=datetime_to_ts_millis(alert.created_time),
-        )
+            yield from self._emit_incident_for_alert(
+                assertion_urn=ingested.assertion_urn,
+                dataset_urn=ingested.dataset_urn,
+                alert=alert,
+                ts_ms=datetime_to_ts_millis(created_time),
+                schema_change=schema_change,
+            )
 
     def _emit_incident_for_alert(
         self,
@@ -520,6 +605,7 @@ class MonteCarloAssertionBuilder:
         dataset_urn: str,
         alert: MonteCarloAlert,
         ts_ms: int,
+        schema_change: Optional[MonteCarloSchemaChange] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit a DataHub Incident entity pointing at the failing dataset + assertion.
 
@@ -541,7 +627,7 @@ class MonteCarloAssertionBuilder:
         incident_urn = f"urn:li:incident:{incident_id}"
 
         alert_type = alert.alert_type or "alert"
-        title = f"Monte Carlo {alert_type} on monitored dataset"
+        title = alert.title or f"Monte Carlo {alert_type} on monitored dataset"
         description = f"Monte Carlo alert {alert.uuid} (type={alert_type})"
         if alert.sub_types:
             description += f" subTypes={','.join(alert.sub_types)}"
@@ -549,6 +635,14 @@ class MonteCarloAssertionBuilder:
             description += f" severity={alert.severity}"
         if alert.priority:
             description += f" priority={alert.priority}"
+        if schema_change is not None:
+            field_native = _schema_change_native_results(schema_change)
+            if field_native.get("fieldsAdded"):
+                description += f" fieldsAdded={field_native['fieldsAdded']}"
+            if field_native.get("fieldsRemoved"):
+                description += f" fieldsRemoved={field_native['fieldsRemoved']}"
+            if field_native.get("fieldTypeChanges"):
+                description += f" fieldTypeChanges={field_native['fieldTypeChanges']}"
 
         created = AuditStampClass(
             time=ts_ms,
@@ -585,6 +679,7 @@ class MonteCarloAssertionBuilder:
         self,
         execution: MonteCarloJobExecution,
         metric_points: List[MonteCarloMetricPoint],
+        ingested: Optional[_IngestedAssertion] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit an AssertionRunEvent for a SUCCESS monitor run, carrying the
         measured metric values on AssertionResult.
@@ -602,8 +697,14 @@ class MonteCarloAssertionBuilder:
         primary-source definition path (build_assertion), which is correct: if
         the monitor disappears from Monte Carlo, the assertion should be
         soft-deleted.
+
+        ``ingested`` is the assertion to attach to. When omitted (unit tests),
+        the first assertion registered for the execution's monitor is used —
+        single-asset monitors have only one.
         """
-        ingested = self._ingested_by_monitor.get(execution.monitor_uuid)
+        if ingested is None:
+            registered = self._ingested_by_monitor.get(execution.monitor_uuid) or []
+            ingested = registered[0] if registered else None
         if ingested is None:
             return
         assertion_urn = ingested.assertion_urn
@@ -711,10 +812,18 @@ class MonteCarloAssertionBuilder:
                     return comp.fields[0]
         return None
 
+    def ingested_assertions_by_monitor(self) -> Dict[str, List[_IngestedAssertion]]:
+        """Assertions grouped by monitor uuid. Pattern-scoped TABLE monitors
+        have one entry per covered dataset."""
+        return self._ingested_by_monitor
+
     def iter_ingested_monitors(
         self,
-    ) -> Iterable[tuple]:
-        """Yield (monitor_uuid, _IngestedAssertion) pairs for all monitors
-        ingested in this run, so the source's run-event phase can iterate
-        them without accessing the private map directly."""
-        yield from self._ingested_by_monitor.items()
+    ) -> Iterable[Tuple[str, _IngestedAssertion]]:
+        """Yield (monitor_uuid, _IngestedAssertion) pairs for all assertions
+        ingested in this run. A pattern-scoped TABLE monitor yields one pair
+        per covered dataset.
+        """
+        for monitor_uuid, ingested_list in self._ingested_by_monitor.items():
+            for ingested in ingested_list:
+                yield monitor_uuid, ingested

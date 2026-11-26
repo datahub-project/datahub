@@ -1,4 +1,4 @@
-import { readCachedUserLanguage } from '@app/shared/hooks/userLanguageStorage';
+import { readCachedUserLanguage } from '@app/sharedV2/hooks/userLanguageStorage';
 import { SupportedLanguage, detectBrowserLanguage, pickEffectiveLanguage } from '@src/i18n/supportedLanguages';
 
 const I18N_ENABLED_FLAG_KEY = 'i18nEnabled';

@@ -14,6 +14,8 @@ from typing import (
 )
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.sagemaker_processors.common import (
     SagemakerSourceReport,
@@ -24,12 +26,6 @@ from datahub.ingestion.source.aws.sagemaker_processors.jobs import (
     ModelJob,
 )
 from datahub.ingestion.source.aws.sagemaker_processors.lineage import LineageInfo
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    MLModelDeploymentSnapshot,
-    MLModelGroupSnapshot,
-    MLModelSnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DeploymentStatusClass,
@@ -174,48 +170,38 @@ class ModelProcessor:
 
         return endpoint_status
 
-    def get_endpoint_wu(
+    def gen_endpoint_workunits(
         self, endpoint_details: "DescribeEndpointOutputTypeDef"
-    ) -> MetadataWorkUnit:
-        """a
-        Get a workunit for an endpoint.
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate workunits for an endpoint.
         """
 
         # params to remove since we extract them
         redundant_fields = {"EndpointName", "CreationTime"}
 
-        endpoint_snapshot = MLModelDeploymentSnapshot(
-            urn=builder.make_ml_model_deployment_urn(
+        yield MetadataChangeProposalWrapper(
+            entityUrn=builder.make_ml_model_deployment_urn(
                 "sagemaker", endpoint_details["EndpointName"], self.env
             ),
-            aspects=[
-                MLModelDeploymentPropertiesClass(
-                    createdAt=int(
-                        endpoint_details.get("CreationTime", datetime.now()).timestamp()
-                        * 1000
-                    ),
-                    status=self.get_endpoint_status(
-                        endpoint_details["EndpointArn"],
-                        endpoint_details["EndpointName"],
-                        endpoint_details.get("EndpointStatus", "Unknown"),
-                    ),
-                    externalUrl=f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/endpoints/{endpoint_details['EndpointName']}",
-                    customProperties={
-                        key: str(value)
-                        for key, value in endpoint_details.items()
-                        if key not in redundant_fields
-                    },
-                )
-            ],
-        )
-
-        # make the MCE and workunit
-        mce = MetadataChangeEvent(proposedSnapshot=endpoint_snapshot)
-
-        return MetadataWorkUnit(
-            id=f"{endpoint_details['EndpointName']}",
-            mce=mce,
-        )
+            aspect=MLModelDeploymentPropertiesClass(
+                createdAt=int(
+                    endpoint_details.get("CreationTime", datetime.now()).timestamp()
+                    * 1000
+                ),
+                status=self.get_endpoint_status(
+                    endpoint_details["EndpointArn"],
+                    endpoint_details["EndpointName"],
+                    endpoint_details.get("EndpointStatus", "Unknown"),
+                ),
+                externalUrl=f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/endpoints/{endpoint_details['EndpointName']}",
+                customProperties={
+                    key: str(value)
+                    for key, value in endpoint_details.items()
+                    if key not in redundant_fields
+                },
+            ),
+        ).as_workunit()
 
     def get_model_endpoints(
         self,
@@ -247,11 +233,11 @@ class ModelProcessor:
 
         return model_endpoints_sorted
 
-    def get_group_wu(
+    def gen_group_workunits(
         self, group_details: "DescribeModelPackageGroupOutputTypeDef"
-    ) -> MetadataWorkUnit:
+    ) -> Iterable[MetadataWorkUnit]:
         """
-        Get a workunit for a model group.
+        Generate workunits for a model group.
         """
 
         # params to remove since we extract them
@@ -272,30 +258,30 @@ class ModelProcessor:
                 )
             )
 
-        group_snapshot = MLModelGroupSnapshot(
-            urn=builder.make_ml_model_group_urn("sagemaker", group_name, self.env),
-            aspects=[
-                MLModelGroupPropertiesClass(
-                    createdAt=int(
-                        group_details.get("CreationTime", datetime.now()).timestamp()
-                        * 1000
+        group_urn = builder.make_ml_model_group_urn("sagemaker", group_name, self.env)
+        yield from auto_workunit(
+            MetadataChangeProposalWrapper.construct_many(
+                entityUrn=group_urn,
+                aspects=[
+                    MLModelGroupPropertiesClass(
+                        createdAt=int(
+                            group_details.get(
+                                "CreationTime", datetime.now()
+                            ).timestamp()
+                            * 1000
+                        ),
+                        description=group_details.get("ModelPackageGroupDescription"),
+                        customProperties={
+                            key: str(value)
+                            for key, value in group_details.items()
+                            if key not in redundant_fields
+                        },
                     ),
-                    description=group_details.get("ModelPackageGroupDescription"),
-                    customProperties={
-                        key: str(value)
-                        for key, value in group_details.items()
-                        if key not in redundant_fields
-                    },
-                ),
-                OwnershipClass(owners),
-                BrowsePathsClass(paths=["/sagemaker"]),
-            ],
+                    OwnershipClass(owners),
+                    BrowsePathsClass(paths=["/sagemaker"]),
+                ],
+            )
         )
-
-        # make the MCE and workunit
-        mce = MetadataChangeEvent(proposedSnapshot=group_snapshot)
-
-        return MetadataWorkUnit(id=group_name, mce=mce)
 
     def match_model_jobs(
         self, model_details: "DescribeModelOutputTypeDef"
@@ -409,13 +395,13 @@ class ModelProcessor:
         )
         return arn.split("/")[-1]
 
-    def get_model_wu(
+    def gen_model_workunits(
         self,
         model_details: "DescribeModelOutputTypeDef",
         endpoint_arn_to_name: Dict[str, str],
-    ) -> MetadataWorkUnit:
+    ) -> Iterable[MetadataWorkUnit]:
         """
-        Get a workunit for a model.
+        Generate workunits for a model.
         """
 
         # params to remove since we extract them
@@ -468,44 +454,41 @@ class ModelProcessor:
         if not model_browsepaths:
             model_browsepaths.append("/sagemaker")
 
-        model_snapshot = MLModelSnapshot(
-            urn=builder.make_ml_model_urn(
-                "sagemaker", model_details["ModelName"], self.env
-            ),
-            aspects=[
-                MLModelPropertiesClass(
-                    date=int(
-                        model_details.get("CreationTime", datetime.now()).timestamp()
-                        * 1000
-                    ),
-                    deployments=[
-                        builder.make_ml_model_deployment_urn(
-                            "sagemaker", endpoint_name, self.env
-                        )
-                        for endpoint_name in model_endpoints_sorted
-                    ],
-                    customProperties={
-                        key: str(value)
-                        for key, value in model_details.items()
-                        if key not in redundant_fields
-                    },
-                    trainingJobs=sorted(list(model_training_jobs)),
-                    downstreamJobs=sorted(list(model_downstream_jobs)),
-                    externalUrl=f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/models/{model_details['ModelName']}",
-                    hyperParams=model_hyperparams,
-                    trainingMetrics=model_metrics,
-                    groups=model_group_urns,
-                ),
-                BrowsePathsClass(paths=model_browsepaths),
-            ],
+        model_urn = builder.make_ml_model_urn(
+            "sagemaker", model_details["ModelName"], self.env
         )
-
-        # make the MCE and workunit
-        mce = MetadataChangeEvent(proposedSnapshot=model_snapshot)
-
-        return MetadataWorkUnit(
-            id=f"{model_details['ModelName']}",
-            mce=mce,
+        yield from auto_workunit(
+            MetadataChangeProposalWrapper.construct_many(
+                entityUrn=model_urn,
+                aspects=[
+                    MLModelPropertiesClass(
+                        date=int(
+                            model_details.get(
+                                "CreationTime", datetime.now()
+                            ).timestamp()
+                            * 1000
+                        ),
+                        deployments=[
+                            builder.make_ml_model_deployment_urn(
+                                "sagemaker", endpoint_name, self.env
+                            )
+                            for endpoint_name in model_endpoints_sorted
+                        ],
+                        customProperties={
+                            key: str(value)
+                            for key, value in model_details.items()
+                            if key not in redundant_fields
+                        },
+                        trainingJobs=sorted(list(model_training_jobs)),
+                        downstreamJobs=sorted(list(model_downstream_jobs)),
+                        externalUrl=f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/models/{model_details['ModelName']}",
+                        hyperParams=model_hyperparams,
+                        trainingMetrics=model_metrics,
+                        groups=model_group_urns,
+                    ),
+                    BrowsePathsClass(paths=model_browsepaths),
+                ],
+            )
         )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -524,7 +507,7 @@ class ModelProcessor:
             ]
 
             self.report.report_endpoint_scanned()
-            yield self.get_endpoint_wu(endpoint_details)
+            yield from self.gen_endpoint_workunits(endpoint_details)
 
         groups = self.get_all_groups()
         # sort groups for consistency
@@ -535,7 +518,7 @@ class ModelProcessor:
             group_details = self.get_group_details(group["ModelPackageGroupName"])
 
             self.report.report_group_scanned()
-            yield self.get_group_wu(group_details)
+            yield from self.gen_group_workunits(group_details)
 
         models = self.get_all_models()
         # sort models for consistency
@@ -545,4 +528,4 @@ class ModelProcessor:
             model_details = self.get_model_details(model["ModelName"])
 
             self.report.report_model_scanned()
-            yield self.get_model_wu(model_details, endpoint_arn_to_name)
+            yield from self.gen_model_workunits(model_details, endpoint_arn_to_name)

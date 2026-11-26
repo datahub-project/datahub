@@ -51,13 +51,12 @@ Before deploying a Remote Executor, ensure you have the following:
    The Remote Executor requires **outbound** HTTPS (port 443) connectivity only — no inbound connectivity is needed. Ensure the following endpoints are reachable from your deployment environment:
 
    - `https://<your-company>.acryl.io/*` — DataHub GMS API
-   - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch
+   - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch (not needed when the executor uses the Kafka channel)
    - A Python package index—for production, prefer an **internal mirror** (with egress or firewall rules that enforce your supply-chain policy rather than open access to arbitrary public indexes). Details: [Ingestion executor security and hardening](/docs/docker/ingestion-executor-security.md).
    - A container registry hosting the DataHub Remote Executor image (e.g., AWS ECR or `docker.datahub.com`)
 
 4. **Registry Access**
-   - For AWS: Provide your AWS account ID to DataHub Cloud
-   - For Kubernetes: Work with DataHub team to set up access to the Remote Executor Docker Image Registry
+   - Permission for your deployment to pull the Remote Executor image, set up as described in [Getting the executor image](#getting-the-executor-image)
 
 ## Creating and Managing Executor Pools
 
@@ -89,6 +88,29 @@ Once you have created an Executor Pool in DataHub Cloud, you are now ready to de
 Work with DataHub team to receive deployment templates specific to your environment (Helm charts, CloudFormation, or Terraform) for deploying Remote Executors in this Pool.
 :::
 
+:::caution DataHub Cloud instances on GCP
+The executor must use the same channel as its Executor Pool, or it does not receive work. DataHub Cloud instances deployed on Google Cloud Platform (GCP) can create Executor Pools on the Kafka channel. The **Channel** column in **Data Sources > Executors** shows the channel of each pool (`SQS` or `KAFKA`).
+
+For pools on the Kafka channel, use Remote Executor v2.3.0 or later (Helm chart 0.0.70 or later) and set:
+
+- **Helm:** `--set global.datahub.executor.channel="KAFKA"` (default: `SQS`) in the `helm install` command in [Deploy on Kubernetes](#deploy-on-kubernetes).
+- **Docker or ECS:** the environment variable `DATAHUB_EXECUTOR_MODE=kafka-worker` (instead of `worker`).
+
+To move an existing pool from SQS to Kafka, follow [Removing the SQS Dependency](../remote-executor/removing-sqs-dependency.md). Do not change the channel of a running executor outside that procedure.
+:::
+
+### Getting the executor image
+
+The Remote Executor image is hosted in a private DataHub Cloud container registry. Whatever you deploy on, the principal that pulls the image needs to be allowed first.
+
+**On AWS (ECS, EKS, or Docker on EC2):** from DataHub Cloud v2.5, allow your AWS account in the DataHub UI. Go to **Settings > Platform > Image Registry Access**, click **Add principal** and enter your 12-digit AWS account ID. The grant shows **Granted** once the registry has been updated, usually within a minute, together with the repository URIs your account may pull from. One grant covers every DataHub instance you run, so there is no need to repeat it per instance. If your security policy requires it, you can restrict the grant to one IAM role instead of the whole account. Grants can be revoked or deleted from the same page, and the page tells you when your instance has reached its number of allowed principals and how to raise it.
+
+The page is absent on earlier versions, and some instances show it with a note that image registry access is managed by DataHub support. In both cases, or if your deployment needs something the page does not offer, share your AWS account ID with your DataHub Cloud representative. Either way, the result is the same: your AWS account can pull the Remote Executor container image.
+
+**On Google Cloud:** provide the cluster's IAM service account to your DataHub Cloud representative.
+
+**Elsewhere:** contact the DataHub team for the requirements of your platform.
+
 ### Custom images with additional connectors
 
 Remote Executor (`datahub-executor`) images use the same **bundled venv** mechanism as DataHub Core **`datahub-actions`**: connector installs are baked under `/opt/datahub/venvs` at **image build** time via variables such as `BUNDLED_VENV_PLUGINS` and `BUNDLED_CLI_VERSION`. To run sources that need extra dependencies, work with DataHub Cloud for an image built with your plugin list. Details: [Bundled ingestion virtual environments](/docs/docker/bundled-ingestion-venvs.md).
@@ -97,14 +119,9 @@ Remote Executor (`datahub-executor`) images use the same **bundled venv** mechan
 
 DataHub Cloud Remote Executors run on AWS ECS/Fargate. You can provision the deployment with either **CloudFormation** or **Terraform** — the AWS setup below is the same for both; choose your tool in the tabs under step 3.
 
-1. **AWS Account Configuration**
+1. **Registry Access**
 
-To access the private DataHub Cloud ECR registry, provide your AWS account ID to DataHub Cloud. You can securely share it through:
-
-- Your DataHub Cloud representative
-- A secure secret-sharing service like [One Time Secret](https://onetimesecret.com/)
-
-This grants your AWS account access to pull the Remote Executor container image.
+Allow the AWS account that runs the ECS tasks to pull the image, as described in [Getting the executor image](#getting-the-executor-image).
 
 2. **Prerequisites**
 
@@ -269,7 +286,7 @@ Monitor the stack events to track update progress.
 
 Update your module inputs and re-apply:
 
-- **New executor version** — set `datahub.image_tag` (e.g. `"v2.1.0-cloud"`), or bump the module `?ref=` tag to pick up its newer pinned default. Module tags (`v2.1.0`) and image tags (`v2.1.0-cloud`) are versioned independently.
+- **New executor version** — set `datahub.image_tag` (e.g. `"v2.4.2-cloud"`), or bump the module `?ref=` tag to pick up its newer pinned default. Module tags (`v2.1.0`) and image tags (`v2.4.2-cloud`) are versioned independently.
 - **Configuration changes** — edit any input (e.g. `desired_count`, `cpu`, worker counts).
 
 Then run `terraform apply` — it shows a plan of exactly what will change before you confirm.
@@ -283,12 +300,7 @@ The [datahub-executor-worker](https://executor-helm.acryl.io/index.yaml) Helm ch
 
 1. **Registry Access Configuration**
 
-To access the private DataHub Cloud container registry, you'll need to work with your DataHub Cloud representative to set up the necessary permissions:
-
-For AWS EKS: Provide the IAM principal that will pull from the ECR repository
-
-- For Google Cloud: Provide the cluster's IAM service account
-- For other platforms: Contact DataHub team for specific requirements
+Allow the principal that pulls the image (on EKS, the AWS account or the node or pod IAM role; on GKE, the cluster's IAM service account) as described in [Getting the executor image](#getting-the-executor-image).
 
 2. **Configure Access Token Secret**
 
@@ -321,6 +333,7 @@ Required parameters:
 
 - `global.datahub.executor.pool_id`: Your Executor Pool ID
 - `global.datahub.gms.url`: Your DataHub Cloud URL (must include `/gms`)
+- `global.datahub.executor.channel`: Set to `KAFKA` if your Executor Pool uses the Kafka channel (see [Removing the SQS Dependency](../remote-executor/removing-sqs-dependency.md))
 
 4. **Configure Secret Mounting (Optional)**
 
@@ -433,7 +446,7 @@ The Remote Executor image can be run directly using Docker, though this is not r
 
 1. **Registry Access Configuration**
 
-To access the private DataHub Cloud container registry, you'll need to contact your DataHub Cloud representative for specific requirements.
+Allow the principal that pulls the image as described in [Getting the executor image](#getting-the-executor-image).
 
 2. **Run Docker Container**
 
@@ -465,13 +478,27 @@ Once you have successfully deployed the Remote Executor in your environment, Dat
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/pool-list-after.png?raw=true"/>
 </p>
 
+Each executor also sends two reports with its status, which you can open with **See more** next to the executor:
+
+- **What it is working on**, sent with every status check-in: whether it is taking new work, how many ingestion, assertion and monitor slots are in use, which runs are waiting or running, and when it last checked for new work.
+- **What it runs on**, sent about every 10 minutes: its memory and CPU limits and use, the space its working folders take up, the values of a fixed list of executor settings, how it is deployed, its Python version and the ingestion sources that come pre-installed.
+
+Both reports are on by default. To turn one off, set its variable to `false` and restart the executor:
+
+| Variable                                  | Default | Report                |
+| ----------------------------------------- | ------- | --------------------- |
+| `DATAHUB_EXECUTOR_STATUS_DETAILS_ENABLED` | `true`  | What it is working on |
+| `DATAHUB_EXECUTOR_REPORT_RUNTIME`         | `true`  | What it runs on       |
+
+Both reports need DataHub 2.4.0 or later. On an older version, the executor sends its status without them. If the executor was started before DataHub was upgraded, restart it to start sending them.
+
 ## Assigning Ingestion Sources to an Executor Pool
 
 After you have created an Executor Pool and deployed the Remote Executor within your environment, you are now ready to configure an Ingestion Source to run in that Pool.
 
 1. Navigate to **Manage Data Sources** in DataHub Cloud
-2. Edit an existing Source or click **Create new source**
-3. In the **Finish Up** step, expand the **Advanced** to select your desired **Executor Pool**
+2. Edit an existing Source, or click **Create Source** and choose a data source
+3. On the **Connection Details** page, expand **Advanced Settings** and select your desired **Executor Pool**
 
 <p align="center">
   <img width="80%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/ingestion-select-executor-pool.png?raw=true"/>
@@ -481,7 +508,7 @@ After you have created an Executor Pool and deployed the Remote Executor within 
 New Ingestion Sources will automatically use your designated Default Pool if you have assigned one. You can override this assignment when creating or editing an Ingestion Source at any time.
 :::
 
-5. Click **Save & Run**. The task should show as 'Running' if properly configured.
+4. Click **Save and Run** at the top of the page. The task should show as 'Running' if properly configured.
 
 <p align="center">
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/view-ingestion-running.png?raw=true"/>
@@ -724,7 +751,7 @@ GMS enforces a caller guard on `SecretService` decryption. The default is **secu
 
 `ENFORCE` prevents humans and user PATs from fetching secret values via GraphQL, but **does not** block an **embedded executor** from resolving UI secrets. To avoid UI secrets entirely, do not create them and use local backends above.
 
-See [Environment Variables](../../deploy/environment-vars.md) and [Updating DataHub](../../how/updating-datahub.md) for migration details.
+See [Environment Variables](../../deploy/environment-vars.md) and [Breaking Changes](../../how/breaking-changes.md) for migration details.
 
 ## Advanced: Performance Settings and Task Weight-Based Queuing
 

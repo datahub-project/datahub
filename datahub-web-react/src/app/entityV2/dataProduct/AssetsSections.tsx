@@ -1,12 +1,12 @@
-import { AppstoreOutlined } from '@ant-design/icons';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import { Button } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import ContentSectionLoading from '@app/entityV2/domain/summary/ContentSectionLoading';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import {
     getContentsSummary,
     getDomainEntitiesFilterUrl,
@@ -59,7 +59,7 @@ export const AssetsSection = () => {
         <AssetsSectionWrapper>
             <StyledHeaderWrapper>
                 <SummaryTabHeaderTitle
-                    icon={<AppstoreOutlined />}
+                    icon={<SquaresFour />}
                     title={t('shared.assetsCountTitle', { count: contentsCount })}
                 />
                 <Button type="link" onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>

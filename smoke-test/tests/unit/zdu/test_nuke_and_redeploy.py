@@ -84,6 +84,7 @@ class TestHappyPath:
         docker.down_and_wipe.assert_called_once()
         assert sorted(docker.down_and_wipe.call_args.kwargs["wipe_volumes"]) == [
             "mysqldata",
+            "os3data",
             "osdata",
         ]
         docker.up_stack.assert_called_once()
@@ -243,6 +244,8 @@ class TestPinsEveryZduServiceToOld:
         assert compose_env["DATAHUB_GMS_VERSION"] == "zdu-old-abc12345"
         assert compose_env["DATAHUB_MAE_VERSION"] == "zdu-old-abc12345"
         assert compose_env["DATAHUB_MCE_VERSION"] == "zdu-old-abc12345"
+        # Unpinned, system-update falls back to DATAHUB_VERSION (`head` in CI).
+        assert compose_env["DATAHUB_UPDATE_VERSION"] == "zdu-old-abc12345"
         # DATAHUB_VERSION must stay out — it cascades to frontend/actions,
         # whose images don't exist at the OLD tag.
         assert "DATAHUB_VERSION" not in compose_env

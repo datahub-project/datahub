@@ -15,9 +15,9 @@ import org.springframework.stereotype.Component;
  * v1 → v2 migration for {@code dataProductProperties}.
  *
  * <p>No payload reshape is required: bumping the schema version forces MigrateAspects / ZDU to
- * rewrite existing Data Product properties. {@code DataProductAssetsSideEffect} treats those
- * system-update writes as a full membership sync and populates each asset's denormalized {@code
- * dataProducts} aspect.
+ * rewrite existing Data Product properties. That rewrite is payload-identical, so GMS treats it as
+ * a no-op and does not emit the MCL {@code DataProductAssetsSideEffect} needs. Asset-side {@code
+ * dataProducts} population is {@code ResyncDataProductAssetsStep}, not this mutator.
  */
 @Slf4j
 @Component

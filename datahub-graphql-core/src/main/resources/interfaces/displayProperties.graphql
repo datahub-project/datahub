@@ -1,0 +1,13 @@
+"""
+An entity with display properties
+"""
+interface HasDisplayProperties {
+  """
+  Display properties of the entity, such as its color and icon
+  """
+  displayProperties: DisplayProperties
+}
+
+extend type Domain implements HasDisplayProperties
+extend type GlossaryNode implements HasDisplayProperties
+extend type GlossaryTerm implements HasDisplayProperties

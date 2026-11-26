@@ -1,4 +1,4 @@
-import { CloseOutlined } from '@ant-design/icons';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Divider } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import NullableLabel, {
     ForeignKeyLabel,
     PartitioningKeyLabel,
@@ -14,11 +15,13 @@ import NullableLabel, {
 import MenuColumn from '@app/entityV2/shared/tabs/Dataset/Schema/components/MenuColumn';
 import FieldPath from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPath';
 import TypeLabel from '@app/entityV2/shared/tabs/Dataset/Schema/components/TypeLabel';
-import getFieldForeignKeyConstraints from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldForeignKeyConstraints';
+import getFieldForeignKeyConstraints, {
+    ForeignKeySchemaMetadata,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldForeignKeyConstraints';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { SchemaField, SchemaMetadata } from '@types';
+import { SchemaField } from '@types';
 
 const FIELD_PATH_SEPARATOR = '.';
 
@@ -98,10 +101,16 @@ const StyleLink = styled(Link)`
 interface Props {
     expandedField: SchemaField;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
-    schemaMetadata?: SchemaMetadata | null;
+    isPrimaryKey: boolean;
+    schemaMetadata?: ForeignKeySchemaMetadata | null;
 }
 
-export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath, schemaMetadata }: Props) {
+export default function FieldHeader({
+    expandedField,
+    setExpandedDrawerFieldPath,
+    isPrimaryKey,
+    schemaMetadata,
+}: Props) {
     const { t: tc } = useTranslation('common.labels');
     const { config } = useAppConfig();
     const displayName = translateFieldPath(expandedField.fieldPath || '');
@@ -120,7 +129,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath,
                                 `${entityRegistry.getEntityUrl(
                                     expandedField.schemaFieldEntity?.type,
                                     (expandedField.schemaFieldEntity?.urn as string) || '',
-                                )}/Lineage`
+                                )}/${EntityTabPath.LINEAGE}`
                             }
                         >
                             {displayName.split(FIELD_PATH_SEPARATOR).pop()}
@@ -130,10 +139,10 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath,
                     )}
                     <StyledDivider type="vertical" />
                     <StyledTypeLabel type={expandedField.type} nativeDataType={expandedField.nativeDataType} />
-                    {expandedField.isPartOfKey && <PrimaryKeyLabel />}
+                    {isPrimaryKey && <PrimaryKeyLabel />}
                     {expandedField.isPartitioningKey && <PartitioningKeyLabel />}
                     {expandedField.nullable && <NullableLabel />}
-                    {!!getFieldForeignKeyConstraints(schemaMetadata, expandedField.fieldPath).length && (
+                    {getFieldForeignKeyConstraints(schemaMetadata, expandedField.fieldPath).length > 0 && (
                         <ForeignKeyLabel />
                     )}
                     <FieldPath displayName={displayName} setExpandedDrawerFieldPath={setExpandedDrawerFieldPath} />
@@ -145,7 +154,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath,
                     <MenuColumn field={expandedField} />
                 </MenuWrapper>
                 <CloseIcon onClick={() => setExpandedDrawerFieldPath(null)}>
-                    <CloseOutlined />
+                    <X />
                 </CloseIcon>
             </RightGroup>
         </FieldHeaderWrapper>

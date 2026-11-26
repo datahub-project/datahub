@@ -1,0 +1,25 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:datapacksmoke,isolation_probe,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:datapacksmoke,isolation_probe,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "isolation_probe",
+        "description": "Dataset used only by the datapack load and unload smoke test."
+      }
+    }
+  }
+]

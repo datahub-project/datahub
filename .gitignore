@@ -117,6 +117,9 @@ skills-lock.json
 .claude/hooks/*
 !.claude/hooks/deny-git-no-verify.sh
 **/.claude/settings.local.json
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/datahub-test-taxonomy
 
 # Kiro Ignores
 .kiro
@@ -124,6 +127,10 @@ skills-lock.json
 # Environment files with credentials
 .env*
 *.env
+# Checked-in service env layers for the local stacks (no secrets; see env/README.md).
+!/env/**/*.env
+!/smoke-test/env/**/*.env
+!/e2e-test/ui/playwright/env/**/*.env
 # Exception: ZDU test compose override (no secrets — only authz bypass flags)
 !docker/profiles/zdu-test.env
 
@@ -166,6 +173,10 @@ metadata-service/servlet/bin/
 metadata-service/war/bin/
 metadata-utils/bin/
 test-models/bin/
+
+# Per-run TLS material for the Oracle and SQL Server integration fixtures.
+metadata-ingestion/tests/integration/mssql/.tls/
+metadata-ingestion/tests/integration/oracle/.tls/
 
 # Git credentials (should never be committed)
 .git-credentials

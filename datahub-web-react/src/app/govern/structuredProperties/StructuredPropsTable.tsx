@@ -1,7 +1,7 @@
 import { Button, Menu, Pill, Table, Text, Tooltip, toast } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Table as TableIcon } from '@phosphor-icons/react/dist/csr/Table';
 import React, { useRef, useState } from 'react';
-import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import { useTheme } from 'styled-components';
@@ -26,16 +26,16 @@ import {
     getValueTypeLabel,
 } from '@app/govern/structuredProperties/utils';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
+import Highlight from '@app/sharedV2/text/Highlight';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
-import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
+import { toLocalDateString, toRelativeTimeString } from '@src/app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { PageRoutes } from '@src/conf/Global';
 import { useBatchUpdateSoftDeletedMutation } from '@src/graphql/mutations.generated';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
-import TableIcon from '@src/images/table-icon.svg?react';
 import { DataPlatform, Entity, EntityType, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
 const LIST_SEPARATOR = ', ';
@@ -191,7 +191,7 @@ const StructuredPropsTable = ({
                 return (
                     <NameColumn>
                         <IconContainer>
-                            <TableIcon color={theme.colors.iconBrand} />
+                            <TableIcon size={20} color={theme.colors.iconBrand} />
                         </IconContainer>
                         <DataContainer>
                             <PropName title={getDisplayName(record)}>

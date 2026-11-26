@@ -12,6 +12,7 @@ import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatf
 import com.linkedin.datahub.upgrade.system.dataplatforms.IndexDataPlatforms;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.dataproducts.ResyncDataProductAssets;
+import com.linkedin.datahub.upgrade.system.documents.DeleteOrphanedDocumentChildren;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinks;
@@ -29,6 +30,7 @@ import com.linkedin.datahub.upgrade.system.restoreindices.glossary.RestoreGlossa
 import com.linkedin.datahub.upgrade.system.retention.IngestRetentionPolicies;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
 import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
@@ -43,6 +45,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,9 +55,14 @@ import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 
 @Configuration
 @Conditional(SystemUpdateCondition.NonBlockingSystemUpdateCondition.class)
+// kafkaSetupNonBlocking steps build admin clients, which under MSK IAM need the shared AWS
+// credentials.
+@Import(AwsClientFactory.class)
 public class NonBlockingConfigs {
 
   @Bean
@@ -73,6 +81,26 @@ public class NonBlockingConfigs {
   }
 
   @Bean
+  public NonBlockingSystemUpgrade deleteOrphanedDocumentChildren(
+      final OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      DocumentService documentService,
+      @Value("${systemUpdate.deleteOrphanedDocumentChildren.enabled}") final boolean enabled,
+      @Value("${systemUpdate.deleteOrphanedDocumentChildren.reprocess.enabled}")
+          final boolean reprocessEnabled,
+      @Value("${systemUpdate.deleteOrphanedDocumentChildren.batchSize}") final Integer batchSize) {
+    return new DeleteOrphanedDocumentChildren(
+        opContext,
+        entityService,
+        searchService,
+        documentService,
+        enabled,
+        reprocessEnabled,
+        batchSize);
+  }
+
+  @Bean
   public NonBlockingSystemUpgrade backfillBrowsePathsV2(
       final OperationContext opContext,
       EntityService<?> entityService,
@@ -88,11 +116,15 @@ public class NonBlockingConfigs {
   public NonBlockingSystemUpgrade resyncDataProductAssets(
       final OperationContext opContext,
       EntityService<?> entityService,
-      SearchService searchService,
-      @Value("${systemUpdate.dataProductAssets.reprocess.enabled}") final boolean reprocessEnabled,
-      @Value("${systemUpdate.dataProductAssets.batchSize}") final Integer batchSize) {
+      AspectDao aspectDao,
+      @Value("${systemUpdate.dataProductAssets.enabled}") final boolean enabled,
+      @Value("${systemUpdate.dataProductAssets.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.dataProductAssets.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.dataProductAssets.limit}") final Integer limit,
+      @Value("${systemUpdate.dataProductAssets.reprocess.enabled}")
+          final boolean reprocessEnabled) {
     return new ResyncDataProductAssets(
-        opContext, entityService, searchService, reprocessEnabled, batchSize);
+        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit, reprocessEnabled);
   }
 
   @Bean
@@ -295,6 +327,7 @@ public class NonBlockingConfigs {
 
   @Bean
   @Conditional(KafkaMessagingEnabledCondition.class)
+  @DependsOn("defaultAwsCredentialsProvider")
   public NonBlockingSystemUpgrade kafkaSetupNonBlocking(
       final ConfigurationProvider configurationProvider, KafkaProperties properties) {
     return new KafkaNonBlockingSetup(opContext, configurationProvider.getKafka(), properties);

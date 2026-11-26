@@ -1,14 +1,15 @@
 import React from 'react';
 import styled from 'styled-components';
 
+// `small` fits a 16px icon box (8/12/16px bars) so it lines up with the icons next to it in tables and cards.
 const Bar = styled.div<{ status: number; bar: number; isFieldSelected: boolean; size: string }>`
     width: ${(props) => (props.size === 'default' ? '5px' : '3px')};
-    height: ${(props) => 5 * (props.bar + 1)}px;
+    height: ${(props) => (props.size === 'default' ? 5 : 4) * (props.bar + 1)}px;
     background: ${(props) => {
         return props.bar <= props.status ? props.theme.colors.buttonFillBrand : props.theme.colors.chartsBrandBase;
     }};
     opacity: ${(props) => (props.isFieldSelected && !(props.bar <= props.status) ? '0.5' : '')};
-    margin-right: ${(props) => (props.size === 'default' ? '3px' : '4px')};
+    margin-right: ${(props) => (props.size === 'default' ? '3px' : '2px')};
     border-radius: 20px;
 `;
 

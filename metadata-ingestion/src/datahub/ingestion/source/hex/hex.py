@@ -94,6 +94,10 @@ class HexReport(
 @capability(
     SourceCapability.TAGS, "Status, categories, and collections emitted as tags"
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class HexSource(TestableSource, StatefulIngestionSourceBase):
     def __init__(self, config: HexSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -637,7 +641,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                                 sql_cells, upstream_urns
                             )
                         )
-                used_queried_tables = True
+                # Gate the SQL-cell fallback on tier-1 producing anything —
+                # a fully-skipped response shouldn't suppress a path that works.
+                used_queried_tables = bool(upstream_urns)
 
         if not used_queried_tables:
             sql_cells = self._apply_cell_based_lineage(

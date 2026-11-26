@@ -333,9 +333,15 @@ type EntityPrivileges {
   canManageChildren: Boolean
 
   """
-  Whether or not a user can delete or move this entity.
+  Whether or not a user can manage this entity. For documents, this controls moving;
+  deletion is reported by canDeleteEntity.
   """
   canManageEntity: Boolean
+
+  """
+  Whether or not a user can delete this entity.
+  """
+  canDeleteEntity: Boolean
 
   """
   Whether or not a user can create or delete lineage edges for an entity.
@@ -393,6 +399,11 @@ type EntityPrivileges {
   canEditDataProducts: Boolean
 
   """
+  Whether or not a user can create and manage data products within this domain. Only populated for Domains.
+  """
+  canManageDataProducts: Boolean
+
+  """
   Whether or not a user can update the owners for the entity
   """
   canEditOwners: Boolean
@@ -435,6 +446,13 @@ type EntityPrivileges {
   canEditSchemaFieldDescription: Boolean
 
   """
+  Whether or not a user can update structured properties on a dataset's schema fields.
+  Edit Entity Properties does not grant this. Edit Dataset Column Properties or Edit Entity does,
+  on the parent dataset or on the schema field.
+  """
+  canEditSchemaFieldProperties: Boolean
+
+  """
   Whether the user can view dataset usage stats
   """
   canViewDatasetUsage: Boolean
@@ -453,6 +471,11 @@ type EntityPrivileges {
   Whether the user can manage asset summary
   """
   canManageAssetSummary: Boolean
+
+  """
+  Whether the user can set this entity's lifecycle stage directly, without a proposal.
+  """
+  canEditLifecycleStage: Boolean
 }
 
 """

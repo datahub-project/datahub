@@ -7,10 +7,10 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateSecretInput;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.datahub.graphql.types.ingest.secret.mapper.DataHubSecretValueMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.key.DataHubSecretKey;
@@ -19,6 +19,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.CompletableFuture;
 
@@ -44,7 +45,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (IngestionAuthUtils.canManageSecrets(context)) {
+          if (AuthorizationUtils.canManageSecrets(context)) {
 
             try {
               // Create the Ingestion source key --> use the display name as a unique id to ensure
@@ -53,7 +54,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
               key.setId(input.getName());
 
               if (_entityClient.exists(
-                  context.getOperationContext(),
+                  context.getOperationContext().withReadPreference(ReadPreference.PRIMARY),
                   EntityKeyUtils.convertEntityKeyToUrn(key, SECRETS_ENTITY_NAME))) {
                 throw new IllegalArgumentException("This Secret already exists!");
               }

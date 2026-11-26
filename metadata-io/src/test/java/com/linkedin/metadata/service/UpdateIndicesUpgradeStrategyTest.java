@@ -18,25 +18,16 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.data.template.StringMap;
-import com.linkedin.entity.Aspect;
-import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
-import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultStore;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.mxe.MetadataChangeLog;
-import com.linkedin.upgrade.DataHubUpgradeResult;
-import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +40,9 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class UpdateIndicesUpgradeStrategyTest {
+
+  private static final String DATASET_INDEX = "datasetindex_v2";
+  private static final String DATASET_OLD_BACKING = "datasetindex_v2_1779165194703";
 
   @Mock private ElasticSearchService elasticSearchService;
   @Mock private SearchDocumentTransformer searchDocumentTransformer;
@@ -88,46 +82,28 @@ public class UpdateIndicesUpgradeStrategyTest {
   }
 
   @Test
-  public void testIsEnabledWithNoTargets() {
-    UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService,
-            searchDocumentTransformer,
-            Collections.emptyMap(),
-            null,
-            null,
-            null,
-            null,
-            0);
-    assertFalse(strategy.isEnabled());
-  }
+  public void testEnabledOnlyWhileV2TargetsExist() {
+    assertFalse(strategy(targets(Map.of())).isEnabled());
+    assertTrue(strategy(targets(Map.of(DATASET_INDEX, DATASET_OLD_BACKING))).isEnabled());
 
-  @Test
-  public void testIsEnabledWithTargets() {
-    Map<String, String> targets = Map.of("dataset", "datasetindex_v2_next_123");
-    UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
-    assertTrue(strategy.isEnabled());
+    IncrementalReindexWriteTargets v3Only =
+        new IncrementalReindexWriteTargets(
+            Map.of(
+                "primaryindex_v3",
+                new IncrementalReindexWriteTargets.RollbackTarget(
+                    "primaryindex_v3", "primaryindex_v3_1779165194703", EntityIndexVersion.V3)),
+            Map.of(),
+            null,
+            null,
+            true);
+    assertFalse(strategy(v3Only).isEnabled());
   }
 
   @Test
   public void testProcessBatchNoOpWhenNoTargets() {
-    UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService,
-            searchDocumentTransformer,
-            Collections.emptyMap(),
-            null,
-            null,
-            null,
-            null,
-            0);
+    UpdateIndicesUpgradeStrategy strategy = strategy(targets(Map.of()));
 
-    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
-    events.put(testUrn, List.of(mockEvent));
-
-    strategy.processBatch(operationContext, events, false);
+    strategy.processBatch(operationContext, events(testUrn, mockEvent), false);
 
     verify(elasticSearchService, never())
         .upsertDocumentByIndexName(
@@ -135,93 +111,59 @@ public class UpdateIndicesUpgradeStrategyTest {
   }
 
   @Test
-  public void testProcessBatchWritesToNextIndex() throws Exception {
-    String nextIndex = "datasetindex_v2_next_123";
-    Map<String, String> targets = Map.of("dataset", nextIndex);
+  public void testProcessBatchWritesToOldBackingIndex() throws Exception {
     UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
-
+        strategy(targets(Map.of(DATASET_INDEX, DATASET_OLD_BACKING)));
     ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
     searchDoc.put("urn", testUrn.toString());
     searchDoc.put("name", "SampleHdfsDataset");
-
     when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
         .thenReturn(Optional.of(searchDoc));
 
-    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
-    events.put(testUrn, List.of(mockEvent));
-
-    strategy.processBatch(operationContext, events, false);
+    strategy.processBatch(operationContext, events(testUrn, mockEvent), false);
 
     verify(elasticSearchService)
         .upsertDocumentByIndexName(
-            eq(operationContext), eq(nextIndex), eq(searchDoc.toString()), anyString());
+            eq(operationContext),
+            eq(DATASET_OLD_BACKING),
+            eq(searchDoc.toString()),
+            eq(
+                operationContext
+                    .getSearchContext()
+                    .getIndexConvention()
+                    .getEntityDocumentId(testUrn)));
   }
 
   /**
-   * The two sides of {@code oldIndexTargets} disagree on case: the map is keyed from {@link
-   * com.linkedin.metadata.utils.elasticsearch.IndexConvention#getEntityName}, which strips the
-   * lowercased physical index ("dataflowindex_v2" -> "dataflow"), while lookups use {@code
-   * EntitySpec.getName()}, the entity-registry name ("dataFlow"). Before normalisation the lookup
-   * missed and dual-write silently never ran for any entity whose registered name is not
-   * all-lowercase — dataFlow, dataJob, corpUser, mlModel, glossaryTerm, aiAgent.
+   * Targets are keyed by the alias the index convention derives, which lowercases the entity name.
+   * An entity whose registry name has capitals must still resolve its target through that alias.
    */
   @Test
-  public void testProcessBatchWritesToNextIndexForMixedCaseEntity() throws Exception {
-    String nextIndex = "dataflowindex_v2_next_123";
-    Map<String, String> targets = Map.of("dataflow", nextIndex);
+  public void testProcessBatchResolvesMixedCaseEntityThroughItsAlias() throws Exception {
+    String dataFlowOldBacking = "dataflowindex_v2_1779165194703";
     UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
-
+        strategy(targets(Map.of("dataflowindex_v2", dataFlowOldBacking)));
     Urn dataFlowUrn = UrnUtils.getUrn("urn:li:dataFlow:(airflow,my_dag,PROD)");
     when(mockEvent.getUrn()).thenReturn(dataFlowUrn);
     when(mockEntitySpec.getName()).thenReturn("dataFlow");
-
     ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
     searchDoc.put("urn", dataFlowUrn.toString());
-
     when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
         .thenReturn(Optional.of(searchDoc));
 
-    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
-    events.put(dataFlowUrn, List.of(mockEvent));
-
-    strategy.processBatch(operationContext, events, false);
+    strategy.processBatch(operationContext, events(dataFlowUrn, mockEvent), false);
 
     verify(elasticSearchService)
         .upsertDocumentByIndexName(
-            eq(operationContext), eq(nextIndex), eq(searchDoc.toString()), anyString());
-  }
-
-  /** Callers hold the registry name; the map was keyed from the lowercased index name. */
-  @Test
-  public void testRemoveTargetIsCaseInsensitive() {
-    Map<String, String> targets = new HashMap<>(Map.of("dataflow", "dataflowindex_v2_next_123"));
-    UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
-
-    assertTrue(strategy.isEnabled());
-
-    strategy.removeTarget("dataFlow");
-
-    assertFalse(strategy.isEnabled());
+            eq(operationContext), eq(dataFlowOldBacking), eq(searchDoc.toString()), anyString());
   }
 
   @Test
-  public void testProcessBatchSkipsUnmatchedEntity() throws Exception {
-    // Target is for "chart" entity, but event is for "dataset"
-    Map<String, String> targets = Map.of("chart", "chartindex_v2_next_123");
+  public void testProcessBatchSkipsEntityWithoutTarget() throws Exception {
     UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
+        strategy(targets(Map.of("chartindex_v2", "chartindex_v2_1779165194703")));
 
-    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
-    events.put(testUrn, List.of(mockEvent));
-
-    strategy.processBatch(operationContext, events, false);
+    strategy.processBatch(operationContext, events(testUrn, mockEvent), false);
 
     verify(elasticSearchService, never())
         .upsertDocumentByIndexName(
@@ -232,18 +174,12 @@ public class UpdateIndicesUpgradeStrategyTest {
 
   @Test
   public void testProcessBatchSkipsEmptySearchDocument() throws Exception {
-    Map<String, String> targets = Map.of("dataset", "datasetindex_v2_next_123");
     UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
-
+        strategy(targets(Map.of(DATASET_INDEX, DATASET_OLD_BACKING)));
     when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
         .thenReturn(Optional.empty());
 
-    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
-    events.put(testUrn, List.of(mockEvent));
-
-    strategy.processBatch(operationContext, events, false);
+    strategy.processBatch(operationContext, events(testUrn, mockEvent), false);
 
     verify(elasticSearchService, never())
         .upsertDocumentByIndexName(
@@ -251,298 +187,83 @@ public class UpdateIndicesUpgradeStrategyTest {
   }
 
   @Test
-  public void testProcessBatchDeleteKeyAspect() throws Exception {
-    String nextIndex = "datasetindex_v2_next_123";
-    Map<String, String> targets = Map.of("dataset", nextIndex);
+  public void testProcessBatchDeleteKeyAspect() {
     UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
-
-    // Configure as key aspect deletion
+        strategy(targets(Map.of(DATASET_INDEX, DATASET_OLD_BACKING)));
     when(mockMcl.getChangeType()).thenReturn(ChangeType.DELETE);
     when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
     when(mockEvent.getAspectName()).thenReturn("datasetKey");
 
-    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
-    events.put(testUrn, List.of(mockEvent));
-
-    strategy.processBatch(operationContext, events, false);
+    strategy.processBatch(operationContext, events(testUrn, mockEvent), false);
 
     verify(elasticSearchService)
-        .deleteDocumentByIndexName(eq(operationContext), eq(nextIndex), anyString());
+        .deleteDocumentByIndexName(eq(operationContext), eq(DATASET_OLD_BACKING), anyString());
   }
 
   @Test
-  public void testProcessBatchV3BackingIndexUsesHashedDocumentId() throws Exception {
-    String oldIndex =
-        ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v3", "1.2.3-4", 1000L);
-    Map<String, String> targets = Map.of("dataset", oldIndex);
-    UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
-
-    ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
-    searchDoc.put("urn", testUrn.toString());
-
-    when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
-        .thenReturn(Optional.of(searchDoc));
-
-    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
-    events.put(testUrn, List.of(mockEvent));
-
-    strategy.processBatch(operationContext, events, false);
-
-    org.mockito.ArgumentCaptor<String> docIdCaptor =
-        org.mockito.ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentByIndexName(
-            eq(operationContext), eq(oldIndex), eq(searchDoc.toString()), docIdCaptor.capture());
-    assertEquals(
-        docIdCaptor.getValue(),
-        org.apache.commons.codec.digest.DigestUtils.sha256Hex(testUrn.toString()));
-    assertFalse(docIdCaptor.getValue().contains("urn:li:"));
-  }
-
-  @Test
-  public void testProcessBatchV2BackingIndexKeepsUrlEncodedDocumentId() throws Exception {
-    String nextIndex = "datasetindex_v2_next_123";
-    Map<String, String> targets = Map.of("dataset", nextIndex);
-    UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
-
-    ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
-    searchDoc.put("urn", testUrn.toString());
-
-    when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
-        .thenReturn(Optional.of(searchDoc));
-
-    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
-    events.put(testUrn, List.of(mockEvent));
-
-    strategy.processBatch(operationContext, events, false);
-
-    org.mockito.ArgumentCaptor<String> docIdCaptor =
-        org.mockito.ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentByIndexName(
-            eq(operationContext), eq(nextIndex), eq(searchDoc.toString()), docIdCaptor.capture());
-    assertEquals(
-        docIdCaptor.getValue(),
-        operationContext.getSearchContext().getIndexConvention().getEntityDocumentId(testUrn));
-    assertTrue(docIdCaptor.getValue().contains("urn"));
-  }
-
-  @Test
-  public void testIsV3BackingIndexClassifiesVersionTokenNotSubstring() {
-    assertTrue(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v3"));
-    assertTrue(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v3_1683649932260"));
-    assertTrue(
-        UpdateIndicesUpgradeStrategy.isV3BackingIndex(
-            ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v3", "1.2.3-4", 1000L)));
-    assertTrue(
-        UpdateIndicesUpgradeStrategy.isV3BackingIndex(
-            ESIndexBuilder.getIncrementalNextIndexName(
-                "datasetindex_v3", "0.13.1-0", 1679000000000L)));
-    assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v2"));
-    assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v2_next_123"));
-    assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("index_v3_datasetindex_v2"));
-    assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("index_v3"));
-    assertFalse(
-        UpdateIndicesUpgradeStrategy.isV3BackingIndex("fooindex_v3_datasetindex_v2_1683649932260"));
-    assertFalse(
-        UpdateIndicesUpgradeStrategy.isV3BackingIndex(
-            ESIndexBuilder.getIncrementalNextIndexName(
-                "fooindex_v3_datasetindex_v2", "1.2.3-4", 1000L)));
-  }
-
-  @Test
-  public void testProcessBatchPrefixContainingIndexV3KeepsUrlEncodedDocumentId() throws Exception {
-    String nextIndex = "index_v3_datasetindex_v2";
-    Map<String, String> targets = Map.of("dataset", nextIndex);
-    UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
-
-    ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
-    searchDoc.put("urn", testUrn.toString());
-
-    when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
-        .thenReturn(Optional.of(searchDoc));
-
-    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
-    events.put(testUrn, List.of(mockEvent));
-
-    strategy.processBatch(operationContext, events, false);
-
-    org.mockito.ArgumentCaptor<String> docIdCaptor =
-        org.mockito.ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentByIndexName(
-            eq(operationContext), eq(nextIndex), eq(searchDoc.toString()), docIdCaptor.capture());
-    assertEquals(
-        docIdCaptor.getValue(),
-        operationContext.getSearchContext().getIndexConvention().getEntityDocumentId(testUrn));
-  }
-
-  @Test
-  public void testDualWriteStartTimeCallbackCalledOnce() throws Exception {
-    String nextIndex = "datasetindex_v2_next_123";
-    Map<String, String> targets = Map.of("dataset", nextIndex);
-
+  public void testDualWriteStartRecordedForTheAliasOnce() throws Exception {
     AtomicLong capturedTime = new AtomicLong(0);
     AtomicReference<String> capturedIndex = new AtomicReference<>();
-    UpdateIndicesUpgradeStrategy.DualWriteStartTimeCallback callback =
-        (indexName, startTime) -> {
-          capturedIndex.set(indexName);
-          capturedTime.set(startTime);
-        };
-
-    UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService,
-            searchDocumentTransformer,
-            targets,
-            callback,
+    IncrementalReindexWriteTargets targets =
+        new IncrementalReindexWriteTargets(
+            Map.of(DATASET_INDEX, v2Target(DATASET_INDEX, DATASET_OLD_BACKING)),
+            Map.of(),
+            (indexName, startTime) -> {
+              capturedIndex.set(indexName);
+              capturedTime.set(startTime);
+            },
             null,
-            null,
-            null,
-            0);
-
+            true);
+    UpdateIndicesUpgradeStrategy strategy = strategy(targets);
     ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
     searchDoc.put("urn", testUrn.toString());
-
     when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
         .thenReturn(Optional.of(searchDoc));
 
-    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
-    events.put(testUrn, List.of(mockEvent));
-
-    // First call should trigger callback
-    strategy.processBatch(operationContext, events, false);
+    strategy.processBatch(operationContext, events(testUrn, mockEvent), false);
     assertTrue(capturedTime.get() > 0);
-    assertEquals(capturedIndex.get(), "dataset");
+    assertEquals(capturedIndex.get(), DATASET_INDEX);
 
-    // Second call should NOT trigger callback again
     capturedTime.set(0);
-    strategy.processBatch(operationContext, events, false);
-    assertEquals(capturedTime.get(), 0L); // not updated
-  }
-
-  @Test
-  public void testRemoveTarget() {
-    String nextIndex = "datasetindex_v2_next_123";
-    Map<String, String> targets = new HashMap<>(Map.of("dataset", nextIndex));
-    UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
-
-    assertTrue(strategy.isEnabled());
-
-    strategy.removeTarget("dataset");
-
-    assertFalse(strategy.isEnabled());
+    strategy.processBatch(operationContext, events(testUrn, mockEvent), false);
+    assertEquals(capturedTime.get(), 0L);
   }
 
   @Test
   public void testTransformExceptionDoesNotPropagate() throws Exception {
-    Map<String, String> targets = Map.of("dataset", "datasetindex_v2_next_123");
     UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
-
+        strategy(targets(Map.of(DATASET_INDEX, DATASET_OLD_BACKING)));
     when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
         .thenThrow(new RuntimeException("transform error"));
 
-    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
-    events.put(testUrn, List.of(mockEvent));
-
-    // Should not throw — errors are logged and swallowed
-    strategy.processBatch(operationContext, events, false);
+    strategy.processBatch(operationContext, events(testUrn, mockEvent), false);
 
     verify(elasticSearchService, never())
         .upsertDocumentByIndexName(
             any(OperationContext.class), anyString(), anyString(), anyString());
   }
 
-  @Test
-  public void testPollRemovesSwappedTargets() throws Exception {
-    Map<String, String> targets = new HashMap<>(Map.of("dataset", "datasetindex_v2_next_123"));
-    DataHubUpgradeResultStore mockStore = mock(DataHubUpgradeResultStore.class);
-    Urn upgradeIdUrn = UrnUtils.getUrn("urn:li:dataHubUpgrade:BuildIndicesIncremental_test");
-
-    UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
-
-    assertTrue(strategy.isEnabled());
-
-    // Build upgrade state with DUAL_WRITE_DISABLED for datasetindex_v2
-    Map<String, String> upgradeState =
-        IncrementalReindexState.setPhase1State(
-            null,
-            "datasetindex_v2",
-            "datasetindex_v2_next_123",
-            null,
-            100L,
-            0L,
-            null,
-            true,
-            IncrementalReindexState.Status.DUAL_WRITE_DISABLED);
-
-    DataHubUpgradeResult upgradeResult = new DataHubUpgradeResult();
-    upgradeResult.setState(DataHubUpgradeState.SUCCEEDED);
-    upgradeResult.setResult(new StringMap(upgradeState));
-
-    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-    envelopedAspect.setValue(new Aspect(upgradeResult.data()));
-    when(mockStore.readLatest(any(), eq(upgradeIdUrn))).thenReturn(envelopedAspect);
-
-    // Invoke the poll directly
-    strategy.pollForSwappedIndices(operationContext, mockStore, upgradeIdUrn);
-
-    assertFalse(strategy.isEnabled());
+  private UpdateIndicesUpgradeStrategy strategy(IncrementalReindexWriteTargets targets) {
+    return new UpdateIndicesUpgradeStrategy(
+        elasticSearchService, searchDocumentTransformer, targets);
   }
 
-  /**
-   * Reverse direction of the case mismatch: a registry-case key against a swap notification whose
-   * entity name is derived from the lowercased index. The swap-cleanup filter has to bridge it too,
-   * or a swapped index keeps receiving dual writes after dual-write is disabled.
-   */
-  @Test
-  public void testPollRemovesSwappedTargetsForMixedCaseEntity() throws Exception {
-    Map<String, String> targets = new HashMap<>(Map.of("dataFlow", "dataflowindex_v2_next_123"));
-    DataHubUpgradeResultStore mockStore = mock(DataHubUpgradeResultStore.class);
-    Urn upgradeIdUrn = UrnUtils.getUrn("urn:li:dataHubUpgrade:BuildIndicesIncremental_test");
+  private static IncrementalReindexWriteTargets targets(Map<String, String> oldBackingByAlias) {
+    Map<String, IncrementalReindexWriteTargets.RollbackTarget> targets = new LinkedHashMap<>();
+    oldBackingByAlias.forEach(
+        (alias, oldBacking) -> targets.put(alias, v2Target(alias, oldBacking)));
+    return new IncrementalReindexWriteTargets(targets, Map.of(), null, null, true);
+  }
 
-    UpdateIndicesUpgradeStrategy strategy =
-        new UpdateIndicesUpgradeStrategy(
-            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
+  private static IncrementalReindexWriteTargets.RollbackTarget v2Target(
+      String alias, String oldBacking) {
+    return new IncrementalReindexWriteTargets.RollbackTarget(
+        alias, oldBacking, EntityIndexVersion.V2);
+  }
 
-    assertTrue(strategy.isEnabled());
-
-    Map<String, String> upgradeState =
-        IncrementalReindexState.setPhase1State(
-            null,
-            "dataflowindex_v2",
-            "dataflowindex_v2_next_123",
-            null,
-            100L,
-            0L,
-            null,
-            true,
-            IncrementalReindexState.Status.DUAL_WRITE_DISABLED);
-
-    DataHubUpgradeResult upgradeResult = new DataHubUpgradeResult();
-    upgradeResult.setState(DataHubUpgradeState.SUCCEEDED);
-    upgradeResult.setResult(new StringMap(upgradeState));
-
-    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-    envelopedAspect.setValue(new Aspect(upgradeResult.data()));
-    when(mockStore.readLatest(any(), eq(upgradeIdUrn))).thenReturn(envelopedAspect);
-
-    strategy.pollForSwappedIndices(operationContext, mockStore, upgradeIdUrn);
-
-    assertFalse(strategy.isEnabled());
+  private static Map<Urn, List<MCLItem>> events(Urn urn, MCLItem event) {
+    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
+    events.put(urn, List.of(event));
+    return events;
   }
 }

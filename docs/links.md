@@ -11,12 +11,26 @@ description: "Curated list of articles, talks, and videos about DataHub covering
 - [DataHub Basics — Users, Groups, & Authentication 101](https://www.youtube.com/watch?v=8Osw6p9vDYY)
 - [DataHub Basics: Lineage 101](https://www.youtube.com/watch?v=rONGpsndzRw)
 
+## From the DataHub Blog
+
+Essential reading for modern data teams and reliable AI agents:
+
+- [Context Management Is the Missing Piece in the Agentic AI Puzzle](https://datahub.com/blog/context-management-is-the-missing-piece-in-the-agentic-ai-puzzle/) - Why context management is essential for deploying reliable AI agents at scale
+- [Data Lineage: What It Is and Why It Matters](https://datahub.com/blog/data-lineage-what-it-is-and-why-it-matters/) - Understanding the map of how data flows through your organization
+- [What is Metadata Management?](https://datahub.com/blog/what-is-metadata-management/) - A comprehensive guide for enterprise data leaders
+
+Explore all posts on the [DataHub blog](https://datahub.com/blog/).
+
 ## Best Practices
 
 - [Tags and Terms: Two Powerful DataHub Features, Used in Two Different Scenarios](https://medium.com/datahub-project/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e)
+- [Best Practices from the Field](https://datahub.com/blog/metadata-in-action-tips-and-tricks-from-the-field/) - Real-world metadata strategies from teams at Grab, Slack, and Checkout.com who manage data at scale
+- [Data Contracts: How to Use Them](https://datahub.com/blog/the-what-why-and-how-of-data-contracts/) - Practical guide to implementing data contracts between producers and consumers for quality and accountability
 
 ## Case Studies
 
+- [How Block Powers AI Agents with DataHub](https://datahub.com/blog/datahub-mcp-server-block-ai-agents-use-case/) - Scaling data governance and AI operations across 50+ platforms using MCP
+- [Optum: Data Mesh via DataHub](https://datahub.com/customer-stories/optum/)
 - [Enabling Data Discovery in a Data Mesh: The Saxo Journey](https://medium.com/datahub-project/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f)
 - [DataHub @ Grofers Case Study](https://www.youtube.com/watch?v=m9kUYAuezFI)
 - [DataHub @ LinkedIn: Extending the OSS UI](https://www.youtube.com/watch?v=Rdt4kJqDoww)
@@ -27,6 +41,7 @@ description: "Curated list of articles, talks, and videos about DataHub covering
 ## Related Articles
 
 - [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
+- [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained)
 - [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
 - [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
 - [LinkedIn DataHub Application Architecture Quick Understanding](https://medium.com/@liangjunjiang/linkedin-datahub-application-architecture-quick-understanding-a5b7868ee205)
@@ -50,8 +65,10 @@ description: "Curated list of articles, talks, and videos about DataHub covering
 - [DataHub: Powering LinkedIn's Metadata](https://github.com/acryldata/static-assets-test/raw/master/imgs/demo/DataHub_-_Powering_LinkedIn_Metadata.pdf) @ [Budapest Data Forum 2020](https://budapestdata.hu/2020/en/)
 - [Taming the Data Beast Using DataHub](https://www.youtube.com/watch?v=bo4OhiPro7Y) @ [Data Engineering Melbourne Meetup November 2020](https://www.meetup.com/Data-Engineering-Melbourne/events/kgnvlrybcpbjc/)
 - [Metadata Management And Integration At LinkedIn With DataHub](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/) @ [Data Engineering Podcast](https://www.dataengineeringpodcast.com)
+- [Bringing The Power Of The Real-Time Metadata Graph To Everyone](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/) @ [Data Engineering Podcast](https://www.dataengineeringpodcast.com)
 - [The evolution of metadata: LinkedIn’s story](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) @ [Strata Data Conference 2019](https://conferences.oreilly.com/strata/strata-ny-2019.html)
 - [Journey of metadata at LinkedIn](https://www.youtube.com/watch?v=OB-O0Y6OYDE) @ [Crunch Data Conference 2019](https://crunchconf.com/2019)
+- [Driving DataOps Culture with DataHub](https://www.youtube.com/watch?v=ccsIKK9nVxk) @ DataOps Unleashed 2021
 - [DataHub Journey with Expedia Group](https://www.youtube.com/watch?v=ajcRdB22s5o)
 - [Saxo Bank's Data Workbench](https://www.slideshare.net/SheetalPratik/linkedinsaxobankdataworkbench)
 - [Data Discoverability at SpotHero](https://www.slideshare.net/MaggieHays/data-discoverability-at-spothero)

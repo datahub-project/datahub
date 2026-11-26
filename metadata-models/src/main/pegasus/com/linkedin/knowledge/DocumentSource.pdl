@@ -32,7 +32,11 @@ record DocumentSource {
    */
   @Searchable = {
     "fieldType": "KEYWORD",
-    "queryByDefault": false
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "externalUrl",
+      "queryByDefault": false
+    }
   }
   externalUrl: optional string
 
@@ -41,7 +45,18 @@ record DocumentSource {
    */
   @Searchable = {
     "fieldType": "KEYWORD",
-    "queryByDefault": false
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   externalId: optional string
 }

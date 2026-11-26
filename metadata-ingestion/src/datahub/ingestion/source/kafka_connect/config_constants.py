@@ -6,7 +6,12 @@ modules (common.py, transform_plugins.py, etc.) without creating circular depend
 """
 
 import logging
-from typing import Dict, Final, List
+from typing import Dict, Final, FrozenSet, List, Optional
+
+from pydantic import BaseModel
+
+from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +68,13 @@ class ConnectorConfigKeys:
     TOPICS_DIR: Final[str] = "topics.dir"
     AWS_ACCESS_KEY_ID: Final[str] = "aws.access.key.id"
     AWS_SECRET_ACCESS_KEY: Final[str] = "aws.secret.access.key"
+    AWS_SESSION_TOKEN: Final[str] = "aws.session.token"
     S3_SSE_CUSTOMER_KEY: Final[str] = "s3.sse.customer.key"
+    S3_SSE_CUSTOMER_KEY_MD5: Final[str] = "s3.sse.customer.key.md5"
     S3_PROXY_PASSWORD: Final[str] = "s3.proxy.password"
+    # S3 source: https://docs.confluent.io/kafka-connectors/s3-source/current/configuration_options.html
+    S3_SOURCE_MODE: Final[str] = "mode"
+    TOPIC_REGEX_LIST: Final[str] = "topic.regex.list"
 
     # MongoDB configuration
 
@@ -86,6 +96,18 @@ class ConnectorConfigKeys:
     VALUE_CONVERTER_BASIC_AUTH_USER_INFO: Final[str] = (
         "value.converter.basic.auth.user.info"
     )
+
+
+S3_SENSITIVE_CONFIG_KEYS: Final[FrozenSet[str]] = frozenset(
+    {
+        ConnectorConfigKeys.AWS_ACCESS_KEY_ID,
+        ConnectorConfigKeys.AWS_SECRET_ACCESS_KEY,
+        ConnectorConfigKeys.AWS_SESSION_TOKEN,
+        ConnectorConfigKeys.S3_SSE_CUSTOMER_KEY,
+        ConnectorConfigKeys.S3_SSE_CUSTOMER_KEY_MD5,
+        ConnectorConfigKeys.S3_PROXY_PASSWORD,
+    }
+)
 
 
 def parse_comma_separated_list(value: str) -> List[str]:
@@ -115,6 +137,86 @@ def parse_comma_separated_list(value: str) -> List[str]:
             items.append(cleaned_item)
 
     return items
+
+
+class S3SourceMode(StrEnum):
+    GENERIC = "GENERIC"
+    RESTORE_BACKUP = "RESTORE_BACKUP"
+
+
+class TopicRegexMapping(BaseModel):
+    topic: str
+    regex: str
+
+
+class TopicRegexList(BaseModel):
+    mappings: List[TopicRegexMapping]
+    malformed: List[str]
+
+
+def parse_topic_regex_list(value: str) -> TopicRegexList:
+    """Parse an S3 source `topic.regex.list` (`<topic>:<regex>,<topic>:<regex>`).
+
+    Topic names cannot contain `:`, so the first `:` splits topic from regex.
+    """
+    mappings: List[TopicRegexMapping] = []
+    malformed: List[str] = []
+    for pair in parse_comma_separated_list(value):
+        topic, sep, regex = pair.partition(":")
+        if sep and topic.strip() and regex.strip():
+            mappings.append(TopicRegexMapping(topic=topic.strip(), regex=regex.strip()))
+        else:
+            malformed.append(pair)
+    return TopicRegexList(mappings=mappings, malformed=malformed)
+
+
+def topics_from_regex_list(value: str) -> List[str]:
+    return deduplicate_list(
+        mapping.topic for mapping in parse_topic_regex_list(value).mappings
+    )
+
+
+def allowed_flow_properties(
+    config: Dict[str, str], allowed_keys: FrozenSet[str]
+) -> Dict[str, str]:
+    """Keep only connector properties known to hold no credentials.
+
+    Connector configs can carry secrets under arbitrary keys (`kafka.api.secret`,
+    `aws.session.token`, ...), so new connectors list what they show instead of
+    listing what they hide.
+    """
+    return {k: v for k, v in config.items() if k in allowed_keys}
+
+
+_REGEX_METACHARACTERS: Final[FrozenSet[str]] = frozenset(".^$*+?{}[]|()")
+
+
+def literal_directory_prefix(regex: str) -> Optional[str]:
+    """Return the folder a path regex is pinned to, or None.
+
+    Only a regex whose literal start ends in `/` (e.g. `topics/orders/.*`) names a
+    folder; `.*\\.json` or `topics/orders.*` could match objects anywhere / in sibling
+    folders, so they return None.
+    """
+    literal: List[str] = []
+    i = 1 if regex.startswith("^") else 0
+    while i < len(regex):
+        char = regex[i]
+        if char == "\\" and i + 1 < len(regex) and not regex[i + 1].isalnum():
+            literal.append(regex[i + 1])
+            i += 2
+            continue
+        if char in _REGEX_METACHARACTERS or char == "\\":
+            break
+        literal.append(char)
+        i += 1
+    prefix = "".join(literal)
+    if i == len(regex):
+        # A fully literal regex is a single object key, not a folder.
+        return None
+    if not prefix.endswith("/") or not prefix.strip("/"):
+        return None
+    return prefix.strip("/")
 
 
 def parse_topic_to_table_map(mappings: List[str]) -> Dict[str, str]:

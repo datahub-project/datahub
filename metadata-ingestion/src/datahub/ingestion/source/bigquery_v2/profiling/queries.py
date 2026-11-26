@@ -10,7 +10,6 @@
 # Profiling SELECT fragments, shared by the inline (internal) and deferred (external)
 # custom_sql paths so they cannot drift apart.
 SELECT_ALL = "SELECT * FROM {table_ref}"
-TABLESAMPLE_SYSTEM = "TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"
 WHERE_CLAUSE = "WHERE {where}"
 LIMIT_CLAUSE = "LIMIT {limit}"
 
@@ -83,7 +82,11 @@ WHERE {where}
 LIMIT 1"""
 
 # Sampling fallbacks: newest row by a date column, or a table sample when there is none.
-LATEST_BY_DATE_SAMPLE = """SELECT *
+# {select_cols} projects only the partition columns (sampling reads nothing else), so a
+# wide table is not full-column-scanned just to recover a few partition values. The caller
+# builds it from the resolved partition columns, which includes any ingestion-time pseudo
+# columns (_PARTITIONTIME/_PARTITIONDATE) that `SELECT *` would otherwise omit.
+LATEST_BY_DATE_SAMPLE = """SELECT {select_cols}
 FROM {table_ref}
 WHERE `{date_col}` IS NOT NULL
 ORDER BY `{date_col}` DESC
@@ -91,7 +94,7 @@ LIMIT @limit_rows"""
 
 # BigQuery requires a literal (not a query parameter) in the TABLESAMPLE percentage;
 # sample_percent is the code-controlled SAMPLING_PERCENT constant, not user input.
-TABLESAMPLE_SAMPLE = """SELECT *
+TABLESAMPLE_SAMPLE = """SELECT {select_cols}
 FROM {table_ref} TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)
 LIMIT @limit_rows"""
 

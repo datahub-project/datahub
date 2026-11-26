@@ -229,7 +229,7 @@ public class IndexConventionImplTest {
         "Should not identify non-index string");
     assertFalse(
         indexConvention.isV2EntityIndex(OP, "datasetindex_v2_1683649932260"),
-        "Should not identify timestamped index");
+        "Should not identify timestamped backing index as the alias");
   }
 
   @Test
@@ -271,7 +271,7 @@ public class IndexConventionImplTest {
         "Should not identify non-index string");
     assertFalse(
         indexConvention.isV3EntityIndex(OP, "datasetindex_v3_1683649932260"),
-        "Should not identify timestamped index");
+        "Should not identify timestamped backing index as the alias");
   }
 
   @Test

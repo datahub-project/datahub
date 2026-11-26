@@ -6,6 +6,7 @@
     "addDataProductError": "Impossibile aggiungere asset al Prodotto di dati. Si è verificato un errore sconosciuto.",
     "addDataProductModalTitle": "Aggiungi asset al Prodotto di dati",
     "addDataProductTooltip": "Aggiungi asset al Prodotto di dati",
+    "addDataProductUnauthorized": "Non si dispone dell'autorizzazione per aggiungere asset a questo Prodotto di dati",
     "addDomainError": "Impossibile aggiungere asset al Dominio: {{error}}",
     "addDomainModalTitle": "Aggiungi asset al Dominio",
     "addDomainTooltip": "Aggiungi asset al Dominio",

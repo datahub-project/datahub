@@ -24,6 +24,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -80,18 +81,22 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
 
             Filter effectiveFilter =
                 maybeResolvedView != null
-                    ? SearchUtils.combineFilters(
+                    ? FilterUtils.combineFilters(
                         inputFilter, maybeResolvedView.getDefinition().getFilter())
                     : inputFilter;
 
             // Add default entity filters (e.g. showInGlobalContext for documents)
-            effectiveFilter =
-                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            final DefaultEntityFiltersUtil.SearchFilters defaults =
+                DefaultEntityFiltersUtil.searchFilters(
                     effectiveFilter, entityNames, searchFlags, context);
+            effectiveFilter = defaults.filter();
 
             BrowseResultV2 browseResults =
                 _entityClient.browseV2(
-                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags)
+                        .withAnchorFilter(defaults.anchorFilter()),
                     entityNames,
                     pathStr,
                     effectiveFilter,

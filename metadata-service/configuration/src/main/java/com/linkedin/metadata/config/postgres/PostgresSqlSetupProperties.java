@@ -52,9 +52,10 @@ public class PostgresSqlSetupProperties {
 
   /**
    * PostgreSQL schema (namespace) for SqlSetup DDL and Ebean metadata tables. Defaults to {@code
-   * public}; the JDBC URL supplies only the database name. Bound from {@code application.yaml} or
-   * set by {@link #applySqlSetupSchemaFromJdbcUrl(String)} when {@code postgres.schema} is unset
-   * (non-Spring callers).
+   * public}; override with {@code DATAHUB_POSTGRES_SCHEMA} / {@code postgres.schema}. The JDBC URL
+   * supplies only the database name ({@code currentSchema} does not drive DDL). Bound from {@code
+   * application.yaml} or set by {@link #applySqlSetupSchemaFromJdbcUrl(String)} when {@code
+   * postgres.schema} is unset (non-Spring callers).
    */
   private String schema;
 
@@ -422,8 +423,9 @@ public class PostgresSqlSetupProperties {
 
   /**
    * When {@link #schema} is unset and {@code jdbcUrl} targets PostgreSQL, sets it to {@code
-   * public}. The database name comes only from the JDBC URL path; application DDL does not use a
-   * separate schema named after the database.
+   * public}. Prefer configuring {@code DATAHUB_POSTGRES_SCHEMA} / {@code postgres.schema}
+   * explicitly for non-{@code public} metadata schemas. The JDBC URL path selects the database
+   * only; {@code currentSchema} is not used for DDL.
    */
   public void applySqlSetupSchemaFromJdbcUrl(String jdbcUrl) {
     if (jdbcUrl == null || jdbcUrl.trim().isEmpty()) {
@@ -543,6 +545,7 @@ public class PostgresSqlSetupProperties {
   }
 
   private void validatePgQueueConfig() {
+    PgQueue.normalizeStore(pgQueue.getStore());
     normalizedPgQueueSchema();
     normalizedPgQueueTablePrefix();
     PgQueue.TopicDefaults t = pgQueue.getTopicDefaults();
@@ -686,6 +689,20 @@ public class PostgresSqlSetupProperties {
   @Setter
   public static class PgQueue {
     private boolean enabled;
+    private String store;
+    private String inmemorySpoolFile;
+
+    /** Shared by SqlSetup validation and Spring conditions, before store beans are created. */
+    public static String normalizeStore(@Nullable String store) {
+      if (store == null || store.isBlank() || "postgres".equalsIgnoreCase(store)) {
+        return "postgres";
+      }
+      if ("inmemory".equalsIgnoreCase(store)) {
+        return "inmemory";
+      }
+      throw new IllegalStateException(
+          "postgres.pgQueue.store must be one of [postgres, inmemory] (got: " + store + ").");
+    }
 
     /**
      * PostgreSQL schema for pgQueue SqlSetup objects (tables, functions). Default in {@code

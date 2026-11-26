@@ -15,17 +15,29 @@ else
     ORIGINAL_CONTENT=""
 fi
 
-# Run the task to regenerate the file
-# Unset all DATAHUB_LOCAL_* environment variables to ensure a clean, reproducible build
+# Run the task to regenerate the file.
+# `docker compose config` bakes the host environment into the output for every
+# variable the profile compose files reference — both `${VAR...}` interpolations
+# and bare `VAR:` passthrough entries (e.g. AWS_PROFILE, DATAHUB_LOCAL_*). Unset
+# all of them, derived from the compose sources so the list cannot go stale.
+# HOME is kept: Gradle needs it, and generateQuickstartComposeConfig substitutes
+# it back to ${HOME} in the output.
 echo "Running generateQuickstartComposeConfig..."
 cd "$REPO_ROOT"
-env -u DATAHUB_LOCAL_ACTIONS_ENV \
-    -u DATAHUB_LOCAL_COMMON_ENV \
-    -u DATAHUB_LOCAL_FRONTEND_ENV \
-    -u DATAHUB_LOCAL_GMS_ENV \
-    -u DATAHUB_LOCAL_MAE_ENV \
-    -u DATAHUB_LOCAL_MCE_ENV \
-    -u DATAHUB_LOCAL_SYS_UPDATE_ENV \
+
+COMPOSE_ENV_VARS=$(
+    {
+        grep -rhoE '\$\{[A-Za-z_][A-Za-z0-9_]*' docker/profiles/docker-compose*.yml | cut -c3-
+        grep -rhoE '^[[:space:]]+[A-Z][A-Z0-9_]*:[[:space:]]*$' docker/profiles/docker-compose*.yml | sed -E 's/^[[:space:]]+//; s/:[[:space:]]*$//'
+    } | sort -u | grep -vx 'HOME'
+)
+
+UNSET_ARGS=()
+for var in $COMPOSE_ENV_VARS; do
+    UNSET_ARGS+=(-u "$var")
+done
+
+env "${UNSET_ARGS[@]}" \
     ./gradlew :docker:generateQuickstartComposeConfig -x generateGitPropertiesGlobal --quiet
 
 # Check if the file content changed
@@ -48,6 +60,24 @@ if [ "$ORIGINAL_CONTENT" != "$NEW_CONTENT" ]; then
     echo "  2. Stage the file: git add docker/quickstart/docker-compose.quickstart-profile.yml"
     echo "  3. Commit again"
     echo ""
+    exit 1
+fi
+
+# `docker compose config` freezes every ${VAR} it resolves, so the generator swaps
+# placeholders back for the ones users may override. Fail if one of them is lost.
+# datahub-ai-service's overrides (DATAHUB_MAPPED_AI_PORT, DATAHUB_AI_MCP_ENABLED,
+# DATAHUB_AI_IMAGE) join this list when the service joins the `quickstart` profile.
+MISSING=0
+for expr in \
+    '${DATAHUB_MAPPED_GMS_PORT:-8080}' \
+    '${DATAHUB_MAPPED_FRONTEND_PORT:-9002}'; do
+    if ! grep -qF -- "$expr" "$OUTPUT_FILE"; then
+        echo "ERROR: $OUTPUT_FILE no longer contains $expr"
+        MISSING=1
+    fi
+done
+if [ "$MISSING" -ne 0 ]; then
+    echo "Keep its placeholder in generateQuickstartComposeConfig (docker/build.gradle)."
     exit 1
 fi
 

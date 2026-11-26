@@ -110,6 +110,8 @@
     "viewSelect.searchPlaceholder": "Search views...",
     "viewSelect.searchPlaceholderLegacy": "Search",
     "viewSelect.selectYourView": "Select Your View",
+    "viewSelect.buttonLabel": "Views",
+    "viewSelect.clearView": "Clear view",
     "viewType.privateDescription": "<bold>Private</bold> - only visible to you.",
     "viewType.publicDescription": "<bold>Public</bold> - visible to everyone."
 }

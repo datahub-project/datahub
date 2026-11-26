@@ -39,7 +39,8 @@ public class AuthTestConfiguration {
         tokenServiceConfiguration.getSigningAlgorithm(),
         tokenServiceConfiguration.getIssuer(),
         entityService,
-        tokenServiceConfiguration.getSalt());
+        tokenServiceConfiguration.getSalt(),
+        AuthFilterHazelcast.instance());
   }
 
   @Bean

@@ -34,6 +34,14 @@ public class SearchClusterIndexSettings {
   private Integer numReplicas;
   private Integer numRetries;
   private Integer refreshIntervalSeconds;
+
+  /**
+   * Sparse overlay of {@link IndexConfiguration#getRefreshIntervals()}. Unset fields inherit. This
+   * is what a cluster uses to change {@code refresh_interval}; {@link #refreshIntervalSeconds} is
+   * not read for that setting.
+   */
+  private RefreshIntervals refreshIntervals;
+
   private String mainTokenizer;
 
   /**
@@ -72,6 +80,11 @@ public class SearchClusterIndexSettings {
     }
     if (refreshIntervalSeconds != null) {
       builder.refreshIntervalSeconds(refreshIntervalSeconds);
+    }
+    if (refreshIntervals != null) {
+      RefreshIntervals base = defaults == null ? null : defaults.getRefreshIntervals();
+      builder.refreshIntervals(
+          base == null ? refreshIntervals : base.mergeOverlay(refreshIntervals));
     }
     if (mainTokenizer != null) {
       builder.mainTokenizer(mainTokenizer);

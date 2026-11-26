@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
@@ -23,6 +24,7 @@ import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH, SEARCH_BAR_CLASS_NAME } from '@app/searchV2/utils/constants';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { getCommandKShortcutLabel } from '@app/utils/checkIfMac';
 import { radius, spacing } from '@src/alchemy-components';
 import { AutoComplete } from '@src/alchemy-components/components/AutoComplete';
 import { SearchBarApi } from '@src/types.generated';
@@ -65,11 +67,19 @@ export const SearchBarV2 = ({
     isShowNavBarRedesign,
     width,
 }: SearchBarV2Props) => {
+    const { t } = useTranslation('search');
     const appConfig = useAppConfig();
     const theme = useTheme();
     const showAutoCompleteResults = appConfig?.config?.featureFlags?.showAutoCompleteResults;
     const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
     const shouldCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
+
+    const resolvedPlaceholder = showCommandK
+        ? t('searchBar.placeholderWithShortcut', {
+              message: placeholderText,
+              shortcut: getCommandKShortcutLabel(),
+          })
+        : placeholderText;
 
     const isComposingRef = useRef(false);
 
@@ -78,6 +88,8 @@ export const SearchBarV2 = ({
     // State for what is actually used to fetch search results. Updates only when stable.
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+    const [isSearchInputFocused, setIsSearchInputFocused] = useState(false);
+    const [hasUserTyped, setHasUserTyped] = useState(false);
     const [isViewsDropdownOpened, setIsViewsDropdownOpened] = useState(false);
     const filtersFromQueryParams = useFiltersMapFromQueryParams();
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } =
@@ -88,7 +100,11 @@ export const SearchBarV2 = ({
         facets,
         loading: isDataLoading,
         searchAPIVariant,
-    } = useSearchBarData(searchQuery, appliedFilters);
+    } = useSearchBarData(searchQuery, appliedFilters, {
+        isActive: isSearchInputFocused || isDropdownVisible,
+        initialQuery: initialQuery || '',
+        hasUserTyped,
+    });
 
     const searchInputRef = useRef(null);
     useFocusElementByCommandK(searchInputRef, !showCommandK);
@@ -151,6 +167,7 @@ export const SearchBarV2 = ({
             // If not composing, also update the stable search query
             if (!isComposingRef.current) {
                 setSearchQuery(filteredQuery);
+                setHasUserTyped(true);
             }
             if (filteredQuery === '') {
                 clear();
@@ -169,9 +186,20 @@ export const SearchBarV2 = ({
         const finalValue = event.currentTarget.value;
         const filteredQuery = filterSearchQuery(finalValue);
         setSearchQuery(filteredQuery);
+        setHasUserTyped(true);
     }, []);
 
     const onDropdownVisibilityChangeHandler = useCallback((isOpen) => setIsDropdownVisible(isOpen), []);
+
+    const onFocusHandler = useCallback(() => {
+        setIsSearchInputFocused(true);
+        onFocus?.();
+    }, [onFocus]);
+
+    const onBlurHandler = useCallback(() => {
+        setIsSearchInputFocused(false);
+        onBlur?.();
+    }, [onBlur]);
 
     const onClearFiltersAndSelectedViewHandler = useCallback(() => {
         clear();
@@ -246,14 +274,13 @@ export const SearchBarV2 = ({
                     >
                         <SearchBarInput
                             defaultValue={initialQuery || undefined}
-                            placeholder={placeholderText}
+                            placeholder={resolvedPlaceholder}
                             onSearch={onSearchHandler}
-                            onFocus={onFocus}
-                            onBlur={onBlur}
+                            onFocus={onFocusHandler}
+                            onBlur={onBlurHandler}
                             onViewsClick={onViewsClickHandler}
                             onClear={clearQueryAndFilters}
                             ref={searchInputRef}
-                            showCommandK={showCommandK}
                             isDropdownOpened={isDropdownVisible}
                             viewsEnabled={viewsEnabled}
                             viewsWithPopover={viewsInPopover}

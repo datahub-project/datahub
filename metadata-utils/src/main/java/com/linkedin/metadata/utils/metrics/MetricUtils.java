@@ -78,10 +78,28 @@ public class MetricUtils {
   private static final Map<String, DistributionSummary> legacyHistogramCache =
       new ConcurrentHashMap<>();
   private static final Map<String, Gauge> legacyGaugeCache = new ConcurrentHashMap<>();
-  private static final Map<String, Counter> micrometerCounterCache = new ConcurrentHashMap<>();
-  private static final Map<String, Timer> micrometerTimerCache = new ConcurrentHashMap<>();
-  private static final Map<String, DistributionSummary> micrometerDistributionCache =
+
+  // A Counter belongs to one MeterRegistry. Keep this cache instance-scoped so two MetricUtils
+  // objects with the same meter name cannot return a counter from the other's registry.
+  // @Builder.Default is required: MetricUtils.builder() ignores a field initializer.
+  @Builder.Default
+  private final Map<String, Counter> micrometerCounterCache = new ConcurrentHashMap<>();
+
+  // A Timer and DistributionSummary also belong to one MeterRegistry. Instance scope matches the
+  // counter cache so a later MetricUtils does not record into an earlier registry.
+  @Builder.Default
+  private final Map<String, Timer> micrometerTimerCache = new ConcurrentHashMap<>();
+
+  @Builder.Default
+  private final Map<String, DistributionSummary> micrometerDistributionCache =
       new ConcurrentHashMap<>();
+
+  @Builder.Default
+  private final Map<String, AtomicDouble> micrometerGaugeStates = new ConcurrentHashMap<>();
+
+  @Builder.Default
+  private final Map<String, Gauge> micrometerGaugeCache = new ConcurrentHashMap<>();
+
   // For state-based gauges (like throttled state)
   private static final Map<String, AtomicDouble> gaugeStates = new ConcurrentHashMap<>();
 
@@ -177,6 +195,33 @@ public class MetricUtils {
     Counter counter =
         micrometerCounterCache.computeIfAbsent(cacheKey, key -> registry.counter(metricName, tags));
     counter.increment(increment);
+  }
+
+  /**
+   * Register a counter once so the write path can {@link Counter#increment()} without building tag
+   * strings. Tags are formatted only during this call.
+   */
+  public Counter registerCounter(String metricName, String... tags) {
+    String cacheKey = createCacheKey(metricName, tags);
+    return micrometerCounterCache.computeIfAbsent(
+        cacheKey, key -> registry.counter(metricName, tags));
+  }
+
+  /**
+   * Sets a Micrometer gauge. Later calls with the same name and tags update the same gauge.
+   *
+   * @param metricName The name of the metric
+   * @param value The gauge value
+   * @param tags The tags to associate with the metric (can be empty)
+   */
+  public void setMicrometerGauge(String metricName, double value, String... tags) {
+    String cacheKey = createCacheKey(metricName, tags);
+    AtomicDouble state =
+        micrometerGaugeStates.computeIfAbsent(cacheKey, key -> new AtomicDouble(0));
+    micrometerGaugeCache.computeIfAbsent(
+        cacheKey,
+        key -> Gauge.builder(metricName, state, AtomicDouble::get).tags(tags).register(registry));
+    state.set(value);
   }
 
   /**

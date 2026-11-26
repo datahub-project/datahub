@@ -12,12 +12,14 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.metadata.context.ActorContext;
+import io.datahubproject.metadata.context.AuthorizationContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextAuthorizer;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -133,12 +135,17 @@ public class DataHubAuthorizer
       return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, null);
     }
 
+    final Map<EntitySpec, Map<EntityFieldType, FieldResolver>> fieldOverrides =
+        requestFieldOverrides(resourceSpecCache, opContext);
+
     Optional<ResolvedEntitySpec> resolvedResourceSpec =
-        request.getResourceSpec().map(spec -> resolveWithCache(spec, resourceSpecCache));
+        request
+            .getResourceSpec()
+            .map(spec -> resolveWithCache(spec, resourceSpecCache, fieldOverrides));
 
     List<ResolvedEntitySpec> resolvedSubResources =
         request.getSubResources().stream()
-            .map(spec -> resolveWithCache(spec, resourceSpecCache))
+            .map(spec -> resolveWithCache(spec, resourceSpecCache, fieldOverrides))
             .collect(Collectors.toList());
 
     // 1. Fetch the policies relevant to the requested privilege.
@@ -199,14 +206,43 @@ public class DataHubAuthorizer
   /**
    * Resolve a spec, sharing the result through the request-scoped cache when present so the same
    * resource is resolved (and its domain/container/owner hierarchy walked) at most once per
-   * request.
+   * request. Request field overrides are laid over the resolved spec on every read; the cache keeps
+   * the plain resolution, so it does not matter who populated it first.
    */
   private ResolvedEntitySpec resolveWithCache(
-      final EntitySpec spec, @Nullable final Map<EntitySpec, ResolvedEntitySpec> cache) {
-    if (cache == null) {
-      return entitySpecResolver.resolve(spec);
+      final EntitySpec spec,
+      @Nullable final Map<EntitySpec, ResolvedEntitySpec> cache,
+      @Nonnull final Map<EntitySpec, Map<EntityFieldType, FieldResolver>> fieldOverrides) {
+    final ResolvedEntitySpec resolved =
+        cache == null
+            ? entitySpecResolver.resolve(spec)
+            : cache.computeIfAbsent(spec, entitySpecResolver::resolve);
+    final Map<EntityFieldType, FieldResolver> overrides = fieldOverrides.get(spec);
+    if (overrides == null) {
+      return resolved;
     }
-    return cache.computeIfAbsent(spec, entitySpecResolver::resolve);
+    // Only the overridden fields change; every other field keeps its lazy stored-value resolver.
+    final Map<EntityFieldType, FieldResolver> merged = new EnumMap<>(EntityFieldType.class);
+    merged.putAll(resolved.getFieldResolvers());
+    merged.putAll(overrides);
+    return new ResolvedEntitySpec(spec, merged);
+  }
+
+  /**
+   * Overrides belong to the {@link AuthorizationContext} that owns the request cache. Apply them
+   * only when the caller passed that same cache, so overrides recorded on one context never leak
+   * into a cache from another (e.g. the 2-arg path, which runs with the system context).
+   */
+  @Nonnull
+  private static Map<EntitySpec, Map<EntityFieldType, FieldResolver>> requestFieldOverrides(
+      @Nullable final Map<EntitySpec, ResolvedEntitySpec> resourceSpecCache,
+      @Nonnull final OperationContext opContext) {
+    final AuthorizationContext authorizationContext = opContext.getAuthorizationContext();
+    if (resourceSpecCache == null
+        || resourceSpecCache != authorizationContext.getSessionResourceSpecCache()) {
+      return Map.of();
+    }
+    return authorizationContext.getSessionResourceFieldOverrides();
   }
 
   public PolicyEngine.PolicyGrantedPrivileges getGrantedPrivileges(

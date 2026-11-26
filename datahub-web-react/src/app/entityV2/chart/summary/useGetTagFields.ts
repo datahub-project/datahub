@@ -1,4 +1,4 @@
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 
 import { GetChartQuery } from '@graphql/chart.generated';
 import { SchemaField } from '@types';

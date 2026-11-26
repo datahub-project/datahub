@@ -96,7 +96,7 @@ const meta = {
 
     // Define defaults
     args: {
-        ...getMockedProps(),
+        data: getMockedProps().data,
         popoverRenderer: (datum) => <>DATUM: {JSON.stringify(datum)}</>,
         yScale: { type: 'linear', round: true, clamp: true },
     },

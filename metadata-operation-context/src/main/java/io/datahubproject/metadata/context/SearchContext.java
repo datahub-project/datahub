@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
@@ -71,6 +72,12 @@ public class SearchContext implements ContextInterface {
    */
   @EqualsAndHashCode.Exclude @Nullable private final SearchClusterAccess searchClusterAccess;
 
+  /**
+   * Process-wide template runtime. Excluded from equals and cache keys: it selects how a request is
+   * built, not the stored result. Null on {@link #EMPTY} and when templates are off.
+   */
+  @EqualsAndHashCode.Exclude @Nullable private final SearchTemplateRuntime searchTemplateRuntime;
+
   @Nonnull private final SearchFlags searchFlags;
   @Nonnull private final LineageFlags lineageFlags;
   @Nullable private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
@@ -89,6 +96,50 @@ public class SearchContext implements ContextInterface {
   @Nullable private final List<String> prioritizedSourceEntityTypes;
 
   @Nullable private final List<String> prioritizedDatahubEntityTypes;
+
+  /**
+   * Fields on caller-supplied optional filter branches. System filters deliberately do not appear
+   * here, even when their Elasticsearch representation is an OR.
+   */
+  @Nullable private final Set<String> callerOptionalFilterFields;
+
+  /**
+   * Whether the caller's own filter, with its view, had a criterion before a GraphQL resolver added
+   * the published-document default. Null when the entry point does not say, as on Rest.li and
+   * OpenAPI, which cannot set it: every filter criterion is then the caller's.
+   */
+  @Nullable private final Boolean callerFiltered;
+
+  /**
+   * A filter a similarity anchor must pass besides the default search filters. GraphQL search
+   * resolvers set it to the document visibility rule they add to the request filter, on its own and
+   * whatever types the request searches, so a viewer cannot anchor a search on a document that
+   * search would not show them. Null when the entry point sets none, as on Rest.li and OpenAPI. Not
+   * part of {@link #getCacheKeyComponent()}: bind checks the anchor before the result cache and
+   * stamps its answer into the template's cache identity, so two viewers whose rules decide the
+   * same anchor differently never share a cached page.
+   */
+  @Nullable private final Filter anchorFilter;
+
+  /**
+   * Search V3 template surface ({@code searchEntities}, {@code scrollEntities}, ...). Selection
+   * reads this. It is not an API operation name and not itself a cache component; the resolved
+   * template URN is.
+   */
+  @Nullable private final String searchSurface;
+
+  /**
+   * Template chosen for this search invocation. Selection does not read it. Each invocation
+   * overwrites it. Included in {@link #getCacheKeyComponent()} by URN and parent-chain {@code
+   * lastModified}.
+   */
+  @Nullable private final ResolvedSearchTemplate resolvedSearchTemplate;
+
+  /**
+   * Internal index-occupancy checks do not run a search template. Absent from equality and the
+   * search-result cache key because it selects the request builder, not the stored result.
+   */
+  @EqualsAndHashCode.Exclude private final boolean skipTemplateExecution;
 
   public boolean isRestrictedSearch() {
     return Optional.ofNullable(searchFlags.isIncludeRestricted()).orElse(false);
@@ -114,8 +165,20 @@ public class SearchContext implements ContextInterface {
     // Here the prefix is a static deploy-wide constant (contributes nothing distinguishing); a
     // deployment that scopes the prefix per operation MUST fold that discriminator into the
     // OperationContext-level cache key via its enrichment, not here.
+    // Absent resolution contributes 0, so templates that are off do not move existing cache keys.
+    String templateKey =
+        resolvedSearchTemplate == null ? "" : resolvedSearchTemplate.cacheKeyComponent();
     return Optional.of(
-        Stream.of(keySearchFlags().toString(), keyLineageFlags()).mapToInt(String::hashCode).sum());
+        Stream.of(
+                keySearchFlags().toString(),
+                keyLineageFlags(),
+                templateKey,
+                Optional.ofNullable(callerOptionalFilterFields).orElse(Set.of()).stream()
+                    .sorted()
+                    .collect(Collectors.joining(",")),
+                Optional.ofNullable(callerFiltered).map(String::valueOf).orElse(""))
+            .mapToInt(String::hashCode)
+            .sum());
   }
 
   /**
@@ -126,7 +189,9 @@ public class SearchContext implements ContextInterface {
   private SearchFlags keySearchFlags() {
     try {
       // whether cache is enabled or not does not impact the result
-      return searchFlags.clone().setSkipCache(false);
+      SearchFlags keyFlags = searchFlags.clone().setSkipCache(false);
+      keyFlags.data().remove("searchTemplate");
+      return keyFlags;
     } catch (CloneNotSupportedException e) {
       throw new RuntimeException(e);
     }
@@ -196,6 +261,7 @@ public class SearchContext implements ContextInterface {
       return new SearchContext(
           this.indexConvention,
           this.searchClusterAccess,
+          this.searchTemplateRuntime,
           this.searchFlags,
           this.lineageFlags,
           this.searchableFieldTypes,
@@ -204,7 +270,13 @@ public class SearchContext implements ContextInterface {
           this.defaultAutocompleteEntityNames,
           this.defaultBrowseEntityNames,
           this.prioritizedSourceEntityTypes,
-          this.prioritizedDatahubEntityTypes);
+          this.prioritizedDatahubEntityTypes,
+          this.callerOptionalFilterFields,
+          this.callerFiltered,
+          this.anchorFilter,
+          this.searchSurface,
+          this.resolvedSearchTemplate,
+          this.skipTemplateExecution);
     }
   }
 

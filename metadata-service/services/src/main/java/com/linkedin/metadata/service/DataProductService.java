@@ -328,14 +328,15 @@ public class DataProductService {
    */
   public void deleteDataProduct(@Nonnull OperationContext opContext, @Nonnull Urn dataProductUrn) {
     try {
-      _entityClient.deleteEntity(
-          opContext, Objects.requireNonNull(dataProductUrn, "dataProductUrn must not be null"));
+      final var references =
+          _entityClient.deleteReferencesThenEntity(
+              opContext, Objects.requireNonNull(dataProductUrn, "dataProductUrn must not be null"));
 
-      // Asynchronously Delete all references to the entity (to return quickly)
+      // The entity is already gone. This removes the remaining references.
       CompletableFuture.runAsync(
           () -> {
             try {
-              _entityClient.deleteEntityReferences(opContext, dataProductUrn);
+              references.run();
             } catch (Exception e) {
               log.error(
                   String.format(

@@ -2,9 +2,9 @@ import { Modal } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { EntityAndType } from '@app/entity/shared/types';
 import { SearchSelect } from '@app/entityV2/shared/components/styled/search/SearchSelect';
-import ClickOutside from '@app/shared/ClickOutside';
+import { EntityAndType } from '@app/entityV2/shared/types';
+import ClickOutside from '@app/sharedV2/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { EntityType } from '@types';

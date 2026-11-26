@@ -1,7 +1,7 @@
 import { Tooltip } from '@components';
-import GridViewIcon from '@mui/icons-material/GridView';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import PublicIcon from '@mui/icons-material/Public';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -12,17 +12,17 @@ const VIEW_FILTER_ALL = 'all';
 const VIEW_FILTER_PRIVATE = 'private';
 const VIEW_FILTER_PUBLIC = 'public';
 
-const GridViewIconStyle = styled(GridViewIcon)<{ $isShowNavBarRedesign?: boolean }>`
-    font-size: ${(props) => (props.$isShowNavBarRedesign ? '14px' : '13px')} !important;
-`;
+const GridViewIconStyle = styled(SquaresFour).attrs<{ $isShowNavBarRedesign?: boolean }>((props) => ({
+    size: props.$isShowNavBarRedesign ? 14 : 13,
+}))<{ $isShowNavBarRedesign?: boolean }>``;
 
-const LockOutlinedIconStyle = styled(LockOutlinedIcon)<{ $isShowNavBarRedesign?: boolean }>`
-    font-size: ${(props) => (props.$isShowNavBarRedesign ? '14px' : '13px')} !important;
-`;
+const LockOutlinedIconStyle = styled(Lock).attrs<{ $isShowNavBarRedesign?: boolean }>((props) => ({
+    size: props.$isShowNavBarRedesign ? 14 : 13,
+}))<{ $isShowNavBarRedesign?: boolean }>``;
 
-const PublicIconStyle = styled(PublicIcon)<{ $isShowNavBarRedesign?: boolean }>`
-    font-size: ${(props) => (props.$isShowNavBarRedesign ? '14px' : '13px')} !important;
-`;
+const PublicIconStyle = styled(Globe).attrs<{ $isShowNavBarRedesign?: boolean }>((props) => ({
+    size: props.$isShowNavBarRedesign ? 14 : 13,
+}))<{ $isShowNavBarRedesign?: boolean }>``;
 
 const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     .select-container {

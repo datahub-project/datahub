@@ -23,7 +23,7 @@ import org.testng.annotations.Test;
  * <p>This verifies that ESSystemMetadataDAO is properly exposed as a bean and can be injected into
  * ConsistencyService.
  */
-@ActiveProfiles("test")
+@ActiveProfiles({"upgrade", "test"})
 @SpringBootTest(
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
     args = {"-u", "SystemUpdateNonBlocking"})

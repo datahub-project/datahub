@@ -2,9 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
 
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -15,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.ParentDocumentsResult;
 import com.linkedin.datahub.graphql.types.knowledge.DocumentMapper;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -75,6 +77,11 @@ public class ParentDocumentsResolver
         if (response == null) {
           break;
         }
+        // A redacted shell still carries the parent URN, so field resolvers such as aspects would
+        // load its raw aspects. Stop the chain instead of returning that shell.
+        if (!canViewLoadedDocument(context, response)) {
+          break;
+        }
         documents.add(DocumentMapper.map(context, response));
         depth++;
       }
@@ -83,17 +90,24 @@ public class ParentDocumentsResolver
     }
   }
 
+  private static boolean canViewLoadedDocument(QueryContext context, EntityResponse response) {
+    EnvelopedAspect infoAspect = response.getAspects().get(DOCUMENT_INFO_ASPECT_NAME);
+    com.linkedin.knowledge.DocumentInfo docInfo =
+        infoAspect == null
+            ? null
+            : new com.linkedin.knowledge.DocumentInfo(infoAspect.getValue().data());
+    EnvelopedAspect subTypesAspect = response.getAspects().get(SUB_TYPES_ASPECT_NAME);
+    SubTypes subTypes =
+        subTypesAspect == null ? null : new SubTypes(subTypesAspect.getValue().data());
+    return AuthorizationUtils.canViewDocument(
+        context.getOperationContext(), response.getUrn(), docInfo, subTypes);
+  }
+
   @Override
   public CompletableFuture<ParentDocumentsResult> get(DataFetchingEnvironment environment) {
 
     final QueryContext context = getQueryContext(environment);
     final String urn = ((Entity) environment.getSource()).getUrn();
-    if (!AuthorizationUtils.canView(context.getOperationContext(), UrnUtils.getUrn(urn))) {
-      ParentDocumentsResult result = new ParentDocumentsResult();
-      result.setCount(0);
-      result.setDocuments(Collections.emptyList());
-      return CompletableFuture.completedFuture(result);
-    }
     final List<Document> documents = new ArrayList<>();
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

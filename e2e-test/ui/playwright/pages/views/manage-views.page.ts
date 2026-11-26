@@ -159,6 +159,8 @@ export class ManageViewsPage extends BasePage {
     const valueOption = this.getFilterValueOption(searchValue);
     await valueOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await valueOption.click();
+    // The option label opens the entity hover card under the pointer, over the footer; see EntityHoverCardComponent.
+    await this.entityHoverCard.dismiss(dropdownSearchInput, searchValue);
 
     const footerButtonUpdate = this.page.getByTestId('footer-button-update');
     await footerButtonUpdate.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });

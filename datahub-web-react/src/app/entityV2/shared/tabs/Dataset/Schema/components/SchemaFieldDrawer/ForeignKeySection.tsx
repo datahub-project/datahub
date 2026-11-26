@@ -5,10 +5,13 @@ import styled from 'styled-components';
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
-import getFieldForeignKeyConstraints from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldForeignKeyConstraints';
+import getFieldForeignKeyConstraints, {
+    FieldForeignKeyConstraint,
+    ForeignKeySchemaMetadata,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldForeignKeyConstraints';
 import { CompactEntityNameComponent } from '@app/recommendations/renderer/component/CompactEntityNameComponent';
 
-import { ForeignKeyConstraint, SchemaField, SchemaMetadata } from '@types';
+import { SchemaField } from '@types';
 
 const ConstraintBody = styled.div`
     display: flex;
@@ -41,17 +44,12 @@ const FieldName = styled.div`
     text-overflow: ellipsis;
 `;
 
-const Unavailable = styled.div`
-    font-size: 12px;
-    color: ${(props) => props.theme.colors.textTertiary};
-`;
-
 interface Props {
     expandedField: SchemaField;
-    schemaMetadata?: SchemaMetadata | null;
+    schemaMetadata?: ForeignKeySchemaMetadata | null;
 }
 
-function renderFieldNames(fields: ForeignKeyConstraint['sourceFields']) {
+function renderFieldNames(fields: FieldForeignKeyConstraint['sourceFields']) {
     return (fields ?? []).map((field) => (
         <FieldName key={field?.fieldPath}>{translateFieldPath(field?.fieldPath ?? '')}</FieldName>
     ));
@@ -60,38 +58,39 @@ function renderFieldNames(fields: ForeignKeyConstraint['sourceFields']) {
 export default function ForeignKeySection({ expandedField, schemaMetadata }: Props) {
     const { t } = useTranslation('entity.profile.schema');
     const constraints = getFieldForeignKeyConstraints(schemaMetadata, expandedField.fieldPath);
+    const sections = constraints.flatMap((constraint, index) => {
+        // The structural schema query leaves out foreignDataset until the full schema arrives.
+        const { foreignDataset } = constraint;
+        if (!foreignDataset) return [];
 
-    if (!constraints.length) {
-        return null;
-    }
+        return [
+            <SidebarSection
+                key={constraint.name ?? index}
+                title={t('fieldForeignKey.foreignKeyTo')}
+                content={
+                    <ConstraintBody data-testid={`foreign-key-${constraint.name ?? index}`}>
+                        <CompactEntityNameComponent entity={foreignDataset} showFullTooltip />
+                        <FieldColumns>
+                            <FieldColumn>
+                                <ColumnTitle>{t('fieldForeignKey.sourceFields')}</ColumnTitle>
+                                {renderFieldNames(constraint.sourceFields)}
+                            </FieldColumn>
+                            <FieldColumn>
+                                <ColumnTitle>{t('fieldForeignKey.targetFields')}</ColumnTitle>
+                                {renderFieldNames(constraint.foreignFields)}
+                            </FieldColumn>
+                        </FieldColumns>
+                    </ConstraintBody>
+                }
+            />,
+        ];
+    });
+
+    if (!sections.length) return null;
 
     return (
         <>
-            {constraints.map((constraint, index) => (
-                <SidebarSection
-                    key={constraint.name ?? index}
-                    title={t('fieldForeignKey.foreignKeyTo')}
-                    content={
-                        <ConstraintBody data-testid={`foreign-key-${constraint.name ?? index}`}>
-                            {constraint.foreignDataset ? (
-                                <CompactEntityNameComponent entity={constraint.foreignDataset} showFullTooltip />
-                            ) : (
-                                <Unavailable>{t('fieldForeignKey.targetUnavailable')}</Unavailable>
-                            )}
-                            <FieldColumns>
-                                <FieldColumn>
-                                    <ColumnTitle>{t('fieldForeignKey.sourceFields')}</ColumnTitle>
-                                    {renderFieldNames(constraint.sourceFields)}
-                                </FieldColumn>
-                                <FieldColumn>
-                                    <ColumnTitle>{t('fieldForeignKey.targetFields')}</ColumnTitle>
-                                    {renderFieldNames(constraint.foreignFields)}
-                                </FieldColumn>
-                            </FieldColumns>
-                        </ConstraintBody>
-                    }
-                />
-            ))}
+            {sections}
             <StyledDivider />
         </>
     );

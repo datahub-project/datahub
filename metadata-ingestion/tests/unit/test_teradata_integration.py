@@ -13,6 +13,7 @@ from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.pool import NullPool, QueuePool
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
@@ -405,17 +406,22 @@ class TestConfigurationIntegration:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Test that profiling affects SQL configuration
-            mock_sql_config = MagicMock()
-            mock_sql_config.is_profiling_enabled.return_value = True
-            mock_sql_config.options = {}
+            # Pins the wiring: TeradataSource declares QueuePool as its profiling
+            # pool, and the base class sets it before deciding on max_overflow.
+            # That the combination survives create_engine() is covered at the
+            # base level in test_sql_common.py.
+            source._add_default_options(config)
 
-            source._add_default_options(mock_sql_config)
+            assert config.options["poolclass"] == QueuePool
+            assert config.options["max_overflow"] == config.profiling.max_workers
 
-            # Should add QueuePool for profiling
-            from sqlalchemy.pool import QueuePool
+            # A poolclass in the user's options is not overridden.
+            config_dict_with_pool = {**config_dict, "options": {"poolclass": NullPool}}
+            config_with_pool = TeradataConfig.model_validate(config_dict_with_pool)
+            source._add_default_options(config_with_pool)
 
-            assert mock_sql_config.options["poolclass"] == QueuePool
+            assert config_with_pool.options["poolclass"] == NullPool
+            assert "max_overflow" not in config_with_pool.options
 
 
 class TestComplexQueryScenarios:

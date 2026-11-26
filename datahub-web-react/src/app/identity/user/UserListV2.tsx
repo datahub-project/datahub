@@ -27,7 +27,7 @@ import {
 import { NO_ROLE_URN } from '@app/identity/user/UserListV2.utils';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { Button, Modal, Pagination, SearchBar, SimpleSelect, Table, Text } from '@src/alchemy-components';
 
 import { DataHubRole } from '@types';
@@ -56,7 +56,7 @@ export const UserList = () => {
         setPage,
         pageSize,
         setPageSize,
-        canManagePolicies,
+        canManageUserCredentials,
     } = useUserListState();
 
     // Data fetching
@@ -161,7 +161,7 @@ export const UserList = () => {
                 <ActionsContainer>
                     <UserActionsMenu
                         user={user}
-                        canManagePolicies={canManagePolicies}
+                        canManageUserCredentials={canManageUserCredentials}
                         onResetPassword={onResetPassword}
                         onDelete={onDelete}
                     />

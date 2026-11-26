@@ -17,7 +17,7 @@
                 "odcs.sourceFile": "schema__all-schema-types.odcs.yaml"
             },
             "name": "my_quantum \u2014 tbl",
-            "description": "Provides core payment metrics",
+            "description": "Provides core payment metrics\n\n**Grain:** Aggregation on columns txn_ref_dt, pmt_txn_id",
             "tags": []
         }
     },
@@ -55,7 +55,7 @@
                 {
                     "fieldPath": "txn_ref_dt",
                     "nullable": true,
-                    "description": "transaction ref date",
+                    "description": "transaction ref date\n\n**Derivation:** Defines the logic in business terms.\n\n```sql\nsel t1.txn_dt as txn_ref_dt from table_name_1 as t1, table_name_2 as t2, table_name_3 as t3 where t1.txn_dt=date-3\n```",
                     "type": {
                         "type": {
                             "com.linkedin.schema.DateType": {}
@@ -159,14 +159,6 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:datahub"
                     }
-                },
-                {
-                    "url": "jdbc:postgresql://localhost:5432/adventureworks/tbl_1/rcvr_cntry_code",
-                    "description": "implementation",
-                    "createStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:datahub"
-                    }
                 }
             ]
         }
@@ -214,7 +206,7 @@
                         {
                             "fieldPath": "txn_ref_dt",
                             "nullable": true,
-                            "description": "transaction ref date",
+                            "description": "transaction ref date\n\n**Derivation:** Defines the logic in business terms.\n\n```sql\nsel t1.txn_dt as txn_ref_dt from table_name_1 as t1, table_name_2 as t2, table_name_3 as t3 where t1.txn_dt=date-3\n```",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.DateType": {}

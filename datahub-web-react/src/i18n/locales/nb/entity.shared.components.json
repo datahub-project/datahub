@@ -96,9 +96,14 @@
     "searchActions.glossaryTerms.addTitle": "Legg til begreper",
     "searchActions.glossaryTerms.name": "Begreper",
     "searchActions.glossaryTerms.removeTitle": "Fjern begreper",
+    "searchActions.noSelection": "Velg minst én Asset for å bruke denne handlingen.",
     "searchActions.notSupported": "Denne handlingen støttes ikke for de valgte typene.",
     "searchActions.owners.addTitle": "Legg til eiere",
     "searchActions.owners.removeTitle": "Fjern eiere",
     "searchActions.tags.addTitle": "Legg til Tags",
-    "searchActions.tags.removeTitle": "Fjern Tags"
+    "searchActions.tags.removeTitle": "Fjern Tags",
+    "structuredProperty.addMore": "+ Legg til flere",
+    "structuredProperty.selectPlaceholder": "Velg",
+    "viewAll.resultsIncomplete": "Resultatene kan være ufullstendige.",
+    "viewAll.searchAllAssets": "Søk i alle innhentede {{platform}}-ressurser"
 }

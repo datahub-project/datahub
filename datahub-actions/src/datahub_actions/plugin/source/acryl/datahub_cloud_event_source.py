@@ -174,15 +174,22 @@ class DataHubEventSource(EventSource):
         return cls(config, ctx)
 
     def events(self) -> Iterable[EventEnvelope]:
+        # request_stop() only clears running. Assigning it here would undo a stop
+        # that landed before this generator started, and join() would wait forever.
+        if self.stop_requested():
+            return
         logger.info("Starting DataHub Cloud events source...")
         logger.info(f"Subscribing to the following topics: {self.topics_list}")
         self.running = True
+        if self.stop_requested():
+            self.running = False
+            return
         yield from self._poll_and_process_events()
 
     def _poll_and_process_events(self) -> Iterable[EventEnvelope]:
         """Poll and process events in the main loop."""
         last_idle_response_timestamp = 0
-        while self.running:
+        while self.running and not self.stop_requested():
             try:
                 sleeps_to_go = (
                     self.source_config.event_processing_time_max_duration_seconds

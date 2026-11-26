@@ -17,11 +17,15 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.post.PostMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -29,20 +33,32 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RequiredArgsConstructor
 public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPostsResult>> {
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "";
 
   private final EntityClient _entityClient;
+  @Nullable private final EntityIndexConfiguration _entityIndexConfiguration;
+
+  public ListPostsResolver(@Nonnull final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public ListPostsResolver(
+      @Nonnull final EntityClient entityClient,
+      @Nullable final EntityIndexConfiguration entityIndexConfiguration) {
+    _entityClient = entityClient;
+    _entityIndexConfiguration = entityIndexConfiguration;
+  }
 
   @Override
   public CompletableFuture<ListPostsResult> get(final DataFetchingEnvironment environment)
@@ -64,7 +80,13 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
             final List<SortCriterion> sortCriteria =
                 Collections.singletonList(
                     new SortCriterion()
-                        .setField(LAST_MODIFIED_FIELD_NAME)
+                        .setField(
+                            EntitySearchIndexResolver.indexedField(
+                                _entityIndexConfiguration,
+                                context.getOperationContext(),
+                                LAST_MODIFIED_FIELD_NAME,
+                                MappingConstants.SYSTEM_MODIFIED_TIME_FIELD,
+                                Intent.SORT))
                         .setOrder(SortOrder.DESCENDING));
 
             // First, get all Post Urns.
@@ -93,8 +115,12 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
             result.setStart(gmsResult.getFrom());
             result.setCount(gmsResult.getPageSize());
             result.setTotal(gmsResult.getNumEntities());
+            // batchGetV2 returns an unordered map, so follow the search hits to keep the
+            // lastModified sort.
             result.setPosts(
-                entities.values().stream()
+                gmsResult.getEntities().stream()
+                    .map(entity -> entities.get(entity.getEntity()))
+                    .filter(Objects::nonNull)
                     .map(e -> PostMapper.map(context, e))
                     .collect(Collectors.toList()));
             return result;

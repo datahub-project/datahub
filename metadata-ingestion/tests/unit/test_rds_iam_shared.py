@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
+from datahub.ingestion.agent.sql_passthrough import QueryBudget
 from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres.source import PostgresConfig
 
@@ -301,16 +302,18 @@ def test_the_unverified_warning_is_not_repeated_per_connection(
 def test_the_probes_engine_gets_the_same_listener(factory, monkeypatch):
     """The reason this moved.
 
-    `probe_prepare_engine` is a config method, so while the listener lived on the
-    Source the probe had no way to install it: an AWS_IAM recipe could not be
-    probed at all, because the password is a per-connection token and a bare
-    create_engine() has no credential to offer.
+    The probe's engine setup (probe_engine_settings) is a config method, so
+    while the listener lived on the Source the probe had no way to install it:
+    an AWS_IAM recipe could not be probed at all, because the password is a
+    per-connection token and a bare create_engine() has no credential to offer.
     """
     config = factory(**_IAM)
     _stub_manager(monkeypatch)
     registered = _capture(monkeypatch)
 
-    config.probe_prepare_engine(object())
+    prepare = config.probe_engine_settings(QueryBudget(timeout_seconds=None)).prepare
+    assert prepare is not None
+    prepare(object())
 
     assert [name for _, name, _ in registered] == ["do_connect"]
     cparams: Dict[str, Any] = {}
@@ -321,7 +324,8 @@ def test_the_probes_engine_gets_the_same_listener(factory, monkeypatch):
 @pytest.mark.parametrize("factory", [_mysql, _postgres], ids=["mysql", "postgres"])
 def test_probing_a_password_recipe_installs_nothing(factory, monkeypatch):
     registered = _capture(monkeypatch)
-    factory().probe_prepare_engine(object())
+    prepare = factory().probe_engine_settings(QueryBudget(timeout_seconds=None)).prepare
+    assert prepare is None
     assert registered == []
 
 
@@ -494,3 +498,19 @@ def test_a_whitespace_only_username_is_rejected():
     config = _postgres(username="   ", **_IAM)
     with pytest.raises(ValueError, match="username is required"):
         config.rds_iam_token_manager()
+
+
+def test_an_unparseable_uri_falls_back_to_host_port_and_the_config_user() -> None:
+    """The fallback the security test above keeps narrow: a URI that does not
+    parse at all signs for host_port and the configured username."""
+    config = _postgres(sqlalchemy_uri="not a url")
+    assert config.rds_iam_endpoint() == ("db.rds.amazonaws.com", 5432)
+    assert config.rds_iam_username() == "u"
+
+
+def test_a_uri_without_a_host_falls_back_to_host_port() -> None:
+    config = _postgres(
+        host_port="db.rds.amazonaws.com", sqlalchemy_uri="postgresql:///db"
+    )
+    # The dialect default port fills in when host_port carries none.
+    assert config.rds_iam_endpoint() == ("db.rds.amazonaws.com", 5432)

@@ -6,11 +6,14 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
 import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.ExpandWildcard;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch._types.Retries;
 import co.elastic.clients.elasticsearch._types.Script;
+import co.elastic.clients.elasticsearch._types.ScriptField;
+import co.elastic.clients.elasticsearch._types.SearchType;
 import co.elastic.clients.elasticsearch._types.ShardStatistics;
 import co.elastic.clients.elasticsearch._types.SlicedScroll;
 import co.elastic.clients.elasticsearch._types.Slices;
@@ -85,13 +88,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.ElasticSearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchConnectionPoolMetrics;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchHttpProxyConfigurator;
+import com.linkedin.metadata.search.elasticsearch.client.shim.WaitTrackingConnectionManager;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8KnnQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.CustomQuery;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.Es8BulkListener;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.LegacyRangeQueryNormalizer;
+import com.linkedin.metadata.search.elasticsearch.update.BulkProcessorCompletionTracker;
+import com.linkedin.metadata.search.elasticsearch.update.V3BulkWriteAccounting;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -99,10 +106,12 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -114,7 +123,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -128,13 +137,13 @@ import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.ssl.DefaultHostnameVerifier;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.util.PublicSuffixMatcherLoader;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
-import org.apache.http.impl.nio.conn.PoolingNHttpClientConnectionManager;
 import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.nio.conn.NHttpClientConnectionManager;
@@ -185,6 +194,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.action.update.UpdateRequest;
@@ -266,6 +276,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   private final ElasticsearchClient client;
   private final ObjectMapper objectMapper;
   private final JacksonJsonpMapper jacksonJsonpMapper;
+
+  /** Set while the client is built; kept so pool stats can be exported as gauges. */
+  @Nullable private WaitTrackingConnectionManager connectionManager;
 
   static {
     try {
@@ -411,17 +424,17 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
         };
     ioReactor.setExceptionHandler(ioReactorExceptionHandler);
 
-    PoolingNHttpClientConnectionManager connectionManager =
-        new PoolingNHttpClientConnectionManager(
+    WaitTrackingConnectionManager connectionManager =
+        new WaitTrackingConnectionManager(
             ioReactor,
             RegistryBuilder.<SchemeIOSessionStrategy>create()
                 .register("http", NoopIOSessionStrategy.INSTANCE)
                 .register("https", sslStrategy)
                 .build());
 
-    // Set maxConnectionsPerRoute to match threadCount (minimum 2)
-    int maxConnectionsPerRoute = Math.max(2, config.getThreadCount());
+    int maxConnectionsPerRoute = ShimConfiguration.maxConnectionsPerRoute(config.getThreadCount());
     connectionManager.setDefaultMaxPerRoute(maxConnectionsPerRoute);
+    this.connectionManager = connectionManager;
 
     log.info(
         "Configured connection pool: maxPerRoute={} (threadCount={})",
@@ -493,6 +506,12 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             .aggregations(aggregationMap)
             .allowPartialSearchResults(searchRequest.allowPartialSearchResults())
             .explain(searchSourceBuilder.explain())
+            // query_then_fetch is the engine default, so only DFS needs sending
+            .searchType(
+                searchRequest.searchType()
+                        == org.opensearch.action.search.SearchType.DFS_QUERY_THEN_FETCH
+                    ? SearchType.DfsQueryThenFetch
+                    : null)
             .from(Math.max(searchSourceBuilder.from(), 0))
             .timeout(
                 searchSourceBuilder.timeout() == null
@@ -551,6 +570,19 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     }
     if (searchSourceBuilder.stats() != null && !searchSourceBuilder.stats().isEmpty()) {
       esSearchRequest.stats(searchSourceBuilder.stats());
+    }
+    if (searchSourceBuilder.scriptFields() != null
+        && !searchSourceBuilder.scriptFields().isEmpty()) {
+      esSearchRequest.scriptFields(
+          searchSourceBuilder.scriptFields().stream()
+              .collect(
+                  Collectors.toMap(
+                      SearchSourceBuilder.ScriptField::fieldName,
+                      scriptField ->
+                          new ScriptField.Builder()
+                              .script(convertScript(scriptField.script()))
+                              .ignoreFailure(scriptField.ignoreFailure())
+                              .build())));
     }
 
     co.elastic.clients.elasticsearch.core.SearchResponse<JsonNode> esSearchResponse =
@@ -1008,7 +1040,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       @Nonnull CreateIndexRequest createIndexRequest,
       @Nonnull RequestOptions options)
       throws IOException {
-    co.elastic.clients.elasticsearch.indices.CreateIndexRequest esCreateIndexRequest =
+    co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder esCreateIndex =
         new co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder()
             .index(createIndexRequest.index())
             .mappings(
@@ -1019,8 +1051,17 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                 createIndexRequest.settings() != null
                         && !Settings.EMPTY.equals(createIndexRequest.settings())
                     ? convertIndexSettings(createIndexRequest.settings())
-                    : null)
-            .build();
+                    : null);
+    if (createIndexRequest.aliases() != null && !createIndexRequest.aliases().isEmpty()) {
+      Map<String, co.elastic.clients.elasticsearch.indices.Alias> aliases = new LinkedHashMap<>();
+      for (org.opensearch.action.admin.indices.alias.Alias alias : createIndexRequest.aliases()) {
+        aliases.put(
+            alias.name(), co.elastic.clients.elasticsearch.indices.Alias.of(builder -> builder));
+      }
+      esCreateIndex.aliases(aliases);
+    }
+    co.elastic.clients.elasticsearch.indices.CreateIndexRequest esCreateIndexRequest =
+        esCreateIndex.build();
     co.elastic.clients.elasticsearch.indices.CreateIndexResponse esCreateResponse =
         withTransportOptions(options).indices().create(esCreateIndexRequest);
     return new CreateIndexResponse(
@@ -1036,11 +1077,12 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       GetIndexRequest getIndexRequest,
       RequestOptions options)
       throws IOException {
-    co.elastic.clients.elasticsearch.indices.GetIndexRequest esGetIndexRequest =
+    co.elastic.clients.elasticsearch.indices.GetIndexRequest.Builder esGetIndex =
         new co.elastic.clients.elasticsearch.indices.GetIndexRequest.Builder()
             .index(Arrays.asList(getIndexRequest.indices()))
-            .includeDefaults(getIndexRequest.includeDefaults())
-            .build();
+            .includeDefaults(getIndexRequest.includeDefaults());
+    applyIndexOptions(esGetIndex, getIndexRequest.indicesOptions());
+    co.elastic.clients.elasticsearch.indices.GetIndexRequest esGetIndexRequest = esGetIndex.build();
     co.elastic.clients.elasticsearch.indices.GetIndexResponse esGetIndexResponse =
         withTransportOptions(options).indices().get(esGetIndexRequest);
     Map<String, IndexState> result = esGetIndexResponse.result();
@@ -1069,6 +1111,32 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     entry ->
                         Optional.ofNullable(entry.getValue().dataStream())
                             .orElse(StringUtils.EMPTY))));
+  }
+
+  /**
+   * Copies wildcard options from the shared request. The Elasticsearch client otherwise uses its
+   * own defaults, and a pattern that matches nothing fails the call.
+   */
+  private static void applyIndexOptions(
+      co.elastic.clients.elasticsearch.indices.GetIndexRequest.Builder builder,
+      @Nullable IndicesOptions indicesOptions) {
+    if (indicesOptions == null) {
+      return;
+    }
+    List<ExpandWildcard> wildcards = new ArrayList<>();
+    if (indicesOptions.expandWildcardsOpen()) {
+      wildcards.add(ExpandWildcard.Open);
+    }
+    if (indicesOptions.expandWildcardsClosed()) {
+      wildcards.add(ExpandWildcard.Closed);
+    }
+    if (indicesOptions.expandWildcardsHidden()) {
+      wildcards.add(ExpandWildcard.Hidden);
+    }
+    builder
+        .allowNoIndices(indicesOptions.allowNoIndices())
+        .ignoreUnavailable(indicesOptions.ignoreUnavailable())
+        .expandWildcards(wildcards.isEmpty() ? List.of(ExpandWildcard.None) : wildcards);
   }
 
   private List<AliasMetadata> convertMetadata(IndexState state) {
@@ -1555,6 +1623,11 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public String getEngineVersion() throws IOException {
+    final String versionOverride =
+        shimConfiguration != null ? shimConfiguration.getEngineVersionOverride() : null;
+    if (versionOverride != null) {
+      return versionOverride;
+    }
     try {
       Map<String, String> clusterInfo = getClusterInfo();
       return clusterInfo.getOrDefault("version", "unknown");
@@ -1753,11 +1826,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       long retryInterval,
       int numRetries,
       int threadCount) {
-    // numRetries / retryInterval: item + whole-request requeue uses BulkItemRequeueSupport
-    // (configured via itemRequeueMaxAttempts, typically aligned with numRetries).
-    final Es8BulkListener[] listenerHolder = new Es8BulkListener[1];
-    Supplier<BulkIngester<?>> processorSupplier =
-        () -> {
+    // Es8BulkListener requeues item and request failures. A write the completion tracker already
+    // counted on a drain is not requeued: that drain fails closed and the caller redelivers.
+    Function<BulkProcessorCompletionTracker, BulkIngester<?>> processorFactory =
+        completionTracker -> {
           final Refresh refresh;
           switch (writeRequestRefreshPolicy) {
             case NONE:
@@ -1778,19 +1850,19 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   .client(client)
                   .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
                   .maxOperations(bulkRequestsLimit)
-                  .maxConcurrentRequests(1)
-                  .listener(listenerHolder[0]);
+                  .listener(
+                      new Es8BulkListener(
+                          metricUtils,
+                          completionTracker,
+                          bulkWriteResultTracker,
+                          bulkItemRequeueSupport,
+                          V3BulkWriteAccounting::classifyEs8Response));
 
           builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
           return builder.build();
         };
 
-    initBulkProcessors(
-        threadCount,
-        processorSupplier,
-        () ->
-            listenerHolder[0] =
-                new Es8BulkListener(metricUtils, bulkWriteResultTracker, bulkItemRequeueSupport));
+    initBulkProcessors(threadCount, processorFactory);
 
     log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
@@ -1816,7 +1888,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   @Override
-  protected void addToProcessor(BulkIngester<?> processor, DocWriteRequest<?> writeRequest) {
+  protected void addToProcessor(
+      BulkIngester<?> processor,
+      DocWriteRequest<?> writeRequest,
+      BulkProcessorCompletionTracker.Submission submission) {
     BulkOperation operation;
     if (writeRequest instanceof UpdateRequest) {
       UpdateRequest update = (UpdateRequest) writeRequest;
@@ -1827,8 +1902,16 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
           new UpdateAction.Builder()
               .detectNoop(update.detectNoop())
               .docAsUpsert(update.docAsUpsert())
-              .script(script)
-              .upsert(update.upsert());
+              .scriptedUpsert(update.scriptedUpsert())
+              .script(script);
+
+      // upsert() on the OpenSearch request is a varargs setter, not a getter: calling it would give
+      // every update an upsert body and let an update-only write create the document.
+      if (update.upsertRequest() != null) {
+        actionBuilder.upsert(
+            XContentHelper.convertToMap(update.upsertRequest().source(), true, XContentType.JSON)
+                .v2());
+      }
 
       // Only set doc if it exists (not present for script-only updates)
       if (update.doc() != null) {
@@ -1893,7 +1976,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     // Pass DocWriteRequest as context so failed items can be requeued.
     @SuppressWarnings("unchecked")
     BulkIngester<Object> typedProcessor = (BulkIngester<Object>) processor;
-    typedProcessor.add(operation, writeRequest);
+    typedProcessor.add(operation, submission);
   }
 
   @Override
@@ -1913,13 +1996,24 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   @Override
+  public void registerConnectionPoolMetrics(
+      @Nonnull MeterRegistry registry, @Nonnull String clusterName) {
+    if (connectionManager != null) {
+      SearchConnectionPoolMetrics.register(registry, clusterName, connectionManager);
+    }
+  }
+
+  @Override
   public void close() throws IOException {
     log.debug("Closing ES 8.x client shim");
     client.shutdown();
   }
 
   private ElasticsearchClient withTransportOptions(RequestOptions requestOptions) {
-    if (RequestOptions.DEFAULT.equals(requestOptions)) {
+    // RequestOptions#equals ignores the request config, so per-request timeouts must be checked
+    // separately or they would be dropped.
+    if (RequestOptions.DEFAULT.equals(requestOptions)
+        && requestOptions.getRequestConfig() == null) {
       return client;
     }
     TransportOptions transportOptions =
@@ -2046,18 +2140,24 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     List<String> indexList = Arrays.asList(request.indexName().split(","));
 
     boolean ignoreUnavailable = request.ignoreUnavailable();
+    final Optional<Duration> timeout = request.timeout();
     co.elastic.clients.elasticsearch.core.SearchRequest searchReq =
         co.elastic.clients.elasticsearch.core.SearchRequest.of(
-            b ->
-                b.index(indexList)
-                    .ignoreUnavailable(ignoreUnavailable)
-                    // Always allow zero-index resolution; semantic search on partial rollouts
-                    // may target indices that do not yet exist on every node.
-                    .allowNoIndices(true)
-                    .withJson(new StringReader(bodyJson)));
+            b -> {
+              b.index(indexList)
+                  .ignoreUnavailable(ignoreUnavailable)
+                  // Always allow zero-index resolution; semantic search on partial rollouts
+                  // may target indices that do not yet exist on every node.
+                  .allowNoIndices(true)
+                  .withJson(new StringReader(bodyJson));
+              timeout.ifPresent(t -> b.timeout(timeoutMillis(t) + "ms"));
+              return b;
+            });
 
+    // A timeout bounds the shards' search and the client's wait, so the call ends by the deadline
     co.elastic.clients.elasticsearch.core.SearchResponse<Map> resp =
-        client.search(searchReq, Map.class);
+        (timeout.isPresent() ? client.withTransportOptions(timeoutOptions(timeout.get())) : client)
+            .search(searchReq, Map.class);
 
     List<KnnSearchResponse.Hit> hits = new ArrayList<>(resp.hits().hits().size());
     for (Hit<Map> h : resp.hits().hits()) {
@@ -2077,7 +2177,32 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       }
       hits.add(new KnnSearchResponse.Hit(id, score, source));
     }
-    return new KnnSearchResponse(hits);
+    final boolean failedShards = resp.shards() != null && resp.shards().failed().intValue() > 0;
+    return new KnnSearchResponse(hits, resp.timedOut() || failedShards);
+  }
+
+  private static int timeoutMillis(@Nonnull Duration timeout) {
+    return (int) Math.max(1, Math.min(Integer.MAX_VALUE, timeout.toMillis()));
+  }
+
+  /**
+   * Replaces the client's connect, connection-pool and socket timeouts for one request. Built
+   * directly: {@link #withTransportOptions(RequestOptions)} would drop the request config, which
+   * {@link RequestOptions#equals} ignores.
+   */
+  @Nonnull
+  private static TransportOptions timeoutOptions(@Nonnull Duration timeout) {
+    final int millis = timeoutMillis(timeout);
+    return new RestClientOptions(
+        org.elasticsearch.client.RequestOptions.DEFAULT.toBuilder()
+            .setRequestConfig(
+                RequestConfig.custom()
+                    .setConnectTimeout(millis)
+                    .setConnectionRequestTimeout(millis)
+                    .setSocketTimeout(millis)
+                    .build())
+            .build(),
+        false);
   }
 
   @Override

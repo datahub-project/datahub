@@ -8,5 +8,6 @@
     "viewDefinitionTab.logicHeading": "Logica",
     "viewDefinitionTab.materializedFalse": "No",
     "viewDefinitionTab.materializedLabel": "Materializzata",
-    "viewDefinitionTab.materializedTrue": "Sì"
+    "viewDefinitionTab.materializedTrue": "Sì",
+    "viewDefinitionTab.noViewPermission": "Non si dispone dell'autorizzazione per visualizzare la logica SQL di questa vista."
 }

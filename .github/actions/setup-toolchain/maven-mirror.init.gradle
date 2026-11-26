@@ -1,0 +1,38 @@
+// Puts a Maven Central mirror first in every repository list, so CI downloads skip
+// repo.maven.apache.org. Central rate-limits by egress IP (HTTP 429), and shared runner IPs hit
+// that limit. The Gradle Plugin Portal redirects to Central too, so the mirror must also come
+// before the portal. The original repositories stay as a fallback for artifacts the mirror lacks
+// or has not synced yet. setup-toolchain installs this into the Gradle User Home's init.d.
+def mirrorUrl = System.getenv('DATAHUB_CI_MAVEN_MIRROR')
+if (!mirrorUrl) {
+  return
+}
+
+def addMirrorFirst = { RepositoryHandler repos ->
+  if (repos.findByName('ciMavenCentralMirror') != null) {
+    return
+  }
+  def mirror = repos.maven {
+    name = 'ciMavenCentralMirror'
+    url = mirrorUrl
+  }
+  repos.remove(mirror)
+  repos.addFirst(mirror)
+}
+
+beforeSettings { settings ->
+  addMirrorFirst(settings.pluginManagement.repositories)
+  addMirrorFirst(settings.dependencyResolutionManagement.repositories)
+}
+
+allprojects {
+  addMirrorFirst(buildscript.repositories)
+  // settings.gradle uses RepositoriesMode.PREFER_PROJECT: a project that declares any repository
+  // ignores the settings repositories. Only add the mirror to projects that already declare their
+  // own, so the rest keep resolving through settings.
+  afterEvaluate {
+    if (!repositories.isEmpty()) {
+      addMirrorFirst(repositories)
+    }
+  }
+}

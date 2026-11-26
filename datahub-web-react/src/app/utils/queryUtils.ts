@@ -1,6 +1,6 @@
-import { FilterOperator } from '@types';
+import { FilterOperator, PostContentType } from '@types';
 
-export function getHomePagePostsFilters() {
+export function getHomePagePostsFilters(contentType?: PostContentType) {
     return [
         {
             and: [
@@ -9,6 +9,15 @@ export function getHomePagePostsFilters() {
                     condition: FilterOperator.Equal,
                     values: ['HOME_PAGE_ANNOUNCEMENT'],
                 },
+                ...(contentType
+                    ? [
+                          {
+                              field: 'contentType',
+                              condition: FilterOperator.Equal,
+                              values: [contentType],
+                          },
+                      ]
+                    : []),
             ],
         },
     ];
