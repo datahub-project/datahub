@@ -10,13 +10,17 @@ from datahub.emitter.mce_builder import (
     make_schema_field_urn,
 )
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
-from datahub.ingestion.source.qlik_sense.data_classes import App, UnreadItem
+from datahub.ingestion.source.qlik_sense.data_classes import (
+    App,
+    DataModelTable,
+    UnreadItem,
+)
 from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
 from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
-    AppQvdLineage,
     QvdPathResolver,
     app_qvd_lineage,
     canonical_path,
@@ -38,7 +42,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from tests.unit.qlik_sense.qlik_fakes import ONPREM_CONFIG
+from tests.unit.qlik_sense.qlik_fakes import ON_PREM, ONPREM_CONFIG
 
 
 def _urn(name: str) -> str:
@@ -204,6 +208,7 @@ CONNECTIONS = {
     "QVD Data": DataConnectionInfo(name="QVD Data", folder_path="\\\\nas\\qvd\\"),
     # The same folder, reached through another connection.
     "Shared QVDs": DataConnectionInfo(name="Shared QVDs", folder_path="//NAS/qvd"),
+    "Apps": DataConnectionInfo(name="Apps", folder_path="//nas/apps"),
 }
 RAW = _urn("//nas/qvd/raw/orders.qvd")
 CLEAN = _urn("//nas/qvd/clean/orders.qvd")
@@ -217,9 +222,19 @@ STORAGE_MAPPING: Dict[str, Dict[str, Any]] = {
 STORAGE_QVD = make_dataset_urn("abs", "lake/qlik/Clean/orders.qvd")
 
 
-def _app(app_id: str, script: Optional[str]) -> App:
+def _app(
+    app_id: str,
+    script: Optional[str],
+    data_model: Optional[Dict[str, List[str]]] = None,
+) -> App:
     return App.model_validate(
         {
+            "data_model_tables": [
+                DataModelTable.from_engine(
+                    {"qName": name, "qFields": [{"qName": field} for field in fields]}
+                )
+                for name, fields in (data_model or {}).items()
+            ],
             "id": app_id,
             "qTitle": app_id,
             "qri": f"qri:app:sense://{app_id}",
@@ -237,6 +252,7 @@ def _run(
     current: Optional[UpstreamLineageClass] = None,
     connections_unread: bool = False,
     file_connection_to_storage: Optional[Dict[str, Dict[str, Any]]] = None,
+    on_prem: Optional[Dict[str, Any]] = None,
 ) -> "tuple[QlikSenseSource, Dict[str, Dict[str, Any]]]":
     graph = MagicMock()
     # The QVDs' lineage as DataHub holds it before the run.
@@ -264,6 +280,8 @@ def _run(
         api.lineage_read_failures = []
         api.field_lineage_failures = []
         api.opened_without_data = []
+        api.include_read_failures = []
+        api.reload_statement_read_failures = []
         api.engine_refusals = None
         api.get_user_name.return_value = None
         api.get_data_connections.return_value = (
@@ -273,7 +291,7 @@ def _run(
         source = QlikSenseSource(
             QlikSourceConfig.model_validate(
                 {
-                    **ONPREM_CONFIG,
+                    "on_prem": {**ON_PREM, **(on_prem or {})},
                     "file_connection_to_storage": file_connection_to_storage or {},
                 }
             ),
@@ -452,7 +470,7 @@ def test_cloud_and_onprem_name_a_storage_qvd_alike(mock_api_cls: MagicMock) -> N
         file_connection_to_storage=STORAGE_MAPPING,
     )
 
-    assert cloud._resolve_file_source("etl-app", qri) == STORAGE_QVD
+    assert cloud._file_source_resolution("etl-app", qri).urn == STORAGE_QVD
     assert _upstreams(aspects, STORAGE_QVD, "add") == [_urn("etl-app.orders")]
 
 
@@ -741,15 +759,15 @@ def test_every_app_emits_the_folders_of_its_qvds(mock_api_cls: MagicMock) -> Non
         PipelineContext(run_id="test-qvd-lineage"),
     )
 
-    def folder_urns(lineage: AppQvdLineage) -> List[str]:
+    def folder_urns(paths: Dict[str, str]) -> List[str]:
         return [
             wu.get_urn()
-            for wu in source._gen_qvd_entities(lineage)
+            for wu in source._gen_file_entities(paths, DatasetSubTypes.QLIK_QVD)
             if wu.get_aspect_of_type(ContainerPropertiesClass)
         ]
 
-    first = folder_urns(AppQvdLineage(paths={CLEAN: "//nas/qvd/clean/orders.qvd"}))
-    second = folder_urns(AppQvdLineage(paths={RAW: "//nas/qvd/raw/orders.qvd"}))
+    first = folder_urns({CLEAN: "//nas/qvd/clean/orders.qvd"})
+    second = folder_urns({RAW: "//nas/qvd/raw/orders.qvd"})
 
     # Each app's checkpoint keeps only what it emitted, so the server and
     # share it shares with the other app are emitted by both.
@@ -766,7 +784,9 @@ def _qvd_folders(config: Dict[str, Any], path: str) -> List[Tuple[str, str]]:
         )
     return [
         (wu.get_urn(), properties.name)
-        for wu in source._gen_qvd_entities(AppQvdLineage(paths={_urn(path): path}))
+        for wu in source._gen_file_entities(
+            {_urn(path): path}, DatasetSubTypes.QLIK_QVD
+        )
         if (properties := wu.get_aspect_of_type(ContainerPropertiesClass))
     ]
 
@@ -1285,3 +1305,632 @@ def test_loop_connection_prefix_is_not_an_unset_prefix() -> None:
     assert not parsed.qvd_stores
     assert parsed.has_unresolved_store
     assert parsed.unresolved_qvd_paths == ["lib://$(vPrefix)QVD Data/orders.qvd"]
+
+
+MODEL_SCRIPT = """
+Orders: LOAD id, amount FROM [lib://QVD Data/raw/orders.qvd] (qvd);
+Regions: LOAD * INLINE [region
+north];
+"""
+FRONT_SCRIPT = """
+Binary [lib://Apps/Sales Model.qvf];
+Calendar: LOAD * INLINE [day
+1];
+"""
+ORDERS_MODEL = {"Orders": ["id", "amount"], "Regions": ["region"]}
+FRONT_MODEL = {**ORDERS_MODEL, "Calendar": ["day"]}
+APP_FILE = _urn("//nas/apps/sales model.qvf")
+MAPPED = {"binary_file_to_app": {"lib://Apps/sales model.qvf": "model-app"}}
+
+
+def _written_upstreams(aspects: Dict[str, Dict[str, Any]], urn: str) -> List[str]:
+    lineage = aspects.get(urn, {}).get("UpstreamLineageClass")
+    return [upstream.dataset for upstream in lineage.upstreams] if lineage else []
+
+
+@pytest.mark.parametrize("loader_first", [True, False])
+def test_binary_load_mapped_to_an_app_links_its_tables_and_columns(
+    loader_first: bool,
+) -> None:
+    model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
+    front = _app("front-app", FRONT_SCRIPT, FRONT_MODEL)
+    source_run, aspects = _run(
+        [front, model] if loader_first else [model, front], on_prem=MAPPED
+    )
+
+    orders = _urn("front-app.orders")
+    source = _urn("model-app.orders")
+    lineage = aspects[orders]["UpstreamLineageClass"]
+    assert [u.dataset for u in lineage.upstreams] == [source]
+    assert {fg.downstreams[0]: fg.upstreams for fg in lineage.fineGrainedLineages} == {
+        make_schema_field_urn(orders, field): [make_schema_field_urn(source, field)]
+        for field in ["id", "amount"]
+    }
+    # The model app ingests no Regions table to link to.
+    regions = aspects[_urn("front-app.regions")]
+    assert "lineage_ops" not in regions
+    assert "UpstreamLineageClass" not in regions
+    [entry] = source_run.reporter.binary_loads_without_lineage
+    assert entry.startswith("front-app:")
+    # The script creates Calendar itself, and the file is not linked.
+    assert "lineage_ops" not in aspects.get(_urn("front-app.calendar"), {})
+    assert APP_FILE not in aspects
+
+
+def test_binary_load_reports_a_source_model_table_its_app_does_not_ingest() -> None:
+    model_script = MODEL_SCRIPT + "Totals: LOAD id RESIDENT Orders;"
+    model = _app("model-app", model_script, {**ORDERS_MODEL, "Totals": ["id"]})
+    front = _app("front-app", FRONT_SCRIPT, {**FRONT_MODEL, "Totals": ["id"]})
+    source, aspects = _run([model, front], on_prem=MAPPED)
+
+    assert "UpstreamLineageClass" not in aspects[_urn("front-app.totals")]
+    entries = [
+        entry
+        for entry in source.reporter.binary_loads_without_lineage
+        if "Totals" in entry
+    ]
+    # Not a mapping problem: the model app builds Totals with RESIDENT.
+    assert len(entries) == 1
+    assert "RESIDENT" in entries[0]
+
+
+def test_binary_load_mapped_to_an_app_writes_a_script_only_table_whole() -> None:
+    model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
+    front = _app(
+        "front-app",
+        FRONT_SCRIPT + "Extra: LOAD id FROM [lib://QVD Data/raw/extra.qvd] (qvd);",
+        {**FRONT_MODEL, "Extra": ["id"]},
+    )
+    source, aspects = _run([model, front], on_prem=MAPPED)
+
+    # The model app has no Extra, so it is the script's own table, and an
+    # upstream that changes in the script replaces the old one.
+    extra = _urn("front-app.extra")
+    assert "lineage_ops" not in aspects[extra]
+    assert _written_upstreams(aspects, extra) == [_urn("//nas/qvd/raw/extra.qvd")]
+    assert not [
+        entry
+        for entry in source.reporter.binary_loads_without_lineage
+        if "Extra" in entry
+    ]
+
+
+@pytest.mark.parametrize(
+    "extra_script, script_table",
+    [
+        pytest.param(
+            "Notes: LOAD * INLINE [note\nx];\nRENAME TABLE Notes TO Remarks;",
+            "Remarks",
+            id="a renamed script table",
+        ),
+        pytest.param(
+            "Calendar: LOAD * INLINE [week\n1];",
+            "Calendar-1",
+            id="a script table Qlik renamed as its name was taken",
+        ),
+    ],
+)
+def test_binary_load_does_not_link_a_script_table_qlik_holds_under_another_name(
+    extra_script: str, script_table: str
+) -> None:
+    front = _app(
+        "front-app",
+        FRONT_SCRIPT + extra_script,
+        {**FRONT_MODEL, script_table: ["note"]},
+    )
+    _, aspects = _run([front])
+
+    assert _written_upstreams(aspects, _urn("front-app.orders")) == [APP_FILE]
+    assert _urn(f"front-app.{script_table.lower()}") not in aspects
+
+
+@pytest.mark.parametrize(
+    "extra_script, linked",
+    [
+        pytest.param(
+            "Orders: LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            True,
+            id="a load that adds to the table",
+        ),
+        pytest.param(
+            "DROP TABLE [Orders];\n"
+            "Orders: LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            False,
+            id="a table dropped and loaded again",
+        ),
+        pytest.param(
+            "Orders: Replace LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            False,
+            id="a Replace load",
+        ),
+        pytest.param(
+            "Orders: Replace LOAD id, amount;\n"
+            "LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            False,
+            id="a Replace preceding load",
+        ),
+        pytest.param(
+            "Replace Concatenate (Orders) LOAD id, amount "
+            "FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            False,
+            id="a Replace load that adds to the table",
+        ),
+        pytest.param(
+            "Concatenate (Orders) LOAD id, amount "
+            "FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            True,
+            id="a load that adds to the table by name",
+        ),
+    ],
+)
+def test_binary_load_mapped_to_an_app_keeps_a_table_the_script_loads_into(
+    extra_script: str, linked: bool
+) -> None:
+    model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
+    front = _app("front-app", FRONT_SCRIPT + extra_script, FRONT_MODEL)
+    _, aspects = _run([model, front], on_prem=MAPPED)
+
+    orders = _urn("front-app.orders")
+    upstreams = _written_upstreams(aspects, orders)
+    assert (_urn("model-app.orders") in upstreams) is linked
+    # The script's own load stays in the lineage written with the link.
+    assert _urn("//nas/qvd/raw/more.qvd") in upstreams
+
+
+@pytest.mark.parametrize(
+    "front_script",
+    [
+        pytest.param(
+            FRONT_SCRIPT
+            + "Replace LOAD id, amount FROM [lib://QVD Data/raw/orders.qvd] (qvd);",
+            id="an unlabelled Replace load",
+        ),
+        pytest.param(
+            FRONT_SCRIPT
+            + "$(vTable): Replace LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            id="a Replace load labelled with a variable",
+        ),
+        pytest.param(
+            FRONT_SCRIPT + "DROP TABLE $(vTable);\n"
+            "Orders: LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);",
+            id="a DROP of a variable",
+        ),
+        pytest.param(
+            FRONT_SCRIPT + "DROP TABLE Orders;\nRENAME TABLE Calendar TO $(vTable);",
+            id="a rename to a variable that may name a dropped table",
+        ),
+        pytest.param(
+            "Binary [lib://Apps/Sales Model.qvf];\n"
+            "LIB CONNECT TO 'db';\n"
+            "Replace Concatenate SQL SELECT id, amount FROM db.orders;",
+            id="a Replace Concatenate SELECT with no table to add to",
+        ),
+    ],
+)
+def test_binary_load_mapped_to_an_app_whose_script_drops_unnamed_tables_gets_no_lineage(
+    front_script: str,
+) -> None:
+    model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
+    front = _app("front-app", front_script, FRONT_MODEL)
+    source, aspects = _run([model, front], on_prem=MAPPED)
+
+    assert _urn("model-app.orders") not in _written_upstreams(
+        aspects, _urn("front-app.orders")
+    )
+    [entry] = source.reporter.binary_loads_without_lineage
+    assert entry.startswith("front-app:")
+
+
+@pytest.mark.parametrize(
+    "extra_script",
+    [
+        pytest.param("$(Include=lib://Scripts/extra.qvs);", id="an include"),
+        pytest.param("CALL LoadExtra;", id="a SUB the script does not define"),
+    ],
+)
+def test_binary_load_mapped_to_an_app_whose_script_includes_others_is_only_added_to(
+    extra_script: str,
+) -> None:
+    model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
+    front = _app("front-app", FRONT_SCRIPT + extra_script, FRONT_MODEL)
+    source_run, aspects = _run([model, front], on_prem=MAPPED)
+
+    orders = _urn("front-app.orders")
+    source = _urn("model-app.orders")
+    assert "UpstreamLineageClass" not in aspects[orders]
+    assert _upstreams(aspects, orders, "add") == [source]
+    assert not _upstreams(aspects, orders, "remove")
+    assert _added_columns(aspects, orders) == {
+        make_schema_field_urn(orders, field): [make_schema_field_urn(source, field)]
+        for field in ["id", "amount"]
+    }
+    assert any(
+        w.title == "Qlik BINARY tables may be changed by an included script"
+        and "front-app" in (w.context or [])
+        for w in source_run.reporter.warnings
+    )
+
+
+def test_binary_load_with_an_include_only_adds_to_a_script_only_table() -> None:
+    model = _app("model-app", MODEL_SCRIPT, ORDERS_MODEL)
+    front = _app(
+        "front-app",
+        FRONT_SCRIPT
+        + "Extra: LOAD id FROM [lib://QVD Data/raw/extra.qvd] (qvd);\n"
+        + "$(Include=lib://Scripts/extra.qvs);",
+        {**FRONT_MODEL, "Extra": ["id"]},
+    )
+    _, aspects = _run([model, front], on_prem=MAPPED)
+
+    # The included script may load into Extra, so earlier edges stay.
+    extra = _urn("front-app.extra")
+    assert "UpstreamLineageClass" not in aspects[extra]
+    assert _upstreams(aspects, extra, "add") == [_urn("//nas/qvd/raw/extra.qvd")]
+    assert not _upstreams(aspects, extra, "remove")
+
+
+SUFFIXED_MODEL_SCRIPT = (
+    MODEL_SCRIPT + "[Calendar-2024]: LOAD day FROM [lib://QVD Data/raw/cal.qvd] (qvd);"
+)
+
+
+@pytest.mark.parametrize(
+    "model_tables, linked",
+    [
+        pytest.param({"Calendar-2024": ["day"]}, True, id="source app has the table"),
+        pytest.param({}, False, id="source app lacks the table"),
+    ],
+)
+def test_binary_load_links_a_suffixed_table_only_when_the_source_app_has_it(
+    model_tables: Dict[str, List[str]], linked: bool
+) -> None:
+    model = _app("model-app", SUFFIXED_MODEL_SCRIPT, {**ORDERS_MODEL, **model_tables})
+    front = _app("front-app", FRONT_SCRIPT, {**FRONT_MODEL, "Calendar-2024": ["day"]})
+    source, aspects = _run([model, front], on_prem=MAPPED)
+
+    calendar = _urn("front-app.calendar-2024")
+    source_table = _urn("model-app.calendar-2024")
+    # Otherwise it is the script's own table, whose lineage is written whole,
+    # so a COPY edge from the source app an earlier run wrote is dropped.
+    assert "UpstreamLineageClass" in aspects[calendar]
+    assert _written_upstreams(aspects, calendar) == ([source_table] if linked else [])
+    reported = [
+        entry
+        for entry in source.reporter.binary_loads_without_lineage
+        if "Calendar-2024" in entry
+    ]
+    assert bool(reported) is not linked
+
+
+@pytest.mark.parametrize(
+    "model_tables, written_whole",
+    [
+        pytest.param(ORDERS_MODEL, True, id="source app lacks the table"),
+        pytest.param({}, False, id="source app's data model unknown"),
+    ],
+)
+def test_binary_load_keeps_script_lineage_of_a_table_qlik_may_have_renamed(
+    model_tables: Dict[str, List[str]], written_whole: bool
+) -> None:
+    model = _app("model-app", MODEL_SCRIPT, model_tables)
+    front = _app(
+        "front-app",
+        FRONT_SCRIPT
+        + "[Calendar-2024]: LOAD day FROM [lib://QVD Data/raw/cal.qvd] (qvd);",
+        {**FRONT_MODEL, "Calendar-2024": ["day"]},
+    )
+    _, aspects = _run([model, front], on_prem=MAPPED)
+
+    calendar = _urn("front-app.calendar-2024")
+    cal_qvd = _urn("//nas/qvd/raw/cal.qvd")
+    if written_whole:
+        assert _written_upstreams(aspects, calendar) == [cal_qvd]
+    else:
+        assert "UpstreamLineageClass" not in aspects[calendar]
+        assert _upstreams(aspects, calendar, "add") == [cal_qvd]
+    assert _urn("model-app.calendar-2024") not in str(aspects[calendar])
+
+
+def test_unread_source_app_keeps_script_lineage_of_a_table_qlik_may_have_renamed() -> (
+    None
+):
+    front = _app(
+        "front-app",
+        FRONT_SCRIPT
+        + "[Calendar-2024]: LOAD day FROM [lib://QVD Data/raw/cal.qvd] (qvd);",
+        {**FRONT_MODEL, "Calendar-2024": ["day"]},
+    )
+    source, aspects = _run([front], on_prem=MAPPED)
+
+    calendar = _urn("front-app.calendar-2024")
+    assert "UpstreamLineageClass" not in aspects[calendar]
+    assert _upstreams(aspects, calendar, "add") == [_urn("//nas/qvd/raw/cal.qvd")]
+    assert not _upstreams(aspects, calendar, "remove")
+    assert any(
+        "model-app" in entry for entry in source.reporter.binary_loads_without_lineage
+    )
+
+
+def test_unmapped_binary_load_reports_a_table_qlik_may_have_renamed() -> None:
+    front = _app(
+        "front-app",
+        FRONT_SCRIPT + "Calendar: LOAD * INLINE [week\n1];",
+        {**FRONT_MODEL, "Calendar-1": ["week"]},
+    )
+    source, aspects = _run([front])
+
+    assert _urn("front-app.calendar-1") not in aspects
+    assert _written_upstreams(aspects, _urn("front-app.orders")) == [APP_FILE]
+    [entry] = source.reporter.binary_loads_without_lineage
+    assert "Calendar-1" in entry
+
+
+def test_binary_load_links_its_tables_to_the_app_file() -> None:
+    source, aspects = _run([_app("front-app", FRONT_SCRIPT, FRONT_MODEL)])
+
+    orders = _urn("front-app.orders")
+    assert [u.dataset for u in aspects[orders]["UpstreamLineageClass"].upstreams] == [
+        APP_FILE
+    ]
+    assert aspects[APP_FILE]["SubTypesClass"].typeNames == ["Qlik App File"]
+    assert aspects[APP_FILE]["DatasetPropertiesClass"].name == "sales model.qvf"
+    assert _urn("front-app.calendar") not in aspects
+    assert source.reporter.binary_loads_found == 1
+    assert not source.reporter.binary_loads_without_lineage
+
+
+@pytest.mark.parametrize(
+    "script, data_model, on_prem",
+    [
+        pytest.param(
+            FRONT_SCRIPT + "LOAD * INLINE [note\nx];",
+            FRONT_MODEL,
+            None,
+            id="a table Qlik names",
+        ),
+        pytest.param(
+            FRONT_SCRIPT + "[$(vTable)]: LOAD * INLINE [note\nx];",
+            FRONT_MODEL,
+            None,
+            id="a bracketed variable label",
+        ),
+        pytest.param(
+            FRONT_SCRIPT + "$(vTable): LOAD * INLINE [note\nx];",
+            FRONT_MODEL,
+            None,
+            id="a variable label",
+        ),
+        pytest.param(
+            FRONT_SCRIPT + "$(Include=lib://Scripts/extra.qvs);",
+            FRONT_MODEL,
+            None,
+            id="an include",
+        ),
+        pytest.param(
+            "Binary [lib://Unknown/Sales Model.qvf];",
+            FRONT_MODEL,
+            None,
+            id="an unknown data connection",
+        ),
+        pytest.param(
+            FRONT_SCRIPT,
+            FRONT_MODEL,
+            {"binary_file_to_app": {"lib://Apps/sales model.qvf": "front-app"}},
+            id="mapped to the app itself",
+        ),
+        pytest.param(
+            FRONT_SCRIPT + "Attributes: Generic LOAD *;\nSQL SELECT * FROM db.t;",
+            FRONT_MODEL,
+            None,
+            id="a Generic preceding load",
+        ),
+        pytest.param(FRONT_SCRIPT, {}, None, id="no data model"),
+        pytest.param("Binary sales.qvf;", FRONT_MODEL, None, id="a relative path"),
+    ],
+)
+def test_binary_load_whose_tables_are_not_known_gets_no_lineage(
+    script: str,
+    data_model: Dict[str, List[str]],
+    on_prem: Optional[Dict[str, Any]],
+) -> None:
+    source, aspects = _run([_app("front-app", script, data_model)], on_prem=on_prem)
+
+    assert _urn("front-app.orders") not in aspects
+    assert APP_FILE not in aspects
+    assert len(source.reporter.binary_loads_without_lineage) == 1
+
+
+def test_binary_load_from_a_storage_connection_links_to_the_stored_file() -> None:
+    _, aspects = _run(
+        [_app("front-app", FRONT_SCRIPT, FRONT_MODEL)],
+        file_connection_to_storage={
+            "Apps": {"storage_uri": "abfss://lake@account.dfs.core.windows.net/apps"}
+        },
+    )
+
+    assert _written_upstreams(aspects, _urn("front-app.orders")) == [
+        make_dataset_urn("abs", "lake/apps/Sales Model.qvf")
+    ]
+    assert APP_FILE not in aspects
+
+
+def test_binary_load_from_an_app_the_run_does_not_read_is_reported() -> None:
+    script = (
+        FRONT_SCRIPT
+        + "Orders: LOAD id, amount FROM [lib://QVD Data/raw/more.qvd] (qvd);"
+    )
+    source, aspects = _run(
+        [_app("front-app", script, FRONT_MODEL)],
+        on_prem={"binary_file_to_app": {"//nas/apps/sales model.qvf": "other-app"}},
+    )
+
+    # The script's own upstream is only added, so the edge an earlier run
+    # wrote to the source app stays.
+    orders = _urn("front-app.orders")
+    assert "UpstreamLineageClass" not in aspects[orders]
+    assert _upstreams(aspects, orders, "add") == [_urn("//nas/qvd/raw/more.qvd")]
+    assert not _upstreams(aspects, orders, "remove")
+    [entry] = source.reporter.binary_loads_without_lineage
+    assert entry.startswith("front-app:")
+    assert "other-app" in entry
+
+
+@pytest.mark.parametrize(
+    "statement, file",
+    [
+        (
+            "Binary [lib://Apps/Sales Model.qvf]",
+            QvdReference(connection="Apps", path="Sales Model.qvf"),
+        ),
+        ("BINARY c:\\qv\\customer.qvw", QvdReference(path="c:\\qv\\customer.qvw")),
+        # Relative to the working directory, so no known file.
+        ("Binary customer.qvf", None),
+    ],
+)
+def test_binary_statement_names_the_app_file(
+    statement: str, file: Optional[QvdReference]
+) -> None:
+    binary = parse_script(f"{statement};").binary
+    assert binary is not None
+    assert binary.file == file
+    assert not binary.uses_variables
+
+
+@pytest.mark.parametrize(
+    "script, labels, unnamed",
+    [
+        pytest.param(
+            """
+Calendar: LOAD * INLINE [day
+1];
+Concatenate (Orders) LOAD * FROM [lib://QVD Data/more.qvd] (qvd);
+Map: MAPPING LOAD a, b RESIDENT Calendar;
+Extra:
+LOAD a;
+SQL SELECT a FROM db.t;
+""",
+            ["Calendar", "Extra"],
+            False,
+            # Concatenate adds to a table, and a mapping table is dropped.
+            id="labelled loads",
+        ),
+        pytest.param(
+            "Attributes: Generic LOAD * RESIDENT T;", [], True, id="a Generic load"
+        ),
+        pytest.param(
+            "Attributes: Generic LOAD *;\nSQL SELECT * FROM db.t;",
+            [],
+            True,
+            id="a Generic preceding load",
+        ),
+        pytest.param(
+            "[$(vTable)]: LOAD * INLINE [a\n1];",
+            [],
+            True,
+            id="a bracketed variable label",
+        ),
+        pytest.param(
+            "$(vTable): LOAD * INLINE [a\n1];", [], True, id="a variable label"
+        ),
+    ],
+)
+def test_tables_the_script_creates_are_known(
+    script: str, labels: List[str], unnamed: bool
+) -> None:
+    parsed = parse_script(script)
+    assert parsed.table_labels == labels
+    assert parsed.has_unnamed_tables is unnamed
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        pytest.param(
+            "Orders: Replace LOAD * FROM [lib://QVD Data/orders.qvd] (qvd);",
+            id="on the load",
+        ),
+        pytest.param(
+            "Orders: Replace LOAD id;\nLOAD id;\nSQL SELECT id FROM db.orders;",
+            id="on the top preceding load",
+        ),
+    ],
+)
+def test_replace_load_drops_and_creates_its_table(script: str) -> None:
+    parsed = parse_script(script)
+    assert parsed.table_labels == ["Orders"]
+    assert parsed.dropped_tables == ["Orders"]
+
+
+def test_table_named_by_an_unknown_bracketed_variable_has_no_name() -> None:
+    parsed = parse_script("LIB CONNECT TO 'db';\n[$(vT)]: SQL SELECT a FROM s.t;")
+    # Not a table literally named $(vT), which would be a dataset of its own.
+    assert [table.label_unknown for table in parsed.tables] == [True]
+    assert parsed.has_unnamed_tables
+
+
+@pytest.mark.parametrize(
+    "script, labels",
+    [
+        pytest.param(
+            "$(vT): SQL SELECT a FROM s.t;", ["s.u", "table_2"], id="on a SELECT"
+        ),
+        pytest.param(
+            "$(vT): LOAD a;\nSQL SELECT a FROM s.t;",
+            ["s.t", "s.u", "table_3"],
+            id="on a preceding LOAD",
+        ),
+    ],
+)
+def test_bare_variable_label_keeps_the_table_names(
+    script: str, labels: List[str]
+) -> None:
+    parsed = parse_script(
+        f"LIB CONNECT TO 'db';\n{script}\nSQL SELECT b FROM s.u;\nSQL SELECT 1 AS c;"
+    )
+    # As before such labels were read, so later unlabelled tables keep their
+    # table_<n> names, and so their URNs.
+    assert [table.label for table in parsed.tables] == labels
+    assert parsed.has_unnamed_tables
+
+
+def test_tables_the_script_drops_are_known() -> None:
+    parsed = parse_script("DROP TABLES [Order Lines], 'Regions', Calendar;")
+    assert parsed.dropped_tables == ["Order Lines", "Regions", "Calendar"]
+    assert not parsed.drops_unnamed_tables
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        pytest.param("Replace LOAD * INLINE [a\n1];", id="an unlabelled Replace load"),
+        pytest.param("$(vT): Replace LOAD * INLINE [a\n1];", id="a variable label"),
+        pytest.param(
+            "$(vT): Replace LOAD id;\nSQL SELECT id FROM db.orders;",
+            id="a Replace preceding load labelled with a variable",
+        ),
+        pytest.param(
+            "Replace LOAD id;\n$(vT): SQL SELECT id FROM db.orders;",
+            id="a Replace preceding load above a variable-labelled SELECT",
+        ),
+        pytest.param(
+            "Replace LOAD id;\n$(vT): LOAD id FROM [lib://Data/orders.qvd] (qvd);",
+            id="a Replace preceding load above a variable-labelled file load",
+        ),
+        pytest.param("DROP TABLES Regions, [$(vT)];", id="a variable DROP"),
+        pytest.param("RENAME TABLE Orders TO $(vT);", id="a variable RENAME target"),
+        pytest.param(
+            "Binary [lib://Apps/Sales Model.qvf];\n"
+            "Replace Concatenate SQL SELECT id FROM db.orders;",
+            id="a Replace Concatenate SELECT with no table to add to",
+        ),
+        pytest.param(
+            "Binary [lib://Apps/Sales Model.qvf];\n"
+            "Replace Concatenate LOAD id;\nSQL SELECT id FROM db.orders;",
+            id="a Replace Concatenate preceding load with no table to add to",
+        ),
+    ],
+)
+def test_tables_the_script_drops_without_a_name_are_flagged(script: str) -> None:
+    parsed = parse_script(script)
+    assert parsed.drops_unnamed_tables
+    assert all("$(" not in name for name in parsed.dropped_tables)

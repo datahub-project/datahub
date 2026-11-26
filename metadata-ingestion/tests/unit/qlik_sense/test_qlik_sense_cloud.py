@@ -1,7 +1,7 @@
 import io
 import ssl
 from functools import partial
-from typing import Dict, List
+from typing import Callable, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -136,6 +136,7 @@ def test_partly_read_app_is_marked_incomplete(
     mock_websocket_cls.for_cloud.return_value.websocket_send_request.side_effect = (
         engine_reply
     )
+    mock_websocket_cls.for_cloud.return_value.get_script.return_value = ""
     with (
         patch.object(api, "_get_app_used_tables", return_value=[]),
         patch.object(api, "get_table_lineage", return_value=[]),
@@ -250,6 +251,7 @@ def test_only_denied_load_script_keeps_app_complete(
     with (
         patch.object(api, "_get_app_sheets", return_value=[]),
         patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
     ):
         assert api._get_app("app-1") is app
 
@@ -316,6 +318,8 @@ def test_denied_load_script_is_a_warning(mock_api_cls: MagicMock) -> None:
     mock_api_cls.return_value.lineage_read_failures = []
     mock_api_cls.return_value.field_lineage_failures = []
     mock_api_cls.return_value.opened_without_data = []
+    mock_api_cls.return_value.include_read_failures = []
+    mock_api_cls.return_value.reload_statement_read_failures = []
     mock_api_cls.return_value.engine_refusals = None
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
@@ -329,6 +333,200 @@ def test_denied_load_script_is_a_warning(mock_api_cls: MagicMock) -> None:
     assert [warning.title for warning in source.reporter.warnings] == [
         "Unable to read Qlik app load script"
     ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unread_included_script_is_a_warning(mock_api_cls: MagicMock) -> None:
+    mock_api_cls.return_value.get_spaces.return_value = []
+    mock_api_cls.return_value.unread_items = []
+    mock_api_cls.return_value.failed_user_lookups = {}
+    mock_api_cls.return_value.lineage_read_failures = []
+    mock_api_cls.return_value.field_lineage_failures = []
+    mock_api_cls.return_value.opened_without_data = []
+    mock_api_cls.return_value.engine_refusals = None
+    mock_api_cls.return_value.include_read_failures = [
+        "lib://Common:DataFiles/x.qvs: Access denied"
+    ]
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-cloud"),
+    )
+
+    list(source.get_workunits_internal())
+
+    assert "Unable to read included Qlik scripts" in [
+        warning.title for warning in source.reporter.warnings
+    ]
+
+
+# A cleared or `=` expression app value leaves the recipe's in place.
+@pytest.mark.parametrize(
+    "app_variables, recipe_variables",
+    [
+        ({"vCommon": "'Common:'"}, {}),
+        ({"vCommon": ""}, {"vCommon": "Common:"}),
+        ({"vCommon": "=Upper('x:')"}, {"vCommon": "Common:"}),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_app_script_holds_the_scripts_it_includes(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+    app_variables: Dict[str, str],
+    recipe_variables: Dict[str, str],
+) -> None:
+    api = QlikAPI(
+        QlikSourceConfig.model_validate(
+            {**CLOUD_CONFIG, "script_variables": recipe_variables}
+        )
+    )
+    app = _cloud_app()
+    mock_app_cls.model_validate.return_value = app
+    included = "Rates: LOAD * FROM [lib://Common:Lake/rates.csv];"
+
+    def engine_reply(method: str, params: object = None) -> Dict:
+        if method == "GetIncludeFileContent":
+            assert params == {"qPath": "lib://Common:DataFiles/x.qvs"}
+            return {"qContent": included}
+        return {"qLayout": {}}
+
+    engine = mock_websocket_cls.for_cloud.return_value
+    engine.websocket_send_request.side_effect = engine_reply
+    engine.get_script.return_value = "$(Include=lib://$(vCommon)DataFiles/x.qvs);"
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
+        patch.object(api, "_read_data_model", return_value=[]),
+        patch.object(api, "_read_variables", return_value=app_variables),
+    ):
+        api._get_app("app-1")
+
+    assert app.script is not None and included in app.script
+    assert "Include" not in app.script
+    assert api.include_read_failures == []
+
+
+@pytest.mark.parametrize("space_id, reads", [("space-1", 1), (None, 2)])
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_personal_apps_read_their_own_includes(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+    space_id: Optional[str],
+    reads: int,
+) -> None:
+    # An unqualified path resolves in the app's space, and each personal app
+    # has its owner's.
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    mock_app_cls.model_validate.side_effect = lambda _: _cloud_app(spaceId=space_id)
+    include_reads: List[object] = []
+
+    def engine_reply(method: str, params: object = None) -> Dict:
+        if method == "GetIncludeFileContent":
+            include_reads.append(params)
+            return {"qContent": "Rates: LOAD * FROM [lib://DataFiles/rates.csv];"}
+        return {"qLayout": {}}
+
+    engine = mock_websocket_cls.for_cloud.return_value
+    engine.websocket_send_request.side_effect = engine_reply
+    engine.get_script.return_value = "$(Include=lib://DataFiles/x.qvs);"
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
+        patch.object(api, "_read_data_model", return_value=[]),
+        patch.object(api, "_read_variables", return_value={}),
+    ):
+        api._get_app("app-1")
+        api._get_app("app-2")
+
+    assert len(include_reads) == reads
+
+
+def _read_app_with_include_replies(
+    api: QlikAPI,
+    mock_websocket_cls: MagicMock,
+    script: str,
+    include_reply: Callable[[object], Dict],
+) -> None:
+    def engine_reply(method: str, params: object = None) -> Dict:
+        if method == "GetIncludeFileContent":
+            return include_reply(params)
+        return {"qLayout": {}}
+
+    engine = mock_websocket_cls.for_cloud.return_value
+    engine.websocket_send_request.side_effect = engine_reply
+    engine.get_script.return_value = script
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
+        patch.object(api, "_read_data_model", return_value=[]),
+        patch.object(api, "_read_variables", return_value={}),
+    ):
+        api._get_app("app-1")
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_include_failing_outside_the_engine_is_read_once_an_app(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    api.spaces["space-1"] = "Finance"
+    mock_app_cls.model_validate.return_value = _cloud_app()
+    include_reads: List[object] = []
+
+    def include_reply(params: object) -> Dict:
+        include_reads.append(params)
+        raise TimeoutError("no reply")
+
+    _read_app_with_include_replies(
+        api,
+        mock_websocket_cls,
+        "$(Include=lib://DataFiles/x.qvs);\n$(Include=lib://DataFiles/x.qvs);",
+        include_reply,
+    )
+
+    assert len(include_reads) == 1
+    assert api.include_read_failures
+    assert all(
+        "app-1" in entry and "Finance" in entry for entry in api.include_read_failures
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.inline_includes")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_app_keeps_its_script_when_inlining_fails(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+    mock_inline: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    app = _cloud_app()
+    mock_app_cls.model_validate.return_value = app
+    mock_inline.side_effect = MemoryError()
+    script = "$(Include=lib://DataFiles/x.qvs);\nX: LOAD * FROM [lib://S:L/x.csv];"
+
+    _read_app_with_include_replies(
+        api, mock_websocket_cls, script, lambda params: {"qContent": ""}
+    )
+
+    assert app.script == script
+    assert not app.tables_read_failed
+    assert len(api.include_read_failures) == 1
 
 
 def _data_connection(name: str, space: str, datasource: str) -> Dict[str, str]:

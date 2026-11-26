@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from _pytest.mark.structures import Mark
 
-from shard_pack import ModuleShard, pack_module_plans
+from shard_pack import TARGET_BATCH_WALL_SECONDS, ModuleShard, pack_module_plans
 from utilities import batch_plan_dump
 from utilities.batch_plan_dump import (
     markexpr_filtered_items,
@@ -130,6 +130,41 @@ def test_size_selected_records_candidate_scopes_and_mode(
     assert meta["candidate_test_count"] == 4
     assert meta["candidate_scope_count"] == 3
     assert meta["smart_mode"] == "active"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (None, TARGET_BATCH_WALL_SECONDS),
+        ("300", 300.0),
+        ("0", TARGET_BATCH_WALL_SECONDS),
+        ("five", TARGET_BATCH_WALL_SECONDS),
+    ],
+)
+def test_size_selected_uses_target_from_env(
+    monkeypatch: pytest.MonkeyPatch, raw: str | None, expected: float
+) -> None:
+    if raw is None:
+        monkeypatch.delenv("SMOKE_PLAN_TARGET_BATCH_SECONDS", raising=False)
+    else:
+        monkeypatch.setenv("SMOKE_PLAN_TARGET_BATCH_SECONDS", raw)
+    targets: list[float] = []
+    monkeypatch.setattr(
+        batch_plan_dump,
+        "size_batches",
+        lambda items, max_batches, workers, target: targets.append(target),
+    )
+    monkeypatch.setattr(batch_plan_dump, "slowest_scope_seconds", lambda _: 0.0)
+    items = [_FakeItem("tests/a.py::test_one")]
+    _, meta = size_selected(
+        items,  # type: ignore[arg-type]
+        max_batches=20,
+        xdist_workers=3,
+        raw_pr_tags="",
+        changed_tests=[],
+    )
+    assert targets == [expected]
+    assert meta["target_wall"] == expected
 
 
 def test_size_selected_counts_candidates_before_smart_filtering(

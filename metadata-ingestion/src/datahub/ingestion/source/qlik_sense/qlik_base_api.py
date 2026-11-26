@@ -22,7 +22,9 @@ from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfi
 from datahub.ingestion.source.qlik_sense.data_classes import (
     DataModelTable,
     Item,
+    LineageUpstreams,
     ListedDataset,
+    ReloadStatement,
     Sheet,
     Space,
     UnchangedApp,
@@ -46,6 +48,7 @@ IsUnchanged = Callable[[str, str], bool]
 
 # The unread item a failed data connection listing records.
 UNREAD_DATA_CONNECTIONS = "data connections"
+UNREAD_SPACES = "spaces"
 
 
 def log_read_error(message: str) -> None:
@@ -99,9 +102,12 @@ class QlikBaseAPI(ABC):
         self.change_check_failures: List[str] = []
         # Datasets whose lineage graph could not be read.
         self.lineage_read_failures: List[str] = []
+        self.reload_statement_read_failures: List[str] = []
         self.field_lineage_failures: List[str] = []
         # Apps opened without their data because opening them with it failed.
         self.opened_without_data: List[str] = []
+        # Scripts apps include that could not be read, as path and reason.
+        self.include_read_failures: List[str] = []
         # Set where app reads wait for an Engine that refuses connections.
         self.engine_refusals: Optional[RefusedConnectionBudget] = None
 
@@ -129,6 +135,19 @@ class QlikBaseAPI(ABC):
         """Datasets of every space, or None when they could not be listed."""
         # Enterprise on Windows has no Qlik datasets.
         return []
+
+    def get_reload_statements(self, app_id: str) -> List[ReloadStatement]:
+        """Statements of the app's last reload."""
+        # Enterprise on Windows does not record them.
+        return []
+
+    def get_lineage_upstreams(self, qri: str) -> LineageUpstreams:
+        # Enterprise on Windows has no lineage graph.
+        return LineageUpstreams()
+
+    def get_database_labels(self, qri: str) -> Dict[str, str]:
+        # Enterprise on Windows has no lineage graph.
+        return {}
 
     @abstractmethod
     def _list_items(self, space_id: str) -> Iterable[Dict]:

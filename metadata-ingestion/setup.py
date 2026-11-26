@@ -224,7 +224,7 @@ aws_common = {
 
 path_spec_common = {
     "parse>=1.19.0,<2.0.0",
-    "wcmatch>=10.1,<11.0.0",
+    "wcmatch>=10.1,<13.0.0",
 }
 
 looker_common = {
@@ -1427,6 +1427,7 @@ entry_points = {
         "add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:AddDatasetDataProduct",
         "simple_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:SimpleAddDatasetDataProduct",
         "pattern_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:PatternAddDatasetDataProduct",
+        "dataproduct_mapping_based_on_tags = datahub.ingestion.transformer.dataset_dataproduct_based_on_tags:DatasetTagDataProductMapper",
         "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrlDataset",
         "replace_external_url_container = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrlContainer",
         "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",

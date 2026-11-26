@@ -20,7 +20,7 @@ from great_expectations.datasource.fluent.config_str import (  # type: ignore[at
 )
 
 import datahub.emitter.mce_builder as builder
-from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.configuration.env_vars import get_debug
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import BatchSpec
@@ -36,7 +36,7 @@ from datahub_gx_plugin.common import (
 
 assert MARKUPSAFE_PATCHED and GX_1X_REQUIRED
 logger = logging.getLogger(__name__)
-if get_boolean_env_variable("DATAHUB_DEBUG", False):
+if get_debug():
     handler = logging.StreamHandler(stream=sys.stdout)
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)

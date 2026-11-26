@@ -573,26 +573,29 @@ describe('useSelectChildren - selectChildrenWithParent is false (granular select
     });
 });
 
-describe('useSelectChildren - implicitlySelectAllDescendants', () => {
-    const descendantProps = {
-        ...defaultProps,
-        implicitlySelectChildren: true,
-        implicitlySelectAllDescendants: true,
-        selectChildrenWithParent: false,
-    };
-
-    it('implicitly selects a nested parent whose ancestor is selected', () => {
-        const { result } = renderHook(() => useNestedOption({ ...descendantProps, isAncestorSelected: true }));
+describe('useSelectChildren - isOptionImplicitlySelected', () => {
+    it('uses the predicate instead of implicitlySelectChildren', () => {
+        const isOptionImplicitlySelected = vi.fn(() => true);
+        const { result } = renderHook(() =>
+            useNestedOption({ ...defaultProps, implicitlySelectChildren: false, isOptionImplicitlySelected }),
+        );
 
         expect(result.current.isImplicitlySelected).toBe(true);
-        expect(result.current.isPartialSelected).toBe(false);
+        expect(isOptionImplicitlySelected).toHaveBeenCalledWith(option, defaultProps.selectedOptions);
     });
 
-    it('shows a selected parent as fully checked when none of its children are explicitly selected', () => {
-        const { result } = renderHook(() => useNestedOption({ ...descendantProps, selectedOptions: [option] }));
+    it('does not fall back to implicitlySelectChildren when the predicate returns false', () => {
+        const { result } = renderHook(() =>
+            useNestedOption({
+                ...defaultProps,
+                option: children[0],
+                selectedOptions: [option],
+                implicitlySelectChildren: true,
+                isOptionImplicitlySelected: () => false,
+            }),
+        );
 
-        expect(result.current.isSelected).toBe(true);
-        expect(result.current.isPartialSelected).toBe(false);
+        expect(result.current.isImplicitlySelected).toBe(false);
     });
 });
 

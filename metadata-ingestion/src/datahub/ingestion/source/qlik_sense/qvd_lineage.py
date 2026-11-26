@@ -9,6 +9,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ParsedScript,
     PrecedingLoad,
     QvdReference,
+    QvdStore,
     ScriptTableLineage,
 )
 
@@ -92,7 +93,7 @@ class QvdPathResolver:
         else:
             folder = self._by_connection(self.folders, file.connection)
             if folder is None:
-                self.unresolved.append(f"lib://{file.connection}/{file.path}")
+                self.unresolved.append(file.as_written)
                 return None
             path = canonical_path(f"{folder}/{file.path}")
         for alias, target in self.folder_aliases:
@@ -147,6 +148,22 @@ def _loaded_fields(load: PrecedingLoad) -> Optional[Dict[str, List[str]]]:
     if load.keeps_all or load.unreadable:
         return None
     return {field.name: field.sources for field in load.fields if field.named}
+
+
+def stored_fields(store: QvdStore, known: List[str]) -> Optional[List[QvdField]]:
+    """The fields a STORE writes, given the stored table's `known` fields, or
+    None when they can't be told."""
+    if store.fields is not None:
+        selected = _loaded_fields(store.fields)
+        return (
+            None
+            if selected is None
+            else [
+                QvdField(name=name, source=sources[0] if len(sources) == 1 else None)
+                for name, sources in selected.items()
+            ]
+        )
+    return [QvdField(name=name, source=name) for name in known] or None
 
 
 def app_qvd_lineage(
@@ -230,24 +247,10 @@ def app_qvd_lineage(
                 ]
             )
         )
-        if store.fields is not None:
-            selected = _loaded_fields(store.fields)
-            stored_fields: Optional[List[QvdField]] = (
-                None
-                if selected is None
-                else [
-                    QvdField(
-                        name=name,
-                        source=sources[0] if len(sources) == 1 else None,
-                    )
-                    for name, sources in selected.items()
-                ]
-            )
-        elif known:
-            stored_fields = [QvdField(name=name, source=name) for name in known]
-        else:
-            stored_fields = None
         lineage.qvds.writes.setdefault(urn, []).append(
-            QvdWrite(table_urn=make_urn(stored.identifier), fields=stored_fields)
+            QvdWrite(
+                table_urn=make_urn(stored.identifier),
+                fields=stored_fields(store, known),
+            )
         )
     return lineage

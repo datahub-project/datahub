@@ -382,7 +382,7 @@ def get_test_mode() -> Optional[str]:
 
 def get_debug() -> bool:
     """Enable debug mode."""
-    return os.getenv("DATAHUB_DEBUG", "").lower() == "true"
+    return os.getenv("DATAHUB_DEBUG", "").lower() in ("true", "1")
 
 
 def get_disable_secret_masking() -> bool:

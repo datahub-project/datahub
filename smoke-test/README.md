@@ -246,7 +246,7 @@ echo "TEST_STRATEGY: $TEST_STRATEGY"
 
 ### Simulate batch packing without running tests
 
-CI splits pytests with `BATCH_COUNT` (3 on forks, 2 for the `p0` tier, 5 for the full suite) and `PYTEST_XDIST_WORKERS=3`. To dump the predicted pack plan for one of those counts without executing tests, load the opt-in plugin with `-p` (it is not registered in `conftest.py`):
+CI splits pytests with `BATCH_COUNT` (5 on forks, 3 for the `p0` tier, 5 for the full suite) and `PYTEST_XDIST_WORKERS=3`. To dump the predicted pack plan for one of those counts without executing tests, load the opt-in plugin with `-p` (it is not registered in `conftest.py`):
 
 ```bash
 cd smoke-test
@@ -258,9 +258,9 @@ PLUGIN="-p batch_plan_dump"
 BATCH_COUNT=5 PYTEST_XDIST_WORKERS=3 \
   pytest $PLUGIN --collect-only --dump-batch-plan /tmp/plan-5.json
 
-# p0 gate, 2 batches
-BATCH_COUNT=2 PYTEST_XDIST_WORKERS=3 \
-  pytest $PLUGIN --collect-only -m p0 --dump-batch-plan /tmp/plan-p0-2.json
+# p0 gate, 3 batches
+BATCH_COUNT=3 PYTEST_XDIST_WORKERS=3 \
+  pytest $PLUGIN --collect-only -m p0 --dump-batch-plan /tmp/plan-p0-3.json
 
 # CI: artifact path from env (overrides --dump-batch-plan)
 SMOKE_DUMP_BATCH_PLAN=/tmp/plan-catalog-3.json BATCH_COUNT=3 PYTEST_XDIST_WORKERS=3 \
@@ -277,7 +277,8 @@ Under active smart testing, CI plans the matrix with `--size-batches 9`. The
 plugin applies `SMOKE_SMART_TAGS` and picks the fewest batches (at most 9)
 whose predicted pytest time is under 8 minutes, or under the slowest single
 loadscope when that alone takes longer (a scope never splits across workers).
-It ignores `BATCH_COUNT`:
+`SMOKE_PLAN_TARGET_BATCH_SECONDS` overrides the 8 minute target. It ignores
+`BATCH_COUNT`:
 
 ```bash
 SMOKE_SMART_TAGS='{"feature-user": ["documentation"]}' PYTEST_XDIST_WORKERS=3 \

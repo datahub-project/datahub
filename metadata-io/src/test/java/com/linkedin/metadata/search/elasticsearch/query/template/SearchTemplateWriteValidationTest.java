@@ -164,6 +164,36 @@ public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
         validate(validator, retrieverContext, write("sortedLegacy", sortedLegacy)).isEmpty());
   }
 
+  /**
+   * A child inherits its parent's retrieval, so a parent stored with a retrieval value no build
+   * defines fails the child's write, while the stored parent still loads.
+   */
+  @Test
+  public void testAnInheritedUnknownRetrievalValueFailsTheChildsWrite() {
+    SearchTemplateValidator validator = templateValidator();
+    RetrieverContext retrieverContext = holeContext();
+    store("urn:li:searchTemplate:plainParent", body("Plain", "{ \"match_all\": {} }", null));
+    assertTrue(
+        validate(
+                validator,
+                retrieverContext,
+                write("plainChild", parentOf("PlainChild", "urn:li:searchTemplate:plainParent")))
+            .isEmpty());
+
+    SearchTemplateProperties paged = body("Paged", "{ \"match_all\": {} }", null);
+    paged.setRetrieval(new SearchTemplateRetrieval().setPage("cursor"));
+    store("urn:li:searchTemplate:pagedParent", paged);
+    assertEquals(
+        loader.load(opContext, "urn:li:searchTemplate:pagedParent").getRetrieval().getPage(),
+        "cursor");
+    assertFalse(
+        validate(
+                validator,
+                retrieverContext,
+                write("pagedChild", parentOf("PagedChild", "urn:li:searchTemplate:pagedParent")))
+            .isEmpty());
+  }
+
   private static ChangeMCP write(String id, SearchTemplateProperties properties) {
     return item(
         UrnUtils.getUrn("urn:li:searchTemplate:" + id), USER, ChangeType.UPSERT, properties);

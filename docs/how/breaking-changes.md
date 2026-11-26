@@ -26,6 +26,46 @@ The `tags_to_term` ingestion transformer has changed in four ways ([PR #21479](h
 
 To update a recipe, replace each short name in `tags` with the tag's full name. For example, for the Snowflake tag `urn:li:tag:snowflakedb.snowflakeschema.tag_name:tag_value`, change `tag_name` to `snowflakedb.snowflakeschema.tag_name:tag_value`.
 
+### Domain and glossary child listings are paged, and totals no longer hide restricted children
+
+The GraphQL `relationships` field for `IsPartOf` (the children of a domain, glossary term group or glossary term) now pages its results and limits the work it does per request, whether or not search access controls are enabled:
+
+- If `count` is omitted, at most 100 children are returned. Before, every child was returned. Set `GRAPHQL_QUERY_DIRECT_CHILD_DEFAULT_COUNT` to change this default.
+- `count` is capped at 1000. A larger value is treated as 1000, and a negative `start` or `count` is treated as 0. Set `GRAPHQL_QUERY_DIRECT_CHILD_MAX_COUNT` to change the cap.
+- `total` is now the number of children that exist, including any the viewer cannot see. Before, with search access controls enabled, it excluded children the viewer cannot see. A page can therefore hold fewer entries than `count` even when more children follow.
+- `count: 0` returns only `total`, with no per-child permission checks.
+- Children are returned in URN order, so an offset selects the same children on every request.
+
+If you read these children through the API, request them in pages and keep going while `start + count` is less than `total`. The web UI's glossary delete check only needs `total`, so it now requests `count: 0`.
+
+### Snowflake default `table_types` includes interactive tables ([PR #21476](https://github.com/datahub-project/datahub/pull/21476))
+
+- **(Ingestion / Snowflake)** The Snowflake source now includes `'INTERACTIVE TABLE'` in the default `table_types` set, so interactive tables are discovered and ingested as datasets with subtype `Interactive Table` on a default recipe. Recipes that set `table_types` explicitly are unchanged. **Action:** none required. To keep interactive tables out of ingestion, set `table_types` to a set that omits `'INTERACTIVE TABLE'` (for example `BASE TABLE` and `EXTERNAL TABLE` only).
+
+### Remote executor logs ingestion run output ([#21529](https://github.com/datahub-project/datahub/pull/21529))
+
+The remote executor copies each run's output into its container log (`DATAHUB_EXECUTOR_PRINT_SUBPROCESS_LOGS`, default `true`). To turn it off, set:
+
+- Helm: `global.datahub.executor.ingestions.print_subprocess_logs: false`, through values, not `extraEnvs`.
+- Terraform: `executor_ingestions_print_subprocess_logs = false` in `datahub`.
+- CloudFormation: `DataHubIngestionsPrintSubprocessLogs=false`.
+
+### Pinned links removed from Settings > Home Page ([#21466](https://github.com/datahub-project/datahub/pull/21466))
+
+If the home page redesign is enabled (`SHOW_HOME_PAGE_REDESIGN=true`, the default), the
+**Settings > Home Page** page now manages only announcements. The **Pinned Link** option has been
+removed when creating an announcement, and existing pinned link posts no longer appear in the
+table. This option had not worked reliably for some time. With the redesign turned off, the page
+still offers pinned links.
+
+To pin links on the home page, add a **Quick Link** module (pinned link widget) to your home page
+instead. To show pinned links to everyone by default, an admin can edit the **Organization Default
+Home** and add Quick Link modules there. Users who haven't customized their home page will see
+them automatically.
+
+The upgrade reindexes existing posts in the background so the page can tell announcements from
+pinned links. Until that finishes, existing announcements may be missing from the table.
+
 ### Stricter permission checks when deleting from the UI or GraphQL
 
 Delete actions in the UI and GraphQL API now check the type of the item being deleted ([PR #21488](https://github.com/datahub-project/datahub/pull/21488)). For example, **Delete Tag** can only delete tags, and **Delete Domain** can only delete domains. Normal use of these actions does not change.
@@ -39,6 +79,15 @@ Three cases now require the **Delete Entity** privilege on the item itself:
 If someone sees an "Unauthorized" error when cleaning up these items, give them the **Delete Entity** privilege on those items, or have an admin delete them.
 
 Through the GraphQL API, a query can no longer be created unless it is attached to at least one dataset. The UI always attaches a query to a dataset, so it is not affected.
+
+### `applications` on Metric and SemanticModel in GraphQL ([#21576](https://github.com/datahub-project/datahub/pull/21576))
+
+The `applications` field on the `Metric` and `SemanticModel` GraphQL types now returns the
+applications the metric or semantic model belongs to, as it does on other entities. Its type changed
+from `EntityRelationshipsResult` to a list of `ApplicationAssociation`. The old field always returned
+null, so no data is lost, but a query that selects the old shape, such as
+`applications { total relationships { entity { urn } } }`, now fails validation. Select
+`applications { application { urn properties { name } } }` instead.
 
 ### Semantic search template sends an entity URN to similarity ([#21474](https://github.com/datahub-project/datahub/pull/21474))
 
@@ -159,14 +208,23 @@ On GMS, this delete now checks that the delete is allowed, removes the relations
 hold to the deleted one, then deletes it. A delete that is refused leaves those relationships in
 place. Deleting the entity first dropped them from the graph, so they stayed on the other entities.
 
-Deleting a tag, term, domain, user, group or other entity that more than 100 other entities point
-at is now refused, and nothing is deleted. The error says how many entities point at it. Either
-raise the limit with `DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`
-(`hardDelete.graph-reference-cleanup-limit`, default `100`), or remove the references first with
-`datahub delete references --urn <urn>` and delete again. Set the limit to `0` to turn this
-cleanup off: the entity is deleted alone, as before, and the entities that pointed at it keep
-pointers to something that no longer exists. References that are not graph relationships are
-still removed. `ReferencesCleanup.choice()` reports which path ran.
+Removing the relationships of an entity that has more than 100 incoming relationships (a tag,
+term, domain, user, group or other entity) in one request can time out, so the limit is
+`hardDelete.graph-reference-cleanup-limit` (`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT`,
+default `100`). `hardDelete.graph-reference-over-limit`
+(`DATAHUB_HARD_DELETE_GRAPH_REFERENCE_OVER_LIMIT`) sets what a delete over the limit does. The
+default, `SKIP`, deletes the entity without removing those relationships, as before this change: the
+entities that pointed at it keep pointers to something that no longer exists. GMS logs a warning
+that names the first ten of them and counts `datahub.hard_delete.graph_references_skipped`.
+`REFUSE` deletes nothing and returns an error that says how many relationships point at the entity.
+A limit of `0` puts every entity that has a referrer over the limit. References that are not graph
+relationships are still removed either way. `ReferencesCleanup.choice()` reports which path ran.
+
+To repair the references a skip left behind, [restore the indices](https://docs.datahub.com/docs/how/restore-indices/)
+of the entities that pointed at the deleted one, limited with `urnLike` and `aspectNames` to the
+aspect that holds the reference, then run `datahub delete references --urn <urn>`. The delete dropped
+the graph relationships, and `datahub delete references` finds referrers through the graph, so it
+finds nothing until restoring rebuilds them.
 
 If a delete fails because the entity was written to while it was being deleted (with
 `featureFlags.reliableHardDelete` on), the relationships to it are already removed and the entity
@@ -353,12 +411,59 @@ unpublished documents that have no lifecycle stage. `semanticSearchAcrossEntitie
 it runs the semantic search template. **Action:** none, unless a client filters on
 `showInGlobalContext` and expects documents hidden from global context to stay out.
 
+### Vector search templates need OpenSearch 3.5 or later ([#21596](https://github.com/datahub-project/datahub/pull/21596))
+
+On OpenSearch before 3.5, a search that a vector search template serves from the DataHub index now
+fails instead of returning an empty page. This covers a search that names
+`urn:li:searchTemplate:semantic` or `urn:li:searchTemplate:similarity` in the `searchTemplate`
+search flag, an entity URN that `semantic` sends to `similarity`, and a custom template whose ladder
+reaches a vector rung. Before 3.5 the OpenSearch k-NN plugin can apply these searches' filter to the
+wrong documents, so they could return an empty or incomplete page, depending on the filter; a search
+of this kind that returned results before now fails too. The search fails with a server error, GMS
+logs a warning once, and the `search.template.vectorRetrieval` metric counts it as `unavailable`. It
+fails whatever the template's `onFailure` says, and the `keywordFallbackOnEmbeddingFailure` search
+flag does not turn it into keyword results. Keyword search is not affected, including the rerank of
+the shipped `fulltext` template (`keywordRerank`), and neither is semantic search
+(`semanticSearchAcrossEntities`), which already stays on its own kNN search before 3.5. A template
+that an external vector store serves is not affected either. While GMS cannot read the OpenSearch
+version, or reads a version of 7 or above, which a cluster in compatibility mode reports whatever it
+runs, these searches run as before. **Action:** to use vector templates, upgrade OpenSearch to 3.5
+or later, then restart GMS, which keeps the version it has read until it restarts.
+
+### `searchDocuments` through a vector template honors its search flags ([#21596](https://github.com/datahub-project/datahub/pull/21596))
+
+`searchDocuments` with a vector template named in the `searchTemplate` search flag now applies the
+`minSimilarity` search flag, which it ignored before, and honors
+`keywordFallbackOnEmbeddingFailure`, as `searchAcrossEntities` does: with it set, a query that
+cannot be embedded gets the keyword search results for the same request, without the named template.
+The `searchDocuments` result does not say that it fell back. A `minSimilarity` outside -1 to 1, or
+one on a template whose embedding profile is not cosine, now fails the search as a bad request
+instead of being ignored. **Action:** none, unless a client sends such a `minSimilarity`.
+
+### Search template writes reject unknown `retrieval` values ([#21596](https://github.com/datahub-project/datahub/pull/21596))
+
+Writing a search template now fails when `retrieval.total`, `retrieval.facets`, `retrieval.page`, or
+`retrieval.authorization` holds a value DataHub does not define, whether the template sets it or
+inherits it from a parent. `total` accepts `candidates` and `facets` accepts `candidateUrns`. `page`
+and `authorization` have no value yet, so any value there is rejected. No release reads these fields
+and the shipped templates set none of them, so search results do not change, and a template that
+already stores another value still loads. **Action:** if a custom template sets one of these fields to
+another value, remove it before you next write that template or a template that inherits from it.
+
 ### Parent Data Product is now checked on every API
 
 Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if the parent doesn't exist
 or isn't a Data Product, as it already did in the UI and GraphQL ([PR #21307](https://github.com/datahub-project/datahub/pull/21307)).
 Create parents before their children. Existing products are unaffected unless their parent is changed.
 To turn the check off, set `metadataChangeProposal.validation.dataProductProperties.parent.enabled` to `false`.
+
+### A Data Product's parent can no longer be one of its descendants
+
+Setting a Data Product's parent through OpenAPI, Rest.li, YAML or the Python SDK now fails if the new
+parent is one of the product's own descendants, as it already did in the UI and GraphQL. Previously
+the write succeeded and left a loop of Data Products with no root. Move the descendant elsewhere
+first, in the same request or an earlier one. Existing products are unaffected unless their parent is
+changed. The same setting as above turns this check off.
 
 <!--
 
@@ -421,6 +526,12 @@ Requirements:
 - Helm Chart: (TBD)
 
 ### Breaking Changes
+
+- [#21570](https://github.com/datahub-project/datahub/pull/21570) **(Ingestion / Qlik Sense)** On Qlik Cloud, a Qlik dataset that only an app's upstream lineage graph names, such as a QVD in a space the API key's user can't see, is now ingested only when the last reloads of the apps that load or store it give exactly one `lib://` path for it. It then gets that path, a browse path and containers under its space, connection and folders; its URN is unchanged. A dataset with no single path, for example a file name read through two connections, is no longer ingested: with stale metadata removal on, the first run after upgrading soft-deletes it, along with any tags, terms, owners or documentation added to it, and the tables that load it link to its URN without a dataset behind it. The run lists these under `graph_named_datasets_without_path`. **Action:** give the API key's user access to the spaces named in the "Qlik spaces the API key can't see" warning so these datasets are listed with their usual URNs, and move anything you attached to the soft-deleted datasets.
+
+- [#21538](https://github.com/datahub-project/datahub/pull/21538) **(Ingestion / Qlik Sense)** On Qlik Sense Enterprise with `read_data_model: true` and stateful ingestion, an app with a `BINARY` statement whose last read ingested BINARY tables, and whose data can't be opened this run, for example because section access now denies it to the service user, counts as partly read, so its last read is kept for up to `max_partial_reads_kept` runs. After that it is ingested without those tables, which stale metadata removal soft-deletes, with a "Qlik BINARY tables are no longer kept" warning. An app whose data was never readable is not affected. **Action:** to keep BINARY tables, give the Engine service user access to these apps' data in section access.
+
+- [#21538](https://github.com/datahub-project/datahub/pull/21538) **(Ingestion / Qlik Sense)** A load script `SELECT` labelled with a variable the connector can't expand in brackets or quotes, such as `[$(vTable)]: SQL SELECT ...`, was ingested as a table literally named `$(vTable)` (`<app id>.$(vtable)`). It is now named like an unlabelled table: after the one data model table with exactly its columns, or `table_<n>`. On-prem, a QVD load with such a label is no longer linked to its QVD, as for an unlabelled load. Other tables keep their names. **Action:** move anything attached to the old `$(...)` datasets onto the new ones, or set the variable in `script_variables` so the table gets its real name.
 
 - [#21531](https://github.com/datahub-project/datahub/pull/21531) **(Ingestion / CSV Enricher)** `filename` can now be an `s3://` path as well as a local path or `http(s)://` URL. Reading from `http(s)://` or `s3://` now needs the plugin's dependencies, which a bare `acryl-datahub` install does not include. A `filename` with any other scheme (for example `gs://`) now fails at config validation. **Action:** if you read the CSV from a URL, install `acryl-datahub[csv-enricher]`.
 
@@ -554,6 +665,8 @@ Requirements:
 - [#21554](https://github.com/datahub-project/datahub/pull/21554) **(Ingestion / Grafana)** Grafana ingestion no longer stops or runs forever when Grafana returns unexpected data. Dashboards, search results and panels that cannot be read are skipped and listed as warnings in the ingestion report (`Dashboard Fetch Error`, `Dashboard Parse Error`, `Dashboard Search Result Skipped`, `Panel Skipped`); one bad panel no longer drops the other panels on its dashboard. A dashboard search response that is not a list is reported as a `Dashboard Search Error` failure, and if Grafana keeps returning the same full page, paging stops with a `Paging Stopped` failure. If stateful ingestion removes stale metadata, a run that skips dashboards is also marked as failed and removes no stale metadata, so that the skipped dashboards are not deleted from DataHub. `skip_text_panels: true` now takes effect; before, text panels were still ingested as charts. **Action:** none. Expect new warnings in the report where these problems were previously silent or stopped ingestion. If you set `skip_text_panels: true`, text-panel charts ingested earlier are removed as stale on the next run with stale-metadata removal on.
 
 - [#18483](https://github.com/datahub-project/datahub/pull/18483) **(Ingestion / Grafana)** Grafana dashboards are now placed in a folder only when that folder is ingested in the same run ([#18260](https://github.com/datahub-project/datahub/issues/18260)). Dashboards in the General folder, in a folder excluded by `folder_pattern`, or in a nested folder no longer point at a folder that does not exist. A dashboard whose folder was not ingested is listed in the ingestion report under the `Dashboard folder not ingested` warning. A folder without a title is now named after its uid or id, and a folder Grafana returns without an id is skipped with a `Folder Parse Error` warning instead of stopping ingestion. If stateful ingestion removes stale metadata, a run that skips such a folder is marked as failed and removes no stale metadata at all, so that the folder is not deleted from DataHub. Later runs do the same until the folder is fixed in Grafana. **Action:** optional cleanup. Dashboards ingested earlier into the General, excluded or nested folders still point at a folder that does not exist; in DataHub these dashboard containers show a parent folder that cannot be opened. To remove that link, delete the `container` aspect of each such dashboard container: `curl -X DELETE "<gms_url>/openapi/v3/entity/container/<url-encoded dashboard container urn>/container" -H "Authorization: Bearer <token>"` (`datahub delete --aspect` only handles timeseries aspects).
+
+- [#20247](https://github.com/datahub-project/datahub/pull/20247) **(Ingestion / Sigma)** A column of a Sigma Data Model join element that reads a join key now also gets column lineage from the other side's key, marked with transformOperation `JOIN_KEY` and scored 0.7 (0.6 for an outer join). The other side is added as an upstream of the element. **Action:** none. Set `extract_data_model_spec_lineage: false` to turn this off; that also turns off union lineage.
 
 - [#20466](https://github.com/datahub-project/datahub/pull/20466) **(Sigma ingestion)** A Data Model column with an empty formula now gets column lineage to the warehouse column Sigma's column id names. These columns previously had none. A column whose formula is not empty but reads no other element or table (a constant, only parameters, or only columns of its own element) still gets none, and a column whose id does not name a warehouse column is not matched to other elements by name. Such an empty-formula column whose warehouse table cannot be resolved, for example on a connection DataHub cannot map, now counts once per column under `data_model_element_fgl_warehouse_passthrough_deferred`, so that counter can rise. That counter no longer counts a column whose id does not name a column of one of its element's own source tables, or names a Sigma Dataset this run ingested, since nothing failed there. Among same-named columns of an element, a whitespace-only formula no longer outranks one with no formula, which can change which of them lands in the schema. **Action:** none. Expect more warehouse column lineage on Data Model elements.
 

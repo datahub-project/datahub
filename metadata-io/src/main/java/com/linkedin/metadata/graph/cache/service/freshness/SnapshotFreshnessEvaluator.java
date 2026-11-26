@@ -49,7 +49,7 @@ public final class SnapshotFreshnessEvaluator {
     if (isFreshSnapshot(definition, snapshot, direction)) {
       return SnapshotFreshness.FRESH;
     }
-    if (isStale(snapshot, definition)) {
+    if (isStaleOrSuperseded(snapshot, definition)) {
       return usesBackgroundRebuild(definition)
           ? SnapshotFreshness.STALE_BLOCKED
           : SnapshotFreshness.STALE_SERVABLE;
@@ -90,7 +90,7 @@ public final class SnapshotFreshnessEvaluator {
     if (status != CacheStatus.ACTIVE) {
       return false;
     }
-    return isStale(snapshot, definition) && !isFresh(definition, cacheKey, direction);
+    return isStaleOrSuperseded(snapshot, definition) && !isFresh(definition, cacheKey, direction);
   }
 
   public boolean shouldSkipRebuild(
@@ -173,6 +173,48 @@ public final class SnapshotFreshnessEvaluator {
         > definition.getPopulationIntervalSeconds() * 1000L;
   }
 
+  /**
+   * True once the first write recorded after the snapshot's source read began is searchable in the
+   * source index. Together with the time-to-live this makes the effective expiry the earlier of
+   * {@code builtAt + intervalSeconds} and that write's visibility time.
+   *
+   * @param watermarks ascending times at which recorded writes become searchable; null or empty
+   *     when none was recorded
+   */
+  public static boolean isSuperseded(
+      @Nonnull EntityGraphSnapshot snapshot, @Nullable long[] watermarks) {
+    if (watermarks == null) {
+      return false;
+    }
+    for (long watermark : watermarks) {
+      if (watermark > snapshot.getBuiltAtMillis()) {
+        return System.currentTimeMillis() >= watermark;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Time-to-live expiry, or a visibility watermark that has passed for graphs that defer
+   * invalidation. The watermark is only read for such graphs.
+   */
+  public boolean isStaleOrSuperseded(
+      @Nonnull EntityGraphSnapshot snapshot, @Nonnull EntityGraphDefinition definition) {
+    return isStaleOrSuperseded(distributedStore, snapshot, definition);
+  }
+
+  public static boolean isStaleOrSuperseded(
+      @Nonnull EntityGraphDistributedStore distributedStore,
+      @Nonnull EntityGraphSnapshot snapshot,
+      @Nonnull EntityGraphDefinition definition) {
+    if (isStale(snapshot, definition)) {
+      return true;
+    }
+    return definition.usesInvalidationVisibility()
+        && isSuperseded(
+            snapshot, distributedStore.getVisibilityWatermarks(definition.getGraphId()));
+  }
+
   public static long staleBuildingMillis(@Nonnull EntityGraphDefinition definition) {
     return Math.max(5L, definition.getPopulationIntervalSeconds()) * 1000L;
   }
@@ -194,7 +236,7 @@ public final class SnapshotFreshnessEvaluator {
       @Nonnull EntityGraphDefinition definition,
       @Nonnull EntityGraphSnapshot snapshot,
       @Nonnull TraversalDirection direction) {
-    return !isStale(snapshot, definition)
+    return !isStaleOrSuperseded(snapshot, definition)
         && coverageSatisfies(definition, snapshot.getTraversalCoverage(), direction);
   }
 
