@@ -3,12 +3,12 @@ from typing import List, Optional
 import pytest
 
 from datahub.ingestion.source.qlik_sense.lib_path import (
-    _lib_connection,
-    _lib_path,
-    _lib_path_segments,
-    _named_space,
-    _path_has_label,
-    _path_key,
+    build_lib_path,
+    lib_path_segments,
+    named_space,
+    parse_lib_connection,
+    path_has_label,
+    path_key,
 )
 
 
@@ -25,15 +25,15 @@ from datahub.ingestion.source.qlik_sense.lib_path import (
 def test_lib_connection_splits_space_and_name(
     connection: str, space: str, name: str
 ) -> None:
-    parsed = _lib_connection(connection)
+    parsed = parse_lib_connection(connection)
     assert (parsed.space, parsed.name) == (space, name)
 
 
 def test_named_space_is_unknown_when_the_separator_is_ambiguous() -> None:
     # Without brackets this may be space `team: sales` or connection `sales:lake`.
-    assert _named_space("team: sales:lake") is None
-    assert _named_space("[Team: Sales]:Lake") == "Team: Sales"
-    assert _named_space("Lake") is None
+    assert named_space("team: sales:lake") is None
+    assert named_space("[Team: Sales]:Lake") == "Team: Sales"
+    assert named_space("Lake") is None
 
 
 @pytest.mark.parametrize(
@@ -50,14 +50,14 @@ def test_named_space_is_unknown_when_the_separator_is_ambiguous() -> None:
     ],
 )
 def test_lib_path_segments_round_trip(path: str, segments: Optional[List[str]]) -> None:
-    assert _lib_path_segments(path) == segments
+    assert lib_path_segments(path) == segments
     if segments is not None:
-        assert _lib_path_segments(_lib_path(segments)) == segments
+        assert lib_path_segments(build_lib_path(segments)) == segments
 
 
 def test_path_key_ignores_case_and_optional_brackets() -> None:
-    assert _path_key("lib://[Team]:Lake/Orders.qvd") == _path_key(
+    assert path_key("lib://[Team]:Lake/Orders.qvd") == path_key(
         "lib://team:lake/orders.qvd"
     )
-    assert _path_has_label("lib://Lake/Raw/Orders.qvd", "raw/orders.qvd")
-    assert not _path_has_label("lib://Lake/Raw/Orders.qvd", "orders.qvd")
+    assert path_has_label("lib://Lake/Raw/Orders.qvd", "raw/orders.qvd")
+    assert not path_has_label("lib://Lake/Raw/Orders.qvd", "orders.qvd")

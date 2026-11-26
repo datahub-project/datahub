@@ -15,9 +15,9 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
     qri_part_id,
 )
 from datahub.ingestion.source.qlik_sense.lib_path import (
-    _is_data_files,
-    _lib_connection,
-    _lib_name,
+    is_data_files,
+    lib_name,
+    parse_lib_connection,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     LIB_PATH_RE,
@@ -28,13 +28,13 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.source.dashboards import DashboardMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
+    CataloguedFile,
+    FileSourceResolution,
     FileStorageMatch,
-    _CataloguedFile,
-    _FileSourceResolution,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    _is_qvd,
-    _qlik_dataset_identifier,
+    is_qvd_dataset,
+    qlik_dataset_identifier,
 )
 
 
@@ -72,16 +72,16 @@ class FileIdentityMixin(DashboardMixin):
         # Qlik traces QVDs, so one listed without a QRI may be a source the
         # graph names; files it doesn't trace, such as text files, never are.
         self._datasets_without_qri = any(
-            d.secure_qri is None and _is_qvd(d) for d in allowed
+            d.secure_qri is None and is_qvd_dataset(d) for d in allowed
         )
         self._excluded_datasets_without_qri = any(
-            d.secure_qri is None and _is_qvd(d)
+            d.secure_qri is None and is_qvd_dataset(d)
             for d in datasets
             if d.space_id not in self._allowed_space_ids
         )
         return {
             dataset.secure_qri: self._gen_qlik_dataset_urn(
-                _qlik_dataset_identifier(dataset.space_id, dataset.name)
+                qlik_dataset_identifier(dataset.space_id, dataset.name)
             )
             for dataset in allowed
             if dataset.secure_qri is not None
@@ -182,7 +182,7 @@ class FileIdentityMixin(DashboardMixin):
         """A Qlik dataset for a file on a connection whose storage is unknown,
         named by the connection and path, so the apps that write and read it
         still join. DataFiles hold Qlik's own datasets."""
-        lib_connection = _lib_connection(connection)
+        lib_connection = parse_lib_connection(connection)
         space, name = lib_connection.space, lib_connection.name
         if not space:
             # Qlik Cloud resolves a bare name in the app's own space only. A
@@ -190,10 +190,10 @@ class FileIdentityMixin(DashboardMixin):
             if self._on_cloud and space_id != Constant.PERSONAL_SPACE_ID:
                 space = self.qlik_api.spaces.get(space_id, "").strip().strip("[]")
         path = normalized_file_path(path)
-        qualified = f"{_lib_name(space)}{SPACE_SEPARATOR}{_lib_name(name)}/{path}"
+        qualified = f"{lib_name(space)}{SPACE_SEPARATOR}{lib_name(name)}/{path}"
         if (
             not (space and name and path)
-            or _is_data_files(connection)
+            or is_data_files(connection)
             # Characters a dataset URN can't hold.
             or any(char in qualified for char in ",()")
         ):
@@ -230,7 +230,7 @@ class FileIdentityMixin(DashboardMixin):
         if datasets is None:
             return None
         connections = self._catalogued_files.get(
-            _CataloguedFile(
+            CataloguedFile(
                 platform=storage.platform,
                 path_id=qri_part_id(normalized_file_path(path)),
             ),
@@ -243,10 +243,10 @@ class FileIdentityMixin(DashboardMixin):
         )
 
     @cached_property
-    def _catalogued_files(self) -> Dict[_CataloguedFile, Set[str]]:
+    def _catalogued_files(self) -> Dict[CataloguedFile, Set[str]]:
         """The connection parts of catalogued files' QRIs, by platform and the
         path part."""
-        files: Dict[_CataloguedFile, Set[str]] = {}
+        files: Dict[CataloguedFile, Set[str]] = {}
         for qri in self._dataset_urns_by_secure_qri or {}:
             match = FILE_QRI_RE.match(qri)
             platform = (
@@ -254,7 +254,7 @@ class FileIdentityMixin(DashboardMixin):
             )
             if match and platform:
                 files.setdefault(
-                    _CataloguedFile(platform=platform, path_id=match.group("path")),
+                    CataloguedFile(platform=platform, path_id=match.group("path")),
                     set(),
                 ).add(match.group("connection"))
         return files
@@ -270,14 +270,14 @@ class FileIdentityMixin(DashboardMixin):
 
     def _file_source_resolution(
         self, app_id: str, file_qri: str
-    ) -> _FileSourceResolution:
+    ) -> FileSourceResolution:
         """The dataset of a file in an app's lineage graph, such as a CSV on
         Azure Storage, when the app's load script reads it through a data
         connection whose storage is known."""
         resolver = self._file_sources_by_app.get(app_id)
         space_id = self._app_space_ids.get(app_id)
         if resolver is None or space_id is None:
-            return _FileSourceResolution()
+            return FileSourceResolution()
         candidates = resolver.candidates(file_qri)
         # A connection whose properties match the QRI's names the file for
         # certain; one whose storage is only mapped is trusted only when no
@@ -294,7 +294,7 @@ class FileIdentityMixin(DashboardMixin):
             storage, detail = match.storage, match.detail
             if storage is None:
                 info = self._find_data_connection(reference.connection, space_id)
-                if _is_data_files(reference.connection) or (
+                if is_data_files(reference.connection) or (
                     info is not None and info.file_platform != candidates.platform
                 ):
                     # DataFiles, listed or not, and a visible connection of
@@ -322,7 +322,7 @@ class FileIdentityMixin(DashboardMixin):
             (confirmed if storage.qri_connection_id else unconfirmed).add(urn)
             if storage.likely_qri_connection_id == candidates.connection_id:
                 likely.add(urn)
-        unresolved = _FileSourceResolution(
+        unresolved = FileSourceResolution(
             on_known_storage=bool(confirmed or unconfirmed)
         )
         if confirmed:
@@ -344,7 +344,7 @@ class FileIdentityMixin(DashboardMixin):
         urn = next(iter(urns))
         if urn in unmapped:
             self._link_unmapped_file(app_id, urn)
-        return _FileSourceResolution(
+        return FileSourceResolution(
             urn=urn, on_known_storage=unresolved.on_known_storage
         )
 

@@ -2,8 +2,8 @@ from typing import Dict, Optional
 
 from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.lib_path import (
-    _connection_key,
-    _lib_connection,
+    connection_key,
+    parse_lib_connection,
 )
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     UNREAD_DATA_CONNECTIONS,
@@ -19,10 +19,10 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     merged_variables,
 )
 from datahub.ingestion.source.qlik_sense.source.entities import EntityEmitMixin
-from datahub.ingestion.source.qlik_sense.source_models import _SpaceNeed, _UnseenSpace
+from datahub.ingestion.source.qlik_sense.source_models import SpaceNeed, UnseenSpace
 from datahub.ingestion.source.qlik_sense.source_utils import (
     MappingT,
-    _get_ignoring_case,
+    get_ignoring_case,
 )
 
 
@@ -36,16 +36,16 @@ class DataConnectionMixin(EntityEmitMixin):
         self, connection: str, space_id: str
     ) -> Optional[DataConnectionInfo]:
         connections = self._get_data_connections()
-        lib_connection = _lib_connection(connection)
+        lib_connection = parse_lib_connection(connection)
         space_name = self.qlik_api.spaces.get(space_id)
         if self._on_cloud and space_name and not lib_connection.space:
             # Qlik Cloud looks a bare name up in the app's own space only. A
             # same-named connection elsewhere may point at another database
             # when the app's own one is not visible to the API key.
-            return _get_ignoring_case(
+            return get_ignoring_case(
                 connections, f"{space_name}{SPACE_SEPARATOR}{lib_connection.name}"
             )
-        return _get_ignoring_case(connections, _connection_key(lib_connection))
+        return get_ignoring_case(connections, connection_key(lib_connection))
 
     def _mapped_connection(
         self, connection: str, space_id: str, mapping: Dict[str, MappingT]
@@ -54,11 +54,11 @@ class DataConnectionMixin(EntityEmitMixin):
         Qlik Cloud a bare name is the app's own space's connection, so an
         entry keyed `<space>:<connection>` matches it first; a bare key
         matches the connection in any space."""
-        lib_connection = _lib_connection(connection)
+        lib_connection = parse_lib_connection(connection)
         # As the script spells it, then as Qlik lists it, without brackets.
         names = list(
             dict.fromkeys(
-                [connection, _connection_key(lib_connection), lib_connection.name]
+                [connection, connection_key(lib_connection), lib_connection.name]
             )
         )
         space_name = self.qlik_api.spaces.get(space_id)
@@ -68,7 +68,7 @@ class DataConnectionMixin(EntityEmitMixin):
             (
                 entry
                 for name in names
-                if (entry := _get_ignoring_case(mapping, name)) is not None
+                if (entry := get_ignoring_case(mapping, name)) is not None
             ),
             None,
         )
@@ -113,7 +113,7 @@ class DataConnectionMixin(EntityEmitMixin):
     def _app_own_variables(self, app: App) -> Dict[str, str]:
         return app_own_variables(self.config.script_variables, app.variables)
 
-    def _note_unseen_space(self, space: Optional[str], need: _SpaceNeed) -> None:
+    def _note_unseen_space(self, space: Optional[str], need: SpaceNeed) -> None:
         """Records a space a script or Qlik names, when the API key can't see
         it, as one the run needs access to for complete lineage."""
         if not space or not self._on_cloud:
@@ -128,5 +128,5 @@ class DataConnectionMixin(EntityEmitMixin):
         if space.lower() in self._listed_space_names:
             return
         self._unseen_spaces.setdefault(
-            space.lower(), _UnseenSpace(name=space)
+            space.lower(), UnseenSpace(name=space)
         ).needs.add(need)

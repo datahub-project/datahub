@@ -71,7 +71,7 @@ _OBJECT_FINGERPRINT_FIELDS = (
 )
 
 
-class _QrsAdapter(HTTPAdapter):
+class QrsAdapter(HTTPAdapter):
     def __init__(
         self,
         assert_hostname: Union[str, Literal[False], None],
@@ -150,7 +150,7 @@ class QlikOnPremAPI(QlikBaseAPI):
         # Every worker can hold a connection at once.
         self.session.mount(
             self.qrs_url,
-            _QrsAdapter(
+            QrsAdapter(
                 on_prem.tls_assert_hostname(),
                 self.key_password,
                 pool_maxsize=max(DEFAULT_POOLSIZE, config.resolved_max_workers()),

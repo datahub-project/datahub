@@ -13,8 +13,8 @@ from datahub.ingestion.source.qlik_sense.app_state import (
     UnmappedFileStore,
 )
 from datahub.ingestion.source.qlik_sense.chart_fields import (
-    _index_app_fields,
-    _tables_without_chart_path,
+    index_app_fields,
+    tables_without_chart_path,
 )
 from datahub.ingestion.source.qlik_sense.config import Constant
 from datahub.ingestion.source.qlik_sense.constants import (
@@ -33,22 +33,22 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.source.onprem_binary import OnPremBinaryMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
-    _PartialRead,
-    _QvdsUnknownReason,
-    _StorageFile,
+    PartialRead,
+    QvdsUnknownReason,
+    StorageFile,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    _app_field_names,
-    _own_table_urns,
-    _read_errors_context,
+    app_field_names,
+    own_table_urns,
+    read_errors_context,
 )
 from datahub.ingestion.source.qlik_sense.table_matching import (
-    _graph_tables_unresolved,
-    _lineage_table_identifier,
-    _match_script_tables,
-    _merge_tables,
-    _name_unknown_tables,
-    _tables_unknown,
+    app_graph_tables_unresolved,
+    app_tables_unknown,
+    lineage_table_identifier,
+    match_script_tables,
+    merge_tables,
+    name_unknown_tables,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
     STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
@@ -73,11 +73,11 @@ class ItemsMixin(OnPremBinaryMixin):
                 exc=e,
             )
             self._apps_tables_unknown.add(app_id)
-            self._apps_qvds_unknown[app_id] = _QvdsUnknownReason.CHECKPOINT_UNREAD
+            self._apps_qvds_unknown[app_id] = QvdsUnknownReason.CHECKPOINT_UNREAD
             return None
         if previous is None:
             self._apps_tables_unknown.add(app_id)
-            self._apps_qvds_unknown[app_id] = _QvdsUnknownReason.NO_CHECKPOINT
+            self._apps_qvds_unknown[app_id] = QvdsUnknownReason.NO_CHECKPOINT
             return None
         self._kept_app_ids.add(app_id)
         if app_id in self._binary_source_apps:
@@ -87,11 +87,11 @@ class ItemsMixin(OnPremBinaryMixin):
         if previous.data_model_fields is not None:
             self._app_model_fields[app_id] = previous.data_model_fields
         if previous.qvds is None:
-            self._apps_qvds_unknown[app_id] = _QvdsUnknownReason.RECORDED_BEFORE_QVDS
+            self._apps_qvds_unknown[app_id] = QvdsUnknownReason.RECORDED_BEFORE_QVDS
         else:
             self._app_qvds[app_id] = previous.qvds
             if not previous.qvds.writes_complete:
-                self._apps_qvds_unknown[app_id] = _QvdsUnknownReason.UNRESOLVED_STORE
+                self._apps_qvds_unknown[app_id] = QvdsUnknownReason.UNRESOLVED_STORE
         if previous.field_names:
             self._learn_field_names(previous.field_names)
         unmapped_stores: Dict[str, UnmappedFileStore] = {}
@@ -124,7 +124,7 @@ class ItemsMixin(OnPremBinaryMixin):
             }
         )
         if previous.table_urns_by_qri is not None:
-            kept = _own_table_urns(app_id, previous.table_urns_by_qri)
+            kept = own_table_urns(app_id, previous.table_urns_by_qri)
             self._app_table_urns_by_qri.update(kept)
             self._table_urns_by_app[app_id] = set(kept.values())
         # None was recorded before table URNs were kept in the state.
@@ -140,7 +140,7 @@ class ItemsMixin(OnPremBinaryMixin):
 
     def _storage_of_unmapped_store(
         self, store: UnmappedFileStore
-    ) -> Optional[_StorageFile]:
+    ) -> Optional[StorageFile]:
         """The storage file a kept app's store into a file on a connection of
         unknown storage now resolves to, or None while that storage is still
         unknown, as when the data connections or Qlik datasets could not be
@@ -160,8 +160,8 @@ class ItemsMixin(OnPremBinaryMixin):
             return None
         # A file Qlik catalogues is not linked on storage.
         if catalogued:
-            return _StorageFile(urn=None)
-        return _StorageFile(urn=self._file_urn(storage, detail, path))
+            return StorageFile(urn=None)
+        return StorageFile(urn=self._file_urn(storage, detail, path))
 
     def _keep_unchanged_app(self, app: UnchangedApp) -> None:
         previous = self._keep_previous_read(app.id)
@@ -188,7 +188,7 @@ class ItemsMixin(OnPremBinaryMixin):
             )
         self.reporter.apps_skipped_unchanged += 1
 
-    def _keep_partly_read_app(self, app: App) -> _PartialRead:
+    def _keep_partly_read_app(self, app: App) -> PartialRead:
         """Keeps what the app's last read produced instead of emitting a partial
         read, which would overwrite its relationships, for up to
         max_partial_reads_kept consecutive runs."""
@@ -201,15 +201,15 @@ class ItemsMixin(OnPremBinaryMixin):
                 context=failure,
             )
         if previous is None:
-            return _PartialRead.NOT_KEPT
+            return PartialRead.NOT_KEPT
         if previous.partial_reads >= self.config.max_partial_reads_kept:
-            return _PartialRead.LIMIT_REACHED
+            return PartialRead.LIMIT_REACHED
         kept = self._keep_previous_read(app.id)
         if kept is None or not kept.urns:
-            return _PartialRead.NOT_KEPT
+            return PartialRead.NOT_KEPT
         # Its QVD writes are from its last full read and may have changed, so
         # they protect its QVD edges without replacing anyone else's.
-        self._apps_qvds_unknown.setdefault(app.id, _QvdsUnknownReason.PARTLY_READ)
+        self._apps_qvds_unknown.setdefault(app.id, QvdsUnknownReason.PARTLY_READ)
         # No fingerprint, so the next run reads the app again.
         self.app_state.record(
             app.id,
@@ -230,7 +230,7 @@ class ItemsMixin(OnPremBinaryMixin):
                 field_names=previous.field_names,
             ),
         )
-        return _PartialRead.KEPT
+        return PartialRead.KEPT
 
     def _gen_recorded_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
         fingerprint = (
@@ -264,8 +264,8 @@ class ItemsMixin(OnPremBinaryMixin):
                 table_urns_by_qri=self._app_table_urns(app),
                 # So a later run that keeps the app can't take its tables as
                 # complete, nor a 404 as the app having no tables.
-                tables_unknown=_tables_unknown(app),
-                graph_tables_unresolved=_graph_tables_unresolved(app),
+                tables_unknown=app_tables_unknown(app),
+                graph_tables_unresolved=app_graph_tables_unresolved(app),
                 qvds=self._app_qvds.get(app.id),
                 data_model_fields=self._app_model_fields.get(app.id),
                 binary_tables=app.id in self._apps_with_binary_tables,
@@ -277,7 +277,7 @@ class ItemsMixin(OnPremBinaryMixin):
                     for file_urn, stores in self._unmapped_file_stores.items()
                     if app.id in stores
                 },
-                field_names=_app_field_names(app),
+                field_names=app_field_names(app),
             ),
         )
 
@@ -292,7 +292,7 @@ class ItemsMixin(OnPremBinaryMixin):
             app_table_identifier(app.id, table.name): table.fields
             for table in app.data_model_tables
         }
-        self._learn_field_names(_app_field_names(app))
+        self._learn_field_names(app_field_names(app))
         if self._on_cloud and not app.tables:
             self.reporter.apps_without_load_model.append(app.id)
         parsed = self._parsed_script(app)
@@ -311,7 +311,7 @@ class ItemsMixin(OnPremBinaryMixin):
             )
         self._app_space_ids[app.id] = app.spaceId
         script_tables = self._build_script_tables(app, parsed=parsed)
-        _name_unknown_tables(app, script_tables)
+        name_unknown_tables(app, script_tables)
         qvd_lineage = (
             self._app_qvd_lineage(app, parsed, script_tables)
             if not self._on_cloud
@@ -319,7 +319,7 @@ class ItemsMixin(OnPremBinaryMixin):
         )
         binary_load = None
         if qvd_lineage is not None:
-            script_tables = _merge_tables(script_tables, qvd_lineage.tables)
+            script_tables = merge_tables(script_tables, qvd_lineage.tables)
             # Read, even with no tables, so a BINARY load from it isn't
             # reported as from an app the run didn't read.
             if app.id in self._binary_source_apps:
@@ -328,9 +328,9 @@ class ItemsMixin(OnPremBinaryMixin):
             binary_load = self._binary_load(app, parsed)
             if binary_load.tables:
                 self._apps_with_binary_tables.add(app.id)
-            script_tables = _merge_tables(script_tables, binary_load.tables)
+            script_tables = merge_tables(script_tables, binary_load.tables)
         self._use_data_model_field_names(script_tables)
-        matched_script_tables = _match_script_tables(app.lineage_tables, script_tables)
+        matched_script_tables = match_script_tables(app.lineage_tables, script_tables)
         matched_ids = {id(table) for table in matched_script_tables.values()}
         script_tables = [
             table for table in script_tables if id(table) not in matched_ids
@@ -342,7 +342,7 @@ class ItemsMixin(OnPremBinaryMixin):
         self._register_app_tables(app)
         for table in app.lineage_tables:
             matched = matched_script_tables.get(table.qri)
-            identifier = _lineage_table_identifier(app.id, table)
+            identifier = lineage_table_identifier(app.id, table)
             urn = self._gen_qlik_dataset_urn(identifier)
             table_fields[urn] = self._table_schema(
                 identifier,
@@ -379,7 +379,7 @@ class ItemsMixin(OnPremBinaryMixin):
             )
         )
         yield from container_workunits
-        app_fields = _index_app_fields(table_fields, script_table_urns)
+        app_fields = index_app_fields(table_fields, script_table_urns)
         has_unknown_schema = any(not fields for fields in table_fields.values())
         chart_inputs = (
             None
@@ -397,7 +397,7 @@ class ItemsMixin(OnPremBinaryMixin):
             owner_username,
             None
             if chart_inputs is None
-            else _tables_without_chart_path(app, chart_inputs, input_tables_urns),
+            else tables_without_chart_path(app, chart_inputs, input_tables_urns),
         )
         yield from self._gen_sheets_workunit(app, chart_inputs)
         yield from self._gen_app_tables_workunit(app.tables, app.id)
@@ -504,24 +504,24 @@ class ItemsMixin(OnPremBinaryMixin):
             partial_read = (
                 self._keep_partly_read_app(item)
                 if not item.read_complete and record_state
-                else _PartialRead.NOT_KEPT
+                else PartialRead.NOT_KEPT
             )
-            if partial_read == _PartialRead.KEPT:
+            if partial_read == PartialRead.KEPT:
                 self.reporter.warning(
                     title=APP_PARTLY_READ_TITLE,
                     message="Nothing from this read of the app is emitted. Its "
                     "metadata stays as of its last complete read until a read of "
                     "it completes.",
-                    context=_read_errors_context(item),
+                    context=read_errors_context(item),
                 )
                 return
-            if partial_read == _PartialRead.LIMIT_REACHED:
+            if partial_read == PartialRead.LIMIT_REACHED:
                 self.reporter.failure(
                     title="Qlik app has been only partly read for too many runs",
                     message="Its last complete read is no longer kept, so this "
                     "partial read is ingested. Stale metadata removal is skipped "
                     "for this run.",
-                    context=_read_errors_context(item),
+                    context=read_errors_context(item),
                 )
             elif not item.read_complete:
                 # Reporting a failure also stops stale entity removal from
@@ -530,7 +530,7 @@ class ItemsMixin(OnPremBinaryMixin):
                     title=APP_PARTLY_READ_TITLE,
                     message="Some sheets, charts, tables or load script lineage "
                     "of this app could not be read from Qlik.",
-                    context=_read_errors_context(item),
+                    context=read_errors_context(item),
                 )
             if item.script_read_failed:
                 self.reporter.warning(

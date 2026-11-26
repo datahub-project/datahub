@@ -11,8 +11,8 @@ from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
 from datahub.ingestion.source.qlik_sense.config import Constant
 from datahub.ingestion.source.qlik_sense.source.connections import DataConnectionMixin
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    _describe_error,
-    _entities_present,
+    describe_error,
+    entities_present,
 )
 from datahub.metadata.schema_classes import ContainerPropertiesClass
 from datahub.utilities.urns.urn import guess_entity_type
@@ -74,7 +74,7 @@ class IncrementalMixin(DataConnectionMixin):
                 f"Unable to load the last checkpoint of app {app_id}", exc_info=True
             )
             failures.append(
-                f"{app_id}: unable to load the last checkpoint: {_describe_error(e)}"
+                f"{app_id}: unable to load the last checkpoint: {describe_error(e)}"
             )
             return None
         return previous if previous is not None and previous.urns else None
@@ -105,12 +105,12 @@ class IncrementalMixin(DataConnectionMixin):
                 != previous.fingerprint
             ):
                 return False
-            return _entities_present(graph, previous.urns)
+            return entities_present(graph, previous.urns)
         except Exception as e:
             logger.debug(f"Unable to read app container {container_urn}", exc_info=True)
             self._change_check_failures.append(
                 f"{app_id}: unable to read the app back from DataHub: "
-                f"{_describe_error(e)}"
+                f"{describe_error(e)}"
             )
             return False
 

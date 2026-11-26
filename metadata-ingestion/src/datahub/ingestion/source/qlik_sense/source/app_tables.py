@@ -20,16 +20,16 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.source.column_lineage import ColumnLineageMixin
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    _bounded_list,
-    _error_type,
-    _own_table_urns,
-    _qlik_app_id,
+    bounded_list,
+    error_type,
+    own_table_urns,
+    qlik_app_id,
 )
 from datahub.ingestion.source.qlik_sense.table_matching import (
-    _graph_tables_unresolved,
-    _lineage_table_identifier,
-    _script_table_fields,
-    _tables_unknown,
+    app_graph_tables_unresolved,
+    app_tables_unknown,
+    lineage_table_identifier,
+    script_table_fields,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -86,7 +86,7 @@ class AppTablesMixin(ColumnLineageMixin):
                     title="Unable to parse Qlik table SQL",
                     message="Upstream lineage for this Qlik table is skipped.",
                     context=f"table={table.tableName}, connection={table.dataconnectorName}, "
-                    f"error={_error_type(result.debug_info.table_error)}",
+                    f"error={error_type(result.debug_info.table_error)}",
                 )
                 return None
             qualified = [
@@ -202,11 +202,11 @@ class AppTablesMixin(ColumnLineageMixin):
                     urns[table.graphQri] = urn
         # A tableQri is the table's source, which can be another app's table,
         # such as for a BINARY load, whose own URN must not be replaced.
-        urns = _own_table_urns(app.id, urns)
+        urns = own_table_urns(app.id, urns)
         urns.update(
             (
                 table.qri,
-                self._gen_qlik_dataset_urn(_lineage_table_identifier(app.id, table)),
+                self._gen_qlik_dataset_urn(lineage_table_identifier(app.id, table)),
             )
             for table in app.lineage_tables
         )
@@ -217,11 +217,11 @@ class AppTablesMixin(ColumnLineageMixin):
         self._app_table_urns_by_qri.update(table_urns)
         self._table_urns_by_app[app.id] = set(table_urns.values())
         self._app_qris[app.id] = app.qri
-        if _tables_unknown(app):
+        if app_tables_unknown(app):
             self._apps_tables_unknown.add(app.id)
             return
         self._apps_tables_known.add(app.id)
-        if _graph_tables_unresolved(app):
+        if app_graph_tables_unresolved(app):
             self._apps_graph_tables_unresolved.add(app.id)
         if app.unmatched_graph_tables:
             self.reporter.warning(
@@ -229,7 +229,7 @@ class AppTablesMixin(ColumnLineageMixin):
                 message="These tables of the app's Qlik Cloud lineage graph match "
                 "no data model table by name, so lineage that other apps' tables "
                 "or datasets have from them is only added to.",
-                context=f"{app.id}: {_bounded_list(app.unmatched_graph_tables)}",
+                context=f"{app.id}: {bounded_list(app.unmatched_graph_tables)}",
             )
         previous = self._usable_checkpoint(app.id, [])
         if previous is not None and previous.table_urns_by_qri:
@@ -294,7 +294,7 @@ class AppTablesMixin(ColumnLineageMixin):
         """The fields the load script or, failing that, the field level of the
         lineage graph gives a table, for a table the data model no longer
         holds, such as one the script drops after storing it."""
-        parsed = _script_table_fields(script_table) if script_table else []
+        parsed = script_table_fields(script_table) if script_table else []
         return parsed or [QlikDatasetSchemaField(name=name) for name in table.fields]
 
     def _table_schema(
@@ -321,7 +321,7 @@ class AppTablesMixin(ColumnLineageMixin):
                 continue
             table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = (
                 self._table_schema(
-                    script_table.identifier, _script_table_fields(script_table)
+                    script_table.identifier, script_table_fields(script_table)
                 )
             )
         return table_fields
@@ -330,5 +330,5 @@ class AppTablesMixin(ColumnLineageMixin):
         return self._previous_app_table_urns | {
             urn
             for qri, urn in self._app_table_urns_by_qri.items()
-            if _qlik_app_id(qri) in self._apps_tables_known
+            if qlik_app_id(qri) in self._apps_tables_known
         }

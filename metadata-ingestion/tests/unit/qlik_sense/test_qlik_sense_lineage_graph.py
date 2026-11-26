@@ -41,8 +41,8 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     ResolvedSource,
     UntypedTable,
 )
-from datahub.ingestion.source.qlik_sense.source_utils import _refs_of_field_sources
-from datahub.ingestion.source.qlik_sense.table_matching import _name_unknown_tables
+from datahub.ingestion.source.qlik_sense.source_utils import refs_of_field_sources
+from datahub.ingestion.source.qlik_sense.table_matching import name_unknown_tables
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DatasetPropertiesClass,
@@ -1990,7 +1990,7 @@ def test_unnamed_script_table_takes_its_data_model_name() -> None:
         column_upstreams={"sku": [], "price": []},
     )
 
-    _name_unknown_tables(app, [unnamed, unknown_columns, named])
+    name_unknown_tables(app, [unnamed, unknown_columns, named])
 
     assert (unnamed.label, unnamed.identifier) == ("Orders", "etl-app.orders")
     assert (unknown_columns.label, unknown_columns.identifier) == (
@@ -4150,8 +4150,8 @@ def test_field_source_never_picks_between_columns_differing_in_case() -> None:
     ]
     field_id = _field_qri("t", "ORDER_ID").rpartition("#")[2]
 
-    assert _refs_of_field_sources(refs, "ORDER_ID", {field_id}) == []
-    assert _refs_of_field_sources(refs[:1], "ORDER_ID", {field_id}) == refs[:1]
+    assert refs_of_field_sources(refs, "ORDER_ID", {field_id}) == []
+    assert refs_of_field_sources(refs[:1], "ORDER_ID", {field_id}) == refs[:1]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")

@@ -6,7 +6,7 @@ from datahub.ingestion.source.qlik_sense.constants import (
 )
 from datahub.ingestion.source.qlik_sense.source.incremental import IncrementalMixin
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    _bounded_list,
+    bounded_list,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
@@ -40,7 +40,7 @@ class ColumnLineageMixin(IncrementalMixin):
                     title=DATAHUB_LINEAGE_READ_FAILED_TITLE,
                     message="The lineage of these datasets from apps that store "
                     "into them is only added to.",
-                    context=_bounded_list(batch),
+                    context=bounded_list(batch),
                     exc=e,
                 )
                 current.update(dict.fromkeys(batch))

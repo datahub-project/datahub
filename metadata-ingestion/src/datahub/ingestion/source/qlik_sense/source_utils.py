@@ -18,7 +18,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     SchemaField as QlikDatasetSchemaField,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
-from datahub.ingestion.source.qlik_sense.lib_path import _lib_path_parts, _path_key
+from datahub.ingestion.source.qlik_sense.lib_path import lib_path_parts, path_key
 from datahub.ingestion.source.qlik_sense.qvd_lineage import QvdWrite
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     LIB_PATH_RE,
@@ -35,9 +35,7 @@ from datahub.utilities.urns.urn import guess_entity_type
 MappingT = TypeVar("MappingT")
 
 
-def _get_ignoring_case(
-    mapping: Mapping[str, MappingT], name: str
-) -> Optional[MappingT]:
+def get_ignoring_case(mapping: Mapping[str, MappingT], name: str) -> Optional[MappingT]:
     if name in mapping:
         return mapping[name]
     # Qlik resolves connection names regardless of case. A case variant is
@@ -46,25 +44,27 @@ def _get_ignoring_case(
     return mapping[matches[0]] if len(matches) == 1 else None
 
 
-def _is_qvd(dataset: Union[QlikDataset, ListedDataset]) -> bool:
+def is_qvd_dataset(dataset: Union[QlikDataset, ListedDataset]) -> bool:
     return dataset.type.upper() == "QVD" or dataset.name.lower().endswith(QVD_EXTENSION)
 
 
-def _dataset_subtype(dataset: QlikDataset) -> str:
+def dataset_subtype(dataset: QlikDataset) -> str:
     return (
-        DatasetSubTypes.QLIK_QVD if _is_qvd(dataset) else DatasetSubTypes.QLIK_DATASET
+        DatasetSubTypes.QLIK_QVD
+        if is_qvd_dataset(dataset)
+        else DatasetSubTypes.QLIK_DATASET
     )
 
 
-def _dataset_display_name(dataset: QlikDataset) -> str:
+def dataset_display_name(dataset: QlikDataset) -> str:
     # The URN keeps the file name, so `sales.qvd` and `sales.csv` in one space
     # stay apart and QVDs ingested before keep their URNs.
-    if _is_qvd(dataset) and dataset.name.lower().endswith(QVD_EXTENSION):
+    if is_qvd_dataset(dataset) and dataset.name.lower().endswith(QVD_EXTENSION):
         return dataset.name[: -len(QVD_EXTENSION)]
     return dataset.name
 
 
-def _qvd_fields(writes: List[QvdWrite], reads: List[str]) -> Optional[List[str]]:
+def qvd_fields(writes: List[QvdWrite], reads: List[str]) -> Optional[List[str]]:
     """A QVD's fields: what its writers store, or failing that what its readers
     load, which may be only some of them. None when unknown."""
     if writes:
@@ -78,18 +78,16 @@ def _qvd_fields(writes: List[QvdWrite], reads: List[str]) -> Optional[List[str]]
     return reads or None
 
 
-def _own_table_urns(app_id: str, urns: Dict[str, str]) -> Dict[str, str]:
-    return {
-        qri: urn for qri, urn in urns.items() if _qlik_app_id(qri) in (None, app_id)
-    }
+def own_table_urns(app_id: str, urns: Dict[str, str]) -> Dict[str, str]:
+    return {qri: urn for qri, urn in urns.items() if qlik_app_id(qri) in (None, app_id)}
 
 
-def _qlik_app_id(qri: str) -> Optional[str]:
+def qlik_app_id(qri: str) -> Optional[str]:
     match = QLIK_APP_QRI_RE.match(qri)
     return match.group(1) if match else None
 
 
-def _schema_field_parent(urn: str) -> Optional[str]:
+def schema_field_parent(urn: str) -> Optional[str]:
     # Lineage another tool wrote may hold any kind of URN.
     try:
         return SchemaFieldUrn.from_string(urn).parent
@@ -97,7 +95,7 @@ def _schema_field_parent(urn: str) -> Optional[str]:
         return None
 
 
-def _app_field_names(app: App) -> List[str]:
+def app_field_names(app: App) -> List[str]:
     names = [field.name for table in app.tables for field in table.datasetSchema]
     names.extend(
         field.name for table in app.data_model_tables for field in table.fields
@@ -106,14 +104,14 @@ def _app_field_names(app: App) -> List[str]:
     return list(dict.fromkeys(names))
 
 
-def _qlik_field_id(name: str) -> str:
+def qlik_field_id(name: str) -> str:
     """The last part of a field node's QRI in Qlik's lineage graph, which is the
     unpadded base64url SHA-256 of the field name. Not documented by Qlik, so it
     is only used to confirm a name, never to make one up."""
     return qri_part_id(name)
 
 
-def _refs_of_field_sources(
+def refs_of_field_sources(
     refs: List[ColumnRef], field_name: str, field_ids: Set[str]
 ) -> List[ColumnRef]:
     """The columns whose name Qlik's graph hashes into one of `field_ids`.
@@ -121,14 +119,14 @@ def _refs_of_field_sources(
     may not share, so a column also matches the Qlik field it loads when that
     field kept the source's name, unless another column differs from it only
     in case."""
-    exact = [ref for ref in refs if _qlik_field_id(ref.column) in field_ids]
-    if exact or _qlik_field_id(field_name) not in field_ids:
+    exact = [ref for ref in refs if qlik_field_id(ref.column) in field_ids]
+    if exact or qlik_field_id(field_name) not in field_ids:
         return exact
     folded = [ref for ref in refs if ref.column.lower() == field_name.lower()]
     return folded if len({ref.column for ref in folded}) == 1 else []
 
 
-def _patch_workunits(
+def patch_workunits(
     patch: MetadataPatchProposal, is_primary_source: bool
 ) -> Iterable[MetadataWorkUnit]:
     for mcp in patch.build():
@@ -139,23 +137,23 @@ def _patch_workunits(
         )
 
 
-def _bounded_list(items: List[str], limit: int = 10) -> str:
+def bounded_list(items: List[str], limit: int = 10) -> str:
     more = f" (and {len(items) - limit} more)" if len(items) > limit else ""
     return ", ".join(items[:limit]) + more
 
 
-def _describe_error(error: Exception) -> str:
+def describe_error(error: Exception) -> str:
     # The type tells failures apart when the message is empty or generic.
     return f"{type(error).__name__}: {error}" if str(error) else type(error).__name__
 
 
-def _error_type(error: Optional[Exception]) -> str:
+def error_type(error: Optional[Exception]) -> str:
     # SQL parser errors quote the statement, which can hold credentials when a
     # script statement was split wrongly, so only the type goes in the report.
     return type(error).__name__ if error else "unknown"
 
 
-def _gen_schema_field(field: QlikDatasetSchemaField) -> SchemaField:
+def gen_schema_field(field: QlikDatasetSchemaField) -> SchemaField:
     return SchemaField(
         fieldPath=field.name,
         type=SchemaFieldDataTypeClass(
@@ -171,11 +169,11 @@ def _gen_schema_field(field: QlikDatasetSchemaField) -> SchemaField:
     )
 
 
-def _qlik_dataset_identifier(space_id: str, name: str) -> str:
+def qlik_dataset_identifier(space_id: str, name: str) -> str:
     return f"{space_id}.{name}".lower()
 
 
-def _voted_segments(
+def voted_segments(
     path: str, spellings: Dict[str, Counter[str]]
 ) -> Optional[List[str]]:
     """The segments of a path whose space and connection can't be told
@@ -189,13 +187,13 @@ def _voted_segments(
         for i, char in enumerate(connection)
         if char == SPACE_SEPARATOR
     ]
-    known = [split for split in splits if _path_key("/".join(split)) in spellings]
+    known = [split for split in splits if path_key("/".join(split)) in spellings]
     if len(known) != 1:
         return None
-    return [*known[0], *_lib_path_parts(match.group("path"))]
+    return [*known[0], *lib_path_parts(match.group("path"))]
 
 
-def _entities_present(graph: DataHubGraph, urns: List[str]) -> bool:
+def entities_present(graph: DataHubGraph, urns: List[str]) -> bool:
     """Whether every entity the app's last read produced is in DataHub and
     not soft-deleted, which also catches entities the sink failed to write
     and hard-deleted ones. Entities stale removal deleted after they left
@@ -216,7 +214,7 @@ def _entities_present(graph: DataHubGraph, urns: List[str]) -> bool:
     return True
 
 
-def _read_errors_context(app: App) -> str:
+def read_errors_context(app: App) -> str:
     first, *rest = app.read_errors
     more = f" (and {len(rest)} more)" if rest else ""
     return f"{app.id}: {first}{more}"

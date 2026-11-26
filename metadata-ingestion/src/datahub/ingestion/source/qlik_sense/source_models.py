@@ -50,7 +50,7 @@ class UntypedTable(BaseModel):
     schema_fields: List[QlikDatasetSchemaField]
 
 
-class _SpaceNeed(StrEnum):
+class SpaceNeed(StrEnum):
     """What lineage needs from a space the API key can't see."""
 
     DATASETS = "datasets"
@@ -58,20 +58,20 @@ class _SpaceNeed(StrEnum):
     DATA_CONNECTIONS = "data connections"
 
 
-class _UnseenSpace(BaseModel):
+class UnseenSpace(BaseModel):
     # As first written, while the space is keyed by its lowercased name.
     name: str
-    needs: Set[_SpaceNeed] = set()
+    needs: Set[SpaceNeed] = set()
 
 
-class _OnlyAddedTablesKey(BaseModel):
+class OnlyAddedTablesKey(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     app_id: str
     reason: str
 
 
-class _CataloguedFile(BaseModel):
+class CataloguedFile(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     platform: FilePlatform
@@ -79,7 +79,7 @@ class _CataloguedFile(BaseModel):
     path_id: str
 
 
-class _ScriptTableKey(BaseModel):
+class ScriptTableKey(BaseModel):
     """Loads of one dataset URN are one table, but a mapping load is kept
     apart."""
 
@@ -89,7 +89,7 @@ class _ScriptTableKey(BaseModel):
     mapping: bool
 
 
-class _QvdsUnknownReason(StrEnum):
+class QvdsUnknownReason(StrEnum):
     """Why the QVDs an app writes are not known this run."""
 
     SCRIPT_UNREAD = "its load script could not be read"
@@ -102,7 +102,7 @@ class _QvdsUnknownReason(StrEnum):
     NOT_LISTED = "they were not read"
 
 
-class _IncompleteLineageReason(StrEnum):
+class IncompleteLineageReason(StrEnum):
     """Why a table's lineage is only added to this run. Reasons that name an
     app are formatted where they arise instead."""
 
@@ -121,27 +121,27 @@ class _IncompleteLineageReason(StrEnum):
     FIELD_NAME_UNREAD = "a source field's name was not read"
 
 
-class _PartialRead(StrEnum):
+class PartialRead(StrEnum):
     KEPT = "kept"
     LIMIT_REACHED = "limit_reached"
     NOT_KEPT = "not_kept"
 
 
-class _GraphNamedApps(BaseModel):
+class GraphNamedApps(BaseModel):
     apps: Set[str]
     # Whether an app keeps the dataset from its last read, as this run could
     # not tell its sources, such as when its upstream graph could not be read.
     graph_unread: bool
 
 
-class _UnreadBinarySource(BaseModel):
+class UnreadBinarySource(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     app_id: str
     source_app_id: str
 
 
-class _BinaryLink(BaseModel):
+class BinaryLink(BaseModel):
     """A table an app BINARY loads from another app, whose lineage is written
     once every app has been read."""
 
@@ -162,21 +162,21 @@ class _BinaryLink(BaseModel):
     script_fields: List[FineGrainedLineage] = []
 
 
-class _ParsedApp(BaseModel):
+class ParsedApp(BaseModel):
     """The last app whose script was parsed, with the parse."""
 
     app: App
     parsed: ParsedScript
 
 
-class _BinaryLoad(BaseModel):
+class BinaryLoad(BaseModel):
     """The tables an on-prem app's BINARY statement brings in, by identifier,
     the app file, by URN, when it is linked to the file, and the tables linked
     to the app the file was exported from, by URN."""
 
     tables: Dict[str, ScriptTableLineage] = {}
     paths: Dict[str, str] = {}
-    links: Dict[str, _BinaryLink] = {}
+    links: Dict[str, BinaryLink] = {}
 
 
 class PendingTableLineage(BaseModel):
@@ -195,7 +195,7 @@ class PendingTableLineage(BaseModel):
     script_upstream_urns: List[str]
     # Why the app's script or tables, or the table's field lineage, were not
     # read.
-    incomplete_reason: Optional[_IncompleteLineageReason]
+    incomplete_reason: Optional[IncompleteLineageReason]
     script_fields: List[FineGrainedLineage]
     field_source_qris: Dict[str, List[str]]
 
@@ -217,12 +217,12 @@ class PendingStoredFile(BaseModel):
     has_field_schema: bool
 
 
-class _StorageFile(BaseModel):
+class StorageFile(BaseModel):
     # None when the file is not linked on storage, as a full read leaves it.
     urn: Optional[str]
 
 
-class _ResolvedSources(BaseModel):
+class ResolvedSources(BaseModel):
     urns: List[str] = []
     # Why sources could not be resolved this run.
     unknown_reasons: List[str] = []
@@ -232,7 +232,7 @@ class _ResolvedSources(BaseModel):
         return not self.unknown_reasons
 
 
-class _FileSourceResolution(BaseModel):
+class FileSourceResolution(BaseModel):
     urn: Optional[str] = None
     # The script reads the file through a connection whose storage, of the
     # file's platform, is known, so the file has a storage URN even when it

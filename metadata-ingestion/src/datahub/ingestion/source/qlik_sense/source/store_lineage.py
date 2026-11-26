@@ -5,8 +5,8 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     SchemaField as QlikDatasetSchemaField,
 )
-from datahub.ingestion.source.qlik_sense.lib_path import _is_data_files
-from datahub.ingestion.source.qlik_sense.lineage_utils import _stale_field_lineage
+from datahub.ingestion.source.qlik_sense.lib_path import is_data_files
+from datahub.ingestion.source.qlik_sense.lineage_utils import stale_field_lineage
 from datahub.ingestion.source.qlik_sense.qvd_lineage import QvdWrite, stored_fields
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     ParsedScript,
@@ -17,8 +17,8 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 from datahub.ingestion.source.qlik_sense.source.onprem_qvd import OnPremQvdMixin
 from datahub.ingestion.source.qlik_sense.source_models import PendingStoredFile
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    _patch_workunits,
-    _qlik_field_id,
+    patch_workunits,
+    qlik_field_id,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
@@ -60,7 +60,7 @@ class StoreLineageMixin(OnPremQvdMixin):
             match = self._file_storage(store.file.connection, app.spaceId)
             storage, detail = match.storage, match.detail
             if storage is None:
-                if _is_data_files(store.file.connection):
+                if is_data_files(store.file.connection):
                     continue
                 info = self._find_data_connection(store.file.connection, app.spaceId)
                 # A visible connection of another connector, such as SFTP, has
@@ -248,7 +248,7 @@ class StoreLineageMixin(OnPremQvdMixin):
                 Upstream(dataset=urn, type=DatasetLineageType.COPY)
             )
         # Only added to: other apps, read or not, may store into the same file.
-        yield from _patch_workunits(patch, is_primary_source=False)
+        yield from patch_workunits(patch, is_primary_source=False)
 
     def _report_competing_stores(self, app: App, stores: List[QvdStore]) -> None:
         stored = [
@@ -298,7 +298,7 @@ class StoreLineageMixin(OnPremQvdMixin):
                     table_urn = self._app_table_urns_by_qri.get(table_qri)
                     if (
                         table_urn in self._untyped_tables
-                        and field_id == _qlik_field_id(field)
+                        and field_id == qlik_field_id(field)
                         and dataset_types.get(field)
                     ):
                         types.setdefault(table_urn, {}).setdefault(field, set()).add(
@@ -384,8 +384,8 @@ class StoreLineageMixin(OnPremQvdMixin):
                     and dataset_urn not in self._dataset_store_fields_unknown
                     and dataset_urn not in self._unnamed_field_lineage
                 ):
-                    for lineage in _stale_field_lineage(
+                    for lineage in stale_field_lineage(
                         current.fineGrainedLineages or [], stored_fields, owned
                     ):
                         patch.remove_fine_grained_lineage(lineage)
-            yield from _patch_workunits(patch, is_primary_source=True)
+            yield from patch_workunits(patch, is_primary_source=True)

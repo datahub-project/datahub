@@ -9,10 +9,10 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.qlik_sense.chart_fields import (
-    _app_field_key,
-    _chart_field_names,
-    _gen_chart_info_patch,
-    _get_chart_input_fields,
+    app_field_key,
+    chart_field_names,
+    gen_chart_info_patch,
+    get_chart_input_fields,
 )
 from datahub.ingestion.source.qlik_sense.config import Constant
 from datahub.ingestion.source.qlik_sense.data_classes import (
@@ -29,8 +29,8 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.source.app_tables import AppTablesMixin
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    _gen_schema_field,
-    _patch_workunits,
+    gen_schema_field,
+    patch_workunits,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.schema_classes import (
@@ -101,7 +101,7 @@ class DashboardMixin(AppTablesMixin):
                     ]
                 }
             )
-            fields = _get_chart_input_fields(expanded, app_fields)
+            fields = get_chart_input_fields(expanded, app_fields)
             inputs[chart.qId] = ChartInputs(
                 fields=fields,
                 tables=self._get_chart_inputs(
@@ -140,7 +140,7 @@ class DashboardMixin(AppTablesMixin):
             if inputs is None:
                 # Unknown inputs would overwrite the ones the last full read
                 # emitted, so only the other chart fields are patched.
-                yield from _gen_chart_info_patch(chart_urn, chart, custom_properties)
+                yield from gen_chart_info_patch(chart_urn, chart, custom_properties)
             else:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=chart_urn,
@@ -164,7 +164,7 @@ class DashboardMixin(AppTablesMixin):
                                 schemaFieldUrn=builder.make_schema_field_urn(
                                     field.dataset_urn, field.field.name
                                 ),
-                                schemaField=_gen_schema_field(field.field),
+                                schemaField=gen_schema_field(field.field),
                             )
                             for field in inputs.fields
                         ]
@@ -194,8 +194,8 @@ class DashboardMixin(AppTablesMixin):
         unmatched = [
             name
             for expression in chart.field_expressions
-            for name in _chart_field_names(expression, app_fields)
-            if _app_field_key(name, app_fields) is None
+            for name in chart_field_names(expression, app_fields)
+            if app_field_key(name, app_fields) is None
         ]
         if (
             not chart.fields_complete
@@ -257,7 +257,7 @@ class DashboardMixin(AppTablesMixin):
                 # same patch so the two can't be applied to different bases.
                 for urn in self._stale_sheet_edges(dashboard_urn, sheet_urns):
                     patch.remove_dashboard(urn)
-            yield from _patch_workunits(patch, is_primary_source=True)
+            yield from patch_workunits(patch, is_primary_source=True)
         yield MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
             aspect=SubTypes(typeNames=[BIAssetSubTypes.QLIK_APP_DASHBOARD]),

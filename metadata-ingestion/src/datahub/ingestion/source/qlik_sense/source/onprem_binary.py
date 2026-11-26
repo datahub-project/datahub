@@ -21,11 +21,11 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.source.table_lineage import TableLineageMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
-    _BinaryLink,
-    _BinaryLoad,
-    _UnreadBinarySource,
+    BinaryLink,
+    BinaryLoad,
+    UnreadBinarySource,
 )
-from datahub.ingestion.source.qlik_sense.source_utils import _bounded_list
+from datahub.ingestion.source.qlik_sense.source_utils import bounded_list
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     FineGrainedLineage,
@@ -114,16 +114,16 @@ class OnPremBinaryMixin(TableLineageMixin):
             return
         app.read_errors.append(tables_unknown)
 
-    def _binary_load(self, app: App, parsed: ParsedScript) -> _BinaryLoad:
+    def _binary_load(self, app: App, parsed: ParsedScript) -> BinaryLoad:
         """The app's tables a BINARY statement loads: the data model's tables
         the script doesn't create itself."""
-        binary = _BinaryLoad()
+        binary = BinaryLoad()
         statement = parsed.binary
         if statement is None:
             return binary
         self.reporter.binary_loads_found += 1
 
-        def without_lineage(reason: str) -> _BinaryLoad:
+        def without_lineage(reason: str) -> BinaryLoad:
             self.reporter.binary_loads_without_lineage.append(
                 f"{app.id}: {statement.written}: {reason}"
             )
@@ -208,7 +208,7 @@ class OnPremBinaryMixin(TableLineageMixin):
             )
             if source_app_id is not None:
                 dataset_urn = self._gen_qlik_dataset_urn(identifier)
-                binary.links[dataset_urn] = _BinaryLink(
+                binary.links[dataset_urn] = BinaryLink(
                     app_id=app.id,
                     source_app_id=source_app_id,
                     table=table.name,
@@ -220,7 +220,7 @@ class OnPremBinaryMixin(TableLineageMixin):
         return binary
 
     def _binary_link_source(
-        self, link: _BinaryLink, unread: Set[_UnreadBinarySource]
+        self, link: BinaryLink, unread: Set[UnreadBinarySource]
     ) -> Optional[str]:
         """The source app's table a BINARY table is linked to, if that app was
         read or kept this run and ingests it, so the edge never points at a
@@ -228,9 +228,7 @@ class OnPremBinaryMixin(TableLineageMixin):
         source_urns = self._app_urns.get(link.source_app_id)
         if source_urns is None:
             unread.add(
-                _UnreadBinarySource(
-                    app_id=link.app_id, source_app_id=link.source_app_id
-                )
+                UnreadBinarySource(app_id=link.app_id, source_app_id=link.source_app_id)
             )
             return None
         source_urn = self._gen_qlik_dataset_urn(
@@ -255,7 +253,7 @@ class OnPremBinaryMixin(TableLineageMixin):
 
     def _binary_upstream_lineage(
         self,
-        link: _BinaryLink,
+        link: BinaryLink,
         source_urn: Optional[str],
         fine_grained: List[FineGrainedLineage],
     ) -> UpstreamLineage:
@@ -271,7 +269,7 @@ class OnPremBinaryMixin(TableLineageMixin):
 
     def _patch_binary_upstreams(
         self,
-        link: _BinaryLink,
+        link: BinaryLink,
         source_urn: Optional[str],
         fine_grained: List[FineGrainedLineage],
     ) -> Iterable[MetadataWorkUnit]:
@@ -285,7 +283,7 @@ class OnPremBinaryMixin(TableLineageMixin):
         once every app has been read. Without the source app's table or its
         fields, the table's own lineage is only added to, so the edges an
         earlier run wrote stay."""
-        unread: Set[_UnreadBinarySource] = set()
+        unread: Set[UnreadBinarySource] = set()
         for link in self._binary_links:
             source_model = self._app_model_fields.get(link.source_app_id)
             in_source_model = (
@@ -294,7 +292,7 @@ class OnPremBinaryMixin(TableLineageMixin):
             if link.maybe_renamed_script_table and not in_source_model:
                 if link.source_app_id not in self._app_urns:
                     unread.add(
-                        _UnreadBinarySource(
+                        UnreadBinarySource(
                             app_id=link.app_id, source_app_id=link.source_app_id
                         )
                     )
@@ -387,5 +385,5 @@ class OnPremBinaryMixin(TableLineageMixin):
                 title="Some Qlik BINARY loads have no lineage",
                 message="The tables these apps load with BINARY are not linked "
                 "to their source. See binary_loads_without_lineage.",
-                context=_bounded_list(list(self.reporter.binary_loads_without_lineage)),
+                context=bounded_list(list(self.reporter.binary_loads_without_lineage)),
             )

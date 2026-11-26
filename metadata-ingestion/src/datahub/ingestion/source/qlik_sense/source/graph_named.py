@@ -9,23 +9,23 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.qlik_sense.constants import QVD_EXTENSION
 from datahub.ingestion.source.qlik_sense.data_classes import ReloadStatement
 from datahub.ingestion.source.qlik_sense.lib_path import (
-    _is_ambiguous_lib_path,
-    _path_has_label,
-    _path_key,
-    _path_space,
+    is_ambiguous_lib_path,
+    path_has_label,
+    path_key,
+    path_space,
 )
-from datahub.ingestion.source.qlik_sense.lineage_utils import _patch_upstreams
-from datahub.ingestion.source.qlik_sense.reload_sql import _reload_files
+from datahub.ingestion.source.qlik_sense.lineage_utils import patch_upstreams
+from datahub.ingestion.source.qlik_sense.reload_sql import parse_reload_files
 from datahub.ingestion.source.qlik_sense.source.file_entities import FileEntitiesMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
+    GraphNamedApps,
     GraphNamedPath,
-    _GraphNamedApps,
-    _SpaceNeed,
+    SpaceNeed,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    _bounded_list,
-    _describe_error,
-    _qlik_app_id,
+    bounded_list,
+    describe_error,
+    qlik_app_id,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetLineageType
 
@@ -36,7 +36,7 @@ class GraphNamedMixin(FileEntitiesMixin):
     def _record_reload_files(
         self, app_id: str, statements: List[ReloadStatement]
     ) -> None:
-        reload_files = _reload_files(statements)
+        reload_files = parse_reload_files(statements)
         for discriminator in reload_files.unrecognised:
             self.reporter.unrecognised_reload_files.append(f"{app_id}: {discriminator}")
         self._reload_files[app_id] = reload_files.files
@@ -61,14 +61,14 @@ class GraphNamedMixin(FileEntitiesMixin):
                 logger.debug(
                     f"Unable to read reload statements of app {app_id}", exc_info=True
                 )
-                error = _describe_error(e)
+                error = describe_error(e)
                 self.reporter.apps_without_reload_paths.append(f"{app_id}: {error}")
                 self._reload_path_failures.append(f"{app_id}: {error}")
                 self._reload_files_unread.add(app_id)
                 statements = []
             self._record_reload_files(app_id, statements)
 
-    def _graph_named_apps(self, urn: str, kept_readers: Set[str]) -> _GraphNamedApps:
+    def _graph_named_apps(self, urn: str, kept_readers: Set[str]) -> GraphNamedApps:
         """The apps whose last reload may give the path of a dataset only the
         upstream graph names: those that load it, the writer apps this run
         ingests, apps kept from a last read that held it, and those that keep
@@ -79,7 +79,7 @@ class GraphNamedMixin(FileEntitiesMixin):
             if urn in self._app_end_of_run_urns.get(app_id, ())
             or urn in self._app_read_graph_named.get(app_id, ())
         }
-        return _GraphNamedApps(
+        return GraphNamedApps(
             apps=set(self._graph_resource_readers.get(urn, set()))
             | keeping
             | kept_readers
@@ -87,12 +87,12 @@ class GraphNamedMixin(FileEntitiesMixin):
                 app_id
                 for qri in self._graph_resource_writers.get(urn, set())
                 if qri in self._app_table_urns_by_qri
-                and (app_id := _qlik_app_id(qri)) is not None
+                and (app_id := qlik_app_id(qri)) is not None
             },
             graph_unread=bool(keeping),
         )
 
-    def _graph_named_path(self, label: str, apps: _GraphNamedApps) -> GraphNamedPath:
+    def _graph_named_path(self, label: str, apps: GraphNamedApps) -> GraphNamedPath:
         """The `lib://` path of a dataset only the upstream graph names, such as
         `lib://<space>:DataFiles/orders.qvd` for a QVD in a space the API key
         can't see, and whether the apps that may give it were all read. Qlik's
@@ -102,14 +102,14 @@ class GraphNamedMixin(FileEntitiesMixin):
         paths: Dict[str, str] = {}
         for app_id in sorted(apps.apps):
             for file in self._reload_files.get(app_id, []):
-                if _path_has_label(file.path, label):
-                    paths.setdefault(_path_key(file.path), file.path)
+                if path_has_label(file.path, label):
+                    paths.setdefault(path_key(file.path), file.path)
         reloads_unread = bool(apps.apps & self._reload_files_unread)
         if len(paths) == 1 and not reloads_unread:
             return GraphNamedPath(path=next(iter(paths.values())), all_read=True)
         if len(paths) != 1:
             for path in paths.values():
-                self._note_unseen_space(_path_space(path), _SpaceNeed.DATASETS)
+                self._note_unseen_space(path_space(path), SpaceNeed.DATASETS)
         # An unread reload may hold another file with the label.
         return GraphNamedPath(
             path=None, all_read=not apps.graph_unread and not reloads_unread
@@ -127,7 +127,7 @@ class GraphNamedMixin(FileEntitiesMixin):
         for urns in self._app_end_of_run_urns.values():
             urns.discard(urn)
 
-    def _read_graph_named_reloads(self) -> Dict[str, _GraphNamedApps]:
+    def _read_graph_named_reloads(self) -> Dict[str, GraphNamedApps]:
         """The apps that may give the path of each dataset only the upstream
         graphs name, with their last reload read."""
         graph_named = set(self._graph_named_resources)
@@ -155,7 +155,7 @@ class GraphNamedMixin(FileEntitiesMixin):
         return apps_by_urn
 
     def _gen_graph_named_resources(
-        self, apps_by_urn: Dict[str, _GraphNamedApps]
+        self, apps_by_urn: Dict[str, GraphNamedApps]
     ) -> Iterable[MetadataWorkUnit]:
         """The datasets and files only apps' upstream graphs name whose path is
         certain, and the tables of the writer apps this run ingests as their
@@ -168,12 +168,12 @@ class GraphNamedMixin(FileEntitiesMixin):
                 self._leave_out_unplaced(urn, label, named.all_read)
                 continue
             path = self._script_spelling(path)
-            if _is_ambiguous_lib_path(path):
+            if is_ambiguous_lib_path(path):
                 # Its space can't be told from its connection.
                 self._leave_out_unplaced(urn, label, named.all_read)
                 continue
             emitted.add(urn)
-            self._note_unseen_space(_path_space(path), _SpaceNeed.DATASETS)
+            self._note_unseen_space(path_space(path), SpaceNeed.DATASETS)
             yield from self._gen_file_entity(
                 urn,
                 # The label holds the folders under the connection, which the
@@ -196,7 +196,7 @@ class GraphNamedMixin(FileEntitiesMixin):
                 if (writer := self._app_table_urns_by_qri.get(qri)) is not None
                 and writer != urn
             }
-            yield from _patch_upstreams(
+            yield from patch_upstreams(
                 urn, sorted(writer_urns), DatasetLineageType.COPY
             )
         if self.reporter.graph_named_datasets_without_path:
@@ -209,7 +209,7 @@ class GraphNamedMixin(FileEntitiesMixin):
                 "URN alone. Give the API key's user access to the spaces listed "
                 'under "Qlik spaces the API key can\'t see", or, for files on '
                 "cloud storage, map their connection in `file_connection_to_storage`.",
-                context=_bounded_list(
+                context=bounded_list(
                     sorted(self.reporter.graph_named_datasets_without_path)
                 ),
             )
@@ -220,7 +220,7 @@ class GraphNamedMixin(FileEntitiesMixin):
                 "could not be read, so datasets only Qlik's lineage graph names "
                 "for them get no path this run and are kept as the last run left "
                 "them. They are read again on the next run.",
-                context=_bounded_list(self._reload_path_failures),
+                context=bounded_list(self._reload_path_failures),
             )
         if self.reporter.unrecognised_reload_files:
             self.reporter.info(
@@ -228,5 +228,5 @@ class GraphNamedMixin(FileEntitiesMixin):
                 message="These statements of the apps' last reload name a "
                 "`lib://` path in a form the connector doesn't read, so the file "
                 "gives no path to datasets only Qlik's lineage graph names.",
-                context=_bounded_list(list(self.reporter.unrecognised_reload_files)),
+                context=bounded_list(list(self.reporter.unrecognised_reload_files)),
             )

@@ -11,18 +11,18 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerW
 from datahub.ingestion.source.qlik_sense.config import Constant
 from datahub.ingestion.source.qlik_sense.constants import QVD_EXTENSION
 from datahub.ingestion.source.qlik_sense.lib_path import (
-    _is_ambiguous_connection,
-    _lib_connection,
-    _lib_path,
-    _lib_path_segments,
-    _path_key,
+    build_lib_path,
+    is_ambiguous_connection,
+    lib_path_segments,
+    parse_lib_connection,
+    path_key,
 )
 from datahub.ingestion.source.qlik_sense.qvd_lineage import CANONICAL_ABSOLUTE_PATH_RE
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     LIB_PATH_RE,
 )
 from datahub.ingestion.source.qlik_sense.source.store_lineage import StoreLineageMixin
-from datahub.ingestion.source.qlik_sense.source_utils import _voted_segments
+from datahub.ingestion.source.qlik_sense.source_utils import voted_segments
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
@@ -70,17 +70,17 @@ class FileEntitiesMixin(StoreLineageMixin):
         lowercase, so the same space, connection or folder would otherwise be
         named in several spellings."""
         spellings = self._lib_path_spellings()
-        segments = _lib_path_segments(path) or _voted_segments(path, spellings)
+        segments = lib_path_segments(path) or voted_segments(path, spellings)
         if segments is None:
             return path
         spelled = []
         for i, segment in enumerate(segments):
-            votes = spellings.get(_path_key("/".join(segments[: i + 1])))
+            votes = spellings.get(path_key("/".join(segments[: i + 1])))
             # The most used spelling, and the same one every run on a tie.
             spelled.append(
                 min(votes, key=lambda name: (-votes[name], name)) if votes else segment
             )
-        return _lib_path(spelled)
+        return build_lib_path(spelled)
 
     def _lib_path_spellings(self) -> Dict[str, Counter[str]]:
         paths = [
@@ -103,9 +103,9 @@ class FileEntitiesMixin(StoreLineageMixin):
         if paths != self._script_spellings_built_from:
             spellings: Dict[str, Counter[str]] = defaultdict(Counter)
             for path in paths:
-                segments = _lib_path_segments(path) or []
+                segments = lib_path_segments(path) or []
                 for i, segment in enumerate(segments):
-                    spellings[_path_key("/".join(segments[: i + 1]))][segment] += 1
+                    spellings[path_key("/".join(segments[: i + 1]))][segment] += 1
             self._script_spellings = spellings
             self._script_spellings_built_from = paths
         return self._script_spellings
@@ -118,10 +118,10 @@ class FileEntitiesMixin(StoreLineageMixin):
         match = LIB_PATH_RE.match(self._script_spelling(path))
         if not match:
             return
-        if _is_ambiguous_connection(match.group("connection")):
+        if is_ambiguous_connection(match.group("connection")):
             # Placed under no guessed space; the URN and path stay as recorded.
             return
-        lib_connection = _lib_connection(match.group("connection"))
+        lib_connection = parse_lib_connection(match.group("connection"))
         space, connection = lib_connection.space, lib_connection.name
         if not space:
             return

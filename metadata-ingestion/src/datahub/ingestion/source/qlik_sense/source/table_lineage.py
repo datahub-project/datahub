@@ -15,12 +15,12 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     LineageTable,
     SchemaField as QlikDatasetSchemaField,
 )
-from datahub.ingestion.source.qlik_sense.lib_path import _named_space
+from datahub.ingestion.source.qlik_sense.lib_path import named_space
 from datahub.ingestion.source.qlik_sense.lineage_utils import (
-    _patch_upstreams,
-    _script_column_lineage,
+    patch_upstreams,
+    script_column_lineage,
 )
-from datahub.ingestion.source.qlik_sense.reload_sql import _merged_lineage
+from datahub.ingestion.source.qlik_sense.reload_sql import merged_lineage
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     VARIABLE_REFERENCE_RE,
     ParsedScript,
@@ -35,24 +35,24 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.source.graph_named import GraphNamedMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
+    BinaryLink,
+    IncompleteLineageReason,
+    OnlyAddedTablesKey,
+    ParsedApp,
     PendingTableLineage,
+    ScriptTableKey,
+    SpaceNeed,
     UntypedTable,
-    _BinaryLink,
-    _IncompleteLineageReason,
-    _OnlyAddedTablesKey,
-    _ParsedApp,
-    _ScriptTableKey,
-    _SpaceNeed,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    _bounded_list,
-    _error_type,
-    _qlik_app_id,
+    bounded_list,
+    error_type,
+    qlik_app_id,
 )
 from datahub.ingestion.source.qlik_sense.table_matching import (
-    _lineage_table_identifier,
-    _merge_script_table,
-    _script_table_fields,
+    lineage_table_identifier,
+    merge_script_table,
+    script_table_fields,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
@@ -110,7 +110,7 @@ class TableLineageMixin(GraphNamedMixin):
                 title="Unable to parse Qlik load script SQL",
                 message=SCRIPT_TABLE_LINEAGE_SKIPPED,
                 context=f"app={app_id}, table={script_table.label}, "
-                f"error={_error_type(result.debug_info.table_error)}",
+                f"error={error_type(result.debug_info.table_error)}",
             )
         else:
             logger.debug(
@@ -132,7 +132,7 @@ class TableLineageMixin(GraphNamedMixin):
             if app.script
             else ParsedScript()
         )
-        self._last_parsed = _ParsedApp(app=app, parsed=parsed)
+        self._last_parsed = ParsedApp(app=app, parsed=parsed)
         return parsed
 
     def _build_script_tables(
@@ -140,7 +140,7 @@ class TableLineageMixin(GraphNamedMixin):
     ) -> List[ScriptTableLineage]:
         if not app.script:
             return []
-        tables: Dict[_ScriptTableKey, ScriptTableLineage] = {}
+        tables: Dict[ScriptTableKey, ScriptTableLineage] = {}
         # Tables the data model already traces are ingested from it instead.
         traced = {
             name.lower()
@@ -176,8 +176,8 @@ class TableLineageMixin(GraphNamedMixin):
                     f"{app.id}: {connection_name}"
                 )
                 self._note_unseen_space(
-                    _named_space(script_table.connection or ""),
-                    _SpaceNeed.DATA_CONNECTIONS,
+                    named_space(script_table.connection or ""),
+                    SpaceNeed.DATA_CONNECTIONS,
                 )
                 continue
             result = self._parse_script_table(app.id, script_table, connection)
@@ -194,7 +194,7 @@ class TableLineageMixin(GraphNamedMixin):
                 urn for urn in result.in_tables if urn not in upstream_urns
             )
             if upstream_urns:
-                _merge_script_table(
+                merge_script_table(
                     tables, app.id, script_table, connection_name, upstream_urns, result
                 )
         if unqualified:
@@ -210,7 +210,7 @@ class TableLineageMixin(GraphNamedMixin):
             for key, lineage in tables.items()
             if not (
                 key.mapping
-                and _ScriptTableKey(identifier=key.identifier, mapping=False) in tables
+                and ScriptTableKey(identifier=key.identifier, mapping=False) in tables
             )
         ]
         self.reporter.script_tables_with_lineage += len(script_tables)
@@ -221,13 +221,13 @@ class TableLineageMixin(GraphNamedMixin):
         tables: List[ScriptTableLineage],
         app_id: str,
         replace_lineage: bool = True,
-        binary_links: Optional[Dict[str, _BinaryLink]] = None,
+        binary_links: Optional[Dict[str, BinaryLink]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for table in tables:
             dataset_urn = self._gen_qlik_dataset_urn(table.identifier)
             yield from self._gen_app_table_entity(
                 table.identifier,
-                self._table_schema(table.identifier, _script_table_fields(table)),
+                self._table_schema(table.identifier, script_table_fields(table)),
                 app_id,
             )
             yield MetadataChangeProposalWrapper(
@@ -249,18 +249,18 @@ class TableLineageMixin(GraphNamedMixin):
                     link.model_copy(
                         update={
                             "upstream_urns": table.upstream_urns,
-                            "script_fields": _script_column_lineage(dataset_urn, table)
+                            "script_fields": script_column_lineage(dataset_urn, table)
                             or [],
                         }
                     )
                 )
                 continue
             if not replace_lineage:
-                yield from _patch_upstreams(
+                yield from patch_upstreams(
                     dataset_urn,
                     table.upstream_urns,
                     DatasetLineageType.TRANSFORMED,
-                    self._column_lineage(_script_column_lineage(dataset_urn, table)),
+                    self._column_lineage(script_column_lineage(dataset_urn, table)),
                 )
                 continue
             yield MetadataChangeProposalWrapper(
@@ -271,7 +271,7 @@ class TableLineageMixin(GraphNamedMixin):
                         for urn in table.upstream_urns
                     ],
                     fineGrainedLineages=self._column_lineage(
-                        _script_column_lineage(dataset_urn, table)
+                        script_column_lineage(dataset_urn, table)
                     ),
                 ),
             ).as_workunit()
@@ -290,9 +290,9 @@ class TableLineageMixin(GraphNamedMixin):
                 script_table = (
                     reload_table
                     if script_table is None
-                    else _merged_lineage(script_table, reload_table)
+                    else merged_lineage(script_table, reload_table)
                 )
-            identifier = _lineage_table_identifier(app.id, table)
+            identifier = lineage_table_identifier(app.id, table)
             dataset_urn = self._gen_qlik_dataset_urn(identifier)
             # The reload SQL only adds lineage: the fields stay the script's,
             # or the graph's, plus those the SQL gives lineage to.
@@ -334,7 +334,7 @@ class TableLineageMixin(GraphNamedMixin):
                 script_upstream_urns=script_table.upstream_urns if script_table else [],
                 incomplete_reason=self._incomplete_reason(app, table),
                 script_fields=(
-                    _script_column_lineage(dataset_urn, script_table) or []
+                    script_column_lineage(dataset_urn, script_table) or []
                     if script_table
                     else []
                 ),
@@ -362,27 +362,27 @@ class TableLineageMixin(GraphNamedMixin):
 
     def _incomplete_reason(
         self, app: App, table: LineageTable
-    ) -> Optional[_IncompleteLineageReason]:
+    ) -> Optional[IncompleteLineageReason]:
         if app.script_read_failed:
-            return _IncompleteLineageReason.SCRIPT_UNREAD
+            return IncompleteLineageReason.SCRIPT_UNREAD
         if app.tables_read_failed:
-            return _IncompleteLineageReason.TABLES_UNREAD
+            return IncompleteLineageReason.TABLES_UNREAD
         if table.field_lineage_failed:
-            return _IncompleteLineageReason.FIELD_LINEAGE_UNREAD
+            return IncompleteLineageReason.FIELD_LINEAGE_UNREAD
         database_sources = [
             qri for qri in table.source_qris if qri.startswith(DATABASE_QRI_PREFIX)
         ]
         if database_sources and app.reload_statements_read_failed:
-            return _IncompleteLineageReason.RELOAD_SQL_UNREAD
+            return IncompleteLineageReason.RELOAD_SQL_UNREAD
         if database_sources and self._data_connections_unread():
-            return _IncompleteLineageReason.DATA_CONNECTIONS_UNLISTED
+            return IncompleteLineageReason.DATA_CONNECTIONS_UNLISTED
         if any(qri not in table.database_source_labels for qri in database_sources):
-            return _IncompleteLineageReason.DATABASE_TABLE_UNLABELLED
+            return IncompleteLineageReason.DATABASE_TABLE_UNLABELLED
         return None
 
     def _reads_an_app_not_yet_read(self, app_id: str, table: LineageTable) -> bool:
         source_apps = {
-            _qlik_app_id(qri)
+            qlik_app_id(qri)
             for qri in [
                 *table.source_qris,
                 *(
@@ -415,7 +415,7 @@ class TableLineageMixin(GraphNamedMixin):
                 "the lineage read this run is added to their existing lineage "
                 "instead of replacing it.",
                 context=f"app={key.app_id}, reason={key.reason}, "
-                f"tables={_bounded_list(sorted(labels))}",
+                f"tables={bounded_list(sorted(labels))}",
             )
         self._only_added_tables = {}
         yield from self._gen_pending_stored_files()
@@ -437,7 +437,7 @@ class TableLineageMixin(GraphNamedMixin):
             pending.incomplete_reason
             or "; ".join(resolved.unknown_reasons)
             or (
-                _IncompleteLineageReason.FIELD_NAME_UNREAD
+                IncompleteLineageReason.FIELD_NAME_UNREAD
                 if pending.dataset_urn in self._unnamed_field_lineage
                 else None
             )
@@ -461,9 +461,9 @@ class TableLineageMixin(GraphNamedMixin):
         # would drop the edges an earlier run wrote, so what was read is added
         # to them instead.
         self._only_added_tables.setdefault(
-            _OnlyAddedTablesKey(app_id=pending.app_id, reason=reason), []
+            OnlyAddedTablesKey(app_id=pending.app_id, reason=reason), []
         ).append(pending.table_label)
-        yield from _patch_upstreams(
+        yield from patch_upstreams(
             pending.dataset_urn,
             upstream_urns,
             DatasetLineageType.TRANSFORMED,

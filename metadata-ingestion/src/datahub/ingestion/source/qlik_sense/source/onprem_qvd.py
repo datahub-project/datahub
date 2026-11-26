@@ -10,7 +10,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     SchemaField as QlikDatasetSchemaField,
 )
-from datahub.ingestion.source.qlik_sense.lineage_utils import _stale_field_lineage
+from datahub.ingestion.source.qlik_sense.lineage_utils import stale_field_lineage
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     CANONICAL_ABSOLUTE_PATH_RE,
     AppQvdLineage,
@@ -23,12 +23,12 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ScriptTableLineage,
 )
 from datahub.ingestion.source.qlik_sense.source.reload_lineage import ReloadSqlMixin
-from datahub.ingestion.source.qlik_sense.source_models import _QvdsUnknownReason
+from datahub.ingestion.source.qlik_sense.source_models import QvdsUnknownReason
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    _bounded_list,
-    _patch_workunits,
-    _qvd_fields,
-    _schema_field_parent,
+    bounded_list,
+    patch_workunits,
+    qvd_fields,
+    schema_field_parent,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
@@ -76,18 +76,18 @@ class OnPremQvdMixin(ReloadSqlMixin):
         self.reporter.storage_qvds_resolved += len(lineage.storage_urns)
         if app.script is None or app.script_read_failed:
             # QVDs the script writes can't be known, so their lineage is kept.
-            self._apps_qvds_unknown[app.id] = _QvdsUnknownReason.SCRIPT_UNREAD
+            self._apps_qvds_unknown[app.id] = QvdsUnknownReason.SCRIPT_UNREAD
             return lineage
         if self._data_connections_unread():
             # Without the folder connections, the lib:// QVDs it writes are
             # unknown.
-            unknown_reason: Optional[_QvdsUnknownReason] = (
-                _QvdsUnknownReason.DATA_CONNECTIONS_UNLISTED
+            unknown_reason: Optional[QvdsUnknownReason] = (
+                QvdsUnknownReason.DATA_CONNECTIONS_UNLISTED
             )
         elif parsed.has_unresolved_store or lineage.has_unresolved_store:
             # Such as a loop STORE, or a path built from a variable that failed
             # to read.
-            unknown_reason = _QvdsUnknownReason.UNRESOLVED_STORE
+            unknown_reason = QvdsUnknownReason.UNRESOLVED_STORE
         else:
             unknown_reason = None
         if unknown_reason:
@@ -132,7 +132,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
             return
         unknown = dict(self._apps_qvds_unknown)
         if self.qlik_api.unread_items:
-            unknown["apps that could not be listed"] = _QvdsUnknownReason.NOT_LISTED
+            unknown["apps that could not be listed"] = QvdsUnknownReason.NOT_LISTED
         if unknown:
             # An app whose QVD writes are unknown may write any QVD, so its
             # edges are kept and a QVD only it writes keeps its last schema.
@@ -141,7 +141,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
                 message="The QVDs some apps write are not known this run, so "
                 "their edges into QVDs are kept, and only QVDs written by an app "
                 "read this run get a new schema.",
-                context=_bounded_list(
+                context=bounded_list(
                     [f"{app}: {reason}" for app, reason in sorted(unknown.items())]
                 ),
             )
@@ -154,7 +154,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
             # The fields apps read are a subset, so a QVD whose writer is
             # unknown or not read this run keeps its schema.
             fields = (
-                _qvd_fields(writes.get(urn, []), reads.get(urn, []))
+                qvd_fields(writes.get(urn, []), reads.get(urn, []))
                 if urn in writes
                 or not (
                     unknown or self._has_unread_qvd_writer(current_lineage.get(urn))
@@ -204,7 +204,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
                 title=CHECKPOINT_LOAD_FAILED_TITLE,
                 message="Edges from these apps into storage QVDs they no longer "
                 "write are kept.",
-                context=_bounded_list(failures),
+                context=bounded_list(failures),
             )
         return urns
 
@@ -299,7 +299,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
                     parent
                     for lineage in current.fineGrainedLineages or []
                     for u in lineage.upstreams or []
-                    if (parent := _schema_field_parent(u))
+                    if (parent := schema_field_parent(u))
                 ),
             }
             owned = {urn for urn in seen if is_owned(urn)}
@@ -312,14 +312,14 @@ class OnPremQvdMixin(ReloadSqlMixin):
                 fields_unknown = {
                     write.table_urn for write in writes if write.fields is None
                 }
-                for lineage in _stale_field_lineage(
+                for lineage in stale_field_lineage(
                     current.fineGrainedLineages or [],
                     fine_grained,
                     owned - fields_unknown,
                 ):
                     patch.remove_fine_grained_lineage(lineage)
         # A file on storage is not this source's to remove when stale.
-        yield from _patch_workunits(
+        yield from patch_workunits(
             patch, is_primary_source=self._is_own_dataset(qvd_urn)
         )
 

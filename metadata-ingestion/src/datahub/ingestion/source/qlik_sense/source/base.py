@@ -15,17 +15,17 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 from datahub.ingestion.source.qlik_sense.file_lineage import FileSourceResolver
 from datahub.ingestion.source.qlik_sense.qlik_base_api import QlikBaseAPI
 from datahub.ingestion.source.qlik_sense.qvd_lineage import AppQvds
-from datahub.ingestion.source.qlik_sense.reload_sql import _ReloadFile
+from datahub.ingestion.source.qlik_sense.reload_sql import ReloadFile
 from datahub.ingestion.source.qlik_sense.script_lineage import DataConnectionInfo
 from datahub.ingestion.source.qlik_sense.source_models import (
+    BinaryLink,
+    OnlyAddedTablesKey,
+    ParsedApp,
     PendingStoredFile,
     PendingTableLineage,
+    QvdsUnknownReason,
+    UnseenSpace,
     UntypedTable,
-    _BinaryLink,
-    _OnlyAddedTablesKey,
-    _ParsedApp,
-    _QvdsUnknownReason,
-    _UnseenSpace,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -55,7 +55,7 @@ class QlikSourceBase:
     _apps_variables_unread: Set[str]
     # The tables whose lineage is only added to, by app and reason, reported
     # once per app at the end of the run.
-    _only_added_tables: Dict[_OnlyAddedTablesKey, List[str]]
+    _only_added_tables: Dict[OnlyAddedTablesKey, List[str]]
     # Apps that load files by a wildcard or a path the connector can't
     # expand, so the files in their lineage graph can't all be named.
     _apps_file_paths_unknown: Set[str]
@@ -97,13 +97,13 @@ class QlikSourceBase:
     _graph_named_resources: Dict[str, str]
     _graph_resource_writers: Dict[str, Set[str]]
     # The files apps stored or loaded in their last reload, by app id.
-    _reload_files: Dict[str, List[_ReloadFile]]
+    _reload_files: Dict[str, List[ReloadFile]]
     # Apps whose last reload's statements could not be read.
     _reload_files_unread: Set[str]
     _reload_path_failures: List[str]
     # Spaces the API key can't see that lineage goes through, by lowercased
     # name, with the name as written and what lineage needs from them.
-    _unseen_spaces: Dict[str, _UnseenSpace]
+    _unseen_spaces: Dict[str, UnseenSpace]
     _listed_space_names: Optional[Set[str]]
     # The apps whose upstream graph names each graph-named dataset.
     _graph_resource_readers: Dict[str, Set[str]]
@@ -142,7 +142,7 @@ class QlikSourceBase:
     # the apps whose QVDs are unknown.
     _app_qvds: Dict[str, AppQvds]
     # Apps whose QVD writes are not known this run, with why.
-    _apps_qvds_unknown: Dict[str, _QvdsUnknownReason]
+    _apps_qvds_unknown: Dict[str, QvdsUnknownReason]
     # On Qlik Cloud, the files on storage each app read this run stores into.
     _app_stored_files: Dict[str, List[str]]
     _unresolved_qvd_loads: int
@@ -157,9 +157,9 @@ class QlikSourceBase:
     # files they linked then.
     _kept_app_ids: Set[str]
     _app_model_fields: Dict[str, Dict[str, List[str]]]
-    _binary_links: List[_BinaryLink]
+    _binary_links: List[BinaryLink]
     _apps_with_binary_tables: Set[str]
-    _last_parsed: Optional[_ParsedApp]
+    _last_parsed: Optional[ParsedApp]
     # The data model fields of the app being emitted, by table identifier.
     _data_model_fields: Dict[str, List[QlikDatasetSchemaField]]
     # Datasets and the app table QRIs stored into them, linked once every

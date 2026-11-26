@@ -11,7 +11,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
-from datahub.ingestion.source.qlik_sense.chart_fields import _tables_without_chart_path
+from datahub.ingestion.source.qlik_sense.chart_fields import tables_without_chart_path
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
@@ -348,6 +348,6 @@ def test_app_links_tables_its_charts_cannot(charts_complete: bool) -> None:
     app.sheets = [sheet]
     inputs = {"chart-1": ChartInputs(fields=[], tables=[TABLES[0]])}
 
-    assert _tables_without_chart_path(app, inputs, TABLES) == (
+    assert tables_without_chart_path(app, inputs, TABLES) == (
         TABLES[1:] if charts_complete else TABLES
     )

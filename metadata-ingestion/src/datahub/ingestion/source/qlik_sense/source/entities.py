@@ -17,11 +17,11 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 )
 from datahub.ingestion.source.qlik_sense.source.base import QlikSourceBase
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    _dataset_display_name,
-    _dataset_subtype,
-    _gen_schema_field,
-    _qlik_dataset_identifier,
-    _qlik_field_id,
+    dataset_display_name,
+    dataset_subtype,
+    gen_schema_field,
+    qlik_dataset_identifier,
+    qlik_field_id,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
@@ -129,7 +129,7 @@ class EntityEmitMixin(QlikSourceBase):
 
     def _learn_field_names(self, names: Iterable[str]) -> None:
         for name in names:
-            self._field_names_by_id.setdefault(_qlik_field_id(name), name)
+            self._field_names_by_id.setdefault(qlik_field_id(name), name)
 
     def _gen_qlik_dataset_urn(self, dataset_identifier: str) -> str:
         return builder.make_dataset_urn_with_platform_instance(
@@ -158,7 +158,7 @@ class EntityEmitMixin(QlikSourceBase):
     def _gen_schema_fields(
         self, schema: List[QlikDatasetSchemaField]
     ) -> List[SchemaField]:
-        return [_gen_schema_field(field) for field in schema]
+        return [gen_schema_field(field) for field in schema]
 
     def _gen_schema_metadata(
         self, dataset_identifier: str, dataset_schema: List[QlikDatasetSchemaField]
@@ -182,7 +182,7 @@ class EntityEmitMixin(QlikSourceBase):
         self, dataset_urn: str, dataset: QlikDataset
     ) -> MetadataWorkUnit:
         dataset_properties = DatasetProperties(
-            name=_dataset_display_name(dataset),
+            name=dataset_display_name(dataset),
             description=dataset.description,
             qualifiedName=dataset.name,
             externalUrl=f"https://{self.ui_host}/dataset/{dataset.itemId}",
@@ -193,7 +193,7 @@ class EntityEmitMixin(QlikSourceBase):
             {
                 Constant.QRI: dataset.secureQri,
                 Constant.SPACEID: dataset.spaceId,
-                Constant.TYPE: _dataset_subtype(dataset),
+                Constant.TYPE: dataset_subtype(dataset),
                 Constant.DATASETTYPE: dataset.type,
                 Constant.SIZE: str(dataset.size),
                 Constant.ROWCOUNT: str(dataset.rowCount),
@@ -205,7 +205,7 @@ class EntityEmitMixin(QlikSourceBase):
         ).as_workunit()
 
     def _gen_dataset_workunit(self, dataset: QlikDataset) -> Iterable[MetadataWorkUnit]:
-        dataset_identifier = _qlik_dataset_identifier(dataset.spaceId, dataset.name)
+        dataset_identifier = qlik_dataset_identifier(dataset.spaceId, dataset.name)
         dataset_urn = self._gen_qlik_dataset_urn(dataset_identifier)
         if dataset.stored_from_qris is not None:
             self._dataset_store_sources[dataset_urn] = dataset.stored_from_qris
@@ -241,5 +241,5 @@ class EntityEmitMixin(QlikSourceBase):
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
-            aspect=SubTypes(typeNames=[_dataset_subtype(dataset)]),
+            aspect=SubTypes(typeNames=[dataset_subtype(dataset)]),
         ).as_workunit()

@@ -6,7 +6,7 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
-from datahub.ingestion.source.qlik_sense.source_utils import _schema_field_parent
+from datahub.ingestion.source.qlik_sense.source_utils import schema_field_parent
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
@@ -16,7 +16,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 
 
-def _script_column_lineage(
+def script_column_lineage(
     dataset_urn: str, table: ScriptTableLineage
 ) -> Optional[List[FineGrainedLineage]]:
     return [
@@ -31,7 +31,7 @@ def _script_column_lineage(
     ] or None
 
 
-def _patch_upstreams(
+def patch_upstreams(
     dataset_urn: str,
     upstream_urns: List[str],
     lineage_type: str,
@@ -52,7 +52,7 @@ def _patch_upstreams(
     )
 
 
-def _stale_field_lineage(
+def stale_field_lineage(
     current: List[FineGrainedLineage],
     stored: List[FineGrainedLineage],
     owned: Set[str],
@@ -75,7 +75,7 @@ def _stale_field_lineage(
         upstreams = [
             upstream
             for upstream in lineage.upstreams or []
-            if _schema_field_parent(upstream) in owned
+            if schema_field_parent(upstream) in owned
             and not any(
                 (downstream, upstream) in stored_edges
                 for downstream in lineage.downstreams or []

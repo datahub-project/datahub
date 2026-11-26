@@ -10,11 +10,11 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     SchemaField as QlikDatasetSchemaField,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import expression_names
-from datahub.ingestion.source.qlik_sense.source_utils import _patch_workunits
+from datahub.ingestion.source.qlik_sense.source_utils import patch_workunits
 from datahub.specific.chart import ChartPatchBuilder
 
 
-def _gen_chart_info_patch(
+def gen_chart_info_patch(
     chart_urn: str, chart: Chart, custom_properties: Dict[str, str]
 ) -> Iterable[MetadataWorkUnit]:
     # GMS creates missing chart info from its patch template, which also
@@ -26,15 +26,15 @@ def _gen_chart_info_patch(
         patch.set_description(chart.visualization)
     for key, value in custom_properties.items():
         patch.add_custom_property(key, value)
-    yield from _patch_workunits(patch, is_primary_source=True)
+    yield from patch_workunits(patch, is_primary_source=True)
 
 
-def _chart_field_names(expression: str, app_fields: AppFieldIndex) -> List[str]:
+def chart_field_names(expression: str, app_fields: AppFieldIndex) -> List[str]:
     # A dimension is usually a bare field name, which may contain spaces.
     return [expression] if app_fields.get(expression) else expression_names(expression)
 
 
-def _app_field_key(name: str, app_fields: AppFieldIndex) -> Optional[str]:
+def app_field_key(name: str, app_fields: AppFieldIndex) -> Optional[str]:
     """The app field a chart name reads. A derived field such as
     Date.autoCalendar.Year reads its base field, the longest leading part
     of the name that is a field (field names can contain dots), unless a
@@ -45,11 +45,11 @@ def _app_field_key(name: str, app_fields: AppFieldIndex) -> Optional[str]:
     return key if app_fields.get(key) else None
 
 
-def _get_chart_input_fields(chart: Chart, app_fields: AppFieldIndex) -> List[AppField]:
+def get_chart_input_fields(chart: Chart, app_fields: AppFieldIndex) -> List[AppField]:
     matched: Dict[str, AppField] = {}
     for expression in chart.field_expressions:
-        for name in _chart_field_names(expression, app_fields):
-            key = _app_field_key(name, app_fields)
+        for name in chart_field_names(expression, app_fields):
+            key = app_field_key(name, app_fields)
             for app_field in app_fields.get(key) if key else []:
                 matched.setdefault(
                     f"{app_field.dataset_urn}.{app_field.field.name}", app_field
@@ -57,7 +57,7 @@ def _get_chart_input_fields(chart: Chart, app_fields: AppFieldIndex) -> List[App
     return list(matched.values())
 
 
-def _index_app_fields(
+def index_app_fields(
     tables: Dict[str, List[QlikDatasetSchemaField]],
     script_table_urns: Collection[str] = (),
 ) -> AppFieldIndex:
@@ -71,7 +71,7 @@ def _index_app_fields(
     return index
 
 
-def _tables_without_chart_path(
+def tables_without_chart_path(
     app: App, chart_inputs: Dict[str, ChartInputs], table_urns: List[str]
 ) -> List[str]:
     """The app's tables no chart links to the app. A table reaches the app

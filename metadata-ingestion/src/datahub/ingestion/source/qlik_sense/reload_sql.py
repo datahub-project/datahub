@@ -11,7 +11,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     ReloadStatement,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
-from datahub.ingestion.source.qlik_sense.source_utils import _refs_of_field_sources
+from datahub.ingestion.source.qlik_sense.source_utils import refs_of_field_sources
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -59,13 +59,13 @@ class _SourceGroupKey(BaseModel):
     name: str
 
 
-class _ReloadFile(BaseModel):
+class ReloadFile(BaseModel):
     path: str
     stored: bool
 
 
-class _ReloadFiles(BaseModel):
-    files: List[_ReloadFile] = []
+class ReloadFiles(BaseModel):
+    files: List[ReloadFile] = []
     # Statements that name a `lib://` path in a form RELOAD_FILE_RE doesn't know.
     unrecognised: List[str] = []
 
@@ -81,13 +81,13 @@ def _without_file_format(path: str) -> str:
     return path
 
 
-def _reload_files(statements: List[ReloadStatement]) -> _ReloadFiles:
-    result = _ReloadFiles()
+def parse_reload_files(statements: List[ReloadStatement]) -> ReloadFiles:
+    result = ReloadFiles()
     for statement in statements:
         discriminator = statement.discriminator.strip()
         match = RELOAD_FILE_RE.match(discriminator)
         if match:
-            file = _ReloadFile(
+            file = ReloadFile(
                 path=_without_file_format(match.group("path").strip()),
                 stored=bool(match.group("store")),
             )
@@ -98,11 +98,11 @@ def _reload_files(statements: List[ReloadStatement]) -> _ReloadFiles:
     return result
 
 
-def _label_parts(label: str) -> List[str]:
+def label_parts(label: str) -> List[str]:
     return [part.strip().strip(QUOTE_CHARACTERS).lower() for part in label.split(".")]
 
 
-def _names_identifier(sql: str, name: str) -> bool:
+def names_identifier(sql: str, name: str) -> bool:
     """Whether lowercased SQL names `name` as a whole identifier, so that
     `orders_archive` doesn't count as naming `orders`."""
     return re.search(rf"(?<![\w$#@]){re.escape(name)}(?![\w$#@])", sql) is not None
@@ -164,7 +164,7 @@ TABLE_CLAUSE_END_KEYWORDS = {
 JOIN_KEYWORDS = {"on", "inner", "left", "right", "full", "cross", "outer", "natural"}
 
 
-def _table_clause_names(sql: str) -> Set[str]:
+def table_clause_names(sql: str) -> Set[str]:
     """The lowercased names in the table lists of SQL, after FROM, JOIN and
     INTO, so that a keyword such as ORDER in ORDER BY doesn't count as naming
     a table called `order`. Aliases and the parts of qualified names are
@@ -186,7 +186,7 @@ def _table_clause_names(sql: str) -> Set[str]:
         is_word = re.match(r"[\w$#@]", token) is not None
         opens_clause = False
         if token.startswith("'"):
-            names |= _table_clause_names(token.strip("'").replace("''", "'"))
+            names |= table_clause_names(token.strip("'").replace("''", "'"))
         elif token == "(":
             stack.append(_ClauseState(in_clause=in_clause, in_from=in_from))
             in_clause = in_from = False
@@ -225,35 +225,35 @@ def _table_clause_names(sql: str) -> Set[str]:
     return names
 
 
-def _string_literal_table_names(sql: str) -> Set[str]:
+def string_literal_table_names(sql: str) -> Set[str]:
     return {
         name
         for token in SQL_TOKEN_RE.findall(sql)
         if token.startswith("'")
-        for name in _table_clause_names(token.strip("'").replace("''", "'"))
+        for name in table_clause_names(token.strip("'").replace("''", "'"))
     }
 
 
-def _database_qri_platform(source_qri: str) -> str:
+def database_qri_platform(source_qri: str) -> str:
     scheme = source_qri[len(DATABASE_QRI_PREFIX) :].partition("://")[0].lower()
     # A scheme that isn't mapped is compared as is, such as `oracle`, so one
     # that names no DataHub platform matches nothing.
     return KNOWN_DATA_PLATFORM_MAPPING.get(scheme, scheme)
 
 
-def _urn_names_table(urn: str, source_qri: str, label: str) -> bool:
+def urn_names_table(urn: str, source_qri: str, label: str) -> bool:
     """Whether a dataset URN is the database table a lineage graph node, such
     as `qri:db:sqlserver://<hash>#<hash>` labelled `dbo.orders`, names. The
     label leaves out the database, and the URN's case may differ from it."""
     dataset = DatasetUrn.from_string(urn)
-    platform = _database_qri_platform(source_qri)
+    platform = database_qri_platform(source_qri)
     if dataset.platform != builder.make_data_platform_urn(platform):
         return False
-    parts = _label_parts(label)
+    parts = label_parts(label)
     return dataset.name.lower().split(".")[-len(parts) :] == parts
 
 
-class _ReloadSql(BaseModel):
+class ReloadSql(BaseModel):
     """A SQL statement of an app's last reload, with the tables it reads."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -264,8 +264,8 @@ class _ReloadSql(BaseModel):
     urns_without_schema: List[str] = []
 
 
-class _ParsedReloadSql(BaseModel):
-    statements: List[_ReloadSql] = []
+class ParsedReloadSql(BaseModel):
+    statements: List[ReloadSql] = []
     # The names in the table lists of statements that may name a label but
     # were not read, for an unresolved connection, a parse error or dynamic
     # SQL, and the names of tables read without their database or schema.
@@ -275,7 +275,7 @@ class _ParsedReloadSql(BaseModel):
     unexpanded_variable: bool = False
 
 
-class _UntracedSources(BaseModel):
+class UntracedSources(BaseModel):
     """Database sources of a graph table that the load script doesn't trace
     and whose labels may name the same table, such as `dbo.orders` in two
     databases."""
@@ -289,26 +289,26 @@ class _UntracedSources(BaseModel):
     script_urns: List[str] = []
 
 
-def _untraced_source_groups(
+def untraced_source_groups(
     labels: Dict[str, str], script_urns: List[str]
-) -> List[_UntracedSources]:
+) -> List[UntracedSources]:
     """The database sources, by graph QRI and label, that the script's tables
     don't trace. A script table traces a source only when it is the one source
     of the graph table that could be it."""
     groups: Dict[_SourceGroupKey, Dict[str, str]] = {}
     for qri, label in labels.items():
         key = _SourceGroupKey(
-            platform=_database_qri_platform(qri), name=_label_parts(label)[-1]
+            platform=database_qri_platform(qri), name=label_parts(label)[-1]
         )
         groups.setdefault(key, {})[qri] = label
-    untraced: List[_UntracedSources] = []
+    untraced: List[UntracedSources] = []
     for key, group in groups.items():
-        sources = _UntracedSources(
+        sources = UntracedSources(
             name=key.name, labels=dict(group), script_urns=script_urns
         )
         for urn in script_urns:
             named = [
-                qri for qri, label in group.items() if _urn_names_table(urn, qri, label)
+                qri for qri, label in group.items() if urn_names_table(urn, qri, label)
             ]
             if len(named) == 1:
                 sources.labels.pop(named[0], None)
@@ -319,7 +319,7 @@ def _untraced_source_groups(
     return untraced
 
 
-def _merged_lineage(
+def merged_lineage(
     script_table: ScriptTableLineage, reload_table: ScriptTableLineage
 ) -> ScriptTableLineage:
     upstream_urns = list(script_table.upstream_urns)
@@ -343,10 +343,10 @@ def _merged_lineage(
     )
 
 
-def _add_reload_column_lineage(
+def add_reload_column_lineage(
     lineage: ScriptTableLineage,
     table: LineageTable,
-    parsed: _ParsedReloadSql,
+    parsed: ParsedReloadSql,
     source_qri: str,
     urn: str,
 ) -> None:
@@ -375,7 +375,7 @@ def _add_reload_column_lineage(
         if source_field_ids:
             # A LOAD over the SQL may rename fields, which the reload SQL
             # doesn't show, so the graph decides which column each loads.
-            refs = _refs_of_field_sources(
+            refs = refs_of_field_sources(
                 refs, field_name, source_field_ids.get(field_name, set())
             )
         if not refs:

@@ -6,22 +6,22 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     DATABASE_QRI_PREFIX,
     App,
 )
-from datahub.ingestion.source.qlik_sense.lib_path import _named_space
+from datahub.ingestion.source.qlik_sense.lib_path import named_space
 from datahub.ingestion.source.qlik_sense.reload_sql import (
     READ_QUERY_TYPES,
     RELOAD_SQL_RE,
     RELOAD_UNPARSED_SQL_RE,
-    _add_reload_column_lineage,
-    _database_qri_platform,
-    _label_parts,
-    _names_identifier,
-    _ParsedReloadSql,
-    _ReloadSql,
-    _string_literal_table_names,
-    _table_clause_names,
-    _untraced_source_groups,
-    _UntracedSources,
-    _urn_names_table,
+    ParsedReloadSql,
+    ReloadSql,
+    UntracedSources,
+    add_reload_column_lineage,
+    database_qri_platform,
+    label_parts,
+    names_identifier,
+    string_literal_table_names,
+    table_clause_names,
+    untraced_source_groups,
+    urn_names_table,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
@@ -34,13 +34,13 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     redact_connection,
 )
 from datahub.ingestion.source.qlik_sense.source.resolution import SourceResolutionMixin
-from datahub.ingestion.source.qlik_sense.source_models import _SpaceNeed
+from datahub.ingestion.source.qlik_sense.source_models import SpaceNeed
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    _bounded_list,
-    _describe_error,
-    _error_type,
+    bounded_list,
+    describe_error,
+    error_type,
 )
-from datahub.ingestion.source.qlik_sense.table_matching import _lineage_table_identifier
+from datahub.ingestion.source.qlik_sense.table_matching import lineage_table_identifier
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -77,13 +77,13 @@ class ReloadSqlMixin(SourceResolutionMixin):
             graph=self.ctx.graph,
         )
 
-    def _parse_reload_sql(self, app: App, labels: List[str]) -> _ParsedReloadSql:
+    def _parse_reload_sql(self, app: App, labels: List[str]) -> ParsedReloadSql:
         """The SQL statements of the app's last reload that may read a table
         one of `labels` names. Qlik ran them with variables set and included
         scripts inlined, so they hold SQL the load script only builds at run
         time, such as from a list of tables in a file."""
-        names = {_label_parts(label)[-1] for label in labels}
-        parsed = _ParsedReloadSql()
+        names = {label_parts(label)[-1] for label in labels}
+        parsed = ParsedReloadSql()
         unqualified: List[str] = []
         unresolved: Set[str] = set()
         for statement in app.reload_statements or []:
@@ -101,19 +101,19 @@ class ReloadSqlMixin(SourceResolutionMixin):
             if "$(" in sql:
                 parsed.unexpanded_variable = True
                 continue
-            if not any(_names_identifier(sql.lower(), name) for name in names):
+            if not any(names_identifier(sql.lower(), name) for name in names):
                 continue
             if unparsed:
-                parsed.skipped_table_names |= _table_clause_names(sql)
+                parsed.skipped_table_names |= table_clause_names(sql)
                 continue
             connection_name = statement.discriminator.strip().rstrip(";").strip()
             connection = self._resolve_script_connection(connection_name, app.spaceId)
             if connection is None:
                 unresolved.add(redact_connection(connection_name))
                 self._note_unseen_space(
-                    _named_space(connection_name), _SpaceNeed.DATA_CONNECTIONS
+                    named_space(connection_name), SpaceNeed.DATA_CONNECTIONS
                 )
-                parsed.skipped_table_names |= _table_clause_names(sql)
+                parsed.skipped_table_names |= table_clause_names(sql)
                 continue
             result = self._parse_script_sql(sql, connection)
             if result.debug_info.table_error:
@@ -122,9 +122,9 @@ class ReloadSqlMixin(SourceResolutionMixin):
                     message="Lineage to the tables the statement reads is skipped.",
                     context=f"app={app.id}, connection="
                     f"{redact_connection(connection_name)}, "
-                    f"error={_error_type(result.debug_info.table_error)}",
+                    f"error={error_type(result.debug_info.table_error)}",
                 )
-                parsed.skipped_table_names |= _table_clause_names(sql)
+                parsed.skipped_table_names |= table_clause_names(sql)
                 continue
             # An UPDATE, DELETE or MERGE loads no rows, and the tables an
             # INSERT writes are not read.
@@ -135,7 +135,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
             )
             if not read_urns:
                 # Such as EXEC('SELECT ...'), whose tables the parser can't see.
-                parsed.skipped_table_names |= _table_clause_names(sql)
+                parsed.skipped_table_names |= table_clause_names(sql)
                 continue
             parsed.skipped_table_names.update(
                 part
@@ -143,7 +143,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
                 for part in DatasetUrn.from_string(urn).name.lower().split(".")
             )
             # SQL in a string literal runs dynamically and is never parsed.
-            parsed.skipped_table_names |= _string_literal_table_names(sql)
+            parsed.skipped_table_names |= string_literal_table_names(sql)
             upstream_urns = [
                 urn
                 for urn in read_urns
@@ -164,7 +164,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
             )
             if upstream_urns:
                 parsed.statements.append(
-                    _ReloadSql(
+                    ReloadSql(
                         upstream_urns=upstream_urns,
                         result=result,
                         urns_without_schema=self._urns_without_schema(
@@ -213,10 +213,10 @@ class ReloadSqlMixin(SourceResolutionMixin):
         doesn't trace, from the SQL of the app's last reload, by table QRI.
         The graph names each source table by a label such as `dbo.orders`,
         which is linked only when exactly one table the SQL reads matches it."""
-        untraced: Dict[str, List[_UntracedSources]] = {}
+        untraced: Dict[str, List[UntracedSources]] = {}
         for table in app.lineage_tables:
             script_table = script_tables.get(table.qri)
-            groups = _untraced_source_groups(
+            groups = untraced_source_groups(
                 table.database_source_labels,
                 script_table.upstream_urns if script_table else [],
             )
@@ -239,7 +239,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
                 continue
             lineage = ScriptTableLineage(
                 label=table.label,
-                identifier=_lineage_table_identifier(app.id, table),
+                identifier=lineage_table_identifier(app.id, table),
             )
             for group in untraced[table.qri]:
                 urn = self._reload_sql_source(app, parsed, group)
@@ -251,14 +251,14 @@ class ReloadSqlMixin(SourceResolutionMixin):
                     # With several such sources, which one the table is isn't
                     # known, so neither are the graph fields it loads.
                     (source_qri,) = group.labels
-                    _add_reload_column_lineage(lineage, table, parsed, source_qri, urn)
+                    add_reload_column_lineage(lineage, table, parsed, source_qri, urn)
             if lineage.upstream_urns:
                 self.reporter.reload_sql_tables_with_lineage += 1
                 lineages[table.qri] = lineage
         return lineages
 
     def _reload_sql_source(
-        self, app: App, parsed: _ParsedReloadSql, group: _UntracedSources
+        self, app: App, parsed: ParsedReloadSql, group: UntracedSources
     ) -> Optional[str]:
         """The one table the reload SQL reads, and the load script doesn't,
         that the graph labels of a group of database sources name."""
@@ -270,7 +270,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
             for urn in statement.upstream_urns
             if urn.lower() not in script_urns
             and any(
-                _urn_names_table(urn, qri, label) for qri, label in group.labels.items()
+                urn_names_table(urn, qri, label) for qri, label in group.labels.items()
             )
         }
         labels = ", ".join(sorted(set(group.labels.values())))
@@ -285,7 +285,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
             if not unread:
                 self.reporter.unmatched_reload_sql_sources.extend(
                     dict.fromkeys(
-                        f"{app.id}: {label} ({_database_qri_platform(qri)})"
+                        f"{app.id}: {label} ({database_qri_platform(qri)})"
                         for qri, label in group.labels.items()
                     )
                 )
@@ -332,7 +332,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
                     f"Unable to read database labels of app {app.id}", exc_info=True
                 )
                 self.reporter.database_label_read_failures.append(
-                    f"{app.id}: {_describe_error(e)}"
+                    f"{app.id}: {describe_error(e)}"
                 )
                 return
         for table, qri in unlabelled:
@@ -346,7 +346,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
                 message="Database tables that only the SQL of these apps' last "
                 "reload names are left out, and the lineage of the apps' tables "
                 "that read databases is only added to this run.",
-                context=_bounded_list(self.qlik_api.reload_statement_read_failures),
+                context=bounded_list(self.qlik_api.reload_statement_read_failures),
             )
         if self.reporter.database_label_read_failures:
             self.reporter.warning(
@@ -354,7 +354,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
                 message="The upstream lineage graph that labels the database "
                 "tables these apps load from could not be read, so lineage of the "
                 "apps' tables that read databases is only added to this run.",
-                context=_bounded_list(list(self.reporter.database_label_read_failures)),
+                context=bounded_list(list(self.reporter.database_label_read_failures)),
             )
         if self.reporter.ambiguous_reload_sql_sources:
             self.reporter.warning(
@@ -362,7 +362,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
                 message="The SQL of the app's last reload reads more than one "
                 "table the graph's label could name, or a statement that may "
                 "name it could not be read, so lineage to it is skipped.",
-                context=_bounded_list(
+                context=bounded_list(
                     sorted(self.reporter.ambiguous_reload_sql_sources)
                 ),
             )
@@ -371,7 +371,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
                 title="Qlik lineage graph database table matches no reload SQL table",
                 message="No table the SQL of the app's last reload reads matches "
                 "the graph's label and platform, so lineage to it is skipped.",
-                context=_bounded_list(
+                context=bounded_list(
                     sorted(self.reporter.unmatched_reload_sql_sources)
                 ),
             )
@@ -382,7 +382,7 @@ class ReloadSqlMixin(SourceResolutionMixin):
                 "the warehouse is ingested with another case, the edge points at "
                 "a dataset that doesn't exist; set the warehouse source's URN "
                 "case to match.",
-                context=_bounded_list(
+                context=bounded_list(
                     sorted(self.reporter.reload_sql_tables_not_in_datahub)
                 ),
             )

@@ -13,33 +13,33 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     apply_preceding_loads,
     select_list_size,
 )
-from datahub.ingestion.source.qlik_sense.source_models import _ScriptTableKey
+from datahub.ingestion.source.qlik_sense.source_models import ScriptTableKey
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     column_refs_to_schema_field_urns,
 )
 
 
-def _script_table_fields(
+def script_table_fields(
     table: ScriptTableLineage,
 ) -> List[QlikDatasetSchemaField]:
     return [QlikDatasetSchemaField(name=column) for column in table.column_upstreams]
 
 
-def _lineage_table_identifier(app_id: str, table: LineageTable) -> str:
+def lineage_table_identifier(app_id: str, table: LineageTable) -> str:
     # The identifier load script tables use, so a table keeps its URN
     # whether or not its load script SQL resolves to a database table.
     label = table.label or table.qri.rpartition("#")[2]
     return app_table_identifier(app_id, label)
 
 
-def _tables_unknown(app: App) -> bool:
+def app_tables_unknown(app: App) -> bool:
     """Whether some of the app's tables may have no URN this run, so a
     table that loads from the app can't be told to load nothing else."""
     return app.tables_read_failed
 
 
-def _graph_tables_unresolved(app: App) -> bool:
+def app_graph_tables_unresolved(app: App) -> bool:
     """Whether a table node of the app's lineage graph may have no URN
     this run, though the app's tables were read."""
     return bool(app.unmatched_graph_tables) or bool(
@@ -47,7 +47,7 @@ def _graph_tables_unresolved(app: App) -> bool:
     )
 
 
-def _match_script_tables(
+def match_script_tables(
     lineage_tables: List[LineageTable], script_tables: List[ScriptTableLineage]
 ) -> Dict[str, ScriptTableLineage]:
     """Script tables that are also lineage graph tables, by graph table QRI,
@@ -62,7 +62,7 @@ def _match_script_tables(
     }
 
 
-def _name_unknown_tables(app: App, script_tables: List[ScriptTableLineage]) -> None:
+def name_unknown_tables(app: App, script_tables: List[ScriptTableLineage]) -> None:
     """Gives a script table the parser could not name its name in the data
     model, when exactly one data model table no other table claims has
     exactly its columns. Otherwise it keeps its made-up name."""
@@ -93,7 +93,7 @@ def _name_unknown_tables(app: App, script_tables: List[ScriptTableLineage]) -> N
             table.label_unknown = False
 
 
-def _merge_tables(
+def merge_tables(
     script_tables: List[ScriptTableLineage],
     tables: Dict[str, ScriptTableLineage],
 ) -> List[ScriptTableLineage]:
@@ -118,8 +118,8 @@ def _merge_tables(
     return merged
 
 
-def _merge_script_table(
-    tables: Dict[_ScriptTableKey, ScriptTableLineage],
+def merge_script_table(
+    tables: Dict[ScriptTableKey, ScriptTableLineage],
     app_id: str,
     script_table: ScriptTable,
     connection_name: Optional[str],
@@ -131,7 +131,7 @@ def _merge_script_table(
     # mapping load is kept apart.
     identifier = app_table_identifier(app_id, script_table.label)
     lineage = tables.setdefault(
-        _ScriptTableKey(identifier=identifier, mapping=script_table.mapping),
+        ScriptTableKey(identifier=identifier, mapping=script_table.mapping),
         ScriptTableLineage(
             label=script_table.label,
             identifier=identifier,
