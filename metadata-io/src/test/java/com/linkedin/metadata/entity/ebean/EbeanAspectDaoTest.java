@@ -1978,7 +1978,7 @@ public class EbeanAspectDaoTest {
     List<String> matches = new ArrayList<>();
     for (int i = 0; i < sql.size(); i++) {
       String lower = sql.get(i).toLowerCase();
-      if (!lower.contains("max(") || !lower.contains("version") || lower.contains("for update")) {
+      if (!lower.contains("from metadata_aspect_v2") || lower.contains("for update")) {
         continue;
       }
       String stmt = withFollowingBind(sql, i);

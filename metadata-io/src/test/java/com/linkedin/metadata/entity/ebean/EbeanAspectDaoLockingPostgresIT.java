@@ -347,12 +347,23 @@ public class EbeanAspectDaoLockingPostgresIT {
     assertTrue(locks.get(0).contains("urn:li:corpuser:B"));
     assertTrue(locks.get(0).contains("urn:li:corpuser:c"));
 
-    // Postgres renders findIds() as "select urn, aspect, version" plus a bind comment, not max(.
-    List<String> versionReads =
-        sql.stream()
-            .filter(line -> !line.toLowerCase().contains("for update"))
-            .filter(line -> line.contains("urn:li:corpuser:"))
-            .toList();
+    // Postgres renders findIds() as "select urn, aspect, version", not max(.
+    // Bind values may be a following line. Count select statements, and append that
+    // bind line so the URN assertions still see the keys.
+    List<String> versionReads = new java.util.ArrayList<>();
+    for (int i = 0; i < sql.size(); i++) {
+      String lower = sql.get(i).toLowerCase();
+      if (!lower.contains("select ")
+          || !lower.contains("metadata_aspect_v2")
+          || lower.contains("for update")) {
+        continue;
+      }
+      String stmt = sql.get(i);
+      if (i + 1 < sql.size() && sql.get(i + 1).toLowerCase().contains("bind")) {
+        stmt = stmt + " " + sql.get(i + 1);
+      }
+      versionReads.add(stmt);
+    }
     assertEquals(versionReads.size(), 2, "version read stays paged at 2, got: " + sql);
     assertTrue(
         versionReads.get(0).contains("urn:li:corpuser:B")
