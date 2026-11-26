@@ -5,6 +5,7 @@ import json
 import logging
 import os
 from abc import abstractmethod
+from datetime import datetime
 from functools import cached_property, partial
 from pathlib import PurePosixPath
 from typing import (
@@ -91,6 +92,7 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathEntryClass,
     DataPlatformInstanceClass,
     DocumentInfoClass,
@@ -101,11 +103,34 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.metadata.urns import DocumentUrn
-from datahub.sdk.document import Document
+from datahub.sdk._shared import make_time_stamp
+from datahub.sdk._utils import DEFAULT_ACTOR_URN
+from datahub.sdk.document import PUBLISHED_LIFECYCLE_STAGE_URN, Document
 
 logger = logging.getLogger(__name__)
 
 EXTRACTION_ALGO_VERSION = "2"
+# Version of the aspects emitted for each file. Bump it when that output changes,
+# so the next run re-imports unchanged files. 2: Status carries the lifecycle stage.
+OUTPUT_VERSION = "2"
+
+
+def _imported_status() -> StatusClass:
+    """Status for a document this source imports: not removed, PUBLISHED stage.
+
+    The repository owns these documents, so each emit sets the stage. A stage changed
+    in the UI does not survive the next import.
+    """
+    stamp = make_time_stamp(datetime.now())
+    return StatusClass(
+        removed=False,
+        lifecycleStage=PUBLISHED_LIFECYCLE_STAGE_URN,
+        lifecycleLastUpdated=AuditStampClass(
+            time=stamp.time if stamp else 0, actor=DEFAULT_ACTOR_URN
+        ),
+    )
+
+
 LAST_EXPORTED_CONTENT_HASH_KEY = "last_exported_content_hash"
 PROP_IMPORT_SOURCE_ID = "import_source_id"
 _DOCUMENT_URN_PREFIX = "urn:li:document:"
@@ -141,12 +166,22 @@ def compute_source_hash(
 ) -> str:
     """Hash the complete source file and its applicable OKF interpretation."""
     if not enable_okf or bundle is None:
-        return compute_file_content_hash(content)
+        return hashlib.sha256(
+            json.dumps(
+                {
+                    "body": content,
+                    "algo_version": EXTRACTION_ALGO_VERSION,
+                    "output_version": OUTPUT_VERSION,
+                },
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
     return hashlib.sha256(
         json.dumps(
             {
                 "body": content,
                 "algo_version": EXTRACTION_ALGO_VERSION,
+                "output_version": OUTPUT_VERSION,
                 "okf_mapping_version": MAPPING_VERSION,
                 "okf_bundle": bundle.to_obj(),
             },
@@ -460,6 +495,12 @@ class RepositoryDocumentsSourceBase(
         if self._resolved_source_id_urns.get(dir_source_id):
             doc = Document(urn=DocumentUrn(doc_id))
             self._attach_platform_instance(doc, owner_repo)
+            # A folder has no content to hash, so its Status is written when it is first
+            # imported and when it comes back after a soft delete, not on every run:
+            # re-emitting it would add a status version and change event per run.
+            if str(doc.urn) in self._soft_deleted_urns():
+                self.report.documents_resurrected += 1
+                doc._set_aspect(_imported_status())
         else:
             doc = self._build_document(
                 doc_id=doc_id,
@@ -480,7 +521,6 @@ class RepositoryDocumentsSourceBase(
                 ),
                 is_directory=True,
             )
-        doc._set_aspect(StatusClass(removed=False))
         self._register_document(
             doc, dir_source_id, title, parent_source_id, is_directory=True
         )
@@ -580,7 +620,7 @@ class RepositoryDocumentsSourceBase(
         # Status.removed so a previously soft-deleted DataHub doc is resurrected.
         # The unchanged-file short-circuit above resurrects too, so this does not
         # depend on whether the content happened to change.
-        doc._set_aspect(StatusClass(removed=False))
+        doc._setdefault_aspect(_imported_status())
         if okf_mapping is not None:
             for aspect in okf_mapping.aspects:
                 doc._set_aspect(aspect)
@@ -797,12 +837,26 @@ class RepositoryDocumentsSourceBase(
     def _search_documents_by_properties(
         self, extra_filters: List[Dict[str, Any]]
     ) -> List[str]:
-        """Search documents by customProperties, tolerating older servers.
+        """Search documents by customProperties, including hidden lifecycle stages."""
+        return self._search_document_urns(
+            status=RemovedStatusFilter.ALL, extra_filters=extra_filters
+        )
+
+    def _search_document_urns(
+        self,
+        *,
+        status: RemovedStatusFilter,
+        extra_filters: List[Dict[str, Any]],
+        platform: Optional[str] = None,
+        platform_instance: Optional[str] = None,
+    ) -> List[str]:
+        """Search documents, including hidden lifecycle stages, tolerating older servers.
 
         ``include_hidden_lifecycle_stages`` is what surfaces documents parked in a
-        hideInSearch stage (e.g. ``urn:li:lifecycleStageType:DRAFT``). Servers that
-        predate the flag reject it outright, which is a permanent condition rather
-        than a transient one, so degrade once instead of failing every run.
+        hideInSearch stage (e.g. ``urn:li:lifecycleStageType:DRAFT`` or ARCHIVED).
+        Servers that predate the flag reject it outright, which is a permanent
+        condition rather than a transient one, so degrade once instead of failing
+        every run.
         """
         assert self.ctx.graph is not None
         if not self.report.hidden_lifecycle_search_unsupported:
@@ -810,7 +864,9 @@ class RepositoryDocumentsSourceBase(
                 return list(
                     self.ctx.graph.get_urns_by_filter(
                         entity_types=["document"],
-                        status=RemovedStatusFilter.ALL,
+                        platform=platform,
+                        platform_instance=platform_instance,
+                        status=status,
                         include_hidden_lifecycle_stages=True,
                         extraFilters=extra_filters,
                     )
@@ -822,15 +878,17 @@ class RepositoryDocumentsSourceBase(
                     message=(
                         "includeHiddenLifecycleStages is unavailable, so documents "
                         "in hidden lifecycle stages (for example drafts) cannot be "
-                        "matched when reusing document identity. Upgrade GMS to "
-                        "reuse their URNs instead of minting new ones."
+                        "matched when reusing document identity or restoring "
+                        "soft-deleted documents. Upgrade GMS to match them."
                     ),
                     exc=exc,
                 )
         return list(
             self.ctx.graph.get_urns_by_filter(
                 entity_types=["document"],
-                status=RemovedStatusFilter.ALL,
+                platform=platform,
+                platform_instance=platform_instance,
+                status=status,
                 extraFilters=extra_filters,
             )
         )
@@ -1164,9 +1222,10 @@ class RepositoryDocumentsSourceBase(
         urns: Set[str] = set()
         if self.ctx.graph:
             try:
+                # Hidden stages are included so a soft-deleted document parked in
+                # e.g. ARCHIVED is still found and restored.
                 urns = set(
-                    self.ctx.graph.get_urns_by_filter(
-                        entity_types=["document"],
+                    self._search_document_urns(
                         platform=self.platform,
                         platform_instance=make_dataplatform_instance_urn(
                             self.platform, self._instance_name(owner_repo)
@@ -1174,7 +1233,9 @@ class RepositoryDocumentsSourceBase(
                         status=RemovedStatusFilter.ONLY_SOFT_DELETED,
                         # A platform_instance is shared by every repository on
                         # it, so narrow to this repository's documents.
-                        extraFilters=[_property_filter(self._prop("repo"), owner_repo)],
+                        extra_filters=[
+                            _property_filter(self._prop("repo"), owner_repo)
+                        ],
                     )
                 )
             except Exception as exc:
@@ -1208,7 +1269,7 @@ class RepositoryDocumentsSourceBase(
             return
         self.report.documents_resurrected += 1
         yield MetadataChangeProposalWrapper(
-            entityUrn=document_urn, aspect=StatusClass(removed=False)
+            entityUrn=document_urn, aspect=_imported_status()
         ).as_workunit()
 
     def _map_okf(

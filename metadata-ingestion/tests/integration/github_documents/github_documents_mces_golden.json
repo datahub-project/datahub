@@ -132,7 +132,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -179,7 +184,7 @@
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.guides.broken",
                 "content_hash": "db536c4b7cc9f8c57987f6b3462e7304ab8d03ebac9d373f3f4f54376adb1d82",
-                "source_content_hash": "f865e4e22734769e1ea8e4d3671c755f13313f84a6d9a909ec3138f4e75dfd76",
+                "source_content_hash": "12b8defe3f656a1096dc1729fc42e398160e29c518efffce5a5831922a1abf24",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "2379207268f21baec301446363a89396d7e96d4c"
             },
@@ -240,7 +245,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -291,7 +301,7 @@
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.guides.mau",
                 "content_hash": "618b6ce523a5ca19616f00ba07bffe5916fc222e1cfb1266f95b63c66fffeb01",
-                "source_content_hash": "9eb59c7a38cde479bd3ab26d56ea814498aeb5cbfa5b82aef8860131124aa6b7",
+                "source_content_hash": "bbe486f647f27a1ccd0486a06fad2605effcd7ed4a6b43e424f4164bbff6e027",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "ab354c614d205f21b831c77612fa615b2920f689"
             },
@@ -352,7 +362,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -625,7 +640,7 @@
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.guides.no-type",
                 "content_hash": "f6fc372a2f0454bccaa5d889a01835f59de10ee0b9fd6f289c56f73abe305dc0",
-                "source_content_hash": "54d4b321aa3c78175eb767694e052e47272e9a0483e92b6f65b5da84bbf1393c",
+                "source_content_hash": "37c9ccc9d2432a3e58da4bb7ef0d312ad7325d266237079ef499116a71574b1f",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "a489440ef2f01af8bd3993b3e488f184542f48d7"
             },
@@ -686,7 +701,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -737,7 +757,7 @@
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.guides.plain",
                 "content_hash": "15d93d955bfa541350a4fd53e30fe3e5da7b6918ef1c985ad5697e030f0063ed",
-                "source_content_hash": "a2046a410e8b91feedd335d7fd83557bac959dce77fd37d958f739cc0d96c64e",
+                "source_content_hash": "40058c0de5ebef5b576e83e840c478627e49a0a96a3d957c9985d25b7e38e8b2",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "ce2c2b7a82b88acee2e9fdc65370d783af35a260"
             },
@@ -798,7 +818,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -849,7 +874,7 @@
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.index",
                 "content_hash": "f508de285142d8aff109d44cd1c90b1520235e1c254f30a74561f1c1dd89ba4b",
-                "source_content_hash": "d24e1eda7b902c65e6c79b531474938321706b1f74032b24f459914afdc655e9",
+                "source_content_hash": "63dbdd5105b84f0f84b19b773d1be9069070bd94b90e7d8a8ba89f161539b573",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "f45872f0101a221b869987f6b2e63f9c3b89207b"
             },
@@ -892,7 +917,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -927,7 +957,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -952,7 +987,7 @@
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.log",
                 "content_hash": "560b9e4ebfa0f3c17386a5cb3a2b3cacf0a239a185e92aeb2e7d5827ed8b4d50",
-                "source_content_hash": "0288e1b6668d486e0b0638541186b70200f3bb435c3e7cce2c121e09458fc909",
+                "source_content_hash": "7854d5a48cf077ec54d78b943ff4212be641e5700aa55ae92075c3802877c66e",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "d273b32ed24d7d0b67937f688ac5b32e2b826197"
             },
@@ -1035,7 +1070,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {

@@ -926,7 +926,7 @@ def test_skips_unchanged_file_when_graph_hash_matches(
     source: GitHubDocumentsSource,
 ) -> None:
     content = "# Hello"
-    content_hash = compute_file_content_hash(content)
+    content_hash = compute_source_hash(content, bundle=None, enable_okf=False)
     _mock_github_client(
         source,
         files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
@@ -942,11 +942,37 @@ def test_skips_unchanged_file_when_graph_hash_matches(
     assert source.report.files_skipped_unchanged == 1
 
 
+def test_hash_from_an_older_output_version_reimports_the_file(
+    source: GitHubDocumentsSource,
+) -> None:
+    """A file imported before OUTPUT_VERSION was bumped is re-imported once."""
+    content = "# Hello"
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
+        file_content=content,
+    )
+    source.ctx.graph = MagicMock()
+    source.ctx.graph.get_urns_by_filter.return_value = []
+    mock_info = MagicMock()
+    # Before output version 2, a plain file's source hash was its content hash.
+    mock_info.customProperties = {
+        "source_content_hash": compute_file_content_hash(content)
+    }
+    source.ctx.graph.get_aspect.side_effect = lambda urn, cls: (
+        mock_info if cls is DocumentInfoClass else None
+    )
+
+    list(source.get_workunits())
+    assert source.report.files_skipped_unchanged == 0
+    assert source.report.files_processed == 1
+
+
 def test_skipping_unchanged_file_registers_entity_for_stale_removal(
     source: GitHubDocumentsSource,
 ) -> None:
     content = "# Hello"
-    content_hash = compute_file_content_hash(content)
+    content_hash = compute_source_hash(content, bundle=None, enable_okf=False)
     _mock_github_client(
         source,
         files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
@@ -1059,7 +1085,7 @@ def test_skip_unchanged_uses_resolved_existing_urn(
 ) -> None:
     existing_urn = "urn:li:document:native-uuid-1234"
     content = "# Hello"
-    content_hash = compute_file_content_hash(content)
+    content_hash = compute_source_hash(content, bundle=None, enable_okf=False)
     source_id = make_file_source_id(
         "acme/docs", "docs/readme.md", source_prefix="github"
     )
@@ -1328,7 +1354,9 @@ def test_unchanged_file_resurrects_soft_deleted_document(
     source.ctx.graph = MagicMock()
     existing = MagicMock()
     existing.customProperties = {
-        "source_content_hash": compute_file_content_hash(content)
+        "source_content_hash": compute_source_hash(
+            content, bundle=None, enable_okf=False
+        )
     }
     source.ctx.graph.get_aspect.return_value = existing
     soft_deleted_searches: List[Dict[str, Any]] = []
@@ -1375,7 +1403,9 @@ def test_failed_soft_deleted_search_is_reported(source: GitHubDocumentsSource) -
     source.ctx.graph = MagicMock()
     existing = MagicMock()
     existing.customProperties = {
-        "source_content_hash": compute_file_content_hash(content)
+        "source_content_hash": compute_source_hash(
+            content, bundle=None, enable_okf=False
+        )
     }
     source.ctx.graph.get_aspect.return_value = existing
 
@@ -1408,7 +1438,9 @@ def test_unchanged_file_not_soft_deleted_emits_nothing(
     source.ctx.graph = MagicMock()
     existing = MagicMock()
     existing.customProperties = {
-        "source_content_hash": compute_file_content_hash(content)
+        "source_content_hash": compute_source_hash(
+            content, bundle=None, enable_okf=False
+        )
     }
     source.ctx.graph.get_aspect.return_value = existing
     source.ctx.graph.get_urns_by_filter.return_value = []
@@ -1417,12 +1449,101 @@ def test_unchanged_file_not_soft_deleted_emits_nothing(
 
     assert source.report.files_skipped_unchanged == 1
     assert source.report.documents_resurrected == 0
+    # The skipped file itself must produce no work unit at all (no DocumentInfo, no
+    # Status). Folder / repo-root documents are emitted separately and are not the
+    # subject of the short-circuit.
+    file_urn = f"urn:li:document:{normalize_document_id(make_file_source_id('acme/docs', 'docs/readme.md', source_prefix='github'))}"
     assert not [
         wu
         for wu in workunits
-        if isinstance(wu, MetadataWorkUnit)
-        and wu.get_aspect_of_type(StatusClass) is not None
+        if isinstance(wu, MetadataWorkUnit) and wu.get_urn() == file_urn
     ]
+
+
+DRAFT_STAGE_URN = "urn:li:lifecycleStageType:DRAFT"
+PUBLISHED_STAGE_URN = "urn:li:lifecycleStageType:PUBLISHED"
+
+
+def test_resurrect_sets_published_lifecycle_stage(
+    source: GitHubDocumentsSource,
+) -> None:
+    """Un-deleting an imported document sets the PUBLISHED stage over a stored DRAFT."""
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
+    canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
+    content = "# Hello"
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
+        file_content=content,
+    )
+    source.ctx.graph = MagicMock()
+    existing_info = MagicMock()
+    existing_info.customProperties = {
+        "source_content_hash": compute_source_hash(
+            content, bundle=None, enable_okf=False
+        )
+    }
+
+    def get_aspect(urn: str, aspect_type: object) -> object:
+        if aspect_type is StatusClass:
+            return StatusClass(removed=True, lifecycleStage=DRAFT_STAGE_URN)
+        return existing_info
+
+    source.ctx.graph.get_aspect.side_effect = get_aspect
+
+    def urns_by_filter(**kwargs):  # type: ignore[no-untyped-def]
+        if kwargs.get("status") == RemovedStatusFilter.ONLY_SOFT_DELETED:
+            return [canonical_urn]
+        return []
+
+    source.ctx.graph.get_urns_by_filter.side_effect = urns_by_filter
+
+    workunits = list(source.get_workunits_internal())
+
+    statuses = [
+        status
+        for wu in workunits
+        if isinstance(wu, MetadataWorkUnit) and wu.get_urn() == canonical_urn
+        for status in [wu.get_aspect_of_type(StatusClass)]
+        if status is not None
+    ]
+    assert len(statuses) == 1
+    assert statuses[0].removed is False
+    assert statuses[0].lifecycleStage == PUBLISHED_STAGE_URN
+    stamp = statuses[0].lifecycleLastUpdated
+    assert stamp is not None and stamp.time > 0
+
+
+def test_changed_file_status_carries_published_lifecycle_stage(
+    source: GitHubDocumentsSource,
+) -> None:
+    """Imported files are PUBLISHED; the Status aspect must agree with DocumentInfo."""
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
+        file_content="# Hello",
+    )
+    source.ctx.graph = MagicMock()
+    source.ctx.graph.get_urns_by_filter.return_value = []
+    source.ctx.graph.get_aspect.return_value = None
+
+    workunits = list(source.get_workunits_internal())
+    file_urns = _file_document_urns(workunits, "docs/readme.md")
+    statuses = [
+        status
+        for wu in workunits
+        if isinstance(wu, MetadataWorkUnit) and wu.get_urn() in file_urns
+        for status in [wu.get_aspect_of_type(StatusClass)]
+        if status is not None
+    ]
+    assert statuses
+    assert all(
+        status.removed is False
+        and status.lifecycleStage == "urn:li:lifecycleStageType:PUBLISHED"
+        for status in statuses
+    )
 
 
 def test_folder_identity_fallback_queries_directory_path(
@@ -1539,9 +1660,8 @@ def test_identity_short_circuit_skips_search_for_canonical_match(
     source.ctx.graph.get_urns_by_filter.assert_not_called()
 
 
-def test_existing_folder_document_does_not_overwrite_body(
-    source: GitHubDocumentsSource,
-) -> None:
+def _mock_existing_folder(source: GitHubDocumentsSource, *, soft_deleted: bool) -> str:
+    """Mock an existing folder document (stored DRAFT stage) for docs/guides."""
     existing_urn = "urn:li:document:native-folder"
     dir_source_id = make_dir_source_id(
         "acme/docs", "docs/guides", source_prefix="github"
@@ -1558,14 +1678,18 @@ def test_existing_folder_document_does_not_overwrite_body(
     existing_info.contents = MagicMock()
     existing_info.contents.text = "rich body"
 
-    def get_aspect(urn: str, _aspect: object) -> object:
-        if urn == existing_urn:
-            return existing_info
-        return None
+    def get_aspect(urn: str, aspect_type: object) -> object:
+        if urn != existing_urn:
+            return None
+        if aspect_type is StatusClass:
+            return StatusClass(removed=True, lifecycleStage=DRAFT_STAGE_URN)
+        return existing_info
 
     source.ctx.graph.get_aspect.side_effect = get_aspect
 
     def urns_by_filter(**kwargs):  # type: ignore[no-untyped-def]
+        if kwargs.get("status") == RemovedStatusFilter.ONLY_SOFT_DELETED:
+            return [existing_urn] if soft_deleted else []
         for rule in kwargs.get("extraFilters") or []:
             values = rule.get("values") or []
             if any(f"import_source_id={dir_source_id}" == value for value in values):
@@ -1573,6 +1697,14 @@ def test_existing_folder_document_does_not_overwrite_body(
         return []
 
     source.ctx.graph.get_urns_by_filter.side_effect = urns_by_filter
+    return existing_urn
+
+
+@pytest.mark.parametrize("soft_deleted", [False, True])
+def test_existing_folder_document_does_not_overwrite_body(
+    source: GitHubDocumentsSource, soft_deleted: bool
+) -> None:
+    existing_urn = _mock_existing_folder(source, soft_deleted=soft_deleted)
 
     workunits = list(source.get_workunits_internal())
     folder_infos = [
@@ -1583,11 +1715,65 @@ def test_existing_folder_document_does_not_overwrite_body(
     folder_infos = [info for info in folder_infos if info is not None]
     assert folder_infos == []
     statuses = [
-        wu.get_aspect_of_type(StatusClass)
+        status
         for wu in workunits
         if isinstance(wu, MetadataWorkUnit) and wu.get_urn() == existing_urn
+        for status in [wu.get_aspect_of_type(StatusClass)]
+        if status is not None
     ]
-    assert any(status is not None and status.removed is False for status in statuses)
+    if not soft_deleted:
+        # An existing folder's Status is left alone: re-emitting it every run would
+        # add a status version and change event per run.
+        assert statuses == []
+        return
+    # A folder restored after a soft delete gets the imported Status: the import
+    # owns the stage, so a stored DRAFT is replaced by PUBLISHED.
+    assert len(statuses) == 1
+    assert statuses[0].removed is False
+    assert statuses[0].lifecycleStage == PUBLISHED_STAGE_URN
+    assert source.report.documents_resurrected == 1
+    # The soft-deleted lookup must include hidden stages, or a folder that is both
+    # soft-deleted and e.g. ARCHIVED would never be found and restored.
+    soft_deleted_calls = [
+        call
+        for call in cast(MagicMock, source.ctx.graph).get_urns_by_filter.call_args_list
+        if call.kwargs.get("status") == RemovedStatusFilter.ONLY_SOFT_DELETED
+    ]
+    assert soft_deleted_calls
+    assert all(
+        call.kwargs.get("include_hidden_lifecycle_stages") is True
+        for call in soft_deleted_calls
+    )
+
+
+def test_existing_folder_auto_status_patches_only_removed(
+    source: GitHubDocumentsSource,
+) -> None:
+    """Through the full workunit pipeline, an existing folder's Status comes from
+    AutoStatusAspectProcessor; on servers with status PATCH it touches only
+    /removed, so a stored stage is kept."""
+    existing_urn = _mock_existing_folder(source, soft_deleted=False)
+
+    with patch(
+        "datahub.ingestion.workunit_processors.auto_status_aspect._gms_supports_status_patch",
+        return_value=True,
+    ):
+        workunits = list(source.get_workunits())
+
+    folder_status_mcps = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu, MetadataWorkUnit)
+        and wu.get_urn() == existing_urn
+        and getattr(wu.metadata, "aspectName", None) == "status"
+    ]
+    assert len(folder_status_mcps) == 1
+    mcp = folder_status_mcps[0]
+    assert isinstance(mcp, MetadataChangeProposalClass)
+    assert mcp.changeType == "PATCH"
+    assert mcp.aspect is not None
+    operations = json.loads(mcp.aspect.value)
+    assert [op["path"] for op in operations] == ["/removed"]
 
 
 @pytest.fixture
@@ -1899,7 +2085,13 @@ def test_okf_hash_detects_frontmatter_and_mapping_changes() -> None:
     ):
         assert original != compute_source_hash(content, bundle=bundle, enable_okf=True)
         assert outside == compute_source_hash(content, bundle=None, enable_okf=True)
-        assert outside == compute_file_content_hash(content)
+    with patch(
+        "datahub.ingestion.source.repository_documents.source.OUTPUT_VERSION",
+        "next",
+    ):
+        assert original != compute_source_hash(content, bundle=bundle, enable_okf=True)
+        assert outside != compute_source_hash(content, bundle=None, enable_okf=True)
+    assert outside != compute_file_content_hash(content)
 
 
 def _association_aspect(
@@ -2838,8 +3030,8 @@ def test_default_import_preserves_frontmatter(
     assert info.contents.text == content
     assert info.title == "guide.md"
     assert info.customProperties is not None
-    assert info.customProperties["source_content_hash"] == compute_file_content_hash(
-        content
+    assert info.customProperties["source_content_hash"] == compute_source_hash(
+        content, bundle=None, enable_okf=False
     )
     assert not any(wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits)
     assert not any(wu.get_aspect_of_type(SubTypesClass) for wu in workunits)
@@ -2965,7 +3157,13 @@ def test_already_neutral_okf_state_is_not_cleaned_again(
     content = "# Plain document"
     info = MagicMock()
     info.customProperties = (
-        {"source_content_hash": compute_file_content_hash(content)} if unchanged else {}
+        {
+            "source_content_hash": compute_source_hash(
+                content, bundle=None, enable_okf=False
+            )
+        }
+        if unchanged
+        else {}
     )
     neutral = OkfPropertiesClass()
     graph = MagicMock()

@@ -174,6 +174,29 @@ def _validate_status(status: str) -> str:
     return status
 
 
+# Document lifecycle stage (``status.lifecycleStage``) for published documents. When a
+# document has a stage, it decides visibility; when it has none, the legacy
+# ``documentInfo.status.state`` does. Writers keep the two consistent.
+PUBLISHED_LIFECYCLE_STAGE_URN = "urn:li:lifecycleStageType:PUBLISHED"
+
+
+def _state_to_lifecycle_stage(
+    status: str, current_stage: Optional[str]
+) -> Optional[str]:
+    """Lifecycle stage implied by a legacy document state.
+
+    PUBLISHED always maps to the PUBLISHED stage. UNPUBLISHED keeps an existing
+    non-published stage (DRAFT, IN_REVIEW, ...) since those already mean "not
+    published"; otherwise no stage is set, so the legacy UNPUBLISHED state decides
+    visibility.
+    """
+    if status == models.DocumentStateClass.PUBLISHED:
+        return PUBLISHED_LIFECYCLE_STAGE_URN
+    if current_stage and current_stage != PUBLISHED_LIFECYCLE_STAGE_URN:
+        return current_stage
+    return None
+
+
 def _validate_external_url(url: str) -> str:
     """Validate that a URL is well-formed.
 
@@ -365,6 +388,7 @@ class Document(
         created_time: Optional[datetime] = None,
         last_modified_time: Optional[datetime] = None,
         extra_aspects: Optional[ExtraAspectsType] = None,
+        write_status: bool = True,
     ) -> Self:
         """Internal method to create a Document with all options."""
         urn = DocumentUrn(id)
@@ -442,6 +466,22 @@ class Document(
 
         doc._set_aspect(document_info)
 
+        # Keep status.lifecycleStage consistent with documentInfo.status.state above.
+        # A stage takes precedence over the legacy state, so a stored stage that
+        # disagrees with it must not be left in place. This is a full Status write:
+        # the writer owns the document's stage, and a stage set elsewhere (e.g. in
+        # the UI) is replaced. Writers that manage Status themselves pass
+        # write_status=False.
+        if write_status:
+            lifecycle_stage = _state_to_lifecycle_stage(status, None)
+            doc._set_aspect(
+                models.StatusClass(
+                    removed=False,
+                    lifecycleStage=lifecycle_stage,
+                    lifecycleLastUpdated=modified_audit if lifecycle_stage else None,
+                )
+            )
+
         # Create DocumentSettings - always set if show_in_global_context is False
         # This controls whether the document appears in global search and sidebar
         if not show_in_global_context:
@@ -500,6 +540,7 @@ class Document(
         created_time: Optional[datetime] = None,
         last_modified_time: Optional[datetime] = None,
         extra_aspects: Optional[ExtraAspectsType] = None,
+        write_status: bool = True,
     ) -> Self:
         """Create a native document stored in DataHub.
 
@@ -511,7 +552,8 @@ class Document(
             id: Unique identifier for the document (used in URN)
             title: Document title (displayed in search results and navigation)
             text: Full text content of the document (supports markdown)
-            status: Publication status - "PUBLISHED" or "UNPUBLISHED" (default: PUBLISHED)
+            status: Publication status - "PUBLISHED" or "UNPUBLISHED" (default: PUBLISHED).
+                Also sets the document's lifecycle stage to match.
             show_in_global_context: If True, document appears in global search and
                 sidebar navigation. If False, it is left out of them by default, which
                 is not access control - useful for AI-only context documents.
@@ -527,6 +569,11 @@ class Document(
             custom_properties: Custom key-value metadata
             structured_properties: Structured properties to add
             extra_aspects: Additional aspects to include
+            write_status: If True (default), also write the document's ``status``
+                aspect: not removed, with the lifecycle stage matching ``status``.
+                This replaces any stored lifecycle stage, including one a person set
+                in the UI, so the caller owns the stage of the documents it writes.
+                Pass False when the caller manages ``status`` itself.
 
         Returns:
             A new Document entity instance
@@ -586,6 +633,7 @@ class Document(
             created_time=created_time,
             last_modified_time=last_modified_time,
             extra_aspects=extra_aspects,
+            write_status=write_status,
         )
 
     @classmethod
@@ -613,6 +661,7 @@ class Document(
         created_time: Optional[datetime] = None,
         last_modified_time: Optional[datetime] = None,
         extra_aspects: Optional[ExtraAspectsType] = None,
+        write_status: bool = True,
     ) -> Self:
         """Create an external document reference.
 
@@ -628,7 +677,8 @@ class Document(
             external_url: URL to the document in the external system
             external_id: Unique identifier in the external system (optional)
             text: Text content for indexing (optional - can be synced from source)
-            status: Publication status (default: PUBLISHED)
+            status: Publication status (default: PUBLISHED). Also sets the document's
+                lifecycle stage to match.
             show_in_global_context: If True, document appears in global search and
                 sidebar navigation. (default: True)
             subtype: Document sub-type (e.g., "Runbook", "Reference")
@@ -644,6 +694,11 @@ class Document(
             created_time: Creation timestamp from external system (optional, defaults to now)
             last_modified_time: Last modified timestamp from external system (optional, defaults to now)
             extra_aspects: Additional aspects to include
+            write_status: If True (default), also write the document's ``status``
+                aspect: not removed, with the lifecycle stage matching ``status``.
+                This replaces any stored lifecycle stage, including one a person set
+                in the UI, so the caller owns the stage of the documents it writes.
+                Pass False when the caller manages ``status`` itself.
 
         Returns:
             A new Document entity instance
@@ -709,6 +764,7 @@ class Document(
             created_time=created_time,
             last_modified_time=last_modified_time,
             extra_aspects=extra_aspects,
+            write_status=write_status,
         )
 
     @property
@@ -926,11 +982,18 @@ class Document(
             return state
         return None
 
-    def set_status(self, status: str) -> Self:
+    def set_status(
+        self, status: str, *, actor: ActorUrnOrStr = DEFAULT_ACTOR_URN
+    ) -> Self:
         """Set the document status.
+
+        Also keeps the lifecycle stage (``status.lifecycleStage``) consistent:
+        PUBLISHED sets the PUBLISHED stage; UNPUBLISHED keeps an existing
+        non-published stage (e.g. DRAFT) and otherwise clears the stage.
 
         Args:
             status: New document status (PUBLISHED or UNPUBLISHED)
+            actor: Who made the change; stamped on the lifecycle stage transition
 
         Returns:
             Self for method chaining
@@ -944,23 +1007,52 @@ class Document(
             doc_info.status.state = status
         else:
             doc_info.status = models.DocumentStatusClass(state=status)
+
+        # A lifecycle stage takes precedence over the legacy state, so keep it aligned.
+        lifecycle_status = self._setdefault_aspect(models.StatusClass(removed=False))
+        target_stage = _state_to_lifecycle_stage(
+            status, lifecycle_status.lifecycleStage
+        )
+        if lifecycle_status.lifecycleStage != target_stage:
+            lifecycle_status.lifecycleStage = target_stage
+            stamp = make_time_stamp(datetime.now())
+            lifecycle_status.lifecycleLastUpdated = models.AuditStampClass(
+                time=stamp.time if stamp else 0, actor=str(actor)
+            )
         return self
 
-    def publish(self) -> Self:
+    @property
+    def lifecycle_stage(self) -> Optional[str]:
+        """Get the document's lifecycle stage URN, if one is set.
+
+        ``urn:li:lifecycleStageType:PUBLISHED`` means published; any other stage
+        (DRAFT, IN_REVIEW, ...) means not published. When no stage is set, the
+        legacy :attr:`status` decides.
+        """
+        lifecycle_status = self._get_aspect(models.StatusClass)
+        return lifecycle_status.lifecycleStage if lifecycle_status else None
+
+    def publish(self, *, actor: ActorUrnOrStr = DEFAULT_ACTOR_URN) -> Self:
         """Publish the document (make it visible).
 
+        Args:
+            actor: Who made the change; stamped on the lifecycle stage transition
+
         Returns:
             Self for method chaining
         """
-        return self.set_status(models.DocumentStateClass.PUBLISHED)
+        return self.set_status(models.DocumentStateClass.PUBLISHED, actor=actor)
 
-    def unpublish(self) -> Self:
+    def unpublish(self, *, actor: ActorUrnOrStr = DEFAULT_ACTOR_URN) -> Self:
         """Unpublish the document (make it not visible).
 
+        Args:
+            actor: Who made the change; stamped on the lifecycle stage transition
+
         Returns:
             Self for method chaining
         """
-        return self.set_status(models.DocumentStateClass.UNPUBLISHED)
+        return self.set_status(models.DocumentStateClass.UNPUBLISHED, actor=actor)
 
     @property
     def show_in_global_context(self) -> bool:
