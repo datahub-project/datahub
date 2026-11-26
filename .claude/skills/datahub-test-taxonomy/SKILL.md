@@ -18,15 +18,13 @@ tags, and it never commits.
 
 ## Files
 
-| File                                             | Role                                           |
-| ------------------------------------------------ | ---------------------------------------------- |
-| `.github/smart-testing/taxonomy.yaml`            | The common vocabulary for every framework.     |
-| `.github/smart-testing/taxonomy.overlay.yaml`    | Optional tags for repo-only features.          |
-| `.github/smart-testing/taxonomy-rubric.md`       | The criteria a good taxonomy meets.            |
-| `smoke-test/smart_testing/taxonomy.py`           | Enum mirror of the taxonomy (generated block). |
-| `smoke-test/smart_testing/taxonomy_overlay.py`   | Mirror of the overlay tags (generated).        |
-| [references/tagging.md](references/tagging.md)   | How to tag one test file.                      |
-| [references/taxonomy.md](references/taxonomy.md) | How to regenerate the taxonomy.                |
+| File                                             | Role                                                                                                                        |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `.github/smart-testing/taxonomy.yaml`            | The common vocabulary for every framework. An optional `taxonomy.overlay.yaml` beside it holds tags for repo-only features. |
+| `.github/smart-testing/taxonomy-rubric.md`       | The criteria a good taxonomy meets.                                                                                         |
+| `smoke-test/smart_testing/taxonomy.py`           | Enum mirror of the taxonomy (generated block). `taxonomy_overlay.py` beside it mirrors the overlay when one exists.         |
+| [references/tagging.md](references/tagging.md)   | How to tag one test file.                                                                                                   |
+| [references/taxonomy.md](references/taxonomy.md) | How to regenerate the taxonomy.                                                                                             |
 
 | Framework    | Tag file                                          | Paths relative to | Test files                                         |
 | ------------ | ------------------------------------------------- | ----------------- | -------------------------------------------------- |

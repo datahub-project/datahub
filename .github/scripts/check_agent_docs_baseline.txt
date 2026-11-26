@@ -2,8 +2,6 @@
 # Format: <path>\t<stack|budget|shim|ref>\t<chars or lines ceiling | dead token | empty>.
 # Fix the finding and remove its line; never add new entries by hand.
 .claude/skills/datahub-test-taxonomy/SKILL.md	ref	.github/smart-testing/ingestion/test_tags.yaml
-.claude/skills/datahub-test-taxonomy/SKILL.md	ref	.github/smart-testing/taxonomy.overlay.yaml
-.claude/skills/datahub-test-taxonomy/SKILL.md	ref	smoke-test/smart_testing/taxonomy_overlay.py
 .cursor/BUGBOT.md	budget	319
 datahub-web-react/AGENTS.md	ref	folderName/folderName.types.ts
 datahub-web-react/AGENTS.md	ref	folderName/folderName.utils.ts
