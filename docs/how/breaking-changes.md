@@ -17,12 +17,13 @@ the one you are on and the one you are moving to, not just the target.
 
 ### Domain and glossary child listings are paged, and totals no longer hide restricted children
 
-When search access controls are enabled, the GraphQL `relationships` field for `IsPartOf` (the children of a domain, glossary term group or glossary term) now limits the work it does per request:
+The GraphQL `relationships` field for `IsPartOf` (the children of a domain, glossary term group or glossary term) now pages its results and limits the work it does per request, whether or not search access controls are enabled:
 
 - If `count` is omitted, at most 100 children are returned. Before, every child was returned. Set `GRAPHQL_QUERY_DIRECT_CHILD_DEFAULT_COUNT` to change this default.
 - `count` is capped at 1000. A larger value is treated as 1000, and a negative `start` or `count` is treated as 0. Set `GRAPHQL_QUERY_DIRECT_CHILD_MAX_COUNT` to change the cap.
-- `total` is now the number of children that exist, including any the viewer cannot see. Before, it excluded children the viewer cannot see. A page can therefore hold fewer entries than `count` even when more children follow.
+- `total` is now the number of children that exist, including any the viewer cannot see. Before, with search access controls enabled, it excluded children the viewer cannot see. A page can therefore hold fewer entries than `count` even when more children follow.
 - `count: 0` returns only `total`, with no per-child permission checks.
+- Children are returned in URN order, so an offset selects the same children on every request.
 
 If you read these children through the API, request them in pages and keep going while `start + count` is less than `total`. The web UI's glossary delete check only needs `total`, so it now requests `count: 0`.
 
