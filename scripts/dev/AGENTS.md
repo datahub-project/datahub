@@ -29,7 +29,7 @@ Unmarked local registry entries are read-only and keep their slots reserved.
 Start refreshes CLI profiles `local-<worktree-id>` and `local-<worktree-id>-gms-N`
 without changing the machine default. Select the default instance for this shell
 with `eval "$(scripts/dev/datahub-dev.sh shell-env)"`. Stop retains the profiles.
-See [scripts/dev/README.md](scripts/dev/README.md) for details and offline tests.
+See [README.md](README.md) for details and offline tests.
 
 ## Remote Runners
 
@@ -139,5 +139,5 @@ Set `AGENT_MODE=1` to get machine-readable JSON test reports at `smoke-test/buil
 AGENT_MODE=1 scripts/dev/datahub-dev.sh test tests/test_system_info.py
 ```
 
-For pytest smoke tests, see [`smoke-test/AGENTS.md`](smoke-test/AGENTS.md)
-(authoring) and [`smoke-test/README.md`](smoke-test/README.md) (how to run).
+For pytest smoke tests, see [`smoke-test/AGENTS.md`](../../smoke-test/AGENTS.md)
+(authoring) and [`smoke-test/README.md`](../../smoke-test/README.md) (how to run).

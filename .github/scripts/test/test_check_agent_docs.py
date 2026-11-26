@@ -165,3 +165,18 @@ def test_subset_run_does_not_report_stale_entries() -> None:
     # Runs against the real repo: a clean file plus a baseline full of entries
     # for other files must pass, because a subset run cannot judge them.
     assert linter.main(["metadata-ingestion/tests/AGENTS.md"]) == 0
+
+
+def test_markdown_links_resolve_only_against_the_file_directory(tmp_path: Path) -> None:
+    _write(tmp_path, "smoke-test/README.md", "")
+    path = _write(
+        tmp_path,
+        "scripts/dev/AGENTS.md",
+        "- Broken after a move: [run](smoke-test/README.md).\n"
+        "- Correct: [run](../../smoke-test/README.md); backticks may use the root form:"
+        " `smoke-test/README.md`.\n",
+    )
+
+    findings = linter.lint_file(path, tmp_path)
+
+    assert [(f.kind, f.key) for f in findings] == [("ref", "smoke-test/README.md")]

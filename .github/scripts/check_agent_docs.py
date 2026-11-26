@@ -159,7 +159,10 @@ def tracked_tail_match(token: str, tracked: list[str]) -> bool:
     return False
 
 
-def referenced_tokens(lines: list[str]) -> Iterable[tuple[int, str]]:
+def referenced_tokens(lines: list[str]) -> Iterable[tuple[int, str, bool]]:
+    """Yield ``(line, token, is_link)``. A Markdown link target resolves only
+    against the file's own directory, as GitHub renders it; a backticked path may
+    be written from the repo root or any parent, as these docs do."""
     in_fence = False
     fence_marker = ""
     for index, line in enumerate(lines, start=1):
@@ -176,12 +179,12 @@ def referenced_tokens(lines: list[str]) -> Iterable[tuple[int, str]]:
         for match in BACKTICK_RE.finditer(line):
             token = match.group(1).strip()
             if is_path_candidate(token):
-                yield index, token
+                yield index, token, False
         for match in MARKDOWN_LINK_RE.finditer(line):
             target = match.group(1)
             if target.startswith(("#", "/", "mailto:")) or "://" in target:
                 continue
-            yield index, target
+            yield index, target, True
 
 
 def lint_file(
@@ -210,39 +213,42 @@ def lint_file(
 
     # First pass: everything resolvable without git. Second pass: one batched
     # git check-ignore for what is left, so generated (gitignored) paths count.
-    unresolved: dict[str, tuple[int, str]] = {}
-    for line_no, token in referenced_tokens(lines):
+    unresolved: dict[str, tuple[int, str, list[Path]]] = {}
+    for line_no, token, is_link in referenced_tokens(lines):
         normalized = normalize_token(token)
         if not normalized or normalized in unresolved:
             continue
-        if any(c.exists() for c in _parent_candidates(normalized, path, root)):
+        candidates = (
+            [path.parent / normalized]
+            if is_link
+            else _parent_candidates(normalized, path, root)
+        )
+        if any(c.exists() for c in candidates):
             continue
-        if tracked_tail_match(normalized, tracked):
+        if not is_link and tracked_tail_match(normalized, tracked):
             continue
-        unresolved[normalized] = (line_no, token)
+        unresolved[normalized] = (line_no, token, candidates)
 
-    ignore_probe: list[str] = []
-    for normalized in unresolved:
-        for candidate in _parent_candidates(normalized, path, root):
-            ignore_probe.append(str(candidate))
-            ignore_probe.append(str(candidate) + "/")
+    ignore_probe = [
+        form
+        for _, _, candidates in unresolved.values()
+        for c in candidates
+        for form in (str(c), str(c) + "/")
+    ]
     ignored = gitignored(ignore_probe, root)
 
-    for normalized, (line_no, token) in unresolved.items():
-        probes = {
-            form
-            for c in _parent_candidates(normalized, path, root)
-            for form in (str(c), str(c) + "/")
-        }
+    for normalized, (line_no, token, candidates) in unresolved.items():
+        probes = {form for c in candidates for form in (str(c), str(c) + "/")}
         if probes & ignored:
             continue
+        where = (
+            "relative to this file (Markdown links resolve against the file's directory)"
+            if len(candidates) == 1
+            else "relative to this file, its parents, or the repo root"
+        )
         findings.append(
             Finding(
-                rel,
-                line_no,
-                "ref",
-                normalized,
-                f"`{token}` does not exist relative to this file, its parents, or the repo root",
+                rel, line_no, "ref", normalized, f"`{token}` does not exist {where}"
             )
         )
     return findings
