@@ -29,32 +29,35 @@ const StyledEditor = styled(Editor)`
 type Props = {
     formData: PostFormData;
     onChange: (field: keyof PostFormData, value: string | PostContentType) => void;
+    showPinnedLinks: boolean;
 };
 
-export default function CreatePostForm({ formData, onChange }: Props) {
+export default function CreatePostForm({ formData, onChange, showPinnedLinks }: Props) {
     const { t } = useTranslation('settings.posts');
 
     return (
         <form onSubmit={(e) => e.preventDefault()}>
-            <FormField>
-                <Label>{t('contentTypeLabel')}</Label>
-                <TabButtons
-                    tabs={[
-                        {
-                            key: PostContentType.Text,
-                            label: t('announcementTab'),
-                            dataTestId: 'post-type-announcement',
-                        },
-                        {
-                            key: PostContentType.Link,
-                            label: t('pinnedLinkTab'),
-                            dataTestId: 'post-type-pinned-link',
-                        },
-                    ]}
-                    activeTab={formData.type}
-                    onTabClick={(key) => onChange('type', key as PostContentType)}
-                />
-            </FormField>
+            {showPinnedLinks && (
+                <FormField>
+                    <Label>{t('contentTypeLabel')}</Label>
+                    <TabButtons
+                        tabs={[
+                            {
+                                key: PostContentType.Text,
+                                label: t('announcementTab'),
+                                dataTestId: 'post-type-announcement',
+                            },
+                            {
+                                key: PostContentType.Link,
+                                label: t('pinnedLinkTab'),
+                                dataTestId: 'post-type-pinned-link',
+                            },
+                        ]}
+                        activeTab={formData.type}
+                        onTabClick={(key) => onChange('type', key as PostContentType)}
+                    />
+                </FormField>
+            )}
 
             <FormField>
                 <Input
@@ -66,18 +69,6 @@ export default function CreatePostForm({ formData, onChange }: Props) {
                     isRequired
                 />
             </FormField>
-
-            {formData.type === PostContentType.Text && (
-                <FormField>
-                    <Label>{t('descriptionLabel')}</Label>
-                    <StyledEditor
-                        className="create-post-description"
-                        doNotFocus
-                        content={formData.description || undefined}
-                        onChange={(val) => onChange('description', val)}
-                    />
-                </FormField>
-            )}
 
             {formData.type === PostContentType.Link && (
                 <>
@@ -100,18 +91,18 @@ export default function CreatePostForm({ formData, onChange }: Props) {
                             setValue={(val) => onChange('location', val)}
                         />
                     </FormField>
-
-                    <FormField>
-                        <Label>{t('descriptionLabel')}</Label>
-                        <StyledEditor
-                            doNotFocus
-                            content={formData.description || undefined}
-                            onChange={(val) => onChange('description', val)}
-                            className="create-post-description"
-                        />
-                    </FormField>
                 </>
             )}
+
+            <FormField>
+                <Label>{t('descriptionLabel')}</Label>
+                <StyledEditor
+                    className="create-post-description"
+                    doNotFocus
+                    content={formData.description || undefined}
+                    onChange={(val) => onChange('description', val)}
+                />
+            </FormField>
         </form>
     );
 }

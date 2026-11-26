@@ -15,6 +15,7 @@
  */
 
 import { test } from '../../fixtures/base-test';
+import { expectNoRawIdentifiers } from '../../helpers/raw-identifier-helper';
 import { EntityDescriptionPage } from '../../pages/entity/entity-description.page';
 import { TIMEOUTS } from '../../utils/constants';
 import { DomainTag, TestTag } from '../../utils/test-tags';
@@ -46,6 +47,7 @@ test.describe('edit documentation across core entity types', () => {
         const descriptionPage = new EntityDescriptionPage(page, logger, logDir);
         await descriptionPage.openProfile(entity.pathName, entity.urn, entity.name);
         await descriptionPage.expectSidebarDescription(entity.seedDescription);
+        await expectNoRawIdentifiers(page, { label: `${entity.key} profile` });
 
         const stamp = Date.now();
         const fromSidebar = `Edited from the sidebar pencil ${stamp}`;
@@ -58,6 +60,7 @@ test.describe('edit documentation across core entity types', () => {
         await descriptionPage.editDescriptionFromTab(fromTab, surface);
         await descriptionPage.expectSurfaceDescription(fromTab, surface);
         await descriptionPage.expectSidebarDescription(fromTab);
+        await expectNoRawIdentifiers(page, { label: `${entity.key} ${surface} tab` });
       },
     );
   }

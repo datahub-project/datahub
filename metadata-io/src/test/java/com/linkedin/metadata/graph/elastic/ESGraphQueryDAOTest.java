@@ -149,7 +149,7 @@ public class ESGraphQueryDAOTest {
       throw new RuntimeException(e);
     }
 
-    LineageResponse expectedResponse = new LineageResponse(5, Arrays.asList(), false);
+    LineageResponse expectedResponse = new LineageResponse(5, Arrays.asList(), null);
     when(mockDelegate.getLineage(
             eq(mockOperationContext),
             eq(mockEntityUrn),
@@ -184,7 +184,7 @@ public class ESGraphQueryDAOTest {
       throw new RuntimeException(e);
     }
 
-    LineageResponse expectedResponse = new LineageResponse(3, Arrays.asList(), false);
+    LineageResponse expectedResponse = new LineageResponse(3, Arrays.asList(), null);
     when(mockDelegate.getImpactLineage(
             eq(mockOperationContext), eq(mockEntityUrn), eq(mockLineageGraphFilters), eq(5)))
         .thenReturn(expectedResponse);
@@ -339,7 +339,7 @@ public class ESGraphQueryDAOTest {
       throw new RuntimeException(e);
     }
 
-    LineageResponse expectedResponse = new LineageResponse(5, Arrays.asList(), false);
+    LineageResponse expectedResponse = new LineageResponse(5, Arrays.asList(), null);
     when(mockDelegate.getLineage(
             eq(mockOperationContext),
             eq(mockEntityUrn),

@@ -53,7 +53,7 @@ def _latest_tag(
 
     Uses `git tag --list --sort=-v:refname` for a global tag enumeration —
     no ancestry constraint. Release tags in this repo often live on parallel
-    hotfix branches that aren't ancestors of trunk, so an ancestry-based
+    branches that aren't ancestors of trunk, so an ancestry-based
     lookup (`git describe --abbrev=0`) would miss them. Pass `exclude_substr`
     to skip tags whose names contain a substring (e.g. "rc"); pass
     `exclude_extra` for a second substring filter (e.g. exclude "-cloud"
@@ -138,7 +138,7 @@ def resolve_base(mode: Optional[str] = None) -> str:
     latest version-sorted tag matching the mode's release naming convention:
 
     - acryl: `v*-cloud` tags. Stable cloud releases are cut on parallel
-      hotfix branches that aren't ancestors of `acryl-main`, so an
+      branches that aren't ancestors of `acryl-main`, so an
       ancestry-based lookup would miss them.
     - oss: `v*` tags excluding `-cloud`. OSS release tags don't carry the
       cloud suffix; we strip cloud tags so a checkout that has both still

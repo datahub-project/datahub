@@ -3,8 +3,8 @@ import glob as glob_module
 import logging
 import os
 import re
-from typing import TYPE_CHECKING, Iterable, List, Optional, Protocol
-from urllib.parse import urlparse
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Protocol
+from urllib.parse import unquote, urlparse
 
 import requests
 
@@ -21,6 +21,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 _GLOB_CHARACTERS = frozenset("*?[]")
 _HTTP_URI_PATTERN = re.compile("^https?://")
+_HTTP_URI_AUTHORITY = re.compile(r"^https?://(?P<authority>[^/?#]*)")
 DEFAULT_HTTP_TIMEOUT_SECONDS = 30
 _STREAM_CHUNK_BYTES = 1024 * 1024
 
@@ -31,6 +32,42 @@ def has_glob_characters(path: str) -> bool:
 
 def is_http_uri(uri: str) -> bool:
     return bool(_HTTP_URI_PATTERN.match(uri))
+
+
+def _http_url_userinfo(url: str) -> Optional[str]:
+    """The `user[:password]` an http(s) URL embeds before its host, read from the
+    raw string (the last "@" ends it, as in urlparse), or None when it has none."""
+    authority = _HTTP_URI_AUTHORITY.match(url)
+    if not authority:
+        return None
+    userinfo, at, _ = authority.group("authority").rpartition("@")
+    return userinfo if at else None
+
+
+def http_url_secrets(field_name: str, url: str) -> Dict[str, str]:
+    """Credentials embedded in an http(s) URL, keyed for the secret registry:
+    the userinfo password and the whole query string, each verbatim and decoded.
+
+    Read from the raw string, so a URL that doesn't parse is still covered and
+    the verbatim form matches what a library echoes back (requests keeps
+    `user:password@` in the URL it names in errors). The whole query string is
+    registered rather than known signature parameters: a presigned query is a
+    bearer credential, and vendors name its parameters differently."""
+    authority = _HTTP_URI_AUTHORITY.match(url)
+    if not authority:
+        return {}
+    secrets: Dict[str, str] = {}
+    userinfo = _http_url_userinfo(url)
+    if userinfo:
+        _, colon, password = userinfo.partition(":")
+        if colon and password:
+            secrets[f"{field_name}.userinfo_password.verbatim"] = password
+            secrets[f"{field_name}.userinfo_password"] = unquote(password)
+    _, question, query = url[authority.end() :].partition("#")[0].partition("?")
+    if question and query:
+        secrets[f"{field_name}.query.verbatim"] = query
+        secrets[f"{field_name}.query"] = unquote(query)
+    return secrets
 
 
 class FileSizeExceededError(ValueError):

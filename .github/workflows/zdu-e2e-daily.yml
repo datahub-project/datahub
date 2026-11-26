@@ -97,11 +97,13 @@ jobs:
           # On a clean CI runner the local Docker daemon has no `:debug`
           # images for the non-ZDU services (frontend, actions, etc.) that
           # the compose stack pulls in. Pin all unbuilt services to the
-          # publicly-pullable `head` tag from Docker Hub. The 4 ZDU services
+          # `quickstart` tag on Docker Hub, which master moves after smoke
+          # tests pass. `head` is no longer published, so it served stale
+          # images and does not exist for newer services. The 4 ZDU services
           # (GMS / upgrade / mae-consumer / mce-consumer) are still served
           # by the locally-built zdu-{old,new}-* tags via the per-service
           # DATAHUB_*_VERSION env vars the framework sets explicitly.
-          DATAHUB_VERSION: head
+          DATAHUB_VERSION: quickstart
           # Also derives all four Compose service names — every service key in
           # docker/profiles/ is profile-suffixed. See constants.PROFILE_SERVICES.
           ZDU_COMPOSE_PROFILES: ${{ matrix.topology }}

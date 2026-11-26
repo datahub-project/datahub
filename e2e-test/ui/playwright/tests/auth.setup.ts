@@ -114,7 +114,7 @@ setup('authenticate all users', async ({ page, playwright }) => {
             input: {
               type: 'PERSONAL',
               actorUrn: actorCookie.value,
-              duration: 'ONE_MONTH',
+              duration: 'ONE_DAY',
               name: `Playwright Test Token — ${user.username}`,
             },
           },

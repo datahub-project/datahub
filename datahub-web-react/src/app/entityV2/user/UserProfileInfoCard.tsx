@@ -29,6 +29,7 @@ export type SidebarData = {
     name: string | undefined;
     role: string | undefined;
     team: string | undefined;
+    manager: { urn: string; name: string } | undefined;
     email: string | undefined;
     slack: string | undefined;
     phone: string | undefined;
@@ -47,7 +48,7 @@ type Props = {
 };
 
 export const UserProfileInfoCard = ({ sidebarData, refetch, dataHubRoleName, isProfileOwner }: Props) => {
-    const { name, avatarName, email, phone, photoUrl, role, slack, team, urn } = sidebarData;
+    const { name, avatarName, email, phone, photoUrl, role, slack, team, manager, urn } = sidebarData;
 
     const [editProfileModal, showEditProfileModal] = useState(false);
 
@@ -80,6 +81,8 @@ export const UserProfileInfoCard = ({ sidebarData, refetch, dataHubRoleName, isP
                             role={role}
                             slack={slack}
                             phone={phone}
+                            team={team}
+                            manager={manager}
                         />
                     </Col>
                     {isProfileOwner && (

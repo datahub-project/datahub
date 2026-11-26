@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph.cache.config;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.GraphDefinition;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.GraphPopulation;
+import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.InvalidationVisibility;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.LocalEviction;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.PopulationStrategy;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.RebuildExecution;
@@ -151,6 +152,9 @@ public class EntityGraphRegistry {
                   graphConfig.getScroll() != null ? graphConfig.getScroll().getBatchSize() : 500)
               .localEviction(resolveLocalEviction(properties, graphConfig))
               .buildSource(buildSource)
+              .invalidationVisibility(resolveInvalidationVisibility(graphConfig))
+              .invalidationMarginSeconds(resolveInvalidationMarginSeconds(graphConfig))
+              .invalidationMaxWalkSeconds(resolveInvalidationMaxWalkSeconds(graphConfig))
               .enabled(true)
               .build();
 
@@ -480,6 +484,32 @@ public class EntityGraphRegistry {
       return RebuildExecution.SYNC;
     }
     return population.getRebuildExecution();
+  }
+
+  @Nonnull
+  private static InvalidationVisibility resolveInvalidationVisibility(
+      @Nonnull GraphDefinition graphConfig) {
+    if (graphConfig.getInvalidation() == null
+        || graphConfig.getInvalidation().getVisibility() == null) {
+      return InvalidationVisibility.NONE;
+    }
+    return graphConfig.getInvalidation().getVisibility();
+  }
+
+  private static int resolveInvalidationMarginSeconds(@Nonnull GraphDefinition graphConfig) {
+    if (graphConfig.getInvalidation() == null
+        || graphConfig.getInvalidation().getMarginSeconds() == null) {
+      return 0;
+    }
+    return graphConfig.getInvalidation().getMarginSeconds();
+  }
+
+  private static int resolveInvalidationMaxWalkSeconds(@Nonnull GraphDefinition graphConfig) {
+    if (graphConfig.getInvalidation() == null
+        || graphConfig.getInvalidation().getMaxWalkSeconds() == null) {
+      return 0;
+    }
+    return graphConfig.getInvalidation().getMaxWalkSeconds();
   }
 
   private static int resolveMaxDepth(@Nonnull GraphDefinition graphConfig) {

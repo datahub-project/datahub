@@ -321,8 +321,7 @@ public final class EntityAspectAuthorizationUtils {
       @Nonnull AuthorizationSession session,
       @Nonnull Urn dataProductUrn,
       @Nonnull Set<Urn> productDomainUrns) {
-    if (!productDomainUrns.isEmpty()
-        && isAuthorizedToManageDataProductsOnAnyDomain(session, productDomainUrns)) {
+    if (isAuthorizedToManageDataProductsOnAnyDomain(session, productDomainUrns)) {
       return true;
     }
     return isAuthorizedToEditDataProductEntity(session, dataProductUrn);
@@ -418,8 +417,7 @@ public final class EntityAspectAuthorizationUtils {
       return false;
     }
 
-    if (!productDomainUrns.isEmpty()
-        && isAuthorizedToManageDataProductsOnAnyDomain(session, productDomainUrns)) {
+    if (isAuthorizedToManageDataProductsOnAnyDomain(session, productDomainUrns)) {
       return true;
     }
 
@@ -467,8 +465,22 @@ public final class EntityAspectAuthorizationUtils {
         RecordUtils.toRecordTemplate(Domains.class, domainsAspect.data()));
   }
 
+  /**
+   * Platform-wide {@code MANAGE_ALL_DATA_PRODUCTS}, which applies to Data Products in any Domain.
+   */
+  public static boolean canManageAllDataProducts(@Nonnull AuthorizationSession session) {
+    return AuthUtil.isAuthorized(session, PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE);
+  }
+
+  /**
+   * True with {@code MANAGE_ALL_DATA_PRODUCTS}, even when {@code domainUrns} is empty; otherwise
+   * requires {@code MANAGE_DATA_PRODUCTS} on at least one of the domains.
+   */
   public static boolean isAuthorizedToManageDataProductsOnAnyDomain(
       @Nonnull AuthorizationSession session, @Nonnull Collection<Urn> domainUrns) {
+    if (canManageAllDataProducts(session)) {
+      return true;
+    }
     if (domainUrns.isEmpty()) {
       return false;
     }
@@ -482,7 +494,9 @@ public final class EntityAspectAuthorizationUtils {
 
   /**
    * Returns true when the actor holds {@code MANAGE_DATA_PRODUCTS} (or full entity privileges) on
-   * every given domain. False for an empty collection.
+   * every given domain. False for an empty collection: there is nothing to place the product into.
+   * The platform-wide {@code MANAGE_ALL_DATA_PRODUCTS} is not checked here; {@code
+   * DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll} covers it.
    *
    * <p>Rename and membership changes use the <em>any</em>-domain variant because they act on a
    * product that is already placed in its domains; placing a product into domains (see {@code

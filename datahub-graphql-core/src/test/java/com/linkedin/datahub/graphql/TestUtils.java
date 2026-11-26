@@ -87,6 +87,8 @@ public class TestUtils {
   public static QueryContext getMockAllowContext(String actorUrn, AuthorizationRequest request) {
     QueryContext mockContext = mock(QueryContext.class);
     when(mockContext.getActorUrn()).thenReturn(actorUrn);
+    when(mockContext.getDirectChildDefaultCount()).thenReturn(100);
+    when(mockContext.getDirectChildMaxCount()).thenReturn(1000);
 
     Authorizer mockAuthorizer = mock(Authorizer.class);
 
@@ -116,6 +118,7 @@ public class TestUtils {
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
     when(mockContext.getMaxParentDepth()).thenReturn(50);
+    when(mockContext.getMaxSiblingGroupUrns()).thenReturn(30);
 
     OperationContext operationContext =
         withDefaultSearchEntityTypes(
@@ -261,6 +264,7 @@ public class TestUtils {
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
     when(mockContext.getMaxParentDepth()).thenReturn(50);
+    when(mockContext.getMaxSiblingGroupUrns()).thenReturn(30);
 
     OperationContext operationContext =
         withDefaultSearchEntityTypes(

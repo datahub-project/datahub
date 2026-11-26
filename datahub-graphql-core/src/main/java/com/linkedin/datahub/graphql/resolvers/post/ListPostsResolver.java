@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -114,8 +115,12 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
             result.setStart(gmsResult.getFrom());
             result.setCount(gmsResult.getPageSize());
             result.setTotal(gmsResult.getNumEntities());
+            // batchGetV2 returns an unordered map, so follow the search hits to keep the
+            // lastModified sort.
             result.setPosts(
-                entities.values().stream()
+                gmsResult.getEntities().stream()
+                    .map(entity -> entities.get(entity.getEntity()))
+                    .filter(Objects::nonNull)
                     .map(e -> PostMapper.map(context, e))
                     .collect(Collectors.toList()));
             return result;

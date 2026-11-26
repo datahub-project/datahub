@@ -14,7 +14,9 @@ import com.hazelcast.config.Config;
 import com.hazelcast.config.SerializerConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.linkedin.metadata.cache.visibility.IndexVisibilityEstimator;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
+import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.InvalidationVisibility;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
 import com.linkedin.metadata.graph.cache.CacheStatus;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
@@ -32,6 +34,7 @@ import com.linkedin.metadata.graph.cache.config.EntityGraphModel.GraphBindings;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.GraphBounds;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.LocalEvictionLimits;
 import com.linkedin.metadata.graph.cache.config.EntityGraphRegistry;
+import com.linkedin.metadata.graph.cache.service.freshness.SnapshotFreshnessEvaluator;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot.DirectedEdge;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotBuilder;
@@ -147,7 +150,8 @@ public class EntityGraphFullWalkWriteBackTest {
             localViews,
             snapshotBuilder,
             operationContext,
-            rebuildExecutor);
+            rebuildExecutor,
+            IndexVisibilityEstimator.DISABLED);
   }
 
   @AfterMethod
@@ -752,7 +756,8 @@ public class EntityGraphFullWalkWriteBackTest {
                             .tracer(OpenTelemetry.noop().getTracer("test"))
                             .build())
                 .buildSystemContext(),
-            rebuildExecutor);
+            rebuildExecutor,
+            IndexVisibilityEstimator.DISABLED);
     assertEquals(
         disabled.publishFullWalk(
             writeBack(GLOSSARY, Set.of(SEED), List.of(walkEdge(CHILD, SEED)), false, 0L)),
@@ -917,7 +922,8 @@ public class EntityGraphFullWalkWriteBackTest {
         otherViews,
         snapshotBuilder,
         TestOperationContexts.Builder.builder().buildSystemContext(),
-        rebuildExecutor);
+        rebuildExecutor,
+        IndexVisibilityEstimator.DISABLED);
   }
 
   private GraphReadResult expand(
@@ -1042,6 +1048,80 @@ public class EntityGraphFullWalkWriteBackTest {
         .build();
   }
 
+  @Test
+  public void deferredGraphRejectsUnknownStartRightAfterAWriteBecameSearchable() {
+    useDeferredGlossary();
+    String cacheKey = EntityGraphCacheKeys.componentCacheKey(GLOSSARY, SOURCE, "fp-initial");
+    long now = System.currentTimeMillis();
+    store.publish(initialSnapshot(cacheKey, now - 5_000L), CacheStatus.ACTIVE);
+    store.recordVisibilityWatermark(GLOSSARY, now - 1_000L);
+
+    assertEquals(
+        service.publishFullWalk(
+            writeBack(GLOSSARY, Set.of(SEED), List.of(walkEdge(CHILD, SEED)), false, 0L)),
+        FullWalkPublishResult.REJECTED_START_UNKNOWN);
+
+    assertEquals(
+        service.publishFullWalk(
+            writeBackStartedAt(Set.of(SEED), List.of(walkEdge(CHILD, SEED)), now)),
+        FullWalkPublishResult.PUBLISHED);
+  }
+
+  @Test
+  public void deferredGraphAcceptsUnknownStartWhileAWriteIsStillPending() {
+    useDeferredGlossary();
+    String cacheKey = EntityGraphCacheKeys.componentCacheKey(GLOSSARY, SOURCE, "fp-initial");
+    long now = System.currentTimeMillis();
+    store.publish(initialSnapshot(cacheKey, now - 5_000L), CacheStatus.ACTIVE);
+    long pending = now + 30_000L;
+    store.recordVisibilityWatermark(GLOSSARY, pending);
+
+    assertEquals(
+        service.publishFullWalk(
+            writeBack(GLOSSARY, Set.of(SEED), List.of(walkEdge(CHILD, SEED)), false, 0L)),
+        FullWalkPublishResult.PUBLISHED);
+
+    // The walk is served until the pending write is searchable, and at that point the snapshot is
+    // superseded because its build time is earlier.
+    EntityGraphSnapshot published = store.getSnapshot(cacheKey);
+    long[] watermarks = store.getVisibilityWatermarks(GLOSSARY);
+    assertFalse(SnapshotFreshnessEvaluator.isSuperseded(published, watermarks));
+    assertTrue(published.getBuiltAtMillis() < watermarks[watermarks.length - 1]);
+  }
+
+  @Test
+  public void deferredGraphAcceptsUnknownStartOnceTheConfiguredWalkWindowHasPassed() {
+    when(registry.getDefinition(GLOSSARY))
+        .thenReturn(
+            partialDefinition(GLOSSARY, 1, 100, 100, InvalidationVisibility.SUBMIT_BOUND, 30));
+    String cacheKey = EntityGraphCacheKeys.componentCacheKey(GLOSSARY, SOURCE, "fp-initial");
+    long now = System.currentTimeMillis();
+    store.publish(initialSnapshot(cacheKey, now - 120_000L), CacheStatus.ACTIVE);
+    store.recordVisibilityWatermark(GLOSSARY, now - 60_000L);
+
+    assertEquals(
+        service.publishFullWalk(
+            writeBack(GLOSSARY, Set.of(SEED), List.of(walkEdge(CHILD, SEED)), false, 0L)),
+        FullWalkPublishResult.PUBLISHED);
+  }
+
+  private void useDeferredGlossary() {
+    when(registry.getDefinition(GLOSSARY))
+        .thenReturn(partialDefinition(GLOSSARY, 1, 100, 100, InvalidationVisibility.SUBMIT_BOUND));
+  }
+
+  private static FullWalkWriteBack writeBackStartedAt(
+      Set<String> seeds, List<FullWalkEdge> edges, long startedAtMillis) {
+    return FullWalkWriteBack.builder()
+        .graphId(GLOSSARY)
+        .source(SOURCE)
+        .direction(TraversalDirection.REVERSE)
+        .seeds(seeds)
+        .edges(edges)
+        .walkStartedAtMillis(startedAtMillis)
+        .build();
+  }
+
   private static FullWalkWriteBack writeBack(
       String graphId,
       Set<String> seeds,
@@ -1113,7 +1193,28 @@ public class EntityGraphFullWalkWriteBackTest {
 
   private static EntityGraphDefinition partialDefinition(
       String graphId, int maxDepth, int maxVertices, int maxEdges) {
+    return partialDefinition(graphId, maxDepth, maxVertices, maxEdges, null);
+  }
+
+  private static EntityGraphDefinition partialDefinition(
+      String graphId,
+      int maxDepth,
+      int maxVertices,
+      int maxEdges,
+      InvalidationVisibility visibility) {
+    return partialDefinition(graphId, maxDepth, maxVertices, maxEdges, visibility, 0);
+  }
+
+  private static EntityGraphDefinition partialDefinition(
+      String graphId,
+      int maxDepth,
+      int maxVertices,
+      int maxEdges,
+      InvalidationVisibility visibility,
+      int maxWalkSeconds) {
     return EntityGraphDefinition.builder()
+        .invalidationVisibility(visibility)
+        .invalidationMaxWalkSeconds(maxWalkSeconds)
         .graphId(graphId)
         .scope(EntityGraphScope.builder().mode(ScopeMode.PARTIAL).maxDepth(maxDepth).build())
         .bounds(

@@ -1,117 +1,96 @@
 import { Loader } from '@components';
-import { Button } from 'antd';
-import React, { CSSProperties } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import styled, { useTheme } from 'styled-components/macro';
+import styled from 'styled-components/macro';
 
-import { SearchBar } from '@app/searchV2/SearchBar';
-import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
 
-const STYLE_NO_SHADOW: CSSProperties = { boxShadow: 'none' };
-
-const StyledButton = styled(Button)`
-    width: 100%;
-    text-align: center;
-    background-color: ${(p) => p.theme.colors.buttonFillBrand};
-    color: ${(props) => props.theme.colors.textOnFillBrand};
-    border-radius: 0;
-`;
-
-const DropdownMenu = styled.div<{ type: 'card' | 'default' }>`
-    background-color: ${(props) => props.theme.colors.bg};
-    ${(props) => props.type === 'card' && 'border-radius: 5px;'}
-    ${(props) => props.type === 'card' && `box-shadow: ${props.theme.colors.shadowMd};`}
+const DropdownCard = styled.div<{ $shouldAddWrapperStyles: boolean }>`
+    ${(props) =>
+        props.$shouldAddWrapperStyles &&
+        `
+        background-color: ${props.theme.colors.bg};
+        border-radius: 12px;
+        box-shadow: ${props.theme.colors.shadowMd};
+    `}
     overflow: hidden;
     min-width: 200px;
-
-    .ant-dropdown-menu-title-content {
-        background-color: ${(props) => props.theme.colors.bg};
-        &:hover {
-            background-color: ${(props) => props.theme.colors.bg};
-        }
-    }
-    .ant-dropdown-menu {
-        padding: 7px;
-    }
+    /* Inside the More menu this renders in an antd submenu, whose default text colour differs. */
+    color: ${(props) => props.theme.colors.text};
 `;
 
-const ScrollableContent = styled.div`
-    max-height: 380px;
+const ScrollableContent = styled.div<{ $shouldAddWrapperStyles: boolean }>`
+    max-height: 360px;
     overflow: auto;
     min-width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    ${(props) => props.$shouldAddWrapperStyles && `padding: 4px;`}
+`;
+
+const SearchBarWrapper = styled.div<{ $shouldAddWrapperStyles: boolean }>`
+    padding: ${(props) => (props.$shouldAddWrapperStyles ? '8px 8px 4px 8px' : '4px')};
 `;
 
 const LoadingWrapper = styled.div`
     display: flex;
     justify-content: center;
     padding: 9px;
+    color: ${(props) => props.theme.colors.textSecondary};
+
+    svg {
+        height: 16px;
+        width: 16px;
+    }
 `;
 
 interface Props {
     menu: React.ReactNode;
-    updateFilters: () => void;
     isLoading?: boolean;
     searchQuery?: string;
     updateSearchQuery?: (query: string) => void;
     searchPlaceholder?: string;
     showSearchBar?: boolean;
-    type?: 'card' | 'default';
     className?: string;
+    isRenderedInSubMenu?: boolean;
 }
 
 export default function OptionsDropdownMenu({
     menu,
-    updateFilters,
     isLoading,
     searchQuery,
     updateSearchQuery,
     searchPlaceholder,
     showSearchBar = true,
-    type = 'card',
     className,
+    isRenderedInSubMenu,
 }: Props) {
     const { t: tc } = useTranslation('common.actions');
-    const entityRegistry = useEntityRegistry();
-    const theme = useTheme();
-
-    useEnterKeyListener({ querySelectorToExecuteClick: '#updateFiltersButton' });
 
     return (
-        <DropdownMenu type={type} data-testid="filter-dropdown" className={className}>
-            <ScrollableContent>
-                {showSearchBar && (
-                    <SearchBar
-                        initialQuery={searchQuery}
-                        placeholderText={searchPlaceholder || ''}
-                        suggestions={[]}
-                        hideRecommendations
-                        style={{
-                            padding: 12,
-                            paddingBottom: 5,
-                        }}
-                        inputStyle={{
-                            height: 30,
-                            fontSize: 12,
-                            borderRadius: 8,
-                        }}
-                        onSearch={() => null}
-                        onQueryChange={updateSearchQuery}
-                        entityRegistry={entityRegistry}
-                        textColor={theme.colors.text}
-                        placeholderColor={theme.colors.textPlaceholder}
+        <DropdownCard
+            data-testid="filter-dropdown"
+            className={className}
+            $shouldAddWrapperStyles={!isRenderedInSubMenu}
+        >
+            {showSearchBar && (
+                <SearchBarWrapper $shouldAddWrapperStyles={!isRenderedInSubMenu}>
+                    <DropdownSearchBar
+                        placeholder={searchPlaceholder || tc('search')}
+                        value={searchQuery}
+                        onChange={updateSearchQuery}
                     />
-                )}
-                {React.cloneElement(menu as React.ReactElement, { style: STYLE_NO_SHADOW })}
+                </SearchBarWrapper>
+            )}
+            <ScrollableContent $shouldAddWrapperStyles={!isRenderedInSubMenu}>
+                {menu}
                 {isLoading && (
                     <LoadingWrapper>
                         <Loader size="xs" />
                     </LoadingWrapper>
                 )}
             </ScrollableContent>
-            <StyledButton id="updateFiltersButton" type="text" onClick={updateFilters} data-testid="update-filters">
-                {tc('update')}
-            </StyledButton>
-        </DropdownMenu>
+        </DropdownCard>
     );
 }

@@ -48,6 +48,11 @@ public class EntityGraphMemoryPressureMonitor implements AutoCloseable {
   }
 
   private void checkHeap() {
+    try {
+      cacheService.recordSnapshotEntryGauges();
+    } catch (RuntimeException e) {
+      log.warn("Failed to record entity graph snapshot sizes", e);
+    }
     MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
     long used = memoryBean.getHeapMemoryUsage().getUsed();
     long max = memoryBean.getHeapMemoryUsage().getMax();

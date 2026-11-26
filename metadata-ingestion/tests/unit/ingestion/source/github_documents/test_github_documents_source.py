@@ -13,28 +13,35 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
-from datahub.ingestion.source.github_documents.github_api import (
-    GitHubFileInfo,
+from datahub.ingestion.source.github_documents.github_documents_config import (
+    GitHubDocumentsSourceConfig,
+)
+from datahub.ingestion.source.github_documents.github_documents_source import (
+    GitHubDocumentsSource,
+)
+from datahub.ingestion.source.repository_documents.client import RepositoryFileInfo
+from datahub.ingestion.source.repository_documents.okf_frontmatter import (
+    OkfFrontmatter,
+    parse_okf_frontmatter,
+)
+from datahub.ingestion.source.repository_documents.okf_mapping import (
+    MAPPING_VERSION,
+    OkfMapping,
+)
+from datahub.ingestion.source.repository_documents.paths import (
     make_dir_source_id,
     make_file_source_id,
     make_repo_source_id,
     normalize_document_id,
 )
-from datahub.ingestion.source.github_documents.github_documents_config import (
-    GitHubDocumentsSourceConfig,
+from datahub.ingestion.source.repository_documents.report import (
+    RepositoryDocumentsSourceReport,
 )
-from datahub.ingestion.source.github_documents.github_documents_report import (
-    GitHubDocumentsSourceReport,
-)
-from datahub.ingestion.source.github_documents.github_documents_source import (
-    GitHubDocumentsSource,
+from datahub.ingestion.source.repository_documents.source import (
+    PROP_IMPORT_SOURCE_ID,
     compute_file_content_hash,
     compute_source_hash,
 )
-from datahub.ingestion.source.github_documents.okf_frontmatter import (
-    parse_okf_frontmatter,
-)
-from datahub.ingestion.source.github_documents.okf_mapping import MAPPING_VERSION
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BrowsePathsV2Class,
@@ -65,7 +72,7 @@ from datahub.metadata.schema_classes import (
 def _raw_frontmatter_values(properties: OkfPropertiesClass) -> Dict[str, object]:
     assert properties.raw is not None
     parsed = parse_okf_frontmatter(
-        properties.raw, path="mau.md", report=GitHubDocumentsSourceReport()
+        properties.raw, path="mau.md", report=RepositoryDocumentsSourceReport()
     )
     assert parsed is not None
     return parsed.values
@@ -134,7 +141,7 @@ def _browse_paths_by_urn(workunits: list) -> dict[str, BrowsePathsV2Class]:
 def _mock_github_client(
     source: GitHubDocumentsSource,
     *,
-    files: list[GitHubFileInfo],
+    files: list[RepositoryFileInfo],
     tree_truncated: bool = False,
     file_content: str | None = "# Hello",
 ) -> None:
@@ -164,7 +171,7 @@ def test_get_workunits_emits_data_platform_instance(
     source: GitHubDocumentsSource,
 ) -> None:
     source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
-        return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], False)
+        return_value=([RepositoryFileInfo(path="docs/readme.md", size=12)], False)
     )
     source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
         return_value="abc123"
@@ -193,7 +200,7 @@ def test_get_workunits_emits_data_platform_instance(
 
 def test_native_mode_emits_external_url(source: GitHubDocumentsSource) -> None:
     source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
-        return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], False)
+        return_value=([RepositoryFileInfo(path="docs/readme.md", size=12)], False)
     )
     source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
         return_value="abc123"
@@ -228,7 +235,7 @@ def test_native_mode_emits_external_url(source: GitHubDocumentsSource) -> None:
 
 def test_get_workunits_emits_folder_then_file(source: GitHubDocumentsSource) -> None:
     source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
-        return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], False)
+        return_value=([RepositoryFileInfo(path="docs/readme.md", size=12)], False)
     )
     source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
         return_value="abc123"
@@ -242,22 +249,139 @@ def test_get_workunits_emits_folder_then_file(source: GitHubDocumentsSource) -> 
     assert source.report.files_processed == 1
 
 
-def test_get_workunits_reports_truncated_tree(source: GitHubDocumentsSource) -> None:
-    source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
-        return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], True)
+@pytest.mark.parametrize(
+    ("tree_truncated", "max_files", "warning_title"),
+    [
+        pytest.param(True, 100, "Repository tree truncated", id="truncated tree"),
+        pytest.param(
+            False, 1, "Matching files truncated by max_files", id="max_files cutoff"
+        ),
+    ],
+)
+def test_partial_listing_keeps_previous_documents(
+    tree_truncated: bool, max_files: int, warning_title: str
+) -> None:
+    source = GitHubDocumentsSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("ghp_test"),
+            repository="acme/docs",
+            max_files=max_files,
+        ),
+        PipelineContext(run_id="test-run"),
     )
-    source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
-        return_value="abc123"
+    _mock_github_client(
+        source,
+        files=[
+            RepositoryFileInfo(path="docs/a.md", size=12),
+            RepositoryFileInfo(path="docs/b.md", size=12),
+        ],
+        tree_truncated=tree_truncated,
     )
-    source.client.fetch_file_content = MagicMock(  # type: ignore[method-assign]
-        return_value="# Hello"
+    previous_urn = "urn:li:document:not-listed"
+    handler = source.stale_entity_removal_handler
+    handler.checkpointing_enabled = True
+    handler.add_entity_to_state = MagicMock()  # type: ignore[method-assign]
+    source.state_provider.get_last_checkpoint = MagicMock(  # type: ignore[method-assign]
+        return_value=MagicMock(state=MagicMock(urns=[previous_urn]))
     )
 
-    list(source.get_workunits())
-    assert source.report.tree_truncated is True
-    assert any(
-        "truncated" in (entry.message or "").lower() for entry in source.report.warnings
+    list(source.get_workunits_internal())
+
+    # Kept rather than soft-deleted, without failing the run.
+    handler.add_entity_to_state.assert_any_call("", previous_urn)
+    assert warning_title in {entry.title for entry in source.report.warnings}
+    assert not source.report.failures
+
+
+def test_partial_listing_with_ignore_old_state_keeps_nothing() -> None:
+    source = GitHubDocumentsSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("ghp_test"),
+            repository="acme/docs",
+            max_files=1,
+        ),
+        PipelineContext(run_id="test-run"),
     )
+    _mock_github_client(
+        source,
+        files=[
+            RepositoryFileInfo(path="docs/a.md", size=12),
+            RepositoryFileInfo(path="docs/b.md", size=12),
+        ],
+    )
+    handler = source.stale_entity_removal_handler
+    handler.checkpointing_enabled = True
+    handler.stateful_ingestion_config = MagicMock(ignore_old_state=True)
+    handler.add_entity_to_state = MagicMock()  # type: ignore[method-assign]
+    source.state_provider.get_last_checkpoint = MagicMock(  # type: ignore[method-assign]
+        return_value=MagicMock(state=MagicMock(urns=["urn:li:document:not-listed"]))
+    )
+
+    list(source.get_workunits_internal())
+
+    registered = [call.args[1] for call in handler.add_entity_to_state.call_args_list]
+    assert "urn:li:document:not-listed" not in registered
+    source.state_provider.get_last_checkpoint.assert_not_called()
+
+
+@pytest.mark.parametrize("previously_imported", [True, False])
+def test_failed_download_keeps_only_a_previous_import(
+    source: GitHubDocumentsSource, previously_imported: bool
+) -> None:
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
+        file_content=None,
+    )
+    source.client._last_api_error = "HTTP 502"
+    existing_urn = "urn:li:document:native-uuid-1234"
+    source.ctx.graph = MagicMock()
+    source.ctx.graph.get_aspect.return_value = None
+    source.ctx.graph.get_urns_by_filter.return_value = (
+        [existing_urn] if previously_imported else []
+    )
+    source.stale_entity_removal_handler.add_entity_to_state = MagicMock()  # type: ignore[method-assign]
+
+    list(source.get_workunits_internal())
+
+    registered = [
+        call.args[1]
+        for call in source.stale_entity_removal_handler.add_entity_to_state.call_args_list
+    ]
+    assert registered == ([existing_urn] if previously_imported else [])
+    assert "Repository file not read" in {
+        entry.title for entry in source.report.warnings
+    }
+
+
+@pytest.mark.parametrize("in_last_checkpoint", [True, False])
+def test_failed_download_without_graph_keeps_a_checkpointed_import(
+    source: GitHubDocumentsSource, in_last_checkpoint: bool
+) -> None:
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
+        file_content=None,
+    )
+    source.client._last_api_error = "HTTP 502"
+    source.ctx.graph = None
+    canonical_urn = (
+        "urn:li:document:"
+        f"{normalize_document_id(make_file_source_id('acme/docs', 'docs/readme.md', source_prefix='github'))}"
+    )
+    handler = source.stale_entity_removal_handler
+    handler.checkpointing_enabled = True
+    handler.add_entity_to_state = MagicMock()  # type: ignore[method-assign]
+    source.state_provider.get_last_checkpoint = MagicMock(  # type: ignore[method-assign]
+        return_value=MagicMock(
+            state=MagicMock(urns=[canonical_urn] if in_last_checkpoint else [])
+        )
+    )
+
+    list(source.get_workunits_internal())
+
+    registered = [call.args[1] for call in handler.add_entity_to_state.call_args_list]
+    assert registered == ([canonical_urn] if in_last_checkpoint else [])
 
 
 def test_get_workunits_truncates_files_at_max_files_limit() -> None:
@@ -269,7 +393,7 @@ def test_get_workunits_truncates_files_at_max_files_limit() -> None:
     ctx = PipelineContext(run_id="test-run")
     source = GitHubDocumentsSource(config, ctx)
     matching_files = [
-        GitHubFileInfo(path=f"docs/file-{index}.md", size=12) for index in range(5)
+        RepositoryFileInfo(path=f"docs/file-{index}.md", size=12) for index in range(5)
     ]
     source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
         return_value=(matching_files, False)
@@ -292,10 +416,14 @@ def test_get_workunits_truncates_files_at_max_files_limit() -> None:
 
 
 @patch(
+    "datahub.ingestion.source.github_documents.github_documents_source.GitHubApiClient.get_latest_commit_sha",
+    return_value="abc123",
+)
+@patch(
     "datahub.ingestion.source.github_documents.github_documents_source.GitHubApiClient.list_matching_files",
     side_effect=RuntimeError("branch missing"),
 )
-def test_test_connection_failure(_mock_list: MagicMock) -> None:
+def test_test_connection_failure(_mock_list: MagicMock, _mock_sha: MagicMock) -> None:
     report = GitHubDocumentsSource.test_connection(
         {
             "github_token": "ghp_test",
@@ -308,9 +436,15 @@ def test_test_connection_failure(_mock_list: MagicMock) -> None:
 
 
 def test_test_connection_success() -> None:
-    with patch(
-        "datahub.ingestion.source.github_documents.github_documents_source.GitHubApiClient.list_matching_files",
-        return_value=([], False),
+    with (
+        patch(
+            "datahub.ingestion.source.github_documents.github_documents_source.GitHubApiClient.get_latest_commit_sha",
+            return_value="abc123",
+        ),
+        patch(
+            "datahub.ingestion.source.github_documents.github_documents_source.GitHubApiClient.list_matching_files",
+            return_value=([], False),
+        ) as mock_list,
     ):
         report = GitHubDocumentsSource.test_connection(
             {
@@ -320,6 +454,8 @@ def test_test_connection_success() -> None:
         )
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is True
+    # The tree is listed at the resolved commit, as ingestion does.
+    assert mock_list.call_args.args[1] == "abc123"
 
 
 def test_test_connection_config_parse_failure() -> None:
@@ -333,7 +469,7 @@ def test_external_mode_emits_external_source_type(
 ) -> None:
     source.config.document_import_mode = DocumentImportMode.EXTERNAL
     source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
-        return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], False)
+        return_value=([RepositoryFileInfo(path="docs/readme.md", size=12)], False)
     )
     source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
         return_value="abc123"
@@ -360,7 +496,7 @@ def test_external_mode_emits_external_source_type(
 
 def test_repo_root_document_is_emitted(source: GitHubDocumentsSource) -> None:
     source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
-        return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], False)
+        return_value=([RepositoryFileInfo(path="docs/readme.md", size=12)], False)
     )
     source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
         return_value="abc123"
@@ -375,7 +511,7 @@ def test_repo_root_document_is_emitted(source: GitHubDocumentsSource) -> None:
 
 def test_skipped_file_increments_files_skipped(source: GitHubDocumentsSource) -> None:
     source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
-        return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], False)
+        return_value=([RepositoryFileInfo(path="docs/readme.md", size=12)], False)
     )
     source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
         return_value="abc123"
@@ -408,7 +544,7 @@ def test_parent_document_urn_skips_repo_root() -> None:
     assert source._repo_root_source_id is None
 
     source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
-        return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], False)
+        return_value=([RepositoryFileInfo(path="docs/readme.md", size=12)], False)
     )
     source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
         return_value="abc123"
@@ -433,7 +569,7 @@ def test_create_repo_root_document_false_skips_repo_root() -> None:
     assert source._repo_root_source_id is None
 
     source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
-        return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], False)
+        return_value=([RepositoryFileInfo(path="docs/readme.md", size=12)], False)
     )
     source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
         return_value="abc123"
@@ -452,16 +588,20 @@ def test_nested_file_hierarchy_links_parent_documents(
     owner_repo = "acme/docs"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/guides/setup.md", size=12)],
     )
 
     workunits = list(source.get_workunits())
     urns = _entity_urns_by_source_id(workunits)
     infos = _document_infos_by_source_id(workunits)
 
-    repo_source_id = make_repo_source_id(owner_repo)
-    guides_dir_source_id = make_dir_source_id(owner_repo, "docs/guides")
-    file_source_id = make_file_source_id(owner_repo, "docs/guides/setup.md")
+    repo_source_id = make_repo_source_id(owner_repo, source_prefix="github")
+    guides_dir_source_id = make_dir_source_id(
+        owner_repo, "docs/guides", source_prefix="github"
+    )
+    file_source_id = make_file_source_id(
+        owner_repo, "docs/guides/setup.md", source_prefix="github"
+    )
 
     repo_info = infos[repo_source_id]
     guides_info = infos[guides_dir_source_id]
@@ -480,15 +620,17 @@ def test_top_level_file_parent_is_repo_root(source: GitHubDocumentsSource) -> No
     owner_repo = "acme/docs"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
     )
 
     workunits = list(source.get_workunits())
     urns = _entity_urns_by_source_id(workunits)
     infos = _document_infos_by_source_id(workunits)
 
-    repo_source_id = make_repo_source_id(owner_repo)
-    file_source_id = make_file_source_id(owner_repo, "docs/readme.md")
+    repo_source_id = make_repo_source_id(owner_repo, source_prefix="github")
+    file_source_id = make_file_source_id(
+        owner_repo, "docs/readme.md", source_prefix="github"
+    )
 
     file_parent = infos[file_source_id].parentDocument
     assert file_parent is not None
@@ -506,12 +648,14 @@ def test_configured_parent_document_urn_used_for_top_level_files() -> None:
     source = GitHubDocumentsSource(config, PipelineContext(run_id="test-run"))
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
     )
 
     workunits = list(source.get_workunits())
     infos = _document_infos_by_source_id(workunits)
-    file_source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
 
     configured_parent = infos[file_source_id].parentDocument
     assert configured_parent is not None
@@ -522,16 +666,20 @@ def test_browse_path_emitted_for_nested_file(source: GitHubDocumentsSource) -> N
     owner_repo = "acme/docs"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/guides/setup.md", size=12)],
     )
 
     workunits = list(source.get_workunits())
     urns = _entity_urns_by_source_id(workunits)
     browse_paths = _browse_paths_by_urn(workunits)
 
-    repo_source_id = make_repo_source_id(owner_repo)
-    guides_dir_source_id = make_dir_source_id(owner_repo, "docs/guides")
-    file_source_id = make_file_source_id(owner_repo, "docs/guides/setup.md")
+    repo_source_id = make_repo_source_id(owner_repo, source_prefix="github")
+    guides_dir_source_id = make_dir_source_id(
+        owner_repo, "docs/guides", source_prefix="github"
+    )
+    file_source_id = make_file_source_id(
+        owner_repo, "docs/guides/setup.md", source_prefix="github"
+    )
 
     file_browse_path = browse_paths[urns[file_source_id]]
     # Default flow: the repo-root document provides the repo entry (clickable),
@@ -547,14 +695,14 @@ def test_browse_path_not_emitted_for_repo_root(source: GitHubDocumentsSource) ->
     owner_repo = "acme/docs"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
     )
 
     workunits = list(source.get_workunits())
     urns = _entity_urns_by_source_id(workunits)
     browse_paths = _browse_paths_by_urn(workunits)
 
-    repo_source_id = make_repo_source_id(owner_repo)
+    repo_source_id = make_repo_source_id(owner_repo, source_prefix="github")
     # Repo-root document has no ancestors (org disabled), so no browse path.
     assert urns[repo_source_id] not in browse_paths
 
@@ -571,15 +719,19 @@ def test_browse_path_includes_repo_name_without_root_document() -> None:
     source = GitHubDocumentsSource(config, PipelineContext(run_id="test-run"))
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/guides/setup.md", size=12)],
     )
 
     workunits = list(source.get_workunits())
     urns = _entity_urns_by_source_id(workunits)
     browse_paths = _browse_paths_by_urn(workunits)
 
-    guides_dir_source_id = make_dir_source_id("acme/docs", "docs/guides")
-    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+    guides_dir_source_id = make_dir_source_id(
+        "acme/docs", "docs/guides", source_prefix="github"
+    )
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/guides/setup.md", source_prefix="github"
+    )
 
     file_browse_path = browse_paths[urns[file_source_id]]
     assert [e.id for e in file_browse_path.path] == ["docs", "guides"]
@@ -598,15 +750,17 @@ def test_browse_path_includes_org_when_enabled() -> None:
     source = GitHubDocumentsSource(config, PipelineContext(run_id="test-run"))
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/guides/setup.md", size=12)],
     )
 
     workunits = list(source.get_workunits())
     urns = _entity_urns_by_source_id(workunits)
     browse_paths = _browse_paths_by_urn(workunits)
 
-    repo_source_id = make_repo_source_id("acme/docs")
-    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+    repo_source_id = make_repo_source_id("acme/docs", source_prefix="github")
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/guides/setup.md", source_prefix="github"
+    )
 
     file_browse_path = browse_paths[urns[file_source_id]]
     # Org is the top-most entry; the repo-root document follows (clickable).
@@ -626,14 +780,16 @@ def test_browse_path_repo_can_be_disabled() -> None:
     source = GitHubDocumentsSource(config, PipelineContext(run_id="test-run"))
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/guides/setup.md", size=12)],
     )
 
     workunits = list(source.get_workunits())
     urns = _entity_urns_by_source_id(workunits)
     browse_paths = _browse_paths_by_urn(workunits)
 
-    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/guides/setup.md", source_prefix="github"
+    )
     file_browse_path = browse_paths[urns[file_source_id]]
     # No repo-root doc and repo entry disabled -> only folder ancestors.
     assert [e.id for e in file_browse_path.path] == ["guides"]
@@ -650,15 +806,19 @@ def test_browse_path_roots_under_configured_parent() -> None:
     source = GitHubDocumentsSource(config, PipelineContext(run_id="test-run"))
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/guides/setup.md", size=12)],
     )
 
     workunits = list(source.get_workunits())
     urns = _entity_urns_by_source_id(workunits)
     browse_paths = _browse_paths_by_urn(workunits)
 
-    guides_dir_source_id = make_dir_source_id("acme/docs", "docs/guides")
-    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+    guides_dir_source_id = make_dir_source_id(
+        "acme/docs", "docs/guides", source_prefix="github"
+    )
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/guides/setup.md", source_prefix="github"
+    )
 
     file_browse_path = browse_paths[urns[file_source_id]]
     # Configured external parent roots the path, then the synthetic repo name
@@ -681,18 +841,20 @@ def test_browse_path_failure_reports_warning_and_still_emits(
 ) -> None:
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/guides/setup.md", size=12)],
     )
 
     with patch(
-        "datahub.ingestion.source.github_documents.github_documents_source.GitHubHierarchyExtractor.build_browse_path_v2",
+        "datahub.ingestion.source.repository_documents.source.RepositoryHierarchyExtractor.build_browse_path_v2",
         side_effect=RuntimeError("boom"),
     ):
         workunits = list(source.get_workunits())
 
     # Document is still emitted despite the browse-path failure.
     infos = _document_infos_by_source_id(workunits)
-    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/guides/setup.md", source_prefix="github"
+    )
     assert file_source_id in infos
 
     # Failure surfaces as a structured warning -> "succeeded with warnings".
@@ -708,13 +870,15 @@ def test_file_document_includes_content_hash_and_blob_sha(
     content = "# Hello"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12, sha="blobabc")],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12, sha="blobabc")],
         file_content=content,
     )
 
     workunits = list(source.get_workunits())
     infos = _document_infos_by_source_id(workunits)
-    file_source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     props = infos[file_source_id].customProperties
 
     assert props is not None
@@ -765,7 +929,7 @@ def test_skips_unchanged_file_when_graph_hash_matches(
     content_hash = compute_file_content_hash(content)
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content=content,
     )
     source.ctx.graph = MagicMock()
@@ -785,7 +949,7 @@ def test_skipping_unchanged_file_registers_entity_for_stale_removal(
     content_hash = compute_file_content_hash(content)
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content=content,
     )
     source.ctx.graph = MagicMock()
@@ -797,7 +961,9 @@ def test_skipping_unchanged_file_registers_entity_for_stale_removal(
 
     list(source.get_workunits_internal())
 
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     expected_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     source.stale_entity_removal_handler.add_entity_to_state.assert_called_once_with(
         "document",
@@ -868,10 +1034,12 @@ def test_reuses_existing_document_urn_from_import_source_id(
     source: GitHubDocumentsSource,
 ) -> None:
     existing_urn = "urn:li:document:native-uuid-1234"
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content="# Hello from sync-back",
     )
     source.ctx.graph = MagicMock()
@@ -892,10 +1060,12 @@ def test_skip_unchanged_uses_resolved_existing_urn(
     existing_urn = "urn:li:document:native-uuid-1234"
     content = "# Hello"
     content_hash = compute_file_content_hash(content)
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content=content,
     )
     source.ctx.graph = MagicMock()
@@ -943,11 +1113,13 @@ def test_import_without_graph_still_uses_canonical_urn(
     source: GitHubDocumentsSource,
 ) -> None:
     """Regression: plain GitHub import (no graph) must keep deterministic URNs."""
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content="# Hello",
     )
     assert source.ctx.graph is None
@@ -960,11 +1132,13 @@ def test_import_with_empty_identity_lookup_uses_canonical_urn(
     source: GitHubDocumentsSource,
 ) -> None:
     """Regression: when no sync-back stamp exists, import still mints canonical URN."""
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content="# Hello",
     )
     source.ctx.graph = MagicMock()
@@ -984,11 +1158,13 @@ def test_import_identity_lookup_failure_falls_back_to_canonical_urn(
     Reported via report.failure so StaleEntityRemovalHandler skips soft-deletion:
     falling back to the canonical URN could otherwise reap a stamped document.
     """
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content="# Hello",
     )
     source.ctx.graph = MagicMock()
@@ -1009,7 +1185,7 @@ def test_import_identity_lookup_includes_hidden_lifecycle_stages(
     """Stamped docs in hideInSearch stages must be discoverable during identity reuse."""
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content="# Hello",
     )
     source.ctx.graph = MagicMock()
@@ -1027,11 +1203,13 @@ def test_import_identity_fallback_lookup_failure_fails_run(
     source: GitHubDocumentsSource,
 ) -> None:
     """Fallback github_file_path search errors must not look like empty results."""
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content="# Hello",
     )
     source.ctx.graph = MagicMock()
@@ -1056,11 +1234,13 @@ def test_import_identity_fallback_lookup_failure_fails_run(
 def test_import_prefers_canonical_when_only_canonical_match_exists(
     source: GitHubDocumentsSource,
 ) -> None:
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content="# Hello",
     )
     source.ctx.graph = MagicMock()
@@ -1082,8 +1262,8 @@ def test_unsupported_search_flag_degrades_once_instead_of_failing(
     _mock_github_client(
         source,
         files=[
-            GitHubFileInfo(path="docs/a.md", size=12),
-            GitHubFileInfo(path="docs/b.md", size=12),
+            RepositoryFileInfo(path="docs/a.md", size=12),
+            RepositoryFileInfo(path="docs/b.md", size=12),
         ],
         file_content="# Hello",
     )
@@ -1114,20 +1294,35 @@ def test_unsupported_search_flag_degrades_once_instead_of_failing(
     assert len(flagged) == 1
 
 
+@pytest.mark.parametrize(
+    ("platform_instance", "instance"),
+    [(None, "acme/docs"), ("ghe", "ghe")],
+)
 def test_unchanged_file_resurrects_soft_deleted_document(
-    source: GitHubDocumentsSource,
+    platform_instance: Optional[str], instance: str
 ) -> None:
     """Restoring a deleted file with identical content must un-delete its document.
 
     The unchanged-file short-circuit returns before any DocumentInfo is emitted, so
     without an explicit Status the document would stay soft-deleted forever.
     """
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source = GitHubDocumentsSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("ghp_test"),
+            repository="acme/docs",
+            path_prefix="docs",
+            platform_instance=platform_instance,
+        ),
+        PipelineContext(run_id="test-run"),
+    )
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix=source._source_prefix
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     content = "# Hello"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content=content,
     )
     source.ctx.graph = MagicMock()
@@ -1136,9 +1331,11 @@ def test_unchanged_file_resurrects_soft_deleted_document(
         "source_content_hash": compute_file_content_hash(content)
     }
     source.ctx.graph.get_aspect.return_value = existing
+    soft_deleted_searches: List[Dict[str, Any]] = []
 
     def urns_by_filter(**kwargs):
         if kwargs.get("status") == RemovedStatusFilter.ONLY_SOFT_DELETED:
+            soft_deleted_searches.append(kwargs)
             return [canonical_urn]
         return []
 
@@ -1154,6 +1351,48 @@ def test_unchanged_file_resurrects_soft_deleted_document(
         if isinstance(wu, MetadataWorkUnit) and wu.get_urn() == canonical_urn
     ]
     assert any(s is not None and s.removed is False for s in statuses)
+    # One search, scoped to this instance and narrowed to this repository.
+    [search] = soft_deleted_searches
+    assert search["platform_instance"] == (
+        f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:github,{instance})"
+    )
+    assert search["extraFilters"] == [
+        {
+            "field": "customProperties",
+            "condition": "EQUAL",
+            "values": ["github_repo=acme/docs"],
+        }
+    ]
+
+
+def test_failed_soft_deleted_search_is_reported(source: GitHubDocumentsSource) -> None:
+    content = "# Hello"
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
+        file_content=content,
+    )
+    source.ctx.graph = MagicMock()
+    existing = MagicMock()
+    existing.customProperties = {
+        "source_content_hash": compute_file_content_hash(content)
+    }
+    source.ctx.graph.get_aspect.return_value = existing
+
+    def urns_by_filter(**kwargs):
+        if kwargs.get("status") == RemovedStatusFilter.ONLY_SOFT_DELETED:
+            raise RuntimeError("search unavailable")
+        return []
+
+    source.ctx.graph.get_urns_by_filter.side_effect = urns_by_filter
+
+    list(source.get_workunits_internal())
+
+    assert source.report.files_skipped_unchanged == 1
+    assert source.report.documents_resurrected == 0
+    assert "Could not list soft-deleted documents" in {
+        w.title for w in source.report.warnings
+    }
 
 
 def test_unchanged_file_not_soft_deleted_emits_nothing(
@@ -1163,7 +1402,7 @@ def test_unchanged_file_not_soft_deleted_emits_nothing(
     content = "# Hello"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content=content,
     )
     source.ctx.graph = MagicMock()
@@ -1192,7 +1431,7 @@ def test_folder_identity_fallback_queries_directory_path(
     """Folders carry github_directory_path; the file key could never match them."""
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/guides/child.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/guides/child.md", size=12)],
         file_content="# Child",
     )
     source.ctx.graph = MagicMock()
@@ -1216,7 +1455,7 @@ def test_import_emits_status_not_removed_for_file_documents(
 ) -> None:
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content="# Hello",
     )
     source.ctx.graph = MagicMock()
@@ -1242,8 +1481,8 @@ def test_same_name_file_remains_sibling_of_folder(
     _mock_github_client(
         source,
         files=[
-            GitHubFileInfo(path="docs/guides/guides.md", size=20, sha="idx"),
-            GitHubFileInfo(path="docs/guides/child.md", size=12, sha="child"),
+            RepositoryFileInfo(path="docs/guides/guides.md", size=20, sha="idx"),
+            RepositoryFileInfo(path="docs/guides/child.md", size=12, sha="child"),
         ],
         file_content="# Guides body",
     )
@@ -1252,9 +1491,15 @@ def test_same_name_file_remains_sibling_of_folder(
     infos = _document_infos_by_source_id(workunits)
     urns = _entity_urns_by_source_id(workunits)
 
-    file_source_id = make_file_source_id(owner_repo, "docs/guides/guides.md")
-    child_source_id = make_file_source_id(owner_repo, "docs/guides/child.md")
-    dir_source_id = make_dir_source_id(owner_repo, "docs/guides")
+    file_source_id = make_file_source_id(
+        owner_repo, "docs/guides/guides.md", source_prefix="github"
+    )
+    child_source_id = make_file_source_id(
+        owner_repo, "docs/guides/child.md", source_prefix="github"
+    )
+    dir_source_id = make_dir_source_id(
+        owner_repo, "docs/guides", source_prefix="github"
+    )
 
     assert dir_source_id in infos
     assert infos[dir_source_id].customProperties["is_folder_document"] == "true"
@@ -1275,11 +1520,13 @@ def test_identity_short_circuit_skips_search_for_canonical_match(
     source: GitHubDocumentsSource,
 ) -> None:
     """Classic imports at the canonical URN must not pay for a search round-trip."""
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
         file_content="# Hello",
     )
     source.ctx.graph = MagicMock()
@@ -1296,10 +1543,12 @@ def test_existing_folder_document_does_not_overwrite_body(
     source: GitHubDocumentsSource,
 ) -> None:
     existing_urn = "urn:li:document:native-folder"
-    dir_source_id = make_dir_source_id("acme/docs", "docs/guides")
+    dir_source_id = make_dir_source_id(
+        "acme/docs", "docs/guides", source_prefix="github"
+    )
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/guides/child.md", size=12)],
+        files=[RepositoryFileInfo(path="docs/guides/child.md", size=12)],
         file_content="# Child",
     )
     source.ctx.graph = MagicMock()
@@ -1401,7 +1650,7 @@ def test_okf_maps_metadata_and_preserves_frontmatter(newline: str) -> None:
     body = "# Monthly active users" + newline + "Body." + newline
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="mau.md", size=100, sha="blob123")],
+        files=[RepositoryFileInfo(path="mau.md", size=100, sha="blob123")],
         file_content=raw + body,
     )
     workunits = list(okf_source.get_workunits())
@@ -1525,12 +1774,16 @@ def test_non_okf_and_invalid_frontmatter_preserve_original(
     okf_source.config.enable_okf = enabled
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/readme.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/readme.md", size=100)],
         file_content=content,
     )
     workunits = list(okf_source.get_workunits())
     infos = _document_infos_by_source_id(workunits)
-    info = infos[make_file_source_id(okf_source.config.repository, "docs/readme.md")]
+    info = infos[
+        make_file_source_id(
+            okf_source.config.repository, "docs/readme.md", source_prefix="github"
+        )
+    ]
     assert info.title == "readme.md"
     assert info.contents.text == content
     assert not any(wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits)
@@ -1541,11 +1794,11 @@ def test_non_okf_and_invalid_frontmatter_preserve_original(
 def test_import_requires_a_resolved_commit(okf_source: GitHubDocumentsSource) -> None:
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
     )
     commit_lookup = okf_source.client.get_latest_commit_sha
     assert isinstance(commit_lookup, MagicMock)
-    commit_lookup.return_value = "unknown"
+    commit_lookup.return_value = None
     with pytest.raises(RuntimeError, match="commit snapshot"):
         list(okf_source.get_workunits_internal())
     assert isinstance(okf_source.client.list_matching_files, MagicMock)
@@ -1560,7 +1813,7 @@ def test_okf_unresolved_owner_preserves_value(
     content = "---\ntype: Guide\nowners: [data-platform, alice@example.com]\n---\nBody"
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=content,
     )
     workunits = list(okf_source.get_workunits())
@@ -1616,7 +1869,7 @@ def test_okf_resolves_username_and_executor_attribution(
     )
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=content,
     )
     workunits = list(okf_source.get_workunits())
@@ -1641,7 +1894,7 @@ def test_okf_hash_detects_frontmatter_and_mapping_changes() -> None:
     )
     assert original != compute_source_hash(content, bundle=bundle, enable_okf=False)
     with patch(
-        "datahub.ingestion.source.github_documents.github_documents_source.MAPPING_VERSION",
+        "datahub.ingestion.source.repository_documents.source.MAPPING_VERSION",
         "next",
     ):
         assert original != compute_source_hash(content, bundle=bundle, enable_okf=True)
@@ -1797,7 +2050,7 @@ def test_okf_reimport_preserves_datahub_associations(
     }[field_state]
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=f"---\ntype: Guide\n{field}---\nBody",
     )
     workunits = list(okf_source.get_workunits())
@@ -1857,7 +2110,7 @@ def test_okf_unresolved_values_never_remove_existing_associations(
     graph.exists.return_value = False
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=f'---\ntype: Guide\n{key}: ["{value}"]\n---\nBody',
     )
     workunits = list(okf_source.get_workunits())
@@ -1886,7 +2139,7 @@ def test_okf_adds_owners_without_overwriting_datahub_owner(
     _mock_existing_associations(okf_source, current, fail_read=fail_read)
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content="---\ntype: Guide\nowners: [alice@example.com]\n---\nBody",
     )
     operations = _okf_patch_operations(list(okf_source.get_workunits()), "ownership")
@@ -1914,7 +2167,7 @@ def test_okf_partial_owner_resolution_is_add_only(
     graph.exists.return_value = False
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=(
             "---\ntype: Guide\nowners: [alice@example.com, unresolved-owner]\n---\nBody"
         ),
@@ -1953,7 +2206,7 @@ def test_okf_term_names_require_one_exact_match(
     )
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content="---\ntype: Guide\nglossary_terms: [Active User]\n---\nBody",
     )
     operations = _okf_patch_operations(
@@ -1983,7 +2236,7 @@ def test_okf_term_resolution_without_graph(
 ) -> None:
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=f'---\ntype: Guide\nglossary_terms: ["{value}"]\n---\nBody',
     )
     operations = _okf_patch_operations(
@@ -2007,7 +2260,7 @@ def test_stopping_concept_clears_only_okf_metadata(
     okf_source.config.okf_bundle_roots = []
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=original,
     )
     okf_source.client._index_file_paths = {"index.md"}
@@ -2057,7 +2310,9 @@ def test_stopping_concept_clears_only_okf_metadata(
         okf_source.client._index_file_paths = set()
     path = "docs/log.md" if reason == "reserved" else "docs/mau.md"
     _mock_github_client(
-        okf_source, files=[GitHubFileInfo(path=path, size=100)], file_content=content
+        okf_source,
+        files=[RepositoryFileInfo(path=path, size=100)],
+        file_content=content,
     )
     fetch = okf_source.client.fetch_file_content
     assert isinstance(fetch, MagicMock)
@@ -2097,7 +2352,7 @@ def test_stopping_concept_clears_only_okf_metadata(
         assert len(operations) == 1 and operations[0]["op"] == "remove"
         assert "carol" not in operations[0]["path"]
     info = _document_infos_by_source_id(workunits)[
-        make_file_source_id("example-org/analytics", path)
+        make_file_source_id("example-org/analytics", path, source_prefix="github")
     ]
     assert info.contents.text == content
 
@@ -2125,7 +2380,7 @@ def test_okf_source_change_moves_values_without_duplicates(
     _mock_managed_associations(okf_source, current)
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=f'---\ntype: Guide\n{key}: ["{urn}"]\n---\nBody',
     )
     operations = _okf_patch_operations(list(okf_source.get_workunits()), aspect_name)
@@ -2154,7 +2409,7 @@ def test_okf_declared_value_takes_over_datahub_edit(
     _mock_managed_associations(okf_source, current)
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=f'---\ntype: Guide\n{key}: ["{urn}"]\n---\nBody',
     )
     operations = _okf_patch_operations(list(okf_source.get_workunits()), aspect_name)
@@ -2179,8 +2434,8 @@ def test_unreadable_index_skips_only_its_concepts(
     _mock_github_client(
         okf_source,
         files=[
-            GitHubFileInfo(path=concept, size=100),
-            GitHubFileInfo(path=plain, size=100),
+            RepositoryFileInfo(path=concept, size=100),
+            RepositoryFileInfo(path=plain, size=100),
         ],
     )
     okf_source.client._index_file_paths = {index}
@@ -2203,8 +2458,13 @@ def test_unreadable_index_skips_only_its_concepts(
     infos = _document_infos_by_source_id(workunits)
     # Plain files import either way. A concept under an index that could not be
     # read keeps its previous import; an oversized index means no bundle.
-    assert make_file_source_id("example-org/analytics", plain) in infos
-    concept_id = make_file_source_id("example-org/analytics", concept)
+    assert (
+        make_file_source_id("example-org/analytics", plain, source_prefix="github")
+        in infos
+    )
+    concept_id = make_file_source_id(
+        "example-org/analytics", concept, source_prefix="github"
+    )
     assert (concept_id in infos) is not request_failed
     assert not any(
         wu.get_aspect_of_type(OkfPropertiesClass) is not None for wu in workunits
@@ -2235,7 +2495,7 @@ def test_okf_owner_handover_keeps_other_roles(
     _mock_managed_associations(okf_source, current)
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=f'---\ntype: Guide\nowners: ["{owner}"]\n---\nBody',
     )
     operations = _okf_patch_operations(list(okf_source.get_workunits()), "ownership")
@@ -2260,7 +2520,7 @@ def test_frontmatter_without_concept_type_keeps_sync_back_skip(
     okf_source.ctx.graph = graph
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=content,
     )
     list(okf_source.get_workunits())
@@ -2290,7 +2550,7 @@ def test_hash_skip_contract(okf_source: GitHubDocumentsSource, hash_key: str) ->
     okf_source.ctx.graph = graph
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=content,
     )
     list(okf_source.get_workunits())
@@ -2313,10 +2573,12 @@ def test_reads_one_pinned_snapshot(okf_source: GitHubDocumentsSource) -> None:
 
     def tree(
         repo: str, ref: str, prefix: str, extensions: List[str]
-    ) -> Tuple[List[GitHubFileInfo], bool]:
+    ) -> Tuple[List[RepositoryFileInfo], bool]:
         assert calls == ["head"] and ref == commit
         calls.append("tree")
-        return [GitHubFileInfo(path="docs/mau.md", size=100, sha="blob-at-head")], False
+        return [
+            RepositoryFileInfo(path="docs/mau.md", size=100, sha="blob-at-head")
+        ], False
 
     def fetch(repo: str, path: str, ref: str) -> str:
         assert ref == commit
@@ -2349,7 +2611,9 @@ def test_reads_one_pinned_snapshot(okf_source: GitHubDocumentsSource) -> None:
     assert properties.revision.blobSha == "blob-at-head"
     assert properties.revision.ref == "feature/docs"
     info = _document_infos_by_source_id(workunits)[
-        make_file_source_id("example-org/analytics", "docs/mau.md")
+        make_file_source_id(
+            "example-org/analytics", "docs/mau.md", source_prefix="github"
+        )
     ]
     assert info.contents.text == "Snapshot body"
     assert info.source is not None and info.source.externalUrl is not None
@@ -2380,7 +2644,9 @@ def test_lookup_caches_are_shared_by_files_and_reset_each_run(
     okf_source.ctx.graph = graph
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path=f"docs/{name}.md", size=100) for name in ["a", "b"]],
+        files=[
+            RepositoryFileInfo(path=f"docs/{name}.md", size=100) for name in ["a", "b"]
+        ],
         file_content=(
             "---\ntype: Guide\nowners: [alice, missing-user]\n"
             "glossary_terms: [Active User, Missing Term]\n---\nBody"
@@ -2403,7 +2669,7 @@ def test_new_nested_bundle_removes_old_okf_values(
 ) -> None:
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=(
             "---\ntype: Guide\nowners: [alice@example.com, bob@example.com]\n---\nBody"
         ),
@@ -2456,7 +2722,9 @@ def test_mapping_bump_reimports_only_bundle_files(
                 content, bundle=applicable_bundle, enable_okf=True
             )
         }
-        source_id = make_file_source_id("example-org/analytics", path)
+        source_id = make_file_source_id(
+            "example-org/analytics", path, source_prefix="github"
+        )
         infos[f"urn:li:document:{normalize_document_id(source_id)}"] = info
     graph = MagicMock()
     graph.get_urns_by_filter.return_value = []
@@ -2467,22 +2735,30 @@ def test_mapping_bump_reimports_only_bundle_files(
     _mock_github_client(
         okf_source,
         files=[
-            GitHubFileInfo(path=path, size=100)
+            RepositoryFileInfo(path=path, size=100)
             for path in ["docs/mau.md", "outside.md"]
         ],
         file_content=content,
     )
     with patch(
-        "datahub.ingestion.source.github_documents.github_documents_source.MAPPING_VERSION",
+        "datahub.ingestion.source.repository_documents.source.MAPPING_VERSION",
         "next",
     ):
         workunits = list(okf_source.get_workunits())
     assert okf_source.report.files_processed == 1
     assert okf_source.report.files_skipped_unchanged == 1
     infos_emitted = _document_infos_by_source_id(workunits)
-    assert make_file_source_id("example-org/analytics", "docs/mau.md") in infos_emitted
     assert (
-        make_file_source_id("example-org/analytics", "outside.md") not in infos_emitted
+        make_file_source_id(
+            "example-org/analytics", "docs/mau.md", source_prefix="github"
+        )
+        in infos_emitted
+    )
+    assert (
+        make_file_source_id(
+            "example-org/analytics", "outside.md", source_prefix="github"
+        )
+        not in infos_emitted
     )
 
 
@@ -2515,7 +2791,7 @@ def test_sync_back_skip_still_clears_stale_okf_state(
     okf_source.ctx.graph = graph
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=content,
     )
     workunits = list(okf_source.get_workunits())
@@ -2549,13 +2825,15 @@ def test_default_import_preserves_frontmatter(
         source.ctx.graph = graph
     _mock_github_client(
         source,
-        files=[GitHubFileInfo(path="docs/guide.md", size=len(content))],
+        files=[RepositoryFileInfo(path="docs/guide.md", size=len(content))],
         file_content=content,
     )
     source.client._index_file_paths = {"index.md"}
     workunits = list(source.get_workunits())
     info = _document_infos_by_source_id(workunits)[
-        make_file_source_id(source.config.repository, "docs/guide.md")
+        make_file_source_id(
+            source.config.repository, "docs/guide.md", source_prefix="github"
+        )
     ]
     assert info.contents.text == content
     assert info.title == "guide.md"
@@ -2593,7 +2871,7 @@ def test_okf_opt_in_does_not_check_server_support(
     okf_source.ctx.graph = graph
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/guide.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/guide.md", size=100)],
         file_content=(
             "---\ntype: Guide\nowners: [alice@example.com]\ntags: [metrics]\n"
             "glossary_terms: [urn:li:glossaryTerm:active-user]\n---\nBody"
@@ -2605,7 +2883,9 @@ def test_okf_opt_in_does_not_check_server_support(
     for aspect_name in ["ownership", "globalTags", "glossaryTerms"]:
         assert _okf_patch_operations(workunits, aspect_name)
     info = _document_infos_by_source_id(workunits)[
-        make_file_source_id(okf_source.config.repository, "docs/guide.md")
+        make_file_source_id(
+            okf_source.config.repository, "docs/guide.md", source_prefix="github"
+        )
     ]
     assert info.contents.text == "Body"
     assert okf_source.report.okf_files_processed == 1
@@ -2632,7 +2912,7 @@ def test_source_never_emits_delete_workunits(
     path = "docs/log.md" if scenario == "reserved" else "docs/mau.md"
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path=path, size=100)],
+        files=[RepositoryFileInfo(path=path, size=100)],
         file_content=content,
     )
     stored = OkfPropertiesClass(
@@ -2700,7 +2980,7 @@ def test_already_neutral_okf_state_is_not_cleaned_again(
     okf_source.ctx.graph = graph
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        files=[RepositoryFileInfo(path="docs/mau.md", size=100)],
         file_content=content,
     )
     workunits = list(okf_source.get_workunits())
@@ -2711,4 +2991,237 @@ def test_already_neutral_okf_state_is_not_cleaned_again(
     assert all(
         getattr(wu.metadata, "changeType", None) != ChangeTypeClass.DELETE
         for wu in workunits
+    )
+
+
+def test_map_okf_override_changes_emitted_metadata() -> None:
+    class RetitlingSource(GitHubDocumentsSource):
+        def _map_okf(
+            self, frontmatter: OkfFrontmatter, **kwargs: Any
+        ) -> Optional[OkfMapping]:
+            mapping = super()._map_okf(frontmatter, **kwargs)
+            assert mapping is not None
+            mapping.title = f"Reviewed: {mapping.title}"
+            return mapping
+
+    source = RetitlingSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("test-token"),
+            repository="example-org/analytics",
+            okf_bundle_roots=[""],
+            enable_okf=True,
+            create_repo_root_document=False,
+        ),
+        PipelineContext(run_id="test-run"),
+    )
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="mau.md", size=100, sha="blob123")],
+        file_content='---\nokfVersion: "1"\ntype: Guide\ntitle: MAU\n---\nBody.\n',
+    )
+    titles = [
+        info.title
+        for wu in source.get_workunits()
+        if (info := wu.get_aspect_of_type(DocumentInfoClass)) is not None
+    ]
+    assert titles == ["Reviewed: MAU"]
+
+
+@pytest.mark.parametrize(
+    ("stamped", "reused"),
+    [
+        (None, True),
+        ("github.acme.docs.docs.guide", True),
+        ("github-other.acme.docs.docs.guide", False),
+    ],
+)
+def test_path_fallback_reuses_only_legacy_or_same_source_documents(
+    source: GitHubDocumentsSource, stamped: Optional[str], reused: bool
+) -> None:
+    # A document found only by repository path is reused when it predates
+    # import_source_id or has this source's id. One stamped with another id
+    # belongs to another source (another instance, or this source before its
+    # platform_instance changed); reusing it would make the two overwrite each
+    # other.
+    existing = "urn:li:document:existing"
+    source_id = "github.acme.docs.docs.guide"
+    canonical = f"urn:li:document:{normalize_document_id(source_id)}"
+    props = {"github_repo": "acme/docs", "github_file_path": "docs/guide.md"}
+    if stamped:
+        props[PROP_IMPORT_SOURCE_ID] = stamped
+    source.ctx.graph = MagicMock()
+    existing_info = MagicMock(spec=DocumentInfoClass)
+    existing_info.customProperties = props
+    source.ctx.graph.get_aspect.side_effect = lambda urn, _cls: (
+        existing_info if urn == existing else None
+    )
+    source.ctx.graph.get_urns_by_filter.side_effect = lambda **kwargs: (
+        []
+        if any(
+            value.startswith(f"{PROP_IMPORT_SOURCE_ID}=")
+            for rule in kwargs["extraFilters"]
+            for value in rule["values"]
+        )
+        else [existing]
+    )
+
+    found = source._find_existing_document_urn(
+        source_id, "acme/docs", "docs/guide.md", canonical, is_directory=False
+    )
+
+    assert found == (existing if reused else None)
+
+
+def test_path_fallback_keeps_a_match_it_cannot_read_and_warns(
+    source: GitHubDocumentsSource,
+) -> None:
+    # Minting a second document would let stale removal delete the one the
+    # path already has, so an unreadable match is reused, with a warning.
+    existing = "urn:li:document:existing"
+    source_id = "github.acme.docs.docs.guide"
+    canonical = f"urn:li:document:{normalize_document_id(source_id)}"
+    source.ctx.graph = MagicMock()
+
+    def get_aspect(urn: str, _cls: type) -> None:
+        if urn == existing:
+            raise RuntimeError("GMS unavailable")
+        return None
+
+    source.ctx.graph.get_aspect.side_effect = get_aspect
+    source.ctx.graph.get_urns_by_filter.side_effect = lambda **kwargs: (
+        []
+        if any(
+            value.startswith(f"{PROP_IMPORT_SOURCE_ID}=")
+            for rule in kwargs["extraFilters"]
+            for value in rule["values"]
+        )
+        else [existing]
+    )
+
+    found = source._find_existing_document_urn(
+        source_id, "acme/docs", "docs/guide.md", canonical, is_directory=False
+    )
+
+    assert found == existing
+    [warning] = [
+        w
+        for w in source.report.warnings
+        if w.title == "Could not check an existing document's source"
+    ]
+    assert any(existing in context for context in warning.context)
+
+
+def test_path_fallback_does_not_reuse_another_sources_folder(
+    source: GitHubDocumentsSource,
+) -> None:
+    existing = "urn:li:document:existing-folder"
+    source_id = "github.acme.docs.docs.guides._dir"
+    canonical = f"urn:li:document:{normalize_document_id(source_id)}"
+    source.ctx.graph = MagicMock()
+    existing_info = MagicMock(spec=DocumentInfoClass)
+    existing_info.customProperties = {
+        "github_repo": "acme/docs",
+        "github_directory_path": "docs/guides",
+        PROP_IMPORT_SOURCE_ID: "github-other.acme.docs.docs.guides._dir",
+    }
+    source.ctx.graph.get_aspect.side_effect = lambda urn, _cls: (
+        existing_info if urn == existing else None
+    )
+    path_searches: List[List[str]] = []
+
+    def urns_by_filter(**kwargs: Any) -> List[str]:
+        values = [value for rule in kwargs["extraFilters"] for value in rule["values"]]
+        if any(value.startswith(f"{PROP_IMPORT_SOURCE_ID}=") for value in values):
+            return []
+        path_searches.append(values)
+        return [existing]
+
+    source.ctx.graph.get_urns_by_filter.side_effect = urns_by_filter
+
+    found = source._find_existing_document_urn(
+        source_id, "acme/docs", "docs/guides", canonical, is_directory=True
+    )
+
+    assert found is None
+    assert path_searches == [
+        ["github_directory_path=docs/guides", "github_repo=acme/docs"]
+    ]
+
+
+def test_nested_hierarchy_on_a_platform_instance() -> None:
+    source = GitHubDocumentsSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("ghp_test"),
+            repository="acme/docs",
+            path_prefix="docs",
+            platform_instance="ghe",
+        ),
+        PipelineContext(run_id="test-run"),
+    )
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/guides/setup.md", size=12)],
+    )
+
+    workunits = list(source.get_workunits())
+    urns = _entity_urns_by_source_id(workunits)
+    infos = _document_infos_by_source_id(workunits)
+
+    repo_id = make_repo_source_id("acme/docs", source_prefix="github-ghe")
+    folder_id = make_dir_source_id(
+        "acme/docs", "docs/guides", source_prefix="github-ghe"
+    )
+    file_id = make_file_source_id(
+        "acme/docs", "docs/guides/setup.md", source_prefix="github-ghe"
+    )
+    for source_id in (repo_id, folder_id, file_id):
+        assert urns[source_id].startswith("urn:li:document:github-ghe.")
+    file_parent = infos[file_id].parentDocument
+    folder_parent = infos[folder_id].parentDocument
+    assert file_parent is not None and file_parent.document == urns[folder_id]
+    assert folder_parent is not None and folder_parent.document == urns[repo_id]
+    assert infos[repo_id].parentDocument is None
+
+
+@pytest.mark.parametrize(
+    ("platform_instance", "urn", "instance"),
+    [
+        (
+            None,
+            "urn:li:document:github.acme.docs.docs.a-4da9989b88f2f589",
+            "acme/docs",
+        ),
+        (
+            "ghe",
+            "urn:li:document:github-ghe.acme.docs.docs.a-7a0cbc4b9a06fefa",
+            "ghe",
+        ),
+    ],
+)
+def test_platform_instance_prefixes_ids_and_sets_the_instance(
+    platform_instance: Optional[str], urn: str, instance: str
+) -> None:
+    source = GitHubDocumentsSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("ghp_test"),
+            repository="acme/docs",
+            path_prefix="docs",
+            create_repo_root_document=False,
+            platform_instance=platform_instance,
+        ),
+        PipelineContext(run_id="test-run"),
+    )
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/a.md", size=3)],
+        file_content="# A",
+    )
+    instances = {
+        wu.get_urn(): aspect.instance
+        for wu in source.get_workunits()
+        if isinstance(wu, MetadataWorkUnit)
+        and (aspect := wu.get_aspect_of_type(DataPlatformInstanceClass)) is not None
+    }
+    assert instances[urn] == (
+        f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:github,{instance})"
     )

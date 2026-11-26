@@ -11,10 +11,13 @@ const EXTERNAL_LINK_ICON =
 // /features page EXCEPT 0.13.1, which has no features page in the archive and
 // so points to its version home instead.
 const ARCHIVED_VERSIONS = [
+  ["1.8.0", "1.8.0/features"],
   ["1.7.0", "1.7.0/features"],
   ["1.6.0", "1.6.0/features"],
   ["1.5.0", "1.5.0/features"],
+  ["1.4.0", "1.4.0/features"],
   ["1.3.0", "1.3.0/features"],
+  ["1.2.0", "1.2.0/features"],
   ["1.1.0", "1.1.0/features"],
   ["1.0.0", "1.0.0/features"],
   ["0.15.0", "0.15.0/features"],
@@ -125,9 +128,9 @@ module.exports = {
     //   },
     // }),
     announcementBar: {
-      id: "announcement-4",
+      id: "announcement-5",
       content:
-        '<div class="shimmer-banner"><span>CONTEXT 2026: Join the virtual summit on context management, November 4</span><a href="https://datahub.com/context/" target="_blank" class="button"><div>Save my spot<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><span>CONTEXT 2026: All sessions available on demand</span><a href="https://datahub.com/context/" target="_blank" class="button"><div>Watch now<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
@@ -311,7 +314,7 @@ module.exports = {
           lastVersion: "current",
           versions: {
             current: {
-              label: "1.8.0",
+              label: "1.9.0",
               banner: 'none',
             },
           },
@@ -371,9 +374,6 @@ module.exports = {
         googleTagManager: {
           containerId: 'GTM-5M8T9HNN',
         },
-        gtag: {
-          trackingID: "G-H5QDNJNMHY",
-        },
       },
     ],
   ],
@@ -409,6 +409,22 @@ module.exports = {
           {
             from: '/docs/features/feature-guides/observe',
             to: '/docs/managed-datahub/observe/overview',
+          },
+          {
+            from: '/docs/features/feature-guides/file-upload-download',
+            to: '/docs/features/feature-guides/asset-profiles',
+          },
+          {
+            from: '/docs/managed-datahub/observe/data-contract',
+            to: '/docs/managed-datahub/observe/assertions',
+          },
+          {
+            from: '/docs/api/tutorials/data-contracts',
+            to: '/docs/api/tutorials/assertions',
+          },
+          {
+            from: '/docs/posts',
+            to: '/docs/features/feature-guides/custom-home-page',
           },
           {
             from: '/docs/managed-datahub/context/overview',
