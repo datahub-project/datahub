@@ -774,18 +774,21 @@ transformers:
 
 ### Config Details
 
-| Field       | Required | Type      | Default     | Description                                                                                    |
-| ----------- | -------- | --------- | ----------- | ---------------------------------------------------------------------------------------------- |
-| `tags`      | ✅       | List[str] |             | List of tag names based on which terms will be created and associated with the dataset.        |
-| `semantics` |          | enum      | "OVERWRITE" | Determines whether to OVERWRITE or PATCH the terms associated with the dataset on DataHub GMS. |
+| Field       | Required | Type      | Default     | Description                                                                                                   |
+| ----------- | -------- | --------- | ----------- | ------------------------------------------------------------------------------------------------------------- |
+| `tags`      | ✅       | List[str] |             | Full names of the tags to map. Each matching tag becomes a glossary term with the same name.                  |
+| `semantics` |          | enum      | "OVERWRITE" | Whether to OVERWRITE or PATCH the dataset-level terms on DataHub GMS. Column-level terms are always added to. |
 
 <br/>
 
-The `tags_to_term` transformer is designed to map specific tags to glossary terms within DataHub. It takes a configuration of tags that should be translated into corresponding glossary terms. This transformer can apply these mappings to any tags found either at the column level of a dataset or at the dataset top level.
+The `tags_to_term` transformer maps tags to glossary terms with the same name, and removes the mapped tag:
 
-When specifying tags in the configuration, use the tag's simple name rather than the full tag URN.
+- A tag on a dataset or container becomes a term on that dataset or container. These tags are read from DataHub, not from the current run, so a tag is mapped only once an earlier run has ingested it. If the source sends the tag again in every run, the tag is written back after it is removed, and the entity keeps both the tag and the term.
+- A tag on a column becomes a term on the same column. This applies to the schema the source emits in the same run.
 
-For example, instead of using the tag URN `urn:li:tag:snowflakedb.snowflakeschema.tag_name:tag_value`, you should specify just the tag name `tag_name` in the mapping configuration.
+Terms already set in the same run, for example by dbt `meta_mapping`, are kept.
+
+Configure each tag by its full name, as it appears after `urn:li:tag:`. For example, the tag `urn:li:tag:pii.email` is configured as `pii.email` and becomes the term `urn:li:glossaryTerm:pii.email`. The tag `urn:li:tag:sensitivity:high` is configured as `sensitivity:high`. Part of a name does not match, so `email` does not match `pii.email`.
 
 ```yaml
 transformers:
@@ -793,7 +796,8 @@ transformers:
     config:
       semantics: OVERWRITE # OVERWRITE is the default behavior
       tags:
-        - "tag_name"
+        - "pii.email"
+        - "sensitivity:high"
 ```
 
 The `tags_to_term` transformer can be configured in the following ways:
