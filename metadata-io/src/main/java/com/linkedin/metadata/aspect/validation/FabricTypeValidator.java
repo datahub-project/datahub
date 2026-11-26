@@ -241,13 +241,47 @@ public class FabricTypeValidator extends AspectPayloadValidator {
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
     List<Use> uses = new ArrayList<>();
+    // Proposal time skips PATCH, whose body cannot be deserialized. Once applied, the env may
+    // still exist only in the URN (a status write, for example). Read the stored key, bypassing
+    // the client cache, to tell that new use from one this entity already has.
+    List<Use> urnUses = new ArrayList<>();
+    List<ChangeMCP> urnCandidates = new ArrayList<>();
     for (ChangeMCP item : changeMCPs) {
       RecordTemplate record = item.getRecordTemplate();
       if (record != null) {
         RecordTemplate previous = item.getPreviousRecordTemplate();
         collectCustomUses(item, record.data(), previous == null ? null : previous.data(), uses);
       }
+      int before = urnUses.size();
+      collectUrnUses(item, null, urnUses);
+      if (urnUses.size() > before) {
+        urnCandidates.add(item);
+      }
     }
+    if (!urnCandidates.isEmpty()) {
+      Map<String, Set<Urn>> urnsByAspect = new HashMap<>();
+      for (ChangeMCP item : urnCandidates) {
+        urnsByAspect
+            .computeIfAbsent(item.getEntitySpec().getKeyAspectName(), name -> new HashSet<>())
+            .add(item.getUrn());
+      }
+      Map<String, Map<Urn, Map<String, Aspect>>> stored = new HashMap<>();
+      urnsByAspect.forEach(
+          (aspectName, urns) ->
+              stored.put(
+                  aspectName,
+                  retrieverContext
+                      .getAspectRetriever()
+                      .getLatestAspectObjects(operationContext, urns, Set.of(aspectName))));
+      urnUses.clear();
+      for (ChangeMCP item : urnCandidates) {
+        collectUrnUses(
+            item,
+            storedData(stored, item.getUrn(), item.getEntitySpec().getKeyAspectName()),
+            urnUses);
+      }
+    }
+    uses.addAll(urnUses);
     return evaluate(uses, operationContext, retrieverContext);
   }
 

@@ -8,6 +8,7 @@ import com.linkedin.common.FabricTypeNames;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.generated.CustomFabricType;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.MLModel;
@@ -23,6 +24,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.fabrictype.CustomFabricTypeInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.key.MLModelGroupKey;
@@ -75,6 +77,38 @@ public class FabricTypeEnvMappingTest {
 
     assertSame(MLModelMapper.map(null, modelResponse("MY_ENV")).getOrigin(), FabricType.OTHER);
     assertEquals(MLModelGroupMapper.map(null, groupResponse("MY_ENV")).getEnv(), "MY_ENV");
+  }
+
+  @Test
+  public void testVersionedDatasetCustomEnvMapsToOther() {
+    VersionedDataset versioned = VersionedDatasetMapper.map(null, datasetResponse("MY_ENV", true));
+
+    assertSame(versioned.getOrigin(), FabricType.OTHER);
+    assertEquals(versioned.getEnv(), "MY_ENV");
+    assertSame(versioned.getProperties().getOrigin(), FabricType.OTHER);
+    assertEquals(versioned.getProperties().getEnv(), "MY_ENV");
+  }
+
+  @Test
+  public void testCustomFabricTypeInfoIsMappedFromTheAspect() {
+    CustomFabricTypeInfo info =
+        new CustomFabricTypeInfo().setDisplayName("Performance").setDescription("Load tests");
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.CUSTOM_FABRIC_TYPE_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(info.data())));
+    EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.CUSTOM_FABRIC_TYPE_ENTITY_NAME)
+            .setUrn(UrnUtils.getUrn("urn:li:customFabricType:MY_ENV"))
+            .setAspects(aspects);
+
+    CustomFabricType mapped = CustomFabricTypeMapper.map(null, response);
+
+    assertEquals(mapped.getUrn(), "urn:li:customFabricType:MY_ENV");
+    assertEquals(mapped.getId(), "MY_ENV");
+    assertEquals(mapped.getProperties().getDisplayName(), "Performance");
+    assertEquals(mapped.getProperties().getDescription(), "Load tests");
   }
 
   @Test

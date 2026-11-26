@@ -455,6 +455,45 @@ public class FabricTypeValidatorTest {
     verifyNoInteractions(retriever);
   }
 
+  /**
+   * Pre-commit sees the applied patch. A status aspect has no env field, so an unregistered env
+   * that exists only in the dataset URN is still refused.
+   */
+  @Test
+  public void appliedPatchOfStatusWithUnregisteredUrnEnvIsRefused() {
+    List<AspectValidationException> errors = validateApplied(statusPatch(DATASET));
+
+    assertEquals(errors.size(), 1);
+    assertTrue(errors.get(0).getMessage().contains("urn:li:customFabricType:MY_ENV"));
+  }
+
+  @Test
+  public void appliedPatchOfStatusWithCustomUrnEnvIsRefusedWhenCustomTypesAreOff() {
+    enabled.set(false);
+
+    List<AspectValidationException> errors = validateApplied(statusPatch(DATASET));
+
+    assertEquals(errors.size(), 1);
+    assertTrue(errors.get(0).getMessage().contains("custom environments are not enabled"));
+  }
+
+  /** A registered env is a legal new use, including when the key is not stored yet. */
+  @Test
+  public void appliedPatchOfStatusWithRegisteredUrnEnvIsAccepted() {
+    register("MY_ENV", null, null);
+
+    assertTrue(validateApplied(statusPatch(DATASET)).isEmpty());
+  }
+
+  /** Pre-commit keeps an env the entity already has, including with custom types turned off. */
+  @Test
+  public void appliedPatchKeepsAStoredUrnEnv() {
+    enabled.set(false);
+    types.put(DATASET, List.of(datasetKey("MY_ENV")));
+
+    assertTrue(validateApplied(statusPatch(DATASET)).isEmpty());
+  }
+
   /** An async status write carries no key aspect, so its env is only visible in the URN. */
   @Test
   public void proposedStatusWithUnregisteredUrnEnvIsRefused() {
@@ -536,6 +575,23 @@ public class FabricTypeValidatorTest {
     return validator
         .validateProposedAspects(OperationFingerprint.EMPTY, items, retrieverContext)
         .collect(Collectors.toList());
+  }
+
+  private List<AspectValidationException> validateApplied(ChangeMCP item) {
+    MockAspectRetriever retriever = new MockAspectRetriever(types);
+    return validateItems(retriever, retriever, List.of(item));
+  }
+
+  /** The record pre-commit sees after a status PATCH has been applied. */
+  private static ChangeMCP statusPatch(Urn urn) {
+    ChangeMCP item = mock(ChangeMCP.class);
+    when(item.getUrn()).thenReturn(urn);
+    when(item.getEntitySpec()).thenReturn(REGISTRY.getEntitySpec(urn.getEntityType()));
+    when(item.getAspectName()).thenReturn("status");
+    when(item.getChangeType()).thenReturn(ChangeType.PATCH);
+    when(item.getRecordTemplate()).thenReturn(new Status().setRemoved(false));
+    when(item.getPreviousRecordTemplate()).thenReturn(null);
+    return item;
   }
 
   private static ChangeMCP proposed(Urn urn, String aspectName, @Nullable RecordTemplate record) {
