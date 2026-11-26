@@ -32,9 +32,12 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
@@ -47,11 +50,18 @@ public class EntityGraphDistributedStore {
   /** Topology fingerprint for failure tombstones (empty edge set). */
   static final String TOMBSTONE_FINGERPRINT = "tombstone";
 
+  private static final int MAX_VISIBILITY_WATERMARKS = 16;
+  private static final long[] NO_WATERMARKS = new long[0];
+
+  private record CachedWatermarks(long[] values, long loadedAtMillis) {}
+
   private final EntityGraphRegistry registry;
   @Nullable private final IMap<String, EntityGraphSnapshot> fullSnapshots;
   private final Map<String, IMap<String, EntityGraphSnapshot>> partialSnapshotsByGraphId;
   private final IMap<String, EntityGraphOperationalStatus> status;
   private final IMap<String, Long> invalidationGenerations;
+  private final IMap<String, long[]> visibilityWatermarks;
+  private final Map<String, CachedWatermarks> watermarkCache = new ConcurrentHashMap<>();
   private final PartialSeedIndex partialSeedIndex = new PartialSeedIndex();
 
   public EntityGraphDistributedStore(
@@ -78,6 +88,8 @@ public class EntityGraphDistributedStore {
     this.status = hazelcastInstance.getMap(EntityGraphCacheProperties.STATUS_MAP);
     this.invalidationGenerations =
         hazelcastInstance.getMap(EntityGraphCacheProperties.INVALIDATION_GENERATION_MAP);
+    this.visibilityWatermarks =
+        hazelcastInstance.getMap(EntityGraphCacheProperties.VISIBILITY_WATERMARK_MAP);
   }
 
   private static void registerSnapshotListeners(
@@ -166,6 +178,109 @@ public class EntityGraphDistributedStore {
   }
 
   /**
+   * Ascending epoch millis at which writes to {@code graphId} become searchable in the source
+   * index, or empty when none was recorded. A snapshot is superseded once the first of them after
+   * its build time has passed. Reads are cached locally for half the graph's {@code
+   * invalidation.marginSeconds}, so a pod sees another pod's write later by less than the margin
+   * that is already added to every bound. A graph without a margin is not cached.
+   */
+  @Nonnull
+  public long[] getVisibilityWatermarks(@Nonnull String graphId) {
+    long now = System.currentTimeMillis();
+    CachedWatermarks cached = watermarkCache.get(graphId);
+    if (cached != null && now - cached.loadedAtMillis() < watermarkCacheMillis(graphId)) {
+      return cached.values();
+    }
+    long[] values = visibilityWatermarks.get(graphId);
+    long[] result = values == null ? NO_WATERMARKS : values;
+    watermarkCache.put(graphId, new CachedWatermarks(result, now));
+    return result;
+  }
+
+  /**
+   * Records that a write to {@code graphId} becomes searchable at {@code visibleAtMillis}. Every
+   * write keeps its own entry, so writes that keep arriving cannot push the moment a snapshot is
+   * superseded further out: the snapshot is superseded at the first write after its build. Entries
+   * older than the graph's time-to-live no longer matter and are dropped, and the list is capped by
+   * merging the closest neighbours, which can only delay a supersede, never lose one.
+   */
+  public void recordVisibilityWatermark(@Nonnull String graphId, long visibleAtMillis) {
+    EntityGraphDefinition definition = registry.getDefinition(graphId);
+    long retainMillis = definition == null ? 0L : definition.getPopulationIntervalSeconds() * 1000L;
+    long keepFrom = System.currentTimeMillis() - retainMillis;
+    visibilityWatermarks.compute(
+        graphId, (key, current) -> addWatermark(current, visibleAtMillis, keepFrom));
+    watermarkCache.remove(graphId);
+  }
+
+  @Nonnull
+  static long[] addWatermark(@Nullable long[] current, long visibleAtMillis, long keepFromMillis) {
+    TreeSet<Long> values = new TreeSet<>();
+    if (current != null) {
+      for (long value : current) {
+        if (value >= keepFromMillis) {
+          values.add(value);
+        }
+      }
+    }
+    values.add(visibleAtMillis);
+    List<Long> sorted = new ArrayList<>(values);
+    while (sorted.size() > MAX_VISIBILITY_WATERMARKS) {
+      int drop = 0;
+      long smallestGap = Long.MAX_VALUE;
+      for (int i = 0; i < sorted.size() - 1; i++) {
+        long gap = sorted.get(i + 1) - sorted.get(i);
+        if (gap < smallestGap) {
+          smallestGap = gap;
+          drop = i;
+        }
+      }
+      sorted.remove(drop);
+    }
+    return sorted.stream().mapToLong(Long::longValue).toArray();
+  }
+
+  /**
+   * Freshness is checked on every read, so the list is not fetched from the cluster each time. Half
+   * the margin keeps the added delay inside the margin every bound already carries.
+   */
+  private long watermarkCacheMillis(@Nonnull String graphId) {
+    EntityGraphDefinition definition = registry.getDefinition(graphId);
+    return definition == null ? 0L : definition.getInvalidationMarginSeconds() * 500L;
+  }
+
+  private static long maxWalkMillis(@Nonnull EntityGraphDefinition definition) {
+    return definition.getInvalidationMaxWalkSeconds() > 0
+        ? definition.getInvalidationMaxWalkSeconds() * 1000L
+        : SnapshotFreshnessEvaluator.staleBuildingMillis(definition);
+  }
+
+  /** True when a recorded write became searchable within the last {@code windowMillis}. */
+  private boolean visibilityRecentlyPassed(@Nonnull String graphId, long windowMillis) {
+    long now = System.currentTimeMillis();
+    for (long watermark : getVisibilityWatermarks(graphId)) {
+      if (watermark <= now && now - watermark <= windowMillis) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * True when the stored snapshot is older than the time-to-live or was built before a write that
+   * has since become searchable.
+   */
+  private boolean isStaleOrSuperseded(
+      @Nonnull EntityGraphSnapshot snapshot, @Nonnull EntityGraphDefinition definition) {
+    if (SnapshotFreshnessEvaluator.isStale(snapshot, definition)) {
+      return true;
+    }
+    return definition.usesInvalidationVisibility()
+        && SnapshotFreshnessEvaluator.isSuperseded(
+            snapshot, getVisibilityWatermarks(definition.getGraphId()));
+  }
+
+  /**
    * Resolves cache status for a key: {@code entityGraphStatus} when present, else embedded {@code
    * cacheStatus} on the snapshot, else {@link CacheStatus#ABSENT} (cold miss — not {@link
    * CacheStatus#BUILDING}).
@@ -228,11 +343,7 @@ public class EntityGraphDistributedStore {
    */
   public boolean hasServableSnapshot(@Nonnull String cacheKey) {
     EntityGraphSnapshot snapshot = getSnapshot(cacheKey);
-    if (snapshot == null || TOMBSTONE_FINGERPRINT.equals(snapshot.getTopologyFingerprint())) {
-      return false;
-    }
-    String embedded = snapshot.getCacheStatus();
-    return embedded == null || CacheStatus.ACTIVE.name().equals(embedded);
+    return snapshot != null && isServable(snapshot);
   }
 
   /**
@@ -270,8 +381,12 @@ public class EntityGraphDistributedStore {
   /**
    * Publishes {@link CacheStatus#ACTIVE} in a single snapshot-map write ({@code cacheStatus}
    * embedded on the snapshot). Clears any {@code BUILDING} lease from {@code entityGraphStatus}.
+   *
+   * <p>A build that read its source before the stored snapshot's build started does not replace it,
+   * so a slow build that finishes late cannot move the cache back in time. Returns false in that
+   * case. Failure tombstones carry no content and are always replaced.
    */
-  public void publish(@Nonnull EntityGraphSnapshot snapshot, @Nonnull CacheStatus cacheStatus) {
+  public boolean publish(@Nonnull EntityGraphSnapshot snapshot, @Nonnull CacheStatus cacheStatus) {
     if (cacheStatus != CacheStatus.ACTIVE) {
       throw new IllegalArgumentException(
           "publish only supports ACTIVE snapshots; use markCooldown/markOverLimit/markInvalid for "
@@ -281,25 +396,61 @@ public class EntityGraphDistributedStore {
     String statusName = cacheStatus.name();
     List<EntityGraphSnapshot.DirectedEdge> edges =
         snapshot.getEdges() != null ? snapshot.getEdges() : List.of();
+    boolean[] published = {false};
     snapshotsForKey(key)
         .compute(
             key,
-            (ignored, existing) ->
-                EntityGraphSnapshot.builder()
-                    .graphId(snapshot.getGraphId())
-                    .cacheKey(key)
-                    .generation((existing == null ? 0L : existing.getGeneration()) + 1L)
-                    .buildSource(snapshot.getBuildSource())
-                    .builtAtMillis(snapshot.getBuiltAtMillis())
-                    .edges(edges)
-                    .vertexCount(snapshot.getVertexCount())
-                    .edgeCount(snapshot.getEdgeCount())
-                    .topologyFingerprint(snapshot.getTopologyFingerprint())
-                    .traversalCoverage(snapshot.getTraversalCoverage())
-                    .cacheStatus(statusName)
-                    .build());
+            (ignored, existing) -> {
+              if (existing != null
+                  && isServable(existing)
+                  && existing.getBuiltAtMillis() > snapshot.getBuiltAtMillis()) {
+                return existing;
+              }
+              published[0] = true;
+              return EntityGraphSnapshot.builder()
+                  .graphId(snapshot.getGraphId())
+                  .cacheKey(key)
+                  .generation((existing == null ? 0L : existing.getGeneration()) + 1L)
+                  .buildSource(snapshot.getBuildSource())
+                  .builtAtMillis(snapshot.getBuiltAtMillis())
+                  .edges(edges)
+                  .vertexCount(snapshot.getVertexCount())
+                  .edgeCount(snapshot.getEdgeCount())
+                  .topologyFingerprint(snapshot.getTopologyFingerprint())
+                  .traversalCoverage(snapshot.getTraversalCoverage())
+                  .cacheStatus(statusName)
+                  .build();
+            });
     status.remove(key);
     refreshPartialSeedIndex(key);
+    return published[0];
+  }
+
+  /**
+   * Moves the stored snapshot's build time forward when a rebuild produced the same topology.
+   * Without this, an unchanged topology would stay older than a visibility watermark and be rebuilt
+   * on every read. A rebuild that disagrees with the stored snapshot confirms nothing and leaves it
+   * alone, as does one that read its source earlier. Never moves the build time backward.
+   */
+  public void refreshBuiltAt(@Nonnull String cacheKey, @Nonnull EntityGraphSnapshot confirmed) {
+    snapshotsForKey(cacheKey)
+        .computeIfPresent(
+            cacheKey,
+            (key, existing) ->
+                isServable(existing)
+                        && existing.getBuiltAtMillis() < confirmed.getBuiltAtMillis()
+                        && Objects.equals(
+                            existing.getTopologyFingerprint(), confirmed.getTopologyFingerprint())
+                    ? existing.toBuilder().builtAtMillis(confirmed.getBuiltAtMillis()).build()
+                    : existing);
+  }
+
+  private static boolean isServable(@Nonnull EntityGraphSnapshot snapshot) {
+    if (TOMBSTONE_FINGERPRINT.equals(snapshot.getTopologyFingerprint())) {
+      return false;
+    }
+    String embedded = snapshot.getCacheStatus();
+    return embedded == null || CacheStatus.ACTIVE.name().equals(embedded);
   }
 
   public void markCooldown(@Nonnull String cacheKey) {
@@ -343,7 +494,7 @@ public class EntityGraphDistributedStore {
     }
     EntityGraphDefinition definition = registry.getDefinition(existing.getGraphId());
     if (definition != null
-        && SnapshotFreshnessEvaluator.isStale(existing, definition)
+        && isStaleOrSuperseded(existing, definition)
         && replacesTrustedDirection(existing.getTraversalCoverage(), candidateCoverage)) {
       return false;
     }
@@ -364,7 +515,7 @@ public class EntityGraphDistributedStore {
       return false;
     }
     EntityGraphDefinition definition = registry.getDefinition(existing.getGraphId());
-    if (definition == null || SnapshotFreshnessEvaluator.isStale(existing, definition)) {
+    if (definition == null || isStaleOrSuperseded(existing, definition)) {
       return false;
     }
     if (candidateCoverage == null) {
@@ -457,6 +608,16 @@ public class EntityGraphDistributedStore {
     int maxVertices = definition.getBounds().getMaxVertices();
     int maxEdges = definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE);
     int configuredMaxDepth = definition.getScope().getMaxDepth();
+    // Without a start time the walk may have read the index before a write that has since become
+    // searchable. A walk is bounded by invalidation.maxWalkSeconds (the rebuild lease when unset),
+    // so only writes that became searchable within that window can be missed. A write still
+    // pending is handled by the build time alone: the walk finishes before it and is superseded
+    // when it lands.
+    if (writeBack.getWalkStartedAtMillis() <= 0
+        && definition.usesInvalidationVisibility()
+        && visibilityRecentlyPassed(definition.getGraphId(), maxWalkMillis(definition))) {
+      return FullWalkPublishResult.REJECTED_START_UNKNOWN;
+    }
     FullWalkPublishResult[] outcome = {FullWalkPublishResult.PUBLISHED};
     snapshotsForKey(cacheKey)
         .compute(
@@ -467,7 +628,16 @@ public class EntityGraphDistributedStore {
                 outcome[0] = FullWalkPublishResult.REJECTED_GENERATION;
                 return existing;
               }
-              long builtAtMillis = System.currentTimeMillis();
+              long builtAtMillis =
+                  writeBack.getWalkStartedAtMillis() > 0
+                      ? writeBack.getWalkStartedAtMillis()
+                      : System.currentTimeMillis();
+              if (existing != null
+                  && isServable(existing)
+                  && existing.getBuiltAtMillis() > builtAtMillis) {
+                outcome[0] = FullWalkPublishResult.REJECTED_OUTDATED;
+                return existing;
+              }
               long generation = existing == null ? 1L : existing.getGeneration() + 1L;
               String buildSource =
                   existing != null && existing.getBuildSource() != null

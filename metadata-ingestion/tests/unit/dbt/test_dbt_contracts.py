@@ -1,10 +1,12 @@
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from unittest import mock
 
 import pytest
+import requests
 
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter import mce_builder
@@ -12,6 +14,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.openapi import RelatedEntity
+from datahub.ingestion.source.common.object_store_files import FileSizeExceededError
 from datahub.ingestion.source.dbt.dbt_cloud import (
     DBTCloudConfig,
     DBTCloudSource,
@@ -44,6 +47,8 @@ from datahub.ingestion.source.state.entity_removal_state import GenericCheckpoin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
+from datahub.masking.masking_filter import SecretMaskingFilter
+from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionRunEventClass,
@@ -1171,6 +1176,90 @@ def test_run_results_without_command_warns_when_contracts_enabled() -> None:
     assert any(
         w.title == "run_results without a dbt command" for w in source.report.warnings
     )
+
+
+_RUN_RESULTS_PASSWORD = "my_password"
+_RUN_RESULTS_SIGNATURE = "my_signature"
+_CREDENTIALED_RUN_RESULTS_URL = (
+    f"https://my_user:{_RUN_RESULTS_PASSWORD}@host.example/dbt/run_results.json"
+    f"?X-Amz-Signature={_RUN_RESULTS_SIGNATURE}"
+)
+
+
+def _http_error_naming(url: str) -> requests.HTTPError:
+    response = requests.Response()
+    response.status_code = 404
+    response.reason = "Not Found"
+    response.url = url
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as e:
+        return e
+    raise AssertionError("raise_for_status did not raise")
+
+
+@pytest.mark.parametrize(
+    "multi_project, load_error",
+    [
+        pytest.param(False, None, id="run_results_without_a_dbt_command"),
+        pytest.param(
+            True,
+            _http_error_naming(_CREDENTIALED_RUN_RESULTS_URL),
+            id="http_error_loading_run_results",
+        ),
+        pytest.param(
+            True,
+            FileSizeExceededError(
+                f"{_CREDENTIALED_RUN_RESULTS_URL} is 999 bytes, over the configured "
+                "max_bytes limit of 1"
+            ),
+            id="oversized_run_results",
+        ),
+    ],
+)
+def test_run_results_report_entries_omit_url_credentials(
+    multi_project: bool,
+    load_error: Optional[Exception],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The entry names the run_results URL without its credentials. When the
+    failure's own message quotes the URL, the registered secrets are masked in the
+    log and in the report as it is serialized."""
+    fixture = json.loads(
+        (
+            Path(__file__).parent / "artifacts" / "run_results_contract_preflight.json"
+        ).read_text()
+    )
+    del fixture["args"]
+    source = _make_source(run_results_paths=[_CREDENTIALED_RUN_RESULTS_URL])
+    masking_filter = SecretMaskingFilter(SecretRegistry.get_instance())
+    # What the CLI's masking bootstrap installs on every handler.
+    caplog.handler.addFilter(masking_filter)
+    load_json = mock.patch.object(
+        source._artifacts,
+        "load_json",
+        side_effect=load_error,
+        return_value=fixture,
+    )
+    with load_json, caplog.at_level(logging.WARNING):
+        source._load_run_results_files(
+            [_CREDENTIALED_RUN_RESULTS_URL],
+            None,
+            [_make_model()],
+            multi_project=multi_project,
+        )
+
+    (warning,) = source.report.warnings
+    assert " ".join(warning.context).startswith(
+        "https://host.example/dbt/run_results.json"
+    )
+    serialized_report = json.dumps(
+        masking_filter.mask_structure(source.report.as_obj())
+    )
+    for text in [serialized_report, caplog.text]:
+        assert "host.example/dbt/run_results.json" in text
+        assert _RUN_RESULTS_PASSWORD not in text
+        assert _RUN_RESULTS_SIGNATURE not in text
 
 
 def test_inferred_timing_is_not_emitted_as_process_run() -> None:

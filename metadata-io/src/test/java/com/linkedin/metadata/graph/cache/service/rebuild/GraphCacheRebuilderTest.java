@@ -448,6 +448,38 @@ public class GraphCacheRebuilderTest {
     verify(distributedStore, never()).markCooldown(any());
   }
 
+  @Test
+  public void warmRebuildThatLosesToANewerSnapshotReleasesItsOwnClaim() {
+    EntityGraphDistributedStore distributedStore = mock(EntityGraphDistributedStore.class);
+    SnapshotFreshnessEvaluator freshnessEvaluator = mock(SnapshotFreshnessEvaluator.class);
+    GraphCacheRebuilder rebuilder =
+        new GraphCacheRebuilder(
+            distributedStore,
+            mock(EntityGraphLocalViewCache.class),
+            mock(EntityGraphSnapshotBuilder.class),
+            mock(OperationContext.class),
+            Executors.newSingleThreadExecutor(),
+            freshnessEvaluator);
+    String cacheKey = "domain@graph";
+    EntityGraphDefinition definition =
+        EntityGraphDefinition.builder()
+            .graphId("domain")
+            .enabled(true)
+            .scope(EntityGraphScope.builder().mode(ScopeMode.FULL).build())
+            .populationStrategy(PopulationStrategy.LAZY)
+            .rebuildExecution(RebuildExecution.STALE_WHILE_REVALIDATE)
+            .populationIntervalSeconds(60)
+            .buildSource(GraphSnapshotSource.GRAPH)
+            .build();
+    when(distributedStore.tryClaimRebuild(eq(cacheKey), anyLong())).thenReturn(true);
+    when(distributedStore.publish(any(), any())).thenReturn(false);
+
+    rebuilder.warmCacheIfMissingOrStale(
+        definition, componentSnapshot(cacheKey, 1_000L), TraversalDirection.FORWARD, null);
+
+    verify(distributedStore).releaseRebuildClaim(cacheKey);
+  }
+
   private static EntityGraphDefinition partialContainerDefinition() {
     return EntityGraphDefinition.builder()
         .graphId("container")

@@ -178,8 +178,8 @@ jobs:
       # variable is 'true'; post-merge pushes -- and the default with the
       # variable unset -- always run the full suite. smoke.sh reads it as
       # SMOKE_TIER. Repository variables don't reach pull requests from forks,
-      # so those always run the full suite (smoke_test_matrix gives them 3
-      # batches).
+      # so those always run the full suite (smoke_test_matrix gives them
+      # FORK_BATCH_COUNT batches).
       #
       # The `run-all-tests` label (both suites) or `run-all-tests:pytest` (pytest
       # only) opts a single PR back into the whole suite, for
@@ -948,14 +948,21 @@ jobs:
           # planner sizes (shard_pack.size_batches): the fewest batches whose
           # pytest time stays under its 8 min target, measured on CI runs from
           # 2026-11-18. The full suite is ~27 min of pytest time and packs into
-          # 5 batches of ~5.4 min; p0 is ~10 min and packs into 2 of ~5 min (1
-          # would overshoot, and conftest adds the PR's changed test modules to
-          # p0). Each batch also pays ~5 min of fixed cost (setup, image pull,
-          # quickstart), so extra batches add runner time faster than they cut
-          # wall clock. Re-check both counts when test times change a lot
-          # (smoke-test/README.md, "Simulate batch packing").
-          P0_BATCH_COUNT: "2"
+          # 5 batches of ~5.4 min. Each batch also pays ~5 min of fixed cost
+          # (setup, image pull, quickstart), so extra batches add runner time
+          # faster than they cut wall clock. That trade suits pushes, where
+          # compute matters more than wall clock. p0 only runs on pull requests,
+          # so it gets 3 batches of ~2.8 min predicted instead of the 2 of ~4.2
+          # that would fit: the slowest PR batch took ~8.5-9 min at 2. Re-check both
+          # counts when test times change a lot (smoke-test/README.md,
+          # "Simulate batch packing").
+          P0_BATCH_COUNT: "3"
           FULL_BATCH_COUNT: "5"
+          # Pull requests from forks run the full suite (repository variables
+          # don't reach them) on GitHub-hosted runners that build the images in
+          # every batch (~12 min). Matching the push count keeps pytest itself
+          # at ~5.5 min a batch instead of ~8.5 at 3.
+          FORK_BATCH_COUNT: "5"
         run: |
           emit_matrix() {
             local count=$1 items=""
@@ -990,7 +997,7 @@ jobs:
             tags=''
             emit_matrix "$P0_BATCH_COUNT"
           elif [[ "${{ env.IS_FORK }}" == 'true' ]]; then
-            emit_matrix 3
+            emit_matrix "$FORK_BATCH_COUNT"
           elif [[ "$tier" == 'p0' ]]; then
             emit_matrix "$P0_BATCH_COUNT"
           else

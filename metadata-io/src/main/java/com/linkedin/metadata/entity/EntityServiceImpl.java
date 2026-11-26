@@ -4680,14 +4680,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 result.getAspectName(),
                 Boolean.TRUE.equals(result.getKeyAffected()));
         if (!invalidationBatch.isEmpty()) {
-          opContext.getEntityGraphCache().invalidateOnSyncBatch(invalidationBatch);
+          opContext.getEntityGraphCache().invalidateImmediately(invalidationBatch);
         }
       } else if (result.getChangeType() == ChangeType.UPSERT) {
         SyncGraphInvalidationBatch invalidationBatch =
             EntityGraphSyncInvalidationSupport.fromSyncAspectRollback(
                 opContext, entityUrn.toString(), entityUrn.getEntityType(), result.getAspectName());
         if (!invalidationBatch.isEmpty()) {
-          opContext.getEntityGraphCache().invalidateOnSyncBatch(invalidationBatch);
+          opContext.getEntityGraphCache().invalidateImmediately(invalidationBatch);
         }
       }
     }
