@@ -1343,7 +1343,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if lib_path is None:
             return None
         # The recorded connection is space-qualified, so no app space applies.
-        storage, detail = self._file_storage(lib_path.group("connection"), "")
+        storage, detail = self._file_storage(
+            lib_path.group("connection"), "", lib_path.group("path")
+        )
         if storage is None:
             return None
         path = lib_path.group("path")
@@ -2923,6 +2925,31 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return FileSourceResolver(references)
 
     def _file_storage(
+        self, connection: str, space_id: str, path: Optional[str] = None
+    ) -> Tuple[Optional[FileStorage], Optional[FileStorageDetail]]:
+        storage, detail = self._connection_storage(connection, space_id)
+        if path is not None and self._is_other_share_file(storage, path):
+            # Qlik Sense Enterprise only ingests the QVDs on a share, so another
+            # file keeps the dataset named by its connection.
+            return None, None
+        return storage, detail
+
+    @staticmethod
+    def _is_other_share_file(storage: Optional[FileStorage], path: str) -> bool:
+        return (
+            storage is not None
+            and storage.platform == FilePlatform.WINDOWS_SHARE
+            and not path.lower().endswith(QVD_EXTENSION)
+        )
+
+    def _on_mapped_share(self, connection: str, space_id: str, path: str) -> bool:
+        """Whether the file is one of a mapped share's files other than its
+        QVDs, which are named by connection and path without a report."""
+        return self._is_other_share_file(
+            self._connection_storage(connection, space_id)[0], path
+        )
+
+    def _connection_storage(
         self, connection: str, space_id: str
     ) -> Tuple[Optional[FileStorage], Optional[FileStorageDetail]]:
         detail = self._mapped_connection(
@@ -3037,7 +3064,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for index, store in enumerate(stores):
             if store.file.connection is None:
                 continue
-            storage, detail = self._file_storage(store.file.connection, app.spaceId)
+            storage, detail = self._file_storage(
+                store.file.connection, app.spaceId, store.file.path
+            )
             if storage is None:
                 if _is_data_files(store.file.connection):
                     continue
@@ -3050,8 +3079,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     info is not None
                     and info.file_platform == FilePlatform.WINDOWS_SHARE
                 )
-                listed_without_storage = info is not None and (
-                    info.file_platform is None or unmapped_share
+                on_mapped_share = self._on_mapped_share(
+                    store.file.connection, app.spaceId, store.file.path
+                )
+                # A mapped share's other files are named so too.
+                listed_without_storage = on_mapped_share or (
+                    info is not None and (info.file_platform is None or unmapped_share)
                 )
                 if not listed_without_storage:
                     # Its file may be a storage file the app stored into before.
@@ -3060,7 +3093,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     store.file.connection,
                     store.file.path,
                     app.spaceId,
-                    report=not listed_without_storage or unmapped_share,
+                    report=not on_mapped_share
+                    and (not listed_without_storage or unmapped_share),
                 )
                 if unmapped_urn is not None:
                     file_urns[index] = unmapped_urn
@@ -3343,7 +3377,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         unmapped: Set[str] = set()
         unknown = False
         for reference in candidates.references:
-            storage, detail = self._file_storage(reference.connection, space_id)
+            storage, detail = self._file_storage(
+                reference.connection, space_id, reference.path
+            )
             if storage is None:
                 info = self._find_data_connection(reference.connection, space_id)
                 if _is_data_files(reference.connection) or (
@@ -3358,7 +3394,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     space_id,
                     # A file the QRI places on another connector, such as
                     # SFTP, has no storage `file_connection_to_storage` maps.
-                    report=candidates.platform is not None,
+                    report=candidates.platform is not None
+                    and not self._on_mapped_share(
+                        reference.connection, space_id, reference.path
+                    ),
                 )
                 if unmapped_urn is None:
                     unknown = True

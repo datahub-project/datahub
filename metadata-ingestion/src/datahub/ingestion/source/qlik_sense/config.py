@@ -224,7 +224,7 @@ class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         "`gs://<bucket>/<folder>` URI, or Azure HTTPS. An Azure URI must name the "
         "container; `wasb://` and `wasbs://` are not accepted. On Qlik Cloud, a "
         "Data Gateway connection's Windows share is its `\\\\<server>\\<share>\\<folder>` "
-        "path: its files take the Qlik Sense datasets the Qlik Sense Enterprise "
+        "path: its QVDs take the Qlik Sense datasets the Qlik Sense Enterprise "
         "recipe whose `platform_instance` and `env` the entry sets gives them, "
         "so such a connection is only linked when it has an entry. Read from the "
         "data connection when not set, which needs the API key's user to see the "
