@@ -188,7 +188,6 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
                 message="Skipping unchanged apps needs stateful ingestion, so every "
                 "app is read.",
             )
-        # A failure to connect is raised, so the pipeline fails with its cause.
         self.qlik_api = self._create_api(self.config)
 
     @staticmethod

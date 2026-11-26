@@ -337,7 +337,6 @@ class FileIdentityMixin(DashboardMixin):
         likely: Set[str] = set()
         # Files on connections of unknown storage, named by connection and path.
         unmapped: Set[str] = set()
-        # Files the script reads as QVDs, by format or else extension.
         qvd_urns: Set[str] = set()
         unknown = False
         for reference in candidates.references:

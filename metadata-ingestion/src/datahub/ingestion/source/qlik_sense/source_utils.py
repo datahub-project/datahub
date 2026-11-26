@@ -46,7 +46,6 @@ def get_ignoring_case(mapping: Mapping[str, MappingT], name: str) -> Optional[Ma
 
 
 def is_stored_qvd(store: UnmappedFileStore) -> bool:
-    # Older state doesn't record the format, so the extension tells.
     return (
         store.path.lower().endswith(QVD_EXTENSION) if store.qvd is None else store.qvd
     )

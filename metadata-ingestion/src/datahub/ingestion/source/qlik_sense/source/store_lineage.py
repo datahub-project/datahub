@@ -58,7 +58,6 @@ class StoreLineageMixin(OnPremQvdMixin):
         for index, store in enumerate(stores):
             if store.file.connection is None:
                 continue
-            # A STORE writes a QVD unless its format says otherwise.
             qvd = index < len(parsed.qvd_stores)
             match = self._file_storage(store.file.connection, app.spaceId, qvd)
             storage, detail = match.storage, match.detail
