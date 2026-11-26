@@ -56,6 +56,12 @@ only `gms.env`, so it never gets `EBEAN_AUTOCREATE=true`, which drops every tabl
 3. Check the result: `python3 metadata-service/gms-lite/bin/gms-lite-stack.py --print-env [--job smoke-test] [--mode ci]`
    prints every service's final values and the file each came from (secrets redacted). Each
    start writes the same report to `<data-dir>/resolved-env.json`.
+4. Values copied from the Docker quickstart (`env/common`, `smoke-test/env`) must stay
+   equal to it until Docker reads these files too. `python3 smoke-test/check_env_parity.py`
+   compares the two smoke envs and lists every difference that isn't in
+   `smoke-test/env-parity-allowlist.txt`. When you change a smoke value, change it on both sides or
+   add an allowlist line with a reason. Protected keys are not compared, and the job layer must
+   not set them.
 
 ## Isolation and extensions
 

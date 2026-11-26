@@ -312,6 +312,20 @@ SMOKE_BATCH_PLAN=/tmp/plan.json BATCH_NUMBER=0 \
   pytest --collect-only -q
 ```
 
+### Env parity with the Docker-free stack
+
+The Docker quickstart reads `smoke.common.env`, the compose and GMS image env, and the inline flags
+in `run-quickstart.sh`. The Docker-free stack (`datahub-dev.sh start --local --job smoke-test`)
+reads a copy of them in `smoke-test/env/` and `env/common/` (see [env/README.md](../env/README.md)).
+When you change a smoke value, change it in both places, then run:
+
+```shell
+python3 smoke-test/check_env_parity.py
+```
+
+It fails on a difference not listed in `env-parity-allowlist.txt`, and on an allowlist line that
+no longer matches a difference. CI runs it in report-only mode in the GMS-lite Local Stack workflow.
+
 ## Test Organization
 
 - `test_e2e.py` - Main test suite (1387 lines)
