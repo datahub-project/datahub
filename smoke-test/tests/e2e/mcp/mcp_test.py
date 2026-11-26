@@ -13,11 +13,16 @@ import requests
 
 from tests.e2e.mcp.mcp_client import McpClient
 from tests.e2e.utils import execute_graphql, get_frontend_url, get_gms_url
+from utilities.backends import Capability
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.AI)
+# /mcp is a Play frontend route (proxied to datahub-ai-service).
+pytestmark = [
+    pytest.mark.domain(Domain.AI),
+    pytest.mark.requires(Capability.PLAY_FRONTEND),
+]
 
 SYSTEM_USER_URN = "urn:li:corpuser:__datahub_system"
 

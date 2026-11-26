@@ -553,7 +553,7 @@ Profiling handles these columns too. The SQLAlchemy driver folds reflected colum
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
-- Some features require specific Snowflake editions or additional privileges. This includes dynamic tables, semantic views, advanced lineage features, and tags.
+- Some features require specific Snowflake editions or additional privileges. This includes dynamic tables, interactive tables, semantic views, advanced lineage features, and tags.
 - Dynamic tables require the `monitor` privilege for full metadata extraction. Without this privilege, dynamic table entities will still appear in DataHub but their DDL is not accessible, so lineage will not be extracted.
 - Semantic views require `REFERENCES` or `SELECT` privileges for metadata extraction. Without these privileges, semantic views will not be visible to DataHub.
 - Stored procedures require `USAGE` on each procedure; without it they are silently skipped. Snowflake hides the definition of owner's-rights (the default) and secure procedures from roles that don't own them, so such procedures may be ingested without code or lineage, or be missing.

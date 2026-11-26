@@ -15,6 +15,41 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### `tags_to_term` transformer matches full tag names and maps column tags to columns
+
+The `tags_to_term` ingestion transformer has changed in four ways ([PR #21479](https://github.com/datahub-project/datahub/pull/21479)):
+
+- **Tags must be configured by their full name.** Before, the transformer matched only part of a tag's name: the text after the last `.` and before the first `:`. A tag such as `pii.email` matched a configured `email`, and `sensitivity:high` matched `sensitivity`. Now `tags` must list the name exactly as it appears after `urn:li:tag:`, for example `pii.email` or `sensitivity:high`.
+- **Terms take the full tag name.** The tag `pii.email` now becomes the term `pii.email`, not `email`. Terms added under the old short names are not removed automatically.
+- **Column tags become column terms.** Before, a tag on a column added the term to the whole dataset and left the tag on the column. Now the term is added to that column and the tag is removed from it. Terms already set in the same ingestion run, for example by dbt `meta_mapping`, are no longer dropped.
+- **Column tags are mapped only when the source emits the schema.** Column tags are now read from the `schemaMetadata` the source sends in the same run, not from DataHub. A run that does not emit a table's schema no longer maps that table's column tags.
+
+To update a recipe, replace each short name in `tags` with the tag's full name. For example, for the Snowflake tag `urn:li:tag:snowflakedb.snowflakeschema.tag_name:tag_value`, change `tag_name` to `snowflakedb.snowflakeschema.tag_name:tag_value`.
+
+### Domain and glossary child listings are paged, and totals no longer hide restricted children
+
+The GraphQL `relationships` field for `IsPartOf` (the children of a domain, glossary term group or glossary term) now pages its results and limits the work it does per request, whether or not search access controls are enabled:
+
+- If `count` is omitted, at most 100 children are returned. Before, every child was returned. Set `GRAPHQL_QUERY_DIRECT_CHILD_DEFAULT_COUNT` to change this default.
+- `count` is capped at 1000. A larger value is treated as 1000, and a negative `start` or `count` is treated as 0. Set `GRAPHQL_QUERY_DIRECT_CHILD_MAX_COUNT` to change the cap.
+- `total` is now the number of children that exist, including any the viewer cannot see. Before, with search access controls enabled, it excluded children the viewer cannot see. A page can therefore hold fewer entries than `count` even when more children follow.
+- `count: 0` returns only `total`, with no per-child permission checks.
+- Children are returned in URN order, so an offset selects the same children on every request.
+
+If you read these children through the API, request them in pages and keep going while `start + count` is less than `total`. The web UI's glossary delete check only needs `total`, so it now requests `count: 0`.
+
+### Snowflake default `table_types` includes interactive tables ([PR #21476](https://github.com/datahub-project/datahub/pull/21476))
+
+- **(Ingestion / Snowflake)** The Snowflake source now includes `'INTERACTIVE TABLE'` in the default `table_types` set, so interactive tables are discovered and ingested as datasets with subtype `Interactive Table` on a default recipe. Recipes that set `table_types` explicitly are unchanged. **Action:** none required. To keep interactive tables out of ingestion, set `table_types` to a set that omits `'INTERACTIVE TABLE'` (for example `BASE TABLE` and `EXTERNAL TABLE` only).
+
+### Remote executor logs ingestion run output ([#21529](https://github.com/datahub-project/datahub/pull/21529))
+
+The remote executor copies each run's output into its container log (`DATAHUB_EXECUTOR_PRINT_SUBPROCESS_LOGS`, default `true`). To turn it off, set:
+
+- Helm: `global.datahub.executor.ingestions.print_subprocess_logs: false`, through values, not `extraEnvs`.
+- Terraform: `executor_ingestions_print_subprocess_logs = false` in `datahub`.
+- CloudFormation: `DataHubIngestionsPrintSubprocessLogs=false`.
+
 ### Pinned links removed from Settings > Home Page ([#21466](https://github.com/datahub-project/datahub/pull/21466))
 
 If the home page redesign is enabled (`SHOW_HOME_PAGE_REDESIGN=true`, the default), the

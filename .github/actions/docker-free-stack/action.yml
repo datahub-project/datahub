@@ -1,0 +1,109 @@
+name: Boot the Docker-free stack
+description: >
+  Downloads the gms-lite build artifact (GMS and upgrade jars, the embedded
+  OpenSearch distribution and the frontend bundle), boots this checkout's
+  Docker-free stack with `datahub-dev.sh start --local --fresh`, serves the
+  frontend bundle in preview mode, and exports the smoke-test environment
+  (`shell-env --tests`) to GITHUB_ENV. Writes boot timings to the step
+  summary, and the launcher log tail as an error when the boot fails. Needs
+  the toolchain (Java, Python, uv, Node) set up first. Stopping the stack is
+  the caller's job (`datahub-dev.sh stop`).
+
+inputs:
+  artifact-name:
+    description: Build artifact holding gms-lite-build.tar (see docker-free-e2e.yml).
+    default: gms-lite-build
+  job:
+    description: Env layer for the stack (`start --local --job`). Empty for none.
+    default: smoke-test
+  frontend:
+    description: "'preview' serves the downloaded frontend bundle; 'none' runs no frontend."
+    default: preview
+  heap:
+    description: GMS heap (GMS_LITE_HEAP). Smoke tests under xdist evict the entity graph cache at 1 GB.
+    default: 2g
+  boot-timeout-seconds:
+    description: Readiness timeout for `start --local`.
+    default: "900"
+
+runs:
+  using: composite
+  steps:
+    - name: Download stack
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        name: ${{ inputs.artifact-name }}
+
+    # A tarball, because upload-artifact drops the executable bits the
+    # OpenSearch distribution needs.
+    - name: Unpack stack
+      shell: bash
+      run: tar -xf gms-lite-build.tar && rm gms-lite-build.tar
+
+    - name: Boot stack
+      shell: bash
+      env:
+        GMS_LITE_HEAP: ${{ inputs.heap }}
+        DATAHUB_TELEMETRY_ENABLED: "false"
+        JOB: ${{ inputs.job }}
+        TIMEOUT: ${{ inputs.boot-timeout-seconds }}
+      run: |
+        scripts/dev/datahub-dev.sh start --local --fresh --skip-build --no-frontend \
+          ${JOB:+--job "$JOB"} --timeout "$TIMEOUT"
+
+    - name: Start frontend preview
+      if: inputs.frontend == 'preview'
+      shell: bash
+      env:
+        DATAHUB_TELEMETRY_ENABLED: "false"
+      run: scripts/dev/datahub-dev.sh frontend --local --preview --detach
+
+    - name: Export smoke-test environment
+      shell: bash
+      run: |
+        env_lines=$(scripts/dev/datahub-dev.sh shell-env --tests)
+        eval "$env_lines"
+        for key in $(sed -n 's/^export \([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' <<<"$env_lines"); do
+          if [[ "$key" == *SECRET* || "$key" == *PASSWORD* ]]; then
+            echo "::add-mask::${!key}"
+          fi
+          echo "$key=${!key}" >> "$GITHUB_ENV"
+        done
+        sed -n 's/^export \([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' <<<"$env_lines" | paste -sd ' ' - \
+          | sed 's/^/Exported: /'
+
+    - name: Boot timings
+      if: always()
+      shell: bash
+      run: |
+        python3 - <<'PYEOF'
+        import json
+        import os
+        import pathlib
+
+        paths = sorted(pathlib.Path.home().glob(".datahub/local/stacks/*/timings.json"))
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+            if not paths:
+                summary.write("No timings.json produced.\n")
+            for path in paths:
+                timings = json.loads(path.read_text())
+                summary.write("### GMS-lite boot timings\n\n| Phase | Seconds |\n| --- | ---: |\n")
+                for name, seconds in timings.get("phases", {}).items():
+                    summary.write(f"| {name} | {seconds:.1f} |\n")
+                if "total_s" in timings:
+                    summary.write(f"| total | {timings['total_s']:.1f} |\n")
+                for name, seconds in timings.get("datahub_dev", {}).items():
+                    summary.write(f"| datahub-dev: {name.removesuffix('_s')} | {seconds:.1f} |\n")
+                summary.write("\n")
+        PYEOF
+
+    - name: Launcher log tail
+      if: failure()
+      shell: bash
+      run: |
+        echo "::error title=Docker-free stack boot failed::See the launcher log tail below and the uploaded logs"
+        for log in ~/.datahub/local/stacks/*/launcher.log ~/.datahub/local/stacks/*/frontend.log; do
+          [[ -f "$log" ]] || continue
+          echo "===== $log ====="
+          tail -n 150 "$log"
+        done

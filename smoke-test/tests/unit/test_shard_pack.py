@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+import shard_pack
 from shard_pack import (
     ModuleShard,
     items_for_batch,
@@ -14,6 +15,7 @@ from shard_pack import (
     plan_collected_items,
     size_batches,
 )
+from utilities.backends import Backend
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM_INTERNAL)
@@ -234,3 +236,32 @@ def test_items_for_scopes_keeps_whole_loadscopes() -> None:
         "tests/a.py::TestA::test_one",
         "tests/a.py::TestA::test_two",
     ]
+
+
+def test_local_backend_packs_on_docker_free_weights(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Each backend reads its own <stem>.json and <stem>_meta.json default.
+    (tmp_path / "pytest_test_weights.json").write_text(
+        '[{"testId": "tests.a::test_fn", "duration": "10.000s"}]'
+    )
+    (tmp_path / "pytest_test_weights_docker_free.json").write_text(
+        '[{"testId": "tests.a::test_fn", "duration": "90.000s"}]'
+    )
+    (tmp_path / "pytest_test_weights_docker_free_meta.json").write_text(
+        '{"defaultTestWeightSeconds": 7.0}'
+    )
+    monkeypatch.setattr(shard_pack, "_WEIGHTS_DIR", tmp_path)
+    items = [_PlainItem("tests/a.py::test_fn"), _PlainItem("tests/b.py::test_new")]
+
+    def totals(backend: Backend) -> dict[str, float]:
+        packed = plan_collected_items(
+            items,
+            batch_count=1,
+            xdist_workers=1,
+            weights_stem=backend.weights_stem,
+        )
+        return {shard.path: shard.total_seconds for shard in packed.shards}
+
+    assert totals(Backend.LOCAL) == {"tests/a.py": 90.0, "tests/b.py": 7.0}
+    assert totals(Backend.DOCKER)["tests/a.py"] == 10.0

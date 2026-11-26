@@ -24,6 +24,7 @@ from tests.e2e.utils import (
     wait_for_writes_to_sync,
     with_test_retry,
 )
+from utilities.backends import Capability
 from utilities.domains import Domain
 from utilities.messaging_transport import (
     build_pgqueue_sink_config,
@@ -36,6 +37,9 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.no_cypress_suite1,
     pytest.mark.domain(Domain.PLATFORM, Domain.CATALOG),
+    # Fixture data goes in through the Kafka sink, or on pgQueue stacks through
+    # the pgQueue sink, which writes to the SQL database directly.
+    pytest.mark.requires(Capability.KAFKA, Capability.SQL_DB),
 ]
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"

@@ -15,7 +15,9 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.ebean.Transaction;
+import io.ebean.test.LoggedSql;
 import java.sql.Timestamp;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -307,6 +309,72 @@ public class EbeanAspectDaoLockingPostgresIT {
     // skipped with a warning rather than aborting the caller. Must not throw.
     advisoryDao.lockAspectsForWrite(
         opContext, Map.of("urn:li:corpuser:no_txn_" + shortId(), Set.of(STATUS_ASPECT_NAME)));
+  }
+
+  /**
+   * Regression: paging the Postgres FOR UPDATE by code point deadlocks with a smaller batch.
+   * en_US.UTF-8 orders urn:li:corpuser:a before urn:li:corpuser:B; code point order is the reverse.
+   * The lock stays one statement. max(version) is still paged.
+   */
+  @Test
+  public void getNextVersions_postgresLockIsOneOrderedStatement() {
+    EbeanAspectDao dao =
+        new EbeanAspectDao(
+            PrimaryStorageTestUtils.ebeanResolver(primaryDatabase),
+            EbeanConfiguration.builder().queryKeysCountForBatch(2).build(),
+            null,
+            List.of(),
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(primaryDatabase));
+    dao.setConnectionValidated(true);
+
+    Map<String, Set<String>> urns = new LinkedHashMap<>();
+    urns.put("urn:li:corpuser:a", Set.of(STATUS_ASPECT_NAME));
+    urns.put("urn:li:corpuser:B", Set.of(STATUS_ASPECT_NAME));
+    urns.put("urn:li:corpuser:c", Set.of(STATUS_ASPECT_NAME));
+
+    LoggedSql.start();
+    dao.getNextVersions(opContext, urns, true);
+    List<String> sql = LoggedSql.stop();
+
+    List<String> locks =
+        sql.stream().filter(line -> line.toLowerCase().contains("for update")).toList();
+    assertEquals(locks.size(), 1, "postgres must lock every key in one statement, got: " + sql);
+    String lock = locks.get(0).toLowerCase();
+    assertTrue(lock.contains("order by"), "postgres lock must ORDER BY, got: " + locks.get(0));
+    assertTrue(locks.get(0).contains("urn:li:corpuser:a"));
+    assertTrue(locks.get(0).contains("urn:li:corpuser:B"));
+    assertTrue(locks.get(0).contains("urn:li:corpuser:c"));
+
+    // Postgres renders findIds() as "select urn, aspect, version", not max(.
+    // Bind values may be a following line. Count select statements, and append that
+    // bind line so the URN assertions still see the keys.
+    List<String> versionReads = new java.util.ArrayList<>();
+    for (int i = 0; i < sql.size(); i++) {
+      String lower = sql.get(i).toLowerCase();
+      // any( is the paged max read. Point lookups from other tests in this class also
+      // land in LoggedSql (urn=?), and "urn:li:corpuser:a" is a prefix of those URNs.
+      if (!lower.contains("from metadata_aspect_v2")
+          || !lower.contains("any(")
+          || lower.contains("for update")) {
+        continue;
+      }
+      String stmt = sql.get(i);
+      if (i + 1 < sql.size() && sql.get(i + 1).toLowerCase().contains("bind")) {
+        stmt = stmt + " " + sql.get(i + 1);
+      }
+      versionReads.add(stmt);
+    }
+    assertEquals(versionReads.size(), 2, "version read stays paged at 2, got: " + sql);
+    assertTrue(
+        versionReads.get(0).contains("urn:li:corpuser:B")
+            && versionReads.get(0).contains("urn:li:corpuser:a"),
+        "first page must be the two-key slice, got: " + versionReads.get(0));
+    assertTrue(
+        versionReads.get(1).contains("urn:li:corpuser:c")
+            && !versionReads.get(1).contains("urn:li:corpuser:a"),
+        "second page must be only the remaining key, got: " + versionReads.get(1));
   }
 
   private void saveAspect(String urn, String aspectName) {

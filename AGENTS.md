@@ -480,12 +480,12 @@ scripts/dev/datahub-dev.sh <command>
 
 Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `suspend`,
 `setup`, `frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`,
-`sync-flags`, `reset`, `nuke`, `instances list/clean`, `shell-env`).
+`sync-flags`, `reset`, `nuke`, `instances list/clean/repair`, `indices list/drop/prune`, `shell-env`).
 
 ### Local mode, remote runners, recovery
 
-Docker-free `start --local`, remote runner plugins, recovery escalation (`stop` → `reset` →
-`nuke --keep-data` → `nuke`) and `AGENT_MODE=1` structured test output: `scripts/dev/AGENTS.md`.
+Docker-free `start --local`, remote runners, recovery escalation and `AGENT_MODE=1` test
+output: `scripts/dev/AGENTS.md`.
 
 ### End-to-End Workflow
 
