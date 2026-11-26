@@ -89,6 +89,7 @@ PLATFORM_BY_QRI_SCHEME = {
 class FileReference(BaseModel):
     connection: str
     path: str
+    qvd: bool = False
 
 
 class FileCandidates(BaseModel):
@@ -255,7 +256,9 @@ class FileSourceResolver:
             path = normalized_file_path(reference.path)
             if path:
                 self._by_path_id.setdefault(qri_part_id(path), []).append(
-                    FileReference(connection=reference.connection, path=path)
+                    FileReference(
+                        connection=reference.connection, path=path, qvd=reference.qvd
+                    )
                 )
 
     def references(self) -> List[FileReference]:
@@ -267,7 +270,7 @@ class FileSourceResolver:
             return FileCandidates()
         references = self._by_path_id.get(match.group("path"), [])
         # Several reads of the same file are one reference.
-        unique = {(ref.connection, ref.path): ref for ref in references}
+        unique = {(ref.connection, ref.path, ref.qvd): ref for ref in references}
         return FileCandidates(
             references=list(unique.values()),
             platform=PLATFORM_BY_QRI_SCHEME.get(match.group("scheme")),

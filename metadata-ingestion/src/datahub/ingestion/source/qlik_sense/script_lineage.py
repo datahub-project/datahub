@@ -477,6 +477,8 @@ class FileLoad(BaseModel):
     # The path uses a variable the script makes unknown, such as a FOR EACH
     # variable over a FileList, so the app's last value names only one file.
     uses_unknown_variable: bool = False
+    # Read as a QVD, by its format or else its extension.
+    qvd: bool = False
 
 
 class ParsedScript(BaseModel):
@@ -1580,9 +1582,15 @@ class _ScriptParser(BaseModel):
         if expanded is None:
             return
         as_written = _load_path(self.raw_statement) or expanded
+        source = _load_source(statement)
+        format_name = _format_name(source.group("spec") if source else None)
         load = FileLoad(
             expanded=expanded,
             as_written=as_written,
+            # A LOAD without a format reads text, unless the file is a QVD.
+            qvd=format_name == "qvd"
+            if format_name
+            else expanded.lower().endswith(QVD_EXTENSION),
             uses_unknown_variable=any(
                 reference.group("name").strip() in self.flow.state.unknown
                 for reference in VARIABLE_REFERENCE_RE.finditer(as_written)

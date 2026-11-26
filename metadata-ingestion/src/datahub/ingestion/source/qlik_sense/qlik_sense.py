@@ -305,6 +305,13 @@ def _get_ignoring_case(
     return mapping[matches[0]] if len(matches) == 1 else None
 
 
+def _is_stored_qvd(store: UnmappedFileStore) -> bool:
+    # Older state doesn't record the format, so the extension tells.
+    return (
+        store.path.lower().endswith(QVD_EXTENSION) if store.qvd is None else store.qvd
+    )
+
+
 def _is_qvd(dataset: Union[QlikDataset, ListedDataset]) -> bool:
     return dataset.type.upper() == "QVD" or dataset.name.lower().endswith(QVD_EXTENSION)
 
@@ -945,6 +952,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Files on connections of unknown storage, by URN, as `lib://` paths,
         # and those that lineage links to, which get a dataset.
         self._unmapped_files: Dict[str, str] = {}
+        # Unmapped files stored as QVDs, by format, as their names need not say.
+        self._unmapped_qvd_files: Set[str] = set()
         # How load scripts spell each `lib://` path prefix, by its lowercase
         # key, and the paths it was built from.
         self._script_spellings: Dict[str, Counter[str]] = {}
@@ -1292,6 +1301,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if storage_file is None:
                 unmapped_stores[file_urn] = store
                 self._add_unmapped_file(file_urn, store.path)
+                if _is_stored_qvd(store):
+                    self._unmapped_qvd_files.add(file_urn)
                 urns = self._unmapped_file_stores[file_urn].setdefault(app_id, [])
                 urns.extend(urn for urn in store.table_urns if urn not in urns)
                 continue
@@ -1344,7 +1355,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             return None
         # The recorded connection is space-qualified, so no app space applies.
         storage, detail = self._file_storage(
-            lib_path.group("connection"), "", lib_path.group("path")
+            lib_path.group("connection"), "", _is_stored_qvd(store)
         )
         if storage is None:
             return None
@@ -1469,7 +1480,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 stored_file_urns=self._app_stored_files.get(app.id, []),
                 unmapped_file_stores={
                     file_urn: UnmappedFileStore(
-                        path=self._unmapped_files[file_urn], table_urns=stores[app.id]
+                        path=self._unmapped_files[file_urn],
+                        table_urns=stores[app.id],
+                        qvd=file_urn in self._unmapped_qvd_files,
                     )
                     for file_urn, stores in self._unmapped_file_stores.items()
                     if app.id in stores
@@ -2887,6 +2900,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 FileReference(
                     connection=lib_path.group("connection"),
                     path=lib_path.group("path"),
+                    qvd=load.qvd,
                 )
                 for path in dict.fromkeys(candidates)
                 if (lib_path := LIB_PATH_RE.match(path))
@@ -2925,28 +2939,28 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return FileSourceResolver(references)
 
     def _file_storage(
-        self, connection: str, space_id: str, path: Optional[str] = None
+        self, connection: str, space_id: str, qvd: bool
     ) -> Tuple[Optional[FileStorage], Optional[FileStorageDetail]]:
         storage, detail = self._connection_storage(connection, space_id)
-        if path is not None and self._is_other_share_file(storage, path):
+        if self._is_other_share_file(storage, qvd):
             # Qlik Sense Enterprise only ingests the QVDs on a share, so another
             # file keeps the dataset named by its connection.
             return None, None
         return storage, detail
 
     @staticmethod
-    def _is_other_share_file(storage: Optional[FileStorage], path: str) -> bool:
+    def _is_other_share_file(storage: Optional[FileStorage], qvd: bool) -> bool:
         return (
             storage is not None
             and storage.platform == FilePlatform.WINDOWS_SHARE
-            and not path.lower().endswith(QVD_EXTENSION)
+            and not qvd
         )
 
-    def _on_mapped_share(self, connection: str, space_id: str, path: str) -> bool:
+    def _on_mapped_share(self, connection: str, space_id: str, qvd: bool) -> bool:
         """Whether the file is one of a mapped share's files other than its
         QVDs, which are named by connection and path without a report."""
         return self._is_other_share_file(
-            self._connection_storage(connection, space_id)[0], path
+            self._connection_storage(connection, space_id)[0], qvd
         )
 
     def _connection_storage(
@@ -3064,8 +3078,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for index, store in enumerate(stores):
             if store.file.connection is None:
                 continue
+            # A STORE writes a QVD unless its format says otherwise.
+            qvd = index < len(parsed.qvd_stores)
             storage, detail = self._file_storage(
-                store.file.connection, app.spaceId, store.file.path
+                store.file.connection, app.spaceId, qvd
             )
             if storage is None:
                 if _is_data_files(store.file.connection):
@@ -3080,7 +3096,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     and info.file_platform == FilePlatform.WINDOWS_SHARE
                 )
                 on_mapped_share = self._on_mapped_share(
-                    store.file.connection, app.spaceId, store.file.path
+                    store.file.connection, app.spaceId, qvd
                 )
                 # A mapped share's other files are named so too.
                 listed_without_storage = on_mapped_share or (
@@ -3099,6 +3115,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if unmapped_urn is not None:
                     file_urns[index] = unmapped_urn
                     unmapped_indexes.add(index)
+                    if qvd:
+                        self._unmapped_qvd_files.add(unmapped_urn)
                 continue
             catalogued = self._catalogued_as_qlik_dataset(storage, store.file.path)
             if catalogued is None:
@@ -3378,15 +3396,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         unknown = False
         for reference in candidates.references:
             storage, detail = self._file_storage(
-                reference.connection, space_id, reference.path
+                reference.connection, space_id, reference.qvd
             )
             if storage is None:
                 info = self._find_data_connection(reference.connection, space_id)
-                if _is_data_files(reference.connection) or (
-                    info is not None and info.file_platform != candidates.platform
+                connection_storage = self._connection_storage(
+                    reference.connection, space_id
+                )[0]
+                if (
+                    _is_data_files(reference.connection)
+                    or (info is not None and info.file_platform != candidates.platform)
+                    or (
+                        connection_storage is not None
+                        and connection_storage.platform != candidates.platform
+                    )
                 ):
-                    # DataFiles, listed or not, and a visible connection of
-                    # another kind can't hold a file on this storage.
+                    # DataFiles, listed or not, and a visible or mapped
+                    # connection of another kind can't hold a file on this
+                    # storage.
                     continue
                 unmapped_urn = self._unmapped_storage_file_urn(
                     reference.connection,
@@ -3396,7 +3423,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     # SFTP, has no storage `file_connection_to_storage` maps.
                     report=candidates.platform is not None
                     and not self._on_mapped_share(
-                        reference.connection, space_id, reference.path
+                        reference.connection, space_id, reference.qvd
                     ),
                 )
                 if unmapped_urn is None:
@@ -4806,7 +4833,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         qvds = {
             urn: path
             for urn, path in paths.items()
-            if path.lower().endswith(QVD_EXTENSION)
+            if urn in self._unmapped_qvd_files or path.lower().endswith(QVD_EXTENSION)
         }
         yield from self._gen_file_entities(qvds, DatasetSubTypes.QLIK_QVD)
         yield from self._gen_file_entities(
