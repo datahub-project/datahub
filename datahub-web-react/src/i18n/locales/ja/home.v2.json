@@ -58,7 +58,7 @@
     "navLinks.govern.description": "データアクセスと品質を管理します",
     "navLinks.govern.domains": "Domain",
     "navLinks.govern.domainsDescription": "関連するData Assetのグループを管理します",
-    "navLinks.govern.glossary": "Glossary Term",
+    "navLinks.govern.glossary": "用語集",
     "navLinks.govern.glossaryDescription": "業務用語集を表示・編集します",
     "navLinks.govern.structuredProperties": "Structured Property",
     "navLinks.govern.structuredPropertiesDescription": "Data Assetのカスタムプロパティを管理します",

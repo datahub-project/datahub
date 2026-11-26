@@ -41,7 +41,7 @@
     "embeddedSearch.viewLabel": "ビュー",
     "expandedActor.moreCount": "+ 他{{count}}件",
     "legacy.original": "元の値:",
-    "legacy.propagated": "伝播された値:",
+    "legacy.propagated": "引き継がれた値:",
     "legacy.propertiesTitle": "プロパティ",
     "legacy.value": "値",
     "links.addError": "リンクの追加に失敗しました: \n {{message}}",
