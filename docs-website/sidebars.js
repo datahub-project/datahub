@@ -1528,10 +1528,32 @@ module.exports = {
         id: "docs/cli",
       },
       items: [
+        {
+          type: "doc",
+          id: "docs/cli-commands/init",
+          label: "init and profiles",
+        },
+        { type: "doc", id: "docs/cli-commands/ingest", label: "ingest" },
+        { type: "doc", id: "docs/cli-commands/recipe", label: "recipe" },
+        {
+          type: "doc",
+          id: "docs/cli-commands/metadata",
+          label: "get, put, delete",
+        },
         { type: "doc", id: "docs/cli-commands/search", label: "search" },
         { type: "doc", id: "docs/cli-commands/graphql", label: "graphql" },
         { type: "doc", id: "docs/cli-commands/dataset", label: "dataset" },
+        { type: "doc", id: "docs/cli-commands/user", label: "user" },
+        { type: "doc", id: "docs/cli-commands/group", label: "group" },
+        {
+          type: "doc",
+          id: "docs/cli-commands/dataproduct",
+          label: "dataproduct",
+        },
         { type: "doc", id: "docs/cli-commands/datapack", label: "datapack" },
+        { type: "doc", id: "docs/cli-commands/check", label: "check" },
+        { type: "doc", id: "docs/cli-commands/migrate", label: "migrate" },
+        { type: "doc", id: "docs/cli-commands/plugins", label: "plugins" },
         {
           type: "doc",
           id: "docs/cli-commands/evals",

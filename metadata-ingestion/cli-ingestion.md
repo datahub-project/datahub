@@ -38,7 +38,7 @@ Check out the [CLI Installation Guide](../docs/cli.md#installation) for more ins
 ## Installing Connector Plugins
 
 Our CLI follows a plugin architecture. You must install connectors for different data sources individually.
-For a list of all supported data sources, see [the open source docs](../docs/cli.md#sources).
+For a list of all supported data sources, see [the open source docs](../docs/cli-commands/plugins.md#sources).
 Once you've found the connectors you care about, simply install them using `pip install`.
 For example, to install the `mysql` connector, you can run
 
@@ -216,7 +216,7 @@ Learn more about scheduling ingestion in the [Scheduling Ingestion Guide](/metad
 
 Please refer the following pages for advanced guides on CLI ingestion.
 
-- [Reference for `datahub ingest` command](../docs/cli.md#ingest)
+- [Reference for `datahub ingest` command](../docs/cli-commands/ingest.md)
 - [UI Ingestion Guide](../docs/ui-ingestion.md)
 
 :::tip Compatibility
