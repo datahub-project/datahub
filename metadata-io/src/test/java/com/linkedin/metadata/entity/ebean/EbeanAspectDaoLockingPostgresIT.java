@@ -15,7 +15,9 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.ebean.Transaction;
+import io.ebean.test.LoggedSql;
 import java.sql.Timestamp;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -307,6 +309,46 @@ public class EbeanAspectDaoLockingPostgresIT {
     // skipped with a warning rather than aborting the caller. Must not throw.
     advisoryDao.lockAspectsForWrite(
         opContext, Map.of("urn:li:corpuser:no_txn_" + shortId(), Set.of(STATUS_ASPECT_NAME)));
+  }
+
+  /**
+   * Regression: paging the Postgres FOR UPDATE by code point deadlocks with a smaller batch.
+   * en_US.UTF-8 orders urn:li:corpuser:a before urn:li:corpuser:B; code point order is the reverse.
+   * The lock stays one statement. max(version) is still paged.
+   */
+  @Test
+  public void getNextVersions_postgresLockIsOneOrderedStatement() {
+    EbeanAspectDao dao =
+        new EbeanAspectDao(
+            PrimaryStorageTestUtils.ebeanResolver(primaryDatabase),
+            EbeanConfiguration.builder().queryKeysCountForBatch(2).build(),
+            null,
+            List.of(),
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(primaryDatabase));
+    dao.setConnectionValidated(true);
+
+    Map<String, Set<String>> urns = new LinkedHashMap<>();
+    urns.put("urn:li:corpuser:a", Set.of(STATUS_ASPECT_NAME));
+    urns.put("urn:li:corpuser:B", Set.of(STATUS_ASPECT_NAME));
+    urns.put("urn:li:corpuser:c", Set.of(STATUS_ASPECT_NAME));
+
+    LoggedSql.start();
+    dao.getNextVersions(opContext, urns, true);
+    List<String> sql = LoggedSql.stop();
+
+    List<String> locks =
+        sql.stream().filter(line -> line.toLowerCase().contains("for update")).toList();
+    assertEquals(locks.size(), 1, "postgres must lock every key in one statement, got: " + sql);
+    String lock = locks.get(0).toLowerCase();
+    assertTrue(lock.contains("order by"), "postgres lock must ORDER BY, got: " + locks.get(0));
+    assertTrue(locks.get(0).contains("urn:li:corpuser:a"));
+    assertTrue(locks.get(0).contains("urn:li:corpuser:B"));
+    assertTrue(locks.get(0).contains("urn:li:corpuser:c"));
+
+    long maxReads = sql.stream().filter(line -> line.toLowerCase().contains("max(")).count();
+    assertEquals(maxReads, 2L, "max(version) stays paged at 2, got: " + sql);
   }
 
   private void saveAspect(String urn, String aspectName) {

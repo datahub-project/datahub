@@ -64,6 +64,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -2111,58 +2113,101 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                           })
                       .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
 
-          // forUpdate is required to avoid duplicate key violations (it is used as an indication
-          // that the max(version) was invalidated
-          if (canWrite && lockLatestForWrite && !optimisticLocking) {
-            // Acquire the version-0 row locks in canonical key order so concurrent writers never
-            // lock overlapping rows in opposite orders. The Java-side sort covers MySQL/InnoDB
-            // (which locks the primary-key IN-list in index order); on PostgreSQL a bare
-            // idIn(...).forUpdate() would lock in physical scan order, so the explicit ORDER BY is
-            // added to place a Sort below the LockRows node and force key-order lock acquisition.
-            Collections.sort(forUpdateKeys);
-            final Query<EbeanAspectV2> lockQuery =
-                server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).query();
-            if (isPostgres) {
-              lockQuery.orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH);
-            }
-            lockQuery.forUpdate().findList();
-          }
-
-          // Write path must read max(version) from primary to avoid stale replica counts after
-          // forUpdate.
-          Database versionDatabase = resolveGetNextVersionsDatabase(opContext, lockLatestForWrite);
-          Junction<EbeanAspectV2> queryJunction =
-              versionDatabase
-                  .find(EbeanAspectV2.class)
-                  .select("urn, aspect, max(version)")
-                  .where()
-                  .in("urn", urnAspects.keySet())
-                  .or();
-
-          ExpressionList<EbeanAspectV2> exp = null;
-          for (Map.Entry<String, Set<String>> entry : urnAspects.entrySet()) {
-            if (exp == null) {
-              exp =
-                  queryJunction
-                      .and()
-                      .eq("urn", entry.getKey())
-                      .in("aspect", entry.getValue())
-                      .endAnd();
-            } else {
-              exp = exp.and().eq("urn", entry.getKey()).in("aspect", entry.getValue()).endAnd();
-            }
-          }
-
-          if (exp == null) {
+          if (forUpdateKeys.isEmpty()) {
             return result;
           }
 
-          List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
+          forUpdateKeys.sort(EbeanAspectDao::compareLockKeyOrder);
+          int pageSize = queryKeysCount > 0 ? queryKeysCount : forUpdateKeys.size();
 
-          mergeNextVersionsFromDb(result, dbResults);
+          Database versionDatabase = resolveGetNextVersionsDatabase(opContext, lockLatestForWrite);
+
+          // FOR UPDATE avoids duplicate-key races. Optimistic locking skips it and uses CAS.
+          // Postgres locks in ORDER BY collation order, which is not code-point order, so a paged
+          // lock deadlocks against a smaller batch that locks the same keys in one statement.
+          // MySQL locks an IN list in primary-key order (utf8mb4_bin), which matches
+          // compareLockKeyOrder, and a single large IN drops the range plan.
+          boolean lockRows = canWrite && lockLatestForWrite && !optimisticLocking;
+          if (lockRows && isPostgres) {
+            final Query<EbeanAspectV2> lockQuery =
+                server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).query();
+            lockQuery.orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH);
+            lockQuery.forUpdate().findList();
+          }
+
+          for (int start = 0; start < forUpdateKeys.size(); start += pageSize) {
+            List<EbeanAspectV2.PrimaryKey> page =
+                forUpdateKeys.subList(start, Math.min(start + pageSize, forUpdateKeys.size()));
+
+            if (lockRows && !isPostgres) {
+              server.find(EbeanAspectV2.class).where().idIn(page).query().forUpdate().findList();
+            }
+
+            Map<String, Set<String>> pageUrnAspects = new LinkedHashMap<>();
+            for (EbeanAspectV2.PrimaryKey key : page) {
+              pageUrnAspects
+                  .computeIfAbsent(key.getUrn(), unused -> new LinkedHashSet<>())
+                  .add(key.getAspect());
+            }
+            mergeNextVersionsFromDb(result, queryMaxVersions(versionDatabase, pageUrnAspects));
+          }
 
           return result;
         });
+  }
+
+  private static int compareLockKeyOrder(EbeanAspectV2.PrimaryKey a, EbeanAspectV2.PrimaryKey b) {
+    int cmp = compareCodePoints(a.getUrn().stripTrailing(), b.getUrn().stripTrailing());
+    if (cmp != 0) {
+      return cmp;
+    }
+    cmp = compareCodePoints(a.getAspect().stripTrailing(), b.getAspect().stripTrailing());
+    if (cmp != 0) {
+      return cmp;
+    }
+    return Long.compare(a.getVersion(), b.getVersion());
+  }
+
+  private static int compareCodePoints(String a, String b) {
+    int ia = 0;
+    int ib = 0;
+    while (ia < a.length() && ib < b.length()) {
+      int ca = a.codePointAt(ia);
+      int cb = b.codePointAt(ib);
+      if (ca != cb) {
+        return Integer.compare(ca, cb);
+      }
+      ia += Character.charCount(ca);
+      ib += Character.charCount(cb);
+    }
+    return Integer.compare(a.length() - ia, b.length() - ib);
+  }
+
+  @Nonnull
+  private List<EbeanAspectV2.PrimaryKey> queryMaxVersions(
+      @Nonnull Database versionDatabase, @Nonnull Map<String, Set<String>> urnAspects) {
+    Junction<EbeanAspectV2> queryJunction =
+        versionDatabase
+            .find(EbeanAspectV2.class)
+            .select("urn, aspect, max(version)")
+            .where()
+            .in("urn", urnAspects.keySet())
+            .or();
+
+    ExpressionList<EbeanAspectV2> exp = null;
+    for (Map.Entry<String, Set<String>> entry : urnAspects.entrySet()) {
+      if (exp == null) {
+        exp = queryJunction.and().eq("urn", entry.getKey()).in("aspect", entry.getValue()).endAnd();
+      } else {
+        exp = exp.and().eq("urn", entry.getKey()).in("aspect", entry.getValue()).endAnd();
+      }
+    }
+
+    if (exp == null) {
+      return List.of();
+    }
+
+    return exp.endOr().findIds();
   }
 
   /**
