@@ -58,9 +58,9 @@ class StoreLineageMixin(OnPremQvdMixin):
         for index, store in enumerate(stores):
             if store.file.connection is None:
                 continue
-            match = self._file_storage(
-                store.file.connection, app.spaceId, store.file.path
-            )
+            # A STORE writes a QVD unless its format says otherwise.
+            qvd = index < len(parsed.qvd_stores)
+            match = self._file_storage(store.file.connection, app.spaceId, qvd)
             storage, detail = match.storage, match.detail
             if storage is None:
                 if is_data_files(store.file.connection):
@@ -75,7 +75,7 @@ class StoreLineageMixin(OnPremQvdMixin):
                     and info.file_platform == FilePlatform.WINDOWS_SHARE
                 )
                 on_mapped_share = self._on_mapped_share(
-                    store.file.connection, app.spaceId, store.file.path
+                    store.file.connection, app.spaceId, qvd
                 )
                 # A mapped share's other files are named so too.
                 listed_without_storage = on_mapped_share or (
@@ -94,6 +94,8 @@ class StoreLineageMixin(OnPremQvdMixin):
                 if unmapped_urn is not None:
                     file_urns[index] = unmapped_urn
                     unmapped_indexes.add(index)
+                    if qvd:
+                        self._unmapped_qvd_files.add(unmapped_urn)
                 continue
             catalogued = self._catalogued_as_qlik_dataset(storage, store.file.path)
             if catalogued is None:

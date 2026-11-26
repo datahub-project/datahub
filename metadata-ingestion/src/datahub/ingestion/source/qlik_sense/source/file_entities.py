@@ -198,7 +198,7 @@ class FileEntitiesMixin(StoreLineageMixin):
         qvds = {
             urn: path
             for urn, path in paths.items()
-            if path.lower().endswith(QVD_EXTENSION)
+            if urn in self._unmapped_qvd_files or path.lower().endswith(QVD_EXTENSION)
         }
         yield from self._gen_file_entities(qvds, DatasetSubTypes.QLIK_QVD)
         yield from self._gen_file_entities(

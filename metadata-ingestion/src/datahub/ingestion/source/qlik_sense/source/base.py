@@ -65,6 +65,8 @@ class QlikSourceBase:
     # Files on connections of unknown storage, by URN, as `lib://` paths,
     # and those that lineage links to, which get a dataset.
     _unmapped_files: Dict[str, str]
+    # Unmapped files stored as QVDs, by format, as their names need not say.
+    _unmapped_qvd_files: Set[str]
     # How load scripts spell each `lib://` path prefix, by its lowercase
     # key, and the paths it was built from.
     _script_spellings: Dict[str, Counter[str]]

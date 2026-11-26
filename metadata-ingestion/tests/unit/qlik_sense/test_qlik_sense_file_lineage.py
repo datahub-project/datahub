@@ -421,6 +421,54 @@ def test_other_files_on_a_mapped_share_keep_the_dataset_named_by_connection(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_read_as_a_qvd_on_a_mapped_share_takes_the_on_prem_dataset(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {
+            "Sales Space:Share": {
+                "storage_uri": SHARE,
+                "platform_instance": "qlik_onprem",
+            }
+        },
+        {},
+        script="Orders: LOAD * FROM [lib://Sales Space:Share/Orders/Orders.dat] (qvd);\n",
+    )
+
+    # The format, not the extension, makes it a QVD, as on-prem reads it.
+    assert source._file_source_resolution(
+        "app-1", _file_qri("local", SHARE, "Orders/Orders.dat")
+    ).urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,"
+        "qlik_onprem.//files.example.com/qlik/qvd/orders/orders.dat,PROD)"
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_mapped_share_is_no_candidate_for_a_file_on_other_storage(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {
+            "Sales Space:Share": {
+                "storage_uri": SHARE,
+                "platform_instance": "qlik_onprem",
+            },
+            "Lake": {"storage_uri": "abfss://lake@account.dfs.core.windows.net"},
+        },
+        {},
+        script="A: LOAD * FROM [lib://Sales Space:Share/x.csv] (txt);\n"
+        "B: LOAD * FROM [lib://Lake/x.csv] (txt);\n",
+    )
+
+    # The share can't hold a file on Azure Storage, so only the lake's is left.
+    assert (
+        source._file_source_resolution("app-1", _file_qri("adls", "lake", "x.csv")).urn
+        == "urn:li:dataset:(urn:li:dataPlatform:abs,lake/x.csv,PROD)"
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_visible_gateway_connection_without_a_mapping_is_named_by_its_connection(
     mock_api_cls: MagicMock,
 ) -> None:
@@ -2457,7 +2505,7 @@ def test_connection_is_found_regardless_of_case(
             },
         )
 
-    storage = source._file_storage("SALES SPACE:LAKE", "space-1").storage
+    storage = source._connection_storage("SALES SPACE:LAKE", "space-1").storage
 
     assert (storage.platform if storage else None) == expected
 
@@ -2575,7 +2623,7 @@ def test_bracketed_connection_finds_its_storage(
             },
         )
 
-    storage = source._file_storage(connection, "space-1").storage
+    storage = source._connection_storage(connection, "space-1").storage
 
     assert storage is not None and storage.platform == FilePlatform.ABS
 

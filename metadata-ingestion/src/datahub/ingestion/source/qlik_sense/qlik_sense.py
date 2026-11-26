@@ -99,6 +99,7 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
         self._reported_include_apps = set()
         self._resolved_file_qris = set()
         self._unmapped_files = {}
+        self._unmapped_qvd_files = set()
         self._script_spellings = {}
         self._script_spellings_built_from = None
         self._linked_unmapped_files = set()

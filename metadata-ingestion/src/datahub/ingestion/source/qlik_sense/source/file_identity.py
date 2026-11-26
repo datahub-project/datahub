@@ -117,6 +117,7 @@ class FileIdentityMixin(DashboardMixin):
                 FileReference(
                     connection=lib_path.group("connection"),
                     path=lib_path.group("path"),
+                    qvd=load.qvd,
                 )
                 for path in dict.fromkeys(candidates)
                 if (lib_path := LIB_PATH_RE.match(path))
@@ -155,28 +156,28 @@ class FileIdentityMixin(DashboardMixin):
         return FileSourceResolver(references)
 
     def _file_storage(
-        self, connection: str, space_id: str, path: Optional[str] = None
+        self, connection: str, space_id: str, qvd: bool
     ) -> FileStorageMatch:
         match = self._connection_storage(connection, space_id)
-        if path is not None and self._is_other_share_file(match.storage, path):
+        if self._is_other_share_file(match.storage, qvd):
             # Qlik Sense Enterprise only ingests the QVDs on a share, so another
             # file keeps the dataset named by its connection.
             return FileStorageMatch(storage=None, detail=None)
         return match
 
     @staticmethod
-    def _is_other_share_file(storage: Optional[FileStorage], path: str) -> bool:
+    def _is_other_share_file(storage: Optional[FileStorage], qvd: bool) -> bool:
         return (
             storage is not None
             and storage.platform == FilePlatform.WINDOWS_SHARE
-            and not path.lower().endswith(QVD_EXTENSION)
+            and not qvd
         )
 
-    def _on_mapped_share(self, connection: str, space_id: str, path: str) -> bool:
+    def _on_mapped_share(self, connection: str, space_id: str, qvd: bool) -> bool:
         """Whether the file is one of a mapped share's files other than its
         QVDs, which are named by connection and path without a report."""
         return self._is_other_share_file(
-            self._connection_storage(connection, space_id).storage, path
+            self._connection_storage(connection, space_id).storage, qvd
         )
 
     def _connection_storage(self, connection: str, space_id: str) -> FileStorageMatch:
@@ -340,15 +341,24 @@ class FileIdentityMixin(DashboardMixin):
         unmapped: Set[str] = set()
         unknown = False
         for reference in candidates.references:
-            match = self._file_storage(reference.connection, space_id, reference.path)
+            match = self._file_storage(reference.connection, space_id, reference.qvd)
             storage, detail = match.storage, match.detail
             if storage is None:
                 info = self._find_data_connection(reference.connection, space_id)
-                if is_data_files(reference.connection) or (
-                    info is not None and info.file_platform != candidates.platform
+                connection_storage = self._connection_storage(
+                    reference.connection, space_id
+                ).storage
+                if (
+                    is_data_files(reference.connection)
+                    or (info is not None and info.file_platform != candidates.platform)
+                    or (
+                        connection_storage is not None
+                        and connection_storage.platform != candidates.platform
+                    )
                 ):
-                    # DataFiles, listed or not, and a visible connection of
-                    # another kind can't hold a file on this storage.
+                    # DataFiles, listed or not, and a visible or mapped
+                    # connection of another kind can't hold a file on this
+                    # storage.
                     continue
                 unmapped_urn = self._unmapped_storage_file_urn(
                     reference.connection,
@@ -358,7 +368,7 @@ class FileIdentityMixin(DashboardMixin):
                     # SFTP, has no storage `file_connection_to_storage` maps.
                     report=candidates.platform is not None
                     and not self._on_mapped_share(
-                        reference.connection, space_id, reference.path
+                        reference.connection, space_id, reference.qvd
                     ),
                 )
                 if unmapped_urn is None:

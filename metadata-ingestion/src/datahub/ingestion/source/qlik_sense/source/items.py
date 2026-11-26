@@ -39,6 +39,7 @@ from datahub.ingestion.source.qlik_sense.source_models import (
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
     app_field_names,
+    is_stored_qvd,
     own_table_urns,
     read_errors_context,
 )
@@ -101,6 +102,8 @@ class ItemsMixin(OnPremBinaryMixin):
             if storage_file is None:
                 unmapped_stores[file_urn] = store
                 self._add_unmapped_file(file_urn, store.path)
+                if is_stored_qvd(store):
+                    self._unmapped_qvd_files.add(file_urn)
                 urns = self._unmapped_file_stores[file_urn].setdefault(app_id, [])
                 urns.extend(urn for urn in store.table_urns if urn not in urns)
                 continue
@@ -150,7 +153,7 @@ class ItemsMixin(OnPremBinaryMixin):
             return None
         # The recorded connection is space-qualified, so no app space applies.
         match = self._file_storage(
-            lib_path.group("connection"), "", lib_path.group("path")
+            lib_path.group("connection"), "", is_stored_qvd(store)
         )
         storage, detail = match.storage, match.detail
         if storage is None:
@@ -274,7 +277,9 @@ class ItemsMixin(OnPremBinaryMixin):
                 stored_file_urns=self._app_stored_files.get(app.id, []),
                 unmapped_file_stores={
                     file_urn: UnmappedFileStore(
-                        path=self._unmapped_files[file_urn], table_urns=stores[app.id]
+                        path=self._unmapped_files[file_urn],
+                        table_urns=stores[app.id],
+                        qvd=file_urn in self._unmapped_qvd_files,
                     )
                     for file_urn, stores in self._unmapped_file_stores.items()
                     if app.id in stores

@@ -5,6 +5,7 @@ from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.qlik_sense.app_state import UnmappedFileStore
 from datahub.ingestion.source.qlik_sense.constants import (
     ENTITY_CHECK_BATCH_SIZE,
     QLIK_APP_QRI_RE,
@@ -42,6 +43,13 @@ def get_ignoring_case(mapping: Mapping[str, MappingT], name: str) -> Optional[Ma
     # taken only when a single key matches it.
     matches = [key for key in mapping if key.lower() == name.lower()]
     return mapping[matches[0]] if len(matches) == 1 else None
+
+
+def is_stored_qvd(store: UnmappedFileStore) -> bool:
+    # Older state doesn't record the format, so the extension tells.
+    return (
+        store.path.lower().endswith(QVD_EXTENSION) if store.qvd is None else store.qvd
+    )
 
 
 def is_qvd_dataset(dataset: Union[QlikDataset, ListedDataset]) -> bool:
