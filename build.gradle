@@ -1213,6 +1213,22 @@ tasks.register('formatChanged') {
   dependsOn(':scripts:dev:lintFix')
 }
 
+// Agent-instruction files (AGENTS.md, CLAUDE.md, BUGBOT.md, skills, rules) are
+// formatted by mdPrettierCheck; this checks their line budgets and dead paths.
+tasks.register('agentDocsLint', Exec) {
+  group = 'verification'
+  description = 'Check agent-instruction files for line budgets and paths that no longer exist'
+  workingDir = projectDir
+  inputs.files(fileTree(projectDir) {
+    include '**/AGENTS.md', '**/CLAUDE.md', '**/BUGBOT.md', '**/SKILL.md'
+    include '.claude/**/*.md', '.cursor/rules/*.mdc', '.github/copilot-instructions.md'
+    exclude '**/node_modules/**', '**/venv/**', '**/build/**', '**/.gradle/**'
+  })
+  inputs.file('.github/scripts/check_agent_docs.py')
+  inputs.file('.github/scripts/check_agent_docs_baseline.txt')
+  commandLine 'python3', '.github/scripts/check_agent_docs.py'
+}
+
 tasks.register('lintCheck') {
   group = 'verification'
   description = 'Run all lint checks (Python, JS, GraphQL, markdown, Java)'
@@ -1232,6 +1248,7 @@ tasks.register('lintCheck') {
   dependsOn(':datahub-web-react:mdPrettierCheck')
   dependsOn(':datahub-web-react:githubActionsPrettierCheck')
   dependsOn(':datahub-web-react:docusaurusMarkdownLint')
+  dependsOn('agentDocsLint')
   dependsOn(':docs-website:yarnLint')
   dependsOn(spotlessCheckTasks)
 }

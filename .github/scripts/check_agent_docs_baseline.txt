@@ -1,0 +1,18 @@
+# Known findings tolerated by .github/scripts/check_agent_docs.py.
+# Format: <path>\t<budget|ref>\t<line count ceiling | dead token>.
+# Fix the finding and remove its line; never add new entries by hand.
+.agent-skills/test-review/SKILL.md	budget	287
+.agent-skills/test-review/SKILL.md	ref	smoke-test/tests/cypress
+.agent-skills/test-review/SKILL.md	ref	tests/cypress
+.cursor/BUGBOT.md	budget	319
+.cursor/rules/test-review.mdc	ref	tests/cypress
+AGENTS.md	budget	807
+datahub-web-react/AGENTS.md	ref	folderName/folderName.types.ts
+datahub-web-react/AGENTS.md	ref	folderName/folderName.utils.ts
+datahub-web-react/AGENTS.md	ref	parent/NewComponent.tsx
+datahub-web-react/AGENTS.md	ref	parent/NewComponent/NewComponent.tsx
+datahub-web-react/AGENTS.md	ref	parent/SourceFile.components.tsx
+docs/.cursor/BUGBOT.md	ref	docs/wip
+metadata-integration/java/acryl-spark-lineage/CLAUDE.md	budget	590
+metadata-integration/java/acryl-spark-lineage/CLAUDE.md	ref	yyyy/MM/dd
+smoke-test/.cursor/BUGBOT.md	ref	smoke-test/tests/read_only

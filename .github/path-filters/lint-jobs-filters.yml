@@ -3,7 +3,10 @@ lint-job:
   - ".github/path-filters/lint-jobs-filters.yml"
 markdown:
   - added|modified: "**/*.md"
+  - added|modified: ".cursor/rules/*.mdc"
   - ".github/scripts/check_docusaurus_markdown.py"
+  - ".github/scripts/check_agent_docs.py"
+  - ".github/scripts/check_agent_docs_baseline.txt"
   - "datahub-web-react/build.gradle"
 github-actions:
   - added|modified: ".github/**/*.yml"

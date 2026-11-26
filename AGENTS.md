@@ -281,8 +281,8 @@ Forgetting step 2 means the release note is published but never appears in the s
   - **Data Structures**: Prefer dataclasses/pydantic for internal data, return dataclasses over tuples
   - **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`, refactor repetitive code
   - **Error Handling**: Robust error handling with layers of protection for known failure points
-  - **Security**: Never pass credentials to third-party SDKs via `os.environ`. Use the SDK's programmatic injection mechanism (a settings object, client constructor argument, or credential provider). Writing secrets to the process environment exposes them via `/proc/<pid>/environ` and to any code in the same process. See [`looker_lib_wrapper.py`](metadata-ingestion/src/datahub/ingestion/source/looker/looker_lib_wrapper.py) (`_DataHubLookerApiSettings`) for the canonical pattern.
-  - **Connectors**: File layout, lineage, reporting, and PR-scope conventions for ingestion connectors live in `metadata-ingestion/AGENTS.md`
+  - **Security**: Never write secrets into the process environment to feed a third-party SDK; inject them programmatically. Rationale and the canonical pattern: `metadata-ingestion/src/datahub/ingestion/source/AGENTS.md`
+  - **Ingestion**: Module guide `metadata-ingestion/AGENTS.md`; connector conventions (layout, config, reporting, lineage, stale-entity safety, PR scope) in `metadata-ingestion/src/datahub/ingestion/source/AGENTS.md`
   - **Smoke tests**: Authoring conventions live in [`smoke-test/AGENTS.md`](smoke-test/AGENTS.md)
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
   - **Frontend**: Component conventions, theming/color tokens, file layout, and the frontend CI checklist live in `datahub-web-react/AGENTS.md`
@@ -322,7 +322,7 @@ connection_timeout = 30
 
 ### Testing Strategy
 
-- Python: Tests go in the `tests/` directory alongside `src/`, use `assert` statements
+- Python: Tests go in the `tests/` directory alongside `src/`, use `assert` statements. Ingestion test conventions: `metadata-ingestion/tests/AGENTS.md`
 - Java: Tests alongside source in `src/test/`
 - Frontend: Tests in `__tests__/` or `.test.tsx` files
 - Smoke tests go in the `smoke-test/` directory. How to write them: [`smoke-test/AGENTS.md`](smoke-test/AGENTS.md). How to run them: [`smoke-test/README.md`](smoke-test/README.md)
@@ -778,6 +778,27 @@ including test-data seeding via `test.use({ featureName: ... })`.
 ## Python Virtual Environments
 
 Gradle tasks manage all venvs automatically. Never create, activate, or pip-install into them manually. When running smoke tests outside Gradle: `smoke-test/venv/bin/python -m pytest ...`
+
+## Maintaining AGENTS.md files
+
+Root holds cross-project rules; module-specific rules live in the nearest `AGENTS.md`
+(nearest file wins). `CLAUDE.md` files are one-line `@AGENTS.md` shims.
+
+- While developing or reviewing a PR, when you make or receive an architectural or
+  strategic decision that is not derivable from the code (a pattern to follow, a trap, a
+  framework-over-connector call), ask the author or reviewer whether to persist it.
+  Persist it as a check (ruff rule, unit test, lint script) when possible; otherwise as
+  one bullet of at most two lines in the nearest `AGENTS.md`, linking the canonical code
+  example.
+- Remove a bullet when tooling now enforces it, or the code it points at is gone. A style
+  opinion the code does not agree on is not written down until the team decides.
+- One owner per fact: signpost root `AGENTS.md`, a module `developing.md` or a dev guide;
+  never copy. Budgets: 200 lines per `AGENTS.md`, 120 per `BUGBOT.md`. To add, cut.
+- Rules a reviewer should enforce get a mirrored "If ... then" entry in the module's
+  `.cursor/BUGBOT.md`.
+- `./gradlew agentDocsLint` (part of `lintCheck`) fails on an exceeded budget or a
+  backticked path or relative link that no longer exists. Known findings are tolerated via
+  `.github/scripts/check_agent_docs_baseline.txt`, which only shrinks.
 
 ## Important Notes
 

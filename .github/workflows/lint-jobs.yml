@@ -79,7 +79,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-
       - name: run markdown checks
-        run: ./gradlew :datahub-web-react:mdPrettierCheck :datahub-web-react:docusaurusMarkdownLint
+        run: ./gradlew :datahub-web-react:mdPrettierCheck :datahub-web-react:docusaurusMarkdownLint agentDocsLint
 
   github-actions-format:
     name: github_actions_format_check

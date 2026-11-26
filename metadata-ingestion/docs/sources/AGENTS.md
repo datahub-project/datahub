@@ -17,7 +17,7 @@ README.md                    → Platform-level Overview + Concept Mapping
 ## What to author
 
 Only edit `README.md`, `_pre.md`, `_post.md`, and `_recipe.yml`.
-Everything in `docs/generated/...` is generated at build time and will be overwritten.
+Everything under the generated docs tree is produced at build time and will be overwritten.
 
 | File                     | Purpose                                                  | Required? |
 | ------------------------ | -------------------------------------------------------- | --------- |
@@ -31,21 +31,24 @@ Everything in `docs/generated/...` is generated at build time and will be overwr
 - **Tone**: second-person ("you"), present tense, direct
 - **Terminology**: use shared vocabulary consistently
 
-### Required generated structure (CRITICAL)
+### Terminology
 
-Every generated platform page must follow this high-level order:
+| Preferred         | Avoid                                  |
+| ----------------- | -------------------------------------- |
+| ingestion recipe  | config file, pipeline config           |
+| source plugin     | connector plugin, integration          |
+| platform instance | source instance, deployment            |
+| credential        | secret, token (unless vendor-specific) |
 
-1. `# Platform Name` (auto-generated)
-2. Platform `README.md` content with:
-   - `## Overview`
-   - `## Concept Mapping`
-3. For each module:
-   - `## Module \`module-name\`` + badge (auto-generated)
-   - `### Important Capabilities` (auto-generated)
-   - PRE sections (authored in `_pre.md`)
-   - injected sections (`Install the Plugin`, `Starter Recipe`, `Config Details`)
-   - POST sections (authored in `_post.md`)
-   - `### Code Coordinates` (auto-generated)
+### Generated page structure
+
+The heading contract below is enforced by `validate_source_doc_headings` in
+`scripts/docgen.py`, which `tests/unit/test_source_doc_headings.py` runs over every
+authored file. The generated platform page reads: `# Platform Name`, the platform
+`README.md` (`## Overview`, `## Concept Mapping`), then per module the auto-generated
+`## Module` heading and `### Important Capabilities`, the `_pre.md` sections, the injected
+`Install the Plugin` / `Starter Recipe` / `Config Details`, the `_post.md` sections, and
+`### Code Coordinates`.
 
 ### Heading-level rules by file type
 
@@ -115,27 +118,12 @@ Examples:
 
 Do not introduce extra module-level `###` sections outside the canonical contract.
 
-| Preferred         | Avoid                                  |
-| ----------------- | -------------------------------------- |
-| ingestion recipe  | config file, pipeline config           |
-| source plugin     | connector plugin, integration          |
-| platform instance | source instance, deployment            |
-| credential        | secret, token (unless vendor-specific) |
-
 ## Snowflake as the canonical reference
 
 When in doubt, use `snowflake/README.md`, `snowflake_pre.md`, and `snowflake_recipe.yml` as references for structure, tone, and level of detail.
 
-## Formatting gate
+## Formatting
 
-All `.md` files must pass Prettier before merging. Run:
-
-```bash
-# Check
-./gradlew :datahub-web-react:mdPrettierCheck
-
-# Auto-fix
-./gradlew :datahub-web-react:mdPrettierWrite
-```
-
-Always run `mdPrettierWrite` before committing hand-authored files. The check runs in CI and will fail the build if formatting is off. Do not manually fix whitespace or list indentation — let Prettier handle it.
+Run `./gradlew :datahub-web-react:mdPrettierWrite` before committing; CI runs the matching
+check (root `AGENTS.md`, "Code Formatting and Linting"). Regenerate the site docs with
+`./gradlew :metadata-ingestion:docGen`.

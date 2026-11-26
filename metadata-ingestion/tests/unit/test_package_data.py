@@ -22,6 +22,8 @@ SRC_DIR = METADATA_INGESTION_DIR / "src"
 # Keys are POSIX paths relative to src/.
 NOT_SHIPPED: Dict[str, str] = {
     # Developer-facing docs, read on GitHub rather than at runtime.
+    "datahub/ingestion/source/AGENTS.md": "developer docs",
+    "datahub/ingestion/source/CLAUDE.md": "developer docs",
     "datahub/ingestion/recording/README.md": "developer docs",
     "datahub/ingestion/source/odcs/odcs_schema/README.md": "developer docs",
     "datahub/ingestion/source/rdf/README.md": "developer docs",

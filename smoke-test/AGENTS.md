@@ -170,11 +170,11 @@ finally:
 
 ## Other helpers
 
-- `tests/utils.py`: `execute_graphql`, `ingest_file_via_rest`,
+- `tests/e2e/utils.py`: `execute_graphql`, `ingest_file_via_rest`,
   `delete_urn` / `delete_urns` / `delete_urns_from_file`, `with_test_retry`,
   `wait_for_writes_to_sync`.
-- `tests/utilities/concurrent_test_runner.py`: thread-safe
+- `utilities/concurrent_test_runner.py`: thread-safe
   `run_concurrent_tests` / `run_concurrent_tests_with_args`.
-- `tests/utilities/concurrent_openapi.py`: `run_tests(auth_session, fixture_globs=...)`.
+- `utilities/concurrent_openapi.py`: `run_tests(auth_session, fixture_globs=...)`.
   JSON fixtures: `{request, response}` with DeepDiff `exclude_regex_paths`. Do
   not add OpenAPI fixtures that only re-check a GraphQL path already covered.
