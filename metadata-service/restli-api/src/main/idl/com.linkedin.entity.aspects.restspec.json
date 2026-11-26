@@ -14,7 +14,7 @@
     "methods" : [ {
       "method" : "get",
       "javaMethodName" : "get",
-      "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.\n TODO: Get rid of this and migrate to getAspect.",
+      "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.\nTODO: Get rid of this and migrate to getAspect.",
       "parameters" : [ {
         "name" : "aspect",
         "type" : "string",

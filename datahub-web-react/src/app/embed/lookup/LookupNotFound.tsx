@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 
 import useEmbedLookupAnalytics from '@app/embed/lookup/useEmbedAnalytics';
-import NonExistentEntityPage from '@app/entity/shared/entity/NonExistentEntityPage';
+import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
 
 const LookupNotFound = ({ url }: { url: string }) => {
     const { trackLookupNotFoundEvent } = useEmbedLookupAnalytics();

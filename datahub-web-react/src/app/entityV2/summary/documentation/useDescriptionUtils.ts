@@ -2,16 +2,17 @@ import i18next from 'i18next';
 import { useEffect, useState } from 'react';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
-import { GenericEntityUpdate } from '@app/entity/shared/types';
+import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { GenericEntityUpdate } from '@app/entityV2/shared/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { sanitizeRichText } from '@src/alchemy-components/components/Editor/utils';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 
 export function useDescriptionUtils() {
     const { entityData, entityType, urn } = useEntityData();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const mutationUrn = useMutationUrn();
     const refetch = useRefetch();
 
@@ -38,7 +39,7 @@ export function useDescriptionUtils() {
         return updateDescriptionMutation({
             variables: {
                 input: {
-                    description: updatedDescription,
+                    description: sanitizeRichText(updatedDescription),
                     resourceUrn: mutationUrn,
                 },
             },

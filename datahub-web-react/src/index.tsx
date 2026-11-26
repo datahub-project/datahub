@@ -1,10 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 
+import { installChunkReloadHandler } from '@app/sharedV2/chunkReload';
 import { App } from '@src/App';
 import '@src/i18n/i18n';
 import reportWebVitals from '@src/reportWebVitals';
 import '@utils/dayjs';
+
+installChunkReloadHandler();
 
 ReactDOM.render(
     <React.StrictMode>

@@ -12,7 +12,7 @@ extend type Dataset {
   """
   An optional Data Contract defined for the Dataset.
   """
-  contract: DataContract
+  contract: DataContract @noAspects
 }
 
 """
@@ -26,32 +26,35 @@ type DataContract implements Entity {
   """
   A primary key of the data contract
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard entity type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Properties describing the data contract
   """
   properties: DataContractProperties
+    @aspectMapping(aspects: ["dataContractProperties"])
 
   """
   The status of the data contract
   """
-  status: DataContractStatus
+  status: DataContractStatus @aspectMapping(aspects: ["dataContractStatus"])
 
   """
   Structured properties about this Data Contract
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 type DataContractProperties {

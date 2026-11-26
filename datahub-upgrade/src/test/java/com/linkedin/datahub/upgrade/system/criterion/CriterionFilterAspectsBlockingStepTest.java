@@ -19,6 +19,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.AuditStamp;
@@ -45,6 +46,10 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -78,6 +83,11 @@ public class CriterionFilterAspectsBlockingStepTest {
   private MockedStatic<EntityUtils> entityUtilsMock;
 
   @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @BeforeMethod
   public void setup() {
     entityService = mock(EntityService.class);
     aspectDao = mock(AspectDao.class);
@@ -91,6 +101,7 @@ public class CriterionFilterAspectsBlockingStepTest {
 
   @AfterMethod
   public void tearDown() {
+    UnknownDataHandlingsForTests.reset();
     if (entityUtilsMock != null) {
       entityUtilsMock.close();
       entityUtilsMock = null;
@@ -156,9 +167,16 @@ public class CriterionFilterAspectsBlockingStepTest {
   public void testExecutableEmptyStreamMarksSucceeded() {
     CriterionFilterAspectsBlockingStep step = buildStep();
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
@@ -184,15 +202,22 @@ public class CriterionFilterAspectsBlockingStepTest {
             /* batchDelayMs */ 0,
             /* limit */ 5000);
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     step.executable().apply(upgradeContext);
 
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     RestoreIndicesArgs args = argsCaptor.getValue();
     assertEquals(args.batchSize, 250);
     assertEquals(args.limit, 5000);
@@ -212,16 +237,23 @@ public class CriterionFilterAspectsBlockingStepTest {
             .setResult(new StringMap(Map.of(LAST_URN_KEY, resumeUrnStr)));
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(inProgress));
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     CriterionFilterAspectsBlockingStep step = buildStep();
     step.executable().apply(upgradeContext);
 
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     assertEquals(argsCaptor.getValue().lastUrn, resumeUrnStr);
     assertTrue(argsCaptor.getValue().urnBasedPagination);
   }
@@ -233,16 +265,23 @@ public class CriterionFilterAspectsBlockingStepTest {
         new DataHubUpgradeResult().setState(DataHubUpgradeState.IN_PROGRESS);
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(inProgress));
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     CriterionFilterAspectsBlockingStep step = buildStep();
     step.executable().apply(upgradeContext);
 
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     assertNull(argsCaptor.getValue().lastUrn);
     assertFalse(argsCaptor.getValue().urnBasedPagination);
   }
@@ -257,8 +296,13 @@ public class CriterionFilterAspectsBlockingStepTest {
     PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
     when(mockStream.partition(org.mockito.ArgumentMatchers.anyInt()))
         .thenReturn(Stream.of(Stream.of(ebeanAspect)));
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(mockStream);
+    when(aspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
 
@@ -303,8 +347,13 @@ public class CriterionFilterAspectsBlockingStepTest {
     PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
     when(mockStream.partition(org.mockito.ArgumentMatchers.anyInt()))
         .thenReturn(Stream.of(Stream.of(ebeanAspect)));
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(mockStream);
+    when(aspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
 
     CriterionFilterAspectsBlockingStep step =
@@ -386,6 +435,97 @@ public class CriterionFilterAspectsBlockingStepTest {
     assertEquals(result.getProperties().get(APP_SOURCE), SYSTEM_UPDATE_SOURCE);
     // The original input must not be mutated.
     assertNull(input.getProperties().get(APP_SOURCE));
+  }
+
+  @Test
+  public void testStoredReferenceFromNewerVersionNoLongerFailsTheBuild() {
+    // A stored reference to an entity type only a newer version knows is checked when the write
+    // is applied, which keeps it because it is stored; building the item no longer fails.
+    com.linkedin.common.Deprecation deprecation =
+        new com.linkedin.common.Deprecation()
+            .setDeprecated(true)
+            .setNote("moved")
+            .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"));
+
+    assertNotNull(
+        buildStep().toChangeItem(OP_CONTEXT, storedDeprecation(deprecation, new SystemMetadata())));
+  }
+
+  @Test
+  public void testStoredValueFailingValidationIsSkippedNotFatal() {
+    // A stored value this version can't validate (e.g. written by a newer version before a
+    // rollback) must not fail this blocking step; that row is left as it is.
+    Urn datasetUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,criterion.skip,PROD)");
+    com.linkedin.common.Deprecation deprecation =
+        new com.linkedin.common.Deprecation()
+            .setDeprecated(true)
+            .setNote("moved")
+            .setActor(UrnUtils.getUrn("urn:li:corpuser:x"));
+    // A value of a type this version's schema doesn't allow.
+    deprecation.data().put("decommissionTime", "not-a-timestamp");
+    SystemAspect stored = mock(SystemAspect.class);
+    when(stored.getUrn()).thenReturn(datasetUrn);
+    when(stored.getEntitySpec())
+        .thenReturn(OP_CONTEXT.getEntityRegistry().getEntitySpec("dataset"));
+    when(stored.getAspectName()).thenReturn("deprecation");
+    when(stored.getAspectSpec())
+        .thenReturn(
+            OP_CONTEXT.getEntityRegistry().getEntitySpec("dataset").getAspectSpec("deprecation"));
+    when(stored.getRecordTemplate()).thenReturn(deprecation);
+    when(stored.getAuditStamp()).thenReturn(AuditStampUtils.createDefaultAuditStamp());
+    when(stored.getSystemMetadata()).thenReturn(new SystemMetadata());
+    // Marked when the row was read, before the reference was stripped.
+    when(stored.isFromNewerVersion()).thenReturn(true);
+
+    assertNull(buildStep().toChangeItem(OP_CONTEXT, stored));
+  }
+
+  @Test
+  public void testStrictHandlingFailsOnStoredValueFromNewerVersion() {
+    // Without tolerance a stored value that fails validation fails the step, as before.
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    com.linkedin.common.Deprecation deprecation =
+        new com.linkedin.common.Deprecation()
+            .setDeprecated(true)
+            .setNote("moved")
+            .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"));
+    SystemAspect stored = storedDeprecation(deprecation, new SystemMetadata());
+
+    assertThrows(
+        com.linkedin.metadata.entity.validation.ValidationException.class,
+        () -> buildStep().toChangeItem(OP_CONTEXT, stored));
+  }
+
+  @Test
+  public void testStoredValueFailingValidationForOtherReasonsStillFails() {
+    // Only values a newer version wrote are skipped; other invalid data fails the step as before.
+    com.linkedin.common.Deprecation deprecation =
+        new com.linkedin.common.Deprecation().setDeprecated(true).setNote("moved");
+    deprecation.data().put("actor", "not-a-urn");
+    SystemAspect stored = storedDeprecation(deprecation, new SystemMetadata());
+
+    assertThrows(
+        com.linkedin.metadata.entity.validation.ValidationException.class,
+        () -> buildStep().toChangeItem(OP_CONTEXT, stored));
+  }
+
+  private static SystemAspect storedDeprecation(
+      com.linkedin.common.Deprecation deprecation, SystemMetadata systemMetadata) {
+    SystemAspect stored = mock(SystemAspect.class);
+    when(stored.getUrn())
+        .thenReturn(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,criterion.other,PROD)"));
+    when(stored.getEntitySpec())
+        .thenReturn(OP_CONTEXT.getEntityRegistry().getEntitySpec("dataset"));
+    when(stored.getAspectName()).thenReturn("deprecation");
+    when(stored.getAspectSpec())
+        .thenReturn(
+            OP_CONTEXT.getEntityRegistry().getEntitySpec("dataset").getAspectSpec("deprecation"));
+    when(stored.getRecordTemplate()).thenReturn(deprecation);
+    when(stored.getAuditStamp()).thenReturn(AuditStampUtils.createDefaultAuditStamp());
+    when(stored.getSystemMetadata()).thenReturn(systemMetadata);
+    return stored;
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────

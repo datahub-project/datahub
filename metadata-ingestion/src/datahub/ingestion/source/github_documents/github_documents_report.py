@@ -1,17 +1,17 @@
-"""Reporting for the github-documents ingestion source."""
+# Moved to datahub.ingestion.source.repository_documents.report; this module keeps
+# the old import path working for code built on github-documents.
+import warnings
 
-from dataclasses import dataclass
-
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalSourceReport,
+from datahub.ingestion.source.repository_documents.report import (
+    RepositoryDocumentsSourceReport as RepositoryDocumentsSourceReport,
 )
 
+warnings.warn(
+    "datahub.ingestion.source.github_documents.github_documents_report has moved to "
+    "datahub.ingestion.source.repository_documents.report. The old path will be "
+    "removed in a future release.",
+    FutureWarning,
+    stacklevel=2,
+)
 
-@dataclass
-class GitHubDocumentsSourceReport(StaleEntityRemovalSourceReport):
-    files_processed: int = 0
-    folders_processed: int = 0
-    files_skipped: int = 0
-    files_skipped_unchanged: int = 0
-    tree_truncated: bool = False
-    files_truncated_by_limit: bool = False
+GitHubDocumentsSourceReport = RepositoryDocumentsSourceReport

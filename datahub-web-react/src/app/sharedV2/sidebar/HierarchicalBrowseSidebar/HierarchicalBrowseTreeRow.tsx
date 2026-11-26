@@ -1,4 +1,4 @@
-import { Pill } from '@components';
+import { Pill, Tooltip } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
@@ -7,10 +7,11 @@ import styled, { useTheme } from 'styled-components';
 
 import { TREE_ROW_CARET_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import {
-    TreeRowCaretSlot,
     TreeRowContainer,
-    TreeRowExpandButton,
+    TreeRowCount,
+    TreeRowExpandZone,
     TreeRowIconSlot,
+    TreeRowLeadingExpand,
     TreeRowLeftContent,
     TreeRowRightContent,
     TreeRowTitle,
@@ -31,6 +32,25 @@ const TitleContent = styled.div`
     overflow: hidden;
 `;
 
+/** Title + optional meta stacked under it (document search / domain-group breadcrumbs). */
+const LabelStack = styled.div`
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+`;
+
+const BelowLabel = styled.div`
+    font-size: 12px;
+    line-height: 16px;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
+
 export type HierarchicalBrowseTreeRowProps = {
     level: number;
     isSelected: boolean;
@@ -42,14 +62,23 @@ export type HierarchicalBrowseTreeRowProps = {
     label: React.ReactNode;
     labelTitle?: string;
     afterLabel?: React.ReactNode;
+    /**
+     * Secondary line under the title (e.g. parent-document breadcrumb).
+     * Implies multiline row chrome so the icon aligns to the top of the stack.
+     */
+    belowLabel?: React.ReactNode;
     trailing?: React.ReactNode;
+    /** Documents use `hover`; Glossary / Domains keep `always`. */
+    countReveal?: 'always' | 'hover';
+    /** When true, label may stack title + meta (e.g. Help search hits with path and snippet). */
+    multilineLabel?: boolean;
     onSelect: () => void;
     onToggleExpand?: () => void;
     isLoadingChildren?: boolean;
     'data-testid'?: string;
+    /** `data-testid` on the leading expand button (rendered only for expandable rows). */
+    expandButtonTestId?: string;
     className?: string;
-    onMouseEnter?: () => void;
-    onMouseLeave?: () => void;
 };
 
 const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalBrowseTreeRowProps>(
@@ -65,95 +94,147 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
             label,
             labelTitle,
             afterLabel,
+            belowLabel,
             trailing,
+            countReveal = 'always',
             onSelect,
             onToggleExpand,
             isLoadingChildren = false,
+            multilineLabel = false,
             'data-testid': dataTestId,
+            expandButtonTestId,
             className,
-            onMouseEnter,
-            onMouseLeave,
         },
         ref,
     ) => {
         const { t: tc } = useTranslation('common.actions');
         const theme = useTheme();
+        const isMultiline = multilineLabel || belowLabel != null;
 
-        const { canExpand, showCount, showRightChrome, reserveCaretSlot } = getTreeRowChromeFlags({
+        const { canExpand, showCount } = getTreeRowChromeFlags({
             isCollapsed,
             hasChildren,
             isExpanded,
             count,
             hasToggle: onToggleExpand != null,
         });
+        const showRightChrome = !isCollapsed && (showCount || trailing != null);
 
-        const handleExpandClick = (e: React.MouseEvent) => {
+        // Single expand path for indent zone + caret button (stopPropagation so row select doesn't fire).
+        const handleExpand = (e: React.MouseEvent) => {
+            if (!canExpand) return;
             e.stopPropagation();
             onToggleExpand?.();
         };
 
-        const caretSlot = reserveCaretSlot ? (
-            <TreeRowCaretSlot>
-                {canExpand ? (
-                    <TreeRowExpandButton
-                        type="button"
-                        onClick={handleExpandClick}
-                        aria-expanded={isExpanded}
-                        aria-label={isExpanded ? tc('collapse') : tc('expand')}
-                    >
-                        {isExpanded ? (
-                            <CaretDown color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
-                        ) : (
-                            <CaretRight color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
-                        )}
-                    </TreeRowExpandButton>
-                ) : null}
-            </TreeRowCaretSlot>
-        ) : null;
-
-        const entityIcon = isLoadingChildren ? (
-            <TreeRowExpandButton type="button" onClick={handleExpandClick} aria-label={tc('expand')}>
-                {icon}
-            </TreeRowExpandButton>
+        const caret = isExpanded ? (
+            <CaretDown color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
         ) : (
-            icon
+            <CaretRight color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
         );
 
-        const titleBlock =
-            afterLabel != null ? (
+        // Loading: keep both CSS slots on the same glyph so hover swap doesn't thrash mid-fetch.
+        let leading: React.ReactNode = icon;
+        if (canExpand) {
+            const caretGlyph = isLoadingChildren ? icon : caret;
+            leading = (
+                <TreeRowLeadingExpand
+                    type="button"
+                    $isExpanded={isExpanded}
+                    onClick={handleExpand}
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? tc('collapse') : tc('expand')}
+                    data-testid={expandButtonTestId}
+                >
+                    <span className="tree-row-entity-icon">{icon}</span>
+                    <span className="tree-row-caret-icon">{caretGlyph}</span>
+                </TreeRowLeadingExpand>
+            );
+        }
+
+        // Native `title` on truncated text is unreliable (esp. nested flex); use Tooltip.
+        const titleEl = (
+            <TreeRowTitle $isSelected={isSelected} $multiline={isMultiline && belowLabel == null}>
+                {label}
+            </TreeRowTitle>
+        );
+        const titledLabel =
+            labelTitle != null && labelTitle !== '' ? (
+                <Tooltip
+                    title={labelTitle}
+                    placement="right"
+                    mouseEnterDelay={0.1}
+                    mouseLeaveDelay={0}
+                    showArrow={false}
+                >
+                    {titleEl}
+                </Tooltip>
+            ) : (
+                titleEl
+            );
+
+        let titleBlock: React.ReactNode = titledLabel;
+        if (belowLabel != null) {
+            titleBlock = (
+                <LabelStack>
+                    {afterLabel != null ? (
+                        <TitleContent>
+                            {titledLabel}
+                            {afterLabel}
+                        </TitleContent>
+                    ) : (
+                        titledLabel
+                    )}
+                    <BelowLabel title={typeof belowLabel === 'string' ? belowLabel : undefined}>
+                        {belowLabel}
+                    </BelowLabel>
+                </LabelStack>
+            );
+        } else if (afterLabel != null) {
+            titleBlock = (
                 <TitleContent>
-                    <TreeRowTitle $isSelected={isSelected} title={labelTitle}>
-                        {label}
-                    </TreeRowTitle>
+                    {titledLabel}
                     {afterLabel}
                 </TitleContent>
-            ) : (
-                <TreeRowTitle $isSelected={isSelected} title={labelTitle}>
-                    {label}
-                </TreeRowTitle>
             );
+        }
 
         return (
             <TreeRowContainer
                 ref={ref}
                 className={className}
                 data-testid={dataTestId}
-                $level={level}
                 $isSelected={isSelected}
                 $isCollapsed={isCollapsed}
+                $multilineLabel={isMultiline}
                 onClick={onSelect}
-                onMouseEnter={onMouseEnter}
-                onMouseLeave={onMouseLeave}
             >
-                <TreeRowLeftContent $isCollapsed={isCollapsed}>
-                    <TreeRowIconSlot $isCollapsed={isCollapsed}>{entityIcon}</TreeRowIconSlot>
+                <TreeRowLeftContent $isCollapsed={isCollapsed} $multilineLabel={isMultiline}>
+                    {isCollapsed ? (
+                        <TreeRowIconSlot $isCollapsed>{leading}</TreeRowIconSlot>
+                    ) : (
+                        <TreeRowExpandZone
+                            $level={level}
+                            $expandable={canExpand}
+                            $multilineLabel={isMultiline}
+                            onClick={handleExpand}
+                        >
+                            <TreeRowIconSlot>{leading}</TreeRowIconSlot>
+                        </TreeRowExpandZone>
+                    )}
                     {!isCollapsed && titleBlock}
                 </TreeRowLeftContent>
                 {showRightChrome && (
                     <TreeRowRightContent>
-                        {showCount && <Pill label={`${count}`} size="sm" />}
+                        {showCount &&
+                            (countReveal === 'hover' ? (
+                                <TreeRowCount>
+                                    <Pill label={`${count}`} size="sm" />
+                                </TreeRowCount>
+                            ) : (
+                                <Pill label={`${count}`} size="sm" />
+                            ))}
                         {trailing}
-                        {caretSlot}
                     </TreeRowRightContent>
                 )}
             </TreeRowContainer>

@@ -15,7 +15,7 @@
 import logging
 import os
 import warnings
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
@@ -196,14 +196,47 @@ class Pipeline:
             self._ack_event(enveloped_event, retval)
 
     def stop(self) -> None:
-        """
-        Stops a running action pipeline.
+        """Signal the worker to leave ``run()``. Does not close resources.
+
+        Closing the event log, source, or action here races the worker: a failed event
+        can no longer be recorded, and a Kafka consumer closed during startup is then
+        used by ``events()`` after ``running`` is set back to true. ``PipelineManager``
+        joins the worker and then calls ``close()``.
         """
         logger.debug(f"Preparing to stop Actions Pipeline with name {self.name}")
         self._shutdown = True
-        self._failed_events_fd.close()
-        self.source.close()
-        self.action.close()
+        self.source.request_stop()
+
+    def close(self) -> None:
+        """Close the event log, source, and action. Safe to call more than once.
+
+        Each resource is closed on its own. A failure does not skip the rest, and a
+        later call retries only the resources that did not finish.
+        """
+        self._shutdown = True
+        failures: List[Exception] = []
+        self._close_resource(
+            "_failed_events_closed", self._failed_events_fd.close, failures
+        )
+        self._close_resource("_source_closed", self.source.close, failures)
+        self._close_resource("_action_closed", self.action.close, failures)
+        if failures:
+            raise PipelineException(
+                f"Failed to close one or more resources for pipeline {self.name}"
+            ) from failures[0]
+
+    def _close_resource(
+        self, flag: str, closer: Callable[[], None], failures: List[Exception]
+    ) -> None:
+        if getattr(self, flag, False):
+            return
+        try:
+            closer()
+        except Exception as exc:
+            logger.exception("Failed to close %s for pipeline %s", flag, self.name)
+            failures.append(exc)
+        else:
+            setattr(self, flag, True)
 
     def stats(self) -> PipelineStats:
         """

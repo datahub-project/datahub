@@ -7,13 +7,12 @@ import { SelectOption as BuilderSelectOption } from '@app/sharedV2/queryBuilder/
 type Props = {
     options: BuilderSelectOption[];
     selected?: string[];
-    label?: string;
     mode?: 'multiple' | 'tags';
     placeholder?: string;
     onChangeSelected: (newSelectedIds: string[] | undefined) => void;
 };
 
-export default function SelectValueInput({ options, selected, label, mode, placeholder, onChangeSelected }: Props) {
+export default function SelectValueInput({ options, selected, mode, placeholder, onChangeSelected }: Props) {
     const { t } = useTranslation('shared.query-builder');
     const selectOptions: SelectOption[] = useMemo(() => {
         return options.map((option) => ({
@@ -24,8 +23,9 @@ export default function SelectValueInput({ options, selected, label, mode, place
 
     const isMultiSelect = mode === 'multiple';
 
-    const hasSelection = (selected?.length ?? 0) > 0;
-
+    // Render the chosen values as removable chips (the default variant) rather than the
+    // "labeled" variant's field-name-plus-count, since the property is already named in the
+    // picker column to the left and the user wants to see the selected values themselves.
     return (
         <Select
             values={selected}
@@ -33,14 +33,6 @@ export default function SelectValueInput({ options, selected, label, mode, place
             placeholder={placeholder || t('value.defaultPlaceholder')}
             options={selectOptions}
             isMultiSelect={isMultiSelect}
-            selectLabelProps={
-                hasSelection
-                    ? {
-                          variant: 'labeled',
-                          label: label ?? t('value.items'),
-                      }
-                    : undefined
-            }
             width="full"
             showClear
         />

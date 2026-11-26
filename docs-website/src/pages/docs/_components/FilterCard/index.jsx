@@ -19,7 +19,8 @@ const FilterCard = ({
   requestNativeUrl,
 }) => {
   function handleCardClick() {
-    window.gtag?.("event", "integration_card_click", {
+    window.dataLayer?.push({
+      event: "integration_card_click",
       integration_name: title,
       integration_path: to,
       connection_type: isApiConnector ? "api" : "native",
@@ -30,7 +31,8 @@ const FilterCard = ({
   function handleRequestNativeClick(e) {
     e.preventDefault();
     e.stopPropagation();
-    window.gtag?.("event", "native_connector_request", {
+    window.dataLayer?.push({
+      event: "native_connector_request",
       integration_name: title,
     });
     window.open(requestNativeUrl, "_blank", "noopener,noreferrer");
@@ -125,13 +127,13 @@ const FilterCard = ({
     );
   }
 
-  const supportStatus = filters?.["Support Status"] || "";
+  const supportStatus = (filters?.["Support Status"] || "").trim();
+  const supportTier = supportStatus.toLowerCase();
 
   function getSupportBadgeClass() {
-    const status = supportStatus.trim().toLowerCase();
-    if (status === "certified") return styles.badgeCertified;
-    if (status === "incubating") return styles.badgeIncubating;
-    if (status === "testing") return styles.badgeTesting;
+    if (supportTier === "ga") return styles.badgeGa;
+    if (supportTier === "beta") return styles.badgeBeta;
+    if (supportTier === "alpha") return styles.badgeAlpha;
     return "";
   }
 
@@ -144,8 +146,8 @@ const FilterCard = ({
       >
         {supportStatus && (
           <div className={clsx(styles.supportBadge, getSupportBadgeClass())}>
-            {supportStatus.trim() === "Certified" && "✓ "}
-            {supportStatus.trim()}
+            {supportTier === "ga" && "✓ "}
+            {supportStatus}
           </div>
         )}
         <div className={clsx("card__header", styles.featureHeader)}>

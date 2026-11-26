@@ -121,6 +121,58 @@ public class EntityGraphCacheConfigLoaderTest {
   }
 
   @Test
+  public void testBundledGlossaryAndContainerDeferInvalidationUntilVisible() {
+    EntityGraphCacheProperties effective = loader.loadEffective(springLikeBase());
+
+    for (String graphId : List.of("glossary", "container")) {
+      assertEquals(
+          effective.getGraphs().get(graphId).getInvalidation().getVisibility(),
+          EntityGraphCacheProperties.InvalidationVisibility.SUBMIT_BOUND);
+    }
+    assertEquals(effective.getGraphs().get("domain").getInvalidation(), null);
+  }
+
+  @Test
+  public void testJsonOverlayPatchesInvalidationVisibilityWithoutReplacingMargin() {
+    EntityGraphCacheProperties effective = loader.loadEffective(springLikeBase());
+    Integer margin = effective.getGraphs().get("glossary").getInvalidation().getMarginSeconds();
+
+    loader.applyJsonOverlay(
+        "{\"graphs\":{\"glossary\":{\"invalidation\":{\"visibility\":\"FLUSH_AWAIT\"}}}}",
+        effective,
+        "test");
+
+    loader.validate(effective);
+    assertEquals(
+        effective.getGraphs().get("glossary").getInvalidation().getVisibility(),
+        EntityGraphCacheProperties.InvalidationVisibility.FLUSH_AWAIT);
+    assertEquals(
+        effective.getGraphs().get("glossary").getInvalidation().getMarginSeconds(), margin);
+  }
+
+  @Test
+  public void testNegativeInvalidationMarginRejected() {
+    GraphDefinition graph = validPartialGraph();
+    graph.setInvalidation(
+        EntityGraphCacheProperties.GraphInvalidation.builder().marginSeconds(-1).build());
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> loader.validate(enabledConfigWithGraph("partialDomain", graph)));
+  }
+
+  @Test
+  public void testNonPositiveMaxWalkSecondsRejected() {
+    GraphDefinition graph = validPartialGraph();
+    graph.setInvalidation(
+        EntityGraphCacheProperties.GraphInvalidation.builder().maxWalkSeconds(0).build());
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> loader.validate(enabledConfigWithGraph("partialDomain", graph)));
+  }
+
+  @Test
   public void testReservedPartialGraphIdRejected() {
     EntityGraphCacheProperties config =
         enabledConfigWithGraph(
@@ -195,6 +247,110 @@ public class EntityGraphCacheConfigLoaderTest {
         Integer.valueOf(21000));
     assertEquals(
         effective.getGraphs().get("membership").getBounds().getMaxEdges(), Integer.valueOf(60000));
+  }
+
+  @Test
+  public void testJsonOverlayDomainBuildSourceGraphKeepsBindings() {
+    EntityGraphCacheProperties effective = loader.loadEffective(springLikeBase());
+    loader.applyJsonOverlay(
+        "{\"graphs\":{\"domain\":{\"buildSource\":\"graph\"}}}",
+        effective,
+        EntityGraphCacheConfigLoader.ENTITY_GRAPH_CACHE_CONFIG_JSON_ENV);
+
+    loader.validate(effective);
+    assertEquals(effective.getGraphs().get("domain").getBuildSource(), "graph");
+    assertEquals(effective.getGraphs().get("domain").isEnabled(), true);
+    assertEquals(
+        effective.getGraphs().get("domain").getBindings().getPolicyFieldTypes(), List.of("DOMAIN"));
+    assertEquals(
+        effective.getGraphs().get("domain").getBindings().getFilterFields(),
+        List.of("domains.keyword"));
+  }
+
+  @Test
+  public void testJsonOverlayDomainBuildSourcePrimaryRejected() {
+    EntityGraphCacheProperties effective = loader.loadEffective(springLikeBase());
+    loader.applyJsonOverlay(
+        "{\"graphs\":{\"domain\":{\"buildSource\":\"primary\"}}}", effective, "test");
+
+    IllegalStateException ex =
+        org.testng.Assert.expectThrows(
+            IllegalStateException.class, () -> loader.validate(effective));
+    assertTrue(ex.getMessage().contains("FULL scope requires buildSource graph or search"));
+  }
+
+  @Test
+  public void testJsonOverlayDomainDisabledValidates() {
+    EntityGraphCacheProperties effective = loader.loadEffective(springLikeBase());
+    loader.applyJsonOverlay("{\"graphs\":{\"domain\":{\"enabled\":false}}}", effective, "test");
+
+    loader.validate(effective);
+    assertEquals(effective.getGraphs().get("domain").isEnabled(), false);
+  }
+
+  @Test
+  public void testJsonOverlayGraphEvictionLocalPreservesLimits() {
+    EntityGraphCacheProperties effective = loader.loadEffective(springLikeBase());
+    effective
+        .getGraphs()
+        .get("glossary")
+        .setEviction(
+            EntityGraphCacheProperties.GraphEviction.builder()
+                .local(
+                    LocalEviction.builder()
+                        .enabled(true)
+                        .maxViews(16)
+                        .maxEstimatedBytes(268435456L)
+                        .build())
+                .build());
+    loader.applyJsonOverlay(
+        "{\"graphs\":{\"glossary\":{\"eviction\":{\"local\":{\"enabled\":false}}}}}",
+        effective,
+        "test");
+
+    LocalEviction local = effective.getGraphs().get("glossary").getEviction().getLocal();
+    assertEquals(local.isEnabled(), false);
+    assertEquals(local.getMaxViews(), 16);
+    assertEquals(local.getMaxEstimatedBytes(), 268435456L);
+  }
+
+  @Test
+  public void testFilterFieldsOnGraphFullAccepted() {
+    EntityGraphCacheProperties config =
+        enabledConfigWithGraph("custom", graphWithFilterField("domains.keyword"));
+    config.getGraphs().get("custom").setBuildSource("graph");
+    loader.validate(config);
+  }
+
+  @Test
+  public void testPolicyFieldsOnGraphFullAccepted() {
+    EntityGraphCacheProperties config =
+        enabledConfigWithGraph("custom", graphWithPolicyField("DOMAIN"));
+    GraphDefinition graph = config.getGraphs().get("custom");
+    graph.setBuildSource("graph");
+    loader.validate(config);
+  }
+
+  @Test
+  public void testFilterFieldsOnGraphPartialRejected() {
+    EntityGraphCacheProperties config =
+        enabledConfigWithGraph("custom", graphWithFilterField("domains.keyword"));
+    GraphDefinition graph = config.getGraphs().get("custom");
+    graph.setBuildSource("graph");
+    graph.getScope().setMode(ScopeMode.PARTIAL);
+    graph.getScope().setMaxDepth(15);
+
+    IllegalStateException ex =
+        org.testng.Assert.expectThrows(IllegalStateException.class, () -> loader.validate(config));
+    assertTrue(ex.getMessage().contains("filterFields requires buildSource search or graph"));
+  }
+
+  @Test
+  public void testFilterFieldsOnSearchNullScopeDefaultsFull() {
+    EntityGraphCacheProperties config =
+        enabledConfigWithGraph("custom", graphWithFilterField("domains.keyword"));
+    config.getGraphs().get("custom").setScope(null);
+    loader.validate(config);
   }
 
   @Test
@@ -434,6 +590,40 @@ public class EntityGraphCacheConfigLoaderTest {
   }
 
   @Test
+  public void testStaleWhileRevalidateAcceptedForPartialLazy() {
+    EntityGraphCacheProperties config = enabledConfigWithGraph("container", validPartialGraph());
+    config
+        .getGraphs()
+        .get("container")
+        .getPopulation()
+        .setRebuildExecution(RebuildExecution.STALE_WHILE_REVALIDATE);
+
+    loader.validate(config);
+  }
+
+  @Test
+  public void testStaleWhileRevalidateRejectedForFullScope() {
+    EntityGraphCacheProperties config = enabledConfigWithGraph("container", validPartialGraph());
+    GraphDefinition graph = config.getGraphs().get("container");
+    graph.getScope().setMode(ScopeMode.FULL);
+    graph.getScope().setMaxDepth(0);
+    graph.setBuildSource("search");
+    graph.getPopulation().setRebuildExecution(RebuildExecution.STALE_WHILE_REVALIDATE);
+
+    assertThrows(IllegalStateException.class, () -> loader.validate(config));
+  }
+
+  @Test
+  public void testStaleWhileRevalidateRejectedForScheduled() {
+    EntityGraphCacheProperties config = enabledConfigWithGraph("container", validPartialGraph());
+    GraphDefinition graph = config.getGraphs().get("container");
+    graph.getPopulation().setStrategy(PopulationStrategy.SCHEDULED);
+    graph.getPopulation().setRebuildExecution(RebuildExecution.STALE_WHILE_REVALIDATE);
+
+    assertThrows(IllegalStateException.class, () -> loader.validate(config));
+  }
+
+  @Test
   public void testBackgroundRebuildRequiresLazyFullScope() {
     EntityGraphCacheProperties config = enabledConfigWithGraph("domain-bg", validPartialGraph());
     GraphDefinition graph = config.getGraphs().get("domain-bg");
@@ -458,6 +648,7 @@ public class EntityGraphCacheConfigLoaderTest {
     GraphDefinition graph = validPartialGraph();
     graph.setBuildSource("search");
     graph.getScope().setMode(ScopeMode.FULL);
+    graph.getScope().setMaxDepth(0);
     if (graph.getBindings().getPolicyFieldTypes() == null) {
       graph.getBindings().setPolicyFieldTypes(new ArrayList<>());
     }

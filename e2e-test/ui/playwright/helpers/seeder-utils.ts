@@ -11,11 +11,216 @@
  * needed.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import type { APIRequestContext } from '@playwright/test';
 import { gmsUrl } from '../utils/constants';
 import type { DataHubLogger } from '../utils/logger';
 
 export type Urn = string;
+
+// ── Waiting for seeded writes to settle ─────────────────────────────────────
+
+const LAG_ENDPOINTS = ['mcp', 'mcl', 'mcl-timeseries'] as const;
+
+/**
+ * Sum of committed-offset lag across the MCP, MCL and timeseries-MCL consumers,
+ * or null when the lag is unknown: an endpoint cannot be read (missing privilege,
+ * older GMS), or it answers without lag figures. GMS catches offset-read failures
+ * and still returns 200, with no consumer groups or no topics, or with a topic
+ * whose totalLag is missing, so none of those count as zero lag.
+ * Same endpoints and envelope as smoke-test/utilities/consistency_utils.py.
+ */
+export async function totalConsumerLag(api: APIRequestContext, gmsBaseUrl: string): Promise<number | null> {
+  let total = 0;
+  for (const endpoint of LAG_ENDPOINTS) {
+    const resp = await api
+      .get(`${gmsBaseUrl}/openapi/operations/messaging/${endpoint}/consumer/lag?skipCache=true`, {
+        failOnStatusCode: false,
+        timeout: 5_000,
+      })
+      .catch(() => null);
+    if (!resp?.ok()) return null;
+    const body = (await resp.json().catch(() => null)) as {
+      consumerGroups?: Record<string, Record<string, { metrics?: { totalLag?: number | null } | null }>>;
+    } | null;
+    const groups = Object.values(body?.consumerGroups ?? {});
+    if (groups.length === 0) return null;
+    for (const topics of groups) {
+      const infos = Object.values(topics ?? {});
+      if (infos.length === 0) return null;
+      for (const info of infos) {
+        const lag = info?.metrics?.totalLag;
+        if (typeof lag !== 'number') return null;
+        total += lag;
+      }
+    }
+  }
+  return total;
+}
+
+/**
+ * Wait until the writes just sent to GMS have been consumed by every hook.
+ *
+ * The search index writes and the other async MCL hooks (siblings, lineage features, …)
+ * run in the consumers, which consumer lag tracks. Zero must be read twice in a row: an
+ * MCP can be committed a moment before the MCL it produced shows up as lag.
+ *
+ * Zero lag means the bulk writes were acknowledged, not that they are searchable: the
+ * index refresh (1s) can still be pending, so `refreshMs` is waited after lag settles.
+ *
+ * Falls back to the old fixed wait when lag cannot be read, e.g. on a deployed
+ * environment where the token lacks the system-status privilege.
+ */
+export async function waitForSeededWritesToSettle(
+  api: APIRequestContext,
+  gmsBaseUrl: string,
+  { minMs = 1_500, timeoutMs = 30_000, fallbackMs = 15_000, pollMs = 500, refreshMs = 1_500 } = {},
+): Promise<{ waitedMs: number; usedFallback: boolean; settled: boolean }> {
+  const start = Date.now();
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+  await sleep(minMs);
+  let zeroReads = 0;
+  while (Date.now() - start < timeoutMs) {
+    const lag = await totalConsumerLag(api, gmsBaseUrl);
+    if (lag === null) {
+      await sleep(Math.max(0, fallbackMs - (Date.now() - start)));
+      return { waitedMs: Date.now() - start, usedFallback: true, settled: false };
+    }
+    zeroReads = lag === 0 ? zeroReads + 1 : 0;
+    if (zeroReads >= 2) {
+      await sleep(refreshMs);
+      return { waitedMs: Date.now() - start, usedFallback: false, settled: true };
+    }
+    await sleep(pollMs);
+  }
+  // Timed out with lag still present (other shards keep writing); seeding goes on, but the
+  // last acknowledged writes still need the index refresh before they are searchable.
+  await sleep(refreshMs);
+  return { waitedMs: Date.now() - start, usedFallback: false, settled: false };
+}
+
+// ── Cross-worker artifact locking ────────────────────────────────────────────
+
+/**
+ * Live holders refresh the lock mtime on this interval. Must be well below
+ * LOCK_STALE_MS so a healthy producer never looks crashed to followers.
+ */
+const LOCK_HEARTBEAT_MS = 10_000;
+/**
+ * If a lock file is older than this with its artifact still missing, its
+ * holder is assumed to have crashed (missed several heartbeats); another
+ * worker reclaims it rather than wedging the whole run.
+ */
+const LOCK_STALE_MS = 45_000;
+const LOCK_POLL_MS = 500;
+/** How long a follower will wait for another worker's artifact before giving up. */
+const LOCK_WAIT_TIMEOUT_MS = 180_000;
+
+function newLockToken(): string {
+  return `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Renew mtime while we hold the lock so slow-but-live producers aren't stolen. */
+function startLockHeartbeat(lockPath: string, token: string): NodeJS.Timeout {
+  const heartbeat = setInterval(() => {
+    try {
+      if (fs.readFileSync(lockPath, 'utf-8') !== token) return;
+      const now = new Date();
+      fs.utimesSync(lockPath, now, now);
+    } catch {
+      // Lock gone or raced — produce()'s finally will no-op the release.
+    }
+  }, LOCK_HEARTBEAT_MS);
+  heartbeat.unref();
+  return heartbeat;
+}
+
+/** Remove the lock only if we still own it — never delete a reclaimer's lock. */
+function releaseLockIfOwned(lockPath: string, token: string): void {
+  try {
+    if (fs.readFileSync(lockPath, 'utf-8') !== token) return;
+    fs.rmSync(lockPath, { force: true });
+  } catch {
+    // Already gone.
+  }
+}
+
+/**
+ * Atomically claims responsibility for producing `artifactPath` across
+ * concurrent worker processes sharing the same filesystem (workers_per_shard
+ * > 1, or fullyParallel scheduling two files/describe-blocks that share a
+ * seed routine onto different workers). `fs.existsSync` + later
+ * `fs.writeFileSync` is a check-then-act race: two callers can both observe
+ * "absent" before either has written, and both duplicate the work.
+ * `fs.openSync(lockPath, 'wx')` is atomic exclusive create -- exactly one
+ * caller can win it -- so only the winner produces the artifact while
+ * everyone else polls for it instead.
+ *
+ * Ownership is a token written into the lock file; the holder heartbeats
+ * mtime during `produce()` so LOCK_STALE_MS reclaim cannot steal a live
+ * producer, and `finally` only deletes the lock when the token still matches
+ * (so a finishing holder cannot clobber a reclaimer's lock).
+ */
+export async function withArtifactLock(artifactPath: string, produce: () => Promise<void>): Promise<void> {
+  if (fs.existsSync(artifactPath)) return;
+
+  const lockPath = `${artifactPath}.lock`;
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+  const deadline = Date.now() + LOCK_WAIT_TIMEOUT_MS;
+
+  for (;;) {
+    if (fs.existsSync(artifactPath)) return;
+
+    let fd: number | undefined;
+    try {
+      fd = fs.openSync(lockPath, 'wx');
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+    }
+
+    if (fd !== undefined) {
+      const token = newLockToken();
+      try {
+        fs.writeFileSync(fd, token);
+      } finally {
+        fs.closeSync(fd);
+      }
+      const heartbeat = startLockHeartbeat(lockPath, token);
+      try {
+        if (!fs.existsSync(artifactPath)) {
+          await produce();
+        }
+      } finally {
+        clearInterval(heartbeat);
+        releaseLockIfOwned(lockPath, token);
+      }
+      return;
+    }
+
+    if (Date.now() > deadline) {
+      throw new Error(`Timed out waiting for '${artifactPath}' to be produced by another worker (lock: ${lockPath})`);
+    }
+
+    try {
+      const age = Date.now() - fs.statSync(lockPath).mtimeMs;
+      if (age > LOCK_STALE_MS) fs.rmSync(lockPath, { force: true });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      // Lock file was removed between the acquisition attempt and stat/rm; re-poll.
+    }
+
+    await new Promise<void>((resolve) => setTimeout(resolve, LOCK_POLL_MS));
+  }
+}
+
+/** Write JSON atomically: readers never observe a partially-written file. */
+export function writeJsonAtomic(filePath: string, data: unknown): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tmpPath = `${filePath}.tmp-${process.pid}`;
+  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2));
+  fs.renameSync(tmpPath, filePath);
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

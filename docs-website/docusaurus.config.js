@@ -11,8 +11,13 @@ const EXTERNAL_LINK_ICON =
 // /features page EXCEPT 0.13.1, which has no features page in the archive and
 // so points to its version home instead.
 const ARCHIVED_VERSIONS = [
+  ["1.8.0", "1.8.0/features"],
+  ["1.7.0", "1.7.0/features"],
+  ["1.6.0", "1.6.0/features"],
   ["1.5.0", "1.5.0/features"],
+  ["1.4.0", "1.4.0/features"],
   ["1.3.0", "1.3.0/features"],
+  ["1.2.0", "1.2.0/features"],
   ["1.1.0", "1.1.0/features"],
   ["1.0.0", "1.0.0/features"],
   ["0.15.0", "0.15.0/features"],
@@ -123,9 +128,9 @@ module.exports = {
     //   },
     // }),
     announcementBar: {
-      id: "announcement-4",
+      id: "announcement-5",
       content:
-        '<div class="shimmer-banner"><span>Build with DataHub: The Agent Hackathon is live</span><a href="https://datahub.devpost.com/" target="_blank" class="button"><div>Learn More<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><span>CONTEXT 2026: All sessions available on demand</span><a href="https://datahub.com/context/" target="_blank" class="button"><div>Watch now<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
@@ -179,7 +184,7 @@ module.exports = {
           ],
         },
         {
-          href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
+          href: "https://datahub.com/slack",
           html: `
             <style>
               .slack-logo:hover {
@@ -233,7 +238,7 @@ module.exports = {
             },
             {
               label: "Blog",
-              href: "https://medium.com/datahub-project",
+              href: "https://datahub.com/blog/",
             },
             {
               label: "Town Halls",
@@ -251,6 +256,10 @@ module.exports = {
             {
               label: "Demo",
               to: "https://demo.datahub.com/",
+            },
+            {
+              label: "Product Tours",
+              href: "https://tours.datahub.com/?utm_source=oss-docs&utm_medium=oss-referral&utm_campaign=oss-product-tours&utm_content=docs-footer",
             },
             {
               label: "Free Trial",
@@ -305,7 +314,7 @@ module.exports = {
           lastVersion: "current",
           versions: {
             current: {
-              label: "1.6.0",
+              label: "1.9.0",
               banner: 'none',
             },
           },
@@ -335,8 +344,10 @@ module.exports = {
             '**/_*/**',
             '**/*.test.{js,jsx,ts,tsx}',
             '**/__tests__/**',
-            // Our additions
-            'metadata-ingestion/**/CLAUDE.md',
+            // Agent context files — not public docs (see generateDocsDir.ts filter_patterns)
+            '**/CLAUDE.md',
+            '**/CLAUDE.MD',
+            '**/AGENTS.md',
           ],
         },
         blog: {
@@ -363,9 +374,6 @@ module.exports = {
         googleTagManager: {
           containerId: 'GTM-5M8T9HNN',
         },
-        gtag: {
-          trackingID: "G-H5QDNJNMHY",
-        },
       },
     ],
   ],
@@ -387,12 +395,64 @@ module.exports = {
         },
         redirects: [
           {
+            from: '/docs/how/updating-datahub',
+            to: '/docs/how/breaking-changes',
+          },
+          {
             from: '/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor',
             to: '/docs/managed-datahub/remote-executor/about',
           },
           {
             from: '/docs/managed-datahub/observe/smart-assertions',
             to: '/docs/managed-datahub/observe/anomaly-detection',
+          },
+          {
+            from: '/docs/features/feature-guides/observe',
+            to: '/docs/managed-datahub/observe/overview',
+          },
+          {
+            from: '/docs/features/feature-guides/file-upload-download',
+            to: '/docs/features/feature-guides/asset-profiles',
+          },
+          {
+            from: '/docs/managed-datahub/observe/data-contract',
+            to: '/docs/managed-datahub/observe/assertions',
+          },
+          {
+            from: '/docs/api/tutorials/data-contracts',
+            to: '/docs/api/tutorials/assertions',
+          },
+          {
+            from: '/docs/posts',
+            to: '/docs/features/feature-guides/custom-home-page',
+          },
+          {
+            from: '/docs/managed-datahub/context/overview',
+            to: '/docs/managed-datahub/build-a-data-agent/overview',
+          },
+          {
+            from: '/docs/managed-datahub/context/configure-context-generation',
+            to: '/docs/features/feature-guides/context/context-generation',
+          },
+          {
+            from: '/docs/managed-datahub/context/review-context-proposals',
+            to: '/docs/managed-datahub/build-a-data-agent/generate-context',
+          },
+          {
+            from: '/docs/managed-datahub/context/activate-context',
+            to: '/docs/managed-datahub/build-a-data-agent/activate-context',
+          },
+          {
+            // The root README is no longer built into the docs site.
+            from: [
+              '/docs/introduction',
+              '/docs/next/introduction',
+              '/docs/0.13.0/introduction',
+              '/docs/0.12.1/introduction',
+              '/docs/0.11.0/introduction',
+              '/docs/0.10.5/introduction',
+            ],
+            to: '/docs/features',
           },
         ],
       },
@@ -405,8 +465,13 @@ module.exports = {
     function hotfixReleaseNoteRedirects() {
       const RELEASE_NOTES_BASE = '/docs/managed-datahub/release-notes';
       const HOTFIX_REDIRECTS = [
+        ['v_1_1_1',    'v_1_1_0',  'v111'],
+        ['v_1_1_2',    'v_1_1_0',  'v112'],
+        ['v_1_1_3',    'v_1_1_0',  'v113'],
+        ['v_1_1_4',    'v_1_1_0',  'v114'],
         ['v_1_0_1',    'v_1_0_0',  'v101'],
         ['v_1_0_2',    'v_1_0_0',  'v102'],
+        ['v_1_0_3',    'v_1_0_0',  'v103'],
         ['v_0_3_17_1', 'v_0_3_17', 'v03171'],
         ['v_0_3_17_2', 'v_0_3_17', 'v03172'],
         ['v_0_3_17_3', 'v_0_3_17', 'v03173'],
@@ -453,8 +518,8 @@ module.exports = {
             ('/' + parts.join('/')).replace(/\/+/g, '/');
           for (const [fromSlug, toSlug, anchor] of HOTFIX_REDIRECTS) {
             const fromPath = joinUrl(baseUrl, RELEASE_NOTES_BASE, fromSlug);
-            const toUrl =
-              joinUrl(baseUrl, RELEASE_NOTES_BASE, toSlug) + '/#' + anchor;
+            const toPath = joinUrl(baseUrl, RELEASE_NOTES_BASE, toSlug) + '/';
+            const toUrl = toPath + '#' + anchor;
             const filePath = path.join(outDir, fromPath, 'index.html');
             const html = `<!DOCTYPE html>
 <html lang="en">
@@ -467,7 +532,7 @@ module.exports = {
 </head>
 <body>
 <p><a href="${toUrl}">Click here if you are not redirected.</a></p>
-<script>window.location.replace(${JSON.stringify(toUrl)} + window.location.search);</script>
+<script>window.location.replace(${JSON.stringify(toPath)} + window.location.search + ${JSON.stringify('#' + anchor)});</script>
 </body>
 </html>
 `;

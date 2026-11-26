@@ -29,7 +29,6 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-**/cypress/node_modules
 
 
 # PyInstaller
@@ -112,6 +111,8 @@ celerybeat.pid
 env/
 venv/
 ENV/
+# The smoke job's env layer (--job smoke-test), not a virtualenv.
+!/env/
 env.bak/
 venv.bak/
 
@@ -134,7 +135,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 junit*
-tests/cypress/onboarding.json
 
 # Environment variables
 .env

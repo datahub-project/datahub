@@ -147,7 +147,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             return
 
         with self.report.new_stage(f"*: {USAGE_EXTRACTION_USAGE_AGGREGATION}"):
-            if self.report.edition == SnowflakeEdition.STANDARD.value:
+            if self.report.edition == SnowflakeEdition.STANDARD:
                 logger.info(
                     "Snowflake Account is Standard Edition. Usage and Operation History Feature is not supported."
                 )
@@ -367,7 +367,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             return sorted(
                 [
                     DatasetFieldUsageCounts(
-                        fieldPath=self.identifiers.snowflake_identifier(
+                        fieldPath=self.identifiers.snowflake_column_identifier(
                             field_count["col"]
                         ),
                         count=field_count["total"],

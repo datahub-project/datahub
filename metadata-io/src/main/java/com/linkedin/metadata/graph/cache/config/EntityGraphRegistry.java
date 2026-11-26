@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph.cache.config;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.GraphDefinition;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.GraphPopulation;
+import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.InvalidationVisibility;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.LocalEviction;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.PopulationStrategy;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.RebuildExecution;
@@ -151,6 +152,9 @@ public class EntityGraphRegistry {
                   graphConfig.getScroll() != null ? graphConfig.getScroll().getBatchSize() : 500)
               .localEviction(resolveLocalEviction(properties, graphConfig))
               .buildSource(buildSource)
+              .invalidationVisibility(resolveInvalidationVisibility(graphConfig))
+              .invalidationMarginSeconds(resolveInvalidationMarginSeconds(graphConfig))
+              .invalidationMaxWalkSeconds(resolveInvalidationMaxWalkSeconds(graphConfig))
               .enabled(true)
               .build();
 
@@ -161,9 +165,6 @@ public class EntityGraphRegistry {
     }
 
     if (properties.isEnabled()) {
-      if (byId.isEmpty()) {
-        errors.add("entity graph cache has no enabled graphs with resolvable edges");
-      }
       validateKnownGraphs(byId, errors);
       if (!errors.isEmpty()) {
         throw new IllegalStateException(
@@ -193,27 +194,33 @@ public class EntityGraphRegistry {
 
   private static void validateKnownGraphs(
       @Nonnull Map<String, EntityGraphDefinition> byId, @Nonnull List<String> errors) {
+    List<String> disabled = new ArrayList<>();
     for (KnownEntityGraph known : KnownEntityGraph.values()) {
       EntityGraphDefinition definition = byId.get(known.getConfigKey());
       if (definition == null) {
-        errors.add(
-            "required graph "
-                + known.getConfigKey()
-                + " ("
-                + known.name()
-                + ") is missing or disabled");
+        disabled.add(known.getConfigKey());
         continue;
       }
-      if (definition.getBuildSource() != known.getExpectedBuildSource()) {
+      GraphSnapshotSource actualSource = definition.getBuildSource();
+      if (!known.allowsBuildSource(actualSource)) {
         errors.add(
             "graph "
                 + known.getConfigKey()
                 + " ("
                 + known.name()
-                + ") requires buildSource "
-                + known.getExpectedBuildSource().name().toLowerCase(Locale.ROOT)
-                + " but was "
-                + definition.getBuildSource().name().toLowerCase(Locale.ROOT));
+                + ") does not allow buildSource "
+                + actualSource.name().toLowerCase(Locale.ROOT)
+                + " with scope.mode "
+                + known.getExpectedScope().name()
+                + " (allowed: "
+                + known.allowedBuildSourcesDescription()
+                + ")");
+      } else if (actualSource != known.getExpectedBuildSource()) {
+        log.warn(
+            "Known entity graph {} using buildSource {} (default {})",
+            known.getConfigKey(),
+            actualSource.name().toLowerCase(Locale.ROOT),
+            known.expectedBuildSourceYaml());
       }
       ScopeMode actualScope = definition.getScope().getMode();
       if (!matchesScopeRequirement(actualScope, known.getExpectedScope())) {
@@ -227,6 +234,9 @@ public class EntityGraphRegistry {
                 + " but was "
                 + actualScope.name());
       }
+    }
+    if (!disabled.isEmpty()) {
+      log.info("Known entity graphs disabled or omitted: {}", String.join(", ", disabled));
     }
   }
 
@@ -474,6 +484,32 @@ public class EntityGraphRegistry {
       return RebuildExecution.SYNC;
     }
     return population.getRebuildExecution();
+  }
+
+  @Nonnull
+  private static InvalidationVisibility resolveInvalidationVisibility(
+      @Nonnull GraphDefinition graphConfig) {
+    if (graphConfig.getInvalidation() == null
+        || graphConfig.getInvalidation().getVisibility() == null) {
+      return InvalidationVisibility.NONE;
+    }
+    return graphConfig.getInvalidation().getVisibility();
+  }
+
+  private static int resolveInvalidationMarginSeconds(@Nonnull GraphDefinition graphConfig) {
+    if (graphConfig.getInvalidation() == null
+        || graphConfig.getInvalidation().getMarginSeconds() == null) {
+      return 0;
+    }
+    return graphConfig.getInvalidation().getMarginSeconds();
+  }
+
+  private static int resolveInvalidationMaxWalkSeconds(@Nonnull GraphDefinition graphConfig) {
+    if (graphConfig.getInvalidation() == null
+        || graphConfig.getInvalidation().getMaxWalkSeconds() == null) {
+      return 0;
+    }
+    return graphConfig.getInvalidation().getMaxWalkSeconds();
   }
 
   private static int resolveMaxDepth(@Nonnull GraphDefinition graphConfig) {

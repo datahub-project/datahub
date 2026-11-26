@@ -10,6 +10,7 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { EntityDocumentationPage } from '../../pages/entity-documentation.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'mutations-v2' });
 
@@ -29,22 +30,29 @@ function getSampleUrl(path?: string): string {
 // Tests are serial because they mutate the same dataset's documentation/links.
 test.describe.configure({ mode: 'serial' });
 
-test.describe('edit documentation and link to dataset', () => {
+test.describe('edit documentation and link to dataset', { tag: [TestTag.P0] }, () => {
   let docPage: EntityDocumentationPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    // datasetSummaryPageV1 removes the standalone "Documentation" tab this suite exercises;
+    // editing now lives inside the Summary tab's About section (different component, different
+    // testids — entityV2/summary/documentation/AboutSection.tsx) instead. Pinning the flag off
+    // keeps this suite covering the legacy tab, which the flag still makes reachable. The default
+    // About-section flow for datasets is covered by
+    // entity-pages/summary-tab/v2-dataset-summary-about-section.spec.ts.
+    await apiMock.setFeatureFlags({ datasetSummaryPageV1: false });
     docPage = new EntityDocumentationPage(page, logger, logDir);
     await docPage.navigateToDatasetDocumentationTab(SAMPLE_DATASET_URN, SAMPLE_DATASET_NAME);
   });
 
-  test('should allow to edit the documentation', async ({ page }) => {
+  test('should allow to edit the documentation', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     // Documentation tab is already open from beforeEach — navigate directly to editing.
     await docPage.editDocumentation(SAMPLE_DOCUMENTATION);
     await expect(page.getByText(SAMPLE_DOCUMENTATION).first()).toBeVisible();
     await docPage.clearDocumentation();
   });
 
-  test('should validate add link form', async ({ page }) => {
+  test('should validate add link form', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await docPage.openAddLinkForm();
 
     // URL validation
@@ -61,7 +69,7 @@ test.describe('edit documentation and link to dataset', () => {
     await expect(page.getByText('A label is required.')).toBeVisible();
   });
 
-  test('should successfully add new link', async () => {
+  test('should successfully add new link', { tag: [DomainTag.Catalog] }, async () => {
     const sample = getSampleUrl('add-new-link');
 
     await docPage.addLink(sample, sample, false);
@@ -73,27 +81,30 @@ test.describe('edit documentation and link to dataset', () => {
     await docPage.removeLinkByUrl(sample);
   });
 
-  test('should successfully add new link with showing in asset preview', async ({ page }) => {
-    const sample = getSampleUrl('add-with-show-in-preview');
+  test(
+    'should successfully add new link with showing in asset preview',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      const sample = getSampleUrl('add-with-show-in-preview');
 
-    await docPage.addLink(sample, sample, true);
+      await docPage.addLink(sample, sample, true);
 
-    await docPage.expectLinkInDocumentationTab(sample);
-    await docPage.expectLinkInEntityHeader(sample);
-    await docPage.expectLinkNotInSidebar(sample);
+      await docPage.expectLinkInDocumentationTab(sample);
+      await docPage.expectLinkInEntityHeader(sample);
+      await docPage.expectLinkNotInSidebar(sample);
 
-    // Verify link is visible in entity header from the search page too
-    await page.goto(`/search?query=${SAMPLE_DATASET_NAME}`);
-    await page.waitForTimeout(3000);
-    await expect(page.getByText(SAMPLE_DATASET_NAME).first()).toBeVisible({ timeout: 30000 });
-    await docPage.expectLinkInEntityHeader(sample);
+      // Verify link is visible in entity header from the search page too
+      await page.goto(`/search?query=${SAMPLE_DATASET_NAME}`);
+      await expect(page.getByText(SAMPLE_DATASET_NAME).first()).toBeVisible({ timeout: 30000 });
+      await docPage.expectLinkInEntityHeader(sample);
 
-    // Return to documentation tab and remove the link
-    await docPage.navigateToDatasetDocumentationTab(SAMPLE_DATASET_URN, SAMPLE_DATASET_NAME);
-    await docPage.removeLinkByUrl(sample);
-  });
+      // Return to documentation tab and remove the link
+      await docPage.navigateToDatasetDocumentationTab(SAMPLE_DATASET_URN, SAMPLE_DATASET_NAME);
+      await docPage.removeLinkByUrl(sample);
+    },
+  );
 
-  test('should collapse links in the entity header', async () => {
+  test('should collapse links in the entity header', { tag: [DomainTag.Catalog] }, async () => {
     const sample1 = getSampleUrl('collapse1');
     const sample2 = getSampleUrl('collapse2');
     const sample3 = getSampleUrl('collapse3');
@@ -117,7 +128,7 @@ test.describe('edit documentation and link to dataset', () => {
     await docPage.removeLinkByUrl(sample3);
   });
 
-  test('should successfully update the link', async () => {
+  test('should successfully update the link', { tag: [DomainTag.Catalog] }, async () => {
     const sampleUrl = getSampleUrl('edit_link');
     const sampleEditedUrl = getSampleUrl('edit_link_edited');
 
@@ -143,7 +154,7 @@ test.describe('edit documentation and link to dataset', () => {
     await docPage.removeLinkByUrl(sampleEditedUrl);
   });
 
-  test('should successfully remove the link', async () => {
+  test('should successfully remove the link', { tag: [DomainTag.Catalog] }, async () => {
     const sampleUrl = getSampleUrl('remove_link');
 
     await docPage.addLink(sampleUrl, sampleUrl, true);

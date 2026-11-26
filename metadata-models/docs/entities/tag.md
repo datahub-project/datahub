@@ -102,10 +102,10 @@ Tags can be marked as deprecated through the `deprecation` aspect, signaling tha
 
 ### Querying Tag Information
 
-The standard REST APIs can be used to retrieve tag metadata and see which entities are tagged.
+The Python SDK can be used to retrieve tag metadata and see which entities are tagged.
 
 <details>
-<summary>REST API: Fetch tag entity information</summary>
+<summary>Python SDK: Fetch tag entity information</summary>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/tag_query_rest.py show_path_as_comment }}

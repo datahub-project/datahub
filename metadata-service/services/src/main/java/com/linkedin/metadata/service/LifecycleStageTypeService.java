@@ -152,10 +152,18 @@ public class LifecycleStageTypeService {
     }
 
     try {
-      // Search for all lifecycle stage type entities
+      // This lookup builds a default search filter. Template binding would stamp the
+      // structured-property catalog, and loading that catalog searches again and asks for this
+      // same filter.
       var searchResult =
           entityClient.search(
-              systemOpContext, LIFECYCLE_STAGE_TYPE_ENTITY_NAME, "", null, null, 0, 1000);
+              systemOpContext.withSkipTemplateExecution(true),
+              LIFECYCLE_STAGE_TYPE_ENTITY_NAME,
+              "",
+              null,
+              null,
+              0,
+              1000);
 
       if (searchResult == null || searchResult.getEntities().isEmpty()) {
         return Collections.emptyMap();

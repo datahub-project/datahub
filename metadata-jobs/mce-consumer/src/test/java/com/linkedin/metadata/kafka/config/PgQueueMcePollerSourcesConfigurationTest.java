@@ -44,6 +44,7 @@ public class PgQueueMcePollerSourcesConfigurationTest {
     configurationProvider = mock(ConfigurationProvider.class);
     MceConsumerConfiguration.PgQueuePoll poll = new MceConsumerConfiguration.PgQueuePoll();
     poll.setMetadataChangeProposalMaxBatch(50);
+    poll.setMetadataChangeProposalEmptyPollSleepMillis(5000L);
     poll.setBatchMetadataChangeProposalMaxBatch(100);
     MceConsumerConfiguration mceConsumer = new MceConsumerConfiguration();
     mceConsumer.setPgQueue(poll);
@@ -57,7 +58,7 @@ public class PgQueueMcePollerSourcesConfigurationTest {
     PostgresSqlSetupProperties properties = new PostgresSqlSetupProperties();
     PostgresSqlSetupProperties.PgQueue.ConsumerPoll consumerPoll =
         new PostgresSqlSetupProperties.PgQueue.ConsumerPoll();
-    consumerPoll.setEmptyPollSleepMillis(100L);
+    consumerPoll.setEmptyPollSleepMinMillis(1000L);
     consumerPoll.setMissingTopicSleepMillis(500L);
     consumerPoll.setErrorRecoverySleepMillis(1000L);
     properties.getPgQueue().setConsumerPoll(consumerPoll);

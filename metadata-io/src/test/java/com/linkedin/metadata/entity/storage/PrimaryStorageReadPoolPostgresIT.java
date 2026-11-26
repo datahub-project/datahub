@@ -16,6 +16,8 @@ import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
+import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -47,15 +49,25 @@ public class PrimaryStorageReadPoolPostgresIT {
   @BeforeClass
   public void init() throws SQLException {
     postgres = PostgresTestUtils.startPostgres();
+    PostgresTestUtils.IntegrationNamespace ns =
+        PostgresTestUtils.newIntegrationNamespace("readpool_it");
     primaryDatabase =
         PostgresTestUtils.createEbeanPrimaryDatabase(
-            postgres, PostgresTestUtils.uniqueServerName("readpool_it_primary"));
+            postgres, PostgresTestUtils.uniqueServerName("readpool_it_primary"), ns);
     readPoolDatabase =
         PostgresTestUtils.createEbeanReadPoolDatabase(
-            postgres, PostgresTestUtils.uniqueServerName("readpool_it_read"));
+            postgres, PostgresTestUtils.uniqueServerName("readpool_it_read"), ns);
 
     resolver = PrimaryStorageTestUtils.splitPoolEbeanResolver(primaryDatabase, readPoolDatabase);
-    aspectDao = new EbeanAspectDao(resolver, EbeanConfiguration.testDefault, null, List.of(), null);
+    aspectDao =
+        new EbeanAspectDao(
+            resolver,
+            EbeanConfiguration.testDefault,
+            null,
+            List.of(),
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(primaryDatabase));
     aspectDao.setConnectionValidated(true);
 
     opContext =

@@ -8,6 +8,7 @@ import io.datahubproject.iceberg.catalog.credentials.CredentialProvider;
 import io.datahubproject.iceberg.catalog.credentials.S3CredentialProvider;
 import java.util.Map;
 import java.util.Set;
+import org.apache.iceberg.exceptions.BadRequestException;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -80,6 +81,17 @@ public class CachingCredentialProviderTest {
     assertEquals(firstLoadCount, 1, "First call should load credentials");
     assertEquals(secondLoadCount, 2, "Different key should trigger new credential load");
     assertNotSame(firstResult, secondResult, "Different keys should get different credential maps");
+  }
+
+  @Test(expectedExceptions = BadRequestException.class)
+  public void testRuntimeExceptionUnwrapped() {
+    CredentialProvider backingProvider =
+        (key, creds) -> {
+          throw new BadRequestException("Warehouse credentials not configured");
+        };
+    CachingCredentialProvider provider = new CachingCredentialProvider(backingProvider);
+
+    provider.getCredentials(cacheKey, storageProviderCreds);
   }
 
   /**

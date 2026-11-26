@@ -19,13 +19,17 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PatchEntityInput;
 import com.linkedin.knowledge.DocumentInfo;
+import com.linkedin.metadata.authorization.ApiGroup;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -132,6 +136,20 @@ public class AuthorizationUtils {
         context.getOperationContext(), DELETE, List.of(entityUrn));
   }
 
+  /**
+   * Typed delete and update resolvers authorize a type-specific privilege and then act on the URN
+   * they were given, and the entity client does not authorize deletes. They must reject URNs of any
+   * other entity type, or the narrow privilege would authorize deleting arbitrary entities.
+   */
+  public static boolean isEntityType(@Nonnull Urn urn, @Nonnull String... entityTypes) {
+    for (String entityType : entityTypes) {
+      if (entityType.equals(urn.getEntityType())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public static boolean canManageUserCredentials(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
@@ -182,7 +200,32 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES);
   }
 
-  public static boolean canEditProperties(@Nonnull Urn targetUrn, @Nonnull QueryContext context) {
+  /**
+   * Structured-property value writes. Uses the shared privilege set, including the entity's update
+   * privileges, and evaluates the property URNs as sub-resources. An empty collection names no
+   * property, so it is not a wildcard and it is not a free pass: it takes the same check as {@link
+   * #canEditProperties}. The privilege flag passes the wildcard itself.
+   */
+  public static boolean canEditStructuredProperties(
+      @Nonnull Urn targetUrn,
+      @Nonnull QueryContext context,
+      @Nonnull Collection<Urn> structuredPropertyUrns) {
+    if (structuredPropertyUrns.isEmpty()) {
+      return canEditProperties(targetUrn, context, structuredPropertyUrns);
+    }
+    return AuthUtil.isAuthorizedForStructuredPropertyModification(
+        context.getOperationContext(), targetUrn, structuredPropertyUrns, UPDATE);
+  }
+
+  /**
+   * Checks EDIT_ENTITY_PROPERTIES on the target, scoped to the structured properties being modified
+   * so per-property privilege constraints are enforced. Callers that are not modifying structured
+   * properties must pass an empty collection explicitly.
+   */
+  public static boolean canEditProperties(
+      @Nonnull Urn targetUrn,
+      @Nonnull QueryContext context,
+      @Nonnull Collection<Urn> structuredPropertyUrns) {
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -192,8 +235,27 @@ public class AuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
 
-    return AuthorizationUtils.isAuthorized(
-        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
+    return isAuthorizedForStructuredProperties(
+        context,
+        targetUrn.getEntityType(),
+        targetUrn.toString(),
+        orPrivilegeGroups,
+        structuredPropertyUrns);
+  }
+
+  private static boolean isAuthorizedForStructuredProperties(
+      @Nonnull QueryContext context,
+      @Nonnull String resourceType,
+      @Nonnull String resource,
+      @Nonnull DisjunctivePrivilegeGroup privilegeGroup,
+      @Nonnull Collection<Urn> structuredPropertyUrns) {
+    final EntitySpec resourceSpec = new EntitySpec(resourceType, resource);
+    final Set<EntitySpec> subResources =
+        structuredPropertyUrns.stream()
+            .map(propUrn -> new EntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME, propUrn.toString()))
+            .collect(Collectors.toSet());
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), privilegeGroup, resourceSpec, subResources);
   }
 
   public static boolean canEditEntityQueries(
@@ -204,11 +266,16 @@ public class AuthorizationUtils {
                 ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType()))));
-    return entityUrns.stream()
-        .allMatch(
-            entityUrn ->
-                isAuthorized(
-                    context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups));
+    // allMatch is vacuously true for an empty list.
+    return !entityUrns.isEmpty()
+        && entityUrns.stream()
+            .allMatch(
+                entityUrn ->
+                    isAuthorized(
+                        context,
+                        entityUrn.getEntityType(),
+                        entityUrn.toString(),
+                        orPrivilegeGroups));
   }
 
   public static boolean canCreateQuery(
@@ -217,14 +284,38 @@ public class AuthorizationUtils {
     return canEditEntityQueries(subjectUrns, context);
   }
 
+  /**
+   * @param newSubjectUrns the subjects the update sets, or null when it leaves them unchanged
+   */
   public static boolean canUpdateQuery(
-      @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
+      @Nonnull Urn queryUrn,
+      @Nonnull List<Urn> currentSubjectUrns,
+      @Nullable List<Urn> newSubjectUrns,
+      @Nonnull QueryContext context) {
+    final List<Urn> resultingSubjectUrns =
+        newSubjectUrns != null ? newSubjectUrns : currentSubjectUrns;
+    // A query left without subjects has no entity to authorize against, and only Delete Entity can
+    // remove it afterwards. Updates that leave it that way need the same privilege as deleting it.
+    if (resultingSubjectUrns.isEmpty()) {
+      return canDeleteEntity(queryUrn, context);
+    }
     // Currently - you only need permission to edit an entity's queries to update any query.
-    return canEditEntityQueries(subjectUrns, context);
+    final List<Urn> impactedSubjectUrns = new ArrayList<>(currentSubjectUrns);
+    if (newSubjectUrns != null) {
+      impactedSubjectUrns.addAll(newSubjectUrns);
+    }
+    return canEditEntityQueries(impactedSubjectUrns, context);
   }
 
   public static boolean canDeleteQuery(
       @Nonnull Urn entityUrn, @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
+    if (!isEntityType(entityUrn, QUERY_ENTITY_NAME)) {
+      return false;
+    }
+    // A query without subjects has no entity to authorize against.
+    if (subjectUrns.isEmpty()) {
+      return canDeleteEntity(entityUrn, context);
+    }
     // Currently - you only need permission to edit an entity's queries to remove any query.
     return canEditEntityQueries(subjectUrns, context);
   }
@@ -314,7 +405,7 @@ public class AuthorizationUtils {
                         || field.getType().isPrimitive()) {
                       try {
                         switch (field.getName()) {
-                            // pass through to the restricted entity
+                          // pass through to the restricted entity
                           case "name":
                           case "type":
                           case "urn":
@@ -337,7 +428,7 @@ public class AuthorizationUtils {
                                         "get" + StringUtils.capitalise(field.getName()));
                                 return Boolean.TRUE.equals(
                                     boolGetter.invoke(entity, (Object[]) null));
-                                // mask these fields in the restricted entity
+                              // mask these fields in the restricted entity
                               case "char":
                               case "String":
                                 return "";
@@ -488,31 +579,57 @@ public class AuthorizationUtils {
   }
 
   /**
-   * Checks authorization for patch operations
+   * Checks authorization for patch operations.
+   *
+   * <p>A patch of an entity that does not yet exist is a create: it is authorized with the entity
+   * type's API CREATE privileges. A patch of an existing entity, including a soft-deleted one, is
+   * an update. Edit Entity on the target is always sufficient. In addition, the entity type's own
+   * API privilege for that operation is accepted (for example Manage Policies for {@code
+   * dataHubPolicy}), so an actor granted a type-specific management privilege can patch that type
+   * without Edit Entity, the same way the dedicated GraphQL mutations for those types already
+   * allow.
+   *
+   * <p>The resource type used for policy matching is always taken from the URN, which is what the
+   * patch is applied to, never from the client-supplied {@code entityType}. Otherwise a grant
+   * scoped to one entity type could be matched against a URN of a different type by claiming the
+   * wrong type. A URN that cannot be parsed, or a client type that disagrees with the URN, is
+   * rejected.
    *
    * @param input Patch entity input
    * @param context Query context
+   * @param entityExists whether the URN already exists, including soft-deleted entities
    * @return true if authorized, false otherwise
    */
   public static boolean isAuthorizedForPatch(
-      @Nonnull PatchEntityInput input, @Nonnull QueryContext context) {
+      @Nonnull PatchEntityInput input, @Nonnull QueryContext context, boolean entityExists) {
 
-    // For patch operations, we need EDIT_ENTITY_PRIVILEGE
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
-
-    // Use entity type from URN if not provided in input
-    String entityType = input.getEntityType();
-    if (entityType == null && input.getUrn() != null) {
+    String entityType = null;
+    if (input.getUrn() != null) {
       try {
         entityType = UrnUtils.getUrn(input.getUrn()).getEntityType();
       } catch (Exception e) {
         log.warn("Failed to extract entity type from URN: {}", input.getUrn(), e);
       }
     }
+    if (entityType == null) {
+      return false;
+    }
+    if (input.getEntityType() != null && !entityType.equals(input.getEntityType())) {
+      log.warn(
+          "Rejecting patch: entityType {} does not match URN entity type {} for {}",
+          input.getEntityType(),
+          entityType,
+          input.getUrn());
+      return false;
+    }
+
+    final ApiOperation operation = entityExists ? ApiOperation.UPDATE : ApiOperation.CREATE;
+    final List<ConjunctivePrivilegeGroup> groups =
+        new ArrayList<>(
+            AuthUtil.buildDisjunctivePrivilegeGroup(ApiGroup.ENTITY, operation, entityType)
+                .getAuthorizedPrivilegeGroups());
+    groups.add(ALL_PRIVILEGES_GROUP);
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(groups);
 
     return isAuthorized(context, entityType, input.getUrn(), orPrivilegeGroups);
   }
@@ -534,26 +651,40 @@ public class AuthorizationUtils {
 
   public static boolean isViewDatasetUsageAuthorized(
       final QueryContext context, final Urn resourceUrn) {
-    return AuthUtil.isAuthorized(
-        context.getOperationContext(),
-        PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
-        new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+    String aspectName =
+        DASHBOARD_ENTITY_NAME.equals(resourceUrn.getEntityType())
+            ? DASHBOARD_USAGE_STATISTICS_ASPECT_NAME
+            : DATASET_USAGE_STATISTICS_ASPECT_NAME;
+    return TimeseriesAuthUtil.canViewAspect(
+        context.getOperationContext(), resourceUrn, resourceUrn.getEntityType(), aspectName);
   }
 
   public static boolean isViewDatasetProfileAuthorized(
       final QueryContext context, final Urn resourceUrn) {
-    return AuthUtil.isAuthorized(
+    return TimeseriesAuthUtil.canViewAspect(
         context.getOperationContext(),
-        PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE,
-        new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+        resourceUrn,
+        resourceUrn.getEntityType(),
+        DATASET_PROFILE_ASPECT_NAME);
   }
 
   public static boolean isViewDatasetOperationsAuthorized(
       final QueryContext context, final Urn resourceUrn) {
-    return AuthUtil.isAuthorized(
+    return TimeseriesAuthUtil.canViewAspect(
         context.getOperationContext(),
-        PoliciesConfig.VIEW_DATASET_OPERATIONS_PRIVILEGE,
-        new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+        resourceUrn,
+        resourceUrn.getEntityType(),
+        DATASET_OPERATION_ASPECT_NAME);
+  }
+
+  public static boolean canManageIngestion(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorizedEntityType(
+        context.getOperationContext(), MANAGE, List.of(INGESTION_SOURCE_ENTITY_NAME));
+  }
+
+  public static boolean canManageSecrets(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorizedEntityType(
+        context.getOperationContext(), MANAGE, List.of(SECRETS_ENTITY_NAME));
   }
 
   public static boolean canManageAssetSummary(@Nonnull QueryContext context, @Nonnull Urn urn) {

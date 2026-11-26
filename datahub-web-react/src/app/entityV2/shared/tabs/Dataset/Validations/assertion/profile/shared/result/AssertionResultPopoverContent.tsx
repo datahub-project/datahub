@@ -1,4 +1,6 @@
-import { ClockCircleOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { Divider, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +19,7 @@ import {
     getFormattedReasonText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 import { sortNativeResults } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { safeUrl } from '@app/shared/urlUtils';
+import { safeUrl } from '@utils/urlUtils';
 
 import { Assertion, AssertionResult, AssertionResultErrorType, AssertionResultType, AssertionRunEvent } from '@types';
 
@@ -90,9 +92,17 @@ const ExpectedText = styled.div``;
 
 const PlatformRow = styled.div``;
 
-const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
+const StyledClockCircleOutlined = styled(Clock)`
     margin-right: 4px;
     font-size: 12px;
+`;
+
+const PartitionRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ThinDivider = styled(Divider)`
@@ -196,6 +206,23 @@ const SeveritySection = ({ result }: { result?: AssertionResult }) => {
                 <SecondaryHeader>{t('resultPopover.severity')}</SecondaryHeader>
                 <ExpectedText>{severityDisplay.label}</ExpectedText>
             </ContextRow>
+        </>
+    );
+};
+
+const PartitionSection = ({ partition }: { partition?: string | null }) => {
+    const { t } = useTranslation('entity.profile.validations');
+    if (!partition) return null;
+
+    return (
+        <>
+            <ThinDivider />
+            <PartitionRow>
+                <Icon icon={TreeStructure} size="md" />
+                <span>
+                    <strong>{t('resultPopover.partition')}:</strong> {partition}
+                </span>
+            </PartitionRow>
         </>
     );
 };
@@ -342,6 +369,7 @@ export const AssertionResultPopoverContent = ({
                 showProfileButton={showProfileButton}
                 onClickProfileButton={onClickProfileButton}
             />
+            <PartitionSection partition={run?.partitionSpec?.partition} />
             {hasReason && <ReasonSection reasonText={reasonText} />}
             <SeveritySection result={result} />
             <ExpectedSection expectedText={expectedText} />

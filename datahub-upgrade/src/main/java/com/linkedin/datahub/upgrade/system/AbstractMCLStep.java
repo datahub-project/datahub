@@ -11,8 +11,6 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -91,7 +89,7 @@ public abstract class AbstractMCLStep implements UpgradeStep {
       }
 
       // re-using for configuring the sql scan
-      RestoreIndicesArgs args =
+      RestoreIndicesArgs argsBuilder =
           new RestoreIndicesArgs()
               .aspectName(getAspectName())
               .batchSize(batchSize)
@@ -100,85 +98,92 @@ public abstract class AbstractMCLStep implements UpgradeStep {
               .limit(limit);
 
       if (getUrnLike() != null) {
-        args = args.urnLike(getUrnLike());
+        argsBuilder = argsBuilder.urnLike(getUrnLike());
       }
+      // Bind to a final local so the streaming consumer lambda can capture it.
+      final RestoreIndicesArgs args = argsBuilder;
 
-      try (PartitionedStream<EbeanAspectV2> stream =
-          aspectDao.streamAspectBatches(context.opContext(), args)) {
-        stream
-            .partition(args.batchSize)
-            .forEach(
-                batch -> {
-                  log.info("Processing batch({}) of size {}.", getAspectName(), batchSize);
+      aspectDao.streamAspectBatches(
+          context.opContext(),
+          args,
+          stream -> {
+            stream
+                .partition(args.batchSize)
+                .forEach(
+                    batch -> {
+                      log.info("Processing batch({}) of size {}.", getAspectName(), batchSize);
 
-                  List<Pair<Future<?>, SystemAspect>> futures;
-                  futures =
-                      EntityUtils.toSystemAspectFromEbeanAspects(
-                              opContext,
-                              opContext.getRetrieverContext(),
-                              batch.collect(Collectors.toList()))
-                          .stream()
-                          .map(
-                              systemAspect -> {
-                                Pair<Future<?>, Boolean> future =
-                                    entityService.alwaysProduceMCLAsync(
-                                        opContext,
-                                        systemAspect.getUrn(),
-                                        systemAspect.getUrn().getEntityType(),
-                                        getAspectName(),
-                                        systemAspect.getAspectSpec(),
-                                        null,
-                                        systemAspect.getRecordTemplate(),
-                                        null,
-                                        systemAspect
-                                            .getSystemMetadata()
-                                            .setRunId(id())
-                                            .setLastObserved(System.currentTimeMillis()),
-                                        AuditStampUtils.createDefaultAuditStamp(),
-                                        ChangeType.UPSERT);
-                                return Pair.<Future<?>, SystemAspect>of(
-                                    future.getFirst(), systemAspect);
-                              })
-                          .toList();
+                      List<Pair<Future<?>, SystemAspect>> futures;
+                      futures =
+                          EntityUtils.toSystemAspectFromEbeanAspects(
+                                  opContext,
+                                  opContext.getRetrieverContext(),
+                                  batch.collect(Collectors.toList()))
+                              .stream()
+                              .map(
+                                  systemAspect -> {
+                                    Pair<Future<?>, Boolean> future =
+                                        entityService.alwaysProduceMCLAsync(
+                                            opContext,
+                                            systemAspect.getUrn(),
+                                            systemAspect.getUrn().getEntityType(),
+                                            getAspectName(),
+                                            systemAspect.getAspectSpec(),
+                                            null,
+                                            systemAspect.getRecordTemplate(),
+                                            null,
+                                            systemAspect
+                                                .getSystemMetadata()
+                                                .setRunId(id())
+                                                .setLastObserved(System.currentTimeMillis()),
+                                            AuditStampUtils.createDefaultAuditStamp(),
+                                            ChangeType.UPSERT);
+                                    return Pair.<Future<?>, SystemAspect>of(
+                                        future.getFirst(), systemAspect);
+                                  })
+                              .toList();
 
-                  SystemAspect lastAspect =
-                      futures.stream()
-                          .map(
-                              f -> {
-                                try {
-                                  f.getFirst().get();
-                                  return f.getSecond();
-                                } catch (InterruptedException | ExecutionException e) {
-                                  throw new RuntimeException(e);
-                                }
-                              })
-                          .reduce((a, b) -> b)
-                          .orElse(null);
+                      SystemAspect lastAspect =
+                          futures.stream()
+                              .map(
+                                  f -> {
+                                    try {
+                                      f.getFirst().get();
+                                      return f.getSecond();
+                                    } catch (InterruptedException | ExecutionException e) {
+                                      throw new RuntimeException(e);
+                                    }
+                                  })
+                              .reduce((a, b) -> b)
+                              .orElse(null);
 
-                  // record progress
-                  if (lastAspect != null) {
-                    log.info(
-                        "{}: Saving state. Last urn:{}", getUpgradeIdUrn(), lastAspect.getUrn());
-                    context
-                        .upgrade()
-                        .setUpgradeResult(
-                            opContext,
+                      // record progress
+                      if (lastAspect != null) {
+                        log.info(
+                            "{}: Saving state. Last urn:{}",
                             getUpgradeIdUrn(),
-                            entityService,
-                            DataHubUpgradeState.IN_PROGRESS,
-                            Map.of(LAST_URN_KEY, lastAspect.getUrn().toString()));
-                  }
+                            lastAspect.getUrn());
+                        context
+                            .upgrade()
+                            .setUpgradeResult(
+                                opContext,
+                                getUpgradeIdUrn(),
+                                entityService,
+                                DataHubUpgradeState.IN_PROGRESS,
+                                Map.of(LAST_URN_KEY, lastAspect.getUrn().toString()));
+                      }
 
-                  if (batchDelayMs > 0) {
-                    log.info("Sleeping for {} ms", batchDelayMs);
-                    try {
-                      Thread.sleep(batchDelayMs);
-                    } catch (InterruptedException e) {
-                      throw new RuntimeException(e);
-                    }
-                  }
-                });
-      }
+                      if (batchDelayMs > 0) {
+                        log.info("Sleeping for {} ms", batchDelayMs);
+                        try {
+                          Thread.sleep(batchDelayMs);
+                        } catch (InterruptedException e) {
+                          throw new RuntimeException(e);
+                        }
+                      }
+                    });
+            return null;
+          });
 
       BootstrapStep.setUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
       context.report().addLine("State updated: " + getUpgradeIdUrn());

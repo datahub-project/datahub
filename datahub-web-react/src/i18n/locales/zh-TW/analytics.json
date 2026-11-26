@@ -1,0 +1,11 @@
+{
+    "allDomains": "所有資料領域",
+    "dataLandscapeSummary": "資料全景摘要",
+    "domainLandscapeSummary": "資料領域全景摘要",
+    "failedToLoadCharts": "無法載入圖表",
+    "failedToLoadDomains": "無法載入資料領域",
+    "failedToLoadHighlights": "無法載入重點摘要",
+    "noDomainData": "此資料領域沒有分析資料",
+    "selectDomain": "選取資料領域",
+    "usageAnalytics": "使用情況分析"
+}

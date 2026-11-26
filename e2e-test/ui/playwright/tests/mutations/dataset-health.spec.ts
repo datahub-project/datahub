@@ -10,6 +10,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { DatasetHealthPage } from '../../pages/dataset-health.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'mutations' });
 
@@ -17,19 +18,19 @@ const URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PRO
 const DATASET_NAME = 'playwright_health_test';
 
 test.describe('dataset health test', () => {
-  test('go to dataset with failing assertions and active incidents and verify health of dataset', async ({
-    page,
-    logger,
-    logDir,
-  }) => {
-    const healthPage = new DatasetHealthPage(page, logger, logDir);
+  test(
+    'go to dataset with failing assertions and active incidents and verify health of dataset',
+    { tag: [TestTag.P0, DomainTag.Observe] },
+    async ({ page, logger, logDir }) => {
+      const healthPage = new DatasetHealthPage(page, logger, logDir);
 
-    logger.step('navigate to dataset', { urn: URN });
-    await healthPage.navigateToDataset(URN, DATASET_NAME);
+      logger.step('navigate to dataset', { urn: URN });
+      await healthPage.navigateToDataset(URN, DATASET_NAME);
 
-    logger.step('hover health icon to open popover');
-    await healthPage.hoverHealthIcon(URN);
-    await healthPage.expectHealthPopoverVisible();
-    await healthPage.expectHealthLinksPresent();
-  });
+      logger.step('hover health icon to open popover');
+      await healthPage.hoverHealthIcon(URN);
+      await healthPage.expectHealthPopoverVisible();
+      await healthPage.expectHealthLinksPresent();
+    },
+  );
 });

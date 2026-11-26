@@ -1,19 +1,20 @@
-import { spacing } from '@components';
-import { Form, FormInstance, message } from 'antd';
+import { LegacyForm as Form, LegacyFormInstance as FormInstance, spacing, toast } from '@components';
+import i18next from 'i18next';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
-import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
-import TestConnectionButton from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { RECIPE_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { MAX_FORM_WIDTH } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
 import { FormHeader } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FormHeader';
-import TestConnectionModal from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/TestConnection/TestConnectionModal';
+import { TestConnectionSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/TestConnection/TestConnectionSection';
 import { FormField } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/FormField';
-import { resolveDynamicOptions } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/utils';
+import {
+    resolveDynamicOptions,
+    writeShownFieldValues,
+} from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/utils';
 import { getValuesFromRecipe } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/utils';
 import { SettingsSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/SettingsSection';
 import { FiltersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/FiltersSection';
@@ -33,16 +34,11 @@ const FieldsContainer = styled(GapContainer)`
 `;
 const SectionsContainer = styled(GapContainer)``;
 
-const TestConnectionWrapper = styled.div`
-    display: flex;
-    justify-content: flex-start;
-`;
-
 function getInitialValues(displayRecipe: string, allFields: RecipeField[]) {
     try {
         return getValuesFromRecipe(displayRecipe, allFields);
     } catch (e) {
-        message.warn('Found invalid YAML. Please check your recipe configuration.');
+        toast.warning(i18next.t('ingestion.sourceBuilder:recipeForm.invalidYaml.error'));
         return {};
     }
 }
@@ -108,8 +104,6 @@ function RecipeForm({
         form.setFieldsValue(values);
     }, [allFields, displayRecipe, form]);
 
-    const { getConnectorsWithTestConnection: getConnectorsWithTestConnectionFromHook } = useCapabilitySummary();
-
     const updateRecipe = useCallback(
         (changedValues: any, allValues: any) => {
             let updatedValues = YAML.parse(displayRecipe);
@@ -134,11 +128,17 @@ function RecipeForm({
                     updatedValues = setFieldValueOnRecipe(updatedValues, null, recipeField.fieldPath);
                 }
             });
+            // `allFields` reflects visibility before this change, so fields it shows
+            // again were just cleared above; restore them from the form. `allValues`
+            // can't be used alone: a select change passes only its own value, and hidden
+            // fields are unmounted, so only the full store (`true`) still holds them.
+            const storedValues = { ...form.getFieldsValue(true), ...allValues };
+            updatedValues = writeShownFieldValues(updatedValues, allFields, changedValues, storedValues);
 
             const stagedRecipe = jsonToYaml(JSON.stringify(updatedValues));
             setStagedRecipe(stagedRecipe);
         },
-        [displayRecipe, allFields, setStagedRecipe],
+        [displayRecipe, allFields, setStagedRecipe, form],
     );
 
     const updateFormValues = useCallback(
@@ -169,20 +169,13 @@ function RecipeForm({
                     ))}
                 </FieldsContainer>
 
-                {getConnectorsWithTestConnectionFromHook().has(type as string) && (
-                    <TestConnectionWrapper>
-                        <TestConnectionButton
-                            recipe={displayRecipe}
-                            sourceConfigs={sourceConfigs}
-                            version={version}
-                            selectedSource={selectedSource}
-                            size="xs"
-                            textWeight="semiBold"
-                            renderModal={(props) => <TestConnectionModal {...props} />}
-                            hideIcon
-                        />
-                    </TestConnectionWrapper>
-                )}
+                <TestConnectionSection
+                    type={type}
+                    recipe={displayRecipe}
+                    sourceConfigs={sourceConfigs}
+                    version={version}
+                    selectedSource={selectedSource}
+                />
 
                 <FiltersSection fields={filterFields} updateRecipe={updateRecipe} recipe={displayRecipe} />
 

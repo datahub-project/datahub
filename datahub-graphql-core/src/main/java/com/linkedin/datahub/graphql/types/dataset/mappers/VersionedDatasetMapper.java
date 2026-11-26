@@ -36,6 +36,7 @@ import com.linkedin.dataset.ViewProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -88,7 +89,9 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
                     context, new SchemaMetadata(dataMap), schemaSystemMetadata, entityUrn)));
     mappingHelper.mapToResult(
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, this::mapEditableDatasetProperties);
-    mappingHelper.mapToResult(VIEW_PROPERTIES_ASPECT_NAME, this::mapViewProperties);
+    mappingHelper.mapToResult(
+        VIEW_PROPERTIES_ASPECT_NAME,
+        (entity, dataMap) -> mapViewProperties(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (dataset, dataMap) ->
@@ -179,16 +182,29 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
     dataset.setEditableProperties(editableProperties);
   }
 
-  private void mapViewProperties(@Nonnull VersionedDataset dataset, @Nonnull DataMap dataMap) {
+  /**
+   * {@code logic}/{@code formattedLogic} carry the view's SQL text, so they are withheld unless
+   * {@link EntityAspectAuthorizationUtils#canViewQueriesOnEntity} grants it — same enforcement as
+   * {@code DatasetMapper#mapViewProperties}; a {@code null} context is treated as unrestricted.
+   */
+  private void mapViewProperties(
+      @Nullable QueryContext context,
+      @Nonnull VersionedDataset dataset,
+      @Nonnull DataMap dataMap,
+      @Nonnull Urn entityUrn) {
     final ViewProperties properties = new ViewProperties(dataMap);
     final com.linkedin.datahub.graphql.generated.ViewProperties graphqlProperties =
         new com.linkedin.datahub.graphql.generated.ViewProperties();
     graphqlProperties.setMaterialized(properties.isMaterialized());
     graphqlProperties.setLanguage(properties.getViewLanguage());
-    graphqlProperties.setLogic(properties.getViewLogic());
-    // Keep parity with DatasetMapper so dbt compiled SQL (formattedViewLogic) is exposed.
-    if (properties.hasFormattedViewLogic()) {
-      graphqlProperties.setFormattedLogic(properties.getFormattedViewLogic());
+    if (context == null
+        || EntityAspectAuthorizationUtils.canViewQueriesOnEntity(
+            context.getOperationContext(), entityUrn)) {
+      // Keep parity with DatasetMapper so dbt compiled SQL (formattedViewLogic) is exposed.
+      graphqlProperties.setLogic(properties.getViewLogic());
+      if (properties.hasFormattedViewLogic()) {
+        graphqlProperties.setFormattedLogic(properties.getFormattedViewLogic());
+      }
     }
     dataset.setViewProperties(graphqlProperties);
   }

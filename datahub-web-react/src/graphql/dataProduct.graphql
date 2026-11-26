@@ -21,6 +21,19 @@ query getDataProduct($urn: String!) {
         settings {
             ...AssetSettingsFields
         }
+        # Search-backed, so soft-deleted children are left out, as in the server-side delete check.
+        childDataProducts(input: { count: 0, query: "*" }) {
+            total
+        }
+    }
+}
+
+query getDataProductChildrenCount($urn: String!) {
+    dataProduct(urn: $urn) {
+        urn
+        childDataProducts(input: { count: 0, query: "*" }) {
+            total
+        }
     }
 }
 
@@ -68,6 +81,20 @@ fragment dataProductSearchFields on DataProduct {
         createdOn {
             time
         }
+        parentDataProduct {
+            urn
+            type
+            properties {
+                name
+            }
+        }
+    }
+    parentDataProducts {
+        urn
+        type
+        properties {
+            name
+        }
     }
     ownership {
         ...ownershipFields
@@ -79,7 +106,10 @@ fragment dataProductSearchFields on DataProduct {
         ...glossaryTerms
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
+    }
+    applications {
+        ...entityApplication
     }
     deprecation {
         ...deprecationFields
@@ -90,6 +120,10 @@ fragment dataProductSearchFields on DataProduct {
     entities(input: { start: 0, count: 0, query: "*" }) {
         total
     }
+}
+
+mutation moveDataProduct($input: MoveDataProductInput!) {
+    moveDataProduct(input: $input)
 }
 
 mutation createDataProduct($input: CreateDataProductInput!) {

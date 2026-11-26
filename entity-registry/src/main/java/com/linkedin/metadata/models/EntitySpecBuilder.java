@@ -16,7 +16,7 @@ import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotationHandler;
 import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldCollectionAnnotation;
@@ -37,8 +37,7 @@ public class EntitySpecBuilder {
   private static final String ASPECTS_FIELD_NAME = "aspects";
   private static final String TIMESTAMP_FIELD_NAME = "timestampMillis";
 
-  public static SchemaAnnotationHandler _searchHandler =
-      new PegasusSchemaAnnotationHandlerImpl(SearchableAnnotation.ANNOTATION_NAME);
+  public static SchemaAnnotationHandler _searchHandler = new SearchableAnnotationHandler();
   public static SchemaAnnotationHandler _searchScoreHandler =
       new PegasusSchemaAnnotationHandlerImpl(SearchScoreAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _searchRefScoreHandler =
@@ -220,7 +219,7 @@ public class EntitySpecBuilder {
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
       @Nonnull final List<AspectSpec> aspectSpecs,
-      @Nonnull final String searchGroup) {
+      @Nullable final String searchGroup) {
     return buildConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup, false);
   }
 
@@ -228,9 +227,12 @@ public class EntitySpecBuilder {
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
       @Nonnull final List<AspectSpec> aspectSpecs,
-      @Nonnull final String searchGroup,
+      @Nullable final String searchGroup,
       final boolean viewUnrestricted) {
-    return new ConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup, viewUnrestricted);
+    EntitySpec entitySpec =
+        new ConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup, viewUnrestricted);
+    RelationshipEdgeUniquenessValidator.validate(entitySpec);
+    return entitySpec;
   }
 
   public EntitySpec buildPartialEntitySpec(
@@ -239,6 +241,7 @@ public class EntitySpecBuilder {
       @Nonnull final List<AspectSpec> aspectSpecs) {
     EntitySpec entitySpec =
         new PartialEntitySpec(aspectSpecs, new EntityAnnotation(entityName, keyAspectName));
+    RelationshipEdgeUniquenessValidator.validate(entitySpec);
     return entitySpec;
   }
 
@@ -411,6 +414,8 @@ public class EntitySpecBuilder {
       }
       aspectNames.add(aspectSpec.getName());
     }
+
+    RelationshipEdgeUniquenessValidator.validate(entitySpec);
 
     // Validate entity name
     if (_entityNames.contains(entitySpec.getName().toLowerCase())) {

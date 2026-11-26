@@ -20,7 +20,9 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 
 ```bash
 ./gradlew build           # Build entire project
-./gradlew check           # Run all tests and linting
+./gradlew check           # Run all tests (Python/JS lint lives in lint-jobs.yml / :module:lint)
+./gradlew lintCheck       # Run all lint checks (Python, JS, GraphQL, markdown, Java)
+./gradlew lintFix         # Auto-fix all lint issues
 ./gradlew format          # Format all code (Java, Markdown, GraphQL, YAML)
 
 # Note that each directory typically has a build.gradle file, but the available tasks follow similar conventions.
@@ -56,6 +58,8 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 **Format everything:**
 
 ```bash
+./gradlew lintCheck           # Run all lint checks (Python, JS, GraphQL, markdown, Java)
+./gradlew lintFix             # Auto-fix all lint issues
 ./gradlew format              # Format all code (Java, Markdown, GraphQL, YAML)
 ./gradlew formatChanged       # Format only changed files (faster)
 ```
@@ -89,7 +93,7 @@ If you see CI failures like:
 
 - `markdown_format / markdown_format_check (pull_request)` - Use `./gradlew :datahub-web-react:mdPrettierWrite`
 - `graphql_prettier_check` - Use `./gradlew :datahub-web-react:graphqlPrettierWrite`
-- `spotlessJavaCheck` - Use `./gradlew spotlessApply`
+- `spotless-check` - Use `./gradlew spotlessApply`
 - Python linting failures - Use `./gradlew :metadata-ingestion:lintFix`
 
 **Never do this:**
@@ -165,6 +169,42 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 - **Register as Spring beans** in `SpringStandardPluginConfiguration.java`
 - **Follow existing patterns**: See `SystemPolicyValidator.java` and `PolicyFieldTypeValidator.java` as examples
 
+### Authorization Architecture
+
+A metadata policy has three parts, and policies are OR'd. One matching policy grants the
+operation. See [Policies](docs/authorization/policies.md).
+
+- **Resource filter** (`resources.filter`): which assets. A tag or domain criterion selects assets
+  that have that tag or domain. It is not a list of sub-resources the actor may edit.
+- **Privilege**: the operation. An entity update is **Edit Entity**, or **Manage Documents** on
+  documents. **Edit Entity Properties** covers every structured property. **Edit Entity Tags**
+  covers tags. A column is authorized on the parent dataset or on the schema field itself with
+  **Edit Entity** or **Edit Dataset Column Properties**. Create uses **Create Entity** when the
+  asset does not exist yet. Delete uses **Delete Entity**.
+- **Sub-resource list** (`privilegeConstraints`): which tags or structured properties that policy
+  may change when the action names them. No list means the privilege applies in full. An action
+  that names no sub-resource is not filtered by the list. A list of tag URNs allows only those
+  tags. A list of property URNs allows only those properties. `TYPE` equals `structuredProperty`
+  matches every structured property. A second policy with no list still grants in full.
+
+The validator sees the real diff and is the precise check. The ingest gate and GraphQL resolvers
+are coarse: they accept the same privilege set and must not deny a write the validator would
+allow. For aspects that carry tags or structured properties they pass a wildcard sub-resource so a
+list is decided by the validator, and both pick create, update or delete with
+`AuthUtil.subResourceWriteOperation`. A form prompt checks that the answer matches the prompt. An
+assigned user can answer without the property privilege: the value is written as the system actor
+and the audit stamp stays the caller. A user who is not assigned is authorized as the caller.
+Authorization failures are authorization results (403), not validation errors.
+
+When adding an entity or API:
+
+- Enforce authorization across GraphQL, OpenAPI, and Rest.li
+- Keep basic entity CRUD permissions alongside any higher-level, entity-specific permissions
+- Use `AuthorizationUtils` for GraphQL and `AuthUtil.isAPIAuthorized*` for REST APIs
+- Put shared aspect rules in an `AbstractAspectAuthorizationValidator`
+- Apply view-based access controls by default; only set `viewUnrestricted: true` for intentionally public entities
+- Add allowed and denied access tests
+
 ## Development Flow
 
 1. **Schema changes** in `metadata-models/` trigger code generation across all languages
@@ -188,15 +228,8 @@ Or via Gradle directly: `./gradlew :docs-website:yarnStart` (always does a full 
 
 ### How the docs site is assembled
 
-The final site is served from `docs-website/genDocs/` (gitignored). It is assembled at build time
-from multiple hand-authored sources plus several generation steps:
-
-1. **Gradle generation tasks** produce `docs/generated/` (connector docs, entity reference, schemas)
-2. **`generateDocsDir.ts`** discovers all markdown in the repo, applies transformations (frontmatter,
-   link rewriting, `{{ inline }}` directives), and writes the result to `genDocs/`
-3. **Docusaurus** serves from `genDocs/`, additionally generating GraphQL API docs and Python SDK docs
-
-See `docs-website/AGENTS.md` for full pipeline details.
+The final site is assembled at build time into `docs-website/genDocs/` (gitignored) —
+see `docs-website/AGENTS.md` for the full pipeline.
 
 ### Where docs live
 
@@ -249,34 +282,10 @@ Forgetting step 2 means the release note is published but never appears in the s
   - **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`, refactor repetitive code
   - **Error Handling**: Robust error handling with layers of protection for known failure points
   - **Security**: Never pass credentials to third-party SDKs via `os.environ`. Use the SDK's programmatic injection mechanism (a settings object, client constructor argument, or credential provider). Writing secrets to the process environment exposes them via `/proc/<pid>/environ` and to any code in the same process. See [`looker_lib_wrapper.py`](metadata-ingestion/src/datahub/ingestion/source/looker/looker_lib_wrapper.py) (`_DataHubLookerApiSettings`) for the canonical pattern.
+  - **Connectors**: File layout, lineage, reporting, and PR-scope conventions for ingestion connectors live in `metadata-ingestion/AGENTS.md`
+  - **Smoke tests**: Authoring conventions live in [`smoke-test/AGENTS.md`](smoke-test/AGENTS.md)
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
-
-### Frontend Theming (Colors)
-
-**Always use semantic color tokens** from `datahub-web-react/src/conf/theme/colorThemes/types.ts`. Never use hardcoded hex values, `REDESIGN_COLORS`, `ANTD_GRAY`, or direct alchemy `colors.gray[X]` imports.
-
-**In styled-components** (no import needed — `theme` is available via props):
-
-```typescript
-background: ${(props) => props.theme.colors.bg};
-color: ${(props) => props.theme.colors.text};
-border: 1px solid ${(props) => props.theme.colors.border};
-```
-
-**In React component bodies:**
-
-```typescript
-import { useTheme } from 'styled-components';
-const theme = useTheme();
-<Icon color={theme.colors.icon} />
-```
-
-**For alchemy components** (`<Text>`, `<Icon>`, etc.) — do not pass `color`/`colorLevel` props. Let them inherit from themed parent styled-components.
-
-**Do not import from:**
-
-- `datahub-web-react/src/alchemy-components/theme/foundations/colors.ts` (raw palette, only used internally by the theme)
-- `REDESIGN_COLORS` or `ANTD_GRAY` from `entityV2/shared/constants.ts`
+  - **Frontend**: Component conventions, theming/color tokens, file layout, and the frontend CI checklist live in `datahub-web-react/AGENTS.md`
 
 ### Code Comments
 
@@ -316,7 +325,7 @@ connection_timeout = 30
 - Python: Tests go in the `tests/` directory alongside `src/`, use `assert` statements
 - Java: Tests alongside source in `src/test/`
 - Frontend: Tests in `__tests__/` or `.test.tsx` files
-- Smoke tests go in the `smoke-test/` directory
+- Smoke tests go in the `smoke-test/` directory. How to write them: [`smoke-test/AGENTS.md`](smoke-test/AGENTS.md). How to run them: [`smoke-test/README.md`](smoke-test/README.md)
 
 #### Testing Principles: Focus on Value Over Coverage
 
@@ -429,7 +438,7 @@ This is a mandatory security guardrail - never disable or skip this test.
 ### Commits
 
 - Follow Conventional Commits format for commit messages
-- Breaking Changes: Always update `docs/how/updating-datahub.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
+- Breaking Changes: Always update `docs/how/breaking-changes.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
 - **Never bypass git hook failures with `--no-verify`** (or any equivalent skip flag) on commit or push. A failing hook is a signal that something needs attention — stop, report the failure to the user, and confirm how to proceed. Only use `--no-verify` if the user explicitly tells you to for that specific action.
 
 ### Pull Requests
@@ -452,7 +461,7 @@ Example: `feat(parser): add ability to parse arrays`
 - [ ] Links to related issues (if applicable)
 - [ ] Tests added/updated (if applicable)
 - [ ] Docs added/updated (if applicable)
-- [ ] Breaking changes documented in `docs/how/updating-datahub.md`
+- [ ] Breaking changes documented in `docs/how/breaking-changes.md`
 
 ### Confidentiality in Committed Code
 
@@ -468,7 +477,6 @@ messages, or PRs:
   being tested, not the customer's actual identifiers.
 - Vendor/system built-ins (e.g. a platform's standard system tables) are fine,
   but prefer generic names when in doubt.
-- **Never bypass git hook failures with `--no-verify`** (or any equivalent skip flag) on commit or push. A failing hook is a signal that something needs attention — stop, report the failure to the user, and confirm how to proceed. Only use `--no-verify` if the user explicitly tells you to for that specific action.
 
 ## Starting / Operating DataHub
 
@@ -487,7 +495,64 @@ scripts/dev/datahub-dev.sh <command>
 
 Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `suspend`,
 `setup`, `frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`,
-`sync-flags`, `reset`, `nuke`, `instances list/clean`, `shell-env`).
+`sync-flags`, `reset`, `nuke`, `instances list/clean/repair`, `indices list/drop/prune`, `shell-env`).
+
+### Docker-free stack
+
+Run `scripts/dev/datahub-dev.sh start --local` with JDK 25 to launch GMS on H2,
+in-memory queues and a shared OpenSearch node. Select `--opensearch 2|3`; new stacks
+use `EMBEDDED_OPENSEARCH_VERSION` or `embeddedOpenSearchDefault` in root `gradle.properties`
+(currently 3). Restarts retain the recorded major; changing it requires `--fresh`.
+Unmarked legacy stacks retain 3. Each major uses `~/.datahub/local/opensearch-<major>/`;
+never use the unversioned `~/.datahub/local/opensearch/` directory. Status shows the
+major, and cleanup follows it. Use `--processes N` for isolated
+GMS instances, `--fresh` to reset this stack's data, `--auth` / `--no-auth` to enable
+or disable auth (omitting both keeps the recorded setting), and `--skip-build`
+to require existing artifacts (built jars are reused automatically).
+Vite serves the React UI with hot reload on `9002 + slot * 1000`, using lite mode
+without a Play server. Log in with `datahub` / `datahub`. `--no-frontend` skips Vite;
+restarts retain this choice. Status includes Vite, and stop/nuke stop its recorded process
+only after checking its command line. Data lives in `~/.datahub/local/stacks/<worktree-id>/`.
+
+`status`, `wait`, `stop`, `reset`, `rebuild`, `env set/list/restart`, `instances list/clean`, `nuke`
+and `shell-env` recognize local stacks. Local `nuke` removes this stack's data,
+indices, profiles and registry entry without restarting; `nuke --keep-data` only
+stops it and clears stale H2 locks. The shared search node survives both commands.
+Unmarked local registry entries are read-only and keep their slots reserved.
+Service env values come from the layered files under `env/` (see [env/README.md](env/README.md)).
+`start --local --job smoke-test` adds the smoke job layer `smoke-test/env/`, as in CI; restarts keep it.
+`smoke-test/check_env_parity.py` compares the smoke values with the Docker quickstart's.
+`start --local --timeout 600 --verbose` streams the launcher log; `status` reports boot timings.
+
+```bash
+# Smoke-test / Playwright env from this stack's stack.json (URLs, index prefix, admin login).
+# `test <path>` applies it automatically on a local stack; use this for pytest or Playwright run by hand.
+eval "$(scripts/dev/datahub-dev.sh shell-env --tests)"
+
+# Logs: no argument lists them; services are gms, gms-N, system-update, restore-indices,
+# frontend, launcher, opensearch (gms-N/<service> for other instances)
+scripts/dev/datahub-dev.sh logs
+scripts/dev/datahub-dev.sh logs gms -n 50
+scripts/dev/datahub-dev.sh logs frontend -f
+```
+
+`frontend --local --preview --detach` serves the built `dist/` bundle in the background. It returns once the frontend's `/health` answers, logs to `frontend.log`, and shows in `status`; `stop` and `nuke` end it. Stop the HMR server first (`stop`, or `start --local --no-frontend`), since both use the same port.
+
+**Removing a worktree:** run `nuke` before `git worktree remove`, so the shared OpenSearch drops
+this stack's indices. `instances clean` and `indices list|drop|prune` are dry runs without `--yes`
+and act only on stacks with matching ownership records.
+
+**Capacity:** `max_docker_instances` and `max_docker_free_instances` in `~/.datahub/dev/config.json`
+each limit how many stacks of that kind run at once (default 4 each). Stopped stacks keep their
+slots and ports reserved but don't count. The older `max_local_instances` key is a deprecated
+fallback, used only when the new keys are absent.
+
+Start refreshes CLI profiles `local-<worktree-id>` and `local-<worktree-id>-gms-N`
+without changing the machine default. Select the default instance for this shell
+with `eval "$(scripts/dev/datahub-dev.sh shell-env)"`. Stop retains the profiles.
+See [scripts/dev/README.md](scripts/dev/README.md) for details and offline tests.
+
+**CI:** `.github/workflows/docker-free-e2e.yml` runs the pytest smoke suite on this stack (label `docker-free:pytests` on a PR). See [`smoke-test/README.md`](smoke-test/README.md#the-docker-free-pytest-lane-in-ci).
 
 ### End-to-End Workflow
 
@@ -502,15 +567,17 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 
 ### Module-to-Container Mapping
 
-| Source directory                  | Container                                     |
-| --------------------------------- | --------------------------------------------- |
-| `metadata-service/`               | `datahub-gms`                                 |
-| `datahub-graphql-core/`           | `datahub-gms`                                 |
-| `metadata-io/`                    | `datahub-gms`                                 |
-| `datahub-frontend/`               | `datahub-frontend-react`                      |
-| `metadata-jobs/mce-consumer-job/` | `datahub-mce-consumer`                        |
-| `metadata-jobs/mae-consumer-job/` | `datahub-mae-consumer`                        |
-| `metadata-models/`                | All (triggers full rebuild + code generation) |
+| Source directory                   | Container                                     |
+| ---------------------------------- | --------------------------------------------- |
+| `metadata-service/`                | `datahub-gms`                                 |
+| `datahub-graphql-core/`            | `datahub-gms`                                 |
+| `metadata-io/`                     | `datahub-gms`                                 |
+| `datahub-frontend/`                | `datahub-frontend-react`                      |
+| `packages/datahub-ai-service/`     | `datahub-ai-service`                          |
+| `packages/datahub-core-mcp-tools/` | `datahub-ai-service`                          |
+| `metadata-jobs/mce-consumer-job/`  | `datahub-mce-consumer`                        |
+| `metadata-jobs/mae-consumer-job/`  | `datahub-mae-consumer`                        |
+| `metadata-models/`                 | All (triggers full rebuild + code generation) |
 
 ### Environment Variables
 
@@ -561,7 +628,8 @@ from other worktrees/compose projects that occupy the same ports.
 
 ```json
 {
-  "max_local_instances": 2,
+  "max_docker_instances": 4,
+  "max_docker_free_instances": 4,
   "max_remote_instances": 10,
   "runner": "/path/to/your-runner.sh"
 }
@@ -660,6 +728,9 @@ Set `AGENT_MODE=1` to get machine-readable JSON test reports at `smoke-test/buil
 AGENT_MODE=1 scripts/dev/datahub-dev.sh test tests/test_system_info.py
 ```
 
+For pytest smoke tests, see [`smoke-test/AGENTS.md`](smoke-test/AGENTS.md)
+(authoring) and [`smoke-test/README.md`](smoke-test/README.md) (how to run).
+
 ## Common Operations
 
 These commands work against **any** DataHub instance — local dev, staging, or production.
@@ -672,16 +743,24 @@ export DATAHUB_GMS_TOKEN=<your-token>         # omit if auth is not required
 
 ### Init (setup authentication)
 
-`datahub init` writes `~/.datahubenv` with the GMS URL and an access token. Run it once before
-using any other CLI commands that require authentication.
+`datahub init --profile local` writes the local connection to
+`~/.datahub/profiles/local/.datahubenv`. Pass `--profile local` on subsequent commands.
 
 ```bash
 # Quickstart: local instance with default credentials
-datahub init --username datahub --password datahub
+datahub init --profile local --username datahub --password datahub
 
 # Full agent best-practices guide (defaults, env vars, all scenarios)
 datahub init --agent-context
 ```
+
+### DataHub CLI connection profiles
+
+- Never run `datahub init` without `--profile <name>`. Name the profile after the instance (`acme`, `acme-staging`).
+- Never run `datahub profile use`; it changes the default for the user's other shells.
+- Pass `--profile <name>` on every command, unless the session already sets `DATAHUB_PROFILE`.
+- Before any write (`put`, `delete`, `ingest`, upserts), run `datahub profile current --format json` and confirm the server is the one the user asked for.
+- If a token has expired, re-run `datahub init --profile <same name>` with the same host. Do not create a new profile.
 
 ### GraphQL
 
@@ -721,48 +800,10 @@ datahub graphql --agent-context
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
 
-## Cypress Tests (Deprecated)
-
-Cypress UI tests in `smoke-test/tests/cypress/` are **deprecated as of 2026-06-30**.
-
-- **Do not write new Cypress tests.** All new UI automation must use Playwright (see below).
-- **Do not fix failing Cypress tests.** Migrate them to Playwright instead.
-- The Cypress test code is retained temporarily for reference; all CI jobs running Cypress have been removed.
-
 ## Playwright UI E2E Tests
 
-Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/README.md).
-
-### Seeding
-
-`test.use({ featureName: 'my-feature' })` at the `describe` level auto-loads
-`tests/my-feature/fixtures/data.json` via `seeding.fixture.ts` — once per worker per
-feature per run. Do **not** set `featureName` for suites that create their own data
-via `apiMock` or direct API calls.
-
-## Frontend CI Checklist
-
-This checklist is for **commit- or PR-ready** frontend work — i.e. when you're about to
-commit, push, or hand off changes that are going into a PR. It is **not** required for
-every intermediate edit: work that is part of a larger task, a work-in-progress branch,
-or scratch experimentation that won't be committed yet can skip it. Run the relevant
-commands when the change is ready to ship:
-
-```bash
-# Full lint (eslint + prettier src + type-check) for datahub-web-react
-./gradlew :datahub-web-react:yarnLint
-
-# Targeted lint-fix on a single file
-./gradlew -x yarnInstall -x yarnGenerate yarnLintFix -Pfile=src/path/to/file.tsx
-
-# Vitest unit tests (requires icon stubs — run once per clone)
-node datahub-web-react/scripts/generate-lazy-icon-stubs.js
-cd datahub-web-react && yarn test src/path/to/file.test.ts --run
-```
-
-`yarn type-check` in CI runs repo-wide and will surface pre-existing errors in
-unrelated files. Focus on errors in files **you touched** — in particular, optional
-prop calls (`prop?.(arg)`) and import aliases.
+Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/README.md) —
+including test-data seeding via `test.use({ featureName: ... })`.
 
 ## Python Virtual Environments
 
@@ -773,25 +814,3 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - Entity Registry is defined in YAML, not code (`entity-registry.yml`)
 - All metadata changes flow through the event streaming system
 - GraphQL schema is generated from backend GMS APIs
-
-## Learned User Preferences
-
-- In `metadata-ingestion` connector code, avoid double-quoted string literals: hoist magic strings into module-level constants, and keep all regex in the constants file pre-compiled.
-- Use Pydantic models for structured/internal data; never pass data around as tuples (hard to track).
-- Split connector files by duty (`constants.py`, `models.py`, `config.py`, `client.py`, `source.py`, plus `lineage.py`/`mapper.py`/`usage.py` as needed) and match the quality/patterns of existing connectors (Power BI, Airbyte, Redshift, BigID, Grafana).
-- No "AI slop": no top-of-file docstrings, and keep docstrings/comments only where strictly needed.
-- Never use `TYPE_CHECKING` in connector code since the connector controls its own deps (lazy imports are fine only for opt-in features), and don't use the walrus operator.
-- Prefer `self.report.warning(...)` and report counters over bare `logger` for skips and edge cases — the report also writes to the log and surfaces to operators (e.g. warn when `verify_ssl=False`, or when a referenced object is inaccessible).
-- For SQL lineage, use the central `SqlParsingAggregator` (`create_lineage_from_sql_statements`) with a platform map instead of setting sqlglot dialects per-connector; mirror existing connectors for cross-platform known-URN and platform_instance/env/casing mapping, two- vs three-part names, and temp-table handling.
-- For column-level lineage, don't leave edges coarse: resolve upstream/downstream schemas from the DataHub graph when available (as airbyte/bigid/matillion/informatica do), load known URNs from the platform/platform_instance/env mapping, and match columns case-insensitively. Best-effort is fine, but try everything.
-- In connector code, use explicit type annotations rather than `from typing import Any` (Unions are fine when a value genuinely has multiple types), and prefer `Dict`/`List` from `typing` over the builtin `dict`/`list`.
-- Connectors should surface progress during ingestion and use explicit ingestion stages (as in the dremio and snowflake connectors).
-- Before committing a new connector, run its ingestion locally in debug mode to a local file to capture full logs and catch bugs; when testing against a customer environment, push secrets only to a tmp path (e.g. `/tmp/*.env`).
-- When drafting prose or review comments on the user's behalf (e.g. Notion), write in his own direct, human voice — avoid AI tells like "confirmed these are real gaps".
-
-## Learned Workspace Facts
-
-- The user is a contributor to the public `datahub-project/datahub` repo and can create and push branches directly on `datahub-public-repo`.
-- A new ingestion connector needs more than Python code: a source logo plus an integrations-page logo, UI form pieces, a `datahub.json` update, entry-point registration (`setup.py`/`pyproject.toml`), a refreshed `uv.lock`, and subtypes added to the shared subtypes module rather than defined locally.
-- Avoid Python's stdlib `xml` parser due to a known vulnerability; use a safe XML library (as the HANA-related code does).
-- Keep each connector in its own PR and split shared/framework changes (e.g. sqlglot helpers) into a separate PR; a connector PR's title and description must reference only that connector, not any other connector worked on in the same session.

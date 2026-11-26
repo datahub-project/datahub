@@ -2,7 +2,7 @@ import { Text } from '@components';
 import React from 'react';
 import { Trans } from 'react-i18next';
 
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 
 export const SEARCH_RESULTS_FILTERS_ID = 'search-results-filters';
 export const SEARCH_RESULTS_ADVANCED_SEARCH_ID = 'search-results-advanced-search';

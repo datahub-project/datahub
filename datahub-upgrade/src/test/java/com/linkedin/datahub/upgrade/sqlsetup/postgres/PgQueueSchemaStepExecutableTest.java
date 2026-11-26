@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.sqlsetup.postgres;
 
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,6 +30,8 @@ import org.testng.annotations.Test;
 
 public class PgQueueSchemaStepExecutableTest {
 
+  private static final String PGQUEUE_SCHEMA = "queue";
+
   private Database database;
   private Connection connection;
   private Statement statement;
@@ -38,6 +41,7 @@ public class PgQueueSchemaStepExecutableTest {
 
   private boolean partmanAvailable = true;
   private boolean partmanInstalled = true;
+  private boolean searchPathSet;
 
   @BeforeMethod
   public void setUp() throws SQLException {
@@ -49,6 +53,7 @@ public class PgQueueSchemaStepExecutableTest {
     report = mock(UpgradeReport.class);
     partmanAvailable = true;
     partmanInstalled = true;
+    searchPathSet = false;
 
     DataSource dataSource = mock(DataSource.class);
     when(database.dataSource()).thenReturn(dataSource);
@@ -56,7 +61,15 @@ public class PgQueueSchemaStepExecutableTest {
     when(connection.createStatement()).thenReturn(statement);
     when(connection.getCatalog()).thenReturn("datahub");
     when(context.report()).thenReturn(report);
-    when(statement.execute(anyString())).thenReturn(false);
+    when(statement.execute(anyString()))
+        .thenAnswer(
+            inv -> {
+              String sql = inv.getArgument(0, String.class);
+              if (sql.startsWith("SET search_path TO " + PGQUEUE_SCHEMA)) {
+                searchPathSet = true;
+              }
+              return false;
+            });
     when(statement.getUpdateCount()).thenReturn(-1);
     when(statement.executeQuery(anyString()))
         .thenAnswer(
@@ -78,23 +91,33 @@ public class PgQueueSchemaStepExecutableTest {
             });
 
     when(connection.prepareStatement(anyString()))
-        .thenAnswer(
-            inv -> {
-              String sql = inv.getArgument(0, String.class);
-              PreparedStatement ps = mock(PreparedStatement.class);
-              if (sql.contains("pg_advisory_xact_lock")) {
-                ResultSet rs = mock(ResultSet.class);
-                when(rs.next()).thenReturn(true);
-                when(ps.executeQuery()).thenReturn(rs);
-              } else if (sql.contains("schema_migration") && sql.trim().startsWith("SELECT")) {
-                ResultSet rs = mock(ResultSet.class);
-                when(rs.next()).thenReturn(false);
-                when(ps.executeQuery()).thenReturn(rs);
-              } else {
-                when(ps.executeUpdate()).thenReturn(1);
-              }
-              return ps;
-            });
+        .thenAnswer(inv -> stubPreparedStatement(inv.getArgument(0, String.class)));
+  }
+
+  /**
+   * Prepared statements issued by the migration runner and {@code PostgresSqlSetupSession}. {@code
+   * current_schema()} echoes the pgQueue schema only after {@code SET search_path} ran, so a
+   * skipped schema setup fails the search_path guard instead of looking successful.
+   */
+  private PreparedStatement stubPreparedStatement(String sql) throws SQLException {
+    PreparedStatement ps = mock(PreparedStatement.class);
+    if (sql.contains("pg_advisory_xact_lock")) {
+      ResultSet rs = mock(ResultSet.class);
+      when(rs.next()).thenReturn(true);
+      when(ps.executeQuery()).thenReturn(rs);
+    } else if (sql.contains("current_schema()")) {
+      ResultSet rs = mock(ResultSet.class);
+      when(rs.next()).thenReturn(true);
+      when(rs.getString(1)).thenReturn(searchPathSet ? PGQUEUE_SCHEMA : "public");
+      when(ps.executeQuery()).thenReturn(rs);
+    } else if (sql.contains("schema_migration") && sql.trim().startsWith("SELECT")) {
+      ResultSet rs = mock(ResultSet.class);
+      when(rs.next()).thenReturn(false);
+      when(ps.executeQuery()).thenReturn(rs);
+    } else {
+      when(ps.executeUpdate()).thenReturn(1);
+    }
+    return ps;
   }
 
   @Test
@@ -156,6 +179,8 @@ public class PgQueueSchemaStepExecutableTest {
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     verify(connection).setAutoCommit(true);
     verify(connection).commit();
+    verify(statement, atLeastOnce()).execute("CREATE SCHEMA IF NOT EXISTS " + PGQUEUE_SCHEMA);
+    verify(statement, atLeastOnce()).execute("SET search_path TO " + PGQUEUE_SCHEMA + ", public");
   }
 
   @Test
@@ -172,19 +197,7 @@ public class PgQueueSchemaStepExecutableTest {
               if (sql.contains("INSERT INTO") && sql.contains("_topic")) {
                 return catalogPs;
               }
-              PreparedStatement ps = mock(PreparedStatement.class);
-              if (sql.contains("pg_advisory_xact_lock")) {
-                ResultSet rs = mock(ResultSet.class);
-                when(rs.next()).thenReturn(true);
-                when(ps.executeQuery()).thenReturn(rs);
-              } else if (sql.contains("schema_migration") && sql.trim().startsWith("SELECT")) {
-                ResultSet rs = mock(ResultSet.class);
-                when(rs.next()).thenReturn(false);
-                when(ps.executeQuery()).thenReturn(rs);
-              } else {
-                when(ps.executeUpdate()).thenReturn(1);
-              }
-              return ps;
+              return stubPreparedStatement(sql);
             });
 
     PgQueueSchemaStep step = new PgQueueSchemaStep(database, postgresProperties);
@@ -236,7 +249,7 @@ public class PgQueueSchemaStepExecutableTest {
                     "mcp", "MetadataChangeProposal_v1", 3, "0-9", 604800, 0L, 0L, false, 1))
             : List.of();
     return new PgQueueSetupOptions(
-        "queue",
+        PGQUEUE_SCHEMA,
         "metadata_queue",
         3,
         30,

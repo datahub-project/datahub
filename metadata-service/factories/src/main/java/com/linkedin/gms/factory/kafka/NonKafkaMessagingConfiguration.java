@@ -9,7 +9,8 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Stand-ins when messaging transport is neither Kafka nor pgQueue. For pgQueue, usage events use
- * {@link PgQueueUsageEventPublisherConfiguration}; for Kafka, {@link UsageEventPublisherFactory}.
+ * {@link PgQueueUsageEventPublisherConfiguration} (including {@code dataHubUsageGenericProducer}
+ * for OTEL audit export); for Kafka, {@link UsageEventPublisherFactory}.
  */
 @Configuration
 @Conditional(NonKafkaNonPgQueueMessagingTransportCondition.class)

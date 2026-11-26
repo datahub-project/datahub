@@ -1,0 +1,47 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "5ee7749f3ba67a0a4d2cd46097541349c00d93fe59d5e9c289c7caa6d5319401",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.s.a,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.s.a,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"a\".\"id\" AS \"id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "n",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "LATERAL (SELECT \"g\".\"n\" AS \"n\" FROM GENERATE_SERIES(1, 3) AS \"g\"(\"n\")) AS \"l\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT a.id, l.n FROM s.a AS a, LATERAL (SELECT n FROM GENERATE_SERIES(?, ?) AS g(n)) AS l"
+    }
+}

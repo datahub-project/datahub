@@ -1,0 +1,38 @@
+# Types implement EditableProperties in their own definitions, not via `extend type`: graphql-java < 26.1 ignores
+# interfaces added by extensions when checking that HasEditableProperties.editableProperties is satisfied.
+# On graphql-java >= 26.1, move each `implements EditableProperties` here as `extend type X implements EditableProperties`.
+"""
+Editable properties aspect with a description that can be set in the UI
+"""
+interface EditableProperties {
+  """
+  Description of the entity, edited in the UI
+  """
+  description: String
+}
+
+"""
+An entity with an editable description
+"""
+interface HasEditableProperties {
+  """
+  Properties of the entity edited in the UI
+  """
+  editableProperties: EditableProperties
+}
+
+extend type Chart implements HasEditableProperties
+extend type Container implements HasEditableProperties
+extend type CorpGroup implements HasEditableProperties
+extend type Dashboard implements HasEditableProperties
+extend type DataFlow implements HasEditableProperties
+extend type DataJob implements HasEditableProperties
+extend type Dataset implements HasEditableProperties
+extend type ERModelRelationship implements HasEditableProperties
+extend type MLFeature implements HasEditableProperties
+extend type MLFeatureTable implements HasEditableProperties
+extend type MLModel implements HasEditableProperties
+extend type MLModelGroup implements HasEditableProperties
+extend type MLPrimaryKey implements HasEditableProperties
+extend type Notebook implements HasEditableProperties
+extend type VersionedDataset implements HasEditableProperties

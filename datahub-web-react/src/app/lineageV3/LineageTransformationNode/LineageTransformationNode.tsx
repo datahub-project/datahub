@@ -1,12 +1,13 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, Popover } from '@components';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Tilde } from '@phosphor-icons/react/dist/csr/Tilde';
 import { Skeleton, Spin } from 'antd';
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Handle, NodeProps, Position } from 'reactflow';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
+import { IconStyleType } from '@app/entityV2/Entity';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
 import ManageLineageMenu from '@app/lineageV3/LineageEntityNode/ManageLineageMenu';
@@ -22,14 +23,23 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import LineageCard from '@app/lineageV3/components/LineageCard';
+import ManageLineageModal from '@app/lineageV3/manualLineage/ManageLineageModal';
 import useRefetchLineage from '@app/lineageV3/queries/useRefetchLineage';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import HealthIcon from '@app/previewV2/HealthIcon';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetQueryQuery } from '@graphql/query.generated';
 import { EntityType, LineageDirection } from '@types';
 
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinningCircleNotch = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+`;
 export const LINEAGE_TRANSFORMATION_NODE_NAME = 'lineage-transformation';
 export const TRANSFORMATION_NODE_SIZE = 40;
 
@@ -86,11 +96,13 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
 
     const history = useHistory();
     const location = useLocation();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const refetch = useRefetchLineage(urn, type);
+    // The menu lives inside the hover card, which unmounts when it closes, so the modal is rendered here instead.
+    const [manageLineageDirection, setManageLineageDirection] = useState<LineageDirection | null>(null);
+    const [isHoverCardOpen, setIsHoverCardOpen] = useState(false);
 
     const isQuery = type === EntityType.Query;
-    const isDataProcessInstance = type === EntityType.DataProcessInstance;
 
     const { rootUrn } = useContext(LineageNodesContext);
     const { cllHighlightedNodes, setHoveredNode, displayedMenuNode, setDisplayedMenuNode } =
@@ -128,20 +140,23 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             )}
             <IconWrapper>
                 {icon && <CustomIcon src={icon} alt={entity?.platform?.name} />}
-                {!icon && isDataProcessInstance && entityRegistry.getIcon(EntityType.DataProcessInstance, 18)}
                 {!icon && isQuery && <Icon icon={Tilde} color="gray" size="inherit" />}
-                {!icon && !isQuery && !isDataProcessInstance && (
+                {/* After hydration, fall back to the type icon when there is no platform logo
+                    (common for DataJobs under a Dataset root). Otherwise the node stays a
+                    permanent Skeleton.Avatar. */}
+                {!icon && !isQuery && entity && entityRegistry.getIcon(type, 18)}
+                {!icon && !isQuery && !entity && (
                     <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />
                 )}
             </IconWrapper>
             {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                 <LoadingWrapper className="nodrag" style={{ left: -30 }}>
-                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<SpinningCircleNotch />} />
                 </LoadingWrapper>
             )}
             {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
                 <LoadingWrapper className="nodrag" style={{ right: -30 }}>
-                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<SpinningCircleNotch />} />
                 </LoadingWrapper>
             )}
             <CustomHandle type="target" position={Position.Left} isConnectable={false} $onEdge={!isQuery} />
@@ -167,6 +182,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             isGhost={isGhost}
             isOpen={displayedMenuNode === urn}
             setDisplayedMenuNode={setDisplayedMenuNode}
+            onManageLineage={setManageLineageDirection}
         />,
     ];
 
@@ -193,6 +209,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
                     )
                 }
                 properties={entity?.genericEntityProperties}
+                typeIcon={entityRegistry.getIcon(type, 16, IconStyleType.ACCENT)}
                 platformIcons={icon ? [icon] : []}
                 childrenOpen={false}
                 menuActions={menuActions}
@@ -200,14 +217,27 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
         </PopoverWrapper>
     );
     return (
-        <Popover
-            content={popoverContent}
-            overlayInnerStyle={{ boxShadow: 'none', background: 'none', padding: 0 }}
-            overlayStyle={{ padding: 0 }}
-            overlayClassName="sectioned-tooltip"
-        >
-            {contents}
-        </Popover>
+        <>
+            <Popover
+                // Keep the card open while its menu is open; closing the card unmounts the menu.
+                open={isHoverCardOpen || displayedMenuNode === urn}
+                onOpenChange={setIsHoverCardOpen}
+                content={popoverContent}
+                overlayInnerStyle={{ boxShadow: 'none', background: 'none', padding: 0 }}
+                overlayStyle={{ padding: 0 }}
+                overlayClassName="sectioned-tooltip"
+            >
+                {contents}
+            </Popover>
+            {manageLineageDirection && (
+                <ManageLineageModal
+                    node={data}
+                    direction={manageLineageDirection}
+                    closeModal={() => setManageLineageDirection(null)}
+                    refetch={refetch[manageLineageDirection]}
+                />
+            )}
+        </>
     );
 }
 

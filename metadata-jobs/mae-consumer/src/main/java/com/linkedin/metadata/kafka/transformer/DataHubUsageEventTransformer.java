@@ -11,9 +11,11 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.kafka.hydrator.EntityHydrator;
 import com.linkedin.metadata.kafka.hydrator.EntityType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nonnull;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -54,7 +56,8 @@ public class DataHubUsageEventTransformer {
     this._entityHydrator = entityHydrator;
   }
 
-  public Optional<TransformedDocument> transformDataHubUsageEvent(String dataHubUsageEvent) {
+  public Optional<TransformedDocument> transformDataHubUsageEvent(
+      @Nonnull final OperationContext opContext, String dataHubUsageEvent) {
     ObjectNode usageEvent;
     try {
       usageEvent = (ObjectNode) OBJECT_MAPPER.readTree(dataHubUsageEvent);
@@ -104,11 +107,12 @@ public class DataHubUsageEventTransformer {
     log.debug("Event document after setting timestamps: {}", eventDocument);
 
     // Hydrate actor fields
-    setFieldsForEntity(EntityType.CORP_USER, usageEvent.get(ACTOR_URN).asText(), eventDocument);
+    setFieldsForEntity(
+        opContext, EntityType.CORP_USER, usageEvent.get(ACTOR_URN).asText(), eventDocument);
 
     // Hydrate entity fields for events with entity URN
     if (EVENTS_WITH_ENTITY_URN.contains(eventType)) {
-      setFieldsForEntity(usageEvent, eventDocument);
+      setFieldsForEntity(opContext, usageEvent, eventDocument);
     }
 
     try {
@@ -121,7 +125,8 @@ public class DataHubUsageEventTransformer {
     }
   }
 
-  private void setFieldsForEntity(ObjectNode recordObject, ObjectNode searchObject) {
+  private void setFieldsForEntity(
+      @Nonnull final OperationContext opContext, ObjectNode recordObject, ObjectNode searchObject) {
     if (!recordObject.has(ENTITY_TYPE) || !recordObject.has(ENTITY_URN)) {
       return;
     }
@@ -135,11 +140,15 @@ public class DataHubUsageEventTransformer {
       return;
     }
 
-    setFieldsForEntity(type, recordObject.get(ENTITY_URN).asText(), searchObject);
+    setFieldsForEntity(opContext, type, recordObject.get(ENTITY_URN).asText(), searchObject);
   }
 
-  private void setFieldsForEntity(EntityType entityType, String urn, ObjectNode searchObject) {
-    Optional<ObjectNode> entityObject = _entityHydrator.getHydratedEntity(urn);
+  private void setFieldsForEntity(
+      @Nonnull final OperationContext opContext,
+      EntityType entityType,
+      String urn,
+      ObjectNode searchObject) {
+    Optional<ObjectNode> entityObject = _entityHydrator.getHydratedEntity(opContext, urn);
     if (!entityObject.isPresent()) {
       log.info("No matches for urn {}", urn);
       return;

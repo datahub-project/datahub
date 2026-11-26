@@ -8,12 +8,12 @@ import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCP;
-import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.metadata.client.SystemJavaEntityClient;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
@@ -22,6 +22,7 @@ import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
@@ -30,7 +31,6 @@ import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.metadata.version.GitVersion;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -57,13 +58,11 @@ public class SystemUpdateConfig {
   public SystemUpdate systemUpdate(
       final List<BlockingSystemUpgrade> blockingSystemUpgrades,
       final List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades,
-      final DataHubStartupStep dataHubStartupStep,
       @Qualifier("bootstrapMCPBlocking") @NonNull final BootstrapMCP bootstrapMCPBlocking,
       @Qualifier("bootstrapMCPNonBlocking") @NonNull final BootstrapMCP bootstrapMCPNonBlocking) {
     return new SystemUpdate(
         blockingSystemUpgrades,
         nonBlockingSystemUpgrades,
-        dataHubStartupStep,
         bootstrapMCPBlocking,
         bootstrapMCPNonBlocking);
   }
@@ -71,10 +70,8 @@ public class SystemUpdateConfig {
   @Bean(name = "systemUpdateBlocking")
   public SystemUpdateBlocking systemUpdateBlocking(
       final List<BlockingSystemUpgrade> blockingSystemUpgrades,
-      final DataHubStartupStep dataHubStartupStep,
       @Qualifier("bootstrapMCPBlocking") @NonNull final BootstrapMCP bootstrapMCPBlocking) {
-    return new SystemUpdateBlocking(
-        blockingSystemUpgrades, dataHubStartupStep, bootstrapMCPBlocking);
+    return new SystemUpdateBlocking(blockingSystemUpgrades, bootstrapMCPBlocking);
   }
 
   @Bean(name = "systemUpdateNonBlocking")
@@ -130,15 +127,6 @@ public class SystemUpdateConfig {
     return revision;
   }
 
-  @Bean
-  public DataHubStartupStep dataHubStartupStep(
-      @Qualifier("duheKafkaEventProducer") final EventProducer kafkaEventProducer,
-      final GitVersion gitVersion,
-      @Qualifier("revision") String revision) {
-    return new DataHubStartupStep(
-        kafkaEventProducer, String.format("%s-%s", gitVersion.getVersion(), revision));
-  }
-
   @Primary
   @Bean(name = "schemaRegistryConfig")
   @ConditionalOnProperty(
@@ -153,6 +141,13 @@ public class SystemUpdateConfig {
   /**
    * Override EntityService bean in the datahub-upgrade context to use system update CDC mode
    * configuration. Only active when system update is running blocking mode operations.
+   *
+   * <p>Retention buffer: mirrors {@code EntityServiceFactory} via {@code
+   * ObjectProvider<RetentionBuffer>#getIfAvailable()}. Blocking system-update typically does not
+   * activate {@code RetentionBufferFactory} (short-lived job; no ingest-scale coalesce need), so
+   * this resolves to null → {@link RetentionBuffer#NO_OP} → sync post-commit DELETE when
+   * post-commit retention is on. That divergence from GMS (which may enqueue + drain) is
+   * intentional. If a RetentionBuffer bean is present in this context, it is attached.
    */
   @Primary
   @Bean(name = "entityService")
@@ -164,7 +159,9 @@ public class SystemUpdateConfig {
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
       @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
       @Value("${EBEAN_MAX_TRANSACTION_RETRY:#{null}}") final Integer ebeanMaxTransactionRetry,
-      final List<ThrottleSensor> throttleSensors) {
+      @Value("${entityService.syncIngestStamping:false}") final boolean syncIngestStamping,
+      final List<ThrottleSensor> throttleSensors,
+      final ObjectProvider<RetentionBuffer> retentionBufferProvider) {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
     boolean systemUpdateCDCMode = configurationProvider.getSystemUpdate().isCdcMode();
@@ -176,12 +173,21 @@ public class SystemUpdateConfig {
         new EntityServiceImpl(
             aspectDao,
             eventProducer,
-            featureFlags.isAlwaysEmitChangeLog(),
-            systemUpdateCDCMode, // Use system update CDC mode
             featureFlags.getPreProcessHooks(),
-            ebeanMaxTransactionRetry,
-            enableBrowsePathV2,
-            null); // metricUtils
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(featureFlags.isAlwaysEmitChangeLog())
+                .setCdcModeChangeLog(systemUpdateCDCMode)
+                .setRetry(ebeanMaxTransactionRetry)
+                .setEnableBrowseV2(enableBrowsePathV2)
+                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled())
+                // Moot in practice — system-update writes carry no request context, so
+                // stampSyncIngest never fires here — but wired so every production
+                // EntityServiceConfiguration construction site honors the flag uniformly.
+                .setSyncIngestStamping(syncIngestStamping),
+            null);
+
+    // Usually NO_OP in upgrade (see method javadoc). Attaches if a buffer bean exists.
+    entityService.setRetentionBuffer(retentionBufferProvider.getIfAvailable());
 
     if (throttleSensors != null
         && !throttleSensors.isEmpty()

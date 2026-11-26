@@ -1,6 +1,14 @@
 import React from 'react';
 
-import { AppConfig, PersonalSidebarSection, SearchBarApi } from '@types';
+import { AppConfig, FeatureFlagsConfig, PersonalSidebarSection, PoliciesConfig, SearchBarApi } from '@types';
+
+/** Feature flags the frontend queries. Deprecated fields are left out. */
+export type FeatureFlags = Omit<FeatureFlagsConfig, 'showIngestionPageRedesign' | 'ingestionOnboardingRedesignV1'>;
+
+export type AppConfigWithoutPolicyPrivileges = Omit<AppConfig, 'policiesConfig' | 'featureFlags'> & {
+    policiesConfig: Omit<PoliciesConfig, 'platformPrivileges' | 'resourcePrivileges'>;
+    featureFlags: FeatureFlags;
+};
 
 export const DEFAULT_APP_CONFIG = {
     analyticsConfig: {
@@ -25,8 +33,10 @@ export const DEFAULT_APP_CONFIG = {
         queriesTab: {
             queriesTabResultSize: 5,
         },
-        entityProfile: {
-            domainDefaultTab: null,
+        entityProfiles: {
+            domain: {
+                defaultTab: null,
+            },
         },
         searchResult: {
             enableNameHighlight: false,
@@ -34,6 +44,8 @@ export const DEFAULT_APP_CONFIG = {
     },
     authConfig: {
         tokenAuthEnabled: false,
+        allowNoExpiry: false,
+        allowedAccessTokenDurations: ['PT1H', 'P1D', 'P7D', 'P30D', 'P90D', 'P180D', 'P365D'],
     },
     telemetryConfig: {
         enableThirdPartyLogging: false,
@@ -69,11 +81,14 @@ export const DEFAULT_APP_CONFIG = {
         browserWebVitalsEnabled: false,
         businessAttributeEntityEnabled: false,
         dataContractsEnabled: false,
+        showApplicationsFeatureToggle: false,
         editableDatasetNameEnabled: false,
         themeV2Enabled: false,
         themeV2Default: false,
         themeV2Toggleable: false,
+        themeDarkModeEnabled: false,
         showSeparateSiblings: false,
+        maxSiblingGroupUrns: 0,
         schemaFieldCLLEnabled: false,
         schemaFieldLineageIgnoreStatus: false,
         showManageStructuredProperties: false,
@@ -85,8 +100,6 @@ export const DEFAULT_APP_CONFIG = {
         showSearchBarAutocompleteRedesign: false,
         showManageTags: false,
         showIntroducePage: false,
-        showIngestionPageRedesign: false,
-        ingestionOnboardingRedesignV1: false,
         showLineageExpandMore: false,
         showLineageFilterNodes: false,
         showDefaultExternalLinks: true,
@@ -100,12 +113,16 @@ export const DEFAULT_APP_CONFIG = {
         metricsEnabled: false,
         documentationFileUploadV1: false,
         contextDocumentsEnabled: false,
+        documentExplicitSaveEnabled: false,
         hideLineageInSearchCards: false,
         dataProductLineageEnabled: false,
         glossaryBasedPoliciesEnabled: false,
+        structuredPropertiesInPoliciesEnabled: false,
         multipleDataProductsPerAsset: false,
         showTestsInHealthIcon: false,
+        mcpServerEnabled: false,
         i18nEnabled: true,
+        showGithubStarPrompt: false,
     },
     chromeExtensionConfig: {
         enabled: false,
@@ -114,7 +131,7 @@ export const DEFAULT_APP_CONFIG = {
 };
 
 export const AppConfigContext = React.createContext<{
-    config: AppConfig;
+    config: AppConfigWithoutPolicyPrivileges;
     loaded: boolean;
     refreshContext: () => void;
 }>({ config: DEFAULT_APP_CONFIG, loaded: false, refreshContext: () => null });

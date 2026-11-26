@@ -1,8 +1,9 @@
-import { act } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
+import { act, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useInfiniteScroll } from '@components/components/InfiniteScrollList/useInfiniteScroll';
+
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const flushPromises = () => new Promise(setImmediate);
 
@@ -39,12 +40,12 @@ describe('useInfiniteScroll hook', () => {
         const dataBatches = [[1, 2, 3]];
         const fetchData = createFetchDataMock(dataBatches);
 
-        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+        const { result } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
 
         expect(result.current.loading).toBe(true);
         expect(result.current.items).toEqual([]);
 
-        await waitForNextUpdate();
+        await waitFor(() => expect(result.current.loading).toBe(false));
 
         expect(fetchData).toHaveBeenCalledWith(0, pageSize);
         expect(result.current.items).toEqual([1, 2, 3]);
@@ -56,9 +57,9 @@ describe('useInfiniteScroll hook', () => {
         const dataBatches = [[1, 2]];
         const fetchData = createFetchDataMock(dataBatches);
 
-        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+        const { result } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
 
-        await waitForNextUpdate();
+        await waitFor(() => expect(result.current.loading).toBe(false));
 
         expect(result.current.items.length).toBe(2);
         expect(result.current.hasMore).toBe(false);
@@ -72,15 +73,13 @@ describe('useInfiniteScroll hook', () => {
         ];
         const fetchData = createFetchDataMock(dataBatches);
 
-        const { result, waitForNextUpdate } = renderHook(() =>
-            useInfiniteScroll({ fetchData, pageSize, totalItemCount }),
-        );
+        const { result } = renderHook(() => useInfiniteScroll({ fetchData, pageSize, totalItemCount }));
 
         act(() => {
             result.current.observerRef.current = document.createElement('div');
         });
 
-        await waitForNextUpdate();
+        await waitFor(() => expect(result.current.items.length).toBe(5));
 
         expect(result.current.items.length).toBe(5);
         expect(result.current.hasMore).toBe(false);
@@ -90,9 +89,9 @@ describe('useInfiniteScroll hook', () => {
         const dataBatches = [[1, 2, 3]];
         const fetchData = createFetchDataMock(dataBatches);
 
-        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+        const { result } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
 
-        await waitForNextUpdate();
+        await waitFor(() => expect(result.current.loading).toBe(false));
 
         // set hasMore=false to trigger early return
         act(() => {
@@ -106,9 +105,9 @@ describe('useInfiniteScroll hook', () => {
 
     it('does not crash if fetchData returns non-array', async () => {
         const fetchData = vi.fn(() => Promise.resolve(null as any));
-        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+        const { result } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
 
-        await waitForNextUpdate();
+        await waitFor(() => expect(result.current.loading).toBe(false));
 
         expect(result.current.items).toEqual([]);
         expect(result.current.hasMore).toBe(true);
@@ -118,14 +117,14 @@ describe('useInfiniteScroll hook', () => {
         const dataBatches = [[1, 2, 3]];
         const fetchData = createFetchDataMock(dataBatches);
 
-        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+        const { result } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
 
         // Prepend before initial load
         act(() => {
             result.current.prependItem(0);
         });
 
-        await waitForNextUpdate();
+        await waitFor(() => expect(result.current.items).toEqual([0, 1, 2, 3]));
 
         expect(result.current.items).toEqual([0, 1, 2, 3]);
 
@@ -139,9 +138,9 @@ describe('useInfiniteScroll hook', () => {
 
     it('does not prepend null or undefined', async () => {
         const fetchData = vi.fn(() => Promise.resolve([1, 2]));
-        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+        const { result } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
 
-        await waitForNextUpdate();
+        await waitFor(() => expect(result.current.loading).toBe(false));
 
         act(() => {
             result.current.prependItem(undefined as any);
@@ -153,9 +152,9 @@ describe('useInfiniteScroll hook', () => {
 
     it('removes items correctly using predicate', async () => {
         const fetchData = vi.fn(() => Promise.resolve([1, 2, 3]));
-        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+        const { result } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
 
-        await waitForNextUpdate();
+        await waitFor(() => expect(result.current.loading).toBe(false));
 
         act(() => {
             result.current.removeItem((item) => item === 2);
@@ -166,9 +165,9 @@ describe('useInfiniteScroll hook', () => {
 
     it('updates items correctly using predicate', async () => {
         const fetchData = vi.fn(() => Promise.resolve([1, 2, 3]));
-        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+        const { result } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
 
-        await waitForNextUpdate();
+        await waitFor(() => expect(result.current.loading).toBe(false));
 
         act(() => {
             result.current.updateItem(99, (item) => item === 2);
@@ -198,13 +197,13 @@ describe('useInfiniteScroll hook', () => {
 
         global.IntersectionObserver = mockIO as any;
 
-        const { unmount, result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+        const { unmount, result } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
 
         act(() => {
             result.current.observerRef.current = document.createElement('div');
         });
 
-        await waitForNextUpdate();
+        await waitFor(() => expect(result.current.loading).toBe(false));
 
         unmount();
 
@@ -222,23 +221,66 @@ describe('useInfiniteScroll hook', () => {
     });
 
     it('resets items and startIndex on resetTrigger', async () => {
-        const dataBatches = [[1, 2, 3]];
-        const fetchData = createFetchDataMock(dataBatches);
+        const fetchData = vi.fn(() => Promise.resolve([1, 2, 3]));
 
         let trigger = 1;
-        const { result, waitForNextUpdate, rerender } = renderHook(
+        const { result, rerender } = renderHook(
             ({ resetTrigger }) => useInfiniteScroll({ fetchData, pageSize, resetTrigger }),
             { initialProps: { resetTrigger: trigger } },
         );
 
-        await waitForNextUpdate();
+        await waitFor(() => expect(result.current.loading).toBe(false));
         expect(result.current.items).toEqual([1, 2, 3]);
 
-        // Trigger reset
+        // Trigger reset — clears list then kicks off a fresh fetch
         trigger = 2;
         rerender({ resetTrigger: trigger });
         expect(result.current.items).toEqual([]);
         expect(result.current.hasMore).toBe(true);
+
+        await waitFor(() => expect(result.current.items).toEqual([1, 2, 3]));
+        expect(result.current.items).toEqual([1, 2, 3]);
+        expect(result.current.loading).toBe(false);
+        expect(fetchData).toHaveBeenCalledTimes(2);
+    });
+
+    // Regression: under rapid filter/search changes, an in-flight fetch isn't
+    // cancelled. Without a generation guard, its results land AFTER reset and
+    // append stale rows to the just-cleared list. The hook must drop late
+    // resolutions whose generation no longer matches.
+    it('discards stale fetch results that resolve after a resetTrigger bump', async () => {
+        let resolveFirst: ((items: number[]) => void) | undefined;
+        const slowFirstFetch = vi.fn().mockImplementationOnce(
+            () =>
+                new Promise<number[]>((resolve) => {
+                    resolveFirst = resolve;
+                }),
+        );
+
+        let trigger = 1;
+        const { result, rerender } = renderHook(
+            ({ resetTrigger }) => useInfiniteScroll({ fetchData: slowFirstFetch, pageSize, resetTrigger }),
+            { initialProps: { resetTrigger: trigger } },
+        );
+
+        // Fetch is in flight, no items yet.
+        expect(result.current.items).toEqual([]);
+        expect(result.current.loading).toBe(true);
+
+        // Reset before the in-flight fetch resolves.
+        trigger = 2;
+        rerender({ resetTrigger: trigger });
+        expect(result.current.items).toEqual([]);
+        expect(result.current.loading).toBe(false);
+
+        // Stale fetch finally resolves with rows from the OLD filter set.
+        await act(async () => {
+            resolveFirst?.([99, 100, 101]);
+            await flushPromises();
+        });
+
+        // Stale rows must be dropped — list stays cleared and not re-toggled.
+        expect(result.current.items).toEqual([]);
         expect(result.current.loading).toBe(false);
     });
 });

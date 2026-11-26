@@ -7,6 +7,12 @@ import java.util.Locale;
 
 public class AliasesUtils {
 
+  /**
+   * Upgrade id whose SUCCEEDED marker gates case-insensitive resolution. Bump the {@code -vN}
+   * suffix in any change to {@link #lowercaseDatasetUrn} to force recomputation.
+   */
+  public static final String DATASET_ALIASES_BACKFILL_UPGRADE_ID = "dataset-aliases-v1";
+
   private AliasesUtils() {}
 
   /**

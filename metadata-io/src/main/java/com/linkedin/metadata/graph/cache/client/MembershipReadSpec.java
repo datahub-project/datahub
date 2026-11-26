@@ -16,6 +16,13 @@ import lombok.Value;
 @Builder
 public class MembershipReadSpec {
 
+  /**
+   * Fallback when {@code bounds.maxEdges} is unset on the membership graph definition (matches
+   * {@code EntityGraphRegistry}'s default of {@code maxVertices * 1.5} with {@code maxVertices}
+   * default 10000).
+   */
+  public static final int DEFAULT_RELATED_TYPE_FILTER_FETCH_CAP = 15_000;
+
   @Nonnull EntityGraphBinding binding;
 
   @Nonnull @Builder.Default Set<String> groupRelationshipTypes = Set.of();
@@ -28,4 +35,10 @@ public class MembershipReadSpec {
   @Nonnull @Builder.Default Set<String> scrollGroupEntityTypes = Set.of(CORP_GROUP_ENTITY_NAME);
 
   @Nonnull @Builder.Default Set<String> scrollRoleEntityTypes = Set.of(DATAHUB_ROLE_ENTITY_NAME);
+
+  /**
+   * Max neighbors to fetch before client-side {@code relatedEntityTypes} filtering. Taken from the
+   * membership graph's {@code bounds.maxEdges} when configured.
+   */
+  @Builder.Default int relatedTypeFilterFetchCap = DEFAULT_RELATED_TYPE_FILTER_FETCH_CAP;
 }

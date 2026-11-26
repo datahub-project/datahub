@@ -1,0 +1,21 @@
+{
+    "actorsSearch.placeholder": "搜索用户或用户组",
+    "domainSelector.label": "数据域",
+    "domainSelector.placeholder": "选择数据域",
+    "domainSelector.searchPlaceholder": "搜索所有数据域...",
+    "domainSelector.singleLabel": "数据域",
+    "domainSelector.singlePlaceholder": "选择数据域",
+    "entitySearch.noEntitiesFound": "未找到实体",
+    "entitySearch.placeholder": "搜索实体...",
+    "customOwnershipType": "自定义所有权类型",
+    "ingestionSource": "数据引入源",
+    "groupBy.displayValue": "按 {{label}} 分组",
+    "groupBy.group": "分组",
+    "selectItems.addMoreSection": "添加更多",
+    "selectItems.entitiesLabel": "实体",
+    "selectItems.itemsLabel": "项",
+    "selectItems.noEntityFound": "未找到 {{entityName}}",
+    "selectItems.removeAll": "全部移除",
+    "selectItems.searchForEntity": "搜索 {{entityName}}...",
+    "selectItems.selectedSection": "已选择"
+}

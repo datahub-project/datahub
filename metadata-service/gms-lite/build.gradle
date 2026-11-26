@@ -1,0 +1,37 @@
+// Runs the production GMS and upgrade jars in isolated local processes. No Java dependencies.
+plugins {
+    id 'base'
+}
+
+tasks.register('launcherSafetyTest', Exec) {
+    description = 'Run fast, offline launcher safety tests'
+    group = 'verification'
+    workingDir rootProject.projectDir
+    commandLine 'python3', '-m', 'unittest', 'discover', '-s',
+        'metadata-service/gms-lite/tests', '-p', 'test_*.py'
+}
+
+tasks.register('stressTest', Exec) {
+    description = 'Boot real local stacks and verify persistence, isolation, and shutdown'
+    group = 'verification'
+    dependsOn ':metadata-service:war:bootJar', ':datahub-upgrade:bootJar',
+        ':metadata-service:opensearch-embedded:installDist'
+    workingDir rootProject.projectDir
+    def cmd = ['python3', "${projectDir}/tests/stress_test_local_stack.py",
+        '--data-dir', project.findProperty('stressDataDir') ?: "${layout.buildDirectory.get().asFile}/stress"]
+    if (project.hasProperty('stressTests')) {
+        cmd.addAll(['--test'] + project.property('stressTests').split(' ').toList())
+    }
+    commandLine cmd
+}
+
+// Use the same pinned tool and per-module config as the repository hooks.
+tasks.register('lint', Exec) {
+    workingDir projectDir
+    commandLine 'bash', '-c', 'bash ../../.github/scripts/pre-commit/run_ruff.sh check . && bash ../../.github/scripts/pre-commit/run_ruff.sh format --check .'
+}
+tasks.register('lintFix', Exec) {
+    workingDir projectDir
+    commandLine 'bash', '-c', 'bash ../../.github/scripts/pre-commit/run_ruff.sh check --fix . && bash ../../.github/scripts/pre-commit/run_ruff.sh format .'
+}
+check.dependsOn launcherSafetyTest, lint

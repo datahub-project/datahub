@@ -1,15 +1,18 @@
+import json
 from typing import Any, Dict, List, Set, Tuple, Union
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.sink import Sink
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.reporting.datahub_ingestion_run_summary_provider import (
     DatahubIngestionRunSummaryProvider,
     DatahubIngestionRunSummaryProviderConfig,
 )
 from datahub.ingestion.run.pipeline_config import PipelineConfig
+from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import (
     DataHubIngestionSourceInfoClass,
     ExecutionRequestInputClass,
@@ -251,3 +254,99 @@ def test_non_execution_request_urn_as_run_id_does_not_crash() -> None:
         "urn:li:ingestionSource:some-source-id", report_recipe=False
     )
     assert not provider._is_running_under_executor
+
+
+def test_on_completion_masks_report_and_summary() -> None:
+    SecretRegistry.reset_instance()
+    SecretRegistry.get_instance().register_secret("DB_PASS", "hunter2secret")
+
+    provider = object.__new__(DatahubIngestionRunSummaryProvider)
+    provider.start_time_ms = 0
+    provider.execution_request_input_urn = MagicMock()
+
+    log_buffer = MagicMock()
+    log_buffer.format_lines.return_value = "connecting with hunter2secret\n"
+
+    with (
+        patch.object(provider, "_emit_aspect") as mock_emit,
+        patch(
+            "datahub.ingestion.reporting.datahub_ingestion_run_summary_provider.get_log_buffer",
+            return_value=log_buffer,
+        ),
+    ):
+        provider.on_completion(
+            status="SUCCESS",
+            report={"source": {"failures": ["pw=hunter2secret"]}},
+            ctx=MagicMock(),
+        )
+
+    aspect = mock_emit.call_args.kwargs["aspect_value"]
+    assert "hunter2secret" not in aspect.report
+    assert aspect.report.count("***REDACTED:DB_PASS***") == 2
+    assert "hunter2secret" not in aspect.structuredReport.serializedValue
+    assert json.loads(aspect.structuredReport.serializedValue) == {
+        "source": {"failures": ["pw=***REDACTED:DB_PASS***"]}
+    }
+    SecretRegistry.reset_instance()
+
+
+def test_recipe_from_model_without_raw_dict_is_json_with_secrets_redacted() -> None:
+    # Pipeline.create(dict) without raw_config makes get_raw_dict() fall back to
+    # dumping the model, after Pipeline.__init__ has set datahub_api.client_mode.
+    pipeline_config = PipelineConfig.from_dict(
+        {
+            "source": {"type": "file", "config": {"path": "x.json"}},
+            "sink": {"type": "console"},
+            "datahub_api": {"server": "http://localhost:8080", "token": "tok-123"},
+        }
+    )
+    assert pipeline_config.datahub_api is not None
+    pipeline_config.datahub_api.client_mode = ClientMode.INGESTION
+    ctx = PipelineContext(run_id="cli-run", pipeline_config=pipeline_config)
+
+    provider = DatahubIngestionRunSummaryProvider(
+        sink=MagicMock(spec=Sink), report_recipe=True, ctx=ctx
+    )
+
+    recipe = provider._get_recipe_to_report(ctx)
+    assert "tok-123" not in recipe
+    datahub_api = json.loads(recipe)["datahub_api"]
+    assert datahub_api["client_mode"] == ClientMode.INGESTION.value
+    assert datahub_api["token"] == "********"
+
+
+def test_recipe_redacts_extra_headers() -> None:
+    server = "http://localhost:8080"
+    pipeline_config = PipelineConfig.from_dict(
+        {
+            "source": {"type": "file", "config": {"path": "x.json"}},
+            "sink": {
+                "type": "datahub-rest",
+                "config": {
+                    "server": server,
+                    "extra_headers": {"Authorization": "Basic dXNlcjpwYXNz"},
+                },
+            },
+            "datahub_api": {
+                "server": server,
+                "extra_headers": {
+                    "authorization": "Bearer api-secret",
+                    "X-Custom": "opaque-value",
+                },
+            },
+        }
+    )
+    ctx = PipelineContext(run_id="cli-run", pipeline_config=pipeline_config)
+    provider = DatahubIngestionRunSummaryProvider(
+        sink=MagicMock(spec=Sink), report_recipe=True, ctx=ctx
+    )
+
+    recipe = provider._get_recipe_to_report(ctx)
+    for secret in ("dXNlcjpwYXNz", "api-secret", "opaque-value"):
+        assert secret not in recipe
+    reported = json.loads(recipe)
+    assert reported["sink"]["config"]["extra_headers"] == {"Authorization": "********"}
+    assert reported["datahub_api"]["extra_headers"] == {
+        "authorization": "********",
+        "X-Custom": "********",
+    }

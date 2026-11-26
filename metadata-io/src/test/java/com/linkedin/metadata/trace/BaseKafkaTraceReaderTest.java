@@ -205,6 +205,59 @@ public abstract class BaseKafkaTraceReaderTest<M extends RecordTemplate> {
   }
 
   @Test
+  public void testTracePendingWhenCommittedOffsetEqualsMessageOffset() throws IOException {
+    // The group commits the next offset, so sitting on this record means it is not processed.
+    assertEquals(tracePendingWithCommittedOffset(150L, 150L), TraceWriteStatus.PENDING);
+  }
+
+  @Test
+  public void testTraceErrorWhenCommittedOffsetIsPastMessage() throws IOException {
+    assertEquals(tracePendingWithCommittedOffset(151L, 150L), TraceWriteStatus.ERROR);
+  }
+
+  private TraceWriteStatus tracePendingWithCommittedOffset(long committedOffset, long messageOffset)
+      throws IOException {
+    List<String> aspectNames = Collections.singletonList(ASPECT_NAME);
+    Map<Urn, List<String>> urnAspectPairs = Collections.singletonMap(TEST_URN, aspectNames);
+    long timestamp = System.currentTimeMillis();
+    TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, 0);
+
+    ListConsumerGroupOffsetsResult mockOffsetResult = mock(ListConsumerGroupOffsetsResult.class);
+    when(adminClient.listConsumerGroupOffsets(CONSUMER_GROUP)).thenReturn(mockOffsetResult);
+    when(mockOffsetResult.partitionsToOffsetAndMetadata())
+        .thenReturn(
+            KafkaFuture.completedFuture(
+                Collections.singletonMap(topicPartition, new OffsetAndMetadata(committedOffset))));
+    when(consumer.offsetsForTimes(any()))
+        .thenReturn(
+            Collections.singletonMap(
+                topicPartition, new OffsetAndTimestamp(messageOffset, timestamp)));
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    Map<String, String> properties = new HashMap<>();
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TRACE_ID);
+    systemMetadata.setProperties(new StringMap(properties));
+    ConsumerRecord<String, GenericRecord> mockRecord =
+        new ConsumerRecord<>(
+            TOPIC_NAME,
+            0,
+            messageOffset,
+            TEST_URN.toString(),
+            toGenericRecord(buildMessage(systemMetadata)));
+    ConsumerRecords<String, GenericRecord> mockRecords = mock(ConsumerRecords.class);
+    when(mockRecords.isEmpty()).thenReturn(false);
+    when(mockRecords.records(any(TopicPartition.class)))
+        .thenReturn(Collections.singletonList(mockRecord));
+    when(consumer.poll(any(Duration.class))).thenReturn(mockRecords);
+
+    return traceReader
+        .tracePendingStatuses(urnAspectPairs, TRACE_ID, timestamp)
+        .get(TEST_URN)
+        .get(ASPECT_NAME)
+        .getWriteStatus();
+  }
+
+  @Test
   public void testFindMessages() throws Exception {
     // Arrange
     List<String> aspectNames = Collections.singletonList(ASPECT_NAME);

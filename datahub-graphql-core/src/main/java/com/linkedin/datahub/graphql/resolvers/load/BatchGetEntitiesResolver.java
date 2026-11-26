@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.resolvers.BatchLoadUtils;
@@ -37,6 +39,12 @@ public class BatchGetEntitiesResolver implements DataFetcher<CompletableFuture<L
     Map<String, List<Integer>> entityIndexMap = new HashMap<>();
     int index = 0;
     for (Entity entity : entities) {
+      if (entity == null && handling().toleratesUnknownEntityAspect()) {
+        // The urn's entity type is unknown to this build, so no typed placeholder exists. Leave its
+        // slot null instead of failing the whole batch.
+        index++;
+        continue;
+      }
       List<Integer> indexList = new ArrayList<>();
       if (entityIndexMap.containsKey(entity.getUrn())) {
         indexList = entityIndexMap.get(entity.getUrn());
@@ -55,7 +63,10 @@ public class BatchGetEntitiesResolver implements DataFetcher<CompletableFuture<L
     for (Map.Entry<EntityType, List<Entity>> entry : entityTypeToEntities.entrySet()) {
       CompletableFuture<List<Entity>> entitiesFuture =
           BatchLoadUtils.batchLoadEntitiesOfSameType(
-              entry.getValue(), _entityTypes, environment.getDataLoaderRegistry());
+              entry.getValue(),
+              _entityTypes,
+              environment.getDataLoaderRegistry(),
+              environment.getContext());
       entitiesFutures.add(entitiesFuture);
     }
 
@@ -71,7 +82,12 @@ public class BatchGetEntitiesResolver implements DataFetcher<CompletableFuture<L
                       .flatMap(future -> future.join().stream())
                       .collect(Collectors.toList());
               for (Object element : returnedList) {
-                Entity entity = null;
+                if (element == null) {
+                  // Loaders return null for entities that do not resolve (missing row, restricted);
+                  // leave the corresponding slots null rather than fail the whole batch.
+                  continue;
+                }
+                Entity entity;
                 if (element instanceof DataFetcherResult) {
                   entity = ((DataFetcherResult<Entity>) element).getData();
                 } else if (element instanceof Entity) {
@@ -81,6 +97,9 @@ public class BatchGetEntitiesResolver implements DataFetcher<CompletableFuture<L
                       String.format(
                           "Cannot process entity because it is neither an Entity not a DataFetcherResult. %s",
                           element));
+                }
+                if (entity == null) {
+                  continue;
                 }
                 for (int idx : entityIndexMap.get(entity.getUrn())) {
                   finalEntityList[idx] = entity;

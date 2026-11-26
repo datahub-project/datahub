@@ -1,15 +1,19 @@
 """Factory and helpers for building :class:`EmbeddingProvider` instances."""
 
 import os
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.unstructured.chunking_config import (
+    EmbeddingConfig,
+    ResolvedEmbeddingTarget,
+)
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
 )
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
-
+from datahub.ingestion.source.unstructured.embedding_target import (
+    resolve_embedding_target,
+)
 
 SUPPORTED_PROVIDERS: tuple[str, ...] = (
     "bedrock",
@@ -17,7 +21,15 @@ SUPPORTED_PROVIDERS: tuple[str, ...] = (
     "openai",
     "local",
     "vertex_ai",
+    "onnx",
+    "classical",
+    "datahub",
 )
+
+# Providers that embed in-process with no external API behind them ("local" is not one:
+# it calls an OpenAI-compatible server over HTTP). Callers use this to skip API
+# protections such as the documents-per-minute limiter.
+IN_PROCESS_PROVIDERS: frozenset[str] = frozenset({"classical", "onnx"})
 
 
 def resolve_local_base_url(endpoint: Optional[str]) -> str:
@@ -50,18 +62,46 @@ def derive_model_id(provider: Optional[str], model: Optional[str]) -> Optional[s
     return f"{provider}/{model}"
 
 
-def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
+def create_embedding_provider(
+    config: EmbeddingConfig,
+    *,
+    graph: Optional[DataHubGraph] = None,
+    target: Optional[ResolvedEmbeddingTarget] = None,
+) -> EmbeddingProvider:
+    target = target or resolve_embedding_target(config, graph)
+    provider = _create_embedding_provider(config, graph=graph, target=target)
+    provider.model_embedding_key = target.model_embedding_key
+    return provider
+
+
+def _create_embedding_provider(
+    config: EmbeddingConfig,
+    *,
+    graph: Optional[DataHubGraph],
+    target: ResolvedEmbeddingTarget,
+) -> EmbeddingProvider:
     """Build a provider instance from an :class:`EmbeddingConfig`.
 
     Validation of presence of provider/model/required fields is the caller's
     responsibility — this function assumes a fully resolved config.
     """
-    provider = config.provider
-    model = config.model
+    provider = target.model_provider
+    model = target.model_id
     api_key: Optional[str] = (
         config.api_key.get_secret_value() if config.api_key else None
     )
     timeout = config.request_timeout
+
+    if target.transport == "datahub":
+        from datahub.ingestion.source.unstructured.embedding_providers.datahub_server import (
+            DataHubServerEmbeddingProvider,
+        )
+
+        if graph is None:
+            raise ValueError(
+                "The datahub embedding provider requires a DataHubGraph connection."
+            )
+        return DataHubServerEmbeddingProvider(graph, target=target, timeout=timeout)
 
     if provider is None or model is None:
         raise ValueError("EmbeddingConfig.provider and .model must be set")
@@ -122,5 +162,34 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
             location=config.vertex_location,
             timeout=timeout,
         )
+
+    if provider == "onnx":
+        from datahub.ingestion.source.unstructured.embedding_providers.onnx import (
+            OnnxEmbeddingProvider,
+        )
+
+        # The server config names the model but not where its files live; the
+        # executor resolves that from the same env var GMS uses, so both sides
+        # load the identical model.onnx + tokenizer.json.
+        model_dir = config.onnx_model_dir or os.environ.get("ONNX_EMBEDDING_MODEL_DIR")
+        if not model_dir:
+            raise ValueError(
+                "onnx provider requires a model directory. Set embedding.onnx_model_dir "
+                "or the ONNX_EMBEDDING_MODEL_DIR environment variable to the directory "
+                "containing model.onnx and tokenizer.json."
+            )
+        return OnnxEmbeddingProvider(
+            model=model,
+            model_dir=model_dir,
+            pooling=config.onnx_pooling,
+        )
+
+    if provider == "classical":
+        from datahub.ingestion.source.unstructured.embedding_providers.classical import (
+            ClassicalEmbeddingProvider,
+        )
+
+        # Stateless and stdlib-only: the model name alone fixes the algorithm.
+        return ClassicalEmbeddingProvider(model=model)
 
     raise ValueError(f"Unsupported embedding provider: {provider}")

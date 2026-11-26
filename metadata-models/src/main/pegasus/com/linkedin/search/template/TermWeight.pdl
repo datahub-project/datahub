@@ -1,0 +1,37 @@
+namespace com.linkedin.search.template
+
+import com.linkedin.common.Urn
+
+/**
+ * One term filter and weight appended inside the template function score. The term
+ * matches an index field or a structured property definition. Java resolves a property
+ * to its current index field. {@code value} is one JSON scalar, so {@code true} stays a
+ * boolean. An entry names a field or a property.
+ */
+record TermWeight {
+  /**
+   * Index field the term matches. Unset when {@code propertyUrn} names the value.
+   */
+  field: optional string
+
+  /**
+   * Structured property definition. Unset when {@code field} names the value.
+   */
+  propertyUrn: optional Urn
+
+  /**
+   * Subfield appended after a structured-property field. {@code keyword} or {@code text}.
+   * Unset uses the property field itself.
+   */
+  subfield: optional string
+
+  /**
+   * Term value. One JSON scalar: a boolean, number, or quoted string.
+   */
+  value: string
+
+  /**
+   * Weight applied when the field equals {@code value}.
+   */
+  weight: double
+}

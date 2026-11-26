@@ -61,7 +61,9 @@ datahub agent create snowflake \
 
 **Queries** — `get_dataset_queries()`
 
-**Mutations** — `add_tags()`, `remove_tags()`, `update_description()`, `set_domains()`, `add_owners()`, `add_glossary_terms()`, `add_structured_properties()`, `save_document()`
+**Incidents** — `list_incidents()`
+
+**Mutations** — `add_tags()`, `remove_tags()`, `update_description()`, `set_domains()`, `add_owners()`, `add_glossary_terms()`, `add_structured_properties()`, `save_document()`, `raise_incident()`, `resolve_incident()`
 
 **Cloud-only** — `ask_datahub_chat()` (DataHub Cloud AI assistant)
 

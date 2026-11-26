@@ -2,7 +2,7 @@ import { Text } from '@components';
 import React from 'react';
 import { Trans } from 'react-i18next';
 
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 
 export const DOMAINS_INTRO_ID = 'domains-intro';
 export const DOMAINS_CREATE_DOMAIN_ID = 'domains-create-domain';

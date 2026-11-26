@@ -38,7 +38,16 @@ export function ExecutedByColumn({ source, actor }: SourceColumnProps) {
             return <span>{t('executions.scheduledExecution')}</span>;
 
         case CLI_INGESTION_SOURCE:
-            return <span>{t('executions.cliExecution')}</span>;
+            if (!actor) return <span>{t('executions.cliExecution')}</span>;
+            return (
+                <UserContainer>
+                    <Trans
+                        i18nKey="executions.cliExecutionBy"
+                        t={t}
+                        components={{ user: <UserWithAvatar user={actor} /> }}
+                    />
+                </UserContainer>
+            );
 
         default:
             return <span>-</span>;

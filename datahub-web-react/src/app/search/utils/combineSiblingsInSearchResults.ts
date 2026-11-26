@@ -1,4 +1,4 @@
-import { CombinedEntity, createSiblingEntityCombiner } from '@app/entity/shared/siblingUtils';
+import { CombinedEntity, createSiblingEntityCombiner } from '@app/entityV2/shared/siblingUtils';
 
 import { Entity, MatchedField } from '@types';
 
@@ -7,7 +7,7 @@ type UncombinedSeaerchResults = {
     matchedFields: Array<MatchedField>;
 };
 
-type CombinedSearchResult = CombinedEntity & Pick<UncombinedSeaerchResults, 'matchedFields'>;
+export type CombinedSearchResult = CombinedEntity & Pick<UncombinedSeaerchResults, 'matchedFields'>;
 
 export function combineSiblingsInSearchResults(
     showSeparateSiblings: boolean,

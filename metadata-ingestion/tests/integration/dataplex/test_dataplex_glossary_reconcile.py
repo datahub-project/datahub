@@ -34,7 +34,6 @@ from datahub.ingestion.source.dataplex.dataplex_glossary import (
     DataplexGlossaryReport,
     _term_urn_id,
 )
-from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.metadata.schema_classes import GlossaryTermsClass
 from datahub.metadata.urns import GlossaryTermUrn
 
@@ -44,7 +43,12 @@ GLOSSARY_ID = "g1"
 TERM_ID = "pii"
 ASSET_ENTRY_NAME = (
     "projects/my-project/locations/us/entryGroups/@bigquery/entries/"
-    "bigquery:my-project.dataset.customers"
+    "bigquery.googleapis.com/projects/my-project/datasets/ds1/tables/customers"
+)
+# lookupEntryLinks returns the entry-group project as a number, not an id.
+ASSET_ENTRY_NAME_API_FORM = (
+    "projects/123456789/locations/us/entryGroups/@bigquery/entries/"
+    "bigquery.googleapis.com/projects/my-project/datasets/ds1/tables/customers"
 )
 ASSET_DATASET_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.customers,PROD)"
@@ -68,18 +72,7 @@ def _make_config() -> DataplexConfig:
 def _make_ctx() -> DataplexContext:
     ctx = DataplexContext(config=_make_config(), credentials=None)
     ctx.project_numbers = {PROJECT_ID: "123456789"}
-    ctx.entry_data = [
-        EntryDataTuple(
-            dataplex_entry_short_name="customers",
-            dataplex_entry_name=ASSET_ENTRY_NAME,
-            dataplex_location="us",
-            dataplex_entry_type_short_name="bigquery-table",
-            dataplex_entry_fqn="bigquery:my-project.dataset.customers",
-            datahub_platform="bigquery",
-            datahub_dataset_name="my-project.dataset.customers",
-            datahub_dataset_urn=ASSET_DATASET_URN,
-        )
-    ]
+    ctx.entry_name_to_urn = {ASSET_ENTRY_NAME: ASSET_DATASET_URN}
     mock_response = Mock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
@@ -89,7 +82,7 @@ def _make_ctx() -> DataplexContext:
                     "projects/655216118709/locations/global/entryLinkTypes/definition"
                 ),
                 "entryReferences": [
-                    {"type": "SOURCE", "name": ASSET_ENTRY_NAME},
+                    {"type": "SOURCE", "name": ASSET_ENTRY_NAME_API_FORM},
                     {"type": "TARGET", "name": "term-entry-path"},
                 ],
             }
@@ -142,9 +135,7 @@ def _run_processor(
         platform_resource_repository=repo,
     )
     glossary_workunits = list(processor.process_glossaries([PROJECT_ID], max_workers=1))
-    assoc_workunits = list(
-        processor.process_term_associations([PROJECT_ID], max_workers=1)
-    )
+    assoc_workunits = list(processor.process_term_associations(max_workers=1))
     return glossary_workunits, assoc_workunits, report
 
 

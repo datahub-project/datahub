@@ -8,36 +8,83 @@ function makeNode(overrides: Partial<DocumentTreeNode> = {}): DocumentTreeNode {
 }
 
 describe('revealDocumentInTree', () => {
-    it('ensures a root document is present without loading children', async () => {
-        const nodes = new Map<string, DocumentTreeNode>();
-        const ensureNode = vi.fn((node: DocumentTreeNode) => {
-            nodes.set(node.urn, node);
-        });
+    it('no-ops for a root document missing from the loaded window (keeps sort + scroll at top)', async () => {
+        const ensureNode = vi.fn();
         const expandNode = vi.fn();
         const loadChildren = vi.fn().mockResolvedValue([]);
-        const loadMoreChildren = vi.fn().mockResolvedValue([]);
 
         await revealDocumentInTree({
             documentUrn: 'urn:li:document:root',
             documentTitle: 'Root Doc',
             parentDocuments: [],
-            getNode: (urn) => nodes.get(urn),
+            getNode: () => undefined,
+            isLoadedRoot: () => false,
             expandNode,
             ensureNode,
             loadChildren,
-            loadMoreChildren,
+            loadMoreChildren: vi.fn().mockResolvedValue([]),
             hasMoreChildren: () => false,
         });
 
-        expect(ensureNode).toHaveBeenCalledWith(
-            expect.objectContaining({ urn: 'urn:li:document:root', parentUrn: null, title: 'Root Doc' }),
-        );
+        expect(ensureNode).not.toHaveBeenCalled();
         expect(expandNode).not.toHaveBeenCalled();
         expect(loadChildren).not.toHaveBeenCalled();
     });
 
-    it('expands ancestors root-first and loads children along the path', async () => {
-        const nodes = new Map<string, DocumentTreeNode>();
+    it('no-ops when nested doc root ancestor is not in the loaded window', async () => {
+        const ensureNode = vi.fn();
+        const loadChildren = vi.fn().mockResolvedValue([]);
+
+        await revealDocumentInTree({
+            documentUrn: 'urn:li:document:c',
+            documentTitle: 'C',
+            parentDocuments: [
+                { urn: 'urn:li:document:b', title: 'B' },
+                { urn: 'urn:li:document:a', title: 'A' },
+            ],
+            getNode: () => undefined,
+            isLoadedRoot: () => false,
+            expandNode: vi.fn(),
+            ensureNode,
+            loadChildren,
+            loadMoreChildren: vi.fn().mockResolvedValue([]),
+            hasMoreChildren: () => false,
+        });
+
+        expect(ensureNode).not.toHaveBeenCalled();
+        expect(loadChildren).not.toHaveBeenCalled();
+    });
+
+    it('no-ops when the root exists only as a stale nodes-map entry', async () => {
+        // initializeTree drops scrolled-off roots from rootUrns but may leave them in nodes.
+        const staleRoot = makeNode({ urn: 'urn:li:document:a', title: 'A', hasChildren: true });
+        const ensureNode = vi.fn();
+        const loadChildren = vi.fn().mockResolvedValue([]);
+
+        await revealDocumentInTree({
+            documentUrn: 'urn:li:document:c',
+            documentTitle: 'C',
+            parentDocuments: [
+                { urn: 'urn:li:document:b', title: 'B' },
+                { urn: 'urn:li:document:a', title: 'A' },
+            ],
+            getNode: (urn) => (urn === staleRoot.urn ? staleRoot : undefined),
+            isLoadedRoot: () => false,
+            expandNode: vi.fn(),
+            ensureNode,
+            loadChildren,
+            loadMoreChildren: vi.fn().mockResolvedValue([]),
+            hasMoreChildren: () => false,
+        });
+
+        expect(ensureNode).not.toHaveBeenCalled();
+        expect(loadChildren).not.toHaveBeenCalled();
+    });
+
+    it('expands ancestors root-first and loads children along the path when root is loaded', async () => {
+        const nodes = new Map<string, DocumentTreeNode>([
+            ['urn:li:document:a', makeNode({ urn: 'urn:li:document:a', title: 'A', hasChildren: true })],
+        ]);
         const expanded = new Set<string>();
         const childPages = new Map<string, DocumentTreeNode[][]>([
             [
@@ -73,6 +120,7 @@ describe('revealDocumentInTree', () => {
                 { urn: 'urn:li:document:a', title: 'A' },
             ],
             getNode: (urn) => nodes.get(urn),
+            isLoadedRoot: (urn) => nodes.has(urn) && nodes.get(urn)?.parentUrn == null,
             expandNode,
             ensureNode,
             loadChildren,
@@ -86,7 +134,9 @@ describe('revealDocumentInTree', () => {
     });
 
     it('pages through children until the next path node appears', async () => {
-        const nodes = new Map<string, DocumentTreeNode>();
+        const nodes = new Map<string, DocumentTreeNode>([
+            ['urn:li:document:a', makeNode({ urn: 'urn:li:document:a', title: 'A', hasChildren: true })],
+        ]);
         const ensureNode = vi.fn((node: DocumentTreeNode) => {
             nodes.set(node.urn, node);
         });
@@ -111,6 +161,7 @@ describe('revealDocumentInTree', () => {
             documentTitle: 'Target',
             parentDocuments: [{ urn: 'urn:li:document:a', title: 'A' }],
             getNode: (urn) => nodes.get(urn),
+            isLoadedRoot: (urn) => urn === 'urn:li:document:a',
             expandNode,
             ensureNode,
             loadChildren,
@@ -124,7 +175,9 @@ describe('revealDocumentInTree', () => {
     });
 
     it('pages through multiple child pages when the target is far down the list', async () => {
-        const nodes = new Map<string, DocumentTreeNode>();
+        const nodes = new Map<string, DocumentTreeNode>([
+            ['urn:li:document:a', makeNode({ urn: 'urn:li:document:a', title: 'A', hasChildren: true })],
+        ]);
         const ensureNode = vi.fn((node: DocumentTreeNode) => {
             nodes.set(node.urn, node);
         });
@@ -158,6 +211,7 @@ describe('revealDocumentInTree', () => {
             documentTitle: 'Target',
             parentDocuments: [{ urn: 'urn:li:document:a', title: 'A' }],
             getNode: (urn) => nodes.get(urn),
+            isLoadedRoot: (urn) => urn === 'urn:li:document:a',
             expandNode,
             ensureNode,
             loadChildren,

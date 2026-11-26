@@ -25,7 +25,7 @@ export const SectionHeader = styled.div`
 
 export const SectionTitle = styled.div`
     font-weight: 700;
-    font-size: 12px;
+    font-size: 14px;
     color: ${(props) => props.theme.colors.text};
 `;
 

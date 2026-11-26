@@ -5,6 +5,7 @@ import styled from 'styled-components';
 const Container = styled.div<{ $gap?: number; $shouldFillAllAvailableSpace?: boolean }>`
     display: flex;
     flex-direction: row;
+    position: relative;
     ${(props) => props.$shouldFillAllAvailableSpace && 'justify-content: end;'}
     width: ${(props) => (props.$shouldFillAllAvailableSpace ? '100%' : 'fit-content')};
     overflow: hidden;

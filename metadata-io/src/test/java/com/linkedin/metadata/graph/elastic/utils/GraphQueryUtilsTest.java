@@ -4,16 +4,20 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
+import com.linkedin.metadata.graph.elastic.TestUtils;
 import com.linkedin.metadata.graph.elastic.ThreadSafePathStore;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -32,6 +36,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -75,6 +80,50 @@ public class GraphQueryUtilsTest {
   }
 
   @Test
+  public void testExtractRelationshipsStopsOncePastDeadline() {
+    SearchResponse response =
+        TestUtils.createFakeSearchResponse(
+            TestUtils.createFakeLineageHits(2, TEST_URN_1.toString(), "dest_", "DownstreamOf"), 2);
+
+    assertThrows(
+        LineageTimeoutException.class,
+        () ->
+            GraphQueryUtils.extractRelationships(
+                Set.of(TEST_URN_1),
+                response,
+                null,
+                new HashSet<>(),
+                new HashSet<>(),
+                1,
+                0,
+                new ThreadSafePathStore(),
+                false,
+                System.currentTimeMillis() - 1));
+  }
+
+  @Test
+  public void testExtractRelationshipsFromSearchResponsesStopsOncePastDeadline() {
+    SearchResponse response =
+        TestUtils.createFakeSearchResponse(
+            TestUtils.createFakeLineageHits(2, TEST_URN_1.toString(), "dest_", "DownstreamOf"), 2);
+
+    assertThrows(
+        LineageTimeoutException.class,
+        () ->
+            GraphQueryUtils.extractRelationshipsFromSearchResponses(
+                Set.of(TEST_URN_1),
+                Stream.of(response),
+                null,
+                new HashSet<>(),
+                new HashSet<>(),
+                1,
+                new ThreadSafePathStore(),
+                false,
+                null,
+                System.currentTimeMillis() - 1));
+  }
+
+  @Test
   public void testAddFilterToQueryBuilder() {
     Filter filter = new Filter();
     ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
@@ -90,6 +139,33 @@ public class GraphQueryUtilsTest {
     GraphQueryUtils.addFilterToQueryBuilder(filter, "testNode", rootQuery);
 
     assertNotNull(rootQuery.filter());
+    assertEquals(rootQuery.filter().size(), 1);
+  }
+
+  @Test
+  public void testAddFilterToQueryBuilderNullOrDoesNotThrow() {
+    Filter filter = new Filter();
+    assertNull(filter.getOr());
+
+    BoolQueryBuilder rootQuery = new BoolQueryBuilder();
+
+    GraphQueryUtils.addFilterToQueryBuilder(filter, "testNode", rootQuery);
+
+    assertEquals(rootQuery.filter().size(), 1);
+    assertTrue(((BoolQueryBuilder) rootQuery.filter().get(0)).should().isEmpty());
+  }
+
+  @Test
+  public void testAddFilterToQueryBuilderNullAndDoesNotThrow() {
+    Filter filter = new Filter();
+    ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
+    assertNull(conjunctiveCriterion.getAnd(GetMode.NULL));
+    filter.setOr(new ConjunctiveCriterionArray(conjunctiveCriterion));
+
+    BoolQueryBuilder rootQuery = new BoolQueryBuilder();
+
+    GraphQueryUtils.addFilterToQueryBuilder(filter, "testNode", rootQuery);
+
     assertEquals(rootQuery.filter().size(), 1);
   }
 
@@ -185,6 +261,32 @@ public class GraphQueryUtilsTest {
 
     assertTrue(GraphQueryUtils.platformMatches(TEST_URN_1, platforms));
     assertFalse(GraphQueryUtils.platformMatches(TEST_URN_4, new UrnArray()));
+  }
+
+  @Test
+  public void testPlatformMatchesSchemaField() {
+    // A schema field takes the platform of the dataset it is a field of, so that ignoreAsHops can
+    // be scoped by platform for columns the same way it is for datasets
+    Urn dbtColumn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,db.orders,PROD),order_id)");
+    Urn warehouseColumn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.orders,PROD),order_id)");
+    UrnArray dbt = new UrnArray();
+    dbt.add(UrnUtils.getUrn("urn:li:dataPlatform:dbt"));
+
+    assertTrue(GraphQueryUtils.platformMatches(dbtColumn, dbt));
+    assertFalse(GraphQueryUtils.platformMatches(warehouseColumn, dbt));
+  }
+
+  @Test
+  public void testPlatformMatchesEntityWithoutPlatform() {
+    // Rather than failing the whole lineage query it is part of
+    UrnArray dbt = new UrnArray();
+    dbt.add(UrnUtils.getUrn("urn:li:dataPlatform:dbt"));
+
+    assertFalse(GraphQueryUtils.platformMatches(UrnUtils.getUrn("urn:li:domain:marketing"), dbt));
   }
 
   @Test

@@ -6,13 +6,20 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.SdkPlugin;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.retries.StandardRetryStrategy;
+import software.amazon.awssdk.retries.api.BackoffStrategy;
+import software.amazon.awssdk.retries.api.RetryStrategy;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
@@ -21,16 +28,11 @@ import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
  * Implementation of {@link EmbeddingProvider} that directly calls AWS Bedrock to generate query
  * embeddings using Cohere Embed models.
  *
- * <p>This provider uses the AWS SDK for Java v2 with the default credential provider chain, which
- * supports:
- *
- * <ul>
- *   <li>Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
- *   <li>System properties
- *   <li>AWS_PROFILE environment variable (reads from ~/.aws/credentials)
- *   <li>EC2 instance profile credentials (for production deployments)
- *   <li>Container credentials (ECS tasks)
- * </ul>
+ * <p>This provider uses credentials from a shared {@link AwsCredentialsProvider} (typically the
+ * {@code defaultAwsCredentialsProvider} bean in GMS). The {@link BedrockRuntimeClient} region is
+ * set independently (typically via {@code embeddingProvider.bedrock.awsRegion}), so Bedrock can be
+ * called in a different region than the pod's {@code AWS_REGION} without creating additional
+ * credential providers.
  *
  * <p>Supports Cohere Embed v3 models with proper input_type and truncation handling.
  *
@@ -44,42 +46,59 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
   private static final String DEFAULT_MODEL = "cohere.embed-english-v3";
   private static final int DEFAULT_MAX_CHARACTER_LENGTH = 2048; // Cohere's hard limit
 
+  // A call with a deadline does not retry a throttle: a retry's backoff would outlive the deadline
+  // and end the throttle as a timeout. It retries a transient server or connection error once,
+  // quickly, so one blip does not fail the search.
+  private static final RetryStrategy DEADLINE_RETRIES =
+      StandardRetryStrategy.builder()
+          .maxAttempts(2)
+          .backoffStrategy(BackoffStrategy.fixedDelay(Duration.ofMillis(50)))
+          .retryOnException(AwsBedrockEmbeddingProvider::transientNotThrottled)
+          .circuitBreakerEnabled(false)
+          .build();
+
+  // Applied per request, so a call without a deadline keeps the client's retries
+  private static final SdkPlugin WITHIN_DEADLINE =
+      config -> config.overrideConfiguration(o -> o.retryStrategy(DEADLINE_RETRIES));
+
   private final BedrockRuntimeClient bedrockClient;
   private final ObjectMapper objectMapper;
   private final String defaultModel;
   private final int maxCharacterLength;
 
   /**
-   * Creates a new AwsBedrockEmbeddingProvider with default settings.
+   * Creates a provider using an injected shared credentials provider (required in GMS).
    *
    * @param awsRegion AWS region where Bedrock is available (e.g., "us-west-2", "us-east-1")
+   * @param credentialsProvider shared process-wide provider from {@code AwsClientFactory}
    */
-  public AwsBedrockEmbeddingProvider(@Nonnull String awsRegion) {
-    this(awsRegion, DEFAULT_MODEL, DEFAULT_MAX_CHARACTER_LENGTH);
+  public AwsBedrockEmbeddingProvider(
+      @Nonnull String awsRegion, @Nonnull AwsCredentialsProvider credentialsProvider) {
+    this(awsRegion, DEFAULT_MODEL, DEFAULT_MAX_CHARACTER_LENGTH, credentialsProvider);
   }
 
   /**
-   * Creates a new AwsBedrockEmbeddingProvider with custom configuration.
+   * Creates a provider using an injected shared credentials provider (required in GMS).
    *
-   * @param awsRegion AWS region where Bedrock is available
-   * @param defaultModel Default embedding model (e.g., "cohere.embed-english-v3")
-   * @param maxCharacterLength Maximum text length before truncation (Cohere enforces 2048)
+   * @param credentialsProvider shared process-wide provider from {@code AwsClientFactory}
    */
   public AwsBedrockEmbeddingProvider(
-      @Nonnull String awsRegion, @Nonnull String defaultModel, int maxCharacterLength) {
+      @Nonnull String awsRegion,
+      @Nonnull String defaultModel,
+      int maxCharacterLength,
+      @Nonnull AwsCredentialsProvider credentialsProvider) {
     Objects.requireNonNull(awsRegion, "awsRegion cannot be null");
     Objects.requireNonNull(defaultModel, "defaultModel cannot be null");
+    Objects.requireNonNull(credentialsProvider, "credentialsProvider cannot be null");
 
     this.defaultModel = defaultModel;
     this.maxCharacterLength = maxCharacterLength;
     this.objectMapper = new ObjectMapper();
 
-    // Create Bedrock Runtime client with default credential chain
-    // This automatically supports AWS_PROFILE, EC2 instance roles, etc.
     this.bedrockClient =
         BedrockRuntimeClient.builder()
             .region(Region.of(awsRegion))
-            .credentialsProvider(DefaultCredentialsProvider.create())
+            .credentialsProvider(credentialsProvider)
             .build();
 
     log.info(
@@ -115,6 +134,26 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
   @Override
   @Nonnull
   public float[] embed(@Nonnull String text, @Nullable String model) {
+    return embedWithTimeout(text, model, null);
+  }
+
+  @Override
+  @Nonnull
+  public float[] embed(
+      @Nonnull String text,
+      @Nullable String model,
+      @Nonnull EmbeddingTaskType taskType,
+      @Nonnull Duration timeout) {
+    return embedWithTimeout(text, model, timeout);
+  }
+
+  /**
+   * @param timeout bounds the call, which then retries only a transient error, once; null keeps the
+   *     client's settings, retries included
+   */
+  @Nonnull
+  private float[] embedWithTimeout(
+      @Nonnull String text, @Nullable String model, @Nullable Duration timeout) {
     Objects.requireNonNull(text, "text cannot be null");
 
     String modelToUse = model != null ? model : defaultModel;
@@ -147,15 +186,18 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
       log.debug("Bedrock request for model {}: {}", modelToUse, requestJson);
 
       // Invoke Bedrock model
-      InvokeModelRequest invokeRequest =
+      InvokeModelRequest.Builder invokeRequest =
           InvokeModelRequest.builder()
               .modelId(modelToUse)
               .body(SdkBytes.fromString(requestJson, StandardCharsets.UTF_8))
               .contentType("application/json")
-              .accept("application/json")
-              .build();
+              .accept("application/json");
+      if (timeout != null) {
+        invokeRequest.overrideConfiguration(
+            override -> override.apiCallTimeout(timeout).addPlugin(WITHIN_DEADLINE));
+      }
 
-      InvokeModelResponse response = bedrockClient.invokeModel(invokeRequest);
+      InvokeModelResponse response = bedrockClient.invokeModel(invokeRequest.build());
 
       // Parse response
       // Format: {"embeddings": [[0.123, 0.456, ...]], "id": "...", "response_type":
@@ -202,9 +244,24 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
     } catch (Exception e) {
       String errorMsg =
           String.format("Bedrock InvokeModel failed for model %s: %s", modelToUse, e.getMessage());
+      // Any 429, which includes ModelNotReadyException as well as ThrottlingException: both clear
+      // on their own, so reporting them as a throttle, a 503 to GraphQL callers, is intended. With
+      // no deadline the client's retries ran first.
+      if (e instanceof SdkServiceException service && service.isThrottlingException()) {
+        log.warn(errorMsg);
+        throw new EmbeddingThrottledException(errorMsg, e);
+      }
       log.error(errorMsg, e);
       throw new RuntimeException(errorMsg, e);
     }
+  }
+
+  /** A transient server error or a dropped connection, never a throttle. */
+  private static boolean transientNotThrottled(@Nonnull Throwable failure) {
+    if (failure instanceof SdkServiceException service) {
+      return !service.isThrottlingException() && service.statusCode() >= 500;
+    }
+    return failure instanceof SdkClientException && failure.getCause() instanceof IOException;
   }
 
   /** Closes the Bedrock client. Should be called when the provider is no longer needed. */

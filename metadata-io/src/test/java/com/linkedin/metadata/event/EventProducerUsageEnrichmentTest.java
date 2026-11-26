@@ -4,7 +4,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.usage.UsageDedupHeaders;
-import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
@@ -98,9 +97,5 @@ public class EventProducerUsageEnrichmentTest {
     public String getPlatformEventTopicName() {
       return "platform";
     }
-
-    @Override
-    public void produceDataHubUpgradeHistoryEvent(
-        @Nonnull OperationContext opContext, @Nonnull DataHubUpgradeHistoryEvent event) {}
   }
 }

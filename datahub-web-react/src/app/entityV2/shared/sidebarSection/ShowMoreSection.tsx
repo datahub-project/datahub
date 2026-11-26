@@ -8,14 +8,17 @@ type Props = {
     entityCount: number;
     setEntityCount: (entityCount: number) => void;
     showMaxEntity?: number;
+    /** Replaces the default "show N more" text; receives how many more the next click reveals. */
+    moreLabel?: (showMoreCount: number) => string;
 };
 
-export const ShowMoreSection = ({ totalCount, entityCount, setEntityCount, showMaxEntity = 4 }: Props) => {
+export const ShowMoreSection = ({ totalCount, entityCount, setEntityCount, showMaxEntity = 4, moreLabel }: Props) => {
     const { t: tc } = useTranslation('common.actions');
     const showMoreCount = entityCount + showMaxEntity > totalCount ? totalCount - entityCount : showMaxEntity;
     return (
         <ShowMoreButton onClick={() => setEntityCount(entityCount + showMaxEntity)}>
-            {(showMoreCount && tc('showCountMore', { count: showMoreCount })) || tc('showMore')}
+            {(showMoreCount && (moreLabel?.(showMoreCount) ?? tc('showCountMore', { count: showMoreCount }))) ||
+                tc('showMore')}
         </ShowMoreButton>
     );
 };

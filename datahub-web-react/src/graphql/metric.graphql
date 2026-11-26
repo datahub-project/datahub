@@ -151,6 +151,9 @@ fragment metricFields on Metric {
     domain {
         ...entityDomain
     }
+    applications {
+        ...entityApplication
+    }
     structuredProperties {
         properties {
             ...structuredPropertiesFields

@@ -2,6 +2,7 @@ import json
 import re
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, cast
+from unittest.mock import patch
 
 import pytest
 import requests
@@ -17,6 +18,8 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.sap_common.models import EdmxParseResult
 from datahub.ingestion.source.sap_datasphere import source as source_module
 from datahub.ingestion.source.sap_datasphere.client import SapDatasphereClient
 from datahub.ingestion.source.sap_datasphere.config import SapDatasphereConfig
@@ -27,6 +30,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     JsonDict,
     ResolvedPlatform,
     UpstreamColRef,
+    UpstreamRef,
 )
 from datahub.ingestion.source.sap_datasphere.platform_mapping import (
     PlatformMappingResolver,
@@ -49,7 +53,10 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     MetadataChangeProposalClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    StringTypeClass,
     SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -65,9 +72,13 @@ from tests.unit.sap_datasphere.sap_datasphere_test_helpers import (
 
 @pytest.fixture(autouse=True)
 def _default_csn_endpoint_404(requests_mock):
-    """Low-priority 404 fallback so CSN fetches for assets that don't mock the
-    per-object-type endpoint degrade gracefully; a test's own specific CSN mock
-    overrides this (requests_mock matches in reverse registration order)."""
+    """Default empty design-time lists + 404 CSN fallback; tests override."""
+    requests_mock.get(
+        re.compile(
+            r"https://[^/]+/dwaas-core/api/v1/spaces/[^/]+/(views|analyticmodels)(\?.*)?$"
+        ),
+        json=[],
+    )
     requests_mock.get(
         re.compile(
             r"https://[^/]+/dwaas-core/api/v1/spaces/[^/]+/(views|analyticmodels)/"
@@ -437,7 +448,7 @@ def test_client_does_not_fetch_token_in_init():
     assert client is not None
 
 
-def test_dataset_picks_up_entity_label_and_custom_props_from_edmx(requests_mock):
+def test_dataset_picks_up_custom_props_from_edmx(requests_mock):
     edmx_xml = """<?xml version="1.0" encoding="UTF-8"?>
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
             xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
@@ -498,18 +509,17 @@ def test_dataset_picks_up_entity_label_and_custom_props_from_edmx(requests_mock)
     props = aspect_as(props_wu, DatasetPropertiesClass)
     assert props.customProperties.get("sap_dimension_type") == "Time"
     assert props.customProperties.get("sap_is_measure") == "true"
-
-    # Description is stored in EditableDatasetPropertiesClass when running outside
-    # the ingestion pipeline (SDK default attribution); check both aspects.
-    description_candidates = []
-    for wu in workunits:
-        aspect = aspect_of(wu)
-        if isinstance(aspect, (DatasetPropertiesClass, EditableDatasetPropertiesClass)):
-            if aspect.description:
-                description_candidates.append(aspect.description)
-    assert any("Monthly Revenue" in d for d in description_candidates), (
-        f"Expected 'Monthly Revenue' in a description aspect, got: {description_candidates}"
-    )
+    # Catalog label is the display name; the distinct EDMX Common.Label is the
+    # dataset's visible description (it carries text beyond the display name).
+    assert props.name == "Revenue"
+    descriptions = [
+        aspect.description
+        for wu in workunits
+        for aspect in [aspect_of(wu)]
+        if isinstance(aspect, (DatasetPropertiesClass, EditableDatasetPropertiesClass))
+        and aspect.description
+    ]
+    assert "Monthly Revenue" in descriptions
 
 
 def test_client_fetches_refresh_token_lazily(requests_mock):
@@ -1571,8 +1581,10 @@ def test_association_lineage_emitted_from_csn_elements(requests_mock):
 
 
 def test_lineage_not_fetched_when_include_lineage_false(requests_mock):
-    """When both include_lineage and include_view_definitions are False, the CSN
-    endpoint is never called."""
+    """EDMX-backed assets skip CSN when lineage and view definitions are off."""
+    fixture_xml = (
+        Path(__file__).parent / "fixtures" / "sap_datasphere_dimension_day.xml"
+    ).read_text()
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -1597,12 +1609,18 @@ def test_lineage_not_fetched_when_include_lineage_false(requests_mock):
                 {
                     "name": "VIEW_X",
                     "spaceName": "S1",
-                    "assetRelationalMetadataUrl": None,
+                    "assetRelationalMetadataUrl": (
+                        "https://myco.eu10.hcs.cloud.sap/edmx/VIEW_X/$metadata"
+                    ),
                     "supportsAnalyticalQueries": False,
                     "hasParameters": False,
                 }
             ]
         },
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/edmx/VIEW_X/$metadata",
+        text=fixture_xml,
     )
 
     source = SapDatasphereSource(ctx, cfg)
@@ -1615,8 +1633,9 @@ def test_lineage_not_fetched_when_include_lineage_false(requests_mock):
         and ("/views/" in h.url or "/analyticmodels/" in h.url)
     ]
     assert len(csn_calls) == 0, (
-        f"CSN should NOT be fetched when include_lineage=False; "
-        f"got {len(csn_calls)} per-object-type calls: {[h.url for h in csn_calls]}"
+        f"CSN should NOT be fetched when include_lineage=False for an "
+        f"EDMX-backed catalog asset; got {len(csn_calls)} per-object-type "
+        f"calls: {[h.url for h in csn_calls]}"
     )
 
 
@@ -3565,6 +3584,538 @@ def test_include_local_tables_off_by_default(requests_mock):
     assert source.report.local_tables_emitted == 0
 
 
+def test_discover_unexposed_views_emits_missing_catalog_views(requests_mock):
+    """discover_unexposed_views emits design-time Views missing from the catalog."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={
+            "value": [
+                {
+                    "name": "DOWNSTREAM_VIEW",
+                    "label": "Downstream View",
+                    "spaceName": "S1",
+                    "assetRelationalMetadataUrl": None,
+                    "supportsAnalyticalQueries": False,
+                    "hasParameters": False,
+                }
+            ]
+        },
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views",
+        json=[
+            {"technicalName": "DOWNSTREAM_VIEW"},
+            {"technicalName": "UNEXPOSED_UPSTREAM"},
+        ],
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels",
+        json=[],
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views/DOWNSTREAM_VIEW",
+        json={
+            "definitions": {
+                "DOWNSTREAM_VIEW": {
+                    "kind": "entity",
+                    "elements": {"COL_A": {"type": "cds.String", "length": 10}},
+                    "query": {
+                        "SELECT": {
+                            "from": {"ref": ["UNEXPOSED_UPSTREAM"]},
+                            "columns": [{"ref": ["COL_A"]}],
+                        }
+                    },
+                }
+            }
+        },
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views/UNEXPOSED_UPSTREAM",
+        json={
+            "definitions": {
+                "UNEXPOSED_UPSTREAM": {
+                    "kind": "entity",
+                    "elements": {
+                        "COL_A": {"type": "cds.String", "length": 10},
+                        "COL_B": {"type": "cds.Integer"},
+                    },
+                }
+            }
+        },
+    )
+    config = SapDatasphereConfig(
+        base_url=tenant,
+        token="t",
+        include_lineage=True,
+        discover_unexposed_views=True,
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    workunits = list(source.get_workunits())
+
+    dataset_urns = {
+        entity_urn_of(wu)
+        for wu in workunits
+        if (entity_urn_of(wu) or "").startswith("urn:li:dataset:")
+    }
+    assert any("unexposed_upstream" in u for u in dataset_urns), (
+        f"Expected design-time-only upstream view; got: {dataset_urns}"
+    )
+    assert any("downstream_view" in u for u in dataset_urns)
+    assert source.report.non_consumption_views_emitted == 1
+
+    # The point of discovery: the downstream view's lineage edge lands on the
+    # emitted design-time upstream, not a dangling URN.
+    upstream_urn = next(u for u in dataset_urns if "unexposed_upstream" in u)
+    downstream_lineage = [
+        aspect_as(wu, UpstreamLineageClass)
+        for wu in workunits
+        if "downstream_view" in (entity_urn_of(wu) or "")
+        and isinstance(aspect_of(wu), UpstreamLineageClass)
+    ]
+    assert downstream_lineage
+    assert upstream_urn in {u.dataset for u in downstream_lineage[0].upstreams}
+
+    schema_paths_by_urn: Dict[str, set] = {}
+    for wu in workunits:
+        urn = entity_urn_of(wu) or ""
+        if not urn.startswith("urn:li:dataset:"):
+            continue
+        if aspect_of(wu).__class__.__name__ != "SchemaMetadataClass":
+            continue
+        schema_paths_by_urn[urn] = {
+            f.fieldPath for f in aspect_as(wu, SchemaMetadataClass).fields
+        }
+    upstream_schemas = [
+        fields
+        for urn, fields in schema_paths_by_urn.items()
+        if "unexposed_upstream" in urn
+    ]
+    assert upstream_schemas and "COL_A" in upstream_schemas[0]
+    assert "COL_B" in upstream_schemas[0]
+
+
+def test_discover_unexposed_views_use_csn_label_as_description_not_name(requests_mock):
+    """An unexposed view keeps its technical name as the display name; the CSN
+    @EndUserText.label becomes the visible description."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views",
+        json=[{"technicalName": "UNEXPOSED_VIEW"}],
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels",
+        json=[],
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views/UNEXPOSED_VIEW",
+        json={
+            "definitions": {
+                "UNEXPOSED_VIEW": {
+                    "kind": "entity",
+                    "@EndUserText.label": "Monthly Revenue by Region",
+                    "elements": {"COL_A": {"type": "cds.String", "length": 10}},
+                }
+            }
+        },
+    )
+    config = SapDatasphereConfig(
+        base_url=tenant,
+        token="t",
+        include_lineage=True,
+        discover_unexposed_views=True,
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    workunits = list(source.get_workunits())
+
+    props = [
+        aspect_as(wu, DatasetPropertiesClass)
+        for wu in workunits
+        if "unexposed_view" in (entity_urn_of(wu) or "")
+        and aspect_of(wu).__class__.__name__ == "DatasetPropertiesClass"
+    ]
+    assert props, "Expected the unexposed view to be emitted with DatasetProperties"
+    # The technical name stays the display name; the label is not promoted to the title.
+    assert props[0].name == "UNEXPOSED_VIEW"
+
+    # The label is surfaced as the dataset's description instead.
+    descriptions = [
+        aspect.description
+        for wu in workunits
+        if "unexposed_view" in (entity_urn_of(wu) or "")
+        for aspect in [aspect_of(wu)]
+        if isinstance(aspect, (DatasetPropertiesClass, EditableDatasetPropertiesClass))
+        and aspect.description
+    ]
+    assert "Monthly Revenue by Region" in descriptions
+
+
+def test_discover_unexposed_views_emits_analytic_model(requests_mock):
+    """Design-time Analytic Models get the Analytic Model subtype."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(f"{tenant}/dwaas-core/api/v1/spaces/S1/views", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels",
+        json=[{"technicalName": "HIDDEN_AM"}],
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels/HIDDEN_AM",
+        json={
+            "definitions": {
+                "HIDDEN_AM": {
+                    "kind": "entity",
+                    "elements": {"M1": {"type": "cds.Integer"}},
+                }
+            }
+        },
+    )
+    config = SapDatasphereConfig(
+        base_url=tenant,
+        token="t",
+        discover_unexposed_views=True,
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    workunits = list(source.get_workunits())
+
+    assert source.report.non_consumption_views_emitted == 1
+    subtype_aspects = [
+        aspect_as(wu, SubTypesClass)
+        for wu in workunits
+        if aspect_of(wu).__class__.__name__ == "SubTypesClass"
+        and "hidden_am" in (entity_urn_of(wu) or "")
+    ]
+    assert subtype_aspects, "Expected SubTypes on the design-time Analytic Model"
+    assert DatasetSubTypes.SAP_ANALYTICAL_MODEL in subtype_aspects[0].typeNames
+
+
+def test_discover_unexposed_views_skips_catalog_duplicates(requests_mock):
+    """Catalog names are not re-emitted from the design-time list."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={
+            "value": [
+                {
+                    "name": "ALREADY_EXPOSED",
+                    "label": "Already Exposed",
+                    "spaceName": "S1",
+                    "assetRelationalMetadataUrl": None,
+                    "supportsAnalyticalQueries": False,
+                    "hasParameters": False,
+                }
+            ]
+        },
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views",
+        json=[{"technicalName": "ALREADY_EXPOSED"}],
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels",
+        json=[],
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views/ALREADY_EXPOSED",
+        json={
+            "definitions": {
+                "ALREADY_EXPOSED": {
+                    "kind": "entity",
+                    "elements": {"X": {"type": "cds.String"}},
+                }
+            }
+        },
+    )
+    config = SapDatasphereConfig(
+        base_url=tenant,
+        token="t",
+        discover_unexposed_views=True,
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    workunits = list(source.get_workunits())
+
+    dataset_props = [
+        wu
+        for wu in workunits
+        if (entity_urn_of(wu) or "").startswith("urn:li:dataset:")
+        and aspect_of(wu).__class__.__name__ == "DatasetPropertiesClass"
+        and "already_exposed" in (entity_urn_of(wu) or "")
+    ]
+    assert len(dataset_props) == 1
+    assert source.report.non_consumption_views_emitted == 0
+
+
+def test_discover_unexposed_views_noop_when_expose_only(requests_mock):
+    """expose_for_consumption_only=true makes discover_unexposed_views a no-op."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views",
+        status_code=500,
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels",
+        status_code=500,
+    )
+    config = SapDatasphereConfig(
+        base_url=tenant,
+        token="t",
+        discover_unexposed_views=True,
+        expose_for_consumption_only=True,
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    list(source.get_workunits())
+    assert source.report.non_consumption_views_emitted == 0
+    assert not any(
+        "Failed to list" in (w.title or "") for w in source.report.warnings
+    ), "design-time list endpoints must not be called when expose-only"
+
+
+def test_discover_unexposed_views_on_by_default(requests_mock):
+    """Default recipes list design-time Views / Analytic Models."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views",
+        json=[{"technicalName": "HIDDEN_VIEW"}],
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels",
+        json=[],
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views/HIDDEN_VIEW",
+        json={
+            "definitions": {
+                "HIDDEN_VIEW": {
+                    "kind": "entity",
+                    "elements": {"X": {"type": "cds.String"}},
+                }
+            }
+        },
+    )
+    config = SapDatasphereConfig(base_url=tenant, token="t")
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    list(source.get_workunits())
+    assert config.discover_unexposed_views is True
+    assert source.report.non_consumption_views_emitted == 1
+
+
+def test_discover_unexposed_views_false_skips_design_time_listing(requests_mock):
+    """discover_unexposed_views=false keeps catalog-only discovery."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views",
+        status_code=500,
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels",
+        status_code=500,
+    )
+    config = SapDatasphereConfig(
+        base_url=tenant,
+        token="t",
+        discover_unexposed_views=False,
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    list(source.get_workunits())
+    assert source.report.non_consumption_views_emitted == 0
+    assert not any("Failed to list" in (w.title or "") for w in source.report.warnings)
+
+
+def test_discover_unexposed_views_routes_per_object_when_managed_disabled(
+    requests_mock,
+):
+    """A disabled _managed skips only managed objects; federated ones still route."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "discover_unexposed_views": True,
+            "connection_to_platform_map": {
+                "_managed": {"platform": "hana", "enabled": False},
+                "SNOW_CONN": {"platform": "snowflake"},
+            },
+        }
+    )
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/spaces/S1/connections",
+        json=[{"name": "SNOW_CONN", "typeId": "SNOWFLAKE"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/views",
+        json=[{"technicalName": "MANAGED_VIEW"}, {"technicalName": "FED_VIEW"}],
+    )
+    requests_mock.get(f"{base}/dwaas-core/api/v1/spaces/S1/analyticmodels", json=[])
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/views/MANAGED_VIEW",
+        json={"definitions": {"MANAGED_VIEW": {"kind": "entity"}}},
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/views/FED_VIEW",
+        json={
+            "definitions": {
+                "FED_VIEW": {"kind": "entity", "@remote.source": "SNOW_CONN"}
+            }
+        },
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="ncv-managed"), cfg)
+    workunits = list(source.get_workunits())
+
+    dataset_urns = {
+        entity_urn_of(wu)
+        for wu in workunits
+        if (entity_urn_of(wu) or "").startswith("urn:li:dataset:")
+    }
+    assert any("snowflake" in u and "fed_view" in u for u in dataset_urns)
+    assert not any("managed_view" in u for u in dataset_urns)
+    assert any("MANAGED_VIEW" in s for s in source.report.assets_skipped_disabled)
+    assert source.report.non_consumption_views_emitted == 1
+
+
+def test_discover_unexposed_views_listing_failure_is_reported_and_continues(
+    requests_mock,
+):
+    """A failed design-time listing records a failure (suppressing stale-entity removal)
+    and leaves the catalog emit intact."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(f"{tenant}/dwaas-core/api/v1/spaces/S1/views", status_code=500)
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels", status_code=500
+    )
+    config = SapDatasphereConfig(
+        base_url=tenant, token="t", discover_unexposed_views=True
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    workunits = list(source.get_workunits())
+
+    failures = [(f.title or "", f.message) for f in source.report.failures]
+    assert any(
+        title == "Incomplete SAP Datasphere object listing" and "views" in message
+        for title, message in failures
+    ), f"Expected an incomplete-listing failure for views; got: {failures}"
+    assert any(
+        title == "Incomplete SAP Datasphere object listing"
+        and "analyticmodels" in message
+        for title, message in failures
+    ), f"Expected an incomplete-listing failure for analyticmodels; got: {failures}"
+    assert source.report.non_consumption_views_emitted == 0
+    # The space container still emits; the failure stays scoped to discovery.
+    assert any(isinstance(aspect_of(wu), ContainerPropertiesClass) for wu in workunits)
+
+
+def test_discover_unexposed_views_matches_catalog_case_insensitively(
+    requests_mock,
+):
+    """Catalog and design-time names that lower to one URN are one asset."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={
+            "value": [
+                {
+                    "name": "Sales_View",
+                    "spaceName": "S1",
+                    "assetRelationalMetadataUrl": None,
+                    "supportsAnalyticalQueries": False,
+                }
+            ]
+        },
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views",
+        json=[{"technicalName": "SALES_VIEW"}],
+    )
+    requests_mock.get(f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels", json=[])
+    requests_mock.get(
+        re.compile(rf"{re.escape(tenant)}/dwaas-core/api/v1/spaces/S1/views/.*"),
+        json={"definitions": {}},
+    )
+    config = SapDatasphereConfig(
+        base_url=tenant, token="t", discover_unexposed_views=True
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    list(source.get_workunits())
+
+    assert source.report.non_consumption_views_emitted == 0
+
+
 _EDMX_FOR_TAGS = """<?xml version="1.0" encoding="UTF-8"?>
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
             xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
@@ -4484,6 +5035,7 @@ def test_business_layer_keeps_fgl_when_upstreams_match():
         schema_fields=[],
         custom_properties={},
         query_upstreams=query_upstreams,
+        space_name="finance",
     )
 
     assert result is not None
@@ -4537,6 +5089,7 @@ def test_business_layer_drops_fgl_when_upstreams_mismatch():
         schema_fields=[],
         custom_properties={},
         query_upstreams=query_upstreams,
+        space_name="finance",
     )
 
     assert result is not None
@@ -4545,6 +5098,214 @@ def test_business_layer_drops_fgl_when_upstreams_mismatch():
     # FGL DROPPED: its upstream parent is the double-prefixed fact, not in the
     # business-layer set -> set to None (not an empty list).
     assert result.fineGrainedLineages is None
+
+
+def test_business_layer_prefixes_bare_same_space_keys():
+    # Same-space BL keys are bare names; without a space prefix they become
+    # ghost lineage URNs that only show as hidden edges.
+    src = _bl_source("bl-bare-same-space")
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="v_fact_orders",
+        dim_key="v_dim_region",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=None,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert {u.dataset for u in result.upstreams} == {
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_fact_orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_dim_region,PROD)",
+    }
+
+
+def test_business_layer_passthrough_qualified_cross_space_keys():
+    src = _bl_source("bl-qualified-passthrough")
+    assert src._business_layer_upstream_urn("MY_SPACE", "OTHER_SPACE.BASE_TABLE") == (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "other_space.base_table,PROD)"
+    )
+
+
+def test_business_layer_mixed_bare_and_qualified_keys():
+    # Realistic star schema: same-space fact/dim plus a generated time dimension,
+    # which lives in the model's space despite its dotted name.
+    src = _bl_source("bl-mixed-keys")
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="v_fact_orders",
+        dim_key="SAP.TIME.M_TIME_DIMENSION",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=None,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert {u.dataset for u in result.upstreams} == {
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_fact_orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.sap.time.m_time_dimension,PROD)",
+    }
+
+
+def test_query_lineage_resolves_dotted_upstreams():
+    src = _bl_source("query-lineage-dotted")
+    lineage = src._build_upstream_lineage(
+        ResolvedPlatform(platform="sap-datasphere", platform_instance=None, env="PROD"),
+        "MY_SPACE",
+        [
+            UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION"),
+            UpstreamRef(name="FINANCE.V_SALES"),
+            UpstreamRef(name="V_LOCAL"),
+        ],
+    )
+
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.sap.time.m_time_dimension,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,finance.v_sales,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v_local,PROD)",
+    ]
+
+
+def test_query_lineage_reports_sap_refs_outside_generated_prefixes():
+    src = _bl_source("query-lineage-sap-space")
+    lineage = src._build_upstream_lineage(
+        ResolvedPlatform(platform="sap-datasphere", platform_instance=None, env="PROD"),
+        "MY_SPACE",
+        [
+            UpstreamRef(name="SAP.V_SALES"),
+            UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION"),
+        ],
+    )
+    src._locate("SAP.V_SALES", "OTHER_SPACE")
+
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,sap.v_sales,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.sap.time.m_time_dimension,PROD)",
+    ]
+    assert list(src.report.sap_refs_outside_generated_prefixes) == ["SAP.V_SALES"]
+
+
+def test_query_column_lineage_through_generated_time_object():
+    src = _bl_source("query-col-lineage-sap-time")
+    time_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.sap.time.m_time_dimension,PROD)"
+    )
+    view_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v,PROD)"
+    lineage = src._build_upstream_lineage(
+        ResolvedPlatform(platform="sap-datasphere", platform_instance=None, env="PROD"),
+        "MY_SPACE",
+        [UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION")],
+        ColumnLineageContext(
+            pairs=[
+                ColumnLineagePair(
+                    downstream_col="year",
+                    upstream_refs=[
+                        UpstreamColRef(qname="SAP.TIME.M_TIME_DIMENSION", col="YEAR")
+                    ],
+                    transform_op="IDENTITY",
+                )
+            ],
+            downstream_dataset_urn=view_urn,
+        ),
+    )
+
+    assert lineage is not None
+    assert lineage.fineGrainedLineages is not None
+    assert lineage.fineGrainedLineages[0].upstreams == [
+        f"urn:li:schemaField:({time_urn},YEAR)"
+    ]
+    assert not list(src.report.column_lineage_unresolved)
+
+
+def test_business_layer_keeps_fgl_for_bare_same_space_keys():
+    # Before space-prefixing bare BL keys, query FGL parents were already
+    # space-prefixed while BL upstreams were not — retention always failed.
+    src = _bl_source("bl-bare-fgl-keep")
+    fact_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_fact_orders,PROD)"
+    )
+    dim_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v_dim_region,PROD)"
+    )
+    model_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.am_orders,PROD)"
+    )
+    fgl = FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+        upstreams=[
+            f"urn:li:schemaField:({fact_urn},total)",
+            f"urn:li:schemaField:({dim_urn},region)",
+        ],
+        downstreams=[f"urn:li:schemaField:({model_urn},total)"],
+    )
+    query_upstreams = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=fact_urn, type=DatasetLineageTypeClass.VIEW),
+        ],
+        fineGrainedLineages=[fgl],
+    )
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="v_fact_orders",
+        dim_key="v_dim_region",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=query_upstreams,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert {u.dataset for u in result.upstreams} == {fact_urn, dim_urn}
+    assert result.fineGrainedLineages, "fineGrainedLineages should be kept"
+    assert len(result.fineGrainedLineages) == 1
+    assert result.fineGrainedLineages[0] is fgl
+
+
+def test_business_layer_dedups_qualified_and_bare_same_object():
+    # Qualified MY_SPACE.V_FACT and bare V_FACT resolve to the same URN after
+    # space-prefixing; emit once.
+    src = _bl_source("bl-dedup-keys")
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="MY_SPACE.V_FACT",
+        dim_key="V_FACT",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=None,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert len(result.upstreams) == 1
+    assert result.upstreams[0].dataset == (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v_fact,PROD)"
+    )
 
 
 def test_schema_field_parent_extracts_dataset_urn():
@@ -5527,8 +6288,8 @@ def test_flow_non_object_body_is_reported_and_does_not_abort_remaining_flows(
 
 
 def test_flow_list_request_exception_is_reported_and_degrades(requests_mock):
-    """A transport error listing a flow type must be downgraded to a warning and
-    let ingestion continue, not crash the run."""
+    """A transport error listing a flow type must be recorded as a failure (so
+    stale-entity removal is suppressed) and let ingestion continue, not crash the run."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -5545,12 +6306,16 @@ def test_flow_list_request_exception_is_reported_and_degrades(requests_mock):
     source = SapDatasphereSource(PipelineContext(run_id="flow-list-fail"), cfg)
     list(source.get_workunits())
 
-    titles = [w.title or "" for w in source.report.warnings]
-    assert "Failed to list flows in space" in titles
+    failures = [(f.title or "", f.message) for f in source.report.failures]
+    assert any(
+        title == "Incomplete SAP Datasphere object listing" and "dataflows" in message
+        for title, message in failures
+    ), f"Expected an incomplete-listing failure for dataflows; got: {failures}"
 
 
 def test_remote_table_list_request_exception_is_reported_and_degrades(requests_mock):
-    """A transport error listing Remote Tables must be downgraded to a warning."""
+    """A transport error listing Remote Tables must be recorded as a failure, so stale-
+    entity removal is suppressed rather than soft-deleting the unlisted tables."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -5567,8 +6332,12 @@ def test_remote_table_list_request_exception_is_reported_and_degrades(requests_m
     source = SapDatasphereSource(PipelineContext(run_id="rt-list-fail"), cfg)
     list(source.get_workunits())
 
-    titles = [w.title or "" for w in source.report.warnings]
-    assert "Failed to list Remote Tables in space" in titles
+    failures = [(f.title or "", f.message) for f in source.report.failures]
+    assert any(
+        title == "Incomplete SAP Datasphere object listing"
+        and "remotetables" in message
+        for title, message in failures
+    ), f"Expected an incomplete-listing failure for remotetables; got: {failures}"
 
 
 def test_remote_table_managed_connection_unresolvable_skips_space(requests_mock):
@@ -5672,8 +6441,9 @@ def test_list_spaces_transport_error_is_reported_and_emits_no_entities(requests_
 
 
 def test_local_table_list_request_exception_is_reported_and_degrades(requests_mock):
-    """A transport error listing Local Tables must be downgraded to a warning and
-    let ingestion continue (mirrors the flow / remote-table degradation)."""
+    """A transport error listing Local Tables must be recorded as a failure (so stale-
+    entity removal is suppressed) and let ingestion continue (mirrors flows / remote
+    tables)."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -5690,8 +6460,11 @@ def test_local_table_list_request_exception_is_reported_and_degrades(requests_mo
     source = SapDatasphereSource(PipelineContext(run_id="lt-list-fail"), cfg)
     list(source.get_workunits())
 
-    titles = [w.title or "" for w in source.report.warnings]
-    assert "Failed to list Local Tables in space" in titles
+    failures = [(f.title or "", f.message) for f in source.report.failures]
+    assert any(
+        title == "Incomplete SAP Datasphere object listing" and "localtables" in message
+        for title, message in failures
+    ), f"Expected an incomplete-listing failure for localtables; got: {failures}"
 
 
 def test_local_table_managed_connection_unresolvable_skips_space(requests_mock):
@@ -5864,25 +6637,20 @@ def test_source_does_not_override_get_workunits():
     assert defining_class is not SapDatasphereSource
 
 
-def test_analytic_model_types_resolved_from_source_and_measure_heuristic():
-    # Analytic-model elements carry no inline type: an attribute and a measure are
-    # recovered from the projection's source view, a derived measure is inferred
-    # numeric, and a non-measure with no source column stays NullType + is reported.
+def _am_source(run_id: str) -> SapDatasphereSource:
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
-    source = SapDatasphereSource(PipelineContext(run_id="test-am-types"), cfg)
+    source = SapDatasphereSource(PipelineContext(run_id=run_id), cfg)
+    return source
 
-    source_view_csn = {
-        "definitions": {
-            "v_src": {
-                "elements": {
-                    "dim_a": {"type": "cds.String", "length": 10},
-                    "meas_x": {"type": "cds.Decimal", "precision": 10, "scale": 2},
-                }
-            }
-        }
-    }
+
+def _stub_view_fetch(
+    source: SapDatasphereSource, elements_by_view: Dict[str, JsonDict]
+) -> List[str]:
+    # Serves `elements_by_view[technical_name]` as a view's CSN and records each
+    # fetch as "space/technical_name".
+    calls: List[str] = []
 
     def _fetch(
         space: str,
@@ -5890,9 +6658,30 @@ def test_analytic_model_types_resolved_from_source_and_measure_heuristic():
         technical_name: str,
         _try_alternate: bool = True,
     ) -> Optional[JsonDict]:
-        return source_view_csn if technical_name == "v_src" else None
+        calls.append(f"{space}/{technical_name}")
+        elements = elements_by_view.get(technical_name)
+        if elements is None:
+            return None
+        return {"definitions": {technical_name: {"elements": elements}}}
 
     source._client.fetch_object_definition = _fetch  # type: ignore[method-assign]
+    return calls
+
+
+def test_analytic_model_types_resolved_from_source_and_measure_heuristic():
+    # Analytic-model elements carry no inline type: an attribute and a measure are
+    # recovered from the projection's source view, a derived measure is inferred
+    # numeric, and a non-measure with no source column stays NullType + is reported.
+    source = _am_source("test-am-types")
+    _stub_view_fetch(
+        source,
+        {
+            "v_src": {
+                "dim_a": {"type": "cds.String", "length": 10},
+                "meas_x": {"type": "cds.Decimal", "precision": 10, "scale": 2},
+            }
+        },
+    )
 
     am_csn_def = {
         "elements": {
@@ -5930,30 +6719,145 @@ def test_analytic_model_types_resolved_from_source_and_measure_heuristic():
 
 
 def test_analytic_model_source_field_types_cached_across_lookups():
-    # The source object's CSN is fetched once and reused, so multiple analytic
-    # models sharing a fact source don't refetch it.
-    cfg = SapDatasphereConfig.model_validate(
-        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
-    )
-    source = SapDatasphereSource(PipelineContext(run_id="test-am-cache"), cfg)
-
-    calls: List[str] = []
-
-    def _fetch(
-        space: str,
-        object_type: str,
-        technical_name: str,
-        _try_alternate: bool = True,
-    ) -> Optional[JsonDict]:
-        calls.append(technical_name)
-        return {"definitions": {"v_src": {"elements": {"c": {"type": "cds.String"}}}}}
-
-    source._client.fetch_object_definition = _fetch  # type: ignore[method-assign]
+    # The source object's CSN is fetched once per space and reused, so multiple
+    # analytic models sharing a fact source don't refetch it.
+    source = _am_source("test-am-cache")
+    calls = _stub_view_fetch(source, {"v_src": {"c": {"type": "cds.String"}}})
 
     first = source._source_object_field_types("AMSPACE", "SRCSPACE.v_src")
     second = source._source_object_field_types("AMSPACE", "SRCSPACE.v_src")
     assert "c" in first and first is second
-    assert calls == ["v_src"]
+
+    # A bare name resolves against the model's space; a qualified ref to the
+    # same space is a cache hit.
+    source._source_object_field_types("SPACE_A", "v_src")
+    source._source_object_field_types("SPACE_B", "v_src")
+    source._source_object_field_types("SPACE_A", "SPACE_A.v_src")
+    assert calls == ["SRCSPACE/v_src", "SPACE_A/v_src", "SPACE_B/v_src"]
+
+
+def test_analytic_model_dotted_source_names():
+    # Generated objects such as `SAP.TIME.*` live in the model's own space; any
+    # other dotted prefix, including `SAP.`, is a space.
+    source = _am_source("test-am-dotted")
+    calls = _stub_view_fetch(
+        source,
+        {
+            "SAP.TIME.VIEW_DIMENSION_DAY": {"DATE_SQL": {"type": "cds.Date"}},
+            "v_src": {"c": {"type": "cds.String"}},
+        },
+    )
+
+    assert source._source_object_field_types("AMSPACE", "SAP.TIME.VIEW_DIMENSION_DAY")
+    assert source._source_object_field_types("AMSPACE", "UNLISTED.v_src")
+    assert source._source_object_field_types("AMSPACE", "SAP.v_src")
+
+    assert calls == [
+        "AMSPACE/SAP.TIME.VIEW_DIMENSION_DAY",
+        "UNLISTED/v_src",
+        "SAP/v_src",
+    ]
+
+
+def test_analytic_model_projection_parse_error_is_reported():
+    source = _am_source("test-am-parse-error")
+    am_csn_def = {
+        "elements": {"dim_a": {"@EndUserText.label": "A"}},
+        "query": {"SELECT": {"from": {"ref": ["v_src"]}, "columns": []}},
+    }
+
+    with patch(
+        "datahub.ingestion.source.sap_datasphere.source.extract_projection_source_columns",
+        side_effect=TypeError("boom"),
+    ):
+        fields = source._schema_fields_from_csn("AMSPACE", "am_x", am_csn_def)
+
+    assert fields is not None
+    assert [type(f.type.type).__name__ for f in fields] == ["NullTypeClass"]
+    assert list(source.report.assets_with_missing_cds_types) == ["AMSPACE.am_x"]
+    assert any(
+        ctx.startswith("AMSPACE.am_x")
+        for w in source.report.warnings
+        for ctx in w.context
+    )
+
+
+def test_projection_types_copied_from_a_filtered_space(requests_mock):
+    # A projection source in a space excluded by space_pattern still supplies
+    # column types.
+    tenant = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={
+            "value": [
+                {"name": "AM", "label": "AM"},
+                {"name": "SAP", "label": "SAP"},
+                {"name": "", "label": "blank"},
+                {"label": "no-name"},
+            ]
+        },
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/AM/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('AM')/assets",
+        json={
+            "value": [
+                {
+                    "name": "AM_X",
+                    "spaceName": "AM",
+                    "assetRelationalMetadataUrl": None,
+                    "supportsAnalyticalQueries": True,
+                    "hasParameters": False,
+                }
+            ]
+        },
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/AM/analyticmodels/AM_X",
+        json={
+            "definitions": {
+                "AM_X": {
+                    "kind": "entity",
+                    "elements": {"dim_a": {"@EndUserText.label": "A"}},
+                    "query": {
+                        "SELECT": {
+                            "from": {"ref": ["SAP.v_src"], "as": "s"},
+                            "columns": [{"ref": ["s", "dim_a"]}],
+                        }
+                    },
+                }
+            }
+        },
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/SAP/views/v_src",
+        json={
+            "definitions": {
+                "v_src": {"elements": {"dim_a": {"type": "cds.String", "length": 5}}}
+            }
+        },
+    )
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": tenant,
+            "token": "tok",
+            "space_pattern": {"allow": ["^AM$"]},
+            "discover_unexposed_views": False,
+        }
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="test-known-spaces"), cfg)
+
+    workunits = list(source.get_workunits())
+
+    schemas = [
+        aspect_as(wu, SchemaMetadataClass)
+        for wu in workunits
+        if isinstance(aspect_of(wu), SchemaMetadataClass)
+    ]
+    assert [type(f.type.type).__name__ for s in schemas for f in s.fields] == [
+        "StringTypeClass"
+    ]
+    assert source.report.spaces_filtered == 1
 
 
 def test_connections_auth_valueerror_aborts_run(requests_mock, monkeypatch):
@@ -6108,3 +7012,190 @@ def test_column_lineage_extractor_failure_preserves_table_level(
         f"expected the column-lineage failure warning; got "
         f"{[w.title for w in source.report.warnings]}"
     )
+
+
+def test_schema_fields_from_csn_appends_calculated_formula():
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="calc-formula"), cfg)
+    csn_def = {
+        "elements": {
+            "QTY": {"type": "cds.Decimal", "@EndUserText.label": "Quantity"},
+            "TOTAL": {"type": "cds.Decimal", "@EndUserText.label": "Total"},
+        },
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"ref": ["QTY"]},
+                    {"xpr": [{"ref": ["PRICE"]}, "*", {"ref": ["QTY"]}], "as": "TOTAL"},
+                ],
+            }
+        },
+    }
+
+    fields = source._resolve_asset_schema_fields("S1", "MY_VIEW", None, csn_def)
+    assert fields is not None
+    by_path = {f.fieldPath: f for f in fields}
+    # "Total" only repeats TOTAL (case-insensitive), so it is suppressed and the field
+    # carries just the formula. "Quantity" is genuine text and becomes the description.
+    assert by_path["TOTAL"].description == "formula: PRICE * QTY"
+    assert by_path["QTY"].description == "Quantity"
+    # The suppressed "Total" label leaves the label slot empty; "Quantity" populates it
+    # (the label slot backs the fieldLabels search index).
+    assert by_path["TOTAL"].label is None
+    assert by_path["QTY"].label == "Quantity"
+    assert source.report.calculated_column_formulas_emitted == 1
+
+
+def _string_field(field_path: str, description: Optional[str]) -> SchemaFieldClass:
+    return SchemaFieldClass(
+        fieldPath=field_path,
+        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        nativeDataType="cds.String",
+        description=description,
+    )
+
+
+def test_edmx_schema_path_appends_calculated_formula():
+    """Formulas live only in the CSN, so they must decorate the EDMX field list
+    too, not just the CSN fallback path."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="edmx-calc-formula"), cfg)
+    parse_result = EdmxParseResult(
+        fields=[
+            _string_field("QTY", "Quantity"),
+            _string_field("TOTAL", "Total"),
+        ]
+    )
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"ref": ["QTY"]},
+                    {"xpr": [{"ref": ["PRICE"]}, "*", {"ref": ["QTY"]}], "as": "TOTAL"},
+                ],
+            }
+        },
+    }
+
+    fields = source._resolve_asset_schema_fields("S1", "MY_VIEW", parse_result, csn_def)
+    assert fields is not None
+    by_path = {f.fieldPath: f for f in fields}
+    assert by_path["TOTAL"].description == "Total\n\nformula: PRICE * QTY"
+    assert by_path["QTY"].description == "Quantity"
+    assert source.report.calculated_column_formulas_emitted == 1
+
+
+def test_sql_editor_view_skips_formula_decoration():
+    """A SQL-editor view's body is raw SQL, not a CQN tree, so formulas from any
+    incidental ``query`` block must not be applied."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="sql-editor-skip"), cfg)
+    parse_result = EdmxParseResult(fields=[_string_field("TOTAL", "Total")])
+    csn_def = {
+        "@DataWarehouse.sqlEditor.query": "SELECT price * qty AS total FROM base",
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"xpr": [{"ref": ["PRICE"]}, "*", {"ref": ["QTY"]}], "as": "TOTAL"},
+                ],
+            }
+        },
+    }
+
+    fields = source._resolve_asset_schema_fields(
+        "S1", "SQL_VIEW", parse_result, csn_def
+    )
+    assert fields is not None
+    assert {f.fieldPath: f.description for f in fields} == {"TOTAL": "Total"}
+    assert source.report.calculated_column_formulas_emitted == 0
+
+
+def test_formula_extraction_exception_degrades_gracefully(monkeypatch):
+    """A renderer bug must not corrupt the schema: fields stay unchanged, the
+    counter stays 0, and the failure is surfaced (not swallowed)."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="formula-exc"), cfg)
+
+    def _boom(_csn_def):
+        raise ValueError("renderer blew up")
+
+    monkeypatch.setattr(source_module, "extract_calculated_column_formulas", _boom)
+
+    fields = [_string_field("TOTAL", "Total")]
+    source._apply_calculated_column_formulas("S1", "MY_VIEW", {"query": {}}, fields)
+
+    assert fields[0].description == "Total"
+    assert source.report.calculated_column_formulas_emitted == 0
+    assert "S1.MY_VIEW" in list(source.report.assets_formula_extraction_failed)
+    assert any(
+        w.title == "Failed to extract calculated-column formulas"
+        for w in source.report.warnings
+    )
+
+
+def test_formula_counter_increments_per_column():
+    """The emitted counter must count every decorated column, not just the asset —
+    a regression hoisting the increment out of the loop would go undetected with a
+    single-column fixture."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="formula-per-col"), cfg)
+    fields = [
+        _string_field("TOTAL", "Total"),
+        _string_field("MARGIN", "Margin"),
+    ]
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"xpr": [{"ref": ["PRICE"]}, "*", {"ref": ["QTY"]}], "as": "TOTAL"},
+                    {"xpr": [{"ref": ["REV"]}, "-", {"ref": ["COST"]}], "as": "MARGIN"},
+                ],
+            }
+        },
+    }
+
+    source._apply_calculated_column_formulas("S1", "MY_VIEW", csn_def, fields)
+
+    assert fields[0].description == "Total\n\nformula: PRICE * QTY"
+    assert fields[1].description == "Margin\n\nformula: REV - COST"
+    assert source.report.calculated_column_formulas_emitted == 2
+
+
+def test_formula_for_pattern_filtered_column_is_reported_unmatched():
+    """A formula whose output column was dropped by column_pattern (absent from the
+    field list) is recorded on the report, not silently discarded."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="formula-unmatched"), cfg)
+    fields = [_string_field("KEPT", "Kept")]
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"xpr": [{"ref": ["A"]}, "+", {"ref": ["B"]}], "as": "DROPPED"},
+                ],
+            }
+        },
+    }
+
+    source._apply_calculated_column_formulas("S1", "MY_VIEW", csn_def, fields)
+
+    assert fields[0].description == "Kept"
+    assert source.report.calculated_column_formulas_emitted == 0
+    assert "S1.MY_VIEW.DROPPED" in list(source.report.formula_columns_unmatched)

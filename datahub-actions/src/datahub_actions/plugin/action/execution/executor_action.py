@@ -17,16 +17,17 @@ import logging
 import sys
 from typing import Any, List, Optional, cast
 
-from acryl.executor.dispatcher.default_dispatcher import DefaultDispatcher
-from acryl.executor.execution.reporting_executor import (
+from pydantic import BaseModel
+
+from datahub.executor.dispatcher.default_dispatcher import DefaultDispatcher
+from datahub.executor.execution.executor import Executor
+from datahub.executor.execution.reporting_executor import (
     ReportingExecutor,
     ReportingExecutorConfig,
 )
-from acryl.executor.execution.task import TaskConfig
-from acryl.executor.request.execution_request import ExecutionRequest
-from acryl.executor.request.signal_request import SignalRequest
-from pydantic import BaseModel
-
+from datahub.executor.execution.task import TaskConfig
+from datahub.executor.request.execution_request import ExecutionRequest
+from datahub.executor.request.signal_request import SignalRequest
 from datahub.metadata.schema_classes import MetadataChangeLogClass
 from datahub.secret.datahub_secret_store import DataHubSecretStoreConfig
 from datahub.secret.secret_store import SecretStoreConfig
@@ -82,7 +83,7 @@ class ExecutorAction(Action):
     def __init__(self, config: ExecutorConfig, ctx: PipelineContext):
         self.ctx = ctx
 
-        executors = []
+        executors: List[Executor] = []
 
         executor_config = self._build_executor_config(config, ctx)
         executors.append(ReportingExecutor(executor_config))
@@ -178,12 +179,12 @@ class ExecutorAction(Action):
             task_configs = [
                 TaskConfig(
                     name="RUN_INGEST",
-                    type="acryl.executor.execution.sub_process_ingestion_task.SubProcessIngestionTask",
+                    type="datahub.executor.execution.sub_process_ingestion_task.SubProcessIngestionTask",
                     configs=dict({}),
                 ),
                 TaskConfig(
                     name="TEST_CONNECTION",
-                    type="acryl.executor.execution.sub_process_test_connection_task.SubProcessTestConnectionTask",
+                    type="datahub.executor.execution.sub_process_test_connection_task.SubProcessTestConnectionTask",
                     configs={},
                 ),
             ]

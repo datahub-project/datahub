@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "Не пройден",
+    "resultText.passing": "Пройден",
+    "summary.allFailing": "Все тесты не пройдены",
+    "summary.allPassing": "Все тесты пройдены",
+    "summary.countsSubtitle": "{{passing}} тестов пройдено, {{failing}} не пройдено",
+    "summary.noTestsRun": "Тесты ещё не запускались",
+    "summary.someFailing": "Некоторые тесты не пройдены",
+    "summary.statusTooltip": "Этот статус основан на последнем запуске каждого теста.",
+    "testResults.empty": "Тесты не найдены :(",
+    "testResults.noEvaluations": "Нет оценок",
+    "testResults.title": "Результаты тестов governance"
+}

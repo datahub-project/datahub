@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.config;
 
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
@@ -33,6 +34,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.NoHandlerFoundException;
@@ -102,6 +104,13 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
         Map.of("error", e.getMessage()), headers, HttpStatus.TOO_MANY_REQUESTS);
   }
 
+  @ExceptionHandler(HttpClientErrorException.class)
+  public static ResponseEntity<Map<String, String>> handleHttpClientErrorException(
+      HttpClientErrorException e) {
+    return new ResponseEntity<>(
+        Map.of("error", sanitizeExceptionMessage(e.getStatusText())), e.getStatusCode());
+  }
+
   @ExceptionHandler(UnauthorizedException.class)
   public static ResponseEntity<Map<String, String>> handleUnauthorizedException(
       UnauthorizedException e) {
@@ -133,6 +142,19 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
             "error", "Request timed out. The operation may still be completing in the background."),
         headers,
         HttpStatus.SERVICE_UNAVAILABLE);
+  }
+
+  @ExceptionHandler(DatabaseTransactionConflictException.class)
+  public ResponseEntity<Map<String, Object>> handleDatabaseTransactionConflict(
+      DatabaseTransactionConflictException e) {
+    log.warn("Database transaction conflict: {}", e.getMessage());
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("error", sanitizeExceptionMessage(e.getMessage()));
+    body.put("code", e.getCode());
+    body.put("retryable", e.isRetryable());
+    HttpHeaders headers = new HttpHeaders();
+    headers.add(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()));
+    return new ResponseEntity<>(body, headers, HttpStatus.SERVICE_UNAVAILABLE);
   }
 
   @ExceptionHandler(HttpMessageNotReadableException.class)

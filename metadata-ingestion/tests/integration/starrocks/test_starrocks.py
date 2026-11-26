@@ -26,10 +26,18 @@ def is_starrocks_up(container_name: str) -> bool:
 
 
 @pytest.fixture(scope="module")
-def starrocks_runner(docker_compose_runner, test_resources_dir):
+def starrocks_runner(docker_compose_runner, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "starrocks"
     ) as docker_services:
+        # The compose file exposes the MySQL protocol port ephemerally, so a
+        # leaked container from a prior run can never hold onto the port a
+        # fresh run needs. starrocks_to_file.yml picks it up via ${STARROCKS_MYSQL_PORT}.
+        mysql_port = docker_services.port_for("teststarrocks", STARROCKS_FE_PORT)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("STARROCKS_MYSQL_PORT", str(mysql_port))
+        request.addfinalizer(mp.undo)
+
         wait_for_port(
             docker_services,
             "teststarrocks",
@@ -67,7 +75,8 @@ def test_starrocks_ingest(
     # Verify the output
     mce_helpers.check_golden_file(
         pytestconfig,
+        fail_on_output_mces=True,
         ignore_paths=ignore_paths,
         output_path=tmp_path / "starrocks_mces.json",
-        golden_path=test_resources_dir / "starrocks_mces_golden.json",
+        golden_path=test_resources_dir / "starrocks_golden.json",
     )

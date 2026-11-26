@@ -1,19 +1,60 @@
 fragment downloadSearchResults on Entity {
     urn
     type
-    ... on Dataset {
+    ... on HasName {
         name
-        origin
-        uri
+    }
+    ... on HasPlatform {
         platform {
             ...platformFields
         }
+    }
+    ... on HasDataPlatformInstance {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+    }
+    ... on HasEditableProperties {
         editableProperties {
             description
         }
+    }
+    ... on HasOwnership {
+        ownership {
+            ...ownershipFields
+        }
+    }
+    ... on HasGlossaryTerms {
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    ... on HasSubTypes {
+        subTypes {
+            typeNames
+        }
+    }
+    ... on HasDomain {
+        domain {
+            ...entityDomainWithoutCounts
+        }
+    }
+    ... on HasDeprecation {
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on HasTags {
+        tags {
+            ...globalTagsFields
+        }
+    }
+    ... on HasDescription {
+        description
+    }
+    ... on Dataset {
+        origin
+        uri
         platformNativeType
         properties {
             name
@@ -25,25 +66,10 @@ fragment downloadSearchResults on Entity {
             }
             externalUrl
         }
-        ownership {
-            ...ownershipFields
-        }
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        subTypes {
-            typeNames
-        }
-        domain {
-            ...entityDomain
-        }
         ...entityDataProduct
-        deprecation {
-            ...deprecationFields
-        }
     }
     ... on CorpUser {
         username
@@ -72,7 +98,6 @@ fragment downloadSearchResults on Entity {
         }
     }
     ... on CorpGroup {
-        name
         info {
             displayName
             description
@@ -89,34 +114,10 @@ fragment downloadSearchResults on Entity {
                 time
             }
         }
-        ownership {
-            ...ownershipFields
-        }
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
-        }
-        platform {
-            ...platformFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        domain {
-            ...entityDomain
-        }
         ...entityDataProduct
-        deprecation {
-            ...deprecationFields
-        }
-        subTypes {
-            typeNames
-        }
     }
     ... on Chart {
         chartId
@@ -133,34 +134,10 @@ fragment downloadSearchResults on Entity {
                 time
             }
         }
-        ownership {
-            ...ownershipFields
-        }
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
-        }
-        platform {
-            ...platformFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        domain {
-            ...entityDomain
-        }
         ...entityDataProduct
-        deprecation {
-            ...deprecationFields
-        }
-        subTypes {
-            typeNames
-        }
     }
     ... on DataFlow {
         flowId
@@ -171,40 +148,16 @@ fragment downloadSearchResults on Entity {
             project
             externalUrl
         }
-        ownership {
-            ...ownershipFields
-        }
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
-        }
-        platform {
-            ...platformFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        domain {
-            ...entityDomain
-        }
         ...entityDataProduct
-        deprecation {
-            ...deprecationFields
-        }
     }
     ... on DataJob {
         dataFlow {
             ...nonRecursiveDataFlowFields
         }
         jobId
-        ownership {
-            ...ownershipFields
-        }
         properties {
             name
             description
@@ -213,25 +166,7 @@ fragment downloadSearchResults on Entity {
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
-        }
-        domain {
-            ...entityDomain
-        }
         ...entityDataProduct
-        deprecation {
-            ...deprecationFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        subTypes {
-            typeNames
-        }
     }
     ... on GlossaryTerm {
         name
@@ -248,14 +183,9 @@ fragment downloadSearchResults on Entity {
                 value
             }
         }
-        deprecation {
-            ...deprecationFields
-        }
+        ...glossaryTermLifecycleFields
         parentNodes {
             ...parentNodesFields
-        }
-        domain {
-            ...entityDomain
         }
     }
     ... on GlossaryNode {
@@ -269,9 +199,6 @@ fragment downloadSearchResults on Entity {
             name
             description
         }
-        ownership {
-            ...ownershipFields
-        }
     }
     ... on Container {
         properties {
@@ -279,34 +206,8 @@ fragment downloadSearchResults on Entity {
             description
             externalUrl
         }
-        platform {
-            ...platformFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        editableProperties {
-            description
-        }
-        ownership {
-            ...ownershipFields
-        }
-        tags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        subTypes {
-            typeNames
-        }
-        deprecation {
-            ...deprecationFields
-        }
     }
     ... on MLFeatureTable {
-        name
-        description
         featureTableProperties {
             description
             mlFeatures {
@@ -316,18 +217,6 @@ fragment downloadSearchResults on Entity {
                 urn
             }
         }
-        ownership {
-            ...ownershipFields
-        }
-        platform {
-            ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
     }
     ... on MLFeature {
         ...nonRecursiveMLFeature
@@ -336,38 +225,10 @@ fragment downloadSearchResults on Entity {
         ...nonRecursiveMLPrimaryKey
     }
     ... on MLModel {
-        name
-        description
         origin
-        ownership {
-            ...ownershipFields
-        }
-        platform {
-            ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
     }
     ... on MLModelGroup {
-        name
         origin
-        description
-        ownership {
-            ...ownershipFields
-        }
-        platform {
-            ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
     }
     ... on Tag {
         name
@@ -378,6 +239,13 @@ fragment downloadSearchResults on Entity {
     }
     ... on DataPlatform {
         ...nonConflictingPlatformFields
+    }
+    ... on DataProduct {
+        properties {
+            name
+            description
+            externalUrl
+        }
     }
 }
 

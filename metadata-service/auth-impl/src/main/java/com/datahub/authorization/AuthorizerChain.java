@@ -69,7 +69,8 @@ public class AuthorizerChain
       try {
         log.debug(
             "Executing Authorizer with class name {}", authorizer.getClass().getCanonicalName());
-        log.debug("Authorization Request: {}", request.toString());
+        // Pass the request itself. request.toString() would run before SLF4J checks the level.
+        log.debug("Authorization Request: {}", request);
         // The library came with plugin can use the contextClassLoader to load the classes. For
         // example apache-ranger library does this.
         // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class
@@ -123,7 +124,8 @@ public class AuthorizerChain
       try {
         log.debug(
             "Executing Authorizer with class name {}", authorizer.getClass().getCanonicalName());
-        log.debug("Authorization Request: {}", request.toString());
+        // Pass the request itself. request.toString() would run before SLF4J checks the level.
+        log.debug("Authorization Request: {}", request);
         // The library came with plugin can use the contextClassLoader to load the classes. For
         // example apache-ranger library does this.
         // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class

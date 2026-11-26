@@ -74,6 +74,157 @@ source:
       "my_topic_2-value": "io.acryl.Schema3"
 ```
 
+#### Confluent Cloud Stream Catalog
+
+On Confluent Cloud, tags and business metadata curated in Stream Governance are held in the
+Stream Catalog rather than on the topics themselves. Enable the `confluent_catalog` block to
+bring them across onto the corresponding DataHub topic datasets.
+
+The catalog is served from the Schema Registry endpoint and accepts the same API key, so a
+recipe that already reaches Schema Registry needs nothing beyond `enabled: true`:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: "abc-defg.eu-west-1.aws.confluent.cloud:9092"
+      schema_registry_url: "https://abc-defgh.us-east-2.aws.confluent.cloud"
+      schema_registry_config:
+        basic.auth.user.info: "${REGISTRY_API_KEY_ID}:${REGISTRY_API_KEY_SECRET}"
+
+    confluent_catalog:
+      enabled: true
+```
+
+Confluent tags become DataHub tags and business metadata attributes become custom properties on
+the topic. Set `include_tags` or `include_business_metadata` to `false` to take only one of the two.
+
+Requirements and limitations:
+
+- **Confluent Cloud only**, and the environment needs the **Stream Governance Advanced** package.
+  Tags and business metadata are an Advanced feature: on Essentials the catalog API returns
+  `403` even for reads. The catalog does not exist on self-managed Kafka, and the block is
+  ignored elsewhere.
+- The Schema Registry API key needs a role that grants catalog read access - in practice
+  **DataSteward** on the environment. `EnvironmentAdmin` alone is not enough: it administers the
+  environment but does not carry the catalog read permission.
+- If the key cannot read the catalog, ingestion continues without catalog metadata and records a
+  warning rather than failing.
+- The catalog covers a whole **environment**, so if that environment holds more than one Kafka
+  cluster the same topic name can appear twice. Those topics are skipped, with a warning, unless
+  you set `confluent_catalog.cluster_id` to the cluster this recipe ingests (e.g. `lkc-xxxxx`).
+- The catalog does not expose the producer/consumer graph shown in Confluent's Stream
+  Lineage UI. Connector-to-topic lineage is available through the
+  [`kafka-connect`](kafka-connect.md) source for environments that use Kafka Connect.
+
+#### Mirror-topic lineage (cluster links)
+
+Set `confluent_catalog.include_lineage: true` to add an upstream edge from each mirror
+topic to the topic it mirrors. The source topic lives in another Kafka cluster, so map
+that cluster's id to the `platform_instance` used by the recipe that ingests it:
+
+```yaml
+source:
+  type: kafka
+  config:
+    platform_instance: dest
+    confluent_catalog:
+      enabled: true
+      cluster_id: lkc-dest
+      include_lineage: true
+      cluster_id_to_platform_instance:
+        lkc-src: src
+```
+
+The upstream URN uses this recipe's `env`, so the recipe that ingests the source cluster must use
+the same `env`. When `confluent_catalog.enabled` is true, `include_lineage` needs
+`cluster_id_to_platform_instance` (or `cluster_id`); without either, the recipe is rejected.
+With the catalog disabled, `include_lineage` only produces a configuration warning.
+
+Mirror topics are skipped, with a warning, when:
+
+- the source cluster is neither `cluster_id` nor a key of `cluster_id_to_platform_instance`;
+- the edge would point the topic at itself (both clusters ingested without distinct
+  platform instances and the link adds no prefix);
+- the catalog was only partially read and `cluster_id` is not set, since the topic found
+  may belong to another cluster of the environment.
+
+A mirror whose source cluster is outside the catalog's environment gets no edge: the
+catalog only gives that source's topic name, not its cluster.
+
+A skipped mirror emits no `upstreamLineage` at all, rather than an empty one, so lineage
+written for the topic by other sources is left alone. As a result, an edge emitted by an
+earlier run stays in DataHub after the mirror link is removed or `include_lineage` is
+turned off; remove it in the UI or with the `datahub` CLI.
+
+#### Stream-processing lineage (Flink SQL)
+
+On Confluent Cloud, set `stream_processing_lineage.flink.enabled: true` to emit
+topic-to-topic lineage from Flink SQL `INSERT INTO ... SELECT` and
+`CREATE TABLE ... AS SELECT` statements, including those inside `EXECUTE STATEMENT SET`.
+Each statement is a DataJob on the `flink` platform, under one `flink` DataFlow per
+environment and Kafka cluster; the topics stay `kafka` datasets. A statement set that writes
+to several clusters therefore shows up once under each cluster's DataFlow, with that
+cluster's topics. Column-level lineage is on by default
+(`include_column_lineage: true`).
+
+Requires a **Flink API key** for the environment's cloud region (a Cloud
+resource-management or Kafka cluster key is rejected), plus `organization_id`,
+`environment_id`, and either `endpoint` or both `region` and `cloud`. The Kafka cluster id
+comes from `kafka_cluster_id` or, if that is unset, `confluent_catalog.cluster_id`.
+
+```yaml
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: "pkc-xxxxx.us-east-1.aws.confluent.cloud:9092"
+      consumer_config:
+        security.protocol: "SASL_SSL"
+        sasl.mechanism: "PLAIN"
+        sasl.username: "${CLUSTER_API_KEY_ID}"
+        sasl.password: "${CLUSTER_API_KEY_SECRET}"
+      schema_registry_url: "https://psrc-xxxxx.us-east-1.aws.confluent.cloud"
+      schema_registry_config:
+        basic.auth.user.info: "${REGISTRY_API_KEY_ID}:${REGISTRY_API_KEY_SECRET}"
+    stream_processing_lineage:
+      flink:
+        enabled: true
+        organization_id: "${CONFLUENT_ORG_ID}"
+        environment_id: "env-xxxxx"
+        environment_name: "prod" # if statements use the catalog name
+        kafka_cluster_id: "lkc-xxxxx"
+        kafka_cluster_name: "orders-cluster" # if statements use the database name
+        region: "us-east-1"
+        cloud: "aws"
+        api_key: "${FLINK_API_KEY}"
+        api_secret: "${FLINK_API_SECRET}"
+```
+
+In Flink a catalog is an environment and a database is a Kafka cluster. Statements are
+listed for the whole environment, so a table only becomes a topic of this recipe when its
+catalog and database match the environment and cluster configured above. Unqualified names
+use the statement's `sql.current-catalog` and `sql.current-database` properties.
+
+- Tables in another environment or cluster are dropped with a warning. A statement that
+  writes to none of this cluster's topics is left to that cluster's recipe; if no statement
+  matches, a warning suggests setting `environment_name` / `kafka_cluster_name`.
+- A statement whose SQL cannot be parsed, or with a table that has no catalog or database,
+  is skipped and reported as a failure, so stale-entity removal keeps its earlier job. A
+  failed or truncated statements listing is a failure for the same reason.
+- Views and temporary tables a statement creates are not topics: writes to them and reads of
+  them (matched by catalog, database and name) get no edge. The topics a
+  `CREATE TEMPORARY TABLE ... AS SELECT` reads still count as inputs of the statement.
+- With `compute_pool_id` set, only that pool's statements are listed and read.
+- Statements that are still deployed (`PENDING`, `RUNNING`, `DEGRADED`, `FAILING`,
+  `STOPPING`) are read. `STOPPED`, `COMPLETED`, `FAILED` and `DELETING` statements are
+  only read with `include_non_running_statements: true`.
+- Column-level lineage is only derived for single statements whose tables are all in this
+  cluster. Field names keep their real case: taken from the topic's schema in DataHub
+  when it is there, otherwise from the statement's own spelling (Flink SQL identifiers
+  are case-sensitive). A column the statement spells two ways is dropped.
+
 #### Custom Schema Registry
 
 The Kafka Source uses the schema registry to figure out the schema associated with both `key` and `value` for the topic.

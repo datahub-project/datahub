@@ -1,4 +1,4 @@
-import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -13,9 +13,7 @@ import {
 } from '@app/entityV2/view/select/styledComponents';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
-const AddOutlinedIconStyle = styled(AddOutlinedIcon)`
-    font-size: 18px !important;
-`;
+const AddOutlinedIconStyle = styled(Plus).attrs({ size: 18 })``;
 
 interface Props {
     onClick?: () => void;

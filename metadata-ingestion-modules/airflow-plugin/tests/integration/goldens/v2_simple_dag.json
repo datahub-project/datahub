@@ -12,11 +12,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=simple_dag",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag",
             "name": "simple_dag",
             "description": "A simple DAG that runs a few fake data tasks.",
             "env": "PROD"
@@ -158,11 +159,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=simple_dag",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag",
             "name": "simple_dag",
             "description": "A simple DAG that runs a few fake data tasks.",
             "env": "PROD"
@@ -777,11 +779,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=simple_dag",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag",
             "name": "simple_dag",
             "description": "A simple DAG that runs a few fake data tasks.",
             "env": "PROD"

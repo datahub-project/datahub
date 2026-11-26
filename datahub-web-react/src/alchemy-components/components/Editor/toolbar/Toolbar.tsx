@@ -21,8 +21,6 @@ import { FileUploadButton } from '@components/components/Editor/toolbar/FileUplo
 import { FontSizeSelect } from '@components/components/Editor/toolbar/FontSizeSelect';
 import { HeadingMenu } from '@components/components/Editor/toolbar/HeadingMenu';
 
-import { useAppConfig } from '@app/useAppConfig';
-
 const Container = styled.div<{ $fixedBottom?: boolean }>`
     position: ${(props) => (props.$fixedBottom ? 'fixed' : 'sticky')};
     ${(props) => (props.$fixedBottom ? 'bottom: 48px;' : 'top: 0;')}
@@ -37,19 +35,29 @@ const Container = styled.div<{ $fixedBottom?: boolean }>`
             ? `border-radius: 12px; border: 1px solid ${props.theme.colors.border};`
             : 'border-top-left-radius: 12px; border-top-right-radius: 12px;'}
     padding: 8px !important;
-    & button {
-        line-height: 0;
-    }
     display: flex;
-    justify-content: start;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     box-shadow: ${(props) => (props.$fixedBottom ? props.theme.colors.shadowLg : props.theme.colors.shadowSm)};
+`;
+
+const BelowToolbarRow = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 4px 0 4px;
+    margin-top: 4px;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const InnerContainer = styled.div`
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    & button {
+        line-height: 0;
+    }
 `;
 
 const CustomDivider = styled(Divider)`
@@ -60,18 +68,20 @@ const CustomDivider = styled(Divider)`
 interface Props {
     styles?: React.CSSProperties;
     fixedBottom?: boolean;
+    /** Optional content rendered below the formatting buttons inside the toolbar card. */
+    belowToolbar?: React.ReactNode;
+    /** Shows the upload image button when the Editor also has an upload handler. */
+    imageUploadEnabled?: boolean;
 }
 
-export const Toolbar = ({ styles, fixedBottom }: Props) => {
+export const Toolbar = ({ styles, fixedBottom, belowToolbar, imageUploadEnabled }: Props) => {
     const commands = useCommands();
     const active = useActive(true);
     const theme = useTheme();
-    const { config } = useAppConfig();
-    const { documentationFileUploadV1 } = config.featureFlags;
     const remirrorContext = useRemirrorContext();
     const fileExtension = remirrorContext.getExtension(FileDragDropExtension);
 
-    const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.uploadFileProps?.onFileUpload;
+    const shouldShowImageButtonV2 = imageUploadEnabled && fileExtension.options.uploadFileProps?.onFileUpload;
 
     return (
         <Container style={styles} $fixedBottom={fixedBottom}>
@@ -143,6 +153,7 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
                 />
                 <FileUploadButton />
             </InnerContainer>
+            {belowToolbar && <BelowToolbarRow>{belowToolbar}</BelowToolbarRow>}
         </Container>
     );
 };

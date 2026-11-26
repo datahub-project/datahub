@@ -3,27 +3,14 @@ query appConfig {
         appVersion
         policiesConfig {
             enabled
-            platformPrivileges {
-                type
-                displayName
-                description
-            }
-            resourcePrivileges {
-                resourceType
-                resourceTypeDisplayName
-                entityType
-                privileges {
-                    type
-                    displayName
-                    description
-                }
-            }
         }
         analyticsConfig {
             enabled
         }
         authConfig {
             tokenAuthEnabled
+            allowNoExpiry
+            allowedAccessTokenDurations
         }
         identityManagementConfig {
             enabled
@@ -37,6 +24,7 @@ query appConfig {
         visualConfig {
             logoUrl
             faviconUrl
+            appTitle
             showFullTitleInLineage
             queriesTab {
                 queriesTabResultSize
@@ -89,12 +77,16 @@ query appConfig {
             platformBrowseV2
             businessAttributeEntityEnabled
             contextDocumentsEnabled
+            documentExplicitSaveEnabled
             dataContractsEnabled
+            showApplicationsFeatureToggle
             editableDatasetNameEnabled
             themeV2Enabled
             themeV2Default
             themeV2Toggleable
+            themeDarkModeEnabled
             showSeparateSiblings
+            maxSiblingGroupUrns
             showManageStructuredProperties
             schemaFieldCLLEnabled
             hideDbtSourceInLineage
@@ -106,7 +98,6 @@ query appConfig {
             showSearchBarAutocompleteRedesign
             showManageTags
             showIntroducePage
-            showIngestionPageRedesign
             showLineageExpandMore
             showLineageFilterNodes
             showStatsTabRedesign
@@ -118,21 +109,45 @@ query appConfig {
             assetSummaryPageV1
             datasetSummaryPageV1
             metricsEnabled
-            ingestionOnboardingRedesignV1
             documentationFileUploadV1
             contextDocumentsEnabled
             hideLineageInSearchCards
             dataProductLineageEnabled
             glossaryBasedPoliciesEnabled
+            structuredPropertiesInPoliciesEnabled
             multipleDataProductsPerAsset
             showTestsInHealthIcon
+            mcpServerEnabled
             i18nEnabled
             browserTracingEnabled
             browserWebVitalsEnabled
+            showGithubStarPrompt
         }
         chromeExtensionConfig {
             enabled
             lineageEnabled
+        }
+    }
+}
+
+query getPolicyPrivileges {
+    appConfig {
+        policiesConfig {
+            platformPrivileges {
+                type
+                displayName
+                description
+            }
+            resourcePrivileges {
+                resourceType
+                resourceTypeDisplayName
+                entityType
+                privileges {
+                    type
+                    displayName
+                    description
+                }
+            }
         }
     }
 }
@@ -193,10 +208,11 @@ mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
     updateApplicationsSettings(input: $input)
 }
 
-query getLatestProductUpdate {
-    latestProductUpdate {
+query getLatestProductUpdate($locale: String) {
+    latestProductUpdate(locale: $locale) {
         enabled
         id
+        releaseMonth
         title
         header
         requiredVersion

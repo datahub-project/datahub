@@ -11,7 +11,9 @@ export function FilterPage(
   subtitle,
   allowExclusivity = false,
   useTags = false,
-  useFilters = false
+  useFilters = false,
+  seoTitle = siteConfig.tagline,
+  seoDescription = "DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems."
 ) {
   const [textState, setTextState] = React.useState("");
   const [filterState, setFilterState] = React.useState([]);
@@ -132,10 +134,7 @@ export function FilterPage(
   };
 
   return (
-    <Layout
-      title={siteConfig.tagline}
-      description="DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems."
-    >
+    <Layout title={seoTitle} description={seoDescription}>
       <Head>
         <script type="application/ld+json">
           {JSON.stringify(collectionPageJsonLd)}

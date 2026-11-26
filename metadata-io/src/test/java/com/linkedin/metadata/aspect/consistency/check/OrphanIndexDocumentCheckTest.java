@@ -186,4 +186,23 @@ public class OrphanIndexDocumentCheckTest {
     assertEquals(issues.size(), 1);
     assertTrue(issues.get(0).getDescription().contains(orphanUrn.toString()));
   }
+
+  @Test
+  public void testFollowUpReportsOnlyThePageOrphans() {
+    Urn previous = UrnUtils.getUrn("urn:li:dataset:previous-batch");
+    Urn current = UrnUtils.getUrn("urn:li:dataset:current-page");
+    checkContext.addOrphanUrns("dataset", Set.of(previous));
+
+    CheckFollowUp follow =
+        check.followUp(
+            CheckFollowUpRequest.builder()
+                .operationContext(mockOpContext)
+                .entityType("dataset")
+                .orphanUrns(Set.of(current))
+                .context(checkContext)
+                .build());
+
+    assertEquals(follow.getIssues().size(), 1);
+    assertEquals(follow.getIssues().get(0).getEntityUrn(), current);
+  }
 }

@@ -9,7 +9,18 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+    cast,
+)
 from unittest.mock import patch
 
 import cachetools
@@ -52,6 +63,7 @@ from datahub.ingestion.source.unity.config import (
     UsageDataSource,
 )
 from datahub.ingestion.source.unity.connection import get_sql_connection_params
+from datahub.ingestion.source.unity.genie_client import GenieSpaceClient
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy_profiling import (
@@ -74,6 +86,10 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    Volume,
+    escape_unity_name,
+    make_schema,
+    qualified_table_name,
     usage_statement_types,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -198,15 +214,16 @@ def _build_catalog_column_filter(
     bind_params: list[str] = []
 
     def transform(pattern: str) -> str:
-        return pattern.upper() if catalog_pattern.ignoreCase else pattern
-
-    col_expr = f"UPPER({column_expr})" if catalog_pattern.ignoreCase else column_expr
+        # Upper-casing the pattern text would flip escape classes (\d -> \D),
+        # so case-insensitivity goes through regex flags instead. Java's (?i)
+        # folds ASCII only; (?u) adds Unicode folding like Python's re.IGNORECASE.
+        return f"(?iu){pattern}" if catalog_pattern.ignoreCase else pattern
 
     allow_patterns = catalog_pattern.allow
     if allow_patterns and allow_patterns != [".*"]:
         allow_conditions = []
         for pattern in allow_patterns:
-            allow_conditions.append(f"{col_expr} RLIKE %s")
+            allow_conditions.append(f"{column_expr} RLIKE ?")
             bind_params.append(transform(pattern))
         if allow_conditions:
             pattern_parts.append(
@@ -219,7 +236,7 @@ def _build_catalog_column_filter(
     if deny_patterns:
         deny_conditions = []
         for pattern in deny_patterns:
-            deny_conditions.append(f"{col_expr} NOT RLIKE %s")
+            deny_conditions.append(f"{column_expr} NOT RLIKE ?")
             bind_params.append(transform(pattern))
         if deny_conditions:
             pattern_parts.append(
@@ -311,6 +328,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         databricks_api_page_size: int = 0,
     ):
         self._workspace_client = workspace_client
+        self.genie = GenieSpaceClient(workspace_client.api_client)
         self.warehouse_id = self._workspace_client.config.warehouse_id
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
@@ -318,6 +336,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.usage_data_source = usage_data_source
         self.databricks_api_page_size = databricks_api_page_size
         self._connections_cache: Optional[Dict[str, ConnectionInfo]] = None
+        # Tables listed this run, so column lineage needs no API call for
+        # upstreams that are in scope. Only columns whose stored name differs
+        # from its casefold are kept, which is few or none for most tables.
+        self._listed_tables: Set[str] = set()
+        self._listed_column_case: Dict[str, Dict[str, str]] = {}
         # Initialize MLflow APIs
         self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)
         self._files_api = FilesAPI(self._workspace_client.api_client)
@@ -660,6 +683,42 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             if optional_ml_model:
                 yield optional_ml_model
 
+    def volumes(self, schema: Schema) -> Iterable[Volume]:
+        # Volumes are a Unity Catalog object; hive_metastore schemas have none.
+        if schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
+            return
+        for obj in self._workspace_client.volumes.list(
+            catalog_name=schema.catalog.name,
+            schema_name=schema.name,
+            include_browse=True,
+        ):
+            if not obj.name or not obj.full_name:
+                continue
+            yield Volume(
+                id=obj.full_name,
+                name=obj.name,
+                comment=obj.comment,
+                schema=schema,
+                volume_type=obj.volume_type.value if obj.volume_type else None,
+                storage_location=obj.storage_location,
+                owner=obj.owner,
+                created_at=parse_ts_millis(obj.created_at),
+                created_by=obj.created_by,
+                updated_at=parse_ts_millis(obj.updated_at),
+                updated_by=obj.updated_by,
+                volume_id=obj.volume_id,
+                metastore_id=obj.metastore_id,
+                browse_only=obj.browse_only,
+                access_point=obj.access_point,
+                encryption_algorithm=(
+                    obj.encryption_details.sse_encryption_details.algorithm.value
+                    if obj.encryption_details
+                    and obj.encryption_details.sse_encryption_details
+                    and obj.encryption_details.sse_encryption_details.algorithm
+                    else None
+                ),
+            )
+
     def ml_model_versions(
         self, ml_model: Model, include_aliases: bool = False
     ) -> Iterable[ModelVersion]:
@@ -820,8 +879,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 AND qh.statement_id IN (
                     SELECT DISTINCT tl2.statement_id
                     FROM system.access.table_lineage tl2
-                    WHERE tl2.event_time >= %s
-                        AND tl2.event_time <= %s
+                    WHERE tl2.event_time >= ?
+                        AND tl2.event_time <= ?
                         AND {catalog_filter}
                 )"""
 
@@ -841,11 +900,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             FROM system.query.history qh
             LEFT JOIN system.access.table_lineage tl
                 ON qh.statement_id = tl.statement_id
-                AND tl.event_time >= %s
-                AND tl.event_time <= %s
+                AND tl.event_time >= ?
+                AND tl.event_time <= ?
             WHERE
-                qh.start_time >= %s
-                AND qh.end_time <= %s
+                qh.start_time >= ?
+                AND qh.end_time <= ?
                 AND qh.execution_status = 'FINISHED'
                 AND qh.statement_type IN ({statement_type_filter}){catalog_pushdown_clause}
             ORDER BY qh.start_time, qh.statement_id
@@ -1014,7 +1073,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     max(event_time) as last_updated
                 FROM system.access.table_lineage
                 WHERE
-                    (target_table_catalog = %s or source_table_catalog = %s)
+                    (target_table_catalog = ? or source_table_catalog = ?)
                     {additional_where}
                 GROUP BY
                     entity_type, entity_id,
@@ -1046,7 +1105,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 if target_full_name and target_full_name.startswith(f"{catalog}."):
                     # Handle table upstreams
                     if (
-                        source_type in ["TABLE", "VIEW"]
+                        source_type
+                        in ["TABLE", "VIEW", "STREAMING_TABLE", "MATERIALIZED_VIEW"]
                         and source_full_name != target_full_name
                     ):
                         upstream = TableUpstream(
@@ -1120,7 +1180,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     max(event_time) as last_updated
                 FROM system.access.column_lineage
                 WHERE
-                    target_table_catalog = %s
+                    target_table_catalog = ?
                     AND target_table_schema IS NOT NULL
                     AND target_table_name IS NOT NULL
                     AND target_column_name IS NOT NULL
@@ -1377,16 +1437,26 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     for column_name, future in zip(column_names, futures, strict=False)
                 }
 
+            # Databricks column names are case-insensitive, and lineage reports
+            # them in the case the query used, not the case the table stores.
+            lineage_by_column: Dict[str, List[dict]] = {}
+            for name, items in lineage.items():
+                lineage_by_column.setdefault(name.casefold(), []).extend(items)
             for column_name in column_names:
-                for item in lineage.get(column_name) or []:
+                for item in lineage_by_column.get(column_name.casefold()) or []:
                     table_ref = TableReference.create_from_lineage(
                         item,
                         table.schema.catalog.metastore,
                     )
                     if table_ref:
-                        table.upstreams.setdefault(table_ref, {}).setdefault(
-                            column_name, []
-                        ).append(item["name"])
+                        upstream_column = self._stored_column_name(
+                            table_ref.qualified_table_name, item["name"]
+                        )
+                        upstream_columns = table.upstreams.setdefault(
+                            table_ref, {}
+                        ).setdefault(column_name, [])
+                        if upstream_column not in upstream_columns:
+                            upstream_columns.append(upstream_column)
 
         except Exception as e:
             logger.warning(
@@ -1394,9 +1464,41 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 exc_info=True,
             )
 
+    def _stored_column_name(self, full_name: str, reported: str) -> str:
+        """The name `full_name` stores the column `reported` under, so column
+        lineage uses the names the table's schema is emitted with. The listing
+        is checked on every call, since an upstream may be listed after a
+        downstream that reads it. Falls back to `reported` when an unlisted
+        table can't be read."""
+        folded = reported.casefold()
+        if full_name in self._listed_tables:
+            return self._listed_column_case.get(full_name, {}).get(folded, folded)
+        return self._fetch_column_names(full_name).get(folded, reported)
+
+    @cached(cachetools.LRUCache(maxsize=10_000))
+    def _fetch_column_names(self, full_name: str) -> Dict[str, str]:
+        """{casefolded name: stored name} for a table not listed this run."""
+        try:
+            columns = self._workspace_client.tables.get(
+                full_name=full_name, include_browse=True
+            ).columns
+        except Exception as e:
+            self.report.warning(
+                message="Unable to read upstream table columns for column lineage; "
+                "its column names are used as the lineage reports them",
+                context=full_name,
+                exc=e,
+                log=False,
+            )
+            return {}
+        if not columns:
+            # e.g. a browse-only table: the reported names are kept.
+            self.report.num_column_lineage_upstream_without_columns += 1
+        return {c.name.casefold(): c.name for c in columns or [] if c.name}
+
     @staticmethod
     def _escape_sequence(value: str) -> str:
-        return value.replace(" ", "_")
+        return escape_unity_name(value)
 
     @staticmethod
     def _create_metastore(
@@ -1437,13 +1539,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         if not obj.name:
             self.report.num_schemas_missing_name += 1
             return None
-        return Schema(
-            name=obj.name,
-            id=f"{catalog.id}.{self._escape_sequence(obj.name)}",
-            catalog=catalog,
-            comment=obj.comment,
-            owner=obj.owner,
-        )
+        return make_schema(catalog, obj.name, comment=obj.comment, owner=obj.owner)
 
     def _create_column(self, table_id: str, obj: ColumnInfo) -> Optional[Column]:
         if not obj.name:
@@ -1469,6 +1565,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             self.report.num_tables_missing_name += 1
             return None
         table_id = f"{schema.id}.{self._escape_sequence(obj.name)}"
+        full_name = qualified_table_name(schema.catalog.name, schema.name, obj.name)
+        self._listed_tables.add(full_name)
+        case = {
+            c.name.casefold(): c.name
+            for c in obj.columns or []
+            if c.name and c.name != c.name.casefold()
+        }
+        if case:
+            self._listed_column_case[full_name] = case
         return Table(
             name=obj.name,
             id=table_id,
@@ -1484,7 +1589,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             view_definition=obj.view_definition or None,
             properties=obj.properties or {},
             owner=obj.owner,
-            generation=obj.generation,
+            # tables.list() only yields TableInfoWithGeneration while the TableInfo
+            # patch in tables() holds; a plain TableInfo must still parse.
+            generation=getattr(obj, "generation", None),
             created_at=(parse_ts_millis(obj.created_at) if obj.created_at else None),
             created_by=obj.created_by,
             updated_at=(parse_ts_millis(obj.updated_at) if obj.updated_at else None),
@@ -1839,6 +1946,22 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             result_dict[table_key].append(
                 UnityCatalogTag(key=tag_name, value=tag_value if tag_value else None)
             )
+
+        return result_dict
+
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_volume_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
+        logger.info(f"Fetching volume tags for catalog: `{catalog}`")
+
+        query = f"SELECT * FROM `{catalog}`.information_schema.volume_tags"
+        rows = self._execute_sql_query(query)
+
+        result_dict: Dict[str, List[UnityCatalogTag]] = {}
+        for row in rows:
+            catalog_name, schema_name, volume_name, tag_name, tag_value = row
+            result_dict.setdefault(
+                f"{catalog_name}.{schema_name}.{volume_name}", []
+            ).append(UnityCatalogTag(key=tag_name, value=tag_value or None))
 
         return result_dict
 

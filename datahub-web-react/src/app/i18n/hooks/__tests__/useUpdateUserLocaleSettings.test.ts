@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useUpdateUserLocaleSettings } from '@app/i18n/hooks/useUpdateUserLocaleSettings';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useUpdateCorpUserLocaleSettingsMutation } from '@graphql/user.generated';
 
@@ -50,5 +51,26 @@ describe('useUpdateUserLocaleSettings', () => {
         });
 
         expect(mockUpdateLocaleSettings).toHaveBeenCalledWith({ variables: { input: { language: null } } });
+    });
+
+    it('resolves when the mutation succeeds but refetching the user fails', async () => {
+        mockRefetchUser.mockRejectedValueOnce(new Error('network'));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const { result } = renderHook(() => useUpdateUserLocaleSettings());
+
+        await act(async () => {
+            await expect(result.current('de')).resolves.toBeUndefined();
+        });
+    });
+
+    it('rejects when the mutation fails', async () => {
+        mockUpdateLocaleSettings.mockRejectedValueOnce(new Error('save failed'));
+        const { result } = renderHook(() => useUpdateUserLocaleSettings());
+
+        await act(async () => {
+            await expect(result.current('de')).rejects.toThrow();
+        });
+
+        expect(mockRefetchUser).not.toHaveBeenCalled();
     });
 });

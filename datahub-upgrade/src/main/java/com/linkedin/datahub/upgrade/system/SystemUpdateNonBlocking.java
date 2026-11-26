@@ -9,6 +9,6 @@ public class SystemUpdateNonBlocking extends SystemUpdate {
   public SystemUpdateNonBlocking(
       @NonNull List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades,
       final BootstrapMCP bootstrapMCPNonBlocking) {
-    super(List.of(), nonBlockingSystemUpgrades, null, null, bootstrapMCPNonBlocking);
+    super(List.of(), nonBlockingSystemUpgrades, null, bootstrapMCPNonBlocking);
   }
 }

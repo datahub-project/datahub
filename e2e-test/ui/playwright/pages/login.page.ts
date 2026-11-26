@@ -30,6 +30,6 @@ export class LoginPage extends BasePage {
 
   async navigateToLogin(): Promise<void> {
     await this.navigate('/login');
-    await this.waitForPageLoad();
+    await this.page.waitForLoadState('domcontentloaded');
   }
 }

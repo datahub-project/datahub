@@ -19,7 +19,7 @@
     "groups.createModal.name.label": "Nome",
     "groups.createModal.name.placeholder": "Um nome para o seu grupo",
     "groups.createModal.name.validationError.empty": "Informe um nome para o grupo.",
-    "groups.createModal.name.validationError.tooLong": "O nome deve ter no máximo 50 caracteres.",
+    "groups.createModal.name.validationError.tooLong": "O nome deve ter no máximo 250 caracteres.",
     "groups.createModal.title": "Criar novo grupo",
     "groups.createOwnerError": "Falha ao adicioná-lo automaticamente como responsável do grupo. Por favor, adicione-se como responsável manualmente.",
     "groups.createSuccess": "Grupo criado!",
@@ -45,6 +45,7 @@
     "inviteToken.copyTooltip": "Copiar link de convite.",
     "inviteToken.createError": "Falha ao criar Token de Convite para a função {{roleName}} : \n {{error}}",
     "inviteToken.footerText": "Copie um link de convite para enviar aos seus usuários. Ao entrar, os usuários serão automaticamente atribuídos à função selecionada.",
+    "inviteToken.footerTextNoRole": "Copie um link de convite para enviar aos seus usuários. Eles poderão criar uma conta e não receberão nenhuma função.",
     "inviteToken.generateNewLinkTooltip": "Gerar um novo link. Quaisquer links antigos não serão mais válidos.",
     "inviteToken.generateSuccess": "Novo link de convite gerado",
     "inviteToken.modalTitle": "Compartilhar Link de Convite",
@@ -118,6 +119,7 @@
     "users.columns.name": "Nome",
     "users.columns.role": "Função",
     "users.columns.status": "Status",
+    "users.copyUrn": "Copiar URN",
     "users.deleteUser": "Excluir Usuário",
     "users.emptyTitle": "Nenhum Usuário!",
     "users.groups.overflowTitle": "Grupos",
@@ -146,5 +148,6 @@
     "users.statusFilter.placeholder": "Status",
     "users.statusFilter.suspended": "Suspenso",
     "users.statusInactive": "Inativo",
-    "users.statusNoUrn": "Sem URN"
+    "users.statusNoUrn": "Sem URN",
+    "users.urnCopied": "URN copiado para a área de transferência"
 }

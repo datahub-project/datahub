@@ -9,7 +9,7 @@ ext {
 }
 
 application {
-    mainClassName = javaMainClass
+    mainClass = javaMainClass
 }
 
 dependencies {
@@ -46,7 +46,7 @@ task validatePythonEnv {
         def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
         def pythonExe = isWindows ? "${venvPath}/Scripts/python.exe" : "${venvPath}/bin/python"
         
-        def result = exec {
+        def result = execOps.exec {
             commandLine pythonExe, "-c", "import sys; print(sys.executable)"
             ignoreExitValue = true
             standardOutput = new ByteArrayOutputStream()
@@ -87,7 +87,7 @@ task updateGoldenFiles {
             
             println "Updating golden file for ${baseName}..."
             
-            exec {
+            execOps.exec {
                 commandLine pythonExe,
                         'scripts/mce_diff.py',
                         '--update-golden-diff',

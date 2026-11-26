@@ -104,7 +104,7 @@ class DataHubGcSourceReport(
 
 @platform_name("DataHubGc")
 @config_class(DataHubGcSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.UNKNOWN)
 class DataHubGcSource(Source):
     """
     DataHubGcSource is responsible for performing garbage collection tasks on DataHub.

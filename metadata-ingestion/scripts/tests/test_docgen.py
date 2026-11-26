@@ -7,9 +7,10 @@ sys.path.append(".")
 
 from enum import Enum
 
-from docs_config_table import FieldRow
+from docs_config_table import FieldRow, gen_md_table_from_pydantic
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 
 
 class Platform(Enum):
@@ -76,3 +77,23 @@ def test_field_row():
         "`key`",
         "path",
     ]
+
+
+def test_removed_fields_are_not_documented():
+    # The field stays in the published schema so recipes that still set it remain
+    # valid, but it is no longer an option worth documenting.
+    class Base(ConfigModel):
+        kept: str = "k"
+        gone: Optional[str] = None
+
+    class Derived(Base):
+        _removed_gone = pydantic_removed_field("gone", month="January", year=2025)
+
+    assert "gone" in Derived.model_json_schema()["properties"]
+
+    table = gen_md_table_from_pydantic(Derived, current_source="test")
+    assert "kept" in table
+    assert "gone" not in table
+
+    # Unrelated models keep the field in their docs.
+    assert "gone" in gen_md_table_from_pydantic(Base, current_source="test")

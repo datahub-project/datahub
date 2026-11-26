@@ -1,0 +1,28 @@
+services:
+  testinformix:
+    container_name: "testinformix"
+    hostname: ifx
+    image: icr.io/informix/informix-developer-database:latest
+    platform: linux/amd64
+    privileged: true
+    # Deliberately NOT overriding `user`. Running as root was tried to work around
+    # the CI sudo failure (see test_informix.py) and does not help -- sudo fails
+    # identically at uid=0 -- while making the entrypoint create ONCONFIG and
+    # sqlhosts as root, which oninit then rejects: "ONCONFIG ... is not owned by
+    # user informix (uid=200)". Leave the image's USER=informix alone.
+    environment:
+      LICENSE: accept
+      SIZE: SMALL
+    ports:
+      - "9088:9088"
+    volumes:
+      # Trims first-boot disk initialization so it fits the 60s budget the image
+      # hardcodes for it. See the file itself for the reasoning.
+      - ./setup/onconfig.mod:/opt/ibm/config/onconfig.mod:ro
+    # Disable the image's built-in healthcheck: it uses start_period=60s with
+    # retries=1, so on a slow CI runner a single failed probe flips the container
+    # to "unhealthy" before this 2.23GB privileged image finishes booting. The
+    # test brings the container up detached (no `--wait`, see test_informix.py)
+    # and gates readiness on an `onstat` probe instead.
+    healthcheck:
+      disable: true

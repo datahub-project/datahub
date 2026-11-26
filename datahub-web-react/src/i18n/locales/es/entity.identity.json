@@ -19,7 +19,7 @@
     "groups.createModal.name.label": "Nombre",
     "groups.createModal.name.placeholder": "Un nombre para su grupo",
     "groups.createModal.name.validationError.empty": "Introduzca un nombre de grupo.",
-    "groups.createModal.name.validationError.tooLong": "El nombre debe tener 50 caracteres o menos.",
+    "groups.createModal.name.validationError.tooLong": "El nombre debe tener 250 caracteres o menos.",
     "groups.createModal.title": "Crear nuevo grupo",
     "groups.createOwnerError": "No se le pudo añadir automáticamente como owner del grupo. Añádase manualmente como owner.",
     "groups.createSuccess": "Grupo creado.",
@@ -45,6 +45,7 @@
     "inviteToken.copyTooltip": "Copiar enlace de invitación.",
     "inviteToken.createError": "No se pudo crear el token de invitación para el rol {{roleName}}: \n {{error}}",
     "inviteToken.footerText": "Copie un enlace de invitación para enviarlo a sus usuarios. Cuando se unan, los usuarios se asignarán automáticamente al rol seleccionado.",
+    "inviteToken.footerTextNoRole": "Copie un enlace de invitación para enviarlo a sus usuarios. Podrán crear una cuenta y no se les asignará ningún rol.",
     "inviteToken.generateNewLinkTooltip": "Genere un nuevo enlace. Los enlaces antiguos dejarán de ser válidos.",
     "inviteToken.generateSuccess": "Nuevo enlace de invitación generado",
     "inviteToken.modalTitle": "Compartir enlace de invitación",
@@ -118,6 +119,7 @@
     "users.columns.name": "Nombre",
     "users.columns.role": "Rol",
     "users.columns.status": "Estado",
+    "users.copyUrn": "Copiar URN",
     "users.deleteUser": "Eliminar usuario",
     "users.emptyTitle": "No hay usuarios.",
     "users.groups.overflowTitle": "Grupos",
@@ -146,5 +148,6 @@
     "users.statusFilter.placeholder": "Estado",
     "users.statusFilter.suspended": "Suspendido",
     "users.statusInactive": "Inactivo",
-    "users.statusNoUrn": "Sin URN"
+    "users.statusNoUrn": "Sin URN",
+    "users.urnCopied": "URN copiado al portapapeles"
 }

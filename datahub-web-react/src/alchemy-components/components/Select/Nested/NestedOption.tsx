@@ -1,9 +1,10 @@
-import { Icon } from '@components';
-import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { Checkbox } from '@components/components/Checkbox';
+import { Icon } from '@components/components/Icon';
 import { NestedSelectOption } from '@components/components/Select/Nested/types';
 import useNestedSelectOptionChildren from '@components/components/Select/Nested/useNestedSelectOptionChildren';
 import useNestedOption from '@components/components/Select/Nested/useSelectOption';
@@ -23,6 +24,16 @@ const CheckboxWrapper = styled.div`
     margin-left: auto;
 `;
 
+const CaretSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin-right: 4px;
+`;
+
 interface OptionProps<OptionType extends NestedSelectOption> {
     option: OptionType;
     selectedOptions: OptionType[];
@@ -38,6 +49,8 @@ interface OptionProps<OptionType extends NestedSelectOption> {
     hideParentCheckbox?: boolean;
     isParentOptionLabelExpanded?: boolean;
     implicitlySelectChildren: boolean;
+    isOptionImplicitlySelected?: (option: OptionType, selectedOptions: OptionType[]) => boolean;
+    selectChildrenWithParent: boolean;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
 }
 
@@ -56,6 +69,8 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
     hideParentCheckbox,
     isParentOptionLabelExpanded,
     implicitlySelectChildren,
+    isOptionImplicitlySelected,
+    selectChildrenWithParent,
     renderCustomOptionText,
 }: OptionProps<OptionType>) => {
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
@@ -76,6 +91,8 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
             selectableChildren,
             areParentsSelectable,
             implicitlySelectChildren,
+            isOptionImplicitlySelected,
+            selectChildrenWithParent,
             isMultiSelect: !!isMultiSelect,
             addOptions,
             removeOptions,
@@ -105,7 +122,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             setLoadingParentUrns((previousIds) => [...previousIds, option.value]);
                             loadData?.(option);
                         }
-                        if (option.isParent) {
+                        if (option.isParent && !areParentsSelectable) {
                             setIsOpen(!isOpen);
                         } else {
                             selectOption();
@@ -118,20 +135,12 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                         cursor:
                             isLoadingParentChildList && loadingParentUrns.includes(option.value) ? 'wait' : 'pointer',
                         display: 'flex',
-                        justifyContent: hideParentCheckbox ? 'space-between' : 'normal',
+                        alignItems: 'center',
                     }}
-                    data-testid={`${option.isParent ? 'parent' : 'child'}-option-${option.value}`}
+                    data-testid={`${option.isParent ? 'parent' : 'child'}-option-${option.testId ?? option.value}`}
                 >
-                    {renderCustomOptionText ? (
-                        renderCustomOptionText(option)
-                    ) : (
-                        <>
-                            {option.isParent && <strong>{option.label}</strong>}
-                            {!option.isParent && <>{option.label}</>}
-                        </>
-                    )}
-                    {option.isParent && (
-                        <Icon
+                    {option.isParent ? (
+                        <CaretSlot
                             onClick={(e) => {
                                 e.stopPropagation();
                                 e.preventDefault();
@@ -141,16 +150,31 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                                     loadData?.(option);
                                 }
                             }}
-                            icon={CaretLeft}
-                            rotate={isOpen ? '90' : '270'}
-                            size="xl"
-                            color="gray"
-                            style={{ cursor: 'pointer', marginLeft: '4px' }}
-                        />
+                        >
+                            <Icon
+                                icon={isOpen ? CaretDown : CaretRight}
+                                size="md"
+                                color="gray"
+                                style={{ cursor: 'pointer' }}
+                            />
+                        </CaretSlot>
+                    ) : (
+                        <CaretSlot aria-hidden />
                     )}
-                    {!(hideParentCheckbox && option.isParent) && (
+                    {renderCustomOptionText ? (
+                        renderCustomOptionText(option)
+                    ) : (
+                        <>
+                            {option.isParent && <strong>{option.label}</strong>}
+                            {!option.isParent && <>{option.label}</>}
+                        </>
+                    )}
+                    {isMultiSelect && !(hideParentCheckbox && option.isParent) && (
                         <CheckboxWrapper>
                             <Checkbox
+                                // Checkbox keeps its own checked state and only resyncs when isChecked changes, which
+                                // it doesn't when deselecting an option that is still implicitly selected.
+                                key={isImplicitlySelected ? 'implicit' : 'explicit'}
                                 isChecked={isImplicitlySelected || isSelected}
                                 isIntermediate={isPartialSelected}
                                 isDisabled={isImplicitlySelected}
@@ -188,6 +212,8 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             areParentsSelectable={areParentsSelectable}
                             setSelectedOptions={setSelectedOptions}
                             implicitlySelectChildren={implicitlySelectChildren}
+                            isOptionImplicitlySelected={isOptionImplicitlySelected}
+                            selectChildrenWithParent={selectChildrenWithParent}
                             renderCustomOptionText={renderCustomOptionText}
                         />
                     ))}

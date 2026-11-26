@@ -6,16 +6,21 @@ import static com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.IntegerArray;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.graph.elastic.ThreadSafePathStore;
 import com.linkedin.metadata.models.registry.LineageRegistry.EdgeInfo;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -62,11 +67,14 @@ public final class GraphQueryUtils {
       org.opensearch.index.query.BoolQueryBuilder rootQuery) {
     org.opensearch.index.query.BoolQueryBuilder orQuery =
         org.opensearch.index.query.QueryBuilders.boolQuery();
-    for (com.linkedin.metadata.query.filter.ConjunctiveCriterion conjunction : filter.getOr()) {
+    final ConjunctiveCriterionArray disjunction =
+        filter.getOr() != null ? filter.getOr() : new ConjunctiveCriterionArray();
+    for (com.linkedin.metadata.query.filter.ConjunctiveCriterion conjunction : disjunction) {
       final org.opensearch.index.query.BoolQueryBuilder andQuery =
           org.opensearch.index.query.QueryBuilders.boolQuery();
+      final CriterionArray criterionAndOrNull = conjunction.getAnd(GetMode.NULL);
       final List<com.linkedin.metadata.query.filter.Criterion> criterionArray =
-          conjunction.getAnd();
+          criterionAndOrNull != null ? criterionAndOrNull : new CriterionArray();
       if (!criterionArray.stream()
           .allMatch(
               criterion ->
@@ -202,14 +210,20 @@ public final class GraphQueryUtils {
     return (path.size() != urnSet.size());
   }
 
-  /** Check if a URN's platform matches any of the provided platforms. */
+  /**
+   * Check if a URN's platform matches any of the provided platforms. Entity types that have no
+   * platform to read match nothing, rather than failing the lineage query they are part of.
+   */
   public static boolean platformMatches(Urn urn, UrnArray platforms) {
+    final DataPlatformUrn platform;
+    try {
+      platform = DataPlatformInstanceUtils.getDataPlatform(urn);
+    } catch (IllegalArgumentException e) {
+      log.warn("Could not read a platform from {}, treating it as unmatched", urn, e);
+      return false;
+    }
     return platforms.stream()
-        .anyMatch(
-            platform ->
-                DataPlatformInstanceUtils.getDataPlatform(urn)
-                    .toString()
-                    .equals(platform.toString()));
+        .anyMatch(candidate -> platform.toString().equals(candidate.toString()));
   }
 
   /** Clone a path by creating a new UrnArray with the same contents. */
@@ -323,6 +337,8 @@ public final class GraphQueryUtils {
    * @param remainingHops Remaining hops to traverse
    * @param existingPaths Existing paths in the graph
    * @param exploreMultiplePaths Whether to explore multiple paths
+   * @param deadlineMillis Epoch millis after which extraction stops with {@link
+   *     LineageTimeoutException}
    * @return List of extracted lineage relationships
    */
   public static List<LineageRelationship> extractRelationships(
@@ -334,13 +350,15 @@ public final class GraphQueryUtils {
       int numHops,
       int remainingHops,
       ThreadSafePathStore existingPaths,
-      boolean exploreMultiplePaths) {
+      boolean exploreMultiplePaths,
+      long deadlineMillis) {
     try {
       Map<Urn, LineageRelationship> lineageRelationshipMap = new HashMap<>();
       final SearchHit[] hits = searchResponse.getHits().getHits();
       log.debug("numHits: {}, numHops {}, remainingHops {}", hits.length, numHops, remainingHops);
       int index = -1;
       for (SearchHit hit : hits) {
+        checkLineageDeadline(deadlineMillis, "path building");
         processSearchHit(
             hit,
             entityUrns,
@@ -358,11 +376,28 @@ public final class GraphQueryUtils {
       List<LineageRelationship> result = new ArrayList<>(lineageRelationshipMap.values());
       log.debug("Number of lineage relationships in list: {}", result.size());
       return result;
+    } catch (LineageTimeoutException e) {
+      // An expected outcome on large graphs; the caller marks the hop partial or fails it. Hits
+      // already processed stay in the shared visited/path state even though their relationships
+      // are dropped. That is harmless: the deadline belongs to the whole walk, so no later hop or
+      // slice runs after it fires, and the result is flagged partial.
+      throw e;
     } catch (Exception e) {
       // This exception handler merely exists to log the exception at an appropriate point and
       // rethrow
       log.error("Caught exception", e);
       throw e;
+    }
+  }
+
+  /**
+   * Throws {@link LineageTimeoutException} once {@code deadlineMillis} has passed. Lineage path
+   * building is CPU-bound and ignores interruption, so without this a batch the walk has already
+   * given up on keeps its pool thread busy and delays later walks.
+   */
+  public static void checkLineageDeadline(long deadlineMillis, @Nonnull String stage) {
+    if (System.currentTimeMillis() > deadlineMillis) {
+      throw new LineageTimeoutException("Lineage hop deadline passed during " + stage);
     }
   }
 
@@ -747,6 +782,8 @@ public final class GraphQueryUtils {
    * @param existingPaths Existing paths in the graph
    * @param exploreMultiplePaths Whether to explore multiple paths
    * @param entitiesPerHopLimit Limit on entities per hop
+   * @param deadlineMillis Epoch millis after which extraction stops with {@link
+   *     LineageTimeoutException}
    * @return List of extracted lineage relationships
    */
   public static List<LineageRelationship> extractRelationshipsFromSearchResponses(
@@ -758,7 +795,8 @@ public final class GraphQueryUtils {
       int numHops,
       ThreadSafePathStore existingPaths,
       boolean exploreMultiplePaths,
-      @Nullable Integer entitiesPerHopLimit) {
+      @Nullable Integer entitiesPerHopLimit,
+      long deadlineMillis) {
 
     try {
       Map<Urn, LineageRelationship> lineageRelationshipMap = new ConcurrentHashMap<>();
@@ -806,6 +844,7 @@ public final class GraphQueryUtils {
         int index = -1;
         for (SearchHit hit : hits) {
           index++;
+          checkLineageDeadline(deadlineMillis, "path building");
           Map<String, Object> document = hit.getSourceAsMap();
 
           // Extract source and destination URNs
@@ -899,6 +938,8 @@ public final class GraphQueryUtils {
       List<LineageRelationship> result = new ArrayList<>(lineageRelationshipMap.values());
       log.debug("Number of lineage relationships in list: {}", result.size());
       return result;
+    } catch (LineageTimeoutException e) {
+      throw e;
     } catch (Exception e) {
       log.error("Caught exception while processing search responses", e);
       throw e;

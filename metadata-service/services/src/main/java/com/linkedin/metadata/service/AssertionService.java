@@ -101,19 +101,23 @@ public class AssertionService extends BaseService {
       // Get AssertionInfo and extract entity URN directly to avoid issues with graph relationships
       // For custom assertions with fields, graph relationships can return the field URN instead of
       // the dataset URN, which breaks notifications and other features that expect the dataset URN.
-      final AssertionInfo assertionInfo = getAssertionInfo(opContext, assertionUrn);
-      if (assertionInfo != null) {
-        // Prefer the denormalized entityUrn when present; fall back to deriving it from the
-        // type-specific sub-property for assertions written before AssertionInfoMutator / backfill.
-        return assertionInfo.hasEntityUrn()
-            ? assertionInfo.getEntityUrn()
-            : AssertionUtils.getEntityFromAssertionInfo(assertionInfo);
-      }
+      return getAsserteeUrn(getAssertionInfo(opContext, assertionUrn));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve entity for assertion with urn %s", assertionUrn), e);
     }
-    return null;
+  }
+
+  /** Returns the entity an assertion is attached to, or null if it cannot be determined. */
+  public static @Nullable Urn getAsserteeUrn(@Nullable final AssertionInfo assertionInfo) {
+    if (assertionInfo == null) {
+      return null;
+    }
+    // Prefer the denormalized entityUrn when present; fall back to deriving it from the
+    // type-specific sub-property for assertions written before AssertionInfoMutator / backfill.
+    return assertionInfo.hasEntityUrn()
+        ? assertionInfo.getEntityUrn()
+        : AssertionUtils.getEntityFromAssertionInfo(assertionInfo);
   }
 
   /** Retrieves the monitor that evaluates an assertion, if one exists. */
@@ -190,6 +194,7 @@ public class AssertionService extends BaseService {
           assertionUrn,
           ImmutableSet.of(
               Constants.ASSERTION_INFO_ASPECT_NAME,
+              Constants.ASSERTION_NOTE_ASPECT_NAME,
               Constants.ASSERTION_ACTIONS_ASPECT_NAME,
               Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
               Constants.GLOBAL_TAGS_ASPECT_NAME),

@@ -12,6 +12,17 @@ import sys
 # This ensures masking-safe loggers write to unwrapped stderr
 _original_stderr = sys.stderr
 
+MASKING_LOGGER_NAMESPACE = "datahub.masking"
+
+
+def is_masking_internal_logger(name: str) -> bool:
+    """Exact namespace or dotted descendants only: a plain prefix match would
+    also claim unrelated loggers (e.g. datahub.maskingness) and leave their
+    handlers unmasked."""
+    return name == MASKING_LOGGER_NAMESPACE or name.startswith(
+        MASKING_LOGGER_NAMESPACE + "."
+    )
+
 
 def get_masking_safe_logger(name: str) -> logging.Logger:
     """
@@ -39,11 +50,8 @@ def get_masking_safe_logger(name: str) -> logging.Logger:
 
 def reset_masking_safe_loggers() -> None:
     """Reset all masking-safe loggers to allow normal logging."""
-    # Get all loggers under the masking namespace
-    masking_namespace = "datahub.masking"
-
     for name in list(logging.Logger.manager.loggerDict.keys()):
-        if name.startswith(masking_namespace):
+        if is_masking_internal_logger(name):
             logger = logging.getLogger(name)
             # Remove all handlers
             for handler in logger.handlers[:]:

@@ -3,7 +3,19 @@ import io
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, Final, List, Optional
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Callable,
+    ClassVar,
+    Dict,
+    Final,
+    FrozenSet,
+    List,
+    Optional,
+    Sequence,
+    Set,
+)
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -11,6 +23,7 @@ from pydantic.fields import Field
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
+    Filters,
     LaxStr,
     TransparentSecretStr,
 )
@@ -19,6 +32,9 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.ingestion.agent.verdicts import ancestors_in
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
 from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
     parse_comma_separated_list,
@@ -43,7 +59,10 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing._models import _TableName
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+from datahub.utilities.urns.field_paths import (
+    KEY_FIELD_PATH_MARKER,
+    get_simple_field_path_from_v2_field_path,
+)
 
 if TYPE_CHECKING:
     from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -55,6 +74,31 @@ SOURCE: Final[str] = "source"
 SINK: Final[str] = "sink"
 CONNECTOR_CLASS: Final[str] = "connector.class"
 JDBC_PREFIX: Final[str] = "jdbc:"
+
+# The probe kind for a Kafka Connect connector (emitted as a DataFlow). No DataHub
+# subtype exists for it; declared once so the probe command and the Filters()
+# declaration on connector_patterns cannot drift apart.
+KAFKA_CONNECT_CONNECTOR_KIND: Final[str] = "Connector"
+
+# Regex patterns for non-standard JDBC URL formats (see normalize_jdbc_url)
+_ORACLE_THIN_RE: Final = re.compile(
+    r"^(?:jdbc:)?oracle:(?:thin|oci):@/?"
+    r"/?(?P<host>[^:/@\s]+)"
+    r":(?P<port>\d+)"
+    r"(?:[:/](?P<db>[^@?;\s]+))?"
+    r"(?:[;?].*)?$"
+)
+_SQLSERVER_RE: Final = re.compile(
+    r"^(?:jdbc:)?sqlserver://(?P<host>[^:;/\s]+)"
+    r"(?::(?P<port>\d+))?"
+    r"(?:;(?P<params>.*))?$"
+)
+_JTDS_RE: Final = re.compile(
+    r"^(?:jdbc:)?jtds:sqlserver://(?P<host>[^:/@\s]+)"
+    r"(?::(?P<port>\d+))?"
+    r"(?:/(?P<db>[^;?\s]+))?"
+    r"(?:[;?].*)?$"
+)
 
 # Default connection settings
 DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
@@ -89,6 +133,9 @@ DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER: Final[set] = {
     "io.debezium.connector.sqlserver.SqlServerConnector",
 }
 
+# Debezium change events nest the row's columns under the envelope's "after" field.
+DEBEZIUM_ENVELOPE_AFTER_PREFIX: Final[str] = "after."
+
 
 # Confluent Cloud connector class names
 # References:
@@ -99,6 +146,7 @@ DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER: Final[set] = {
 # - https://docs.confluent.io/cloud/current/connectors/cc-snowflake-source.html
 POSTGRES_CDC_SOURCE_CLOUD: Final[str] = "PostgresCdcSource"
 POSTGRES_CDC_SOURCE_V2_CLOUD: Final[str] = "PostgresCdcSourceV2"
+POSTGRES_SOURCE_CLOUD: Final[str] = "PostgresSource"
 POSTGRES_SINK_CLOUD: Final[str] = "PostgresSink"
 SNOWFLAKE_SINK_CLOUD: Final[str] = "SnowflakeSink"
 SNOWFLAKE_SOURCE_CLOUD: Final[str] = "SnowflakeSource"
@@ -106,8 +154,11 @@ MYSQL_SOURCE_CLOUD: Final[str] = "MySqlSource"
 MYSQL_CDC_SOURCE_CLOUD: Final[str] = "MySqlCdcSource"
 MYSQL_CDC_SOURCE_V2_CLOUD: Final[str] = "MySqlCdcSourceV2"
 MYSQL_SINK_CLOUD: Final[str] = "MySqlSink"
+S3_SOURCE_CLOUD: Final[str] = "S3Source"
 
-# Cloud JDBC source connector classes
+# Cloud CDC source classes routed to DebeziumSourceConnector.
+# PostgresSource is a managed JDBC source (topic.prefix + table), not CDC, so it
+# is not listed here - see ConnectorRegistry._get_source_connector.
 CLOUD_JDBC_SOURCE_CLASSES: Final[List[str]] = [
     POSTGRES_CDC_SOURCE_CLOUD,
     POSTGRES_CDC_SOURCE_V2_CLOUD,
@@ -115,6 +166,11 @@ CLOUD_JDBC_SOURCE_CLASSES: Final[List[str]] = [
     MYSQL_CDC_SOURCE_CLOUD,
     MYSQL_CDC_SOURCE_V2_CLOUD,
 ]
+
+# Every Confluent Cloud managed database source, CDC or not.
+MANAGED_JDBC_SOURCE_CLASSES: Final[FrozenSet[str]] = frozenset(
+    [*CLOUD_JDBC_SOURCE_CLASSES, POSTGRES_SOURCE_CLOUD]
+)
 
 # Cloud sink connector classes
 CLOUD_SINK_CLASSES: Final[List[str]] = [
@@ -134,6 +190,37 @@ class GenericConnectorConfig(ConfigModel):
     connector_name: str
     source_dataset: str
     source_platform: str
+    target_dataset: Optional[str] = None
+    target_platform: Optional[str] = None
+
+    @model_validator(mode="after")
+    def target_fields_together(self) -> "GenericConnectorConfig":
+        if self.target_dataset is None and self.target_platform is None:
+            return self
+        if not self.target_dataset or not self.target_platform:
+            raise ValueError(
+                "target_dataset and target_platform must be provided together"
+            )
+        return self
+
+
+class ConfluentCatalogConfig(ConfluentStreamCatalogConfig):
+    include_lineage: bool = Field(
+        default=False,
+        description="Take connector -> topic lineage from the catalog rather than inferring it from "
+        "connector config. The catalog reports topic names after any topic-routing transform has been "
+        "applied, so the topic is exact rather than predicted. "
+        "Off by default because it is a trade-off: the catalog does not know which source table the "
+        "data came from, so enabling this replaces a source connector's `table -> topic` lineage, and "
+        "the column-level lineage that comes with it, with a `connector -> topic` edge only. "
+        "Sink connectors are unaffected.",
+    )
+
+    @model_validator(mode="after")
+    def validate_catalog_connection(self) -> "ConfluentCatalogConfig":
+        if self.enabled:
+            self.validate_connection()
+        return self
 
 
 class KafkaConnectSourceConfig(
@@ -158,7 +245,9 @@ class KafkaConnectSourceConfig(
         default=False,
         description="Whether to convert the urns of ingested lineage dataset to lowercase",
     )
-    connector_patterns: AllowDenyPattern = Field(
+    connector_patterns: Annotated[
+        AllowDenyPattern, Filters(KAFKA_CONNECT_CONNECTOR_KIND)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for connectors to filter for ingestion.",
     )
@@ -261,7 +350,38 @@ class KafkaConnectSourceConfig(
         "Defaults to True when use_schema_resolver is enabled.",
     )
 
+    confluent_catalog: ConfluentCatalogConfig = Field(
+        default_factory=ConfluentCatalogConfig,
+        description="Confluent Cloud Stream Catalog settings, used to read connector -> topic lineage, "
+        "tags and business metadata from Stream Governance.",
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: the provider imports kafka_connect.py (jpype, requests), which the
+        # config import path must not pay for.
+        from datahub.ingestion.source.kafka_connect.kafka_connect_probe import (
+            KafkaConnectMetadataProbe,
+        )
+
+        return KafkaConnectMetadataProbe
+
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Topics are reported whole: this source has no topic pattern, and a
+        topic appears in lineage whenever its connector is kept. Declared so
+        `probe filter --kind Topic` says 'unfiltered' rather than 'unresolved'."""
+        return {str(DatasetSubTypes.TOPIC)}
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """Per-connector topics and lineage exist only for connectors
+        connector_patterns keeps (get_connectors_manifest), so a topic's verdict
+        follows its connector's."""
+        return ancestors_in(
+            (KAFKA_CONNECT_CONNECTOR_KIND,), kind, (str(DatasetSubTypes.TOPIC),)
+        )
 
     @model_validator(mode="before")
     @classmethod
@@ -473,11 +593,26 @@ class KafkaConnectSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
 
+    catalog_connectors_indexed: int = 0
+    catalog_lineage_connectors: int = 0
+    catalog_tagged_flows: int = 0
+    catalog_connectors_with_business_metadata: int = 0
+    catalog_lineage_fallbacks: LossyList[str] = field(default_factory=LossyList)
+
     def report_connector_scanned(self, connector: str) -> None:
         self.connectors_scanned += 1
 
     def report_dropped(self, connector: str) -> None:
         self.filtered.append(connector)
+
+    def report_catalog_lineage_fallback(self, connector: str) -> None:
+        self.catalog_lineage_fallbacks.append(connector)
+        self.warning(
+            message="The Stream Catalog entry for this connector listed no topics, so its "
+            "lineage was inferred from the connector config instead. Topic names produced by a "
+            "topic-routing SMT may not be reflected.",
+            context=f"connector={connector}",
+        )
 
 
 @dataclass
@@ -490,6 +625,35 @@ class KafkaConnectLineage:
     job_property_bag: Optional[Dict[str, str]] = None
     source_dataset: Optional[str] = None
     fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None
+
+
+@dataclass
+class TopicFieldPaths:
+    """A Kafka topic's stored value-schema field paths, looked up by simple path."""
+
+    by_simple_path: Dict[str, str] = field(default_factory=dict)
+    simple_paths_by_lower: Dict[str, Set[str]] = field(default_factory=dict)
+    is_debezium_envelope: bool = False
+
+    def add(self, simple_path: str, stored_path: str) -> None:
+        # A nullable Avro field is stored once per union branch; the first
+        # entry is the union itself, which is the one lineage should target.
+        self.by_simple_path.setdefault(simple_path, stored_path)
+        self.simple_paths_by_lower.setdefault(simple_path.lower(), set()).add(
+            simple_path
+        )
+        if simple_path.startswith(DEBEZIUM_ENVELOPE_AFTER_PREFIX):
+            self.is_debezium_envelope = True
+
+    def find(self, simple_path: str) -> Optional[str]:
+        """Exact-case match first; a case-insensitive match only if it is unique,
+        since Avro names are case-sensitive and e.g. Name and name can coexist."""
+        if simple_path in self.by_simple_path:
+            return self.by_simple_path[simple_path]
+        candidates = self.simple_paths_by_lower.get(simple_path.lower(), set())
+        if len(candidates) == 1:
+            return self.by_simple_path[next(iter(candidates))]
+        return None
 
 
 @dataclass
@@ -535,14 +699,55 @@ def unquote(
     return string
 
 
+def normalize_jdbc_url(url: str) -> str:
+    """Convert a JDBC URL to a form SQLAlchemy can parse.
+
+    Non-standard formats handled:
+    - Oracle thin/OCI (oracle:thin:@[//]host:port/service) → oracle://host:port/service
+    - SQL Server JDBC (sqlserver://host[:port][;databaseName=db;...]) → mssql://host:port/db
+    - jTDS SQL Server (jtds:sqlserver://host[:port][/db]) → mssql://host:port/db
+
+    All other URLs are returned unchanged after stripping a leading jdbc:.
+    """
+    m = _ORACLE_THIN_RE.match(url)
+    if m:
+        host = m.group("host")
+        port = m.group("port")
+        db = m.group("db") or ""
+        return f"oracle://{host}:{port}/{db}"
+
+    m = _SQLSERVER_RE.match(url)
+    if m:
+        host = m.group("host")
+        port = m.group("port") or "1433"
+        db = ""
+        params_str = m.group("params") or ""
+        for param in params_str.split(";"):
+            if "=" in param:
+                k, _, v = param.partition("=")
+                if k.strip().lower() == "databasename":
+                    db = v.strip()
+                    break
+        return f"mssql://{host}:{port}/{db}"
+
+    m = _JTDS_RE.match(url)
+    if m:
+        host = m.group("host")
+        port = m.group("port") or "1433"
+        db = m.group("db") or ""
+        return f"mssql://{host}:{port}/{db}"
+
+    return remove_prefix(url, JDBC_PREFIX)
+
+
 def validate_jdbc_url(url: str) -> bool:
-    """Validate JDBC URL format and return whether it's well-formed."""
+    """Return whether url is a JDBC URL format we can parse."""
     if not url or not isinstance(url, str):
         return False
-
+    if _ORACLE_THIN_RE.match(url) or _SQLSERVER_RE.match(url) or _JTDS_RE.match(url):
+        return True
     if not url.startswith(JDBC_PREFIX):
         return False
-
     parts = url.split(":", 3)
     return len(parts) >= 3  # jdbc:protocol:connection_details
 
@@ -693,7 +898,7 @@ def transform_connector_config(
 
 # TODO: Find a more automated way to discover new platforms with 3 level naming hierarchy.
 def has_three_level_hierarchy(platform: str) -> bool:
-    return platform in ["postgres", "trino", "redshift", "snowflake"]
+    return platform in ["postgres", "trino", "redshift", "snowflake", "mssql"]
 
 
 @dataclass
@@ -707,6 +912,11 @@ class BaseConnector:
     - supports_connector_class(): Checks if this connector handles the given class
     """
 
+    # Opt in when lineage inference needs the live Kafka REST topic list on
+    # Confluent Cloud (topic_names is always empty there). Sinks are always
+    # opted in via requires_cluster_topics(); EventRouter Debezium overrides it.
+    needs_cluster_topics: ClassVar[bool] = False
+
     connector_manifest: ConnectorManifest
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
@@ -714,6 +924,30 @@ class BaseConnector:
     all_cluster_topics: Optional[List[str]] = (
         None  # All topics from Kafka cluster (Confluent Cloud only, for validation)
     )
+    # Topic URN -> value-schema field paths (None if DataHub has no schema).
+    # Shard tables routed into one topic would otherwise refetch it per table.
+    _topic_field_paths_cache: Dict[str, Optional[TopicFieldPaths]] = field(
+        default_factory=dict, init=False, repr=False
+    )
+
+    def requires_cluster_topics(self) -> bool:
+        if self.connector_manifest.type == SINK:
+            return True
+        return self.needs_cluster_topics
+
+    def available_topics(self) -> List[str]:
+        # None = list unavailable (fall back to connector topic_names); [] = empty cluster.
+        return self.topics_for_regex_expansion() or []
+
+    def topics_for_regex_expansion(self) -> Optional[List[str]]:
+        # Prefer the live cluster list (including empty). Fall back to connector
+        # topic_names only when they are non-empty; otherwise None so callers can
+        # try DataHub / warn instead of treating "unknown" as an empty match set.
+        if self.all_cluster_topics is not None:
+            return list(self.all_cluster_topics)
+        if self.connector_manifest.topic_names:
+            return list(self.connector_manifest.topic_names)
+        return None
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         """Extract lineage mappings for this connector. Override in subclasses."""
@@ -747,12 +981,17 @@ class BaseConnector:
         if topics_regex:
             return self._expand_topic_regex_patterns(
                 topics_regex,
-                available_topics=self.connector_manifest.topic_names
-                if self.connector_manifest.topic_names
-                else None,
+                available_topics=self.topics_for_regex_expansion(),
             )
 
         return []
+
+    def _sink_has_topic_subscription(self) -> bool:
+        config = self.connector_manifest.config
+        return bool(
+            config.get(ConnectorConfigKeys.TOPICS)
+            or config.get(ConnectorConfigKeys.TOPICS_REGEX)
+        )
 
     def _resolve_subscribed_topics(
         self, connector_manifest: ConnectorManifest, subscribed_topics: List[str]
@@ -762,30 +1001,43 @@ class BaseConnector:
 
         Applies three-way fallback logic:
         1. Intersect subscribed topics with runtime topics (exclude stale subscriptions)
-        2. Use subscribed topics if runtime data unavailable
-        3. Use all runtime topics if no subscription config
-        """
-        available_topics = set(
-            self.all_cluster_topics or connector_manifest.topic_names
-        )
-        subscribed_topics_set = set(subscribed_topics)
+        2. Use subscribed topics only when the runtime list is unavailable (None)
+        3. Use all runtime topics only when no topics / topics.regex subscription is set
 
-        if subscribed_topics_set:
-            if available_topics:
-                topic_list = list(available_topics.intersection(subscribed_topics_set))
+        An empty result from a configured subscription (e.g. topics.regex matched
+        nothing) must not fall through to the whole-cluster list. Results are sorted
+        so downstream lineage ordering is deterministic across processes.
+        """
+        # None = cluster list unavailable (fall back to the subscription); [] = an
+        # authoritative empty cluster, so a configured subscription resolves to nothing.
+        runtime_topics = self.topics_for_regex_expansion()
+        subscribed_topics_set = set(subscribed_topics)
+        subscription_configured = self._sink_has_topic_subscription()
+
+        if subscription_configured or subscribed_topics_set:
+            if not subscribed_topics_set:
                 logger.debug(
-                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
-                    f"(intersection of {len(available_topics)} runtime topics and "
-                    f"{len(subscribed_topics_set)} configured topics)"
+                    f"Configured topic subscription for {connector_manifest.name} "
+                    f"resolved to zero topics; not falling back to the cluster list"
                 )
-            else:
-                topic_list = list(subscribed_topics_set)
+                return []
+            if runtime_topics is None:
+                topic_list = sorted(subscribed_topics_set)
                 logger.debug(
-                    f"Runtime topics empty for {connector_manifest.name}, "
+                    f"Runtime topics unavailable for {connector_manifest.name}, "
                     f"using {len(topic_list)} topics from connector config"
                 )
+            else:
+                topic_list = sorted(
+                    set(runtime_topics).intersection(subscribed_topics_set)
+                )
+                logger.debug(
+                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                    f"(intersection of {len(runtime_topics)} runtime topics and "
+                    f"{len(subscribed_topics_set)} configured topics)"
+                )
         else:
-            topic_list = list(available_topics)
+            topic_list = sorted(runtime_topics or [])
             logger.debug(
                 f"No subscription config found for {connector_manifest.name}, "
                 f"using all {len(topic_list)} available topics"
@@ -1070,8 +1322,13 @@ class BaseConnector:
 
             column_mapping = self._apply_field_transforms(list(source_schema.keys()))
 
+            # When DataHub has the topic's schema, link to its stored field paths;
+            # otherwise fall back to the column name as the field path.
+            topic_field_paths = self._get_topic_field_paths(str(target_urn))
+
             # Create fine-grained lineage for each source column
             fine_grained_lineages: List[FineGrainedLineageClass] = []
+            unmatched_columns: List[str] = []
 
             for source_col in source_schema:
                 target_col = column_mapping.get(source_col)
@@ -1083,13 +1340,55 @@ class BaseConnector:
                     )
                     continue
 
+                target_field_path = target_col
+                if topic_field_paths is not None:
+                    # On an envelope topic the bare name could match envelope
+                    # metadata (op, source, ts_ms), so only "after." is searched.
+                    stored_path = topic_field_paths.find(
+                        f"{DEBEZIUM_ENVELOPE_AFTER_PREFIX}{target_col}"
+                        if topic_field_paths.is_debezium_envelope
+                        else target_col
+                    )
+                    if stored_path is None:
+                        unmatched_columns.append(source_col)
+                        continue
+                    target_field_path = stored_path
+
                 fine_grained_lineage = FineGrainedLineageClass(
                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                     upstreams=[make_schema_field_urn(source_urn_str, source_col)],
-                    downstreams=[make_schema_field_urn(str(target_urn), target_col)],
+                    downstreams=[
+                        make_schema_field_urn(str(target_urn), target_field_path)
+                    ],
                 )
                 fine_grained_lineages.append(fine_grained_lineage)
+
+            if (
+                topic_field_paths is not None
+                and not fine_grained_lineages
+                and not topic_field_paths.is_debezium_envelope
+            ):
+                # Nothing to compare against: e.g. Debezium MongoDB stores "after"
+                # as a JSON string, and String/JSON converters register no columns.
+                logger.debug(
+                    f"Topic {target_dataset} has no fields matching {source_platform} "
+                    f"table {source_dataset}; skipping column-level lineage"
+                )
+                return None
+
+            # A topic missing most source columns most likely has the wrong schema
+            # registered (e.g. a subject-name mismatch); emitting partial links
+            # would be misleading.
+            if len(unmatched_columns) > len(fine_grained_lineages):
+                self.report.warning(
+                    title="Source columns not found in Kafka topic schema",
+                    message="Most source columns are missing from the topic's schema in DataHub, "
+                    "so column-level lineage was skipped. Check the topic's registered schema.",
+                    context=f"connector={self.connector_manifest.name}, source={source_dataset}, "
+                    f"target={target_dataset}, unmatched={len(unmatched_columns)}",
+                )
+                return None
 
             if fine_grained_lineages:
                 logger.debug(
@@ -1107,6 +1406,28 @@ class BaseConnector:
             )
 
         return None
+
+    def _get_topic_field_paths(self, topic_urn: str) -> Optional[TopicFieldPaths]:
+        """The stored field paths of a topic's value schema, or None if DataHub
+        has no schema for the topic."""
+        if not (self.schema_resolver and self.schema_resolver.graph):
+            return None
+        if topic_urn in self._topic_field_paths_cache:
+            return self._topic_field_paths_cache[topic_urn]
+
+        field_paths: Optional[TopicFieldPaths] = None
+        schema = self.schema_resolver.graph.get_aspect(topic_urn, SchemaMetadataClass)
+        if isinstance(schema, SchemaMetadataClass):
+            field_paths = TopicFieldPaths()
+            for schema_field in schema.fields:
+                if KEY_FIELD_PATH_MARKER in schema_field.fieldPath:
+                    continue
+                field_paths.add(
+                    get_simple_field_path_from_v2_field_path(schema_field.fieldPath),
+                    schema_field.fieldPath,
+                )
+        self._topic_field_paths_cache[topic_urn] = field_paths
+        return field_paths
 
     def _extract_sink_fine_grained_lineage(
         self,
@@ -1377,15 +1698,15 @@ class BaseConnector:
         """
         matcher = JavaRegexMatcher()
 
-        # Priority 1: Use provided available_topics (from Kafka API)
-        if available_topics:
+        # Distinguish None (unavailable -> try DataHub) from [] (empty cluster).
+        if available_topics is not None:
             matched_topics = matcher.filter_matches([topics_regex], available_topics)
             if matched_topics:
                 logger.info(
                     f"Expanded topics.regex '{topics_regex}' to {len(matched_topics)} topics "
                     f"from {len(available_topics)} available Kafka topics"
                 )
-            elif not matched_topics:
+            else:
                 logger.warning(
                     f"Java regex pattern '{topics_regex}' did not match any of the {len(available_topics)} available topics"
                 )

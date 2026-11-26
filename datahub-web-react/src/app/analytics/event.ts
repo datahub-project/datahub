@@ -2,11 +2,11 @@ import { FileUploadFailureType } from '@components/components/Editor/types';
 
 import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
 import { PersonaType } from '@app/homeV2/shared/types';
-import { Direction } from '@app/lineage/types';
+import { Direction } from '@app/lineageV3/types';
 import { FilterMode } from '@app/search/utils/constants';
 
 import {
-    AllowedValue,
+    AllowedValueInput,
     DataHubPageModuleType,
     DataHubViewType,
     EntityType,
@@ -74,14 +74,12 @@ export enum EventType {
     ActivatePolicyEvent,
     ShowSimplifiedHomepageEvent,
     ShowStandardHomepageEvent,
-    ShowV2ThemeEvent,
-    RevertV2ThemeEvent,
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
+    MoveDataProductEvent,
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
-    IngestionSourceConfigurationImpressionEvent,
     IngestionViewAllClickEvent,
     IngestionViewAllClickWarningEvent,
     CreateIngestionSourceEvent,
@@ -185,6 +183,11 @@ export enum EventType {
     GoToPhysicalChildEvent,
     GoToLogicalParentColumnEvent,
     GoToPhysicalChildColumnEvent,
+    LanguageChangeEvent,
+    // Micro frontend (MFE) host events
+    MfePageViewEvent,
+    MfeLoadEvent,
+    GithubStarClickEvent,
 }
 
 /**
@@ -613,14 +616,6 @@ export interface ShowStandardHomepageEvent extends BaseEvent {
     type: EventType.ShowStandardHomepageEvent;
 }
 
-export interface ShowV2ThemeEvent extends BaseEvent {
-    type: EventType.ShowV2ThemeEvent;
-}
-
-export interface RevertV2ThemeEvent extends BaseEvent {
-    type: EventType.RevertV2ThemeEvent;
-}
-
 export interface HomePageExploreAllClickEvent extends BaseEvent {
     type: EventType.HomePageExploreAllClickEvent;
 }
@@ -652,6 +647,12 @@ export interface MoveDomainEvent extends BaseEvent {
     parentDomainUrn?: string;
 }
 
+export interface MoveDataProductEvent extends BaseEvent {
+    type: EventType.MoveDataProductEvent;
+    oldParentDataProductUrn?: string;
+    parentDataProductUrn?: string;
+}
+
 // Managed Ingestion Events
 
 export interface IngestionTestConnectionEvent extends BaseEvent {
@@ -665,7 +666,6 @@ export interface IngestionTestConnectionClickEvent extends BaseEvent {
     type: EventType.IngestionTestConnectionClickEvent;
     sourceType: string;
     sourceUrn?: string;
-    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface IngestionTestConnectionCloseEvent extends BaseEvent {
@@ -674,7 +674,6 @@ export interface IngestionTestConnectionCloseEvent extends BaseEvent {
     sourceUrn?: string;
     hasCompleted?: boolean;
     status?: 'success' | 'failure' | 'partialSuccess' | 'running';
-    ingestionOnboardingRedesignV1?: boolean;
     failedCapabilities?: string[];
     durationMs?: number;
 }
@@ -697,13 +696,6 @@ export interface IngestionExecutionResultViewedEvent extends BaseEvent {
     sourceType?: string;
 }
 
-export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
-    type: EventType.IngestionSourceConfigurationImpressionEvent;
-    viewedSection: 'SELECT_TEMPLATE' | 'DEFINE_RECIPE' | 'CREATE_SCHEDULE' | 'NAME_SOURCE';
-    sourceType?: string;
-    sourceUrn?: string;
-}
-
 export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
     sourceType: string;
@@ -711,7 +703,6 @@ export interface CreateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
-    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
@@ -721,7 +712,6 @@ export interface UpdateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
-    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -973,7 +963,7 @@ interface StructuredPropertyEvent extends BaseEvent {
     appliesTo: string[];
     qualifiedName?: string;
     allowedAssetTypes?: string[];
-    allowedValues?: AllowedValue[];
+    allowedValues?: AllowedValueInput[];
     cardinality?: PropertyCardinality;
     showInFilters?: boolean;
     isHidden: boolean;
@@ -1076,7 +1066,7 @@ export interface HomePageClickEvent extends BaseEvent {
 export interface SearchBarFilterEvent extends BaseEvent {
     type: EventType.SearchBarFilter;
     field: string; // the filter field
-    values: string[]; // the values being filtered for
+    filterValues: string[]; // the values being filtered for
 }
 
 export interface NavBarExpandCollapseEvent extends BaseEvent {
@@ -1121,6 +1111,11 @@ export interface WelcomeToDataHubModalExitEvent extends BaseEvent {
 export interface WelcomeToDataHubModalClickViewDocumentationEvent extends BaseEvent {
     type: EventType.WelcomeToDataHubModalClickViewDocumentationEvent;
     url: string;
+}
+
+export interface GithubStarClickEvent extends BaseEvent {
+    type: EventType.GithubStarClickEvent;
+    sourceType: 'welcomeModal' | 'resourcesMenu';
 }
 
 export interface ProductTourButtonClickEvent extends BaseEvent {
@@ -1363,11 +1358,11 @@ export interface DeleteDocumentEvent extends BaseEvent {
 }
 
 /**
- * Logged when a user imports documents from a source (file upload or GitHub).
+ * Logged when a user imports documents from a source (file upload, GitHub, GitLab, Notion or Confluence).
  */
 export interface ImportDocumentsEvent extends BaseEvent {
     type: EventType.ImportDocumentsEvent;
-    source: 'FILE_UPLOAD' | 'GITHUB' | 'NOTION' | 'CONFLUENCE';
+    source: 'FILE_UPLOAD' | 'GITHUB' | 'GITLAB' | 'NOTION' | 'CONFLUENCE';
     createdCount: number;
     updatedCount: number;
     failedCount: number;
@@ -1395,6 +1390,66 @@ interface GoToPhysicalChildColumnEvent extends BaseEvent {
     type: EventType.GoToPhysicalChildColumnEvent;
     entityUrn: string;
     childUrn?: string;
+}
+
+/**
+ * A user changed their UI language in Settings. `newLanguage` is null when they cleared their
+ * choice; `browserLanguage` is what browser detection would pick, so overrides can be counted.
+ */
+export interface LanguageChangeEvent extends BaseEvent {
+    type: EventType.LanguageChangeEvent;
+    previousLanguage: string;
+    newLanguage: string | null;
+    browserLanguage: string | null;
+}
+
+/**
+ * Viewed a micro frontend (MFE) route under /mfe, whether reached from the nav bar or a direct link.
+ */
+export interface MfePageViewEvent extends BaseEvent {
+    type: EventType.MfePageViewEvent;
+    /** the id of the MFE from the MFE config yaml */
+    mfeId: string;
+    /** the label of the MFE from the MFE config yaml */
+    mfeLabel: string;
+    /** the path of the MFE from the MFE config yaml, without the /mfe prefix */
+    mfePath: string;
+}
+
+/**
+ * How a micro frontend remote module load ended:
+ * - success: the remote's mount function was called
+ * - timeout: the remote did not load within the configured load timeout
+ * - load_error: fetching or unwrapping the remote module failed
+ * - invalid_mount: the remote loaded but exposed no mount function
+ * - container_missing: the host container element was not in the DOM
+ * - disabled: the MFE is disabled in the config yaml, so it was not mounted
+ * - abandoned: the user left the page before the remote finished loading
+ */
+export type MfeLoadOutcome =
+    | 'success'
+    | 'timeout'
+    | 'load_error'
+    | 'invalid_mount'
+    | 'container_missing'
+    | 'disabled'
+    | 'abandoned';
+
+/**
+ * A micro frontend (MFE) remote module load settled, successfully or not.
+ */
+export interface MfeLoadEvent extends BaseEvent {
+    type: EventType.MfeLoadEvent;
+    /** the id of the MFE from the MFE config yaml */
+    mfeId: string;
+    /** the label of the MFE from the MFE config yaml */
+    mfeLabel: string;
+    /** how the load ended */
+    outcome: MfeLoadOutcome;
+    /** milliseconds from the start of the load until it settled */
+    durationMs: number;
+    /** the remote-module load timeout that applied to this load, in milliseconds */
+    loadTimeoutMs: number;
 }
 
 /**
@@ -1455,13 +1510,12 @@ export type Event =
     | CreateGlossaryEntityEvent
     | CreateDomainEvent
     | MoveDomainEvent
+    | MoveDataProductEvent
     | CreateIngestionSourceEvent
     | UpdateIngestionSourceEvent
     | DeleteIngestionSourceEvent
     | ExecuteIngestionSourceEvent
     | ShowStandardHomepageEvent
-    | ShowV2ThemeEvent
-    | RevertV2ThemeEvent
     | SsoEvent
     | CreateViewEvent
     | UpdateViewEvent
@@ -1530,9 +1584,9 @@ export type Event =
     | WelcomeToDataHubModalExitEvent
     | WelcomeToDataHubModalClickViewDocumentationEvent
     | ProductTourButtonClickEvent
+    | GithubStarClickEvent
     | IngestionTestConnectionEvent
     | IngestionExecutionResultViewedEvent
-    | IngestionSourceConfigurationImpressionEvent
     | IngestionViewAllClickEvent
     | IngestionViewAllClickWarningEvent
     | AssetPageAddSummaryElementEvent
@@ -1560,4 +1614,7 @@ export type Event =
     | GoToLogicalParentEvent
     | GoToPhysicalChildEvent
     | GoToLogicalParentColumnEvent
-    | GoToPhysicalChildColumnEvent;
+    | GoToPhysicalChildColumnEvent
+    | LanguageChangeEvent
+    | MfePageViewEvent
+    | MfeLoadEvent;

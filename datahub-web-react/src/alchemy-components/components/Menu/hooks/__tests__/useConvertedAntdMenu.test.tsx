@@ -1,9 +1,10 @@
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import useConvertedAntdMenu from '@components/components/Menu/hooks/useConvertedAntdMenu';
 // Define types for clarity in test
 import { ItemType } from '@components/components/Menu/types';
+
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock dependencies to avoid importing actual components
 vi.mock('../components/MenuItemRenderer', () => ({
@@ -113,7 +114,7 @@ describe('useConvertedAntdMenu', () => {
 
         const first = result.current;
 
-        rerender(items); // same items
+        rerender(); // same items
         const second = result.current;
 
         expect(first).toBe(second); // should be memoized

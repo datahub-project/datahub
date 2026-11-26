@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -98,29 +99,6 @@ public class SemanticModelMapperTest {
       assertEquals(result.getInfo().getCreated().getActor().getUrn(), ACTOR_URN);
       assertNotNull(result.getInfo().getLastModified());
       assertEquals(result.getInfo().getLastModified().getTime(), TEST_TIMESTAMP + 1000L);
-    }
-  }
-
-  @Test
-  public void testMapDatasetsAsDatasetUrns() throws URISyntaxException {
-    EntityResponse entityResponse = createBaseEntityResponse();
-
-    SemanticModelInfo info =
-        new SemanticModelInfo()
-            .setName("My Model")
-            .setDatasets(new UrnArray(Urn.createFromString(DATASET_URN)));
-    addAspect(entityResponse, SEMANTIC_MODEL_INFO_ASPECT_NAME, info);
-
-    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
-      authMock.when(() -> AuthorizationUtils.canView(any(), any())).thenReturn(true);
-
-      SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
-
-      assertNotNull(result.getInfo());
-      assertNotNull(result.getInfo().getDatasets());
-      assertEquals(result.getInfo().getDatasets().size(), 1);
-      assertEquals(result.getInfo().getDatasets().get(0).getUrn(), DATASET_URN);
-      assertEquals(result.getInfo().getDatasets().get(0).getType(), EntityType.DATASET);
     }
   }
 
@@ -252,6 +230,44 @@ public class SemanticModelMapperTest {
           result.getAiContext().getInstructions(), "Prefer this model for order analytics.");
       assertEquals(result.getAiContext().getExamples().size(), 1);
       assertEquals(result.getAiContext().getExamples().get(0), "orders by region");
+    }
+  }
+
+  @Test
+  public void testMapApplicationsSkipsApplicationsTheViewerCannotSee() throws URISyntaxException {
+    EntityResponse entityResponse = createBaseEntityResponse();
+
+    Urn visibleApp = Urn.createFromString("urn:li:application:visible");
+    Urn hiddenApp = Urn.createFromString("urn:li:application:hidden");
+    addAspect(
+        entityResponse,
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        new Applications().setApplications(new UrnArray(visibleApp, hiddenApp)));
+
+    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
+      authMock.when(() -> AuthorizationUtils.canView(any(), eq(semanticModelUrn))).thenReturn(true);
+      authMock.when(() -> AuthorizationUtils.canView(any(), eq(visibleApp))).thenReturn(true);
+      authMock.when(() -> AuthorizationUtils.canView(any(), eq(hiddenApp))).thenReturn(false);
+
+      SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
+
+      assertEquals(result.getApplications().size(), 1);
+      assertEquals(
+          result.getApplications().get(0).getApplication().getUrn(), visibleApp.toString());
+      assertEquals(result.getApplications().get(0).getAssociatedUrn(), SEMANTIC_MODEL_URN);
+    }
+  }
+
+  @Test
+  public void testMapAbsentApplicationsAspectLeavesFieldNull() {
+    EntityResponse entityResponse = createBaseEntityResponse();
+
+    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
+      authMock.when(() -> AuthorizationUtils.canView(any(), eq(semanticModelUrn))).thenReturn(true);
+
+      SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
+
+      assertNull(result.getApplications());
     }
   }
 

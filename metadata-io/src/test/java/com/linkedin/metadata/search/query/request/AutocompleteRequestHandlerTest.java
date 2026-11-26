@@ -638,6 +638,30 @@ public class AutocompleteRequestHandlerTest {
     assertTrue(isLatestQueries.isEmpty(), "Expected to find no queries");
   }
 
+  private AutocompleteRequestHandler getCachedDatasetHandler(
+      ElasticSearchConfiguration searchConfiguration) {
+    return AutocompleteRequestHandler.getBuilder(
+        nonMockOpContext,
+        nonMockOpContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+        CustomSearchConfiguration.builder().build(),
+        QueryFilterRewriteChain.EMPTY,
+        searchConfiguration,
+        TEST_SEARCH_SERVICE_CONFIG);
+  }
+
+  private SearchSourceBuilder getDatasetAutocompleteSource(
+      ElasticSearchConfiguration searchConfiguration, Filter filter) {
+    return new AutocompleteRequestHandler(
+            nonMockOpContext,
+            nonMockOpContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            searchConfiguration,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .getSearchRequest(nonMockOpContext, DATASET_ENTITY_NAME, "ord", null, filter, 10)
+        .source();
+  }
+
   private static QueryBuilder extractNestedQuery(BoolQueryBuilder nested) {
     assertEquals(nested.should().size(), 1);
     BoolQueryBuilder firstLevel = (BoolQueryBuilder) nested.should().get(0);

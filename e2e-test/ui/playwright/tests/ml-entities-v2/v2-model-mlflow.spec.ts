@@ -17,6 +17,7 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { MLEntitiesPage } from '../../pages/ml-entities.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 // Test Data Constants
 const TEST_DATA = {
@@ -54,7 +55,7 @@ test.describe('MLFlow Models', () => {
       mlEntitiesPage = new MLEntitiesPage(page, logger, logDir);
     });
 
-    test('can visit mlflow model groups', async ({ logger }) => {
+    test('can visit mlflow model groups', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ logger }) => {
       logger.step('Navigate to MLFlow model group');
       await mlEntitiesPage.navigateToMLModelGroup(TEST_DATA.MLFLOW_GROUP_URN);
 

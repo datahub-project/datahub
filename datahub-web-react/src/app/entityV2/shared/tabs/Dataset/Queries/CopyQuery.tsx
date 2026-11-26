@@ -1,13 +1,13 @@
-import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Button } from 'antd';
+import { Button, Tooltip } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 type Props = {
     query: string;
     showCopyText?: boolean;
-    style?: any;
+    style?: React.CSSProperties;
 };
 
 export default function CopyQuery({ query, showCopyText = false, style }: Props) {
@@ -22,9 +22,17 @@ export default function CopyQuery({ query, showCopyText = false, style }: Props)
 
     return (
         <Tooltip title={t('copyQuery.tooltip')}>
-            <Button onClick={copyQuery} style={style}>
-                {showCopyText && ((queryCopied && tc('common.feedback:copied')) || tc('copy'))}
-                {(queryCopied && <CheckOutlined />) || <CopyOutlined />}
+            <Button
+                variant="outline"
+                color="gray"
+                size="sm"
+                onClick={copyQuery}
+                style={style}
+                icon={{ icon: queryCopied ? Check : Copy }}
+                isCircle={!showCopyText}
+                aria-label={showCopyText ? undefined : tc('copy')}
+            >
+                {showCopyText && (queryCopied ? tc('common.feedback:copied') : tc('copy'))}
             </Button>
         </Tooltip>
     );

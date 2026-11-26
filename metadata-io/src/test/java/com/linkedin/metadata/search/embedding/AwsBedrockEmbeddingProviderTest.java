@@ -4,13 +4,30 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntFunction;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.http.AbortableInputStream;
+import software.amazon.awssdk.http.ExecutableHttpRequest;
+import software.amazon.awssdk.http.HttpExecuteRequest;
+import software.amazon.awssdk.http.HttpExecuteResponse;
+import software.amazon.awssdk.http.SdkHttpClient;
+import software.amazon.awssdk.http.SdkHttpResponse;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
+import software.amazon.awssdk.services.bedrockruntime.model.ThrottlingException;
+import software.amazon.awssdk.services.bedrockruntime.model.ValidationException;
 
 /** Unit tests for AwsBedrockEmbeddingProvider. */
 public class AwsBedrockEmbeddingProviderTest {
@@ -189,6 +206,125 @@ public class AwsBedrockEmbeddingProviderTest {
     provider.embed("test", null);
   }
 
+  @Test
+  public void testAThrottleIsTyped() {
+    ThrottlingException throttled =
+        ThrottlingException.builder()
+            .message("Too many requests, please wait before trying again.")
+            .statusCode(429)
+            .build();
+    when(mockBedrockClient.invokeModel(any(InvokeModelRequest.class))).thenThrow(throttled);
+
+    EmbeddingThrottledException failure =
+        expectThrows(
+            EmbeddingThrottledException.class,
+            () -> provider.embed("test", null, EmbeddingTaskType.QUERY, Duration.ofSeconds(2)));
+    assertSame(failure.getCause(), throttled);
+
+    // Any other service error is not a throttle
+    when(mockBedrockClient.invokeModel(any(InvokeModelRequest.class)))
+        .thenThrow(
+            ValidationException.builder().message("Malformed input").statusCode(400).build());
+    RuntimeException invalid =
+        expectThrows(
+            RuntimeException.class,
+            () -> provider.embed("test", null, EmbeddingTaskType.QUERY, Duration.ofSeconds(2)));
+    assertFalse(invalid instanceof EmbeddingThrottledException);
+  }
+
+  @Test
+  public void testADeadlineCallDoesNotRetryAThrottle() {
+    AtomicInteger attempts = new AtomicInteger();
+    try (BedrockRuntimeClient client =
+        realClient(attempts, attempt -> response(429, "ThrottlingException", "{}"))) {
+      AwsBedrockEmbeddingProvider throttled =
+          new AwsBedrockEmbeddingProvider(client, "cohere.embed-english-v3", 2048);
+
+      // A retry's backoff would outlive the deadline and end the throttle as a timeout
+      expectThrows(
+          EmbeddingThrottledException.class,
+          () -> throttled.embed("test", null, EmbeddingTaskType.QUERY, Duration.ofSeconds(2)));
+      assertEquals(attempts.get(), 1);
+    }
+  }
+
+  @Test
+  public void testADeadlineCallRetriesATransientServerErrorOnce() {
+    AtomicInteger attempts = new AtomicInteger();
+    try (BedrockRuntimeClient client =
+        realClient(
+            attempts,
+            attempt ->
+                attempt == 1
+                    ? response(500, "InternalServerException", "{}")
+                    : response(200, null, "{\"embeddings\": [[0.1, 0.2]]}"))) {
+      AwsBedrockEmbeddingProvider provider =
+          new AwsBedrockEmbeddingProvider(client, "cohere.embed-english-v3", 2048);
+
+      float[] embedding =
+          provider.embed("test", null, EmbeddingTaskType.QUERY, Duration.ofSeconds(2));
+
+      assertEquals(embedding.length, 2);
+      assertEquals(attempts.get(), 2);
+    }
+  }
+
+  @Test
+  public void testACallWithoutADeadlineKeepsTheClientRetries() {
+    AtomicInteger attempts = new AtomicInteger();
+    try (BedrockRuntimeClient client =
+        realClient(attempts, attempt -> response(500, "InternalServerException", "{}"))) {
+      AwsBedrockEmbeddingProvider provider =
+          new AwsBedrockEmbeddingProvider(client, "cohere.embed-english-v3", 2048);
+
+      expectThrows(RuntimeException.class, () -> provider.embed("test", null));
+      assertTrue(attempts.get() > 1, "attempts: " + attempts.get());
+    }
+  }
+
+  /** A Bedrock client whose HTTP calls {@code respond} answers, by attempt number from 1. */
+  private static BedrockRuntimeClient realClient(
+      AtomicInteger attempts, IntFunction<HttpExecuteResponse> respond) {
+    SdkHttpClient http =
+        new SdkHttpClient() {
+          @Override
+          public ExecutableHttpRequest prepareRequest(HttpExecuteRequest request) {
+            int attempt = attempts.incrementAndGet();
+            return new ExecutableHttpRequest() {
+              @Override
+              public HttpExecuteResponse call() {
+                return respond.apply(attempt);
+              }
+
+              @Override
+              public void abort() {}
+            };
+          }
+
+          @Override
+          public void close() {}
+        };
+    return BedrockRuntimeClient.builder()
+        .region(Region.US_WEST_2)
+        .credentialsProvider(
+            StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")))
+        .httpClient(http)
+        .build();
+  }
+
+  private static HttpExecuteResponse response(int status, String errorType, String body) {
+    SdkHttpResponse.Builder response = SdkHttpResponse.builder().statusCode(status);
+    if (errorType != null) {
+      response.putHeader("x-amzn-ErrorType", errorType);
+    }
+    return HttpExecuteResponse.builder()
+        .response(response.build())
+        .responseBody(
+            AbortableInputStream.create(
+                new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8))))
+        .build();
+  }
+
   @Test(expectedExceptions = NullPointerException.class)
   public void testEmbedWithNullText() {
     provider.embed(null, null);
@@ -214,19 +350,33 @@ public class AwsBedrockEmbeddingProviderTest {
 
   @Test
   public void testConstructorWithRegion() {
-    // Test that constructor with region string doesn't throw
-    AwsBedrockEmbeddingProvider providerWithRegion = new AwsBedrockEmbeddingProvider("us-west-2");
+    AwsBedrockEmbeddingProvider providerWithRegion =
+        new AwsBedrockEmbeddingProvider(
+            "us-west-2",
+            "cohere.embed-english-v3",
+            2048,
+            StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
     assertNotNull(providerWithRegion);
     providerWithRegion.close();
   }
 
   @Test
   public void testConstructorWithAllParameters() {
-    // Test constructor with all parameters
     AwsBedrockEmbeddingProvider providerWithParams =
-        new AwsBedrockEmbeddingProvider("us-east-1", "cohere.embed-multilingual-v3", 1024);
+        new AwsBedrockEmbeddingProvider(
+            "us-east-1",
+            "cohere.embed-multilingual-v3",
+            1024,
+            StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
     assertNotNull(providerWithParams);
     providerWithParams.close();
+  }
+
+  @Test
+  public void testConstructorRejectsNullCredentialsProvider() {
+    assertThrows(
+        NullPointerException.class,
+        () -> new AwsBedrockEmbeddingProvider("us-west-2", "cohere.embed-english-v3", 2048, null));
   }
 
   @Test
@@ -265,5 +415,23 @@ public class AwsBedrockEmbeddingProviderTest {
     assertEquals(embedding1[0], 0.1f, 0.001);
     assertEquals(embedding2[0], 0.3f, 0.001);
     verify(mockBedrockClient, times(2)).invokeModel(any(InvokeModelRequest.class));
+  }
+
+  @Test
+  public void testEmbedWithTimeoutBoundsTheWholeCall() {
+    String responseJson = "{\"embeddings\": [[0.1, 0.2, 0.3]]}";
+    ArgumentCaptor<InvokeModelRequest> request = ArgumentCaptor.forClass(InvokeModelRequest.class);
+    when(mockBedrockClient.invokeModel(request.capture()))
+        .thenReturn(
+            InvokeModelResponse.builder()
+                .body(SdkBytes.fromString(responseJson, StandardCharsets.UTF_8))
+                .build());
+
+    provider.embed("revenue", null, EmbeddingTaskType.QUERY, Duration.ofMillis(1_500));
+
+    // The SDK's retries count against the same timeout
+    assertEquals(
+        request.getValue().overrideConfiguration().get().apiCallTimeout(),
+        Optional.of(Duration.ofMillis(1_500)));
   }
 }

@@ -10,8 +10,11 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.Flow;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -443,7 +446,7 @@ public class VertexAiEmbeddingProviderTest {
   }
 
   @Test(
-      expectedExceptions = RuntimeException.class,
+      expectedExceptions = EmbeddingThrottledException.class,
       expectedExceptionsMessageRegExp = ".*Vertex AI call failed after.*")
   public void exhausts429RetriesAndThrows() throws Exception {
     when(mockResponse.statusCode()).thenReturn(429);
@@ -499,5 +502,44 @@ public class VertexAiEmbeddingProviderTest {
     assertTrue(
         thrown.getMessage().toLowerCase().contains("interrupted"),
         "Exception message should mention 'interrupted'; got: " + thrown.getMessage());
+  }
+
+  @Test
+  public void testEmbedWithTimeoutMakesOneAttemptBoundedByIt() throws Exception {
+    ArgumentCaptor<HttpRequest> request = ArgumentCaptor.forClass(HttpRequest.class);
+    when(mockHttpClient.send(request.capture(), any(HttpResponse.BodyHandler.class)))
+        .thenThrow(new HttpTimeoutException("request timed out"));
+
+    assertThrows(
+        RuntimeException.class,
+        () -> provider.embed("revenue", null, EmbeddingTaskType.QUERY, Duration.ofMillis(1_500)));
+
+    // A retry would outlive the caller, so the timed-out attempt is the only one
+    verify(mockHttpClient, times(1))
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    assertEquals(request.getValue().timeout(), Optional.of(Duration.ofMillis(1_500)));
+  }
+
+  @Test
+  public void testEmbedWithTimeoutReportsOnlyA429AsThrottled() throws Exception {
+    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(mockResponse);
+    when(mockResponse.body()).thenReturn("{\"error\": \"quota exceeded\"}");
+
+    // The query path makes one attempt, so its 429 is the throttle a search reports as rejected
+    when(mockResponse.statusCode()).thenReturn(429);
+    assertThrows(
+        EmbeddingThrottledException.class,
+        () -> provider.embed("revenue", null, EmbeddingTaskType.QUERY, Duration.ofSeconds(2)));
+
+    // An exhausted 5xx is not a throttle
+    when(mockResponse.statusCode()).thenReturn(503);
+    RuntimeException unavailable =
+        expectThrows(
+            RuntimeException.class,
+            () -> provider.embed("revenue", null, EmbeddingTaskType.QUERY, Duration.ofSeconds(2)));
+    assertFalse(unavailable instanceof EmbeddingThrottledException);
+    verify(mockHttpClient, times(2))
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
   }
 }

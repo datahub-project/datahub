@@ -1,12 +1,12 @@
 import { Popover } from '@components';
-import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import i18next from 'i18next';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { getLastIngestedColor } from '@app/entity/shared/containers/profile/sidebar/LastIngested';
-import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { getLastIngestedColor } from '@app/entityV2/shared/containers/profile/sidebar/LastIngested';
+import { toLocalDateString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 
 const LastUpdatedContainer = styled.div<{ color: string }>`
     align-items: center;
@@ -15,7 +15,6 @@ const LastUpdatedContainer = styled.div<{ color: string }>`
     flex-direction: row;
     gap: 5px;
     svg {
-        font-size: 16px;
         color: ${(props) => props.color};
     }
 `;
@@ -30,6 +29,7 @@ type Props = {
     time?: number; // Milliseconds
     showDate?: boolean;
     timeProperty?: 'lastModified' | 'lastRefreshed' | 'lastUpdated';
+    neutral?: boolean;
 };
 
 // Lazy getters so i18next.t is invoked at access time (after i18n is initialized),
@@ -61,8 +61,9 @@ const descriptors = {
     },
 };
 
-const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
+const Freshness = ({ time, timeProperty, showDate = true, neutral = false }: Props) => {
     const { t } = useTranslation('entity.preview');
+    const theme = useTheme();
     const lastUpdatedAgo = toRelativeTimeString(time);
 
     if (!time || time === 0) return null;
@@ -86,8 +87,11 @@ const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
             placement="bottom"
             showArrow={false}
         >
-            <LastUpdatedContainer color={getLastIngestedColor(time)}>
-                <UpdateOutlinedIcon /> {showDate && toLocalDateString(time)}
+            <LastUpdatedContainer
+                color={neutral ? theme.colors.icon : getLastIngestedColor(time)}
+                data-testid="freshness"
+            >
+                <ClockCounterClockwise size={16} /> {showDate && toLocalDateString(time)}
             </LastUpdatedContainer>
         </Popover>
     );

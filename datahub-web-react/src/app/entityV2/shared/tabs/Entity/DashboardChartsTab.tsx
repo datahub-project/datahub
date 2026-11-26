@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import { EntityList } from '@app/entityV2/shared/tabs/Entity/components/EntityList';
 
 import { EntityType } from '@types';

@@ -1,11 +1,15 @@
 import itertools
 import json
 import logging
+import re
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
+from collections import defaultdict
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import sqlglot
 import sqlglot.expressions
+from sqlglot.errors import TokenError
+from sqlglot.tokens import TokenType
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
@@ -16,7 +20,11 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_structured_properties_to_entity_wu
+from datahub.emitter.mcp_builder import (
+    StructuredPropertyValues,
+    StructuredPropertyWriteMode,
+    add_structured_properties_to_entity_wu,
+)
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
@@ -34,6 +42,8 @@ from datahub.ingestion.source.snowflake.constants import (
     SNOWFLAKE_DATABASE,
     STREAMLIT_PLATFORM,
     SnowflakeObjectDomain,
+    has_target_lag_property,
+    rewrite_interactive_table_create,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
@@ -58,6 +68,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
     SnowflakeDynamicTable,
     SnowflakeFK,
+    SnowflakeInteractiveTable,
     SnowflakePK,
     SnowflakeSchema,
     SnowflakeSemanticView,
@@ -67,8 +78,15 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeTag,
     SnowflakeView,
 )
+from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
+    SnowflakeSemanticModelMapper,
+)
 from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtractor
+from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
+    SnowflakeTagResolver,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SNOWFLAKE_FIELD_TYPE_MAPPINGS,
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
@@ -105,20 +123,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     ViewProperties,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayType,
-    BooleanType,
-    BytesType,
-    DateType,
     ForeignKeyConstraint,
     MySqlDDL,
     NullType,
-    NumberType,
-    RecordType,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
-    StringType,
-    TimeType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
 from datahub.metadata.schema_classes import (
@@ -126,6 +136,9 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    OperationClass,
+    OperationSourceTypeClass,
+    OperationTypeClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -133,18 +146,13 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import (
     SchemaFieldUrn,
     StructuredPropertyUrn,
+    TagUrn,
 )
 from datahub.sdk.dashboard import Dashboard
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
-    KnownQueryLineageInfo,
+    ObservedQuery,
     SqlParsingAggregator,
-)
-from datahub.sql_parsing.sql_parsing_common import QueryType
-from datahub.sql_parsing.sqlglot_lineage import (
-    ColumnLineageInfo,
-    ColumnRef,
-    DownstreamColumnRef,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -152,44 +160,131 @@ from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecuto
 
 logger = logging.getLogger(__name__)
 
-# https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
-# TODO: Move to the standardized types in sql_types.py
-SNOWFLAKE_FIELD_TYPE_MAPPINGS: Dict[str, Type] = {
-    "DATE": DateType,
-    "BIGINT": NumberType,
-    "BINARY": BytesType,
-    # 'BIT': BIT,
-    "BOOLEAN": BooleanType,
-    "CHAR": NullType,
-    "CHARACTER": NullType,
-    "DATETIME": TimeType,
-    "DEC": NumberType,
-    "DECIMAL": NumberType,
-    "DOUBLE": NumberType,
-    "FIXED": NumberType,
-    "FLOAT": NumberType,
-    "INT": NumberType,
-    "INTEGER": NumberType,
-    "NUMBER": NumberType,
-    # 'OBJECT': ?
-    "REAL": NumberType,
-    "BYTEINT": NumberType,
-    "SMALLINT": NumberType,
-    "STRING": StringType,
-    "TEXT": StringType,
-    "TIME": TimeType,
-    "TIMESTAMP": TimeType,
-    "TIMESTAMP_TZ": TimeType,
-    "TIMESTAMP_LTZ": TimeType,
-    "TIMESTAMP_NTZ": TimeType,
-    "TINYINT": NumberType,
-    "VARBINARY": BytesType,
-    "VARCHAR": StringType,
-    "VARIANT": RecordType,
-    "OBJECT": NullType,
-    "ARRAY": ArrayType,
-    "GEOGRAPHY": NullType,
+# CUSTOM_INCREMENTAL dynamic tables hide their MERGE inside a REFRESH USING (...) clause that
+# sqlglot's parser can't handle within CREATE DYNAMIC TABLE (it degrades the statement to a Command),
+# but its tokenizer lexes it fine, which is all the extraction below needs.
+_REFRESH_USING_RE = re.compile(r"\brefresh\s+using\s*\(", re.IGNORECASE)
+_MERGE_INTO_RE = re.compile(r"\bmerge\s+into\b", re.IGNORECASE)
+
+
+def _interactive_table_has_target_lag(table: SnowflakeInteractiveTable) -> bool:
+    # is_dynamic comes from INFORMATION_SCHEMA, so it holds even when SHOW omitted the table.
+    if table.target_lag or table.is_dynamic:
+        return True
+    definition = table.definition
+    return bool(definition and has_target_lag_property(definition))
+
+
+# Token types whose text is data rather than code (strings and quoted identifiers); their spans get
+# blanked so a stray keyword or paren inside them isn't read as SQL.
+_DATA_TOKENS = {
+    TokenType.STRING,
+    TokenType.RAW_STRING,
+    TokenType.IDENTIFIER,
+    TokenType.HEREDOC_STRING,
+    TokenType.BYTE_STRING,
+    TokenType.HEX_STRING,
+    TokenType.NATIONAL_STRING,
+    TokenType.UNICODE_STRING,
 }
+
+
+def _blank_sql_noise(sql: str) -> Optional[str]:
+    """Return ``sql`` with string literals and quoted identifiers overwritten by spaces (comments drop
+    out too, since sqlglot attaches them to tokens rather than emitting their own), preserving length
+    so offsets still map back to the original text. This keeps a stray ``refresh using (``, a
+    ``merge into``, or a parenthesis living inside a literal, quoted identifier or comment from being
+    read as code. Returns None on malformed SQL (a ``TokenError``, e.g. an unterminated string); the
+    caller then falls back to the full definition.
+
+    Ceiling: tokenization is whole-document, so a complete MERGE followed by unrelated malformed
+    trailing text yields None where a character scan would still recover it. Rare, since Snowflake
+    validates the DDL before storing DYNAMIC_TABLES.text. TODO: once sqlglot's Snowflake dialect learns
+    the REFRESH USING property, extraction becomes AST navigation and this helper goes away."""
+    try:
+        tokens = sqlglot.tokenize(sql, dialect="snowflake")
+    except TokenError:
+        return None
+    out = [" "] * len(sql)
+    for token in tokens:
+        if token.token_type not in _DATA_TOKENS:
+            out[token.start : token.end + 1] = sql[token.start : token.end + 1]
+    return "".join(out)
+
+
+def _extract_custom_incremental_merge(definition: str) -> Optional[str]:
+    """Return the inner MERGE from a dynamic table's ``REFRESH USING (...)`` clause so it can be
+    parsed for upstream and column lineage, or None when the clause is absent, its parentheses are
+    unbalanced, or its body is not a MERGE. The scan runs on a comment-and-string-blanked copy so a
+    stray ``refresh using (`` or parenthesis inside a comment or string can't hijack or truncate
+    extraction; the body is then sliced from the original text (offsets align) to keep its literals
+    intact for parsing."""
+    scan = _blank_sql_noise(definition)
+    if scan is None:
+        return None
+    match = _REFRESH_USING_RE.search(scan)
+    if not match:
+        return None
+    depth = 0
+    for i in range(match.end() - 1, len(scan)):
+        char = scan[i]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                if not _MERGE_INTO_RE.search(scan[match.end() : i]):
+                    return None
+                body = definition[match.end() : i].strip()
+                return body or None
+    return None
+
+
+def _normalize_self_reference(merge_body: str, dt_identifier: str) -> str:
+    """Rewrite Snowflake's ``self`` pseudo-reference (the dynamic table referring to itself) to the
+    table's real qualified name, so the aggregator's self-reference guards -- which compare against the
+    DT's own urn -- recognize and drop it. A ``self`` on the MERGE *source* side otherwise resolves to
+    a phantom ``<db>.<schema>.self`` upstream whenever the schema resolver can't override it (e.g. a
+    lineage-only run with no graph). Done as an AST edit so the name is emitted quoted where Snowflake
+    needs it: a db/schema/table name with a hyphen, space or dot no longer breaks the parse. A quoted
+    ``"self"`` identifier is a distinct token and is left untouched. Returns the body unchanged if it
+    cannot be parsed or rewritten, so the caller falls back to the table-level INPUTS upstreams."""
+    try:
+        tree = sqlglot.parse_one(merge_body, dialect="snowflake")
+        dt_table = sqlglot.expressions.to_table(dt_identifier, dialect="snowflake")
+        changed = False
+        for table in tree.find_all(sqlglot.expressions.Table):
+            # `.name` strips quoting, so guard on `.this.quoted`: a double-quoted "self" is a user
+            # table, not the keyword, and must be left alone.
+            if (
+                table.name.lower() == "self"
+                and not table.this.quoted
+                and not table.db
+                and not table.catalog
+            ):
+                replacement = dt_table.copy()
+                alias = table.args.get("alias")
+                if alias is not None:
+                    replacement.set("alias", alias.copy())
+                table.replace(replacement)
+                changed = True
+        # Columns qualified by a bare `self` (rare -- the target is normally aliased), e.g. `self.a`.
+        for column in tree.find_all(sqlglot.expressions.Column):
+            table_id = column.args.get("table")
+            if (
+                table_id is not None
+                and table_id.name.lower() == "self"
+                and not table_id.quoted
+            ):
+                column.set("table", dt_table.this.copy())
+                if dt_table.args.get("db"):
+                    column.set("db", dt_table.args["db"].copy())
+                if dt_table.args.get("catalog"):
+                    column.set("catalog", dt_table.args["catalog"].copy())
+                changed = True
+        return tree.sql(dialect="snowflake") if changed else merge_body
+    except Exception:
+        return merge_body
 
 
 class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
@@ -207,6 +302,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         aggregator: Optional[SqlParsingAggregator],
         snowsight_url_builder: Optional[SnowsightUrlBuilder],
         fetch_views_from_information_schema: bool = False,
+        tag_resolver: Optional[SnowflakeTagResolver] = None,
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
@@ -218,21 +314,56 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             connection=self.connection,
             report=self.report,
             fetch_views_from_information_schema=fetch_views_from_information_schema,
+            # isinstance guards against SnowflakeSummaryConfig (see the FIXME on the
+            # `config` parameter above), which has no `semantic_views` field.
+            emit_semantic_model_entities=bool(
+                isinstance(config, SnowflakeV2Config)
+                and config.semantic_views.emit_semantic_model_entities
+            ),
+            include_technical_schema=(
+                not isinstance(config, SnowflakeV2Config)
+                or config.include_technical_schema
+            ),
+            # Read from the identifier config rather than repeating the isinstance
+            # dance: that is the same object the emitted field paths come from, so
+            # the dictionary's bucketing cannot disagree with them. Deriving it
+            # separately let the two drift, which is the one place they must not.
+            preserve_column_case=identifiers.identifier_config.preserve_column_case,
         )
         self.report.data_dictionary_cache = self.data_dictionary
 
         self.domain_registry: Optional[DomainRegistry] = domain_registry
         self.classification_handler = ClassificationHandler(self.config, self.report)
+        # Without a resolver (no DataHub graph) every Snowflake tag is native.
+        self.tag_resolver: SnowflakeTagResolver = tag_resolver or SnowflakeTagResolver(
+            repository=None,
+            config=config,
+            report=report,
+            identifiers=identifiers,
+            platform_instance=None,
+        )
         self.tag_extractor = SnowflakeTagExtractor(
-            config, self.data_dictionary, self.report, identifiers
+            config,
+            self.data_dictionary,
+            self.report,
+            identifiers,
+            tag_resolver=self.tag_resolver,
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
         self.snowsight_url_builder: Optional[SnowsightUrlBuilder] = (
             snowsight_url_builder
         )
+        self.semantic_model_mapper = SnowflakeSemanticModelMapper(
+            config=self.config,
+            report=self.report,
+            identifiers=self.identifiers,
+            domain_registry=self.domain_registry,
+        )
 
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
+        # Dynamic-table identifiers, handed to the queries extractor to suppress their query-log rows.
+        self.dynamic_table_identifiers: Set[str] = set()
 
         self.aggregator = aggregator
 
@@ -248,6 +379,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def snowflake_identifier(self, identifier: str) -> str:
         return self.identifiers.snowflake_identifier(identifier)
+
+    def snowflake_column_identifier(self, column_name: str) -> str:
+        return self.identifiers.snowflake_column_identifier(column_name)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.extract_tags_as_structured_properties:
@@ -276,6 +410,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     self.databases.append(database)
 
         if len(self.databases) == 0:
+            # Still protect what DataHub owns from stale-entity removal.
+            yield from self.tag_resolver.platform_resource_workunits()
             return
 
         try:
@@ -307,7 +443,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 GENERIC_PERMISSION_ERROR_KEY,
                 exc=e,
             )
-            return
+
+        # On both paths: a failed run's checkpoint is still committed, so what
+        # DataHub owns must go out as non-primary even when the run stops early.
+        yield from self.tag_resolver.platform_resource_workunits()
 
     def get_databases(self) -> Optional[List[SnowflakeDatabase]]:
         try:
@@ -356,7 +495,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     f"Failed to list databases {database.name} information_schema"
                 )
                 # SNOWFLAKE database always shows up even if permissions are missing
-                if database == SNOWFLAKE_DATABASE:
+                if database.name == SNOWFLAKE_DATABASE:
                     continue
                 logger.info(
                     f"The role {self.report.role} has `MANAGE GRANTS` privilege. This is not advisable and also not required."
@@ -591,15 +730,122 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     @staticmethod
     def _resolve_input_kind(kind: str) -> SnowflakeObjectDomain:
-        # DYNAMIC_TABLE_GRAPH_HISTORY INPUTS.kind is underscored uppercase
-        # (e.g. "MATERIALIZED_VIEW"); SnowflakeObjectDomain values are
-        # space-separated lowercase. Unknown kinds fall back to TABLE so we
-        # still emit lineage.
+        # INPUTS.kind is underscored-uppercase (e.g. "MATERIALIZED_VIEW"); SnowflakeObjectDomain values
+        # are space-separated lowercase. Unknown kinds fall back to TABLE so lineage is still emitted.
         normalized = kind.lower().replace("_", " ")
         try:
             return SnowflakeObjectDomain(normalized)
         except ValueError:
             return SnowflakeObjectDomain.TABLE
+
+    def _dynamic_table_input_urns(self, table: SnowflakeDynamicTable) -> List[str]:
+        """URNs of a dynamic table's INPUTS (from DYNAMIC_TABLE_GRAPH_HISTORY), filtered by the
+        configured dataset pattern."""
+        urns: List[str] = []
+        for upstream_input in table.upstream_tables:
+            upstream_domain = self._resolve_input_kind(upstream_input.kind)
+            upstream_identifier = (
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    upstream_input.name
+                )
+            )
+            if not self.filters.is_dataset_pattern_allowed(
+                upstream_identifier, upstream_domain
+            ):
+                logger.debug(
+                    f"Skipping dynamic table upstream {upstream_input.name}: "
+                    f"filtered by database/schema/table pattern"
+                )
+                continue
+            urns.append(self.identifiers.gen_dataset_urn(upstream_identifier))
+        return urns
+
+    def _register_dynamic_table_upstreams(
+        self, table: SnowflakeDynamicTable, db_name: str, schema_name: str
+    ) -> None:
+        assert self.aggregator is not None  # caller (_process_tables) guards on this
+        dt_identifier = self.identifiers.get_dataset_identifier(
+            table.name, schema_name, db_name
+        )
+        downstream_urn = self.identifiers.gen_dataset_urn(dt_identifier)
+        # INPUTS feeds two paths: a table-level fallback when the DDL is present but unparseable, and
+        # direct known lineage when the DDL is unavailable.
+        input_urns = self._dynamic_table_input_urns(table)
+        # A dynamic table must never be its own upstream: a MERGE INTO SELF definition can list the
+        # table itself in INPUTS, which would produce a self-loop.
+        input_urns = [urn for urn in input_urns if urn != downstream_urn]
+        if table.definition:
+            merge_body = _extract_custom_incremental_merge(table.definition)
+            if merge_body:
+                merge_body = _normalize_self_reference(merge_body, dt_identifier)
+            self.aggregator.add_view_definition(
+                view_urn=downstream_urn,
+                view_definition=merge_body or table.definition,
+                default_db=db_name,
+                default_schema=schema_name,
+                table_level_fallback_upstreams=input_urns,
+            )
+        else:
+            self.report.num_dynamic_tables_missing_definition += 1
+            self.structured_reporter.info(
+                title="Dynamic table definition unavailable: column-level lineage skipped",
+                message=(
+                    "The DDL for this dynamic table could not be retrieved; "
+                    "table-level lineage will be produced from INPUTS but "
+                    "column-level lineage requires the MONITOR privilege on the dynamic table."
+                ),
+                context=f"{db_name}.{schema_name}.{table.name}",
+            )
+            for upstream_urn in input_urns:
+                self.aggregator.add_known_lineage_mapping(
+                    upstream_urn=upstream_urn,
+                    downstream_urn=downstream_urn,
+                    lineage_type=DatasetLineageTypeClass.VIEW,
+                )
+
+    def _register_interactive_table_upstreams(
+        self,
+        table: SnowflakeInteractiveTable,
+        db_name: str,
+        schema_name: str,
+        *,
+        pending_static_queries: Optional[List[Tuple[str, ObservedQuery]]] = None,
+    ) -> bool:
+        aggregator = self.aggregator
+        if aggregator is None:
+            return False
+        if not table.definition:
+            # Static tables have no definition by design (lineage comes from the query log).
+            if table.is_dynamic or table.target_lag:
+                self.report.num_interactive_tables_without_definition += 1
+            return False
+        view_definition = rewrite_interactive_table_create(table.definition)
+        if _interactive_table_has_target_lag(table):
+            downstream_urn = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier(
+                    table.name, schema_name, db_name
+                )
+            )
+            aggregator.add_view_definition(
+                view_urn=downstream_urn,
+                view_definition=view_definition,
+                default_db=db_name,
+                default_schema=schema_name,
+            )
+        else:
+            # Static tables: TRANSFORMED so query-log CTAS/INSERT keeps precedence over this fallback.
+            observed = ObservedQuery(
+                query=view_definition,
+                default_db=db_name,
+                default_schema=schema_name,
+            )
+            if pending_static_queries is not None:
+                pending_static_queries.append(
+                    (f"{db_name}.{schema_name}.{table.name}", observed)
+                )
+            else:
+                aggregator.add_observed_query(observed)
+        return True
 
     def _process_tables(
         self,
@@ -608,70 +854,80 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         db_name: str,
         schema_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-        if self.config.include_technical_schema:
-            data_reader = self.make_data_reader()
-            for table in tables:
-                if isinstance(table, SnowflakeDynamicTable) and self.aggregator:
-                    table_identifier = self.identifiers.get_dataset_identifier(
-                        table.name, schema_name, db_name
+        dynamic_tables = [t for t in tables if isinstance(t, SnowflakeDynamicTable)]
+        interactive_tables = [
+            t for t in tables if isinstance(t, SnowflakeInteractiveTable)
+        ]
+        # Identifiers feed the queries extractor's refresh-row suppression, in every config.
+        for dynamic_table in dynamic_tables:
+            self.dynamic_table_identifiers.add(
+                self.identifiers.get_dataset_identifier(
+                    dynamic_table.name, schema_name, db_name
+                )
+            )
+        # Register lineage outside the include_technical_schema gate (like view definitions) so a
+        # lineage-only run still gets dynamic-table upstreams. Guard per table: an unhandled error
+        # would abort the whole schema scan (this runs in a ThreadedIteratorExecutor worker).
+        pending_static_interactive_queries: List[Tuple[str, ObservedQuery]] = []
+        if self.aggregator:
+            for dynamic_table in dynamic_tables:
+                try:
+                    self._register_dynamic_table_upstreams(
+                        dynamic_table, db_name, schema_name
                     )
-                    downstream_urn = self.identifiers.gen_dataset_urn(table_identifier)
-
-                    if table.definition:
-                        self.aggregator.add_view_definition(
-                            view_urn=downstream_urn,
-                            view_definition=table.definition,
-                            default_db=db_name,
-                            default_schema=schema_name,
+                except Exception as e:
+                    self.structured_reporter.warning(
+                        "Failed to register dynamic table lineage",
+                        f"{db_name}.{schema_name}.{dynamic_table.name}",
+                        exc=e,
+                    )
+            for interactive_table in interactive_tables:
+                try:
+                    registered = self._register_interactive_table_upstreams(
+                        interactive_table,
+                        db_name,
+                        schema_name,
+                        pending_static_queries=pending_static_interactive_queries,
+                    )
+                    if registered and _interactive_table_has_target_lag(
+                        interactive_table
+                    ):
+                        self.dynamic_table_identifiers.add(
+                            self.identifiers.get_dataset_identifier(
+                                interactive_table.name, schema_name, db_name
+                            )
                         )
-                    else:
-                        self.report.num_dynamic_tables_missing_definition += 1
-                        self.structured_reporter.info(
-                            title="Dynamic table definition unavailable — column-level lineage skipped",
-                            message=(
-                                "The DDL for this dynamic table could not be retrieved; "
-                                "table-level lineage will be produced from INPUTS but "
-                                "column-level lineage requires the MONITOR privilege on the dynamic table."
-                            ),
-                            context=f"{db_name}.{schema_name}.{table.name}",
-                        )
-                        # Fall back to table-level lineage from DYNAMIC_TABLE_GRAPH_HISTORY().INPUTS
-                        # when DDL is unavailable. Skipped when DDL is present because SQL parsing
-                        # produces accurate column-level lineage; identity CLL from INPUTS would be
-                        # wrong for aliased/aggregated columns (e.g. SUM(amount) AS total).
-                        for upstream_input in table.upstream_tables:
-                            upstream_qualified_name = upstream_input.name
-                            upstream_domain = self._resolve_input_kind(
-                                upstream_input.kind
-                            )
-                            upstream_identifier = self.identifiers.get_dataset_identifier_from_qualified_name(
-                                upstream_qualified_name
-                            )
-                            if not self.filters.is_dataset_pattern_allowed(
-                                upstream_identifier, upstream_domain
-                            ):
-                                logger.debug(
-                                    f"Skipping dynamic table upstream {upstream_qualified_name}: "
-                                    f"filtered by database/schema/table pattern"
-                                )
-                                continue
-                            self.aggregator.add_known_lineage_mapping(
-                                upstream_urn=self.identifiers.gen_dataset_urn(
-                                    upstream_identifier
-                                ),
-                                downstream_urn=downstream_urn,
-                                lineage_type=DatasetLineageTypeClass.VIEW,
-                            )
+                except Exception as e:
+                    self.structured_reporter.warning(
+                        "Failed to register interactive table lineage",
+                        f"{db_name}.{schema_name}.{interactive_table.name}",
+                        exc=e,
+                    )
 
-                table_wu_generator = self._process_table(
-                    table, snowflake_schema, db_name
-                )
-                yield from classification_workunit_processor(
-                    table_wu_generator,
-                    self.classification_handler,
-                    data_reader,
-                    [db_name, schema_name, table.name],
-                )
+        try:
+            if self.config.include_technical_schema:
+                data_reader = self.make_data_reader()
+                for table in tables:
+                    table_wu_generator = self._process_table(
+                        table, snowflake_schema, db_name
+                    )
+                    yield from classification_workunit_processor(
+                        table_wu_generator,
+                        self.classification_handler,
+                        data_reader,
+                        [db_name, schema_name, table.name],
+                    )
+        finally:
+            if self.aggregator:
+                for context, observed in pending_static_interactive_queries:
+                    try:
+                        self.aggregator.add_observed_query(observed)
+                    except Exception as e:
+                        self.structured_reporter.warning(
+                            "Failed to register interactive table lineage",
+                            context,
+                            exc=e,
+                        )
 
     def _process_views(
         self,
@@ -748,17 +1004,28 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     context=f"{db_name}.{schema_name}.{semantic_view.name}",
                 )
 
-        # STEP 1: Yield dataset work units first (this registers schemas with the aggregator)
-        # This also registers explicit column lineage LAST to override auto-generation
+        # STEP 1: Yield work units first (this registers schemas with the aggregator
+        # in legacy dataset mode). When emit_semantic_model_entities is enabled,
+        # semantic views are emitted as semanticModel/metric entities instead, so
+        # they are never registered with the SQL aggregator; their lineage is
+        # emitted directly as upstreamLineage / metricUpstreams aspects.
         if self.config.include_technical_schema:
             for semantic_view in semantic_views:
                 yield from self._process_semantic_view(
                     semantic_view, snowflake_schema, db_name
                 )
+                if self.config.semantic_views.emit_semantic_model_entities:
+                    self.report.num_semantic_model_lineage_edges_scanned += len(
+                        semantic_view.resolved_upstream_urns
+                    )
 
-        # STEP 2: Add view definitions to aggregator (for reference/documentation only)
-        # Lineage is now emitted directly as MCPs in STEP 1, bypassing aggregator auto-generation
-        if self.aggregator:
+        # STEP 2 (legacy dataset mode only): add view definitions to the aggregator
+        # (for reference/documentation only). Lineage itself is emitted directly as
+        # MCPs in STEP 1, bypassing aggregator auto-generation.
+        if (
+            not self.config.semantic_views.emit_semantic_model_entities
+            and self.aggregator
+        ):
             logger.info(
                 f"Adding view definitions to aggregator for {len(semantic_views)} semantic views"
             )
@@ -789,7 +1056,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
 
         logger.info(
-            f"Completed lineage processing for all {len(semantic_views)} semantic views"
+            f"Completed processing for all {len(semantic_views)} semantic views"
         )
 
     def _process_streams(
@@ -864,7 +1131,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         dashboard = Dashboard(
             platform=STREAMLIT_PLATFORM,
             name=dashboard_id,
-            display_name=app.title,
+            display_name=app.title if (app.title and app.title.strip()) else app.name,
             platform_instance=self.config.platform_instance,
             custom_properties=custom_properties,
             created_at=app.created,
@@ -1062,7 +1329,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def make_data_reader(self) -> Optional[SnowflakeDataReader]:
         if self.classification_handler.is_classification_enabled() and self.connection:
             return SnowflakeDataReader.create(
-                self.connection, self.snowflake_identifier
+                self.connection, self.snowflake_column_identifier
             )
 
         return None
@@ -1201,6 +1468,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         if self.config.include_technical_schema:
             yield from self.gen_dataset_workunits(view, schema_name, db_name)
+            if self.config.include_operational_stats and view.last_refreshed:
+                refreshed_ms = int(view.last_refreshed.timestamp() * 1000)
+                # Event time, not run time, so a re-run without a new refresh rewrites the same row.
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=self.identifiers.gen_dataset_urn(view_name),
+                    aspect=OperationClass(
+                        timestampMillis=refreshed_ms,
+                        lastUpdatedTimestamp=refreshed_ms,
+                        operationType=OperationTypeClass.UPDATE,
+                        sourceType=OperationSourceTypeClass.DATA_PLATFORM,
+                    ),
+                ).as_workunit()
 
     def _process_semantic_view(
         self,
@@ -1263,7 +1542,62 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
                 semantic_view.tags = None
 
-        # Emit schema FIRST, then lineage (DataHub needs columns before lineage references)
+        if self.config.semantic_views.emit_semantic_model_entities:
+            # This path never reaches gen_schema_metadata, so the column collision
+            # check has to run here too or semantic views are silently exempt from
+            # it. Legacy mode gets it via gen_schema_metadata instead.
+            self._report_column_case_collisions(semantic_view, semantic_view_name)
+
+            # Tag entities referenced by the semantic view / its columns. In legacy
+            # dataset mode these are emitted by gen_dataset_workunits instead.
+            if semantic_view.tags:
+                for tag in semantic_view.tags:
+                    yield from self._process_tag(tag)
+            for column_name in semantic_view.column_tags:
+                for tag in semantic_view.column_tags[column_name]:
+                    yield from self._process_tag(tag)
+
+            # Column lineage is anchored on each logical dataset's schemaField
+            # URNs (one dataset per logical table); the mapper routes FGLs to
+            # the owning logical dataset's upstreamLineage and drops metric FGLs
+            # (metric → SMD lineage is authored on metricUpstreams).
+            column_lineages: List[FineGrainedLineageClass] = []
+            if self.config.semantic_views.column_lineage:
+                try:
+                    semantic_model_urn = self.identifiers.gen_semantic_model_urn(
+                        semantic_view.name, schema_name, db_name
+                    )
+                    column_lineages = self._generate_column_lineage_for_semantic_view(
+                        semantic_view,
+                        semantic_model_urn,
+                        db_name,
+                        downstream_urn_resolver=lambda col, lt: make_schema_field_urn(
+                            self.identifiers.gen_semantic_model_dataset_urn(
+                                semantic_view.name, lt, schema_name, db_name
+                            )
+                            if lt is not None
+                            else semantic_model_urn,
+                            self.identifiers.logical_dataset_field_path(col),
+                        ),
+                    )
+                except Exception as e:
+                    self.structured_reporter.warning(
+                        title="Failed to generate column lineage for semantic view",
+                        message=str(e),
+                        context=semantic_view.name,
+                        exc=e,
+                    )
+
+            yield from self.semantic_model_mapper.gen_workunits(
+                semantic_view=semantic_view,
+                schema_name=schema_name,
+                db_name=db_name,
+                fine_grained_lineages=column_lineages,
+            )
+            return
+
+        # Legacy dataset mode: emit schema FIRST, then lineage (DataHub needs
+        # columns before lineage references).
         if self.config.include_technical_schema:
             yield from self.gen_dataset_workunits(semantic_view, schema_name, db_name)
         else:
@@ -1310,20 +1644,67 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         self.report.report_tag_processed(identifier)
 
-        if use_sp:
+        if use_sp or not self.tag_resolver.is_native(tag):
             return
 
         yield from self.gen_tag_workunits(tag)
 
-    def _format_tags_as_structured_properties(
-        self, tags: List[SnowflakeTag]
-    ) -> Dict[StructuredPropertyUrn, str]:
-        return {
-            StructuredPropertyUrn(
-                self.snowflake_identifier(tag.structured_property_identifier())
-            ): tag.value
-            for tag in tags
-        }
+    def _column_tags(
+        self,
+        table: Union[
+            SnowflakeTable, SnowflakeView, SnowflakeSemanticView, SnowflakeStream
+        ],
+        column_name: str,
+        kept: Optional[Dict[str, GlobalTags]],
+    ) -> Optional[GlobalTags]:
+        if (
+            column_name not in table.column_tags
+            or self.config.extract_tags_as_structured_properties
+        ):
+            return None
+        if kept is not None:
+            return kept.get(self.snowflake_column_identifier(column_name))
+        return self._column_global_tags(table.column_tags[column_name])
+
+    def _column_global_tags(self, tags: List[SnowflakeTag]) -> Optional[GlobalTags]:
+        # Column tags in schemaMetadata are ingestion's own copy (the user's is in
+        # editableSchemaMetadata), so DataHub-managed tags are just left out.
+        tag_urns = [
+            tag_urn.urn()
+            for tag_urn in (self.tag_resolver.resolve_tag_urn(tag) for tag in tags)
+            if tag_urn is not None
+        ]
+        if not tag_urns:
+            return None
+        return GlobalTags([TagAssociation(tag_urn) for tag_urn in tag_urns])
+
+    def _empty_container_tags(
+        self,
+        container_urn: str,
+        tag_names: Optional[List[str]],
+        structured_properties: Optional[
+            Dict[StructuredPropertyUrn, StructuredPropertyValues]
+        ],
+    ) -> Iterable[MetadataWorkUnit]:
+        """The empty aspects gen_containers skips. Snowflake listed tags for the
+        container but all are DataHub's, so the aspect is still written whole,
+        dropping native tags or properties removed in Snowflake."""
+        if tag_names == []:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=container_urn, aspect=GlobalTagsClass(tags=[])
+            ).as_workunit()
+        if structured_properties == {}:
+            yield from add_structured_properties_to_entity_wu(
+                container_urn, {}, write_mode=StructuredPropertyWriteMode.UPSERT
+            )
+
+    def _container_tag_names(
+        self, container_urn: str, tags: List[SnowflakeTag]
+    ) -> Optional[List[str]]:
+        global_tags = self.tag_resolver.global_tags(container_urn, tags)
+        if global_tags is None:
+            return None
+        return [TagUrn.from_string(t.tag).name for t in global_tags.tags]
 
     def gen_dataset_workunits(
         self,
@@ -1396,24 +1777,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         if table.tags:
             if self.config.extract_tags_as_structured_properties:
-                yield from add_structured_properties_to_entity_wu(
-                    dataset_urn,
-                    self._format_tags_as_structured_properties(table.tags),
-                    write_mode=self.config.structured_properties_write_mode,
-                )
-            else:
-                tag_associations = [
-                    TagAssociation(
-                        tag=make_tag_urn(
-                            self.snowflake_identifier(tag.tag_identifier())
-                        )
+                tag_structured_properties = (
+                    self.tag_resolver.resolve_structured_properties(
+                        dataset_urn,
+                        table.tags,
+                        write_mode=self.config.structured_properties_write_mode,
                     )
-                    for tag in table.tags
-                ]
-                global_tags = GlobalTags(tag_associations)
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn, aspect=global_tags
-                ).as_workunit()
+                )
+                if tag_structured_properties is not None:
+                    yield from add_structured_properties_to_entity_wu(
+                        dataset_urn,
+                        tag_structured_properties,
+                        write_mode=self.config.structured_properties_write_mode,
+                    )
+            else:
+                global_tags = self.tag_resolver.global_tags(dataset_urn, table.tags)
+                if global_tags is not None:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn, aspect=global_tags
+                    ).as_workunit()
 
         if isinstance(table, SnowflakeView) and table.view_definition is not None:
             view_properties_aspect = ViewProperties(
@@ -1452,7 +1834,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def get_dataset_properties(
         self,
         table: Union[
-            SnowflakeTable, SnowflakeView, SnowflakeSemanticView, SnowflakeStream
+            SnowflakeTable,
+            SnowflakeInteractiveTable,
+            SnowflakeView,
+            SnowflakeSemanticView,
+            SnowflakeStream,
         ],
         schema_name: str,
         db_name: str,
@@ -1478,7 +1864,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 }
             )
 
-            if isinstance(table, SnowflakeDynamicTable):
+            if isinstance(table, (SnowflakeDynamicTable, SnowflakeInteractiveTable)):
                 if table.target_lag:
                     custom_properties["TARGET_LAG"] = table.target_lag
 
@@ -1536,7 +1922,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     schema_name,
                     db_name,
                     (
-                        SnowflakeObjectDomain.DYNAMIC_TABLE
+                        SnowflakeObjectDomain.TABLE
+                        if isinstance(table, SnowflakeInteractiveTable)
+                        else SnowflakeObjectDomain.DYNAMIC_TABLE
                         if isinstance(table, SnowflakeTable) and table.is_dynamic
                         else SnowflakeObjectDomain.TABLE
                         if isinstance(table, SnowflakeTable)
@@ -1571,13 +1959,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> Iterable[MetadataWorkUnit]:
         for column_name in table.column_tags:
             schema_field_urn = SchemaFieldUrn(dataset_urn, column_name).urn()
-            yield from add_structured_properties_to_entity_wu(
+            column_properties = self.tag_resolver.resolve_structured_properties(
                 schema_field_urn,
-                self._format_tags_as_structured_properties(
-                    table.column_tags[column_name]
-                ),
+                table.column_tags[column_name],
                 write_mode=self.config.structured_properties_write_mode,
             )
+            if column_properties is not None:
+                yield from add_structured_properties_to_entity_wu(
+                    schema_field_urn,
+                    column_properties,
+                    write_mode=self.config.structured_properties_write_mode,
+                )
 
     def _build_json_props(
         self,
@@ -1592,14 +1984,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         """
         json_props: Dict[str, Any] = {}
 
-        # Add column subtype if available
-        if col_name in column_subtypes:
-            json_props["columnSubType"] = column_subtypes[col_name]
+        # Both maps are keyed by the stored name, unconditionally -- see
+        # _process_column_occurrences -- and col_name is that same name.
+        subtype = column_subtypes.get(col_name)
+        if subtype is not None:
+            json_props["columnSubType"] = subtype
 
-        # Add synonyms if available
-        col_name_upper = col_name.upper()
-        if col_name_upper in column_synonyms:
-            json_props["synonyms"] = column_synonyms[col_name_upper]
+        synonyms = column_synonyms.get(col_name)
+        if synonyms is not None:
+            json_props["synonyms"] = synonyms
 
         # Only return jsonProps if there's something to include
         if json_props:
@@ -1633,10 +2026,73 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 tag_urn = make_tag_urn(subtype)
                 tag_associations.append(TagAssociationClass(tag=tag_urn))
 
-        # Return GlobalTags if we have any tags
+        # Carried-over tags may already hold the subtype tags.
+        tag_associations = list(
+            {association.tag: association for association in tag_associations}.values()
+        )
         if tag_associations:
             return GlobalTagsClass(tags=tag_associations)
         return None
+
+    def _report_column_case_collisions(
+        self,
+        table: Union[
+            SnowflakeTable, SnowflakeView, SnowflakeSemanticView, SnowflakeStream
+        ],
+        dataset_name: str,
+    ) -> None:
+        # Snowflake's quoted identifiers let columns differ only by case (e.g. "col"
+        # and "COL"). Detected on the raw names rather than the emitted paths
+        # because a semantic view merges the pair before this runs, so the emitted
+        # list no longer shows it. This warns only when a column is actually lost:
+        # the declared-vs-stored check below returns early when
+        # preserve_column_case keeps both paths distinct, since nothing is
+        # dropped then and there is nothing for an operator to act on.
+        stored_names: Set[str] = {col.name for col in table.columns}
+        if isinstance(table, SnowflakeSemanticView):
+            # A semantic view's columns are merged per case-insensitive bucket, so
+            # with the flag off the pair arrives here as one column and the loss is
+            # invisible -- which is the case this report exists for. The dictionary
+            # keeps the raw spellings for exactly this.
+            for spellings in table.column_case_collisions.values():
+                stored_names.update(spellings)
+
+        columns_by_folded_name: Dict[str, Set[str]] = defaultdict(set)
+        for stored_name in stored_names:
+            columns_by_folded_name[stored_name.lower()].add(stored_name)
+
+        collisions = {
+            folded_name: names
+            for folded_name, names in columns_by_folded_name.items()
+            if len(names) > 1
+        }
+        if not collisions:
+            return
+
+        # Only report the case that loses a column, and there are two ways to lose
+        # one. A table keeps both columns and the emitted paths fold together. A
+        # semantic view merges the pair into a single column before it reaches
+        # here, which happens whatever the paths would have been -- with
+        # convert_urns_to_lowercase off they would have stayed distinct, and the
+        # column is dropped anyway. Comparing what the source stored against what
+        # this dataset actually declares catches both; comparing emitted paths to
+        # each other only catches the first.
+        declared = {self.snowflake_column_identifier(col.name) for col in table.columns}
+        if len(declared) == len(stored_names):
+            return
+
+        self.structured_reporter.warning(
+            title="Columns collapsed into a single field path",
+            message="Columns that differ only by case were folded to the same "
+            "field path, so only one of them survives in the schema and its "
+            "column-level lineage, tags and profile are lost. Set "
+            "`preserve_column_case: true` to keep them distinct. Note that "
+            "enabling it re-keys every column's schemaField URN.",
+            context=f"{dataset_name}: "
+            + "; ".join(
+                ", ".join(sorted(names)) for _, names in sorted(collisions.items())
+            ),
+        )
 
     def gen_schema_metadata(
         self,
@@ -1660,6 +2116,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             f"columns={len(table.columns)}"
         )
 
+        self._report_column_case_collisions(table, dataset_name)
+
+        # Set only when the tag records could not be loaded: then column tags
+        # are carried over from DataHub instead of resolved from Snowflake.
+        kept_column_tags = self.tag_resolver.kept_column_tags(dataset_urn)
+
         # Get column subtypes, synonyms, and primary keys for semantic views
         column_subtypes = {}
         column_synonyms = {}
@@ -1678,7 +2140,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             platformSchema=MySqlDDL(tableSchema=""),
             fields=[
                 SchemaField(
-                    fieldPath=self.snowflake_identifier(col.name),
+                    fieldPath=self.snowflake_column_identifier(col.name),
                     type=SchemaFieldDataType(
                         SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
@@ -1691,8 +2153,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         col.name in table.pk.column_names
                         if isinstance(table, SnowflakeTable) and table.pk is not None
                         # For semantic views, use primary_key_columns from SEMANTIC_TABLES
+                        # Via the identifier builder, not self.config:
+                        # snowflake_summary constructs this generator with a
+                        # SnowflakeSummaryConfig (behind a type: ignore) that
+                        # has no preserve_column_case, while always passing a
+                        # real identifier_config.
                         else (
-                            col.name.upper() in primary_key_columns
+                            self.identifiers.column_identity_key(col.name)
+                            in primary_key_columns
                             if isinstance(table, SnowflakeSemanticView) and col.name
                             else None
                         )
@@ -1702,41 +2170,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         self._build_semantic_view_tags(
                             col.name,
                             column_subtypes,
-                            GlobalTags(
-                                [
-                                    TagAssociation(
-                                        make_tag_urn(
-                                            self.snowflake_identifier(
-                                                tag.tag_identifier()
-                                            )
-                                        )
-                                    )
-                                    for tag in table.column_tags[col.name]
-                                ]
-                            )
-                            if col.name in table.column_tags
-                            and not self.config.extract_tags_as_structured_properties
-                            else None,
+                            self._column_tags(table, col.name, kept_column_tags),
                         )
                         if isinstance(table, SnowflakeSemanticView)
                         # For regular tables, use existing Snowflake tags
-                        else (
-                            GlobalTags(
-                                [
-                                    TagAssociation(
-                                        make_tag_urn(
-                                            self.snowflake_identifier(
-                                                tag.tag_identifier()
-                                            )
-                                        )
-                                    )
-                                    for tag in table.column_tags[col.name]
-                                ]
-                            )
-                            if col.name in table.column_tags
-                            and not self.config.extract_tags_as_structured_properties
-                            else None
-                        )
+                        else self._column_tags(table, col.name, kept_column_tags)
                     ),
                     # Add column subtype and synonyms for semantic views
                     jsonProps=(
@@ -1807,105 +2245,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         yield lineage_mcp.as_workunit()
 
-    def _register_semantic_view_column_lineage(
-        self,
-        semantic_view: SnowflakeSemanticView,
-        semantic_view_urn: str,
-        fine_grained_lineages: List[FineGrainedLineageClass],
-        upstream_table_urns: List[str],
-    ) -> None:
-        """
-        Register explicit table and column lineage with the SQL aggregator.
-
-        This prevents the aggregator from auto-generating incorrect column lineage
-        based on column name matching. We register both table and column lineage
-        together in a single call.
-
-        Args:
-            semantic_view: The semantic view entity
-            semantic_view_urn: URN of the semantic view
-            fine_grained_lineages: List of column-level lineage mappings (validated, only actual columns)
-            upstream_table_urns: List of all upstream table URNs (for table-level lineage)
-        """
-        # Convert FineGrainedLineageClass to ColumnLineageInfo
-        column_lineage_infos = []
-
-        for fg_lineage in fine_grained_lineages:
-            # Extract column name from URN
-            # Format: urn:li:schemaField:(urn:li:dataset:(...),column_name)
-            if not fg_lineage.downstreams:
-                continue
-            downstream_urn = fg_lineage.downstreams[0]
-
-            # Parse schema field URN: extract dataset URN and column name
-            if downstream_urn.startswith(
-                "urn:li:schemaField:("
-            ) and downstream_urn.endswith(")"):
-                inner = downstream_urn[len("urn:li:schemaField:(") : -1]
-                last_comma = inner.rfind(",")
-                if last_comma > 0:
-                    downstream_col = inner[last_comma + 1 :]
-                else:
-                    logger.debug(
-                        f"Could not parse downstream URN (no comma found): {downstream_urn}"
-                    )
-                    continue
-            else:
-                logger.debug(f"Unexpected downstream URN format: {downstream_urn}")
-                continue
-
-            upstream_cols = []
-            if not fg_lineage.upstreams:
-                continue
-            for upstream_field_urn in fg_lineage.upstreams:
-                # Parse schema field URN for upstream
-                if upstream_field_urn.startswith(
-                    "urn:li:schemaField:("
-                ) and upstream_field_urn.endswith(")"):
-                    inner = upstream_field_urn[len("urn:li:schemaField:(") : -1]
-                    last_comma = inner.rfind(",")
-                    if last_comma > 0:
-                        table_urn = inner[:last_comma]
-                        col_name = inner[last_comma + 1 :]
-                        upstream_cols.append(
-                            ColumnRef(table=table_urn, column=col_name)
-                        )
-                    else:
-                        logger.debug(
-                            f"Could not parse upstream URN (no comma): {upstream_field_urn}"
-                        )
-                else:
-                    logger.debug(
-                        f"Unexpected upstream URN format: {upstream_field_urn}"
-                    )
-
-            if upstream_cols:
-                column_lineage_infos.append(
-                    ColumnLineageInfo(
-                        downstream=DownstreamColumnRef(
-                            table=semantic_view_urn, column=downstream_col
-                        ),
-                        upstreams=upstream_cols,
-                    )
-                )
-
-        if column_lineage_infos:
-            if self.aggregator:
-                self.aggregator.add_known_query_lineage(
-                    KnownQueryLineageInfo(
-                        query_text=f"-- Semantic view {semantic_view.name} definition",
-                        downstream=semantic_view_urn,
-                        upstreams=upstream_table_urns,
-                        column_lineage=column_lineage_infos,
-                        query_type=QueryType.CREATE_VIEW,
-                    )
-                )
-                logger.debug(
-                    f"Registered lineage for {semantic_view.name}: "
-                    f"{len(upstream_table_urns)} upstream tables, "
-                    f"{len(column_lineage_infos)} column mappings"
-                )
-
     def _is_table_allowed(
         self, db_name: str, schema_name: str, table_name: str
     ) -> bool:
@@ -1927,24 +2266,30 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             table_identifier, SnowflakeObjectDomain.TABLE
         )
 
-    def _verify_column_exists_in_table(
+    def _declared_field_path(
         self, db_name: str, schema_name: str, table_name: str, column_name: str
-    ) -> bool:
-        """
-        Verify if a column exists in a specific table.
+    ) -> Optional[str]:
+        """The path the table's schema declares for `column_name`, or None if it has none.
 
-        Uses the aggregator's schema resolver to check if the column exists
-        in the already-fetched table schema.
+        Callers use this twice over: as the gate on whether a column reference
+        resolves, and as the name they put in the upstream schemaField URN. Those
+        have to be one answer. A reference matching case-insensitively means the
+        column is real, but citing the reference's own spelling would build a URN
+        against a path the schema never declared -- column lineage that dangles
+        instead of resolving, and silently, since both halves look right on their
+        own. Returning the declared path makes that impossible to get wrong.
 
-        Returns:
-            True if column exists, False otherwise
+        When the schema cannot be resolved the lookup fails open, and the best
+        available guess is the reference named the way this run names columns.
         """
+        fallback = self.snowflake_column_identifier(column_name)
+
         if not self.aggregator:
             # If no aggregator, we can't verify - assume it exists
             logger.debug(
                 f"No aggregator available, assuming column {column_name} exists in {table_name}"
             )
-            return True
+            return fallback
 
         # Build table URN
         table_identifier = self.identifiers.get_dataset_identifier(
@@ -1962,15 +2307,27 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
         except AttributeError:
             # Schema resolver API changed - fail open (assume column exists)
-            return True
+            return fallback
 
         if not schema_info:
             # Schema not found - assume column exists (may not be ingested yet)
-            return True
+            return fallback
 
-        # Check if column exists in the schema (case-insensitive)
+        if column_name in schema_info:
+            return column_name
+
+        # schema_info is keyed by the emitted field path, whose casing follows the
+        # configured identifier handling: lowercased by default, but stored case
+        # under preserve_column_case or convert_urns_to_lowercase=False. Matching a
+        # lowercased name against those keys silently fails, so compare case-folded
+        # on both sides. A semantic-view reference carries whatever spelling its
+        # DDL used, folded up if unquoted, so an exact hit is not guaranteed even
+        # in the default mode.
         column_name_lower = column_name.lower()
-        return column_name_lower in schema_info
+        for field_path in schema_info:
+            if field_path.lower() == column_name_lower:
+                return field_path
+        return None
 
     def _extract_columns_from_expression(
         self, expression: str, dialect: str = "snowflake"
@@ -1999,13 +2356,31 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     # Get table qualifier if present (e.g., "ORDERS" in "ORDERS.ORDER_TOTAL_METRIC")
                     table_name = col_node.table if hasattr(col_node, "table") else None
                     # Normalize empty string to None for consistency
-                    table_name = table_name.upper() if table_name else None
+                    # Fold the qualifier the way the column below is folded:
+                    # unquoted resolves up, quoted is already the stored spelling.
+                    table_identifier = col_node.args.get("table")
+                    if table_name:
+                        table_name = (
+                            table_name
+                            if getattr(table_identifier, "quoted", False)
+                            else table_name.upper()
+                        )
+                    else:
+                        table_name = None
 
-                    # Normalize column name to uppercase (Snowflake standard)
-                    col_upper = col_name.upper()
+                    # Fold the way Snowflake does rather than uppercasing blindly:
+                    # an unquoted reference folds up, a quoted one is already the
+                    # stored spelling. Uppercasing both makes "col" and "COL"
+                    # indistinguishable, so a derived column's lineage points at
+                    # whichever of the pair is found first.
+                    identifier = col_node.this
+                    if getattr(identifier, "quoted", False):
+                        resolved_name = col_name
+                    else:
+                        resolved_name = col_name.upper()
 
                     # Store as tuple (table, column)
-                    col_ref = (table_name, col_upper)
+                    col_ref = (table_name, resolved_name)
                     if col_ref not in columns:
                         columns.append(col_ref)
 
@@ -2027,17 +2402,26 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         source_table_full_name: str,
         semantic_view: "SnowflakeSemanticView",
         downstream_field_urn: str,
-        col_name_upper: str,
+        column_name: str,
         fine_grained_lineages: List["FineGrainedLineageClass"],
         context_table: Optional[str] = None,
     ) -> None:
         """Handle chained derivation when source column is itself derived."""
-        # Check if source_col is itself a derived column
-        derived_col_expression = None
-        for sv_col in semantic_view.columns:
-            if sv_col.name and sv_col.name.upper() == source_col and sv_col.expression:
-                derived_col_expression = sv_col.expression
-                break
+        # Check if source_col is itself a derived column. Scope to context_table so
+        # a same-named intermediate column defined differently on another logical
+        # table cannot cross-contaminate; the merged columns list only carries
+        # occurrences[0]'s expression (helper falls back to it when unscoped).
+        # Not uppercased: _extract_columns_from_expression already folded this
+        # per its quoting, so it carries the stored spelling and the exact-match
+        # lookup can separate a case-only pair. Uppercasing here threw that away.
+        derived_col_expression = self._semantic_column_expression(
+            semantic_view,
+            source_col,
+            # Already resolved by _extract_columns_from_expression, which folds
+            # unquoted qualifiers up and leaves quoted ones alone. Re-folding here
+            # would undo that and re-collapse a case-only pair.
+            context_table,
+        )
 
         if derived_col_expression:
             logger.debug(
@@ -2053,9 +2437,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     rec_table, rec_schema, rec_db
                 )
                 rec_table_urn = self.identifiers.gen_dataset_urn(rec_table_identifier)
-                rec_field_urn = make_schema_field_urn(
-                    rec_table_urn, self.snowflake_identifier(rec_col)
-                )
+                # Already the declared path -- see _resolve_derived_column_sources.
+                rec_field_urn = make_schema_field_urn(rec_table_urn, rec_col)
                 fine_grained_lineages.append(
                     FineGrainedLineageClass(
                         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -2130,36 +2513,41 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
             source_db, source_schema, source_table = physical_table_tuple
 
-            # Check if source column exists in physical table
-            exists = self._verify_column_exists_in_table(
+            # Check if source column exists in physical table. What comes back is
+            # the path that table's schema declares, which is what the caller cites.
+            declared_path = self._declared_field_path(
                 source_db, source_schema, source_table, source_col
             )
 
-            if exists:
+            if declared_path is not None:
                 resolved_sources.append(
-                    (source_db, source_schema, source_table, source_col)
+                    (source_db, source_schema, source_table, declared_path)
                 )
             else:
-                # Check if it's another derived column (chained derivation)
-                found_derived = False
-                for sv_col in semantic_view.columns:
-                    if (
-                        sv_col.name
-                        and sv_col.name.upper() == source_col
-                        and sv_col.expression
-                    ):
-                        # Recursively resolve, passing effective_table as context
-                        nested_sources = self._resolve_derived_column_sources(
-                            sv_col.expression,
-                            semantic_view,
-                            depth + 1,
-                            visited.copy(),
-                            context_table=effective_table,
-                        )
-                        resolved_sources.extend(nested_sources)
-                        found_derived = True
-                        break
-                if not found_derived:
+                # Check if it's another derived column (chained derivation).
+                # Resolve its expression scoped to effective_table so a same-named
+                # intermediate column defined differently on another logical table
+                # cannot cross-contaminate; the merged columns list only carries
+                # occurrences[0]'s expression (helper falls back to it when
+                # unscoped, e.g. legacy single-dataset mode).
+                nested_expression = self._semantic_column_expression(
+                    semantic_view,
+                    source_col,
+                    # Already resolved per quoting upstream, like the sibling
+                    # call in _handle_chained_derivation. Re-folding undoes it.
+                    effective_table,
+                )
+                if nested_expression:
+                    # Recursively resolve, passing effective_table as context.
+                    nested_sources = self._resolve_derived_column_sources(
+                        nested_expression,
+                        semantic_view,
+                        depth + 1,
+                        visited.copy(),
+                        context_table=effective_table,
+                    )
+                    resolved_sources.extend(nested_sources)
+                else:
                     logger.debug(
                         f"Column {source_col} not in physical table and not derived"
                     )
@@ -2171,6 +2559,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         semantic_view: SnowflakeSemanticView,
         semantic_view_urn: str,
         fine_grained_lineages: List["FineGrainedLineageClass"],
+        downstream_urn_resolver: Optional[Callable[[str, Optional[str]], str]] = None,
     ) -> None:
         """
         Handle columns without table associations (e.g., cross-table derived metrics).
@@ -2179,25 +2568,34 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         Example: TEST_DERIVED_METRIC with expression
         "ORDERS.ORDER_TOTAL_METRIC+TRANSACTIONS.TRANSACTION_AMOUNT_METRIC"
         """
-        processed_columns = set(semantic_view.column_table_mappings.keys())
+        # Both sides are the column's stored name, so compare them as-is. Folding
+        # to uppercase would collapse a case-only pair and skip the sibling that
+        # has no table mapping of its own.
+        processed_columns = set(semantic_view.column_table_mappings)
 
         unprocessed_columns = [
             col
             for col in semantic_view.columns
-            if col.name and col.name.upper() not in processed_columns and col.expression
+            if col.name and col.name not in processed_columns and col.expression
         ]
 
         for col in unprocessed_columns:
-            col_name_upper = col.name.upper()
+            # col.name is already the stored spelling. Uppercasing it here and
+            # resolving it back would collapse a case-only pair onto whichever
+            # member matched first, so pass it through untouched.
+            column_name = col.name
             column_expression = col.expression
 
             if not column_expression:
                 continue
 
-            downstream_field_urn = make_schema_field_urn(
-                semantic_view_urn,
-                self.snowflake_identifier(col_name_upper),
-            )
+            if downstream_urn_resolver is not None:
+                downstream_field_urn = downstream_urn_resolver(column_name, None)
+            else:
+                downstream_field_urn = make_schema_field_urn(
+                    semantic_view_urn,
+                    self.snowflake_column_identifier(column_name),
+                )
 
             # Use depth-limited recursive resolution
             resolved_sources = self._resolve_derived_column_sources(
@@ -2205,9 +2603,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
 
             if not resolved_sources:
-                logger.debug(
-                    f"No physical sources resolved for column {col_name_upper}"
-                )
+                logger.debug(f"No physical sources resolved for column {column_name}")
                 continue
 
             for source_db, source_schema, source_table, source_col in resolved_sources:
@@ -2220,10 +2616,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 source_table_urn = self.identifiers.gen_dataset_urn(
                     source_table_identifier
                 )
-                source_field_urn = make_schema_field_urn(
-                    source_table_urn,
-                    self.snowflake_identifier(source_col),
-                )
+                # Already the declared path -- see _resolve_derived_column_sources.
+                source_field_urn = make_schema_field_urn(source_table_urn, source_col)
 
                 fine_grained_lineages.append(
                     FineGrainedLineageClass(
@@ -2234,17 +2628,52 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     )
                 )
 
+    @staticmethod
+    def _semantic_column_expression(
+        semantic_view: SnowflakeSemanticView,
+        column_name: str,
+        logical_table: Optional[str],
+    ) -> Optional[str]:
+        # Prefer the occurrence for this logical table: the merged columns list
+        # only carries occurrences[0].expression, which would give a sibling
+        # logical table's expression when the same column name is defined
+        # differently on multiple tables. Fall back to the merged list (legacy
+        # single-dataset mode, where column_occurrences is not populated).
+        for occ in semantic_view.occurrences_for(column_name):
+            if occ.table_name and occ.table_name == logical_table:
+                return occ.expression
+        # Exact first, for the same reason as occurrences_for: folding straight
+        # away hands back whichever of a case-only pair comes first in the list.
+        for col in semantic_view.columns:
+            if col.name == column_name:
+                return col.expression
+        # Then folded, because in legacy mode the reference may be an uppercased
+        # fold of a mixed- or lower-case stored name, and the loop above has no
+        # occurrences to scope by.
+        folded = column_name.lower()
+        for col in semantic_view.columns:
+            if col.name and col.name.lower() == folded:
+                return col.expression
+        return None
+
     def _generate_column_lineage_for_semantic_view(
         self,
         semantic_view: SnowflakeSemanticView,
         semantic_view_urn: str,
         db_name: str,
+        downstream_urn_resolver: Optional[Callable[[str, Optional[str]], str]] = None,
     ) -> List[FineGrainedLineageClass]:
         """
         Generate column-level lineage for a semantic view.
 
         Maps semantic view columns (dimensions, facts, metrics) to their source columns
         in base tables.
+
+        When ``downstream_urn_resolver`` is provided, it is invoked as
+        ``resolver(column_name, logical_table)`` to build each FGL's
+        downstream schemaField URN. ``logical_table`` is ``None`` for
+        columns with no table association. When omitted, downstreams anchor on
+        ``semantic_view_urn`` (legacy dataset-mode behavior).
 
         Returns:
             List of FineGrainedLineage objects
@@ -2270,6 +2699,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             set()
         )  # Track warned mappings to avoid duplicate logs
 
+        def _downstream_field_urn(column_name: str, logical_table: str) -> str:
+            if downstream_urn_resolver is not None:
+                return downstream_urn_resolver(column_name, logical_table)
+            return make_schema_field_urn(
+                semantic_view_urn,
+                self.snowflake_column_identifier(column_name),
+            )
+
         logger.debug(
             f"Generating column lineage for semantic view {semantic_view.name}. "
             f"Columns: {len(semantic_view.column_table_mappings)}, "
@@ -2278,21 +2715,21 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         # Iterate through all columns that have table mappings
         for (
-            col_name_upper,
+            column_name,
             logical_table_names,
         ) in semantic_view.column_table_mappings.items():
             # For each logical table this column appears in
             for logical_table_name in logical_table_names:
                 # Find the physical base table for this logical table using the direct mapping
                 # from INFORMATION_SCHEMA.SEMANTIC_TABLES (more reliable than parsed DDL)
-                logical_table_upper = logical_table_name.upper()
+                logical_table = logical_table_name
                 base_table_tuple = semantic_view.logical_to_physical_table.get(
-                    logical_table_upper
+                    logical_table
                 )
 
                 if not base_table_tuple:
-                    if logical_table_upper not in warned_mappings:
-                        warned_mappings.add(logical_table_upper)
+                    if logical_table not in warned_mappings:
+                        warned_mappings.add(logical_table)
                         logger.warning(
                             f"Could not find physical table mapping for logical table '{logical_table_name}'. "
                             f"Available mappings: {list(semantic_view.logical_to_physical_table.keys())}"
@@ -2314,36 +2751,31 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 # Check if the base table is filtered out by table patterns
                 if not self._is_table_allowed(base_db, base_schema, base_table):
                     logger.debug(
-                        f"Skipping lineage from {col_name_upper} to {base_table_full_name}: "
+                        f"Skipping lineage from {column_name} to {base_table_full_name}: "
                         f"table is filtered by table_pattern"
                     )
                     continue
 
                 # Create downstream field URN (needed for both direct and derived lineage)
-                downstream_field_urn = make_schema_field_urn(
-                    semantic_view_urn,
-                    self.snowflake_identifier(col_name_upper),
-                )
+                downstream_field_urn = _downstream_field_urn(column_name, logical_table)
 
                 # Verify the column actually exists in the upstream table
-                upstream_table_has_column = self._verify_column_exists_in_table(
-                    base_db, base_schema, base_table, col_name_upper
+                upstream_declared_path = self._declared_field_path(
+                    base_db, base_schema, base_table, column_name
                 )
 
-                if not upstream_table_has_column:
+                if upstream_declared_path is None:
                     # Column not found directly - check if it's a derived column with an expression
                     logger.debug(
-                        f"Column {col_name_upper} not found in {base_table_full_name}. "
+                        f"Column {column_name} not found in {base_table_full_name}. "
                         f"Checking if it's a derived column with an expression..."
                     )
 
-                    # Look up the column's expression from semantic view metadata
-                    column_expression = None
-                    for col in semantic_view.columns:
-                        if col.name and col.name.upper() == col_name_upper:
-                            # Expression was stored during _populate_semantic_view_columns
-                            column_expression = col.expression
-                            break
+                    # Prefer the occurrence for THIS logical table so a sibling
+                    # table's expression doesn't leak in (see helper).
+                    column_expression = self._semantic_column_expression(
+                        semantic_view, column_name, logical_table
+                    )
 
                     if column_expression:
                         # Extract source columns from the expression using sqlglot
@@ -2391,22 +2823,23 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                                 )
 
                                 # Verify source column exists in the resolved table
-                                if not self._verify_column_exists_in_table(
+                                source_declared_path = self._declared_field_path(
                                     source_db, source_schema, source_table, source_col
-                                ):
+                                )
+                                if source_declared_path is None:
                                     # Try chained derivation resolution
                                     # Pass the logical table context for nested unqualified columns
                                     effective_logical_table = (
                                         table_qualifier
                                         if table_qualifier
-                                        else logical_table_upper
+                                        else logical_table
                                     )
                                     self._handle_chained_derivation(
                                         source_col,
                                         source_table_full_name,
                                         semantic_view,
                                         downstream_field_urn,
-                                        col_name_upper,
+                                        column_name,
                                         fine_grained_lineages,
                                         context_table=effective_logical_table,
                                     )
@@ -2431,8 +2864,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                                     source_table_identifier
                                 )
                                 source_field_urn = make_schema_field_urn(
-                                    source_table_urn,
-                                    self.snowflake_identifier(source_col),
+                                    source_table_urn, source_declared_path
                                 )
 
                                 # Create FineGrainedLineage for the derived column
@@ -2451,17 +2883,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             )
                     else:
                         logger.warning(
-                            f"Column {col_name_upper} not found in {base_table_full_name} "
+                            f"Column {column_name} not found in {base_table_full_name} "
                             f"and has no expression. Skipping lineage."
                         )
 
                     # Move to next column (don't add to lineage list)
                     continue
                 else:
-                    # Create upstream field URN for direct column lineage
+                    # Cite the path the upstream schema declares, not the spelling
+                    # this reference happened to use -- they differ whenever the
+                    # match above was case-folded.
                     upstream_field_urn = make_schema_field_urn(
-                        base_table_urn,
-                        self.snowflake_identifier(col_name_upper),
+                        base_table_urn, upstream_declared_path
                     )
 
                     fine_grained_lineages.append(
@@ -2475,7 +2908,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         # Second pass: Handle columns without table associations
         self._process_unassociated_columns(
-            semantic_view, semantic_view_urn, fine_grained_lineages
+            semantic_view,
+            semantic_view_urn,
+            fine_grained_lineages,
+            downstream_urn_resolver=downstream_urn_resolver,
         )
 
         logger.debug(
@@ -2504,14 +2940,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     foreignFields=[
                         make_schema_field_urn(
                             foreign_dataset,
-                            self.snowflake_identifier(col),
+                            self.snowflake_column_identifier(col),
                         )
                         for col in fk.referred_column_names
                     ],
                     sourceFields=[
                         make_schema_field_urn(
                             dataset_urn,
-                            self.snowflake_identifier(col),
+                            self.snowflake_column_identifier(col),
                         )
                         for col in fk.column_names
                     ],
@@ -2524,6 +2960,21 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> Iterable[MetadataWorkUnit]:
         database_container_key = self.identifiers.gen_database_key(
             database.name,
+        )
+        tag_names = (
+            self._container_tag_names(database_container_key.as_urn(), database.tags)
+            if database.tags and not self.config.extract_tags_as_structured_properties
+            else None
+        )
+        structured_properties = (
+            # gen_containers always writes the aspect whole.
+            self.tag_resolver.resolve_structured_properties(
+                database_container_key.as_urn(),
+                database.tags,
+                write_mode=StructuredPropertyWriteMode.UPSERT,
+            )
+            if database.tags and self.config.extract_tags_as_structured_properties
+            else None
         )
 
         yield from gen_database_container(
@@ -2553,20 +3004,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     else None
                 )
             ),
-            tags=(
-                [
-                    self.snowflake_identifier(tag.tag_identifier())
-                    for tag in database.tags
-                ]
-                if database.tags
-                and not self.config.extract_tags_as_structured_properties
-                else None
-            ),
-            structured_properties=(
-                self._format_tags_as_structured_properties(database.tags)
-                if database.tags and self.config.extract_tags_as_structured_properties
-                else None
-            ),
+            tags=tag_names,
+            structured_properties=structured_properties,
+        )
+        yield from self._empty_container_tags(
+            database_container_key.as_urn(), tag_names, structured_properties
         )
 
     def gen_schema_containers(
@@ -2575,6 +3017,21 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         database_container_key = self.identifiers.gen_database_key(db_name)
 
         schema_container_key = self.identifiers.gen_schema_key(db_name, schema.name)
+        tag_names = (
+            self._container_tag_names(schema_container_key.as_urn(), schema.tags)
+            if schema.tags and not self.config.extract_tags_as_structured_properties
+            else None
+        )
+        structured_properties = (
+            # gen_containers always writes the aspect whole.
+            self.tag_resolver.resolve_structured_properties(
+                schema_container_key.as_urn(),
+                schema.tags,
+                write_mode=StructuredPropertyWriteMode.UPSERT,
+            )
+            if schema.tags and self.config.extract_tags_as_structured_properties
+            else None
+        )
 
         yield from gen_schema_container(
             name=schema.name,
@@ -2603,16 +3060,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 if schema.last_altered is not None
                 else None
             ),
-            tags=(
-                [self.snowflake_identifier(tag.tag_identifier()) for tag in schema.tags]
-                if schema.tags and not self.config.extract_tags_as_structured_properties
-                else None
-            ),
-            structured_properties=(
-                self._format_tags_as_structured_properties(schema.tags)
-                if schema.tags and self.config.extract_tags_as_structured_properties
-                else None
-            ),
+            tags=tag_names,
+            structured_properties=structured_properties,
+        )
+        yield from self._empty_container_tags(
+            schema_container_key.as_urn(), tag_names, structured_properties
         )
 
     def get_tables_for_schema(
@@ -2682,10 +3134,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             # Some schemas may not have any views
             return views.get(schema_name, [])
 
-        # Usually this fails when there are too many views in the schema.
-        # Fall back to per-schema queries.
+        # The database-wide fetch could not return a complete result — either the
+        # information_schema query returned too much data, or a database-wide
+        # `SHOW VIEWS` filled its page and cannot be paged safely. Per-schema queries
+        # are exact in both modes.
         self.report.num_get_views_for_schema_queries += 1
-        return self.data_dictionary.get_views_for_schema_using_information_schema(
+        return self.data_dictionary.get_views_for_schema(
             db_name=db_name,
             schema_name=schema_name,
             view_filter=view_filter,
@@ -2765,8 +3219,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         downstream_urn=self.identifiers.gen_dataset_urn(key),
                     )
                     self.report.num_external_table_edges_scanned += 1
-
-                self.report.num_external_table_edges_scanned += 1
         except Exception as e:
             self.structured_reporter.warning(
                 "External table ddl lineage extraction failed",
@@ -2794,22 +3246,38 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             snowflake_schema.streams = [stream.name for stream in streams]
             return streams
         except Exception as e:
-            self.structured_reporter.warning(
-                title="Failed to get streams for schema",
-                message="Please check permissions"
-                if isinstance(e, SnowflakePermissionError)
-                else "",
-                context=f"{db_name}.{snowflake_schema.name}",
-                exc=e,
-            )
-            return []
+            if isinstance(e, SnowflakePermissionError):
+                # As fetch_views_for_schema does, and for the same reason: returning [] here
+                # drops the schema's streams from the run while it still exits successfully,
+                # so stateful ingestion soft-deletes them as though they had been dropped in
+                # Snowflake. Only a failure makes stale-entity removal stand down, and the
+                # 75% fail_safe_threshold will not notice one schema out of hundreds.
+                # Ideal implementation would use PEP 678 - Enriching Exceptions with Notes
+                error_msg = f"Failed to get streams for schema {db_name}.{snowflake_schema.name}. Please check permissions."
+
+                raise SnowflakePermissionError(error_msg) from e.__cause__
+            else:
+                self.structured_reporter.warning(
+                    title="Failed to get streams for schema",
+                    message="",
+                    context=f"{db_name}.{snowflake_schema.name}",
+                    exc=e,
+                )
+                return []
 
     def get_streams_for_schema(
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeStream]:
         streams = self.data_dictionary.get_streams_for_database(db_name)
 
-        return streams.get(schema_name, [])
+        if streams is not None:
+            return streams.get(schema_name, [])
+
+        # The database-wide `SHOW STREAMS` filled its page and cannot be paged safely.
+        # Per-schema queries paginate exactly.
+        return self.data_dictionary.get_streams_for_schema_using_show(
+            db_name=db_name, schema_name=schema_name
+        )
 
     def fetch_procedures_for_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str

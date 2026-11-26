@@ -3,8 +3,8 @@ import { UnionType } from '@app/searchV2/utils/constants';
 import { combineSiblingsInSearchResults } from '@src/app/search/utils/combineSiblingsInSearchResults';
 import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { EntityType, SortCriterion } from '@types';
+import { useGetSearchResultsForMultipleCardsQuery } from '@graphql/search.generated';
+import { Entity, EntityType, SortCriterion } from '@types';
 
 const buildOrFilters = (filters: FilterSet) => {
     if (filters.unionType === UnionType.AND) {
@@ -27,8 +27,8 @@ export const useGetSearchAssets = (
     filters?: FilterSet,
     sort?: SortCriterion,
     viewUrn?: string | null,
-): any => {
-    const { data, loading } = useGetSearchResultsForMultipleQuery({
+): { assets: Entity[]; loading: boolean } => {
+    const { data, loading } = useGetSearchResultsForMultipleCardsQuery({
         variables: {
             input: {
                 types: types || [],
@@ -51,9 +51,10 @@ export const useGetSearchAssets = (
     });
 
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    // The card query omits matchedFields, and only the combined entities are used here.
     const searchResults = combineSiblingsInSearchResults(
         showSeparateSiblings,
-        data?.searchAcrossEntities?.searchResults,
+        data?.searchAcrossEntities?.searchResults?.map((result) => ({ ...result, matchedFields: [] })),
     );
 
     const assets = searchResults?.filter((result) => result.entity).map((result) => result.entity) || [];

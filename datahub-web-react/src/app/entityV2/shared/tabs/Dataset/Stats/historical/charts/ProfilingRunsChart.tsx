@@ -1,5 +1,6 @@
 import { Modal } from '@components';
 import { Button, Table, Typography } from 'antd';
+import i18next from 'i18next';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -7,7 +8,7 @@ import styled from 'styled-components';
 import { FULL_TABLE_PARTITION_KEYS } from '@app/entityV2/shared/tabs/Dataset/Stats/constants';
 import ColumnStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/ColumnStats';
 import TableStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/TableStats';
-import { formatBytes, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatBytes, formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 
 import { DatasetProfile } from '@types';
 
@@ -23,7 +24,11 @@ type Props = {
 const bytesFormatter = (bytes: number) => {
     const formattedBytes = formatBytes(bytes);
     const fullBytes = formatNumberWithoutAbbreviation(bytes);
-    return `${formattedBytes.number} ${formattedBytes.unit} (${fullBytes} bytes)`;
+    return i18next.t('entity.profile.stats:profilingRunsChart.bytesFormat', {
+        number: formattedBytes.number,
+        unit: formattedBytes.unit,
+        fullBytes,
+    });
 };
 
 export default function ProfilingRunsChart({ profiles, areAllProfilesPartitioned }: Props) {
@@ -44,7 +49,10 @@ export default function ProfilingRunsChart({ profiles, areAllProfilesPartitioned
     const tableData = profiles.map((profile) => {
         const profileDate = new Date(profile.timestampMillis);
         return {
-            timestamp: `${profileDate.toLocaleDateString()} at ${profileDate.toLocaleTimeString()}`,
+            timestamp: t('profilingRunsChart.timestampFormat', {
+                date: profileDate.toLocaleDateString(),
+                time: profileDate.toLocaleTimeString(),
+            }),
             rowCount: profile.rowCount?.toString() || t('profilingRunsChart.unknown'),
             columnCount: profile.columnCount?.toString() || t('profilingRunsChart.unknown'),
             sizeInBytes: profile.sizeInBytes ? bytesFormatter(profile.sizeInBytes) : t('profilingRunsChart.unknown'),

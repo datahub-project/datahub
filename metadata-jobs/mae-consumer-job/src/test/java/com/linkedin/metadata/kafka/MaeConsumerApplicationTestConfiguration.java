@@ -1,9 +1,13 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.search.SearchClientShims;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
 import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
 import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.GraphService;
@@ -11,13 +15,18 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
+import java.io.IOException;
+import java.util.Map;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -40,7 +49,7 @@ public class MaeConsumerApplicationTestConfiguration {
   @Bean
   @Primary
   public EntityRegistry entityRegistry() {
-    return TestOperationContexts.defaultEntityRegistry();
+    return TestOperationContexts.constructNewEntityRegistry();
   }
 
   @MockitoBean private RestrictedService restrictedService;
@@ -74,7 +83,38 @@ public class MaeConsumerApplicationTestConfiguration {
   public SearchClientShim<?> searchClientShim() {
     SearchClientShim<?> mock = Mockito.mock(SearchClientShim.class);
     Mockito.when(mock.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    // V3 reads list V2 indices at startup. Nothing listed is a fresh install.
+    try {
+      Mockito.when(mock.getIndex(Mockito.any(), Mockito.any(), Mockito.any()))
+          .thenReturn(
+              new GetIndexResponse(
+                  new String[0], Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
     return mock;
+  }
+
+  /**
+   * Keep SearchClusterRegistryFactory from building a live {@code searchClientShims} bean against
+   * localhost:9200.
+   */
+  @Bean(name = "searchClientShims")
+  @Primary
+  public SearchClientShims searchClientShims(SearchClientShim<?> searchClientShim) {
+    return new SearchClientShims(
+        Map.of(ElasticSearchConfiguration.PRIMARY_CLUSTER, searchClientShim));
+  }
+
+  @Bean(name = "searchClusterRegistry")
+  @Primary
+  public SearchClusterRegistry searchClusterRegistry(
+      ConfigurationProvider configurationProvider, SearchClientShim<?> searchClientShim) {
+    return SearchClusterRegistry.singleCluster(
+        configurationProvider.getElasticSearch(),
+        searchClientShim,
+        Mockito.mock(ESBulkProcessor.class),
+        Mockito.mock(ESIndexBuilder.class));
   }
 
   // Mock semantic search factories to avoid needing full configuration

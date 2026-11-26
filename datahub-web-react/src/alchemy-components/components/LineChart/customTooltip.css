@@ -1,4 +1,7 @@
 /* Read the comment  in ./LineChart.tsx */
 .visx-tooltip {
     z-index: 1000;
+    /* The tooltip tracks the cursor; if it could receive hover itself, reaching it would end
+       the chart hover and flicker the tooltip closed and open. */
+    pointer-events: none;
 }

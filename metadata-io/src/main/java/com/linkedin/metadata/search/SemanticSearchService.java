@@ -3,6 +3,7 @@ package com.linkedin.metadata.search;
 import static com.linkedin.metadata.search.utils.QueryUtils.filterEntitiesForSearch;
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.config.ConfigUtils;
@@ -12,6 +13,10 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateEngineSupport;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -42,6 +47,22 @@ public class SemanticSearchService {
   private final EntityDocCountCache entityDocCountCache;
   private final SearchServiceConfiguration searchServiceConfig;
   private final SemanticEntitySearch semanticEntitySearchService;
+
+  // Whether the Search V3 engine can serve the semantic search template, once a read decides it
+  @Nullable private volatile Boolean templateEngineSupported;
+
+  private final SearchTemplateEngineSupport templateEngineSupport =
+      new SearchTemplateEngineSupport(
+          "The semantic search surface's template rollout is on, but the Search V3 cluster runs"
+              + " OpenSearch {}. The semantic search template needs OpenSearch 3.5 or later, so"
+              + " semantic search stays on its own kNN search.",
+          "The semantic search surface's template rollout is on, but the Search V3 engine reads as"
+              + " {}, so GMS cannot tell whether it can serve the semantic search template, which"
+              + " needs OpenSearch 3.5 or later. Semantic search stays on its own kNN search until a"
+              + " later read, at most once a minute, succeeds. Reading the OpenSearch version needs"
+              + " the cluster:monitor/main permission, and a cluster in compatibility mode reports"
+              + " 7.10.2 whatever it runs.",
+          this::currentTimeMillis);
 
   public SemanticSearchService(
       EntityDocCountCache entityDocCountCache,
@@ -102,6 +123,100 @@ public class SemanticSearchService {
 
     return performSemanticSearch(
         opContext, entitiesToSearch, input, postFilters, sortCriteria, from, size, facets);
+  }
+
+  /**
+   * Whether semantic search serves this request through the semantic search template surface, by
+   * the rule the template coordinator applies: templates execute, and that surface's rollout, which
+   * is off by default, serves this actor. On OpenSearch before 3.5 it does not, whatever the
+   * rollout says, and while the OpenSearch version cannot be read it does not either. A caller
+   * decides once per request, then calls either the legacy search, {@link
+   * #semanticSearchAcrossEntities} or {@link #semanticSearch}, or {@link
+   * #semanticSearchAcrossEntitiesByTemplate}.
+   */
+  public boolean isServedByTemplate(@Nonnull OperationContext opContext) {
+    final SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+    if (coordinator == null
+        || !coordinator.executes(
+            opContext.withSearchSurface(SearchTemplateSurfaces.SEMANTIC_SEARCH))) {
+      return false;
+    }
+    final Boolean supported = templateEngineSupported;
+    return supported != null ? supported : readTemplateEngineSupport(opContext);
+  }
+
+  /**
+   * True only when {@link SearchTemplateEngineSupport} reads the engine as supported: Elasticsearch
+   * or OpenSearch 3.5 or later. The engine is read on the first request the rollout serves, so the
+   * warnings are logged only with the rollout on. An engine it reads as unsupported or cannot read
+   * keeps the request on the legacy search, which works on every engine. A decided answer is kept.
+   */
+  private boolean readTemplateEngineSupport(@Nonnull OperationContext opContext) {
+    final SearchTemplateEngineSupport.Support support = templateEngineSupport.read(opContext);
+    if (support != SearchTemplateEngineSupport.Support.UNKNOWN) {
+      templateEngineSupported = support == SearchTemplateEngineSupport.Support.SUPPORTED;
+    }
+    return support == SearchTemplateEngineSupport.Support.SUPPORTED;
+  }
+
+  @VisibleForTesting
+  long currentTimeMillis() {
+    return System.currentTimeMillis();
+  }
+
+  /**
+   * Semantic search across entity types through the template the semantic search surface selects,
+   * {@code urn:li:searchTemplate:semantic} as shipped. The vector rung's page, total, and facets
+   * stand: no keyword facet request runs beside it, so the facets count only the neighbors that
+   * survived. Only a vector rung may serve the page; anything else fails the search.
+   *
+   * @param facets facets the vector rung aggregates over its surviving hits, plus the legacy
+   *     "entity" aggregate
+   */
+  @Nonnull
+  public SearchResult semanticSearchAcrossEntitiesByTemplate(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets) {
+    if (!Boolean.TRUE.equals(searchServiceConfig.isSemanticSearchEnabled())) {
+      throw new SemanticSearchDisabledException();
+    }
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
+    // The template gates match entity types to registry names, such as glossaryTerm, so this path
+    // takes each type's registry name instead of the lowercased one the legacy search uses
+    List<String> entitiesToSearch =
+        getEntitiesToSearch(opContext, entityNames, size).stream()
+            .map(entityName -> opContext.getEntityRegistry().getEntitySpec(entityName).getName())
+            .collect(Collectors.toList());
+    if (entitiesToSearch.isEmpty()) {
+      return getEmptySearchResult(from, size);
+    }
+    // The surface's slot sits under the fulltext seed. The query feeds the embedding, or names the
+    // anchor when it is an entity URN that the semantic template routes to similarity, so semantic
+    // search has no structured form here either.
+    SearchResult result =
+        cachingEntitySearchService.search(
+            opContext
+                .withSearchSurface(SearchTemplateSurfaces.SEMANTIC_SEARCH)
+                .withSearchFlags(flags -> flags.setFulltext(true)),
+            entitiesToSearch,
+            input,
+            postFilters,
+            sortCriteria,
+            from,
+            size,
+            facets);
+    result
+        .getMetadata()
+        .setAggregations(
+            withAdditionalAggregates(
+                result.getEntities(), result.getMetadata().getAggregations(), facets));
+    return result;
   }
 
   /**
@@ -225,18 +340,26 @@ public class SemanticSearchService {
     return CompletableFuture.supplyAsync(
         () ->
             cachingEntitySearchService.search(
-                opContext.withSearchFlags(
-                    flags -> {
-                      flags
-                          .setFulltext(true)
-                          .setSkipHighlighting(true)
-                          .setSkipAggregates(false)
-                          .setIncludeDefaultFacets(true);
-                      if (incomingFlags != null && incomingFlags.hasMaxAggValues()) {
-                        flags.setMaxAggValues(incomingFlags.getMaxAggValues());
-                      }
-                      return flags;
-                    }),
+                opContext
+                    .withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES)
+                    .withSearchFlags(
+                        flags -> {
+                          flags
+                              .setFulltext(true)
+                              .setSkipHighlighting(true)
+                              .setSkipAggregates(false)
+                              .setIncludeDefaultFacets(true);
+                          if (incomingFlags != null && incomingFlags.hasMaxAggValues()) {
+                            flags.setMaxAggValues(incomingFlags.getMaxAggValues());
+                          }
+                          if (incomingFlags != null && incomingFlags.hasSearchTemplate()) {
+                            flags.setSearchTemplate(incomingFlags.getSearchTemplate());
+                          }
+                          if (incomingFlags != null && incomingFlags.hasIncludeExplain()) {
+                            flags.setIncludeExplain(incomingFlags.isIncludeExplain());
+                          }
+                          return flags;
+                        }),
                 entityNames,
                 "*",
                 postFilters,
@@ -285,7 +408,10 @@ public class SemanticSearchService {
           "getNonEmptyEntities",
           // Apply entity filtering (hook for custom filtering logic)
           // Custom deployments can override filterEntitiesForSearch.
-          () -> filterEntitiesForSearch(entityDocCountCache.getNonEmptyEntities(opContext)),
+          () ->
+              filterEntitiesForSearch(
+                  entityDocCountCache.getNonEmptyEntities(
+                      opContext.withSkipTemplateExecution(true))),
           MetricUtils.DROPWIZARD_NAME,
           MetricUtils.name(this.getClass(), "getNonEmptyEntities"));
     }
@@ -325,7 +451,12 @@ public class SemanticSearchService {
                                     new FilterValue()
                                         .setValue(entityType)
                                         .setFacetCount(
-                                            numResultsPerEntity.get(entityType.toLowerCase())))
+                                            // V3 keys are registry entity names; V2 keys are
+                                            // lower-cased
+                                            numResultsPerEntity.getOrDefault(
+                                                entityType,
+                                                numResultsPerEntity.getOrDefault(
+                                                    entityType.toLowerCase(), 0L))))
                             .collect(Collectors.toList()))));
       }
     }

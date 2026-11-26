@@ -2,6 +2,8 @@ package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.gms.factory.auth.AuthorizerChainFactory;
 import com.linkedin.gms.factory.auth.DataHubAuthorizerFactory;
+import com.linkedin.gms.factory.entity.RetentionBufferFactory;
+import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
 import com.linkedin.gms.factory.event.ExternalEventsServiceFactory;
 import com.linkedin.gms.factory.event.KafkaConsumerPoolFactory;
 import com.linkedin.gms.factory.event.KafkaExternalEventsPollHandlerConfiguration;
@@ -11,9 +13,13 @@ import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.gms.factory.kafka.trace.KafkaTraceReaderFactory;
 import com.linkedin.gms.factory.messaging.KafkaConsumerLagPort;
 import com.linkedin.gms.factory.messaging.PgQueueConsumerLagPort;
+import com.linkedin.gms.factory.ratelimit.RateLimitEngineFactory;
+import com.linkedin.gms.factory.search.SearchV3IndexRebuild;
+import com.linkedin.gms.factory.systemmetadata.EntityCountMetricsFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.gms.factory.trace.TraceServiceFactory;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
@@ -32,13 +38,17 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.gms.factory",
       "com.linkedin.datahub.upgrade.config",
       "com.linkedin.datahub.upgrade.system.cdc",
-      "com.linkedin.metadata.dao.producer"
+      "com.linkedin.metadata.dao.producer",
+      "com.linkedin.metadata.aspect.hooks.migrations"
     },
     excludeFilters = {
       @ComponentScan.Filter(
           type = FilterType.ASSIGNABLE_TYPE,
           classes = {
             ScheduledAnalyticsFactory.class,
+            // Upgrade jobs create indices; entity-count metrics query them and fail/spam logs
+            // when system_metadata_service_v1 does not exist yet.
+            EntityCountMetricsFactory.class,
             AuthorizerChainFactory.class,
             DataHubAuthorizerFactory.class,
             SimpleKafkaConsumerFactory.class,
@@ -50,7 +60,25 @@ import org.springframework.context.annotation.FilterType;
             KafkaExternalEventsPollHandlerConfiguration.class,
             ExternalEventsServiceFactory.class,
             KafkaConsumerLagPort.class,
-            PgQueueConsumerLagPort.class
+            PgQueueConsumerLagPort.class,
+            // Upgrade jobs are short-lived and non-ingesting — keep the post-commit retention
+            // buffer + drainer out so they never fire @Scheduled drain ticks or compete for the
+            // cluster-wide drain lock. Matches CleanupUpgradeConfig / LoadIndicesUpgradeConfig.
+            RetentionBufferFactory.class,
+            RetentionBufferSchedulingConfig.class,
+            // Rate limiting guards GMS HTTP traffic. The upgrade serves no requests, so it must
+            // not build the engine (or validate/load its policy) at all; only GMS does.
+            RateLimitEngineFactory.class
           })
     })
-public class GeneralUpgradeConfiguration {}
+public class GeneralUpgradeConfiguration {
+
+  /**
+   * System update and restore build indices and serve no reads, so a missing V3 index after the
+   * cutover does not stop them.
+   */
+  @Bean
+  public SearchV3IndexRebuild searchV3IndexRebuild() {
+    return new SearchV3IndexRebuild();
+  }
+}

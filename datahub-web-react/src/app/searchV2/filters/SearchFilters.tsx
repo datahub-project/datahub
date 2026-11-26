@@ -1,9 +1,11 @@
-import { Icon, Tooltip } from '@components';
+import { Icon, TabButtons, Tooltip } from '@components';
 import { List } from '@phosphor-icons/react/dist/csr/List';
 import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { TabButtonItem } from '@components/components/ButtonTabs/types';
 
 import CreateLogicalModelButton from '@app/entityV2/shared/logicalModels/CreateLogicalModelButton';
 import { SEARCH_RESULTS_FILTERS_ID } from '@app/onboarding/config/SearchOnboardingConfig';
@@ -54,33 +56,8 @@ const FiltersContainerTop = styled.div`
     padding-bottom: 8px;
 `;
 
-const CustomSwitch = styled.div`
-    border: 1px solid ${(props) => props.theme.colors.border};
-    border-radius: 30px;
-    display: flex;
-    gap: 2px;
-    align-items: center;
-    padding: 2px;
-    width: fit-content;
-    justify-content: space-between;
-`;
-
-const IconContainer = styled.div<{ isActive?: boolean }>`
-    cursor: pointer;
-    align-items: center;
-    display: flex;
-    padding: 4px;
-    transition: left 0.5s ease;
-    color: ${(props) => props.theme.colors.textTertiary};
-
-    ${(props) =>
-        props.isActive &&
-        `
-background: ${props.theme.colors.bgSurface};
- border-radius: 100%;
-color: ${props.theme.colors.textSecondary};
- `}
-`;
+const FULL_CARD_VIEW_KEY = 'full';
+const COMPACT_CARD_VIEW_KEY = 'compact';
 
 const SelectedFiltersContainer = styled.div`
     padding: 4px 16px 8px 16px;
@@ -155,6 +132,30 @@ export default function SearchFilters({
     const filters = basicFilters ? filteredFilters : availableFilters;
     const recommendedFilters = useGetRecommendedFilters(filters, activeFilters);
 
+    const viewTabs: TabButtonItem[] = useMemo(
+        () => [
+            {
+                key: FULL_CARD_VIEW_KEY,
+                dataTestId: 'full-card-view-toggle',
+                label: (
+                    <Tooltip showArrow={false} title={t('filters.fullCardView')}>
+                        <Icon icon={Rows} size="md" />
+                    </Tooltip>
+                ),
+            },
+            {
+                key: COMPACT_CARD_VIEW_KEY,
+                dataTestId: 'compact-card-view-toggle',
+                label: (
+                    <Tooltip showArrow={false} title={t('filters.compactCardView')}>
+                        <Icon icon={List} size="md" />
+                    </Tooltip>
+                ),
+            },
+        ],
+        [t],
+    );
+
     return (
         <Container id={SEARCH_RESULTS_FILTERS_ID} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <FiltersContainerTop>
@@ -179,18 +180,13 @@ export default function SearchFilters({
                         setShowSelectMode={setShowSelectMode}
                         downloadSearchResults={downloadSearchResults}
                     />
-                    <CustomSwitch>
-                        <IconContainer isActive={isFullViewCard} onClick={() => setIsFullViewCard(true)}>
-                            <Tooltip showArrow={false} title={t('filters.fullCardView')}>
-                                <Icon icon={Rows} size="md" />
-                            </Tooltip>
-                        </IconContainer>
-                        <IconContainer isActive={!isFullViewCard} onClick={() => setIsFullViewCard(false)}>
-                            <Tooltip showArrow={false} title={t('filters.compactCardView')}>
-                                <Icon icon={List} size="md" />
-                            </Tooltip>
-                        </IconContainer>
-                    </CustomSwitch>
+                    <TabButtons
+                        tabs={viewTabs}
+                        activeTab={isFullViewCard ? FULL_CARD_VIEW_KEY : COMPACT_CARD_VIEW_KEY}
+                        onTabClick={(key) => setIsFullViewCard(key === FULL_CARD_VIEW_KEY)}
+                        fit="hug"
+                        aria-label={t('filters.cardViewSwitchLabel')}
+                    />
                 </ControlsContainer>
             </FiltersContainerTop>
             {activeFilters.length > 0 && (

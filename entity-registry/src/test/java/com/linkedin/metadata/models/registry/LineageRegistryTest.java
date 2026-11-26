@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -37,15 +38,33 @@ public class LineageRegistryTest {
     List<LineageRegistry.EdgeInfo> upstreamEdges =
         lineageRegistry.getLineageRelationships("dataset", LineageDirection.UPSTREAM);
 
-    // Verify
-    assertEquals(upstreamEdges.size(), 3);
+    // Verify. The fixture now adds `repository`, and dataJob/dataFlow register the
+    // new repositoryLineage aspect, so dataset's edge set gains repository's own
+    // RepositoryProduces edge plus dataJob/dataFlow's RepositoryProduces edges.
+    assertEquals(upstreamEdges.size(), 7);
     assertTrue(
         upstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
                 "DownstreamOf", RelationshipDirection.OUTGOING, "dataset")));
     assertTrue(
         upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.OUTGOING, "metric")));
+    assertTrue(
+        upstreamEdges.contains(
             new LineageRegistry.EdgeInfo("Produces", RelationshipDirection.INCOMING, "dataJob")));
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryProduces", RelationshipDirection.INCOMING, "repository")));
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryProduces", RelationshipDirection.INCOMING, "dataJob")));
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryProduces", RelationshipDirection.INCOMING, "dataFlow")));
   }
 
   @Test
@@ -54,8 +73,8 @@ public class LineageRegistryTest {
     List<LineageRegistry.EdgeInfo> downstreamEdges =
         lineageRegistry.getLineageRelationships("dataset", LineageDirection.DOWNSTREAM);
 
-    // Verify
-    assertEquals(downstreamEdges.size(), 8);
+    // Verify -- see comment in testGetLineageRelationshipsUpstream.
+    assertEquals(downstreamEdges.size(), 12);
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
@@ -63,6 +82,75 @@ public class LineageRegistryTest {
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.INCOMING, "dataJob")));
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryConsumes", RelationshipDirection.INCOMING, "repository")));
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryConsumes", RelationshipDirection.INCOMING, "dataJob")));
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryConsumes", RelationshipDirection.INCOMING, "dataFlow")));
+  }
+
+  @Test
+  public void testMetricDownstreamIncludesConsumerOwnedEdges() {
+    List<LineageRegistry.EdgeInfo> downstreamEdges =
+        lineageRegistry.getLineageRelationships("metric", LineageDirection.DOWNSTREAM);
+
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "chart")),
+        "Chart ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "dashboard")),
+        "Dashboard ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "dataset")),
+        "Dataset ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo("DerivedFrom", RelationshipDirection.INCOMING, "metric")),
+        "Derived metrics remain Metric downstream via DerivedFrom");
+  }
+
+  @Test
+  public void testProductionRegistryMetricDownstreamIncludesConsumerOwnedEdges() {
+    EntityRegistry productionRegistry =
+        new ConfigEntityRegistry(
+            LineageRegistryTest.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+    LineageRegistry productionLineageRegistry = new LineageRegistry(productionRegistry);
+
+    List<LineageRegistry.EdgeInfo> downstreamEdges =
+        productionLineageRegistry.getLineageRelationships("metric", LineageDirection.DOWNSTREAM);
+
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "chart")),
+        "Chart ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "dashboard")),
+        "Dashboard ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "dataset")),
+        "Dataset ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo("DerivedFrom", RelationshipDirection.INCOMING, "metric")),
+        "Derived metrics remain Metric downstream via DerivedFrom");
   }
 
   @Test
@@ -80,10 +168,10 @@ public class LineageRegistryTest {
     // Test with different case
     LineageRegistry.LineageSpec lineageSpec = lineageRegistry.getLineageSpec("DATASET");
 
-    // Verify
+    // Verify. Counts match testGetLineageRelationshipsUpstream/Downstream above.
     assertNotNull(lineageSpec);
-    assertEquals(lineageSpec.getUpstreamEdges().size(), 3);
-    assertEquals(lineageSpec.getDownstreamEdges().size(), 8);
+    assertEquals(lineageSpec.getUpstreamEdges().size(), 7);
+    assertEquals(lineageSpec.getDownstreamEdges().size(), 12);
   }
 
   @Test
@@ -120,14 +208,29 @@ public class LineageRegistryTest {
         "Expected upstream edge not found");
 
     // Verify downstream edges
-    assertEquals(downstreamEdges.size(), 1, "Schema field should have 1 downstream edge");
+    assertEquals(downstreamEdges.size(), 4, "Schema field should have 4 downstream edges");
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
                 "DownstreamOf",
                 RelationshipDirection.INCOMING,
                 Constants.SCHEMA_FIELD_ENTITY_NAME)),
-        "Expected downstream edge not found");
+        "Expected DownstreamOf schemaField edge not found");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "Consumes", RelationshipDirection.INCOMING, Constants.METRIC_ENTITY_NAME)),
+        "Expected Consumes metric edge not found");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "consumesField", RelationshipDirection.INCOMING, Constants.CHART_ENTITY_NAME)),
+        "Expected consumesField chart edge not found");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "consumesField", RelationshipDirection.INCOMING, Constants.DASHBOARD_ENTITY_NAME)),
+        "Expected consumesField dashboard edge not found");
   }
 
   @Test
@@ -183,6 +286,73 @@ public class LineageRegistryTest {
   }
 
   @Test
+  public void testDataJobHasRepositoryLineageEdge() {
+    // dataJob now registers repositoryLineage, so a Repository (the
+    // job's source-code repo) is a valid upstream edge, alongside its existing
+    // dataset Consumes/Produces edges.
+    List<LineageRegistry.EdgeInfo> upstreamEdges =
+        lineageRegistry.getLineageRelationships("dataJob", LineageDirection.UPSTREAM);
+
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryConsumes", RelationshipDirection.OUTGOING, "repository")),
+        "dataJob should have an outgoing RepositoryConsumes edge to repository");
+
+    // Existing dataset lineage must be unaffected by adding the new aspect.
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.OUTGOING, "dataset")),
+        "dataJob should still have its existing Consumes edge to dataset");
+  }
+
+  @Test
+  public void testDataFlowHasRepositoryLineageEdge() {
+    // dataFlow had no input/output-style lineage aspect at all before
+    // this change. repositoryLineage is the first one it registers.
+    List<LineageRegistry.EdgeInfo> upstreamEdges =
+        lineageRegistry.getLineageRelationships("dataFlow", LineageDirection.UPSTREAM);
+
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryConsumes", RelationshipDirection.OUTGOING, "repository")),
+        "dataFlow should have an outgoing RepositoryConsumes edge to repository");
+  }
+
+  @Test
+  public void testRepositoryStillHasOwnLineageEdges() {
+    // Guard against a regression where re-registering the shared repositoryLineage
+    // aspect on dataJob/dataFlow accidentally narrows or duplicates Repository's
+    // own pre-existing edges (forkOf, inputEdges/outputEdges to dataset/repository).
+    List<LineageRegistry.EdgeInfo> upstreamEdges =
+        lineageRegistry.getLineageRelationships("repository", LineageDirection.UPSTREAM);
+
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryForkOf", RelationshipDirection.OUTGOING, "repository")),
+        "repository should still have its own RepositoryForkOf edge");
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "RepositoryConsumes", RelationshipDirection.OUTGOING, "dataset")),
+        "repository should still have its own RepositoryConsumes edge to dataset");
+  }
+
+  @Test
+  public void testGetEntitiesWithLineageToRepository() {
+    // dataJob/dataFlow should now show up as entities with lineage
+    // pointing at repository, alongside repository's own self-referencing edges.
+    Set<String> entitiesWithLineage =
+        lineageRegistry.getEntitiesWithLineageToEntityType("repository");
+
+    assertTrue(entitiesWithLineage.contains("dataJob"));
+    assertTrue(entitiesWithLineage.contains("dataFlow"));
+    assertTrue(entitiesWithLineage.contains("repository"));
+  }
+
+  @Test
   public void testGetEntityRegistry() {
     // Test
     EntityRegistry returnedRegistry = lineageRegistry.getEntityRegistry();
@@ -210,6 +380,21 @@ public class LineageRegistryTest {
 
     // Count of entities might vary depending on registry content, so we don't assert exact counts
     // but ensure key expected entities are present
+  }
+
+  @Test
+  public void testGetEntitiesWithLineageToSchemaField() {
+    // schemaField's LineageSpec is empty; discovery must still include hardcoded consumers
+    // without BFS into those consumers' entity-level graphs (dataset/dataJob).
+    Set<String> entitiesWithLineage =
+        lineageRegistry.getEntitiesWithLineageToEntityType(Constants.SCHEMA_FIELD_ENTITY_NAME);
+
+    assertTrue(entitiesWithLineage.contains(Constants.SCHEMA_FIELD_ENTITY_NAME));
+    assertTrue(entitiesWithLineage.contains(Constants.METRIC_ENTITY_NAME));
+    assertTrue(entitiesWithLineage.contains(Constants.CHART_ENTITY_NAME));
+    assertTrue(entitiesWithLineage.contains(Constants.DASHBOARD_ENTITY_NAME));
+    assertFalse(entitiesWithLineage.contains(Constants.DATASET_ENTITY_NAME));
+    assertFalse(entitiesWithLineage.contains(Constants.DATA_JOB_ENTITY_NAME));
   }
 
   @Test

@@ -1,0 +1,282 @@
+name: Release Process - Cut Tag
+
+run-name: "Cut tag on ${{ github.ref_name }} [${{ inputs.release_type }}]"
+
+# The X.Y line is inferred from the branch this workflow is run on (releases/vX.Y.0),
+# and patch_version supplies N for vX.Y.N. Run this workflow directly from the release branch.
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "rc or final. 'rc' auto-computes the next RC number."
+        required: true
+        type: choice
+        options:
+          - rc
+          - final
+      patch_version:
+        description: "Patch number N for vX.Y.N. Use 0 for the first release of the line."
+        required: true
+        type: string
+
+permissions: {}
+
+# Scoped per branch so two RC cuts for the same version cannot race,
+# while parallel cuts across different versions run concurrently.
+concurrency:
+  group: cut-tag-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve branch context
+    runs-on: depot-ubuntu-24.04-small
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - name: Check out release scripts
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: true
+          fetch-depth: 1
+
+      # Builds the version from the branch name and patch_version, and fails the run if
+      # the branch is not a releases/vX.Y.0 branch.
+      - name: Parse version from ref
+        id: parse
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          PATCH_VERSION: ${{ inputs.patch_version }}
+        run: |
+          python3 .github/scripts/release/validate_inputs.py parse-ref \
+            --ref "$REF_NAME" \
+            --patch-version "$PATCH_VERSION"
+
+  cut_tag:
+    name: Cut Tag
+    needs: [resolve]
+    runs-on: depot-ubuntu-22.04
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.name }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_TEAM_GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_TEAM_GH_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-workflows: write
+
+      - name: Check out release scripts
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: true
+          fetch-depth: 1
+
+      - name: Validate inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+        run: |
+          python3 .github/scripts/release/validate_inputs.py cut-tag \
+            --version "$VERSION" \
+            --release-type "$RELEASE_TYPE"
+
+      # The tag targets the branch the workflow was dispatched on, which the
+      # resolve job has already validated as a releases/ branch.
+      - name: Resolve target branch
+        id: target
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          echo "branch=${REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute next RC tag
+        if: inputs.release_type == 'rc'
+        id: next_rc
+        env:
+          # Read-only API call — GITHUB_TOKEN is sufficient here.
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          python3 .github/scripts/release/compute_next_rc.py \
+            --version "$VERSION" \
+            --output-file /tmp/next_rc_tag.txt
+          echo "tag=$(cat /tmp/next_rc_tag.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve tag name and pre-release flag
+        id: tag
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          NEXT_RC_TAG: ${{ steps.next_rc.outputs.tag }}
+        run: |
+          SUFFIX=$(PYTHONPATH=.github/scripts:.github/scripts/release python3 -c "from release_variables import VERSION_SUFFIX; print(VERSION_SUFFIX)")
+          if [ "$RELEASE_TYPE" == "rc" ]; then
+            echo "name=${NEXT_RC_TAG}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=v${VERSION}${SUFFIX}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute preceding tag for release notes
+        id: preceding_tag
+        env:
+          # Read-only API call — GITHUB_TOKEN is sufficient here.
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          python3 .github/scripts/release/compute_preceding_tag.py \
+            --tag "$TAG" \
+            --output-file /tmp/preceding_tag.txt
+          echo "tag=$(cat /tmp/preceding_tag.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          # App token required: releases created by GITHUB_TOKEN do not fire the
+          # 'release: published' event that triggers downstream workflows.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PRERELEASE_FLAG: ${{ steps.tag.outputs.prerelease }}
+          PRECEDING_TAG: ${{ steps.preceding_tag.outputs.tag }}
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+          TARGET_BRANCH: ${{ steps.target.outputs.branch }}
+        run: |
+          NOTES_ARGS=()
+          if [ -n "$PRECEDING_TAG" ]; then
+            NOTES_ARGS=("--notes-start-tag" "$PRECEDING_TAG")
+          fi
+
+          PRERELEASE_ARGS=()
+          if [ "$PRERELEASE_FLAG" == "true" ]; then
+            PRERELEASE_ARGS=("--prerelease")
+          fi
+
+          gh release create "$TAG_NAME" \
+            --target "$TARGET_BRANCH" \
+            --title "$TAG_NAME" \
+            "${PRERELEASE_ARGS[@]}" \
+            "${NOTES_ARGS[@]}" \
+            --generate-notes
+          echo "Created release: $TAG_NAME"
+
+  create_linear_label:
+    name: Create Linear Release Label
+    needs: cut_tag
+    if: always() && needs.cut_tag.result == 'success' && needs.cut_tag.outputs.prerelease == 'false'
+    runs-on: depot-ubuntu-24.04-small
+    permissions:
+      contents: read
+    # Auxiliary step — must never block the release cut.
+    continue-on-error: true
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Create Linear release label
+        env:
+          INGESTION_LINEAR_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
+        run: |
+          python3 .github/scripts/release/create_linear_release_label.py \
+            --tag "${{ needs.cut_tag.outputs.tag }}"
+
+  print_docker_unified_url:
+    name: Print Docker Unified CI URL
+    needs: cut_tag
+    if: always() && needs.cut_tag.result == 'success'
+    runs-on: depot-ubuntu-24.04-small
+    permissions:
+      contents: read
+      # Needed for `gh run list` to locate the docker-unified run below.
+      actions: read
+    outputs:
+      docker_unified_url: ${{ steps.print_url.outputs.url }}
+    steps:
+      - name: Resolve tag to commit SHA
+        id: resolve_sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.cut_tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          REF_DATA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/${TAG}")
+          SHA=$(echo "$REF_DATA" | jq -r '.object.sha')
+          TYPE=$(echo "$REF_DATA" | jq -r '.object.type')
+          if [ "$TYPE" == "tag" ]; then
+            SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/${SHA}" | jq -r '.object.sha')
+          fi
+          if [[ -z "$SHA" || "$SHA" == "null" ]]; then
+            echo "✗ Could not resolve tag ${TAG} to a commit SHA"
+            exit 1
+          fi
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+
+      # The release's `release: published` event triggers docker-unified
+      # asynchronously, so poll until its run registers, then grab the exact
+      # run URL. Non-blocking: on timeout the print step falls back to a
+      # filtered workflow URL.
+      - name: Locate docker-unified run for this release
+        id: find_run
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.resolve_sha.outputs.sha }}
+        run: |
+          set -uo pipefail
+          RUN_URL=""
+          for _ in $(seq 1 12); do
+            RUN_URL=$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow docker-unified.yml \
+              --event release \
+              --limit 20 \
+              --json databaseId,url,headSha,createdAt \
+              --jq "[.[] | select(.headSha == \"${SHA}\")] | sort_by(.createdAt) | last | .url // empty")
+            if [[ -n "$RUN_URL" ]]; then
+              break
+            fi
+            sleep 5
+          done
+          echo "run_url=${RUN_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Print docker-unified workflow URL
+        id: print_url
+        env:
+          TAG: ${{ needs.cut_tag.outputs.tag }}
+          SHA: ${{ steps.resolve_sha.outputs.sha }}
+          RUN_URL: ${{ steps.find_run.outputs.run_url }}
+        run: |
+          if [[ -n "${RUN_URL}" ]]; then
+            URL="${RUN_URL}"
+          else
+            # Run not registered yet — link to the release-triggered runs so
+            # the operator sees the relevant runs instead of the full history.
+            URL="https://github.com/${GITHUB_REPOSITORY}/actions/workflows/docker-unified.yml?query=event%3Arelease"
+          fi
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Docker Unified CI for ${TAG} (${SHA})"
+          echo "  ${URL}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          ## Docker Unified CI
+
+          | Field      | Value        |
+          |------------|--------------|
+          | Tag        | \`${TAG}\`   |
+          | Commit SHA | \`${SHA}\`   |
+          | Run        | ${URL}       |
+          EOF

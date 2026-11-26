@@ -44,6 +44,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             false, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -108,6 +109,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -144,6 +146,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -181,6 +184,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -272,6 +276,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -308,6 +313,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -343,6 +349,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -372,6 +379,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -401,6 +409,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -430,6 +439,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -465,6 +475,7 @@ public class CreateCdcUserStepTest {
           new SqlSetupArgs(
               true,
               true,
+              true, // createSchema
               false,
               false,
               DatabaseType.MYSQL,
@@ -496,6 +507,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -535,6 +547,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -567,6 +580,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -596,6 +610,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -629,6 +644,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,

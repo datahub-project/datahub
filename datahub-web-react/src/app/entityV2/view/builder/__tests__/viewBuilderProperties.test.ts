@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { viewBuilderProperties } from '@app/entityV2/view/builder/viewBuilderProperties';
 import { SelectInputMode, ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';
 
-import { EntityType } from '@types';
+import { EntityType, FabricType } from '@types';
 
 describe('viewBuilderProperties', () => {
     it('should export an array of properties', () => {
@@ -34,12 +34,14 @@ describe('viewBuilderProperties', () => {
         expect(typeNamesProp?.valueOptions?.aggregationField).toBe('typeNames');
     });
 
-    it('should include platform property with correct display name', () => {
+    it('should include platform property sourced from the platform facet aggregation', () => {
         const platformProp = viewBuilderProperties.find((p) => p.id === 'platform');
         expect(platformProp?.displayName).toBe('Platform');
         expect(platformProp?.description).toBe('The data platform where the asset lives.');
-        expect(platformProp?.valueType).toBe(ValueTypeId.URN);
-        expect(platformProp?.valueOptions?.entityTypes).toContain(EntityType.DataPlatform);
+        // Aggregation-based so only platforms that actually have assets are offered (not every
+        // seeded DataPlatform), mirroring platformInstance.
+        expect(platformProp?.valueType).toBe(ValueTypeId.ENUM);
+        expect(platformProp?.valueOptions?.aggregationField).toBe('platform');
     });
 
     it('should include owners property with correct display name', () => {
@@ -54,6 +56,7 @@ describe('viewBuilderProperties', () => {
     it('should include domains property with correct display name', () => {
         const domainsProp = viewBuilderProperties.find((p) => p.id === 'domains');
         expect(domainsProp?.displayName).toBe('Domain');
+        expect(domainsProp?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
         expect(domainsProp?.valueOptions?.entityTypes).toContain(EntityType.Domain);
     });
 
@@ -78,7 +81,25 @@ describe('viewBuilderProperties', () => {
         const containerProp = viewBuilderProperties.find((p) => p.id === 'container');
         expect(containerProp?.displayName).toBe('Container');
         expect(containerProp?.description).toBe('The parent container of the asset.');
+        expect(containerProp?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
         expect(containerProp?.valueOptions?.entityTypes).toContain(EntityType.Container);
+    });
+
+    it('should include parentDocument property with hierarchical URN operators', () => {
+        const parentDocumentProp = viewBuilderProperties.find((p) => p.id === 'parentDocument');
+        expect(parentDocumentProp?.displayName).toBe('Parent Document');
+        expect(parentDocumentProp?.description).toBe('The parent document of a document.');
+        expect(parentDocumentProp?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
+        expect(parentDocumentProp?.valueOptions?.entityTypes).toContain(EntityType.Document);
+        expect(parentDocumentProp?.valueOptions?.mode).toBe(SelectInputMode.MULTIPLE);
+    });
+
+    it('exposes Within as the first operator for hierarchical properties', () => {
+        const hierarchicalIds = ['domains', 'container', 'parentDocument'];
+        hierarchicalIds.forEach((id) => {
+            const prop = viewBuilderProperties.find((p) => p.id === id);
+            expect(prop?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
+        });
     });
 
     it('should include column field properties with correct display names', () => {
@@ -102,11 +123,8 @@ describe('viewBuilderProperties', () => {
         expect(viewBuilderProperties.find((p) => p.id === 'hasActiveIncidents')?.displayName).toBe(
             'Has Active Incidents',
         );
-        expect(viewBuilderProperties.find((p) => p.id === 'hasFailingAssertions')?.displayName).toBe(
-            'Has Failing Assertions',
-        );
 
-        const booleanIds = ['hasDescription', 'removed', 'hasActiveIncidents', 'hasFailingAssertions'];
+        const booleanIds = ['hasDescription', 'removed', 'hasActiveIncidents'];
         booleanIds.forEach((id) => {
             expect(viewBuilderProperties.find((p) => p.id === id)?.valueType).toBe(ValueTypeId.BOOLEAN);
         });
@@ -120,7 +138,14 @@ describe('viewBuilderProperties', () => {
         const options = originProp?.valueOptions?.options ?? [];
         expect(options.find((o: { id: string }) => o.id === 'PROD')?.displayName).toBe('Production');
         expect(options.find((o: { id: string }) => o.id === 'DEV')?.displayName).toBe('Development');
-        expect(options.find((o: { id: string }) => o.id === 'STAGING')?.displayName).toBe('Staging');
+        expect(options.find((o: { id: string }) => o.id === FabricType.Stg)?.displayName).toBe('Staging');
+    });
+
+    it('should only offer environment options that are FabricType values', () => {
+        const originProp = viewBuilderProperties.find((p) => p.id === 'origin');
+        const fabricTypes = new Set<string>(Object.values(FabricType));
+        const options = originProp?.valueOptions?.options ?? [];
+        options.forEach((o: { id: string }) => expect(fabricTypes).toContain(o.id));
     });
 
     it('should include platformInstance property with correct display name and aggregation', () => {

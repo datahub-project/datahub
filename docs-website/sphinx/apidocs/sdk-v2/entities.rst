@@ -27,3 +27,9 @@ The DataHub SDK provides a set of entities that can be used to interact with Dat
 
 .. automodule:: datahub.sdk.dataflow
    :member-order: alphabetical
+
+.. automodule:: datahub.sdk.semantic_model
+   :member-order: alphabetical
+
+.. automodule:: datahub.sdk.metric
+   :member-order: alphabetical

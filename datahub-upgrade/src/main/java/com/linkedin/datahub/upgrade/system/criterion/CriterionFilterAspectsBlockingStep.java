@@ -25,10 +25,10 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -36,6 +36,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -181,94 +182,86 @@ public class CriterionFilterAspectsBlockingStep implements UpgradeStep {
       java.util.concurrent.atomic.AtomicLong totalIngested =
           new java.util.concurrent.atomic.AtomicLong(0);
 
-      try (PartitionedStream<EbeanAspectV2> stream =
-          aspectDao.streamAspectBatches(context.opContext(), args)) {
-        stream
-            .partition(args.batchSize)
-            .forEach(
-                rawBatch -> {
-                  List<EbeanAspectV2> batchList = rawBatch.collect(Collectors.toList());
+      aspectDao.streamAspectBatches(
+          context.opContext(),
+          args,
+          stream -> {
+            stream
+                .partition(args.batchSize)
+                .forEach(
+                    rawBatch -> {
+                      List<EbeanAspectV2> batchList = rawBatch.collect(Collectors.toList());
 
-                  List<ChangeItemImpl> items =
-                      batchList.stream()
-                          .flatMap(
-                              ea ->
-                                  EntityUtils.toSystemAspectFromEbeanAspects(
-                                      opContext, opContext.getRetrieverContext(), Set.of(ea))
-                                      .stream())
-                          .map(
-                              CriterionFilterAspectsBlockingStep
-                                  ::prepareSystemAspectForBlockingIngest)
-                          .map(
-                              prepared ->
-                                  ChangeItemImpl.builder()
-                                      .changeType(ChangeType.UPSERT)
-                                      .urn(prepared.getUrn())
-                                      .entitySpec(prepared.getEntitySpec())
-                                      .aspectName(prepared.getAspectName())
-                                      .aspectSpec(prepared.getAspectSpec())
-                                      .recordTemplate(prepared.getRecordTemplate())
-                                      .auditStamp(prepared.getAuditStamp())
-                                      .systemMetadata(withAppSource(prepared.getSystemMetadata()))
-                                      .headers(
-                                          versionHeaders(prepared.getSystemMetadata().getVersion()))
-                                      .build(opContext.getAspectRetriever()))
-                          .collect(Collectors.toList());
+                      List<ChangeItemImpl> items =
+                          batchList.stream()
+                              .flatMap(
+                                  ea ->
+                                      EntityUtils.toSystemAspectFromEbeanAspects(
+                                          opContext, opContext.getRetrieverContext(), Set.of(ea))
+                                          .stream())
+                              .map(
+                                  CriterionFilterAspectsBlockingStep
+                                      ::prepareSystemAspectForBlockingIngest)
+                              .map(prepared -> toChangeItem(opContext, prepared))
+                              .filter(Objects::nonNull)
+                              .collect(Collectors.toList());
 
-                  AspectsBatch aspectsBatch =
-                      AspectsBatchImpl.builder()
-                          .retrieverContext(opContext.getRetrieverContext())
-                          .items(items)
-                          .build(opContext);
+                      AspectsBatch aspectsBatch =
+                          AspectsBatchImpl.builder()
+                              .retrieverContext(opContext.getRetrieverContext())
+                              .items(items)
+                              .build(opContext);
 
-                  if (!aspectsBatch.getItems().isEmpty()) {
-                    // Re-ingest like GenerateSchemaFieldsFromSchemaMetadataStep: persist MCPs to
-                    // local DB then emit MCLs (emitMCL=true, overwrite=false).
-                    entityService.ingestAspects(opContext, aspectsBatch, true, false);
-                    totalIngested.addAndGet(aspectsBatch.getItems().size());
-                    log.info(
-                        "{}: Re-ingested {} aspect row(s) in batch (DB + MCL).",
-                        id(),
-                        items.size());
-                  }
+                      if (!aspectsBatch.getItems().isEmpty()) {
+                        // Re-ingest like GenerateSchemaFieldsFromSchemaMetadataStep: persist MCPs
+                        // to
+                        // local DB then emit MCLs (emitMCL=true, overwrite=false).
+                        entityService.ingestAspects(opContext, aspectsBatch, true, false);
+                        totalIngested.addAndGet(aspectsBatch.getItems().size());
+                        log.info(
+                            "{}: Re-ingested {} aspect row(s) in batch (DB + MCL).",
+                            id(),
+                            items.size());
+                      }
 
-                  Urn lastUrn =
-                      aspectsBatch.getItems().stream()
-                          .reduce((a, b) -> b)
-                          .map(ReadItem::getUrn)
-                          .orElse(null);
-                  if (lastUrn != null) {
-                    log.info("{}: Saving state. Last urn:{}", getUpgradeIdUrn(), lastUrn);
-                    context
-                        .upgrade()
-                        .setUpgradeResult(
-                            opContext,
-                            getUpgradeIdUrn(),
-                            entityService,
-                            DataHubUpgradeState.IN_PROGRESS,
-                            Map.of(LAST_URN_KEY, lastUrn.toString()));
-                  } else if (!batchList.isEmpty()) {
-                    String lastUrnStr = batchList.get(batchList.size() - 1).getKey().getUrn();
-                    log.info("{}: Saving state. Last urn: {}", getUpgradeIdUrn(), lastUrnStr);
-                    context
-                        .upgrade()
-                        .setUpgradeResult(
-                            opContext,
-                            getUpgradeIdUrn(),
-                            entityService,
-                            DataHubUpgradeState.IN_PROGRESS,
-                            Map.of(LAST_URN_KEY, lastUrnStr));
-                  }
+                      Urn lastUrn =
+                          aspectsBatch.getItems().stream()
+                              .reduce((a, b) -> b)
+                              .map(ReadItem::getUrn)
+                              .orElse(null);
+                      if (lastUrn != null) {
+                        log.info("{}: Saving state. Last urn:{}", getUpgradeIdUrn(), lastUrn);
+                        context
+                            .upgrade()
+                            .setUpgradeResult(
+                                opContext,
+                                getUpgradeIdUrn(),
+                                entityService,
+                                DataHubUpgradeState.IN_PROGRESS,
+                                Map.of(LAST_URN_KEY, lastUrn.toString()));
+                      } else if (!batchList.isEmpty()) {
+                        String lastUrnStr = batchList.get(batchList.size() - 1).getKey().getUrn();
+                        log.info("{}: Saving state. Last urn: {}", getUpgradeIdUrn(), lastUrnStr);
+                        context
+                            .upgrade()
+                            .setUpgradeResult(
+                                opContext,
+                                getUpgradeIdUrn(),
+                                entityService,
+                                DataHubUpgradeState.IN_PROGRESS,
+                                Map.of(LAST_URN_KEY, lastUrnStr));
+                      }
 
-                  if (batchDelayMs > 0) {
-                    try {
-                      Thread.sleep(batchDelayMs);
-                    } catch (InterruptedException e) {
-                      throw new RuntimeException(e);
-                    }
-                  }
-                });
-      }
+                      if (batchDelayMs > 0) {
+                        try {
+                          Thread.sleep(batchDelayMs);
+                        } catch (InterruptedException e) {
+                          throw new RuntimeException(e);
+                        }
+                      }
+                    });
+            return null;
+          });
 
       log.info("{}: Sweep complete. Total aspect rows re-ingested: {}.", id(), totalIngested.get());
       BootstrapStep.setUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
@@ -301,5 +294,43 @@ public class CriterionFilterAspectsBlockingStep implements UpgradeStep {
     map.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
     result.setProperties(map);
     return result;
+  }
+
+  /**
+   * Builds the re-ingest item, or null when the stored value was written by a newer version (read
+   * after a rollback) and fails validation in this one. That row is left as it is instead of
+   * failing this blocking step. Any other invalid value fails the step as before.
+   */
+  @Nullable
+  @VisibleForTesting
+  ChangeItemImpl toChangeItem(
+      @Nonnull OperationContext opContext, @Nonnull final SystemAspect prepared) {
+    final SystemMetadata systemMetadata = prepared.getSystemMetadata();
+    try {
+      return ChangeItemImpl.builder()
+          .changeType(ChangeType.UPSERT)
+          .urn(prepared.getUrn())
+          .entitySpec(prepared.getEntitySpec())
+          .aspectName(prepared.getAspectName())
+          .aspectSpec(prepared.getAspectSpec())
+          .recordTemplate(prepared.getRecordTemplate())
+          .auditStamp(prepared.getAuditStamp())
+          .systemMetadata(withAppSource(systemMetadata))
+          .headers(versionHeaders(systemMetadata.getVersion()))
+          .build(opContext.getAspectRetriever());
+    } catch (ValidationException e) {
+      // Decided on the stored value when it was read, before references only a newer version
+      // understands were removed.
+      if (!prepared.isFromNewerVersion()) {
+        throw e;
+      }
+      log.warn(
+          "{}: skipping {}/{}, its stored value from a newer version fails validation here: {}",
+          id(),
+          prepared.getUrn(),
+          prepared.getAspectName(),
+          e.getMessage());
+      return null;
+    }
   }
 }

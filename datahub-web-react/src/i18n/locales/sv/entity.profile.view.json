@@ -8,5 +8,6 @@
     "viewDefinitionTab.logicHeading": "Logik",
     "viewDefinitionTab.materializedFalse": "Nej",
     "viewDefinitionTab.materializedLabel": "Materialiserad",
-    "viewDefinitionTab.materializedTrue": "Ja"
+    "viewDefinitionTab.materializedTrue": "Ja",
+    "viewDefinitionTab.noViewPermission": "Du har inte behörighet att visa SQL-logiken för den här vyn."
 }

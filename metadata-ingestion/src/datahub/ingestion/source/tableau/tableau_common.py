@@ -5,7 +5,7 @@ import logging
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Protocol, Tuple, Type
 
 from pydantic import BaseModel
 from pydantic.fields import Field
@@ -137,6 +137,7 @@ sheet_graphql_query = """
         id
         name
         description
+        __INHERITED_DESCRIPTION__
         datasource {
         id
         name
@@ -247,6 +248,7 @@ embedded_datasource_graphql_query = """
         id
         name
         description
+        __INHERITED_DESCRIPTION__
         isHidden
         folderName
         upstreamColumns {
@@ -416,6 +418,7 @@ published_datasource_graphql_query = """
         id
         name
         description
+        __INHERITED_DESCRIPTION__
         isHidden
         folderName
         upstreamColumns {
@@ -586,6 +589,29 @@ def get_tags_from_params(params: Optional[List[str]] = None) -> GlobalTagsClass:
     return GlobalTagsClass(tags=tags)
 
 
+# Placeholder in the field selections of the datasource and sheet queries.
+# descriptionInherited needs Tableau Server 2021.2+, so it is only requested
+# when ingest_inherited_field_descriptions is enabled.
+INHERITED_DESCRIPTION_PLACEHOLDER = "__INHERITED_DESCRIPTION__"
+
+
+def with_inherited_field_descriptions(query: str, enabled: bool) -> str:
+    return query.replace(
+        INHERITED_DESCRIPTION_PLACEHOLDER,
+        "descriptionInherited { value }" if enabled else "",
+    )
+
+
+def get_field_description(field: dict) -> str:
+    """The field's own description, else the one Tableau inherits from upstream."""
+    if field.get("description"):
+        return field["description"]
+    for inherited in field.get("descriptionInherited") or []:
+        if inherited and inherited.get("value"):
+            return inherited["value"]
+    return ""
+
+
 def tableau_field_to_schema_field(field, ingest_tags):
     # The check here makes sure that even if 'dataType' key exists in the 'field' dictionary but has value None,
     # it will be set as "UNKNOWN" (nativeDataType field can not be None in the SchemaField).
@@ -599,7 +625,7 @@ def tableau_field_to_schema_field(field, ingest_tags):
         fieldPath=field["name"],
         type=SchemaFieldDataType(type=TypeClass()),
         description=make_description_from_params(
-            field.get("description", ""), field.get("formula")
+            get_field_description(field), field.get("formula")
         ),
         nativeDataType=nativeDataType,
         globalTags=(
@@ -655,16 +681,19 @@ def get_platform(connection_type: str) -> str:
     return platform
 
 
-# Two-tier (database.table) platforms. Everything else is treated as three-tier
-# (database.schema.table). Used to decide how many trailing name segments make up a
-# DataHub dataset identifier when trimming over-qualified names.
+# Platforms where Tableau's `database` names the same container as the schema, so the
+# dataset identifier is `schema.table`.
+_TWO_TIER_DB_STRIP_PLATFORMS = ("athena", "hive", "mysql", "teradata")
+
+# Two-tier (database.table) platforms; everything else is three-tier. Decides how many
+# trailing segments a dataset identifier keeps when trimming over-qualified names.
 #
-# This must be a superset of the two-tier platforms that `get_overridden_info` nulls
-# `upstream_db` for: the GraphQL path drops the db there (yielding a 2-part name), so
-# the SQL-parsed path must trim to 2 parts as well, otherwise the two lineage paths
-# emit mismatched URNs for the same table (e.g. teradata: `db.schema.table` from SQL
-# parsing vs `schema.table` from GraphQL).
-_TWO_TIER_PLATFORMS = ("athena", "hive", "mysql", "clickhouse", "teradata")
+# Superset by construction: stripping yields a 2-part name from GraphQL, so SQL-parsed
+# names must trim to 2 as well or the two lineage paths disagree on the same table.
+# clickhouse is trimmed without being stripped (as it has been since #11230) — trimming
+# alone gets it to 2 parts, and keeping the database means a schemaless upstream still
+# resolves to `db.table` rather than a bare table name.
+_TWO_TIER_PLATFORMS = (*_TWO_TIER_DB_STRIP_PLATFORMS, "clickhouse")
 
 
 def _dataset_name_max_parts(platform: str) -> int:
@@ -808,12 +837,13 @@ class TableauUpstreamReference:
         lineage_overrides: Optional[TableauLineageOverrides] = None,
         database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
         database_server_hostname_map: Optional[Dict[str, str]] = None,
+        database_id_to_platform_instance_map: Optional[Dict[str, str]] = None,
     ) -> str:
         (
             upstream_db,
             platform_instance,
             platform,
-            original_platform,
+            _,
         ) = get_overridden_info(
             connection_type=self.connection_type,
             upstream_db=self.database,
@@ -822,10 +852,13 @@ class TableauUpstreamReference:
             platform_instance_map=platform_instance_map,
             database_hostname_to_platform_instance_map=database_hostname_to_platform_instance_map,
             database_server_hostname_map=database_server_hostname_map,
+            database_id_to_platform_instance_map=database_id_to_platform_instance_map,
         )
 
+        # Name the table in the overridden platform's shape, not the source's, so it
+        # matches what the target platform's own ingestion emits.
         table_name = get_fully_qualified_table_name(
-            original_platform,
+            platform,
             upstream_db or "",
             self.schema,
             self.table,
@@ -836,6 +869,22 @@ class TableauUpstreamReference:
         )
 
 
+class OverriddenInfoFn(Protocol):
+    # A Protocol rather than a Callable alias so callers can (and must) pass the
+    # trailing run of same-typed Optional[Dict[str, str]] maps by keyword.
+    def __call__(
+        self,
+        connection_type: str,
+        upstream_db: Optional[str],
+        upstream_db_id: Optional[str],
+        platform_instance_map: Optional[Dict[str, str]],
+        lineage_overrides: Optional[TableauLineageOverrides] = None,
+        database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
+        database_server_hostname_map: Optional[Dict[str, str]] = None,
+        database_id_to_platform_instance_map: Optional[Dict[str, str]] = None,
+    ) -> Tuple[Optional[str], Optional[str], str, str]: ...
+
+
 def get_overridden_info(
     connection_type: str,
     upstream_db: Optional[str],
@@ -844,6 +893,7 @@ def get_overridden_info(
     lineage_overrides: Optional[TableauLineageOverrides] = None,
     database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
     database_server_hostname_map: Optional[Dict[str, str]] = None,
+    database_id_to_platform_instance_map: Optional[Dict[str, str]] = None,
 ) -> Tuple[Optional[str], Optional[str], str, str]:
     original_platform = platform = get_platform(connection_type)
     if (
@@ -876,12 +926,21 @@ def get_overridden_info(
         ):
             platform_instance = database_hostname_to_platform_instance_map.get(hostname)
 
-    if original_platform in (
-        "athena",
-        "hive",
-        "mysql",
-        "teradata",
-    ):  # Two tier databases
+    # Applied after hostname so it wins: one id is one connection, whereas a hostname
+    # can be shared (e.g. Athena workgroups behind a regional endpoint).
+    if (
+        database_id_to_platform_instance_map is not None
+        and upstream_db_id is not None
+        and upstream_db_id in database_id_to_platform_instance_map
+    ):
+        platform_instance = database_id_to_platform_instance_map[upstream_db_id]
+
+    # Either side being two-tier leaves nothing for the database segment: a two-tier
+    # target has no slot for one, and a two-tier source has no catalog to fill one.
+    if (
+        platform in _TWO_TIER_DB_STRIP_PLATFORMS
+        or original_platform in _TWO_TIER_DB_STRIP_PLATFORMS
+    ):
         upstream_db = None
 
     return upstream_db, platform_instance, platform, original_platform
@@ -998,8 +1057,11 @@ def make_fine_grained_lineage_class(
     # 3) corresponding Custom SQL output columns can be in any case lower/upper/mix
     #
     # we need a map between 2 and 3 that will be used during building column level linage links (see below)
+    #
+    # The Metadata API can return columns with an explicit null name, so filter them out
+    # rather than relying on a .get() default.
     out_columns_map = {
-        col.get(c.NAME, "").lower(): col.get(c.NAME, "") for col in out_columns
+        col[c.NAME].lower(): col[c.NAME] for col in out_columns if col.get(c.NAME)
     }
 
     fine_grained_lineages: List[FineGrainedLineage] = []

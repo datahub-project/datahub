@@ -8,6 +8,7 @@ paths:
   /datahub_usage_events/_search:
     post:
       summary: Raw datahub_usage_event data. (Experimental)
+      description: Executes a caller-supplied search request against the datahub_usage_event index. Requires the "Analytics API access" (GET_ANALYTICS_PRIVILEGE) or "Manage System Operations" privilege.
       operationId: "raw"
       tags:
         - "DataHub Usage"

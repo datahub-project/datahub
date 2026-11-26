@@ -12,7 +12,7 @@ import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
-} from '@app/search/utils/types';
+} from '@app/searchV2/utils/types';
 import { useSelectedSortOption } from '@src/app/search/context/SearchContext';
 import useSortInput from '@src/app/searchV2/sorting/useSortInput';
 

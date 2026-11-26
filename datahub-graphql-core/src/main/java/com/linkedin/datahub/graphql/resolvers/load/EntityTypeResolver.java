@@ -2,7 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.linkedin.datahub.graphql.AspectLoadContext;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -64,6 +67,15 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
         environment.getDataLoaderRegistry().getDataLoader(filteredEntity.name());
     final Object key = filteredEntity.getKeyProvider().apply(resolvedEntity);
 
+    QueryContext context = environment.getContext();
+    if (context != null) {
+      AspectLoadContext loadContext =
+          AspectUtils.computeLoadContext(
+              context.getAspectMappingRegistry(), filteredEntity.name(), environment);
+      // Resolver-side merge: see AspectLoadContext / QueryContext.mergeAspectLoadContext.
+      context.mergeAspectLoadContext(filteredEntity.name(), loadContext);
+      return loader.load(key, loadContext);
+    }
     return loader.load(key);
   }
 }

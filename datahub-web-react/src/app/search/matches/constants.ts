@@ -5,6 +5,7 @@ import { EntityType, MatchedField } from '@types';
 export type MatchedFieldName =
     | 'urn'
     | 'name'
+    | 'id'
     | 'displayName'
     | 'title'
     | 'description'
@@ -44,6 +45,12 @@ function getDefaultMatchedFieldConfig(): Array<MatchedFieldConfig> {
         },
         {
             name: 'name',
+            groupInto: 'name',
+            label: i18next.t('search:matches.field.name'),
+        },
+        {
+            // A schema field path is stored on id. Group it with name so the title highlights.
+            name: 'id',
             groupInto: 'name',
             label: i18next.t('search:matches.field.name'),
         },
@@ -114,18 +121,18 @@ function getDefaultMatchedFieldConfig(): Array<MatchedFieldConfig> {
     ];
 }
 
-const DEFAULT_MATCHED_FIELD_CONFIG: Array<MatchedFieldConfig> = getDefaultMatchedFieldConfig();
+function getChartDashboardFieldConfig(): Array<MatchedFieldConfig> {
+    return getDefaultMatchedFieldConfig().map((config) =>
+        config.name === 'title' ? { ...config, groupInto: 'name' } : config,
+    );
+}
 
-const CHART_DASHBOARD_FIELD_CONFIG: Array<MatchedFieldConfig> = DEFAULT_MATCHED_FIELD_CONFIG.map((config) => {
-    if (config.name === 'title') return { ...config, groupInto: 'name' };
-    return config;
-});
-
-export const MATCHED_FIELD_CONFIG = {
-    [EntityType.Chart]: CHART_DASHBOARD_FIELD_CONFIG,
-    [EntityType.Dashboard]: CHART_DASHBOARD_FIELD_CONFIG,
-    DEFAULT: DEFAULT_MATCHED_FIELD_CONFIG,
-} as const;
+export function getMatchedFieldConfig(entityType: EntityType | undefined): Array<MatchedFieldConfig> {
+    if (entityType === EntityType.Chart || entityType === EntityType.Dashboard) {
+        return getChartDashboardFieldConfig();
+    }
+    return getDefaultMatchedFieldConfig();
+}
 
 export type MatchesGroupedByFieldName = {
     fieldName: string;

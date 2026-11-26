@@ -3,6 +3,8 @@ package io.datahubproject.metadata.context;
 import static com.linkedin.metadata.Constants.CORP_USER_STATUS_SUSPENDED;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -268,5 +270,48 @@ public class ActorContextTest {
                     "status", new Aspect(new Status().setRemoved(false).data()),
                     "corpUserStatus", new Aspect(suspended.data()))));
     assertFalse(ctx.isActive(mock(OperationContext.class), retriever));
+  }
+
+  @Test
+  public void isActiveMemoizesTrueResultAndSkipsRepeatedAspectLookup() {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:activeone");
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "activeone"), "");
+    ActorContext ctx =
+        ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), Set.of(), true);
+    CorpUserKey key = new CorpUserKey().setUsername("activeone");
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.getLatestAspectObjects(any(OperationFingerprint.class), any(), any()))
+        .thenReturn(
+            Map.of(
+                userUrn,
+                Map.of(
+                    "corpUserKey", new Aspect(key.data()),
+                    "status", new Aspect(new Status().setRemoved(false).data()),
+                    "corpUserStatus",
+                        new Aspect(new CorpUserStatus().setStatus("ACTIVE").data()))));
+
+    assertTrue(ctx.isActive(mock(OperationContext.class), retriever));
+    assertTrue(ctx.isActive(mock(OperationContext.class), retriever));
+
+    verify(retriever, times(1))
+        .getLatestAspectObjects(any(OperationFingerprint.class), any(), any());
+  }
+
+  @Test
+  public void isActiveMemoizesFalseResultAndSkipsRepeatedAspectLookup() {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:nobody");
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "nobody"), "");
+    ActorContext ctx =
+        ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), Set.of(), true);
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.getLatestAspectObjects(any(OperationFingerprint.class), any(), any()))
+        .thenReturn(
+            Map.of(userUrn, Map.of("status", new Aspect(new Status().setRemoved(false).data()))));
+
+    assertFalse(ctx.isActive(mock(OperationContext.class), retriever));
+    assertFalse(ctx.isActive(mock(OperationContext.class), retriever));
+
+    verify(retriever, times(1))
+        .getLatestAspectObjects(any(OperationFingerprint.class), any(), any());
   }
 }

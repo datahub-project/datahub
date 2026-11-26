@@ -8,6 +8,9 @@ from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.datahub_documents.document_chunking_state_handler import (
     DocumentChunkingStatefulIngestionConfig,
 )
+from datahub.ingestion.source.datahub_documents.text_partitioner import (
+    DEFAULT_PARTITION_TIMEOUT_SECONDS,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
@@ -143,7 +146,7 @@ class DataHubDocumentsSourceConfig(
     platform_filter: Optional[list[str]] = Field(
         default=None,
         description="Filter documents by platforms. "
-        "Default (None): Process all NATIVE documents (sourceType=NATIVE) regardless of platform. "
+        "Default (None): Process all NATIVE and SYSTEM documents regardless of platform. "
         "EXTERNAL documents are also processed by default (see include_external_documents); "
         "set platform_filter to restrict EXTERNAL documents to specific platforms (e.g., ['notion', 'confluence']). "
         "Use ['*'] or ['ALL'] to process all documents regardless of source type or platform.",
@@ -155,7 +158,7 @@ class DataHubDocumentsSourceConfig(
         description="Index EXTERNAL documents (sourceType=EXTERNAL), not just NATIVE ones. "
         "When platform_filter is set, EXTERNAL documents are still restricted to those "
         "platforms; when platform_filter is empty, all EXTERNAL documents are included. "
-        "Set to False to restore NATIVE-only behavior.",
+        "Set to False to process only DataHub-owned (NATIVE and SYSTEM) documents.",
     )
 
     # Optional URN filtering
@@ -257,8 +260,23 @@ class DataHubDocumentsSourceConfig(
         default=True, description="Skip documents with no text content"
     )
     min_text_length: int = Field(
-        default=50,
-        description="Minimum text length in characters to process (shorter documents are skipped)",
+        default=0,
+        description="Minimum text length in characters to process. Default 0 "
+        "processes all non-empty documents; set > 0 to skip short documents. "
+        "Empty documents are always skipped.",
+    )
+    partition_timeout_seconds: float = Field(
+        default=DEFAULT_PARTITION_TIMEOUT_SECONDS,
+        ge=0,
+        allow_inf_nan=False,
+        description="Maximum CPU seconds to partition one document; slower documents are "
+        "skipped and counted in the report. Measured as CPU time rather than wall-clock "
+        "time, so a busy or throttled executor does not cause timeouts; time spent "
+        "waiting (e.g. on I/O or locks) is not limited. 0 disables the "
+        "limit. Only enforced when the source runs "
+        "on the main thread of a POSIX platform. Documents that already timed out are not "
+        "retried after the limit is raised until their content changes; run once with "
+        "incremental.force_reprocess: true to retry them (this re-embeds every document).",
     )
     # Override from base class to enable stateful ingestion by default
     # This ensures stateful ingestion is always available for:
@@ -275,7 +293,7 @@ class DataHubDocumentsSourceConfig(
     def validate_platform_filter(cls, v: list[str]) -> list[str]:
         """Validate platform_filter.
 
-        Empty list is allowed (default - processes all NATIVE documents).
+        Empty list is allowed (default - processes all NATIVE and SYSTEM documents).
         Non-empty list must contain at least one platform or wildcard.
         """
         # Empty list is valid (default behavior)

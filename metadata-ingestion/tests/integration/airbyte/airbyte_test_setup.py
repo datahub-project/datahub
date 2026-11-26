@@ -65,8 +65,37 @@ STATIC_MYSQL_SOURCE_ID = "22222222-2222-2222-2222-222222222222"
 STATIC_POSTGRES_DEST_ID = "44444444-4444-4444-4444-444444444444"
 STATIC_MYSQL_TO_PG_CONNECTION_ID = "66666666-6666-6666-6666-666666666666"
 
+AIRBYTE_NAMESPACE = "airbyte-abctl"
+AIRBYTE_DB_POD = "airbyte-db-0"
+
+_PSQL_TIMEOUT_SECONDS = 60
+# The ID rewrites run right after `abctl local install` + onboarding, while the
+# cluster is still churning, so `kubectl exec` into the DB pod can fail or time
+# out transiently. Retry before giving up.
+_DB_ID_UPDATE_ATTEMPTS = 5
+_DB_ID_UPDATE_RETRY_SECONDS = 5
+
 # abctl v0.30.3 deploys Airbyte 1.8+
 ABCTL_VERSION = "v0.30.3"
+
+# Pin the Airbyte helm CHART version (abctl installs from the v2 chart repo, whose versions are
+# 2.x.x — distinct from the Airbyte *app* version). abctl defaults --chart-version to "latest",
+# which drifted to chart 2.2.0 (app 2.2.0) whose auth flow this test doesn't handle (401s). Chart
+# 2.0.17 packages app 1.8.5, the last 1.8.x release the test targets.
+AIRBYTE_CHART_VERSION = "2.0.17"
+
+# `abctl local install` creates a kind cluster, pulls every Airbyte image
+# anonymously from Docker Hub, then waits for the Helm release. On CI the whole
+# fixture setup takes ~490-830s, so a 600s install limit failed on slow pull days.
+# A retry is cheaper than the first attempt: images it already pulled stay in the
+# host's Docker and are loaded into the new cluster instead of being pulled again.
+# The budget covers both attempts and the cleanup between them, and has to fit,
+# with the rest of the batch (up to ~900s), in the 2700s pytest wall clock that
+# build.gradle puts on each integration batch.
+ABCTL_INSTALL_BUDGET_SECONDS = 1200
+ABCTL_FIRST_INSTALL_TIMEOUT_SECONDS = 750
+ABCTL_MIN_RETRY_SECONDS = 300
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 AIRBYTE_API_URL: str = f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1"
 
@@ -182,26 +211,7 @@ def diagnose_airbyte_proxy_issue() -> None:
     except Exception:
         pass
 
-    try:
-        kubeconfig = str(Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig")
-        result = subprocess.run(
-            [
-                "kubectl",
-                "--kubeconfig",
-                kubeconfig,
-                "get",
-                "pods",
-                "-n",
-                "airbyte-abctl",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode == 0:
-            print(result.stdout)
-    except Exception:
-        pass
+    _print_kubectl(["get", "pods", "-n", AIRBYTE_NAMESPACE])
 
 
 def get_api_url_for_test() -> Tuple[str, bool]:
@@ -230,7 +240,7 @@ def check_airbyte_pods_ready() -> bool:
                 "get",
                 "pods",
                 "-n",
-                "airbyte-abctl",
+                AIRBYTE_NAMESPACE,
                 "-o",
                 "json",
             ],
@@ -272,7 +282,7 @@ def get_airbyte_version() -> Optional[str]:
                 "deployment",
                 "airbyte-server",
                 "-n",
-                "airbyte-abctl",
+                AIRBYTE_NAMESPACE,
                 "-o",
                 "jsonpath={.spec.template.spec.containers[0].image}",
             ],
@@ -346,6 +356,49 @@ def wait_for_airbyte_ready(timeout: int = 600) -> bool:
     return False
 
 
+def _exec_psql(kubeconfig_path: Path, sql: str) -> "subprocess.CompletedProcess[str]":
+    return subprocess.run(
+        [
+            "kubectl",
+            "--kubeconfig",
+            str(kubeconfig_path),
+            "exec",
+            "-n",
+            AIRBYTE_NAMESPACE,
+            AIRBYTE_DB_POD,
+            "--",
+            "psql",
+            "-U",
+            "airbyte",
+            "-d",
+            "db-airbyte",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-c",
+            sql,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=_PSQL_TIMEOUT_SECONDS,
+    )
+
+
+def _row_exists(kubeconfig_path: Path, table_name: str, row_id: str) -> bool:
+    """Whether `table_name` holds a row with `row_id`.
+
+    Best-effort: a failure here is reported as "not present" so the caller falls
+    through to its own retry and its own loud error, rather than masking that
+    error with this one.
+    """
+    try:
+        result = _exec_psql(
+            kubeconfig_path, f"SELECT 1 FROM {table_name} WHERE id = '{row_id}';"
+        )
+    except (subprocess.SubprocessError, OSError):
+        return False
+    return result.returncode == 0 and "(1 row)" in result.stdout
+
+
 def update_all_ids_atomically(
     kubeconfig_path: Path,
     id_updates: Dict[str, Dict[str, Any]],
@@ -356,8 +409,6 @@ def update_all_ids_atomically(
         return False
 
     try:
-        db_pod_name = "airbyte-db-0"
-
         sql_statements = [
             "BEGIN;",
             "ALTER TABLE connection DISABLE TRIGGER ALL;",
@@ -387,78 +438,71 @@ def update_all_ids_atomically(
             ]
         )
 
-        full_sql = " ".join(sql_statements)
-
-        command = [
-            "kubectl",
-            "--kubeconfig",
-            str(kubeconfig_path),
-            "exec",
-            "-n",
-            "airbyte-abctl",
-            db_pod_name,
-            "--",
-            "psql",
-            "-U",
-            "airbyte",
-            "-d",
-            "db-airbyte",
-            "-c",
-            full_sql,
-        ]
-
-        result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+        result = _exec_psql(kubeconfig_path, " ".join(sql_statements))
+        if result.returncode != 0:
+            print(f"  psql rejected the atomic ID update: {result.stderr.strip()!r}")
         return result.returncode == 0
 
-    except Exception:
+    except Exception as e:
+        print(f"  Atomic ID update failed: {e}")
         return False
 
 
 def update_airbyte_database_id(
     kubeconfig_path: Path, table_name: str, old_id: str, new_id: str
-) -> bool:
+) -> None:
+    """Rewrite a row's primary key in Airbyte's Postgres to one of our static test IDs.
+
+    Raises on failure instead of returning a status. This rewrite runs while the
+    freshly-installed cluster is still settling, so a single attempt is not
+    reliable; swallowing the failure left Airbyte's random workspace UUID in the
+    ingested output and surfaced much later as an unexplained golden-file diff.
+    """
+    if not shutil.which("kubectl"):
+        raise RuntimeError("kubectl not found on PATH; cannot rewrite Airbyte IDs")
     if not kubeconfig_path.exists():
-        return False
+        raise RuntimeError(f"abctl kubeconfig not found at {kubeconfig_path}")
 
-    try:
-        kubectl_check = subprocess.run(
-            ["kubectl", "version", "--client"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if kubectl_check.returncode != 0:
-            return False
-    except (subprocess.SubprocessError, FileNotFoundError):
-        return False
+    sql = f"UPDATE {table_name} SET id = '{new_id}' WHERE id = '{old_id}';"
+    failure = ""
+    # An attempt can commit server-side and still fail locally — kubectl killed at
+    # the timeout, or an UPDATE that matched nothing because a previous attempt
+    # already renamed the row. Once that is possible, the row's end state rather
+    # than the affected-row count decides whether the rewrite landed.
+    may_have_committed = False
 
-    try:
-        result = subprocess.run(
-            [
-                "kubectl",
-                f"--kubeconfig={kubeconfig_path}",
-                "exec",
-                "-n",
-                "airbyte-abctl",
-                "airbyte-db-0",
-                "--",
-                "psql",
-                "-U",
-                "airbyte",
-                "-d",
-                "db-airbyte",
-                "-c",
-                f"UPDATE {table_name} SET id = '{new_id}' WHERE id = '{old_id}';",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+    for attempt in range(1, _DB_ID_UPDATE_ATTEMPTS + 1):
+        try:
+            result = _exec_psql(kubeconfig_path, sql)
+        except subprocess.TimeoutExpired:
+            may_have_committed = True
+            failure = f"kubectl exec timed out after {_PSQL_TIMEOUT_SECONDS}s"
+        except (subprocess.SubprocessError, OSError) as e:
+            failure = f"kubectl exec failed: {e}"
+        else:
+            # psql exits 0 for an UPDATE that matched no rows, so the affected-row
+            # count is the only trustworthy signal that the rewrite landed.
+            if result.returncode == 0 and "UPDATE 1" in result.stdout:
+                return
+            if "UPDATE 0" in result.stdout:
+                may_have_committed = True
+            failure = (
+                f"exit={result.returncode} stdout={result.stdout.strip()!r} "
+                f"stderr={result.stderr.strip()!r}"
+            )
 
-        return result.returncode == 0
+        if may_have_committed and _row_exists(kubeconfig_path, table_name, new_id):
+            print(f"  {table_name} id already holds {new_id}; rewrite landed")
+            return
 
-    except (subprocess.TimeoutExpired, Exception):
-        return False
+        print(f"  {table_name} id rewrite attempt {attempt} failed: {failure}")
+        if attempt < _DB_ID_UPDATE_ATTEMPTS:
+            time.sleep(_DB_ID_UPDATE_RETRY_SECONDS)
+
+    raise RuntimeError(
+        f"Could not rewrite {table_name} id {old_id} -> {new_id} after "
+        f"{_DB_ID_UPDATE_ATTEMPTS} attempts. Last failure: {failure}"
+    )
 
 
 def try_direct_api_setup() -> Optional[str]:
@@ -741,12 +785,12 @@ def setup_airbyte_connections(test_resources_dir: Path) -> Dict[str, Optional[st
 
     kubeconfig = Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig"
 
-    if update_airbyte_database_id(
+    update_airbyte_database_id(
         kubeconfig, "workspace", workspace_id, STATIC_WORKSPACE_ID
-    ):
-        workspace_id = STATIC_WORKSPACE_ID
-        print(f"Using static workspace ID: {workspace_id}")
-        time.sleep(5)
+    )
+    workspace_id = STATIC_WORKSPACE_ID
+    print(f"Using static workspace ID: {workspace_id}")
+    time.sleep(5)
 
     created_ids = create_airbyte_test_setup(workspace_id)
 
@@ -799,7 +843,7 @@ def _restart_airbyte_server(kubeconfig: Path) -> None:
             "restart",
             "deployment/airbyte-abctl-server",
             "-n",
-            "airbyte-abctl",
+            AIRBYTE_NAMESPACE,
         ]
         restart_result = subprocess.run(
             restart_cmd, capture_output=True, text=True, timeout=30
@@ -814,7 +858,7 @@ def _restart_airbyte_server(kubeconfig: Path) -> None:
                 "status",
                 "deployment/airbyte-abctl-server",
                 "-n",
-                "airbyte-abctl",
+                AIRBYTE_NAMESPACE,
                 "--timeout=120s",
             ]
             subprocess.run(
@@ -921,6 +965,92 @@ def install_abctl(test_resources_dir: Path) -> Path:
         if abctl_path.exists():
             abctl_path.unlink()
         raise RuntimeError(f"Failed to download abctl: {e}") from e
+
+
+def _output_tail(*outputs: object, max_lines: int = 40) -> str:
+    """Last distinct lines of abctl output, without its spinner redraws."""
+    # On a timeout subprocess hands back raw bytes even with text=True.
+    text = "\n".join(
+        o.decode(errors="replace") if isinstance(o, bytes) else o
+        for o in outputs
+        if isinstance(o, (bytes, str))
+    )
+    lines: List[str] = []
+    for line in re.split(r"[\r\n]+", _ANSI_ESCAPE.sub("", text)):
+        line = line.strip()
+        if line and (not lines or lines[-1] != line):
+            lines.append(line)
+    return "\n".join(lines[-max_lines:])
+
+
+def _print_kubectl(args: List[str]) -> None:
+    kubeconfig = str(Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig")
+    try:
+        result = subprocess.run(
+            ["kubectl", "--kubeconfig", kubeconfig, *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        print(
+            f"kubectl {' '.join(args)}:\n"
+            f"{_output_tail(result.stdout, result.stderr, max_lines=60)}"
+        )
+    except (subprocess.SubprocessError, FileNotFoundError) as e:
+        print(f"kubectl {' '.join(args)} failed: {e}")
+
+
+def _print_install_diagnostics(output: str) -> None:
+    print(f"abctl output (tail):\n{output}")
+    _print_kubectl(["get", "pods", "-A", "-o", "wide"])
+    _print_kubectl(
+        ["get", "events", "-n", AIRBYTE_NAMESPACE, "--sort-by=.lastTimestamp"]
+    )
+
+
+def install_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
+    install_cmd = [
+        str(abctl_path),
+        "local",
+        "install",
+        "--chart-version",
+        AIRBYTE_CHART_VERSION,
+        "--port",
+        str(AIRBYTE_API_PORT),
+        "--no-browser",
+        "--insecure-cookies",
+    ]
+    deadline = time.monotonic() + ABCTL_INSTALL_BUDGET_SECONDS
+    timeout = ABCTL_FIRST_INSTALL_TIMEOUT_SECONDS
+    for attempt in (1, 2):
+        print(f"Installing Airbyte with abctl (attempt {attempt})...")
+        started = time.monotonic()
+        try:
+            result = subprocess.run(
+                install_cmd,
+                cwd=test_resources_dir,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as e:
+            print(f"abctl install timed out after {timeout}s")
+            _print_install_diagnostics(_output_tail(e.stdout, e.stderr))
+        else:
+            elapsed = time.monotonic() - started
+            if result.returncode == 0:
+                print(f"Airbyte installation completed in {elapsed:.0f}s")
+                return
+            print(f"abctl install failed after {elapsed:.0f}s")
+            _print_install_diagnostics(_output_tail(result.stdout, result.stderr))
+        if attempt == 2:
+            break
+        cleanup_airbyte(abctl_path, test_resources_dir)
+        timeout = int(deadline - time.monotonic())
+        if timeout < ABCTL_MIN_RETRY_SECONDS:
+            print(f"Only {timeout}s of the install budget left; not retrying")
+            break
+    raise RuntimeError("abctl install did not succeed")
 
 
 def cleanup_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:

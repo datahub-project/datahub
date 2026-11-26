@@ -93,6 +93,50 @@ public class EntityGraphViewTest {
   }
 
   @Test
+  public void expandAndAncestorsSkipUnparsableEndpoints() {
+    String child = "urn:li:foo:a";
+    String parent = "urn:li:foo:b";
+    EntityGraphView view =
+        new EntityGraphView(
+            List.of(
+                DirectedEdge.builder()
+                    .sourceUrn(child)
+                    .destinationUrn(parent)
+                    .relationshipType("Related")
+                    .build(),
+                DirectedEdge.builder()
+                    .sourceUrn(child)
+                    .destinationUrn("null")
+                    .relationshipType("Related")
+                    .build()));
+
+    assertEquals(
+        view.expand(TraversalDirection.FORWARD, Set.of(child), 100, 2), Set.of(child, parent));
+    assertEquals(view.orderedForwardAncestors(child, 10), List.of(parent));
+    assertFalse(view.containsVertex("null"));
+  }
+
+  @Test
+  public void expandCanonicalizesQuotedAndPaddedEndpoints() {
+    String child = "urn:li:foo:a";
+    String parent = "urn:li:foo:b";
+    EntityGraphView view =
+        new EntityGraphView(
+            List.of(
+                DirectedEdge.builder()
+                    .sourceUrn("  " + child + "  ")
+                    .destinationUrn("\"" + parent + "\"")
+                    .relationshipType("Related")
+                    .build()));
+
+    assertEquals(
+        view.expand(TraversalDirection.FORWARD, Set.of(child), 100, 2), Set.of(child, parent));
+    assertTrue(view.containsVertex(child));
+    assertTrue(view.containsVertex(parent));
+    assertEquals(view.orderedForwardAncestors(child, 10), List.of(parent));
+  }
+
+  @Test
   public void orderedForwardAncestorsReturnsParentChain() {
     EntityGraphView view = linearView();
     assertEquals(view.orderedForwardAncestors(GRANDCHILD, 10), List.of(CHILD, ROOT));
@@ -166,6 +210,26 @@ public class EntityGraphViewTest {
     assertEquals(view.orderedForwardAncestors(a, 10), List.of(b));
   }
 
+  @Test
+  public void ignoresSelfEdgesInLegacySnapshots() {
+    EntityGraphView view =
+        new EntityGraphView(
+            List.of(
+                DirectedEdge.builder()
+                    .sourceUrn(CHILD)
+                    .destinationUrn(CHILD)
+                    .relationshipType("IsPartOf")
+                    .build(),
+                DirectedEdge.builder()
+                    .sourceUrn(CHILD)
+                    .destinationUrn(ROOT)
+                    .relationshipType("IsPartOf")
+                    .build()));
+
+    assertEquals(view.orderedForwardAncestors(CHILD, 10), List.of(ROOT));
+    assertEquals(view.inducedComponentEdges(Set.of(CHILD)).size(), 1);
+  }
+
   private static final String USER = "urn:li:corpuser:alice";
   private static final String GROUP = "urn:li:corpGroup:eng";
   private static final String ROLE = "urn:li:dataHubRole:admin";
@@ -230,6 +294,29 @@ public class EntityGraphViewTest {
             TraversalDirection.REVERSE, GROUP, Set.of("IsMemberOfGroup"), 1, 0, 10);
     assertEquals(members.getTotal(), 2);
     assertTrue(members.getNeighbors().stream().anyMatch(edge -> edge.getSourceUrn().equals(USER)));
+  }
+
+  @Test
+  public void neighborsWithResultCountZeroReturnsMemberTotal() {
+    EntityGraphView view =
+        new EntityGraphView(
+            List.of(
+                DirectedEdge.builder()
+                    .sourceUrn(USER)
+                    .destinationUrn(GROUP)
+                    .relationshipType("IsMemberOfGroup")
+                    .build(),
+                DirectedEdge.builder()
+                    .sourceUrn("urn:li:corpuser:bob")
+                    .destinationUrn(GROUP)
+                    .relationshipType("IsMemberOfGroup")
+                    .build()));
+
+    EntityGraphView.NeighborResult members =
+        view.neighborsWithResult(
+            TraversalDirection.REVERSE, GROUP, Set.of("IsMemberOfGroup"), 1, 0, 0);
+    assertEquals(members.getTotal(), 2);
+    assertTrue(members.getNeighbors().isEmpty());
   }
 
   @Test

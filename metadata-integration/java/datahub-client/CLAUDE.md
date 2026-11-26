@@ -33,7 +33,7 @@ ADMIN_USERNAME=datahub ADMIN_PASSWORD=datahub ./gradlew :metadata-integration:ja
 
 ## Test Organization
 
-80 integration tests across 8 entity types (Dataset, Chart, Dashboard, DataJob, DataFlow, Container, MLModel, MLModelGroup).
+Integration tests cover 8 entity types (Dataset, Chart, Dashboard, DataJob, DataFlow, Container, MLModel, MLModelGroup), plus emit modes (`EmitModeIntegrationTest`) and `EntityClient.get()` (`EntityClientGetIntegrationTest`). Name new test classes `*IntegrationTest`: CI selects them with `--tests "*Integration*"`.
 
 All tests extend `BaseIntegrationTest` which handles authentication, token generation, client initialization, and cleanup.
 

@@ -57,6 +57,8 @@ dependencies {
   implementation externalDependency.awsMskIamAuth
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity
+  // kafka-clients OAUTHBEARER JWT validation is compileOnly upstream (KAFKA-20184)
+  runtimeOnly externalDependency.jose4j
 
   implementation externalDependency.commonsText
   implementation(externalDependency.hibernateValidator) {

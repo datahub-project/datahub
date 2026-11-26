@@ -6,7 +6,7 @@ source:
     username: sa
     password: test!Password
     database: DemoData
-    host_port: localhost:21433
+    host_port: localhost:${MSSQL_PORT}
     platform_instance: my-instance
     include_containers_for_pipelines: true
     convert_urns_to_lowercase: true
@@ -15,6 +15,13 @@ source:
     database_pattern:
       deny:
         - .*DB_WITH@SPEC_SYMB.*
+
+    options:
+      connect_args:
+        # pytds enables TLS only when cafile is set. This CA signed the
+        # server cert (CN/SAN localhost). forceencryption rejects plaintext.
+        cafile: "${MSSQL_CAFILE}"
+        validate_host: true
 
 sink:
   type: file

@@ -13,12 +13,16 @@ CREATE USER hr_schema IDENTIFIED BY hr123;
 CREATE USER sales_schema IDENTIFIED BY sales123;
 CREATE USER analytics_schema IDENTIFIED BY analytics123;
 CREATE USER staging_schema IDENTIFIED BY staging123;
+-- Its own schema so only the recipe that profiles has to opt in: every other
+-- recipe allows an anchored list of the schemas above, so nothing else sees it.
+CREATE USER casing_schema IDENTIFIED BY casing123;
 
 -- Grant necessary privileges including tablespace quota
 GRANT CONNECT, RESOURCE, CREATE VIEW, CREATE MATERIALIZED VIEW, QUERY REWRITE TO hr_schema;
 GRANT CONNECT, RESOURCE, CREATE VIEW, CREATE MATERIALIZED VIEW, QUERY REWRITE TO sales_schema;
 GRANT CONNECT, RESOURCE, CREATE VIEW, CREATE MATERIALIZED VIEW, QUERY REWRITE TO analytics_schema;
 GRANT CONNECT, RESOURCE, CREATE VIEW TO staging_schema;
+GRANT CONNECT, RESOURCE TO casing_schema;
 
 -- Grant additional system privileges needed for materialized views to all schemas
 GRANT CREATE ANY MATERIALIZED VIEW TO hr_schema;
@@ -37,6 +41,7 @@ ALTER USER hr_schema QUOTA UNLIMITED ON USERS;
 ALTER USER sales_schema QUOTA UNLIMITED ON USERS;
 ALTER USER analytics_schema QUOTA UNLIMITED ON USERS;
 ALTER USER staging_schema QUOTA UNLIMITED ON USERS;
+ALTER USER casing_schema QUOTA UNLIMITED ON USERS;
 
 -- Grant additional privileges for procedures and packages
 GRANT CREATE PROCEDURE TO hr_schema;
@@ -251,6 +256,34 @@ GRANT SELECT ON sales_schema.orders TO analytics_schema;
 GRANT SELECT ON sales_schema.order_items TO analytics_schema;
 GRANT SELECT ON hr_schema.employees TO analytics_schema;
 GRANT SELECT ON hr_schema.departments TO analytics_schema;
+
+-- Create CASING_SCHEMA objects
+ALTER SESSION SET CURRENT_SCHEMA = casing_schema;
+
+-- Columns whose stored names differ only by case. Oracle allows this through
+-- quoted identifiers: MIXEDCOL is stored uppercase, "mixedcol" lowercase, and
+-- they are two distinct columns. SQLAlchemy's Oracle dialect normalizes both to
+-- the same reflected name, so sa.Table keeps only one of them unless the
+-- profiler re-reads the stored names -- the case _use_stored_column_names
+-- exists to handle, and the only place outside Snowflake where it runs.
+--
+-- The two collide deliberately: MIXEDCOL holds 10/20/30 and "mixedcol" holds
+-- 100/200/300, so if the recovery regresses, the surviving profile reports the
+-- other column's statistics under the same field path -- a wrong answer rather
+-- than a missing one, which a row count alone would not catch.
+--
+-- "MixedCol" is a third, non-colliding column: normalize_name preserves its
+-- case, so it checks a mixed-case name survives being quoted into profiling SQL.
+CREATE TABLE case_sensitive_columns (
+    id NUMBER(4) PRIMARY KEY,
+    "MixedCol" VARCHAR2(20),
+    MIXEDCOL NUMBER(6),
+    "mixedcol" NUMBER(6)
+);
+
+INSERT INTO case_sensitive_columns VALUES (1, 'alpha', 10, 100);
+INSERT INTO case_sensitive_columns VALUES (2, 'beta', 20, 200);
+INSERT INTO case_sensitive_columns VALUES (3, 'gamma', 30, 300);
 
 -- Commit all changes
 COMMIT;

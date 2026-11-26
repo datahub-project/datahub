@@ -2,14 +2,14 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
 
 const LINE_LIMIT = 10;
 
 const SourceDescriptionWrapper = styled.div`
-    border-top: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 0 16px 32px;
 `;
 

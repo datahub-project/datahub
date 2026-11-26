@@ -1,0 +1,25 @@
+"""
+An entity with a browse path
+"""
+interface HasBrowsePathV2 {
+  """
+  The browse path V2 corresponding to the entity
+  """
+  browsePathV2: BrowsePathV2
+}
+
+extend type Chart implements HasBrowsePathV2
+extend type Container implements HasBrowsePathV2
+extend type Dashboard implements HasBrowsePathV2
+extend type DataFlow implements HasBrowsePathV2
+extend type DataJob implements HasBrowsePathV2
+extend type Dataset implements HasBrowsePathV2
+extend type Document implements HasBrowsePathV2
+extend type MLFeature implements HasBrowsePathV2
+extend type MLFeatureTable implements HasBrowsePathV2
+extend type MLModel implements HasBrowsePathV2
+extend type MLModelGroup implements HasBrowsePathV2
+extend type Metric implements HasBrowsePathV2
+extend type Notebook implements HasBrowsePathV2
+extend type Repository implements HasBrowsePathV2
+extend type SemanticModel implements HasBrowsePathV2

@@ -1,10 +1,15 @@
 package com.linkedin.metadata.resources.restli;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.dao.throttle.DatabaseTransactionConflictRestLiServiceException;
 import com.linkedin.metadata.dao.throttle.ThrottledRestLiServiceException;
+import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
@@ -14,6 +19,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -49,14 +55,74 @@ public class RestliUtils {
         finalException = forbidden(throwable.getCause().getMessage());
       } else if (throwable instanceof APIThrottleException apiThrottleException) {
         finalException = apiThrottled(apiThrottleException);
-      } else if (throwable instanceof RestLiServiceException) {
-        finalException = (RestLiServiceException) throwable;
       } else {
-        finalException = new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
+        DatabaseTransactionConflictException conflict =
+            findCause(throwable, DatabaseTransactionConflictException.class);
+        LineageTimeoutException lineageTimeout =
+            conflict == null ? findCause(throwable, LineageTimeoutException.class) : null;
+        // A validator rejecting the request (e.g. a delete hook) is the caller's to fix, not a
+        // server error the client should retry. Status codes follow the OpenAPI mapping, with the
+        // 422 the Rest.li ingest endpoints already return as the default.
+        ValidationException validation = findCause(throwable, ValidationException.class);
+        if (validation != null) {
+          finalException =
+              new RestLiServiceException(validationStatus(validation), validation.getMessage());
+        } else if (conflict != null) {
+          finalException = databaseTransactionConflict(conflict);
+        } else if (lineageTimeout != null) {
+          // Same classification as the GraphQL DEADLINE_EXCEEDED mapping, so SDK/CLI callers can
+          // tell a graph-query deadline from an outage (clients already retry 500 and 504 alike).
+          finalException =
+              new RestLiServiceException(
+                  HttpStatus.S_504_GATEWAY_TIMEOUT, lineageTimeout.getMessage(), lineageTimeout);
+        } else if (throwable instanceof RestLiServiceException) {
+          finalException = (RestLiServiceException) throwable;
+        } else {
+          finalException =
+              new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
+        }
       }
 
       throw finalException;
     }
+  }
+
+
+  @Nonnull
+  private static RestLiServiceException databaseTransactionConflict(
+      @Nonnull DatabaseTransactionConflictException conflict) {
+    // RestLiServiceException has no setHeader(); Retry-After is exposed via
+    // DatabaseTransactionConflictRestLiServiceException.getResponseHeaders() and applied by
+    // RestliThrottleResponseFilter (same pattern as ThrottledRestLiServiceException).
+    return new DatabaseTransactionConflictRestLiServiceException(conflict);
+  }
+
+  @Nonnull
+  private static HttpStatus validationStatus(@Nonnull ValidationException validation) {
+    Set<ValidationSubType> subTypes =
+        validation.getValidationExceptionCollection() != null
+            ? validation.getValidationExceptionCollection().getSubTypes()
+            : Set.of();
+    if (subTypes.contains(ValidationSubType.AUTHORIZATION)) {
+      return HttpStatus.S_403_FORBIDDEN;
+    }
+    if (subTypes.contains(ValidationSubType.PRECONDITION)) {
+      return HttpStatus.S_412_PRECONDITION_FAILED;
+    }
+    return HttpStatus.S_422_UNPROCESSABLE_ENTITY;
+  }
+
+  @Nullable
+  private static <T extends Throwable> T findCause(
+      @Nonnull Throwable throwable, @Nonnull Class<T> type) {
+    Throwable current = throwable;
+    while (current != null) {
+      if (type.isInstance(current)) {
+        return type.cast(current);
+      }
+      current = current.getCause();
+    }
+    return null;
   }
 
   @Nonnull

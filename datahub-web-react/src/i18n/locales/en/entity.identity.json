@@ -19,7 +19,7 @@
     "groups.createModal.name.label": "Name",
     "groups.createModal.name.placeholder": "A name for your group",
     "groups.createModal.name.validationError.empty": "Enter a Group name.",
-    "groups.createModal.name.validationError.tooLong": "Name must be 50 characters or less.",
+    "groups.createModal.name.validationError.tooLong": "Name must be 250 characters or less.",
     "groups.createModal.title": "Create new group",
     "groups.createOwnerError": "Failed to automatically add you as an owner of the group. Please add yourself as an owner manually.",
     "groups.createSuccess": "Created group!",
@@ -45,6 +45,7 @@
     "inviteToken.copyTooltip": "Copy invite link.",
     "inviteToken.createError": "Failed to create Invite Token for role {{roleName}} : \n {{error}}",
     "inviteToken.footerText": "Copy an invite link to send to your users. When they join, users will be automatically assigned to the selected role.",
+    "inviteToken.footerTextNoRole": "Copy an invite link to send to your users. They can create an account, and will not be assigned a role.",
     "inviteToken.generateNewLinkTooltip": "Generate a new link. Any old links will no longer be valid.",
     "inviteToken.generateSuccess": "Generated new invite link",
     "inviteToken.modalTitle": "Share Invite Link",
@@ -118,6 +119,7 @@
     "users.columns.name": "Name",
     "users.columns.role": "Role",
     "users.columns.status": "Status",
+    "users.copyUrn": "Copy Urn",
     "users.deleteUser": "Delete User",
     "users.emptyTitle": "No Users!",
     "users.groups.overflowTitle": "Groups",
@@ -146,5 +148,6 @@
     "users.statusFilter.placeholder": "Status",
     "users.statusFilter.suspended": "Suspended",
     "users.statusInactive": "Inactive",
-    "users.statusNoUrn": "No URN"
+    "users.statusNoUrn": "No URN",
+    "users.urnCopied": "Urn copied to clipboard"
 }

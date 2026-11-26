@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
 import * as navBarHooks from '@app/useShowNavBarRedesign';
@@ -66,10 +66,33 @@ vi.mock('virtual:__federation__', () => ({
     __federation_method_unwrapDefault: unwrapModuleMock,
 }));
 
+// Capture tracked events; EventType resolves each member to its own name so events can be matched by string.
+const { trackEventMock } = vi.hoisted(() => ({ trackEventMock: vi.fn() }));
+vi.mock('@app/analytics', () => ({
+    __esModule: true,
+    default: { event: trackEventMock },
+    EventType: new Proxy({}, { get: (_target, key) => String(key) }),
+}));
+
 describe('MFEBaseConfigurablePage', () => {
+    // Restore real timers even when a fake-timer test fails, so they can't leak into later tests.
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     beforeEach(() => {
         vi.clearAllMocks();
     });
+
+    const renderPage = (yaml: any, loadTimeoutMs?: number) => {
+        render(
+            <MemoryRouter>
+                <ThemeProvider theme={sampleTheme as any}>
+                    <MFEBaseConfigurablePage config={yaml} loadTimeoutMs={loadTimeoutMs} />
+                </ThemeProvider>
+            </MemoryRouter>,
+        );
+    };
 
     it('renders the container div', () => {
         const yaml = validParsedYaml.microFrontends[0];
@@ -92,13 +115,7 @@ describe('MFEBaseConfigurablePage', () => {
         unwrapModuleMock.mockResolvedValue({ mount: mountFn });
 
         await act(async () => {
-            render(
-                <MemoryRouter>
-                    <ThemeProvider theme={sampleTheme as any}>
-                        <MFEBaseConfigurablePage config={yaml} />
-                    </ThemeProvider>
-                </MemoryRouter>,
-            );
+            renderPage(yaml);
         });
         const container = screen.getByTestId('mfe-configurable-container');
         expect(container).toBeInTheDocument();
@@ -111,13 +128,7 @@ describe('MFEBaseConfigurablePage', () => {
         unwrapModuleMock.mockResolvedValue({ mount: mountFn });
 
         await act(async () => {
-            render(
-                <MemoryRouter>
-                    <ThemeProvider theme={sampleTheme as any}>
-                        <MFEBaseConfigurablePage config={yaml} />
-                    </ThemeProvider>
-                </MemoryRouter>,
-            );
+            renderPage(yaml);
         });
 
         const container = screen.getByTestId('mfe-configurable-container');
@@ -133,17 +144,11 @@ describe('MFEBaseConfigurablePage', () => {
 
         vi.useFakeTimers();
 
-        render(
-            <MemoryRouter>
-                <ThemeProvider theme={sampleTheme as any}>
-                    <MFEBaseConfigurablePage config={yaml} />
-                </ThemeProvider>
-            </MemoryRouter>,
-        );
+        renderPage(yaml);
 
         // Advance timers to trigger timeout
         act(() => {
-            vi.advanceTimersByTime(5000);
+            vi.advanceTimersByTime(10000);
         });
 
         // Wait for the error message to appear with a timeout
@@ -156,6 +161,141 @@ describe('MFEBaseConfigurablePage', () => {
 
         vi.useRealTimers();
     }, 10000); // Increase test timeout
+
+    it('uses the loadTimeoutMs resolved from the MFE config yaml as the remote load timeout', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        // Mock getRemote to never resolve so only the timeout can settle the race
+        getRemoteMock.mockImplementation(() => new Promise(() => {}));
+        unwrapModuleMock.mockResolvedValue({});
+
+        vi.useFakeTimers();
+
+        renderPage(yaml, 1000);
+
+        // Just under the configured timeout: no error yet
+        await act(async () => {
+            vi.advanceTimersByTime(999);
+        });
+        expect(screen.queryByText(`${yaml.label} is not available at this time`)).toBeNull();
+
+        // Crossing the configured timeout triggers the error state well before the 10000ms default
+        act(() => {
+            vi.advanceTimersByTime(1);
+        });
+        await vi.waitFor(
+            () => {
+                expect(screen.getByText(`${yaml.label} is not available at this time`)).toBeInTheDocument();
+            },
+            { timeout: 1000 },
+        );
+
+        vi.useRealTimers();
+    }, 10000);
+
+    it('falls back to a 10000ms load timeout when the yaml specifies no loadTimeoutMs', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        getRemoteMock.mockImplementation(() => new Promise(() => {}));
+        unwrapModuleMock.mockResolvedValue({});
+
+        vi.useFakeTimers();
+
+        renderPage(yaml, undefined);
+
+        // Just under the default timeout: no error yet
+        await act(async () => {
+            vi.advanceTimersByTime(9999);
+        });
+        expect(screen.queryByText(`${yaml.label} is not available at this time`)).toBeNull();
+
+        act(() => {
+            vi.advanceTimersByTime(1);
+        });
+        await vi.waitFor(
+            () => {
+                expect(screen.getByText(`${yaml.label} is not available at this time`)).toBeInTheDocument();
+            },
+            { timeout: 1000 },
+        );
+
+        vi.useRealTimers();
+    }, 10000);
+
+    it('tracks a page view and a successful load', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        const mountFn = vi.fn(() => vi.fn());
+        getRemoteMock.mockResolvedValue({ mount: mountFn });
+        unwrapModuleMock.mockResolvedValue({ mount: mountFn });
+
+        await act(async () => {
+            renderPage(yaml, 5000);
+        });
+
+        expect(trackEventMock).toHaveBeenCalledWith({
+            type: 'MfePageViewEvent',
+            mfeId: yaml.id,
+            mfeLabel: yaml.label,
+            mfePath: yaml.path,
+        });
+        expect(trackEventMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: 'MfeLoadEvent',
+                mfeId: yaml.id,
+                outcome: 'success',
+                loadTimeoutMs: 5000,
+                durationMs: expect.any(Number),
+            }),
+        );
+        expect(trackEventMock.mock.calls.filter(([event]) => event.type === 'MfeLoadEvent')).toHaveLength(1);
+    });
+
+    it('tracks a timed-out load', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        getRemoteMock.mockImplementation(() => new Promise(() => {}));
+
+        vi.useFakeTimers();
+        renderPage(yaml, 1000);
+        await act(async () => {
+            vi.advanceTimersByTime(1000);
+        });
+
+        await vi.waitFor(() => {
+            expect(trackEventMock).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'MfeLoadEvent', mfeId: yaml.id, outcome: 'timeout' }),
+            );
+        });
+        vi.useRealTimers();
+    });
+
+    it('tracks a failed remote load', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        getRemoteMock.mockRejectedValue(new Error('remoteEntry.js returned 503'));
+
+        await act(async () => {
+            renderPage(yaml);
+        });
+
+        await vi.waitFor(() => {
+            expect(trackEventMock).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'MfeLoadEvent', mfeId: yaml.id, outcome: 'load_error' }),
+            );
+        });
+    });
+
+    it('tracks a load whose remote exposes no mount function', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        getRemoteMock.mockResolvedValue({});
+        unwrapModuleMock.mockResolvedValue({ notMount: 42 });
+
+        await act(async () => {
+            renderPage(yaml);
+        });
+
+        await vi.waitFor(() => {
+            expect(trackEventMock).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'MfeLoadEvent', mfeId: yaml.id, outcome: 'invalid_mount' }),
+            );
+        });
+    });
 
     it('shows error UI when enabled flag is false', async () => {
         const yaml = {

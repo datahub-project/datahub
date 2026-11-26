@@ -2,8 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.linkedin.api.ApiProperties;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -19,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,41 +38,54 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         bindArgument(environment.getArgument("input"), DescriptionUpdateInput.class);
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
     log.info("Updating description. input: {}", input.toString());
+    final QueryContext context = getQueryContext(environment);
+    if (context == null) {
+      throw new IllegalStateException("QueryContext is required for updateDescription");
+    }
     switch (targetUrn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:
-        return updateDatasetDescription(targetUrn, input, environment.getContext());
+        return updateDatasetDescription(targetUrn, input, context);
       case Constants.CONTAINER_ENTITY_NAME:
-        return updateContainerDescription(targetUrn, input, environment.getContext());
+        return updateContainerDescription(targetUrn, input, context);
       case Constants.DOMAIN_ENTITY_NAME:
-        return updateDomainDescription(targetUrn, input, environment.getContext());
+        return updateDomainDescription(targetUrn, input, context);
       case Constants.GLOSSARY_TERM_ENTITY_NAME:
-        return updateGlossaryTermDescription(targetUrn, input, environment.getContext());
+        return updateGlossaryTermDescription(targetUrn, input, context);
       case Constants.GLOSSARY_NODE_ENTITY_NAME:
-        return updateGlossaryNodeDescription(targetUrn, input, environment.getContext());
+        return updateGlossaryNodeDescription(targetUrn, input, context);
       case Constants.TAG_ENTITY_NAME:
-        return updateTagDescription(targetUrn, input, environment.getContext());
+        return updateTagDescription(targetUrn, input, context);
       case Constants.CORP_GROUP_ENTITY_NAME:
-        return updateCorpGroupDescription(targetUrn, input, environment.getContext());
+        return updateCorpGroupDescription(targetUrn, input, context);
       case Constants.NOTEBOOK_ENTITY_NAME:
-        return updateNotebookDescription(targetUrn, input, environment.getContext());
+        return updateNotebookDescription(targetUrn, input, context);
       case Constants.ML_MODEL_ENTITY_NAME:
-        return updateMlModelDescription(targetUrn, input, environment.getContext());
+        return updateMlModelDescription(targetUrn, input, context);
       case Constants.ML_MODEL_GROUP_ENTITY_NAME:
-        return updateMlModelGroupDescription(targetUrn, input, environment.getContext());
+        return updateMlModelGroupDescription(targetUrn, input, context);
       case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
-        return updateMlFeatureTableDescription(targetUrn, input, environment.getContext());
+        return updateMlFeatureTableDescription(targetUrn, input, context);
       case Constants.ML_FEATURE_ENTITY_NAME:
-        return updateMlFeatureDescription(targetUrn, input, environment.getContext());
+        return updateMlFeatureDescription(targetUrn, input, context);
       case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
-        return updateMlPrimaryKeyDescription(targetUrn, input, environment.getContext());
+        return updateMlPrimaryKeyDescription(targetUrn, input, context);
       case Constants.DATA_PRODUCT_ENTITY_NAME:
-        return updateDataProductDescription(targetUrn, input, environment.getContext());
+        return updateDataProductDescription(targetUrn, input, context);
       case Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME:
-        return updateBusinessAttributeDescription(targetUrn, input, environment.getContext());
+        return updateBusinessAttributeDescription(targetUrn, input, context);
       case Constants.APPLICATION_ENTITY_NAME:
-        return updateApplicationDescription(targetUrn, input, environment.getContext());
+        return updateApplicationDescription(targetUrn, input, context);
+      case Constants.API_ENTITY_NAME:
+        return updateCatalogEntityDescription(
+            targetUrn,
+            input,
+            context,
+            Constants.API_PROPERTIES_ASPECT_NAME,
+            // name is required on apiProperties; seed it from the urn id when the aspect is absent
+            new ApiProperties().setName(targetUrn.getId()),
+            ApiProperties::setDescription);
       case Constants.DOCUMENT_ENTITY_NAME:
-        return updateDocumentDescription(targetUrn, input, environment.getContext());
+        return updateDocumentDescription(targetUrn, input, context);
       default:
         throw new RuntimeException(
             String.format(
@@ -618,6 +634,45 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         },
         this.getClass().getSimpleName(),
         "updateApplicationDescription");
+  }
+
+  private <T extends RecordTemplate> CompletableFuture<Boolean> updateCatalogEntityDescription(
+      Urn targetUrn,
+      DescriptionUpdateInput input,
+      QueryContext context,
+      String aspectName,
+      T emptyAspect,
+      BiConsumer<T, String> setDescription) {
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> {
+          if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
+
+          try {
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+            DescriptionUtils.updateCatalogEntityDescription(
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService,
+                aspectName,
+                emptyAspect,
+                setDescription);
+            return true;
+          } catch (Exception e) {
+            log.error(
+                "Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+            throw new RuntimeException(
+                String.format("Failed to perform update against input %s", input.toString()), e);
+          }
+        },
+        this.getClass().getSimpleName(),
+        "updateCatalogEntityDescription");
   }
 
   private CompletableFuture<Boolean> updateBusinessAttributeDescription(

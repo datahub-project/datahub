@@ -6,14 +6,17 @@ import static auth.ConfigUtil.*;
 import auth.sso.SsoConfigs;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 /** Class responsible for extracting and validating OIDC related configurations. */
 @Getter
+@EqualsAndHashCode(callSuper = true)
 public class OidcConfigs extends SsoConfigs {
 
   /** Required configs */
@@ -51,6 +54,7 @@ public class OidcConfigs extends SsoConfigs {
   public static final String OIDC_HTTP_RETRY_ATTEMPTS = "auth.oidc.httpRetryAttempts";
   public static final String OIDC_HTTP_RETRY_DELAY = "auth.oidc.httpRetryDelay";
   public static final String OIDC_ACCESS_DENIED_REDIRECT_URL = "auth.oidc.accessDeniedRedirectUrl";
+  public static final String OIDC_ACCESS_DENIED_MESSAGE = "auth.oidc.accessDeniedMessage";
   public static final String OIDC_DISABLE_PKCE = "auth.oidc.disablePkce";
   public static final String OIDC_REQUIRED_GROUPS_CONFIG_PATH = "auth.oidc.requiredGroups";
 
@@ -97,6 +101,7 @@ public class OidcConfigs extends SsoConfigs {
   private final String httpRetryAttempts;
   private final String httpRetryDelay;
   private final Optional<String> accessDeniedRedirectUrl;
+  private final Optional<String> accessDeniedMessage;
   private final boolean disablePkce;
 
   /* Group Access Control */
@@ -129,6 +134,7 @@ public class OidcConfigs extends SsoConfigs {
     this.httpRetryAttempts = builder.httpRetryAttempts;
     this.httpRetryDelay = builder.httpRetryDelay;
     this.accessDeniedRedirectUrl = builder.accessDeniedRedirectUrl;
+    this.accessDeniedMessage = builder.accessDeniedMessage;
     this.disablePkce = builder.disablePkce;
     this.requiredGroups = builder.requiredGroups;
   }
@@ -170,8 +176,61 @@ public class OidcConfigs extends SsoConfigs {
     private String httpRetryAttempts = DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS;
     private String httpRetryDelay = DEFAULT_OIDC_HTTP_RETRY_DELAY;
     private Optional<String> accessDeniedRedirectUrl = Optional.empty();
+    private Optional<String> accessDeniedMessage = Optional.empty();
     private boolean disablePkce = false;
     private Set<String> requiredGroups = Collections.emptySet();
+
+    private static Set<String> parseRequiredGroupsFromConfig(
+        final com.typesafe.config.Config configs) {
+      return getOptional(configs, OIDC_REQUIRED_GROUPS_CONFIG_PATH)
+          .map(
+              s ->
+                  Arrays.stream(s.split(","))
+                      .map(String::trim)
+                      .filter(str -> !str.isEmpty())
+                      .collect(Collectors.toSet()))
+          .orElse(Collections.emptySet());
+    }
+
+    private void seedAccessControlFromConfig(final com.typesafe.config.Config configs) {
+      requiredGroups = parseRequiredGroupsFromConfig(configs);
+      accessDeniedRedirectUrl = nonBlank(getOptional(configs, OIDC_ACCESS_DENIED_REDIRECT_URL));
+      accessDeniedMessage = nonBlank(getOptional(configs, OIDC_ACCESS_DENIED_MESSAGE));
+    }
+
+    private void overlayAccessControlFromJson() {
+      if (jsonNode.has(REQUIRED_GROUPS) && jsonNode.get(REQUIRED_GROUPS).isArray()) {
+        final Set<String> parsedGroups = new HashSet<>();
+        jsonNode
+            .get(REQUIRED_GROUPS)
+            .forEach(
+                node -> {
+                  final String group = node.asText().trim();
+                  if (!group.isEmpty()) {
+                    parsedGroups.add(group);
+                  }
+                });
+        requiredGroups = parsedGroups;
+      }
+      // Assign even when blank: clearing the field in the settings UI must override any
+      // env-seeded value, mirroring how an empty requiredGroups array clears enforcement above.
+      if (jsonNode.has(ACCESS_DENIED_MESSAGE)) {
+        accessDeniedMessage = nonBlank(Optional.of(jsonNode.get(ACCESS_DENIED_MESSAGE).asText()));
+      }
+      if (jsonNode.has(ACCESS_DENIED_REDIRECT_URL)) {
+        accessDeniedRedirectUrl =
+            nonBlank(Optional.of(jsonNode.get(ACCESS_DENIED_REDIRECT_URL).asText()));
+      }
+    }
+
+    /**
+     * Collapses a blank value to {@link Optional#empty()} so downstream consumers never see a
+     * present-but-empty setting. Without this, a cleared access-denied URL reaches {@link
+     * OidcResponseErrorHandler} as {@code Optional.of("")} and redirects denied users to "".
+     */
+    private static Optional<String> nonBlank(final Optional<String> value) {
+      return value.map(String::trim).filter(s -> !s.isEmpty());
+    }
 
     public Builder from(final com.typesafe.config.Config configs) {
       super.from(configs);
@@ -224,24 +283,18 @@ public class OidcConfigs extends SsoConfigs {
       httpRetryAttempts =
           getOptional(configs, OIDC_HTTP_RETRY_ATTEMPTS, DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS);
       httpRetryDelay = getOptional(configs, OIDC_HTTP_RETRY_DELAY, DEFAULT_OIDC_HTTP_RETRY_DELAY);
-      accessDeniedRedirectUrl = getOptional(configs, OIDC_ACCESS_DENIED_REDIRECT_URL);
       if (configs.hasPath(OIDC_DISABLE_PKCE)) {
         disablePkce = configs.getBoolean(OIDC_DISABLE_PKCE);
       }
-      requiredGroups =
-          getOptional(configs, OIDC_REQUIRED_GROUPS_CONFIG_PATH)
-              .map(
-                  s ->
-                      Arrays.stream(s.split(","))
-                          .map(String::trim)
-                          .filter(str -> !str.isEmpty())
-                          .collect(Collectors.toSet()))
-              .orElse(Collections.emptySet());
+      seedAccessControlFromConfig(configs);
       return this;
     }
 
     public Builder from(final com.typesafe.config.Config configs, final String ssoSettingsJsonStr) {
       super.from(ssoSettingsJsonStr);
+      // Seed access-control fields from env/static config first so they survive dynamic SSO
+      // refresh when the JSON omits them (see #18591).
+      seedAccessControlFromConfig(configs);
       if (jsonNode.has(CLIENT_ID)) {
         clientId = jsonNode.get(CLIENT_ID).asText();
       }
@@ -306,6 +359,8 @@ public class OidcConfigs extends SsoConfigs {
 
       grantType = Optional.ofNullable(getOptional(configs, OIDC_GRANT_TYPE, null));
       acrValues = Optional.ofNullable(getOptional(configs, OIDC_ACR_VALUES, null));
+
+      overlayAccessControlFromJson();
 
       return this;
     }

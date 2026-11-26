@@ -2,9 +2,39 @@ package com.linkedin.metadata.search.utils;
 
 import static org.testng.Assert.*;
 
+import java.nio.charset.StandardCharsets;
 import org.testng.annotations.Test;
 
 public class SearchDocumentSanitizerTest {
+
+  @Test
+  public void testTruncateShortValueUnchanged() {
+    String input = "short value under the limit";
+    assertEquals(SearchDocumentSanitizer.truncateForIndexing(input, 32766), input);
+  }
+
+  @Test
+  public void testTruncateNullAndEmpty() {
+    assertNull(SearchDocumentSanitizer.truncateForIndexing(null, 32766));
+    assertEquals(SearchDocumentSanitizer.truncateForIndexing("", 32766), "");
+  }
+
+  @Test
+  public void testTruncateOversizedValue() {
+    String input = "a".repeat(40_000);
+    String result = SearchDocumentSanitizer.truncateForIndexing(input, 32766);
+    assertEquals(result.getBytes(StandardCharsets.UTF_8).length, 32766);
+    assertTrue(input.startsWith(result), "Truncated value must be a prefix of the original");
+  }
+
+  @Test
+  public void testTruncateDoesNotSplitMultiByteChar() {
+    // '€' is 3 UTF-8 bytes (E2 82 AC). A byte limit of 8 lands in the middle of the third char,
+    // so truncation must back up to the boundary at 6 bytes (two euro signs), not slice a char.
+    String result = SearchDocumentSanitizer.truncateForIndexing("€€€€€", 8);
+    assertEquals(result, "€€");
+    assertEquals(result.getBytes(StandardCharsets.UTF_8).length, 6);
+  }
 
   @Test
   public void testPreserveExternalImageLinks() {

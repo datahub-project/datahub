@@ -27,10 +27,11 @@ public enum ConsistencyCheckSchedule {
       case "daily" -> DAILY;
       case "weekly" -> WEEKLY;
       case "monthly" -> MONTHLY;
-      default -> throw new IllegalArgumentException(
-          "Unknown consistency check schedule '"
-              + value
-              + "'. Expected: every-run, daily, weekly, or monthly");
+      default ->
+          throw new IllegalArgumentException(
+              "Unknown consistency check schedule '"
+                  + value
+                  + "'. Expected: every-run, daily, weekly, or monthly");
     };
   }
 }

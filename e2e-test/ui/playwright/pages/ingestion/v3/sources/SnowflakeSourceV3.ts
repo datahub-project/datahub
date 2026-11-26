@@ -9,17 +9,11 @@ import {
 import { DataHubLogger } from '@utils/logger';
 
 export class SnowflakeSourceV3 extends SnowflakeSource {
-  readonly yamlSwitcherButton: Locator;
   readonly snowflakeConnectionDetailsHeading: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.yamlSwitcherButton = page.getByTestId('yaml-editor-tab');
     this.snowflakeConnectionDetailsHeading = page.getByText('Snowflake Connection Details');
-  }
-
-  getYamlSwitcherButton(): Locator {
-    return this.yamlSwitcherButton;
   }
 
   getAuthTypeFormItem(): Locator {

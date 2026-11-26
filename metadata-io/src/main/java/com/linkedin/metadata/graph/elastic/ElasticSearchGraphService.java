@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.Constants.GRAPH_SERVICE_INDEX;
 import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 import static com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils.getUrnStatusFieldName;
 import static com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils.getUrnStatusQuery;
@@ -9,6 +10,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
@@ -17,9 +19,11 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.LineageCountResult;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
@@ -37,7 +41,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
-import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.shared.MigratableIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -53,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -72,7 +77,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
 @RequiredArgsConstructor
-public class ElasticSearchGraphService implements GraphService, ElasticSearchIndexed {
+public class ElasticSearchGraphService implements GraphService, MigratableIndexed {
   private final LineageRegistry lineageRegistry;
   private final ESBulkProcessor esBulkProcessor;
   private final IndexConvention indexConvention;
@@ -80,7 +85,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   private final ESGraphQueryDAO graphReadDAO;
   private final ESIndexBuilder indexBuilder;
   private final String idHashAlgo;
-  public static final String INDEX_NAME = "graph_service_v1";
+  public static final String INDEX_NAME = GRAPH_SERVICE_INDEX;
   private static final Map<String, Object> EMPTY_HASH = new HashMap<>();
 
   private static String toDocument(@Nonnull final Edge edge) {
@@ -160,6 +165,16 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     return indexBuilder;
   }
 
+  /**
+   * Flushes pending edge writes and waits until the cluster acknowledged them. Acknowledged edges
+   * are still not searchable until the graph index refreshes.
+   *
+   * @return true when every pending write was acknowledged without failures
+   */
+  public boolean flushAndAwaitWrites() {
+    return !esBulkProcessor.flushAndAwait().hasFailures();
+  }
+
   @Override
   public LineageRegistry getLineageRegistry() {
     return lineageRegistry;
@@ -231,7 +246,19 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
         .setStart(offset)
         .setCount(count)
         .setTotal(lineageResponse.getTotal())
-        .setPartial(lineageResponse.isPartial());
+        .setPartial(lineageResponse.isPartial())
+        .setPartialReason(lineageResponse.getPartialReason(), SetMode.REMOVE_IF_NULL);
+  }
+
+  @Nonnull
+  @WithSpan
+  @Override
+  public LineageCountResult getLineageCount(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int sampleSize) {
+    return graphReadDAO.getLineageCount(opContext, entityUrns, lineageGraphFilters, sampleSize);
   }
 
   @Nonnull
@@ -249,7 +276,8 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
         .setStart(0)
         .setCount(lineageResponse.getLineageRelationships().size())
         .setTotal(lineageResponse.getTotal())
-        .setPartial(lineageResponse.isPartial());
+        .setPartial(lineageResponse.isPartial())
+        .setPartialReason(lineageResponse.getPartialReason(), SetMode.REMOVE_IF_NULL);
   }
 
   private static Filter createUrnFilter(@Nonnull final Urn urn) {
@@ -328,10 +356,21 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nonnull final OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties)
       throws IOException {
+    return buildReindexConfigsFor(opContext, properties, indexBuilder, UnaryOperator.identity());
+  }
+
+  @Override
+  public List<ReindexConfig> buildReindexConfigsFor(
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties,
+      @Nonnull final ESIndexBuilder targetBuilder,
+      @Nonnull final UnaryOperator<String> nameRewriter)
+      throws IOException {
     return List.of(
-        indexBuilder.buildReindexState(
+        targetBuilder.buildReindexState(
             opContext,
-            indexConvention.getIndexName(INDEX_NAME),
+            nameRewriter.apply(
+                indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME)),
             GraphRelationshipMappingsBuilder.getMappings(),
             Collections.emptyMap()));
   }
@@ -339,7 +378,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   @Override
   public void clear(@Nonnull OperationContext opContext) {
     // Instead of deleting all documents (inefficient), delete and recreate the index
-    String indexName = indexConvention.getIndexName(INDEX_NAME);
+    String indexName = indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME);
     try {
       // Build a config with the correct target mappings for recreation
       ReindexConfig config =
@@ -414,6 +453,34 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   /**
+   * {@inheritDoc} The point-in-time stays open until its keep-alive when a caller reads one page
+   * and stops, so a count closes it here. A close that fails is logged: the keep-alive still
+   * expires it, and the count that opened it has already been read.
+   */
+  @Override
+  public void closeRelatedEntitiesScroll(
+      @Nonnull final OperationContext opContext, @Nullable final String scrollId) {
+    if (scrollId == null) {
+      return;
+    }
+    final String pitId;
+    try {
+      pitId = SearchAfterWrapper.fromScrollId(scrollId).getPitId();
+    } catch (RuntimeException e) {
+      log.warn("Could not read graph scroll to close its point-in-time", e);
+      return;
+    }
+    if (pitId == null) {
+      return;
+    }
+    try {
+      graphReadDAO.cleanupPointInTime(opContext, pitId);
+    } catch (RuntimeException e) {
+      log.warn("Could not close the graph point-in-time opened to count referrers", e);
+    }
+  }
+
+  /**
    * Returns list of edge documents for the given graph node and relationship tuples. Non-directed
    *
    * @param opContext operation context
@@ -482,7 +549,8 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     searchSourceBuilder.size(getGraphServiceConfig().getLimit().getResults().getApiDefault());
 
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(
+        indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME));
 
     // Execute search using the graphReadDAO's search client
     SearchResponse searchResponse = graphReadDAO.executeSearch(opContext, searchRequest);

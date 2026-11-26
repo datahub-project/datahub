@@ -15,6 +15,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeTag,
     _SnowflakeTagCache,
 )
+from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
+    SnowflakeTagResolver,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeIdentifierBuilder,
@@ -29,7 +32,9 @@ from datahub.metadata.urns import (
     DatasetUrn,
     DataTypeUrn,
     EntityTypeUrn,
+    MetricUrn,
     SchemaFieldUrn,
+    SemanticModelUrn,
     StructuredPropertyUrn,
 )
 
@@ -43,11 +48,20 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         data_dictionary: SnowflakeDataDictionary,
         report: SnowflakeV2Report,
         snowflake_identifiers: SnowflakeIdentifierBuilder,
+        tag_resolver: Optional[SnowflakeTagResolver] = None,
     ) -> None:
         self.config = config
         self.data_dictionary = data_dictionary
         self.report = report
         self.snowflake_identifiers = snowflake_identifiers
+        # Without a resolver (no DataHub graph) every Snowflake tag is native.
+        self.tag_resolver = tag_resolver or SnowflakeTagResolver(
+            repository=None,
+            config=config,
+            report=report,
+            identifiers=snowflake_identifiers,
+            platform_instance=None,
+        )
         self.tag_cache: Dict[str, _SnowflakeTagCache] = {}
 
     def _ensure_cache_loaded(self, db_name: str) -> None:
@@ -131,6 +145,10 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
                 tag._id_prefix_as_str()
             ):
                 continue
+            # DataHub owns the definition of a property it synced to Snowflake.
+            # Tag definitions carry no value, so match any record of the tag.
+            if self.tag_resolver.is_datahub_tag_object(tag):
+                continue
             if self.config.extract_tags_as_structured_properties:
                 self.report.num_structured_property_templates_created += 1
                 yield from self.gen_tag_as_structured_property_workunits(tag)
@@ -142,15 +160,28 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             tag.structured_property_identifier()
         )
         urn = StructuredPropertyUrn(identifier).urn()
+        entity_types = [
+            EntityTypeUrn(f"datahub.{ContainerUrn.ENTITY_TYPE}").urn(),
+            EntityTypeUrn(f"datahub.{DatasetUrn.ENTITY_TYPE}").urn(),
+            EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
+        ]
+        if self.report.semantic_model_entity_types_capable:
+            # Declared whenever the server can accept these entity types (managed
+            # server: version >= min; OSS: recipe requested emission) - deliberately NOT
+            # gated on the emit decision or metricsEnabled. entityTypes is a
+            # permission list, so declaring types nothing currently uses is
+            # harmless; keying it on capability (stable for a given server) keeps
+            # this shared definition from flapping 5<->3 as recipes or the Metrics
+            # flag change.
+            entity_types.append(
+                EntityTypeUrn(f"datahub.{SemanticModelUrn.ENTITY_TYPE}").urn()
+            )
+            entity_types.append(EntityTypeUrn(f"datahub.{MetricUrn.ENTITY_TYPE}").urn())
         aspect = StructuredPropertyDefinition(
             qualifiedName=identifier,
             displayName=tag.name,
             valueType=DataTypeUrn("datahub.string").urn(),
-            entityTypes=[
-                EntityTypeUrn(f"datahub.{ContainerUrn.ENTITY_TYPE}").urn(),
-                EntityTypeUrn(f"datahub.{DatasetUrn.ENTITY_TYPE}").urn(),
-                EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
-            ],
+            entityTypes=entity_types,
             lastModified=AuditStamp(
                 time=get_sys_time(), actor="urn:li:corpuser:datahub"
             ),

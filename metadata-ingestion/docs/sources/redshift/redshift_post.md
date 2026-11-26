@@ -112,6 +112,31 @@ extract_ownership: true
 
 This extracts owners for tables, views, and schemas from the Redshift catalog and emits them as `TECHNICAL_OWNER` in DataHub. If `email_domain` is configured, owner usernames are suffixed with `@{email_domain}` to produce consistent URNs with usage statistics. **Note:** ownership is applied in overwrite mode — any manually-set owners in DataHub will be replaced on each ingestion run.
 
+#### Probe support
+
+`datahub recipe probe` checks a recipe against the cluster without running ingestion. For Redshift
+it offers `containers` (schemas), `tables`, `views`, `columns`, `view_definition` and `sql` (a
+read-only query over the catalog views ingestion reads):
+
+```shell
+datahub recipe probe methods --recipe redshift_recipe.yml
+datahub recipe probe run tables --recipe redshift_recipe.yml --schema public
+datahub recipe probe run columns --recipe redshift_recipe.yml --schema public --table orders
+```
+
+The probe connects the way ingestion does, with the recipe's own `extra_client_options` (IAM,
+`sslmode`, `cluster_identifier`), and lists objects with the same catalog queries. Materialized
+views are listed under `views`, foreign and external tables under `tables`, external tables are
+left out when `skip_external_tables` is set, and on a datashare-consumer database `tables` and
+`views` read `svv_redshift_tables`, as ingestion does. `columns` on a datashare-consumer database
+reuses ingestion's column query for those databases, which has not been tested against one. It
+needs no grants beyond ingestion's: it never reads `stl_*` query history or `pg_user`, and never
+reads table rows. `probe filter --kind View` judges a view by `view_pattern` and then
+`table_pattern`, because ingestion drops a view that either pattern refuses.
+
+Redshift does not offer the `foreign_keys`, `primary_key`, `indexes` or `table_comment` commands
+that other SQL sources have, because Redshift ingestion does not emit them.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

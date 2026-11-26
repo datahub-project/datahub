@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import analytics, { Event, EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getQuickFilterDetails } from '@app/search/autoComplete/quickFilters/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
@@ -11,31 +10,33 @@ import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { QuickFilter as QuickFilterType } from '@types';
 
 const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
-    border: 1px solid ${ANTD_GRAY[4]};
-    border-radius: 16px;
-    box-shadow: none;
-    font-weight: 400;
-    color: black;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    padding: 2px 10px;
-    font-size: 14px;
-    margin: 4px;
+    && {
+        border: 1px solid ${(props) => props.theme.colors.border};
+        border-radius: 16px;
+        box-shadow: none;
+        font-weight: 400;
+        color: ${(props) => props.theme.colors.text};
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        padding: 2px 10px;
+        font-size: 14px;
+        margin: 4px;
 
-    &:hover {
-        color: black;
-    }
-
-    ${(props) =>
-        props.selected &&
-        `
-        border: 1px solid ${props.theme.colors.borderBrand};
-        background-color: ${props.theme.colors.bgSurfaceBrand};
         &:hover {
-            background-color: ${props.theme.colors.bgSurfaceBrand};
+            color: ${(props) => props.theme.colors.text};
         }
-    `}
+
+        ${(props) =>
+            props.selected &&
+            `
+            border: 1px solid ${props.theme.colors.borderBrand};
+            background-color: ${props.theme.colors.bgSurfaceBrand};
+            &:hover {
+                background-color: ${props.theme.colors.bgSurfaceBrand};
+            }
+        `}
+    }
 `;
 
 const LabelWrapper = styled.span`

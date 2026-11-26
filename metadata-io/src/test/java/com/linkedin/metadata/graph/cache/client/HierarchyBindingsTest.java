@@ -88,6 +88,19 @@ public class HierarchyBindingsTest {
   }
 
   @Test
+  public void applicationSpecAlwaysUsesFallbackBinding() {
+    // No known-graph cache exists for Application yet, so applicationSpec never consults the
+    // cache binding at all — it should always build the same aspect-walk fallback spec.
+    OperationContext opContext = contextWithCache(EntityGraphCache.NO_OP);
+
+    HierarchyReadSpec spec = HierarchyBindings.applicationSpec(opContext);
+
+    assertEquals(spec.getBinding().getGraphId(), "application");
+    assertEquals(spec.getBinding().getSource(), GraphSnapshotSource.GRAPH);
+    assertEquals(spec.getRelationshipType(), "ApplicationPartOf");
+  }
+
+  @Test
   public void domainSpecFallsBackWhenBindingMissing() {
     OperationContext opContext = contextWithCache(EntityGraphCache.NO_OP);
 

@@ -11,4 +11,5 @@ public class GenericEntityScrollResultV2
     implements GenericEntityScrollResult<GenericAspectV2, GenericEntityV2> {
   private String scrollId;
   private List<GenericEntityV2> results;
+  private List<String> routeChain;
 }

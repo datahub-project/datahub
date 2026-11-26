@@ -19,7 +19,7 @@
     "groups.createModal.name.label": "Név",
     "groups.createModal.name.placeholder": "A csoport neve",
     "groups.createModal.name.validationError.empty": "Adjon meg egy csoportnevet.",
-    "groups.createModal.name.validationError.tooLong": "A név legfeljebb 50 karakter lehet.",
+    "groups.createModal.name.validationError.tooLong": "A név legfeljebb 250 karakter lehet.",
     "groups.createModal.title": "Új csoport létrehozása",
     "groups.createOwnerError": "Nem sikerült automatikusan hozzáadni Önt a csoport tulajdonosaként. Kérjük, adja hozzá magát tulajdonosként manuálisan.",
     "groups.createSuccess": "Csoport létrehozva!",
@@ -45,6 +45,7 @@
     "inviteToken.copyTooltip": "Meghívó link másolása.",
     "inviteToken.createError": "Nem sikerült meghívó tokent létrehozni a(z) {{roleName}} szerepkörhöz: \n {{error}}",
     "inviteToken.footerText": "Másoljon egy meghívó linket, amelyet elküldhet a felhasználóinak. Csatlakozáskor a felhasználók automatikusan a kiválasztott szerepkörhöz lesznek rendelve.",
+    "inviteToken.footerTextNoRole": "Másoljon egy meghívó linket, amelyet elküldhet a felhasználóinak. A felhasználók fiókot hozhatnak létre, de nem kapnak szerepkört.",
     "inviteToken.generateNewLinkTooltip": "Új link létrehozása. A régi linkek többé nem lesznek érvényesek.",
     "inviteToken.generateSuccess": "Új meghívó link létrehozva",
     "inviteToken.modalTitle": "Meghívó link megosztása",
@@ -118,6 +119,7 @@
     "users.columns.name": "Név",
     "users.columns.role": "Szerepkör",
     "users.columns.status": "Állapot",
+    "users.copyUrn": "Urn másolása",
     "users.deleteUser": "Felhasználó törlése",
     "users.emptyTitle": "Nincsenek felhasználók!",
     "users.groups.overflowTitle": "Csoportok",
@@ -146,5 +148,6 @@
     "users.statusFilter.placeholder": "Állapot",
     "users.statusFilter.suspended": "Felfüggesztve",
     "users.statusInactive": "Inaktív",
-    "users.statusNoUrn": "Nincs URN"
+    "users.statusNoUrn": "Nincs URN",
+    "users.urnCopied": "Urn a vágólapra másolva"
 }

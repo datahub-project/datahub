@@ -210,4 +210,34 @@ public class DocumentSearchFilterUtilsTest {
       assertNotNull(findCriterion(clause, "types"), "Base criteria should be in every clause");
     }
   }
+
+  @Test
+  public void testPublishedOnlyKeepsTwoPublishedClauses() {
+    List<String> urns = ImmutableList.of(TEST_USER_URN);
+    Filter filter =
+        DocumentSearchFilterUtils.buildCombinedFilter(
+            new ArrayList<>(), urns, true, false, ImmutableList.of("PUBLISHED"));
+
+    assertEquals(filter.getOr().size(), 2);
+    // Clause 0: lifecycle published
+    assertNotNull(findCriterion(filter.getOr().get(0), "lifecycleStage"));
+    assertEquals(
+        findCriterion(filter.getOr().get(0), "lifecycleStage").getValues().get(0),
+        PUBLISHED_LIFECYCLE_STAGE_URN);
+    // Clause 1: legacy published
+    assertEquals(findCriterion(filter.getOr().get(1), "state").getValues().get(0), "PUBLISHED");
+  }
+
+  @Test
+  public void testUnpublishedOnlyKeepsTwoUnpublishedClauses() {
+    List<String> urns = ImmutableList.of(TEST_USER_URN);
+    Filter filter =
+        DocumentSearchFilterUtils.buildCombinedFilter(
+            new ArrayList<>(), urns, true, false, ImmutableList.of("UNPUBLISHED"));
+
+    assertEquals(filter.getOr().size(), 2);
+    assertNotNull(findCriterion(filter.getOr().get(0), "owners"));
+    assertEquals(findCriterion(filter.getOr().get(1), "state").getValues().get(0), "UNPUBLISHED");
+    assertNotNull(findCriterion(filter.getOr().get(1), "owners"));
+  }
 }

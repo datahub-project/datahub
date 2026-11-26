@@ -1,0 +1,78 @@
+"""
+Input for creating a new versioned GlossaryTerm.
+Creates the term entity and links it to a VersionSet in one atomic operation.
+"""
+input CreateGlossaryTermVersionInput {
+  """
+  Display name for the new term version
+  """
+  name: String!
+
+  """
+  Business definition / description for this version
+  """
+  description: String
+
+  """
+  Optional custom ID slug for the new term entity. Auto-generated UUID if omitted.
+  """
+  id: String
+
+  """
+  Optional parent node URN for glossary hierarchy placement.
+  """
+  parentNode: String
+
+  """
+  Version label, e.g. "v2", "2024-Q1". Should be unique within the version set.
+  """
+  version: String!
+
+  """
+  Existing VersionSet URN to add this version to.
+  Provide this OR previousTermUrn. If neither is provided, a new VersionSet is created.
+  """
+  versionSet: String
+
+  """
+  URN of an existing GlossaryTerm. The new version joins its VersionSet; if the term is not
+  versioned yet, a new VersionSet is created and the term becomes its first version.
+  When parentNode is omitted, the new version is placed under this term's parent.
+  Alternative to versionSet field.
+  """
+  previousTermUrn: String
+
+  """
+  Label given to previousTermUrn when it is not versioned yet and becomes the first version.
+  Defaults to "v1".
+  """
+  previousVersionLabel: String
+
+  """
+  When previousTermUrn is set, copy its metadata (such as domain, owners, tags, links, related
+  terms and structured properties) to the new version. Its deprecation, form responses and
+  computed metadata are not copied. Defaults to true.
+  """
+  copyMetadata: Boolean = true
+
+  """
+  Describes what changed or why this version was created.
+  """
+  comment: String
+}
+
+extend type Mutation {
+  """
+  Create a new version of a GlossaryTerm concept: creates the term entity and links it to the
+  specified (or a new) VersionSet. This takes several writes, not one transaction. Inputs are
+  validated before the first write; an unexpected server error part-way through can leave the
+  previous term linked as the first version, or the new term created but not linked.
+  Without previousTermUrn, the new version becomes the latest right away. With previousTermUrn,
+  the new version starts in the DRAFT lifecycle stage (if that stage applies to glossary terms),
+  so the previous version stays the latest visible one until the new one is published.
+  Fails before writing anything when the id is taken, when the
+  VersionSet already holds an unpublished version newer than its latest, or when the DRAFT
+  stage's transition policy does not allow entering it. Returns the VersionSet.
+  """
+  createGlossaryTermVersion(input: CreateGlossaryTermVersionInput!): VersionSet
+}

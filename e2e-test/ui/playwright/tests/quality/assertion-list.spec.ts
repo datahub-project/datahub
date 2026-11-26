@@ -1,6 +1,8 @@
 import { Page } from '@playwright/test';
 import { test, expect } from '../../fixtures/base-test';
 import { AssertionListPage } from '../../pages/assertion-list.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'quality' });
 
@@ -35,65 +37,72 @@ async function executeGraphQL<T>(page: Page, query: string, variables: Record<st
   );
 }
 
-test('renders and searches the paginated Quality assertion list', async ({ page, logger, logDir }) => {
-  test.setTimeout(120_000);
-  await page.goto('/');
+test.beforeEach(async ({ apiMock }) => {
+  await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
+});
 
-  const description = `Headless assertion ${Date.now()}`;
-  const created = await executeGraphQL<{ upsertCustomAssertion: { urn: string } }>(
-    page,
-    `mutation CreateBrowserAssertion($input: UpsertCustomAssertionInput!) {
+test(
+  'paginates, sorts, searches, and filters the Quality assertion list',
+  { tag: [TestTag.P0, DomainTag.Observe] },
+  async ({ page, logger, logDir }) => {
+    test.setTimeout(180_000);
+    await page.goto('/');
+
+    const description = `Headless assertion ${Date.now()}`;
+    const created = await executeGraphQL<{ upsertCustomAssertion: { urn: string } }>(
+      page,
+      `mutation CreateBrowserAssertion($input: UpsertCustomAssertionInput!) {
       upsertCustomAssertion(input: $input) {
         urn
       }
     }`,
-    {
-      input: {
-        entityUrn: DATASET_URN,
-        type: 'Headless Check',
-        description,
-        platform: {
-          urn: PLATFORM_URN,
-          name: 'hive',
+      {
+        input: {
+          entityUrn: DATASET_URN,
+          type: 'Headless Check',
+          description,
+          platform: {
+            urn: PLATFORM_URN,
+            name: 'hive',
+          },
         },
       },
-    },
-  );
+    );
 
-  try {
-    await expect
-      .poll(
-        async () => {
-          try {
-            const result = await executeGraphQL<{ reportAssertionResult: boolean }>(
-              page,
-              `mutation ReportBrowserAssertion($urn: String!) {
+    try {
+      await expect
+        .poll(
+          async () => {
+            try {
+              const result = await executeGraphQL<{ reportAssertionResult: boolean }>(
+                page,
+                `mutation ReportBrowserAssertion($urn: String!) {
                 reportAssertionResult(urn: $urn, result: { type: SUCCESS })
               }`,
-              { urn: created.upsertCustomAssertion.urn },
-            );
-            return result.reportAssertionResult;
-          } catch (error) {
-            if (error instanceof Error && error.message.includes('does not exist or is not associated')) {
-              return false;
+                { urn: created.upsertCustomAssertion.urn },
+              );
+              return result.reportAssertionResult;
+            } catch (error) {
+              if (error instanceof Error && error.message.includes('does not exist or is not associated')) {
+                return false;
+              }
+              throw error;
             }
-            throw error;
-          }
-        },
-        {
-          message: 'created assertion should accept a run result',
-          timeout: 30_000,
-          intervals: [500, 1000, 2000],
-        },
-      )
-      .toBe(true);
+          },
+          {
+            message: 'created assertion should accept a run result',
+            timeout: 30_000,
+            intervals: [500, 1000, 2000],
+          },
+        )
+        .toBe(true);
 
-    await expect
-      .poll(
-        async () => {
-          const result = await executeGraphQL<AssertionSearchResponse>(
-            page,
-            `query SearchBrowserAssertion($input: SearchAcrossEntitiesInput!) {
+      await expect
+        .poll(
+          async () => {
+            const result = await executeGraphQL<AssertionSearchResponse>(
+              page,
+              `query SearchBrowserAssertion($input: SearchAcrossEntitiesInput!) {
               searchAcrossEntities(input: $input) {
                 searchResults {
                   entity {
@@ -102,46 +111,47 @@ test('renders and searches the paginated Quality assertion list', async ({ page,
                 }
               }
             }`,
-            {
-              input: {
-                types: ['ASSERTION'],
-                query: '*',
-                start: 0,
-                count: 10,
-                orFilters: [
-                  {
-                    and: [{ field: 'entity', values: [DATASET_URN], condition: 'EQUAL' }],
-                  },
-                ],
-                searchFlags: { skipCache: true },
+              {
+                input: {
+                  types: ['ASSERTION'],
+                  query: '*',
+                  start: 0,
+                  count: 10,
+                  orFilters: [
+                    {
+                      and: [{ field: 'entity', values: [DATASET_URN], condition: 'EQUAL' }],
+                    },
+                  ],
+                  searchFlags: { skipCache: true },
+                },
               },
-            },
-          );
-          return result.searchAcrossEntities.searchResults.some(
-            ({ entity }) => entity.urn === created.upsertCustomAssertion.urn,
-          );
-        },
-        {
-          message: 'created assertion should be available in search',
-          timeout: 30_000,
-          intervals: [500, 1000, 2000],
-        },
-      )
-      .toBe(true);
+            );
+            return result.searchAcrossEntities.searchResults.some(
+              ({ entity }) => entity.urn === created.upsertCustomAssertion.urn,
+            );
+          },
+          {
+            message: 'created assertion should be available in search',
+            timeout: 30_000,
+            intervals: [500, 1000, 2000],
+          },
+        )
+        .toBe(true);
 
-    const assertionList = new AssertionListPage(page, logger, logDir);
-    await assertionList.navigateToDatasetAssertions(DATASET_URN);
-    await assertionList.expectAssertionVisible(description);
+      const assertionList = new AssertionListPage(page, logger, logDir);
+      await assertionList.navigateToDatasetAssertions(DATASET_URN);
+      await assertionList.expectAssertionVisible(description);
 
-    await assertionList.search(description);
-    await assertionList.expectAssertionVisible(description);
-  } finally {
-    await executeGraphQL(
-      page,
-      `mutation DeleteBrowserAssertion($urn: String!) {
+      await assertionList.search(description);
+      await assertionList.expectAssertionVisible(description);
+    } finally {
+      await executeGraphQL(
+        page,
+        `mutation DeleteBrowserAssertion($urn: String!) {
         deleteAssertion(urn: $urn)
       }`,
-      { urn: created.upsertCustomAssertion.urn },
-    );
-  }
-});
+        { urn: created.upsertCustomAssertion.urn },
+      );
+    }
+  },
+);

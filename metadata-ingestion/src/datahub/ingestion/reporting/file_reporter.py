@@ -8,6 +8,8 @@ from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import Sink
+from datahub.masking.masking_filter import SecretMaskingFilter
+from datahub.masking.secret_registry import SecretRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +52,11 @@ class FileReporter(PipelineRunListener):
         ctx: PipelineContext,
     ) -> None:
         try:
+            masking_filter = SecretMaskingFilter(SecretRegistry.get_instance())
+            masked_report = masking_filter.mask_structure(report)
             with open(self.config.filename, "w") as report_out:
-                json.dump(report, report_out)
-            logger.info(f"Wrote {status} report successfully to {report_out}")
+                json.dump(masked_report, report_out)
+            logger.info(f"Wrote {status} report successfully to {self.config.filename}")
         except Exception as e:
             logger.error(f"Failed to write structured report due to {e}")
             raise e

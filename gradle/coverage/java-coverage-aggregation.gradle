@@ -37,7 +37,7 @@
 apply plugin: 'jacoco'
 
 jacoco {
-  toolVersion = '0.8.12'
+  toolVersion = '0.8.14'  // keep in sync with java-coverage.gradle; 0.8.14 = Java 25 support
 }
 
 tasks.register('jacocoMergedReport', JacocoReport) {

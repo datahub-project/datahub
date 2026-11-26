@@ -15,12 +15,15 @@ import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.file.BucketStorageLocation;
 import com.linkedin.file.DataHubFileInfo;
 import com.linkedin.file.FileUploadScenario;
-import com.linkedin.metadata.config.S3Configuration;
+import com.linkedin.metadata.config.ObjectStorageConfiguration;
 import com.linkedin.metadata.service.DataHubFileService;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 
 public class CreateDataHubFileResolverTest {
@@ -32,13 +35,59 @@ public class CreateDataHubFileResolverTest {
   private static final String TEST_MIME_TYPE = "image/png";
   private static final Long TEST_SIZE = 1024L;
 
+  private static ObjectStorageConfiguration storageConfig(String assetPathPrefix) {
+    ObjectStorageConfiguration config = new ObjectStorageConfiguration();
+    config.setAssetPathPrefix(assetPathPrefix);
+    return config;
+  }
+
+  @Test
+  public void testStorageKeyBuiltFromConfiguredPrefixNotClientInput() throws Exception {
+    DataHubFileService mockService = mock(DataHubFileService.class);
+    ObjectStorageClient mockObjectStorageClient = mock(ObjectStorageClient.class);
+    when(mockObjectStorageClient.isConfigured()).thenReturn(true);
+    when(mockObjectStorageClient.storageBucket()).thenReturn(TEST_STORAGE_BUCKET);
+
+    CreateDataHubFileResolver resolver =
+        new CreateDataHubFileResolver(
+            mockService, mockObjectStorageClient, storageConfig("team/documentation"));
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
+    CreateDataHubFileInput input = new CreateDataHubFileInput();
+    input.setId(TEST_FILE_ID);
+    input.setStorageKey("product_assets/some-other-object");
+    input.setOriginalFileName(TEST_FILE_NAME);
+    input.setMimeType(TEST_MIME_TYPE);
+    input.setSizeInBytes(TEST_SIZE);
+    input.setScenario(UploadDownloadScenario.ASSET_DOCUMENTATION);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockService.createDataHubFile(
+            any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenThrow(new RuntimeException("stop after capture"));
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    ArgumentCaptor<BucketStorageLocation> location =
+        ArgumentCaptor.forClass(BucketStorageLocation.class);
+    verify(mockService)
+        .createDataHubFile(
+            any(), any(), location.capture(), any(), any(), any(), any(), any(), any(), any());
+    assertEquals(location.getValue().getStorageBucket(), TEST_STORAGE_BUCKET);
+    assertEquals(location.getValue().getStorageKey(), "team/documentation/test-file-123__file.png");
+  }
+
   @Test
   public void testGetSuccess() throws Exception {
     DataHubFileService mockService = mock(DataHubFileService.class);
-    S3Configuration mockS3Config = mock(S3Configuration.class);
-    when(mockS3Config.getBucketName()).thenReturn(TEST_STORAGE_BUCKET);
+    ObjectStorageClient mockObjectStorageClient = mock(ObjectStorageClient.class);
+    when(mockObjectStorageClient.isConfigured()).thenReturn(true);
+    when(mockObjectStorageClient.storageBucket()).thenReturn(TEST_STORAGE_BUCKET);
 
-    CreateDataHubFileResolver resolver = new CreateDataHubFileResolver(mockService, mockS3Config);
+    CreateDataHubFileResolver resolver =
+        new CreateDataHubFileResolver(
+            mockService, mockObjectStorageClient, storageConfig("product_assets"));
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
@@ -118,10 +167,13 @@ public class CreateDataHubFileResolverTest {
   @Test
   public void testGetSuccessWithReferences() throws Exception {
     DataHubFileService mockService = mock(DataHubFileService.class);
-    S3Configuration mockS3Config = mock(S3Configuration.class);
-    when(mockS3Config.getBucketName()).thenReturn(TEST_STORAGE_BUCKET);
+    ObjectStorageClient mockObjectStorageClient = mock(ObjectStorageClient.class);
+    when(mockObjectStorageClient.isConfigured()).thenReturn(true);
+    when(mockObjectStorageClient.storageBucket()).thenReturn(TEST_STORAGE_BUCKET);
 
-    CreateDataHubFileResolver resolver = new CreateDataHubFileResolver(mockService, mockS3Config);
+    CreateDataHubFileResolver resolver =
+        new CreateDataHubFileResolver(
+            mockService, mockObjectStorageClient, storageConfig("product_assets"));
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
@@ -213,10 +265,13 @@ public class CreateDataHubFileResolverTest {
   @Test
   public void testGetThrowsException() throws Exception {
     DataHubFileService mockService = mock(DataHubFileService.class);
-    S3Configuration mockS3Config = mock(S3Configuration.class);
-    when(mockS3Config.getBucketName()).thenReturn(TEST_STORAGE_BUCKET);
+    ObjectStorageClient mockObjectStorageClient = mock(ObjectStorageClient.class);
+    when(mockObjectStorageClient.isConfigured()).thenReturn(true);
+    when(mockObjectStorageClient.storageBucket()).thenReturn(TEST_STORAGE_BUCKET);
 
-    CreateDataHubFileResolver resolver = new CreateDataHubFileResolver(mockService, mockS3Config);
+    CreateDataHubFileResolver resolver =
+        new CreateDataHubFileResolver(
+            mockService, mockObjectStorageClient, storageConfig("product_assets"));
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
@@ -243,10 +298,13 @@ public class CreateDataHubFileResolverTest {
   @Test
   public void testGetWithNullOptionalFields() throws Exception {
     DataHubFileService mockService = mock(DataHubFileService.class);
-    S3Configuration mockS3Config = mock(S3Configuration.class);
-    when(mockS3Config.getBucketName()).thenReturn(TEST_STORAGE_BUCKET);
+    ObjectStorageClient mockObjectStorageClient = mock(ObjectStorageClient.class);
+    when(mockObjectStorageClient.isConfigured()).thenReturn(true);
+    when(mockObjectStorageClient.storageBucket()).thenReturn(TEST_STORAGE_BUCKET);
 
-    CreateDataHubFileResolver resolver = new CreateDataHubFileResolver(mockService, mockS3Config);
+    CreateDataHubFileResolver resolver =
+        new CreateDataHubFileResolver(
+            mockService, mockObjectStorageClient, storageConfig("product_assets"));
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
@@ -311,5 +369,86 @@ public class CreateDataHubFileResolverTest {
     verify(mockService, times(1))
         .createDataHubFile(
             any(), any(), any(), any(), any(), any(), any(), eq(null), eq(null), eq(null));
+  }
+
+  @Test
+  public void testGetFailsWhenObjectStorageClientIsNull() throws Exception {
+    DataHubFileService mockService = mock(DataHubFileService.class);
+    CreateDataHubFileResolver resolver =
+        new CreateDataHubFileResolver(mockService, null, storageConfig("product_assets"));
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
+    CreateDataHubFileInput input = new CreateDataHubFileInput();
+    input.setId(TEST_FILE_ID);
+    input.setStorageKey(TEST_STORAGE_KEY);
+    input.setOriginalFileName(TEST_FILE_NAME);
+    input.setMimeType(TEST_MIME_TYPE);
+    input.setSizeInBytes(TEST_SIZE);
+    input.setScenario(UploadDownloadScenario.ASSET_DOCUMENTATION);
+
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(IllegalArgumentException.class, () -> resolver.get(mockEnv).join());
+    verify(mockService, never())
+        .createDataHubFile(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testGetFailsWhenObjectStorageNotConfigured() throws Exception {
+    DataHubFileService mockService = mock(DataHubFileService.class);
+    ObjectStorageClient mockObjectStorageClient = mock(ObjectStorageClient.class);
+    when(mockObjectStorageClient.isConfigured()).thenReturn(false);
+
+    CreateDataHubFileResolver resolver =
+        new CreateDataHubFileResolver(
+            mockService, mockObjectStorageClient, storageConfig("product_assets"));
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
+    CreateDataHubFileInput input = new CreateDataHubFileInput();
+    input.setId(TEST_FILE_ID);
+    input.setStorageKey(TEST_STORAGE_KEY);
+    input.setOriginalFileName(TEST_FILE_NAME);
+    input.setMimeType(TEST_MIME_TYPE);
+    input.setSizeInBytes(TEST_SIZE);
+    input.setScenario(UploadDownloadScenario.ASSET_DOCUMENTATION);
+
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(IllegalArgumentException.class, () -> resolver.get(mockEnv).join());
+    verify(mockService, never())
+        .createDataHubFile(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testGetFailsWhenStorageBucketMissing() throws Exception {
+    DataHubFileService mockService = mock(DataHubFileService.class);
+    ObjectStorageClient mockObjectStorageClient = mock(ObjectStorageClient.class);
+    when(mockObjectStorageClient.isConfigured()).thenReturn(true);
+    when(mockObjectStorageClient.storageBucket()).thenReturn("");
+
+    CreateDataHubFileResolver resolver =
+        new CreateDataHubFileResolver(
+            mockService, mockObjectStorageClient, storageConfig("product_assets"));
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
+    CreateDataHubFileInput input = new CreateDataHubFileInput();
+    input.setId(TEST_FILE_ID);
+    input.setStorageKey(TEST_STORAGE_KEY);
+    input.setOriginalFileName(TEST_FILE_NAME);
+    input.setMimeType(TEST_MIME_TYPE);
+    input.setSizeInBytes(TEST_SIZE);
+    input.setScenario(UploadDownloadScenario.ASSET_DOCUMENTATION);
+
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(IllegalArgumentException.class, () -> resolver.get(mockEnv).join());
+    verify(mockService, never())
+        .createDataHubFile(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
   }
 }

@@ -4,8 +4,11 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import graphql.language.Document;
 import graphql.language.OperationDefinition;
+import graphql.parser.Parser;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.testng.annotations.Test;
 
 public class GraphqlDocumentAnalyzerTest {
@@ -276,5 +279,44 @@ public class GraphqlDocumentAnalyzerTest {
   @Test
   public void testAnalyzeUnknownFragmentSpreadIsEmpty() {
     assertTrue(GraphqlDocumentAnalyzer.analyze(null, "{ ...Missing }").allRootFields().isEmpty());
+  }
+
+  @Test
+  public void testCachedDocumentLookupIsUsedInsteadOfParsing() {
+    Document cachedDocument = new Parser().parseDocument("query cached { dataset { urn } }");
+    AtomicInteger lookupCount = new AtomicInteger();
+
+    GraphqlDocumentMetadata metadata =
+        GraphqlDocumentAnalyzer.analyze(
+            null,
+            "query ignored { unrelatedField }",
+            null,
+            query -> {
+              lookupCount.incrementAndGet();
+              return cachedDocument;
+            });
+
+    assertEquals(lookupCount.get(), 1);
+    assertEquals(metadata.getOperations().get(0).getName(), "cached");
+    assertEquals(metadata.allRootFields(), List.of("dataset"));
+  }
+
+  @Test
+  public void testCachedDocumentLookupMissFallsBackToParsing() {
+    GraphqlDocumentMetadata metadata =
+        GraphqlDocumentAnalyzer.analyze(
+            null, "query direct { dataset { urn } }", null, query -> null);
+
+    assertTrue(metadata.isParsed());
+    assertEquals(metadata.allRootFields(), List.of("dataset"));
+  }
+
+  @Test
+  public void testNullCachedDocumentLookupParsesNormally() {
+    GraphqlDocumentMetadata metadata =
+        GraphqlDocumentAnalyzer.analyze(null, "query direct { dataset { urn } }", null, null);
+
+    assertTrue(metadata.isParsed());
+    assertEquals(metadata.allRootFields(), List.of("dataset"));
   }
 }

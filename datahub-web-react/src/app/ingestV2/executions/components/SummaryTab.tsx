@@ -1,4 +1,4 @@
-import { DownloadOutlined } from '@ant-design/icons';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -37,14 +37,6 @@ const ButtonGroup = styled.div`
 
 const SubHeaderParagraph = styled(Text)`
     margin-bottom: 0px;
-`;
-
-const StatusSection = styled.div`
-    padding: 16px 20px 16px 0;
-`;
-
-const IngestedAssetsSection = styled.div`
-    padding: 16px 20px 16px 0;
 `;
 
 export const SummaryTab = ({
@@ -91,18 +83,18 @@ export const SummaryTab = ({
     return (
         <Section>
             {(resultSummaryText || (structuredReport && hasSomethingToShow(structuredReport))) && (
-                <StatusSection>
+                <SectionBase>
                     {!structuredReport && resultSummaryText && (
                         <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
                     )}
                     {structuredReport && <StructuredReport report={structuredReport} />}
-                </StatusSection>
+                </SectionBase>
             )}
-            <IngestedAssetsSection>
+            <SectionBase>
                 {data?.executionRequest?.id && (
                     <IngestedAssets executionResult={result} id={data?.executionRequest?.id} urn={urn} />
                 )}
-            </IngestedAssetsSection>
+            </SectionBase>
             <SectionBase>
                 <Heading type="h4" size="lg" weight="bold">
                     {t('executions.logsTitle')}
@@ -114,9 +106,13 @@ export const SummaryTab = ({
                             {tc('viewAll')}
                         </Button>
                         <Tooltip title={t('executions.downloadLogs')}>
-                            <Button variant="text" onClick={downloadLogs}>
-                                <DownloadOutlined />
-                            </Button>
+                            <Button
+                                variant="text"
+                                isCircle
+                                icon={{ icon: DownloadSimple, size: 'lg' }}
+                                aria-label={t('executions.downloadLogs')}
+                                onClick={downloadLogs}
+                            />
                         </Tooltip>
                     </ButtonGroup>
                 </SectionSubHeader>
@@ -138,9 +134,13 @@ export const SummaryTab = ({
                                 {t('executions.viewMore')}
                             </Button>
                             <Tooltip title={t('executions.downloadRecipe')}>
-                                <Button variant="text" onClick={downloadRecipe}>
-                                    <DownloadOutlined />
-                                </Button>
+                                <Button
+                                    variant="text"
+                                    isCircle
+                                    icon={{ icon: DownloadSimple, size: 'lg' }}
+                                    aria-label={t('executions.downloadRecipe')}
+                                    onClick={downloadRecipe}
+                                />
                             </Tooltip>
                         </ButtonGroup>
                     </SectionSubHeader>

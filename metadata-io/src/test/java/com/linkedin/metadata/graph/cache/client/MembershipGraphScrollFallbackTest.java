@@ -30,6 +30,7 @@ import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
 import com.linkedin.metadata.graph.cache.MembershipNeighborResult;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -88,7 +89,7 @@ public class MembershipGraphScrollFallbackTest {
   }
 
   @Test
-  public void listRelatedReturnsEmptyForNonPositiveCount() {
+  public void listRelatedReturnsEmptyForNegativeCount() {
     opContext = contextWithGraphRetriever(mock(GraphRetriever.class));
 
     MembershipNeighborResult result =
@@ -99,10 +100,61 @@ public class MembershipGraphScrollFallbackTest {
             TraversalDirection.FORWARD,
             spec.getGroupRelationshipTypes(),
             0,
-            0);
+            -1);
 
     assertTrue(result.isHit());
     assertTrue(result.neighborsOrEmpty().isEmpty());
+  }
+
+  @Test
+  public void listRelatedCountZeroReturnsMemberTotal() {
+    GraphRetriever graphRetriever = mock(GraphRetriever.class);
+    when(graphRetriever.scrollRelatedEntities(
+            eq(Set.of(CORP_USER_ENTITY_NAME)),
+            eq(QueryUtils.EMPTY_FILTER),
+            eq(Set.of(CORP_GROUP_ENTITY_NAME)),
+            any(),
+            eq(spec.getGroupRelationshipTypes()),
+            any(),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                2,
+                2,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME,
+                        USER.toString(),
+                        GROUP.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null),
+                    new RelatedEntities(
+                        IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME,
+                        "urn:li:corpuser:bob",
+                        GROUP.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null))));
+
+    opContext = contextWithGraphRetriever(graphRetriever);
+
+    MembershipNeighborResult result =
+        MembershipGraphScrollFallback.listRelated(
+            opContext,
+            spec,
+            GROUP.toString(),
+            TraversalDirection.REVERSE,
+            spec.getGroupRelationshipTypes(),
+            0,
+            0);
+
+    assertTrue(result instanceof MembershipNeighborResult.Hit);
+    assertTrue(result.neighborsOrEmpty().isEmpty());
+    assertEquals(((MembershipNeighborResult.Hit) result).total(), 2);
   }
 
   @Test
@@ -112,7 +164,7 @@ public class MembershipGraphScrollFallbackTest {
             eq(Set.of(CORP_USER_ENTITY_NAME)),
             any(),
             eq(Set.of(CORP_GROUP_ENTITY_NAME)),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(spec.getGroupRelationshipTypes()),
             any(),
             eq(Edge.EDGE_SORT_CRITERION),
@@ -151,11 +203,71 @@ public class MembershipGraphScrollFallbackTest {
   }
 
   @Test
+  public void listRelatedCanonicalizesQuotedNeighborsAndSkipsNull() {
+    GraphRetriever graphRetriever = mock(GraphRetriever.class);
+    when(graphRetriever.scrollRelatedEntities(
+            eq(Set.of(CORP_USER_ENTITY_NAME)),
+            any(),
+            eq(Set.of(CORP_GROUP_ENTITY_NAME)),
+            eq(QueryUtils.EMPTY_FILTER),
+            eq(spec.getGroupRelationshipTypes()),
+            any(),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                3,
+                3,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME,
+                        USER.toString(),
+                        "  " + GROUP.toString() + "  ",
+                        RelationshipDirection.OUTGOING,
+                        null),
+                    new RelatedEntities(
+                        IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME,
+                        USER.toString(),
+                        "null",
+                        RelationshipDirection.OUTGOING,
+                        null),
+                    new RelatedEntities(
+                        IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME,
+                        USER.toString(),
+                        "\"urn:li:corpGroup:other\"",
+                        RelationshipDirection.OUTGOING,
+                        null))));
+
+    opContext = contextWithGraphRetriever(graphRetriever);
+
+    MembershipNeighborResult result =
+        MembershipGraphScrollFallback.listRelated(
+            opContext,
+            spec,
+            USER.toString(),
+            TraversalDirection.FORWARD,
+            spec.getGroupRelationshipTypes(),
+            0,
+            10);
+
+    assertTrue(result.isHit());
+    assertEquals(
+        result.neighborsOrEmpty().stream()
+            .map(MembershipNeighborResult.Neighbor::neighborUrn)
+            .toList(),
+        List.of(GROUP.toString(), "urn:li:corpGroup:other"));
+  }
+
+  @Test
   public void listRelatedScrollsGroupReverseToMembers() {
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     when(graphRetriever.scrollRelatedEntities(
             eq(Set.of(CORP_USER_ENTITY_NAME)),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(Set.of(CORP_GROUP_ENTITY_NAME)),
             any(),
             eq(spec.getGroupRelationshipTypes()),
@@ -201,7 +313,7 @@ public class MembershipGraphScrollFallbackTest {
             eq(Set.of(CORP_GROUP_ENTITY_NAME)),
             any(),
             eq(Set.of(DATAHUB_ROLE_ENTITY_NAME)),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(spec.getRoleRelationshipTypes()),
             any(),
             eq(Edge.EDGE_SORT_CRITERION),
@@ -239,11 +351,11 @@ public class MembershipGraphScrollFallbackTest {
   }
 
   @Test
-  public void listRelatedScrollsRoleReverseToUsers() {
+  public void listRelatedScrollsRoleReverseToUsersAndGroups() {
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     when(graphRetriever.scrollRelatedEntities(
-            eq(Set.of(CORP_USER_ENTITY_NAME)),
-            isNull(),
+            eq(Set.of(CORP_USER_ENTITY_NAME, CORP_GROUP_ENTITY_NAME)),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(Set.of(DATAHUB_ROLE_ENTITY_NAME)),
             any(),
             eq(spec.getRoleRelationshipTypes()),
@@ -255,13 +367,19 @@ public class MembershipGraphScrollFallbackTest {
             isNull()))
         .thenReturn(
             new RelatedEntitiesScrollResult(
-                1,
-                1,
+                2,
+                2,
                 null,
                 List.of(
                     new RelatedEntities(
                         IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME,
                         USER.toString(),
+                        ROLE.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null),
+                    new RelatedEntities(
+                        IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME,
+                        GROUP.toString(),
                         ROLE.toString(),
                         RelationshipDirection.OUTGOING,
                         null))));
@@ -279,7 +397,12 @@ public class MembershipGraphScrollFallbackTest {
             10);
 
     assertTrue(result.isHit());
-    assertEquals(result.neighborsOrEmpty().get(0).neighborUrn(), USER.toString());
+    assertEquals(result.neighborsOrEmpty().size(), 2);
+    assertEquals(
+        result.neighborsOrEmpty().stream()
+            .map(MembershipNeighborResult.Neighbor::neighborUrn)
+            .toList(),
+        List.of(USER.toString(), GROUP.toString()));
   }
 
   @Test
@@ -370,7 +493,7 @@ public class MembershipGraphScrollFallbackTest {
             eq(Set.of(CORP_USER_ENTITY_NAME)),
             any(),
             eq(Set.of(CORP_GROUP_ENTITY_NAME)),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(spec.getGroupRelationshipTypes()),
             any(),
             eq(Edge.EDGE_SORT_CRITERION),
@@ -394,7 +517,7 @@ public class MembershipGraphScrollFallbackTest {
             eq(Set.of(CORP_USER_ENTITY_NAME)),
             any(),
             eq(Set.of(CORP_GROUP_ENTITY_NAME)),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(spec.getGroupRelationshipTypes()),
             any(),
             eq(Edge.EDGE_SORT_CRITERION),

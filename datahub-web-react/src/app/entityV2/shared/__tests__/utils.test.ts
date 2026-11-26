@@ -1,3 +1,5 @@
+import { DocumentNode, InMemoryCache } from '@apollo/client';
+
 import {
     decodeComma,
     dictToQueryStringParams,
@@ -6,6 +8,7 @@ import {
     extractPlatformNameFromAssetUrn,
     extractPlatformNameFromPlatformUrn,
     getDataProduct,
+    getDatasetLastUpdatedMs,
     getFineGrainedLineageWithSiblings,
     getNumberWithOrdinal,
     getPlatformNameFromEntityData,
@@ -20,8 +23,13 @@ import {
     urlEncodeUrn,
 } from '@app/entityV2/shared/utils';
 import { mockEntityRelationShipResult, mockFineGrainedLineages1, mockRecord, mockSearchResult } from '@src/Mocks';
+import possibleTypesResult from '@src/possibleTypes.generated';
 
-import { DataProduct, DatasetStatsSummary, EntityType } from '@types';
+import {
+    GetSearchResultsForMultipleCardsDocument,
+    GetSearchResultsForMultipleDocument,
+} from '@graphql/search.generated';
+import { DataProduct, Dataset, DatasetStatsSummary, EntityType } from '@types';
 
 describe('entity V2 utils test ->', () => {
     describe('dictToQueryStringParams ->', () => {
@@ -128,6 +136,30 @@ describe('entity V2 utils test ->', () => {
                 const result = handleBatchError(urns, e, defaultMessage);
                 expect(result).toEqual(defaultMessage);
             });
+            test('should surface the server message for 400s marked errorSource=VALIDATION', () => {
+                const e = {
+                    graphQLErrors: [
+                        {
+                            message: 'Urn ID cannot have spaces',
+                            extensions: { code: 400, errorSource: 'VALIDATION' },
+                        },
+                    ],
+                };
+                const result = handleBatchError(urns, e, defaultMessage);
+                expect(result).toEqual({ content: 'Urn ID cannot have spaces', duration: 3 });
+            });
+            test('should NOT surface the server message for 400s without the VALIDATION marker', () => {
+                const e = {
+                    graphQLErrors: [
+                        {
+                            message: 'internal detail that must not reach the toast',
+                            extensions: { code: 400 },
+                        },
+                    ],
+                };
+                const result = handleBatchError(urns, e, defaultMessage);
+                expect(result).toEqual(defaultMessage);
+            });
         });
     });
     describe('getDataProduct ->', () => {
@@ -169,6 +201,98 @@ describe('entity V2 utils test ->', () => {
         it('should return entities from EntityRelationshipsResult', () => {
             expect(isOutputPort(mockSearchResult)).toBe(true);
         });
+    });
+});
+
+describe('getPlatformUrnFromEntityUrn', () => {
+    it('should handle dataset URNs', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:mysql,my_database.my_table,PROD)';
+        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:mysql');
+    });
+
+    it('should handle chart URNs', () => {
+        const urn = 'urn:li:chart:(looker,dashboard_elements.1234)';
+        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:looker');
+    });
+
+    it('should handle dashboard URNs', () => {
+        const urn = 'urn:li:dashboard:(superset,42)';
+        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:superset');
+    });
+
+    it('should handle nested schema field URNs', () => {
+        const urn = 'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,my_table,PROD),user_id)';
+        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:mysql');
+    });
+
+    it('should handle mlModel URNs', () => {
+        const urn = 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,my_model,PROD)';
+        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:sagemaker');
+    });
+
+    it('should return undefined for unknown entity types', () => {
+        const urn = 'urn:li:unknown:(something,else)';
+        expect(getPlatformUrnFromEntityUrn(urn)).toBeUndefined();
+    });
+});
+
+describe('extractPlatformNameFromAssetUrn', () => {
+    it('should extract platform name from dataset URN', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:mysql,my_database.my_table,PROD)';
+        expect(extractPlatformNameFromAssetUrn(urn)).toBe('mysql');
+    });
+
+    it('should extract platform name from chart URN', () => {
+        const urn = 'urn:li:chart:(looker,dashboard_elements.1234)';
+        expect(extractPlatformNameFromAssetUrn(urn)).toBe('looker');
+    });
+
+    it('should extract platform name from dashboard URN', () => {
+        const urn = 'urn:li:dashboard:(superset,42)';
+        expect(extractPlatformNameFromAssetUrn(urn)).toBe('superset');
+    });
+
+    it('should extract platform name from nested schema field URN', () => {
+        const urn = 'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,my_table,PROD),user_id)';
+        expect(extractPlatformNameFromAssetUrn(urn)).toBe('mysql');
+    });
+
+    it('should return null for unknown entity types', () => {
+        const urn = 'urn:li:unknown:(something,else)';
+        expect(extractPlatformNameFromAssetUrn(urn)).toBeNull();
+    });
+
+    it('should return null for malformed URNs', () => {
+        const urn = 'not:a:valid:urn';
+        expect(extractPlatformNameFromAssetUrn(urn)).toBeNull();
+    });
+});
+
+describe('extractPlatformNameFromPlatformUrn', () => {
+    it('should extract platform name from valid platform URN', () => {
+        const urn = 'urn:li:dataPlatform:mysql';
+        expect(extractPlatformNameFromPlatformUrn(urn)).toBe('mysql');
+    });
+
+    it('should handle platform names with hyphens and underscores', () => {
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:my-platform')).toBe('my-platform');
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:my_platform')).toBe('my_platform');
+    });
+
+    it('should handle platform names with numbers', () => {
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:platform123')).toBe('platform123');
+    });
+
+    it('should return null for invalid platform URNs', () => {
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:')).toBeNull();
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:name)')).toBeNull();
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:name,extra')).toBeNull();
+        expect(extractPlatformNameFromPlatformUrn('urn:li:wrongType:name')).toBeNull();
+    });
+
+    it('should return null for malformed URNs', () => {
+        expect(extractPlatformNameFromPlatformUrn('not:a:valid:urn')).toBeNull();
+        expect(extractPlatformNameFromPlatformUrn('')).toBeNull();
     });
 });
 
@@ -234,94 +358,87 @@ describe('extractDatasetNameFromUrn', () => {
     });
 });
 
-describe('extractPlatformNameFromPlatformUrn', () => {
-    it('should extract platform name from valid platform URN', () => {
-        const urn = 'urn:li:dataPlatform:mysql';
-        expect(extractPlatformNameFromPlatformUrn(urn)).toBe('mysql');
+describe('getDatasetLastUpdatedMs definition time ->', () => {
+    const properties = { lastModified: { time: 1_000 } };
+    const dataset = (typeNames: string[], materialized?: boolean) => ({
+        subTypes: { typeNames },
+        viewProperties: materialized === undefined ? null : { materialized },
     });
 
-    it('should handle platform names with hyphens and underscores', () => {
-        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:my-platform')).toBe('my-platform');
-        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:my_platform')).toBe('my_platform');
+    it('marks the time of a view or a semantic view as a definition time', () => {
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['View'], false)).definitionTime).toBe(true);
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['view'], false)).definitionTime).toBe(true);
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['Semantic View'], false)).definitionTime).toBe(true);
     });
 
-    it('should handle platform names with numbers', () => {
-        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:platform123')).toBe('platform123');
+    it('keeps the time and its label for a view', () => {
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['View']))).toMatchObject({
+            property: 'lastModified',
+            lastUpdatedMs: 1_000,
+        });
     });
 
-    it('should return null for invalid platform URNs', () => {
-        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:')).toBeNull();
-        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:name)')).toBeNull();
-        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:name,extra')).toBeNull();
-        expect(extractPlatformNameFromPlatformUrn('urn:li:wrongType:name')).toBeNull();
+    it('does not mark tables, materialized views or datasets without subtypes', () => {
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['Table'])).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['Dynamic Table'])).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['Metric View'])).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['View'], true)).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, []).definitionTime).toBeFalsy();
     });
 
-    it('should return null for malformed URNs', () => {
-        expect(extractPlatformNameFromPlatformUrn('not:a:valid:urn')).toBeNull();
-        expect(extractPlatformNameFromPlatformUrn('')).toBeNull();
-    });
-});
-
-describe('getPlatformUrnFromEntityUrn', () => {
-    it('should handle dataset URNs', () => {
-        const urn = 'urn:li:dataset:(urn:li:dataPlatform:mysql,my_database.my_table,PROD)';
-        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:mysql');
-    });
-
-    it('should handle chart URNs', () => {
-        const urn = 'urn:li:chart:(looker,dashboard_elements.1234)';
-        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:looker');
-    });
-
-    it('should handle dashboard URNs', () => {
-        const urn = 'urn:li:dashboard:(superset,42)';
-        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:superset');
-    });
-
-    it('should handle nested schema field URNs', () => {
-        const urn = 'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,my_table,PROD),user_id)';
-        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:mysql');
-    });
-
-    it('should handle mlModel URNs', () => {
-        const urn = 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,my_model,PROD)';
-        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:sagemaker');
-    });
-
-    it('should return undefined for unknown entity types', () => {
-        const urn = 'urn:li:unknown:(something,else)';
-        expect(getPlatformUrnFromEntityUrn(urn)).toBeUndefined();
+    it('does not mark a view whose viewProperties are missing or were not fetched', () => {
+        const notFetched = { subTypes: { typeNames: ['View'] } };
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['View'])).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, [], notFetched).definitionTime).toBeFalsy();
     });
 });
 
-describe('extractPlatformNameFromAssetUrn', () => {
-    it('should extract platform name from dataset URN', () => {
-        const urn = 'urn:li:dataset:(urn:li:dataPlatform:mysql,my_database.my_table,PROD)';
-        expect(extractPlatformNameFromAssetUrn(urn)).toBe('mysql');
+describe('getDatasetLastUpdatedMs inputs from the search queries ->', () => {
+    // If a fragment stops selecting viewProperties, views silently go back to the age color.
+    const view = (name: string) => ({
+        __typename: 'Dataset',
+        urn: `urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.${name},PROD)`,
+        type: EntityType.Dataset,
+        properties: { __typename: 'DatasetProperties', name, lastModified: { __typename: 'AuditStamp', time: 1_000 } },
+        subTypes: { __typename: 'SubTypes', typeNames: ['View'] },
+        viewProperties: { __typename: 'ViewProperties', materialized: false },
     });
+    const roundTrip = (query: DocumentNode, entity: object): Dataset => {
+        const cache = new InMemoryCache({ possibleTypes: possibleTypesResult.possibleTypes });
+        const variables = { input: { query: '*', start: 0, count: 10 }, skipSiblingsSearch: false };
+        const searchAcrossEntities = { __typename: 'SearchResults', start: 0, count: 1, total: 1 };
+        cache.writeQuery({
+            query,
+            variables,
+            data: {
+                searchAcrossEntities: {
+                    ...searchAcrossEntities,
+                    searchResults: [{ __typename: 'SearchResult', entity }],
+                },
+            },
+        });
+        const { result } = cache.diff<{ searchAcrossEntities: { searchResults: { entity: Dataset }[] } }>({
+            query,
+            variables,
+            returnPartialData: true,
+            optimistic: false,
+        });
+        return result?.searchAcrossEntities.searchResults[0].entity as Dataset;
+    };
+    const isDefinitionTime = (dataset?: Dataset | null) =>
+        !!dataset && getDatasetLastUpdatedMs(dataset.properties, [], dataset).definitionTime;
 
-    it('should extract platform name from chart URN', () => {
-        const urn = 'urn:li:chart:(looker,dashboard_elements.1234)';
-        expect(extractPlatformNameFromAssetUrn(urn)).toBe('looker');
-    });
-
-    it('should extract platform name from dashboard URN', () => {
-        const urn = 'urn:li:dashboard:(superset,42)';
-        expect(extractPlatformNameFromAssetUrn(urn)).toBe('superset');
-    });
-
-    it('should extract platform name from nested schema field URN', () => {
-        const urn = 'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,my_table,PROD),user_id)';
-        expect(extractPlatformNameFromAssetUrn(urn)).toBe('mysql');
-    });
-
-    it('should return null for unknown entity types', () => {
-        const urn = 'urn:li:unknown:(something,else)';
-        expect(extractPlatformNameFromAssetUrn(urn)).toBeNull();
-    });
-
-    it('should return null for malformed URNs', () => {
-        const urn = 'not:a:valid:urn';
-        expect(extractPlatformNameFromAssetUrn(urn)).toBeNull();
+    it('keeps viewProperties in main search, in the card query, and for their siblings', () => {
+        const siblingsSearch = {
+            __typename: 'ScrollResults',
+            count: 1,
+            total: 1,
+            searchResults: [{ __typename: 'SearchResult', entity: view('my_view_sibling') }],
+        };
+        const mainSearch = roundTrip(GetSearchResultsForMultipleDocument, { ...view('my_view'), siblingsSearch });
+        const card = roundTrip(GetSearchResultsForMultipleCardsDocument, { ...view('my_view'), siblingsSearch });
+        const siblingOf = (dataset: Dataset) => dataset.siblingsSearch?.searchResults[0]?.entity as Dataset;
+        const results = [mainSearch, siblingOf(mainSearch), card, siblingOf(card)].map(isDefinitionTime);
+        expect(results).toEqual([true, true, true, true]);
     });
 });

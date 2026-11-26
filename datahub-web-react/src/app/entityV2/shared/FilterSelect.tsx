@@ -21,6 +21,14 @@ interface FilterSelectProps {
     onFilterChange: (selectedFilters: FilterOption[]) => void;
     excludedCategories?: string[];
     initialSelectedOptions?: NestedSelectOption[];
+    placeholder?: string;
+    width?: number | 'fit-content' | 'full';
+    shouldDisplayConfirmationFooter?: boolean;
+}
+
+// NestedSelect compares values globally, so include the group for free-form filter names.
+function getFilterOptionValue(category: string | undefined, name: string): string {
+    return JSON.stringify([category, name]);
 }
 
 export const FilterSelect = ({
@@ -28,12 +36,17 @@ export const FilterSelect = ({
     onFilterChange,
     excludedCategories,
     initialSelectedOptions,
+    placeholder,
+    width,
+    shouldDisplayConfirmationFooter,
 }: FilterSelectProps) => {
     const { t: tc } = useTranslation('common.actions');
     const handleFilterChange = useCallback(
         (selectedValues: NestedSelectOption[]) => {
             const updatedFilters = selectedValues.map((option: NestedSelectOption) => {
-                return filterOptions[option.parentValue!].find((filter) => filter.name === option.value)!;
+                return filterOptions[option.parentValue!].find(
+                    (filter) => getFilterOptionValue(option.parentValue, filter.name) === option.value,
+                )!;
             });
 
             onFilterChange(updatedFilters);
@@ -42,7 +55,7 @@ export const FilterSelect = ({
     );
 
     const options = useMemo((): NestedSelectOption[] => {
-        const createOptions = (category: string, filters: any[]): NestedSelectOption[] => {
+        const createOptions = (category: string, filters: FilterOption[]): NestedSelectOption[] => {
             const parentOption: NestedSelectOption = {
                 value: category,
                 label: capitalize(category),
@@ -50,7 +63,8 @@ export const FilterSelect = ({
             };
 
             const childOptions: NestedSelectOption[] = filters.map((filter) => ({
-                value: filter.name,
+                value: getFilterOptionValue(category, filter.name),
+                testId: filter.name,
                 label: filter.displayName,
                 parentValue: category,
                 isParent: false,
@@ -68,19 +82,29 @@ export const FilterSelect = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filterOptions, excludedCategories]);
 
+    const initialValues = useMemo(
+        () =>
+            initialSelectedOptions?.map((option) => ({
+                ...option,
+                value: getFilterOptionValue(option.parentValue, option.value),
+            })),
+        [initialSelectedOptions],
+    );
+
     return (
         <NestedSelect
-            placeholder={tc('filter')}
+            placeholder={placeholder || tc('filter')}
             options={options}
-            initialValues={initialSelectedOptions}
+            initialValues={initialValues}
             onUpdate={handleFilterChange}
             isMultiSelect
             areParentsSelectable={false}
-            width={100}
-            selectLabelProps={{ variant: 'labeled', label: tc('filter') }}
+            width={width || 100}
+            selectLabelProps={{ variant: 'labeled', label: placeholder || tc('filter') }}
             dataTestId="filter"
             shouldAlwaysSyncParentValues
             hideParentCheckbox
+            shouldDisplayConfirmationFooter={shouldDisplayConfirmationFooter}
         />
     );
 };

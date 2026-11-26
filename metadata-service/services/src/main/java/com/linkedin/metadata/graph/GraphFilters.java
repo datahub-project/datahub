@@ -1,11 +1,14 @@
 package com.linkedin.metadata.graph;
 
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -22,9 +25,9 @@ import org.apache.commons.lang3.tuple.Pair;
 @AllArgsConstructor
 public class GraphFilters {
   public static RelationshipFilter OUTGOING_FILTER =
-      new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
+      QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING);
   public static RelationshipFilter INCOMING_FILTER =
-      new RelationshipFilter().setDirection(RelationshipDirection.INCOMING);
+      QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING);
 
   public static GraphFilters incomingFilter(Filter sourceEntityFilter) {
     return new GraphFilters(sourceEntityFilter, EMPTY_FILTER, null, null, null, INCOMING_FILTER);
@@ -67,10 +70,33 @@ public class GraphFilters {
         triplets.add(Pair.of(entityType, edge));
       }
     }
+    triplets.addAll(schemaFieldLineageTriplets(lineageRegistry));
     GraphFilters filters =
         new GraphFilters(EMPTY_FILTER, EMPTY_FILTER, null, null, Set.of(), INCOMING_FILTER);
     filters.setAllowedEdgeTriplets(triplets);
     return filters;
+  }
+
+  /**
+   * Column-level lineage (schemaField DownstreamOf schemaField). {@code fineGrainedLineages} has no
+   * {@code isLineage} annotation, so these edges are missing from the registry's lineage specs and
+   * are added here. Chart/dashboard {@code consumesField} edges are not: the scroll endpoint would
+   * orient them backwards.
+   */
+  private static Set<Pair<String, LineageRegistry.EdgeInfo>> schemaFieldLineageTriplets(
+      @Nonnull LineageRegistry lineageRegistry) {
+    return Stream.of(LineageDirection.UPSTREAM, LineageDirection.DOWNSTREAM)
+        .flatMap(
+            direction ->
+                lineageRegistry
+                    .getLineageRelationships(SCHEMA_FIELD_ENTITY_NAME, direction)
+                    .stream())
+        .filter(
+            edge ->
+                "DownstreamOf".equals(edge.getType())
+                    && SCHEMA_FIELD_ENTITY_NAME.equals(edge.getOpposingEntityType()))
+        .map(edge -> Pair.of(SCHEMA_FIELD_ENTITY_NAME.toLowerCase(), edge))
+        .collect(Collectors.toSet());
   }
 
   @Nonnull private Filter sourceEntityFilter;
@@ -109,8 +135,19 @@ public class GraphFilters {
     this.sourceTypes = sourceTypes;
     this.destinationTypes = destinationTypes;
     this.relationshipTypes = relationshipTypes != null ? relationshipTypes : Set.of();
-    this.relationshipFilter = relationshipFilter;
+    this.relationshipFilter = normalizeRelationshipFilter(relationshipFilter);
     this.relationshipDirection = relationshipFilter.getDirection();
+  }
+
+  @Nonnull
+  private static RelationshipFilter normalizeRelationshipFilter(
+      @Nonnull RelationshipFilter filter) {
+    if (filter.getOr() != null) {
+      return filter;
+    }
+    return new RelationshipFilter()
+        .setDirection(filter.getDirection())
+        .setOr(new ConjunctiveCriterionArray());
   }
 
   public boolean isSourceTypesFilterEnabled() {

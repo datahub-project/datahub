@@ -73,7 +73,8 @@ public class GraphCacheReaderTest {
             Set.of("urn:li:domain:root"),
             100,
             15,
-            ReadMode.CACHED);
+            ReadMode.CACHED,
+            false);
 
     assertTrue(result.isMiss());
     assertEquals(((GraphReadResult.Miss) result).reason(), ReadMissReason.INVALID_REQUEST);
@@ -89,7 +90,8 @@ public class GraphCacheReaderTest {
             Set.of("urn:li:domain:root"),
             100,
             15,
-            ReadMode.CACHED);
+            ReadMode.CACHED,
+            false);
 
     assertEquals(((GraphReadResult.Miss) result).reason(), ReadMissReason.INVALID_REQUEST);
   }
@@ -104,7 +106,8 @@ public class GraphCacheReaderTest {
             Collections.emptyList(),
             100,
             15,
-            ReadMode.CACHED);
+            ReadMode.CACHED,
+            false);
 
     assertEquals(((GraphReadResult.Miss) result).reason(), ReadMissReason.INVALID_REQUEST);
   }

@@ -95,47 +95,6 @@ public class KafkaConfigurationTest extends AbstractTestNGSpringContextTests {
         "5242880",
         "metadataChangeProposal should have default max.message.bytes value");
 
-    // Test datahubUpgradeHistory topic (has explicit partitions=1, should retain it)
-    TopicsConfiguration.TopicConfiguration datahubUpgradeHistory =
-        topics.get("datahubUpgradeHistory");
-    assertNotNull(datahubUpgradeHistory, "datahubUpgradeHistory should not be null");
-    assertEquals(
-        datahubUpgradeHistory.getPartitions(),
-        Integer.valueOf(1),
-        "datahubUpgradeHistory should retain its explicit partitions value");
-    // replicationFactor should be initialized from defaults since it's not explicitly set
-    assertEquals(
-        datahubUpgradeHistory.getReplicationFactor(),
-        topicDefaults.getReplicationFactor(),
-        "datahubUpgradeHistory replicationFactor should be initialized from defaults");
-
-    // Test configProperties merging for datahubUpgradeHistory (should merge defaults with specific
-    // retention)
-    Map<String, String> datahubUpgradeHistoryConfig = datahubUpgradeHistory.getConfigProperties();
-    assertNotNull(
-        datahubUpgradeHistoryConfig, "datahubUpgradeHistory configProperties should not be null");
-
-    // Verify that datahubUpgradeHistory inherits the default max.message.bytes
-    assertEquals(
-        datahubUpgradeHistoryConfig.get("max.message.bytes"),
-        defaultConfig.get("max.message.bytes"),
-        "datahubUpgradeHistory should inherit max.message.bytes from defaults");
-    assertEquals(
-        datahubUpgradeHistoryConfig.get("max.message.bytes"),
-        "5242880",
-        "datahubUpgradeHistory should have default max.message.bytes value");
-
-    // Verify that datahubUpgradeHistory has its specific retention.ms value
-    assertEquals(
-        datahubUpgradeHistoryConfig.get("retention.ms"),
-        "-1",
-        "datahubUpgradeHistory should have its specific retention.ms value");
-
-    // Verify that the configProperties map contains both default and specific properties
-    assertTrue(
-        datahubUpgradeHistoryConfig.containsKey("max.message.bytes"),
-        "datahubUpgradeHistory should contain default max.message.bytes");
-
     // Test metadataChangeLogTimeseries topic (should merge defaults with specific retention)
     TopicsConfiguration.TopicConfiguration metadataChangeLogTimeseries =
         topics.get("metadataChangeLogTimeseries");

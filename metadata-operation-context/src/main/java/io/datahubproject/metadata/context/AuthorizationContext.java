@@ -3,7 +3,9 @@ package io.datahubproject.metadata.context;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.ResolvedEntitySpec;
 import com.datahub.authorization.SessionActorIdentity;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -13,6 +15,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.policy.DataHubPolicyInfo;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,6 +46,16 @@ public class AuthorizationContext implements ContextInterface {
   @Builder.Default
   private final ConcurrentHashMap<EntitySpec, ResolvedEntitySpec> sessionResourceSpecCache =
       new ConcurrentHashMap<>();
+
+  /**
+   * Request-scoped field overrides layered on top of normally resolved resource specs, so a write
+   * can be evaluated against the values it proposes (e.g. an entity's first domains) without hiding
+   * the entity's other stored attributes. Kept apart from {@link #sessionResourceSpecCache}, which
+   * only ever holds real resolutions.
+   */
+  @Builder.Default
+  private final ConcurrentHashMap<EntitySpec, Map<EntityFieldType, FieldResolver>>
+      sessionResourceFieldOverrides = new ConcurrentHashMap<>();
 
   /**
    * Request-scoped cache of session actor identity (groups + direct roles). Populated once per
@@ -158,14 +171,7 @@ public class AuthorizationContext implements ContextInterface {
       @Nullable final EntitySpec resourceSpec) {
     final AuthorizationRequest request =
         buildAuthorizationRequest(actorContext, privilege, resourceSpec, Collections.emptyList());
-    // Graphql CompletableFutures causes a recursive exception, we avoid computeIfAbsent and do work
-    // outside a blocking function
-    AuthorizationResult result = sessionAuthorizationCache.get(request);
-    if (result == null) {
-      result = runAuthorize(opContext, request);
-      sessionAuthorizationCache.putIfAbsent(request, result);
-    }
-    return result;
+    return cachedAuthorize(opContext, request, resourceSpec);
   }
 
   public AuthorizationResult authorize(
@@ -176,6 +182,22 @@ public class AuthorizationContext implements ContextInterface {
       @Nonnull final Collection<EntitySpec> subResources) {
     final AuthorizationRequest request =
         buildAuthorizationRequest(actorContext, privilege, resourceSpec, subResources);
+    return cachedAuthorize(opContext, request, resourceSpec);
+  }
+
+  private AuthorizationResult cachedAuthorize(
+      @Nonnull OperationContext opContext,
+      @Nonnull final AuthorizationRequest request,
+      @Nullable final EntitySpec resourceSpec) {
+    // The cache key does not include field overrides, which change how the resource resolves.
+    // While the resource or a subresource has one, evaluate directly and keep the result out of
+    // the cache.
+    if ((resourceSpec != null && sessionResourceFieldOverrides.containsKey(resourceSpec))
+        || (request.getSubResources() != null
+            && request.getSubResources().stream()
+                .anyMatch(sessionResourceFieldOverrides::containsKey))) {
+      return runAuthorize(opContext, request);
+    }
     // Graphql CompletableFutures causes a recursive exception, we avoid computeIfAbsent and do work
     // outside a blocking function
     AuthorizationResult result = sessionAuthorizationCache.get(request);

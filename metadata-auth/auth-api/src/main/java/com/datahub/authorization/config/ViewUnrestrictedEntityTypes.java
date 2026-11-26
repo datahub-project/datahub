@@ -31,13 +31,17 @@ import lombok.experimental.Accessors;
 public class ViewUnrestrictedEntityTypes {
 
   /**
-   * Optional full list of unrestricted entity types. When non-empty, replaces the entity-registry
-   * {@code viewUnrestricted} baseline before {@link #add} / {@link #remove} apply. Empty means use
-   * the registry baseline.
+   * Application overlay appended to the entity-registry {@code viewUnrestricted} baseline. Stock
+   * YAML supplies the previous unrestricted CSV (minus types already flagged in the registry).
+   * Overridable via {@code VIEW_UNRESTRICTED_ENTITY_TYPES}; an explicitly empty value keeps only
+   * the registry baseline before {@link #add} / {@link #remove}.
    */
   private String value;
 
-  /** Comma-separated registry names to append to the effective list. */
+  /**
+   * Comma-separated registry names to append. Mutates the effective list (registry + {@link
+   * #value}) rather than replacing it.
+   */
   private String add;
 
   /** Comma-separated registry names to remove from the effective list. */

@@ -9,11 +9,12 @@ from google.cloud.bigquery.dbapi import exceptions as bq_exceptions
 from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, Label
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
+    ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
@@ -49,13 +50,30 @@ class BigQueryAdapter(PlatformAdapter):
         """
         logger.debug(f"BigQuery setup for {context.pretty_name}")
 
-        # Step 1: Handle custom SQL or LIMIT/OFFSET via temp table
-        if context.custom_sql or self.config.limit or self.config.offset:
+        # Sampling is preferred over a bound here; see PlatformAdapter.setup_profiling.
+        #
+        # custom_sql wins over both: it is the source's own query (a partition
+        # filter), passed through untouched, so a limit is not applied there
+        # either. An offset with no limit is declined -- it bounds nothing, and
+        # BigQuery has no spelling for OFFSET without LIMIT.
+        bound = bool(self.config.limit) and not (
+            context.custom_sql or self.config.use_sampling
+        )
+
+        # Step 1: Handle custom SQL or LIMIT/OFFSET via temp table.
+        if context.custom_sql or bound:
             context = self._create_temp_table_for_query(context)
+            if bound:
+                context.applied.limit = self.config.limit
+                context.applied.offset = self.config.offset
+            elif context.custom_sql:
+                # The rows are whatever the source's query returned -- a
+                # partition filter, or a row cap on a table too big to profile
+                # whole. Which of the two, this layer cannot tell.
+                context.applied.source_scoped = True
 
         # Step 2: Sample large tables (and large partitions) into a temp table.
-        # Skip when a LIMIT is configured — the row set is already bounded.
-        if self.config.use_sampling and not self.config.limit:
+        if self.config.use_sampling:
             context = self._setup_sampling(context, conn)
 
         # Step 3: Create SQLAlchemy table object
@@ -129,28 +147,13 @@ class BigQueryAdapter(PlatformAdapter):
                 schema=context.schema,
             )
 
-            # Build SELECT * query using query builder
+            # Build SELECT * query using query builder. Only reached with a
+            # limit set, and the config constrains it to a positive int.
             query = sa.select(sa.text("*")).select_from(table_obj)
-
-            # Add LIMIT if configured
             if self.config.limit:
-                # Pydantic validates this is an int, but ensure it's positive
-                limit_val = int(self.config.limit)
-                if limit_val <= 0:
-                    raise ValueError(
-                        f"Invalid LIMIT value: {limit_val}. Must be positive."
-                    )
-                query = query.limit(limit_val)
-
-            # Add OFFSET if configured
+                query = query.limit(self.config.limit)
             if self.config.offset:
-                # Pydantic validates this is an int, but ensure it's non-negative
-                offset_val = int(self.config.offset)
-                if offset_val < 0:
-                    raise ValueError(
-                        f"Invalid OFFSET value: {offset_val}. Must be non-negative."
-                    )
-                query = query.offset(offset_val)
+                query = query.offset(self.config.offset)
 
             # Compile query to SQL string for DBAPI execution
             bq_sql = str(
@@ -264,7 +267,7 @@ class BigQueryAdapter(PlatformAdapter):
             else:
                 return None
 
-            query = sa.select([sa.func.count()]).select_from(table_obj)
+            query = sa.select(sa.func.count()).select_from(table_obj)
             result = conn.execute(query).scalar()
             return int(result) if result is not None else None
         except SQLAlchemyError as e:
@@ -283,19 +286,11 @@ class BigQueryAdapter(PlatformAdapter):
         """
         Sample a large table (or partition) into a cached temp table.
 
-        Mirrors the GE profiler (update_dataset_batch_use_sampling): run
-        `SELECT * FROM <target> TABLESAMPLE SYSTEM (pc PERCENT)` and reuse
-        BigQuery's cached-results table as the profiling target. Because
+        Runs `SELECT * FROM <target> TABLESAMPLE SYSTEM (pc PERCENT)` and
+        reuses BigQuery's cached-results table as the profiling target. Because
         TABLESAMPLE must be applied to a table (not a subquery), a partitioned
         table is sampled via the partition temp table materialized in step 1,
         not by wrapping the partition SQL.
-
-        Note on custom_sql: for BigQuery, `custom_sql` (the partition filter
-        built in bigquery_v2/profiler.py) feeds BOTH the GE and SQLAlchemy
-        engines — unlike Snowflake, where #18253 gated custom_sql to the GE
-        path. Once the GE profiler is removed, partition selection should be
-        pushed down into this adapter (see the deprecation note on
-        ProfilingContext.custom_sql).
 
         Args:
             context: Current profiling context
@@ -349,8 +344,7 @@ class BigQueryAdapter(PlatformAdapter):
         context = self._create_temp_table_for_query(context)
         context.custom_sql = old_custom_sql  # Restore
 
-        context.is_sampled = True
-        context.sample_percentage = sample_pc
+        context.applied.sample_percentage = sample_pc
 
         return context
 
@@ -390,15 +384,11 @@ class BigQueryAdapter(PlatformAdapter):
         num_quantiles = len(quantiles)
         return sa.func.approx_quantiles(sa.column(column), num_quantiles)
 
-    def get_sample_clause(self, sample_size: int) -> Optional[str]:
-        """BigQuery uses TABLESAMPLE SYSTEM."""
-        return f"TABLESAMPLE SYSTEM ({sample_size} ROWS)"
-
     def get_column_quantiles(
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         """
@@ -421,14 +411,16 @@ class BigQueryAdapter(PlatformAdapter):
 
         # BigQuery: approx_quantiles(col, 100) returns 101 values
         indices = [int(q * 100) for q in quantiles]
-        selects = [
+        selects: List[Label] = [
             sa.literal_column(
                 f"approx_quantiles(`{column}`, 100)[OFFSET({idx})]"
             ).label(f"q_{int(q * 100)}")
             for q, idx in zip(quantiles, indices, strict=False)
         ]
-        query = sa.select(selects).select_from(table)
-        result = conn.execute(query).fetchone()
+        query = sa.select(*selects).select_from(table)
+        # Single-row, but on the main greenlet, so not batchable regardless --
+        # see ProfilingConnection.execute_rows.
+        result = conn.execute_rows(query).fetchone()
         if result is None:
             return [None] * len(quantiles)
         return [float(v) if v is not None else None for v in result]

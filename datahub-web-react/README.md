@@ -62,7 +62,7 @@ In order to start a server and run frontend unit tests using react-testing-frame
 
 `yarn test :e2e`
 
-There are also more automated tests using Cypress in the `smoke-test` folder of the repository root.
+There are also more automated end-to-end tests using Playwright in the `e2e-test` folder of the repository root.
 
 #### Troubleshooting
 
@@ -85,7 +85,7 @@ Theme configurations are defined in `./src/conf/theme/themes.ts`. By default, th
 
 For quick local development, you can set env variable `REACT_APP_THEME` in `.env` to any of the themes defined in `themes.ts`.
 
-We are transitioning away from Ant theming, but still depend on it for some styling. The Ant theme is stored in json files, in `./src/conf/theme`. To select the Ant theme, choose a json file and set env variable `ANT_THEME_CONFIG` in `.env` to the theme's filename, including `.json`, then re-run `yarn start` from `datahub/datahub-web-react`.
+We are transitioning away from Ant theming, but still depend on it for some styling. Ant Design's design tokens are set in `./src/alchemy-components/theme/antdTheme.ts`.
 
 #### Editing a theme
 

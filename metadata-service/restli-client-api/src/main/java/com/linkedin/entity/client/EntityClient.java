@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -27,6 +28,7 @@ import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
@@ -34,6 +36,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -499,6 +502,92 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   /**
+   * Removes the graph references to an entity, then the entity, and hands back the cleanup of the
+   * other references for the caller to run where it ran {@link #deleteEntityReferences}. Deleting
+   * the entity first drops its graph edges, so those references are removed before it. This default
+   * has no graph scroll: it deletes the entity before returning and throws that failure here, and
+   * the cleanup it returns only removes references. An implementation that counts incoming graph
+   * edges removes them, then deletes the entity, before returning. When the count is over its limit
+   * it either hard-deletes the entity without the graph references, or, when configured to refuse,
+   * throws an {@link IllegalArgumentException} and removes nothing. {@link
+   * ReferencesCleanup#choice()} reports which path ran and is known when this returns. A failure of
+   * the count, the graph pages or the entity delete is thrown here and leaves the entity in place.
+   * {@link ReferencesCleanup#run()} only removes the references that are not graph edges.
+   */
+  @Nonnull
+  default ReferencesCleanup deleteReferencesThenEntity(
+      @Nonnull OperationContext opContext, @Nonnull final Urn urn)
+      throws RemoteInvocationException {
+    deleteEntity(opContext, urn);
+    return () -> deleteEntityReferences(opContext, urn);
+  }
+
+  /** The delete of the references to an entity, as {@link #deleteReferencesThenEntity} gives it. */
+  @FunctionalInterface
+  interface ReferencesCleanup {
+    /**
+     * What this delete did about the references. Known when {@link #deleteReferencesThenEntity}
+     * returns. {@link Choice#PENDING} is an entity that was already gone. {@link Choice#HANDED_OFF}
+     * was taken by another process. A cleanup that does not decide from the referrer count reports
+     * {@link Choice#REFERENCES_THEN_ENTITY}.
+     */
+    enum Choice {
+      /**
+       * The entity was already gone. {@link #run()} only cleans its references, or does nothing.
+       */
+      PENDING,
+      /**
+       * Graph references were removed, then the entity was deleted. {@link #run()} cleans the rest.
+       */
+      REFERENCES_THEN_ENTITY,
+      /**
+       * More graph references pointed at the entity than the limit allows and the deployment skips
+       * them: only the entity was hard-deleted, and its referrers were left. {@link #run()} still
+       * cleans the references that are not graph edges. A deployment that refuses instead throws.
+       */
+      ENTITY_ONLY,
+      /** The delete was handed to another process, which also cleans the references. */
+      HANDED_OFF
+    }
+
+    /** Returned when the entity delete and its references were handed to another process. */
+    ReferencesCleanup HANDED_OFF =
+        new ReferencesCleanup() {
+          @Override
+          public void run() {}
+
+          @Override
+          public boolean handedOff() {
+            return true;
+          }
+
+          @Override
+          public Choice choice() {
+            return Choice.HANDED_OFF;
+          }
+        };
+
+    void run() throws RemoteInvocationException;
+
+    /**
+     * True when the entity delete was handed to another process, which also deletes the references
+     * once the entity is gone; nothing has been deleted here yet, so work that must follow a
+     * completed delete does not run here.
+     */
+    default boolean handedOff() {
+      return false;
+    }
+
+    /**
+     * What this cleanup did. Known when {@link #deleteReferencesThenEntity} returns. Callers that
+     * do not decide from the referrer count report {@link Choice#REFERENCES_THEN_ENTITY}.
+     */
+    default Choice choice() {
+      return handedOff() ? Choice.HANDED_OFF : Choice.REFERENCES_THEN_ENTITY;
+    }
+  }
+
+  /**
    * Filters entities based on a particular Filter and Sort criterion
    *
    * @param entity filter entity
@@ -684,6 +773,10 @@ public interface EntityClient {
         .get(aspectName);
   }
 
+  // Routes through the 4-arg batchGetV2 so SystemEntityClient implementations can intercept
+  // it with a cache. The 5-arg overload bypasses that cache. When alwaysIncludeKeyAspect is
+  // requested, the key aspect is synthesized from the URN after the cached fetch — zero DB
+  // cost, no cache-key pollution, and no contract change on other batchGetV2 callers.
   @Nonnull
   default Map<Urn, Map<String, Aspect>> getLatestAspects(
       @Nonnull OperationContext opContext,
@@ -692,10 +785,26 @@ public interface EntityClient {
       @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
-    return entityResponseToAspectMap(
-        batchGetV2(opContext, entityName, urns, aspectNames, alwaysIncludeKeyAspect));
+    Map<Urn, Map<String, Aspect>> result =
+        entityResponseToAspectMap(batchGetV2(opContext, entityName, urns, aspectNames));
+    if (alwaysIncludeKeyAspect != null && alwaysIncludeKeyAspect) {
+      EntityRegistry registry = opContext.getEntityRegistry();
+      for (Urn urn : urns) {
+        Map<String, Aspect> aspects = result.computeIfAbsent(urn, k -> new HashMap<>());
+        String keyName = opContext.getKeyAspectName(urn);
+        if (!aspects.containsKey(keyName)) {
+          RecordTemplate key = EntityApiUtils.buildKeyAspect(registry, urn);
+          aspects.put(keyName, new Aspect(key.data()));
+        }
+      }
+    }
+    return result;
   }
 
+  // Same cache-routing rationale as getLatestAspects above. When alwaysIncludeKeyAspect is
+  // requested, the call falls through to the uncached 5-arg batchGetV2 because SystemAspect
+  // carries DB metadata (version, createdOn, systemMetadata) that cannot be synthesized from
+  // the URN alone.
   @Nonnull
   default Map<Urn, Map<String, SystemAspect>> getLatestSystemAspect(
       @Nonnull OperationContext opContext,
@@ -704,8 +813,12 @@ public interface EntityClient {
       @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
+    if (alwaysIncludeKeyAspect != null && alwaysIncludeKeyAspect) {
+      return entityResponseToSystemAspectMap(
+          batchGetV2(opContext, entityName, urns, aspectNames, true),
+          opContext.getEntityRegistry());
+    }
     return entityResponseToSystemAspectMap(
-        batchGetV2(opContext, entityName, urns, aspectNames, alwaysIncludeKeyAspect),
-        opContext.getEntityRegistry());
+        batchGetV2(opContext, entityName, urns, aspectNames), opContext.getEntityRegistry());
   }
 }

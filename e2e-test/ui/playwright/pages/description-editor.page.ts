@@ -1,7 +1,8 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
-import { TIMEOUTS, TABLE_LOAD_DELAY, LOAD_STATES } from '../utils/constants';
+import { TIMEOUTS, LOAD_STATES } from '../utils/constants';
+import { GraphQLHelper } from '../helpers/graphql-helper';
 import { writeFile, deleteFileIfExists } from '../utils/file-utils';
 
 // Page object for entity description editor interactions
@@ -81,8 +82,9 @@ export default class DescriptionEditorPage extends BasePage {
       await this.uploadFileButton.click();
       await this.fileUploadInput.waitFor({ state: 'attached', timeout: TIMEOUTS.MEDIUM });
       await this.fileUploadInput.setInputFiles(tempFilePath);
-      await this.page.waitForTimeout(TABLE_LOAD_DELAY);
-      // For invalid files, backend validation rejects silently - verify file wasn't added
+      // FileUploadContent rejects an unsupported type before inserting a node and reports it in an
+      // "Upload Failed" notification; wait for that so the absence check below is meaningful.
+      await expect(this.page.getByText('Upload Failed')).toBeVisible();
       const fileNode = this.editorFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
       await expect(fileNode).toBeHidden();
     } finally {
@@ -104,15 +106,17 @@ export default class DescriptionEditorPage extends BasePage {
     await fileNode.waitFor({ state: 'visible', timeout: TIMEOUTS.EXTRA_LONG });
   }
 
+  private async waitForFileUrlAttribute(fileNode: Locator, urlPattern: RegExp): Promise<void> {
+    await expect(fileNode).toHaveAttribute('data-file-url', urlPattern, { timeout: TIMEOUTS.EXTRA_LONG });
+  }
+
   async verifyFileNodeInEditor(_fileId: string, fileName: string): Promise<void> {
     const fileNode = this.editorFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
     await expect(fileNode).toBeVisible();
 
-    const urlPattern = /\/openapi\/v1\/files\/product_assets\/urn:li:dataHubFile:.+/;
-    const actualUrl = await fileNode.getAttribute('data-file-url');
-    if (!actualUrl || !urlPattern.test(actualUrl)) {
-      throw new Error(`File URL does not match expected pattern. Got: ${actualUrl}`);
-    }
+    // fileId is percent-encoded in the URL (e.g. urn%3Ali%3AdataHubFile%3A...)
+    const urlPattern = /\/openapi\/v1\/files\/product_assets\/.+/;
+    await this.waitForFileUrlAttribute(fileNode, urlPattern);
     await expect(fileNode).toContainText(fileName);
   }
 
@@ -120,11 +124,8 @@ export default class DescriptionEditorPage extends BasePage {
     const fileNode = this.aboutFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
     await expect(fileNode).toBeVisible();
 
-    const urlPattern = /\/openapi\/v1\/files\/product_assets\/urn:li:dataHubFile:.+/;
-    const actualUrl = await fileNode.getAttribute('data-file-url');
-    if (!actualUrl || !urlPattern.test(actualUrl)) {
-      throw new Error(`File URL does not match expected pattern. Got: ${actualUrl}`);
-    }
+    const urlPattern = /\/openapi\/v1\/files\/product_assets\/.+/;
+    await this.waitForFileUrlAttribute(fileNode, urlPattern);
     await expect(fileNode).toContainText(fileName);
   }
 
@@ -155,8 +156,11 @@ export default class DescriptionEditorPage extends BasePage {
     if (!(await this.descriptionEditorContainer.isVisible())) {
       await this.openEditor();
     }
+    // Publishing closes the modal before the save returns; wait for it so a test that navigates
+    // right away does not reload the stale description.
+    const saved = new GraphQLHelper(this.page).waitForGraphQLResponse('updateDescription');
     await this.clearDescription();
+    expect(await saved).toMatchObject({ data: { updateDescription: true } });
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await this.page.waitForTimeout(TABLE_LOAD_DELAY);
   }
 }

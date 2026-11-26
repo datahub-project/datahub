@@ -99,7 +99,7 @@
             <pattern>service=datahub-frontend,pod=${HOSTNAME:-unknown},level=%level</pattern>
           </label>
           <message>
-            <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
+            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
           </message>
         </format>
         <batchMaxItems>1000</batchMaxItems>

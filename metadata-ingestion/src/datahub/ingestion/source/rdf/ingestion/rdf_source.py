@@ -111,7 +111,7 @@ class RDFSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("RDF")
 @config_class(RDFSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Enabled via stateful_ingestion.enabled: true",

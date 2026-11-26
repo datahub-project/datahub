@@ -361,6 +361,45 @@ class MySQLClient:
                 return upgrade_id, parsed
         return None, None
 
+    def find_upgrade_result_by_urn_prefix_suffix(
+        self, urn_prefix: str, urn_suffix: str
+    ) -> tuple[str | None, dict | None]:
+        """Find the dataHubUpgradeResult matching ``<urn_prefix>...<urn_suffix>``.
+
+        Same return shape as :meth:`find_upgrade_result_by_urn_prefix`.
+
+        Exists because upgrade ids embed a version the framework cannot know
+        statically: both ``MigrateAspects`` and ``BuildIndicesIncremental``
+        derive theirs as ``<gitVersion>-<revision>`` (see
+        ``NonBlockingConfigs.migrateAspects`` and ``BuildIndices``). The
+        framework controls only ``revision``, via ``DATAHUB_REVISION``, so a
+        phase that sets a private revision finds its own row by matching that
+        as the suffix — without hardcoding or discovering the release version.
+
+        A prefix-only match is not sufficient here: several sweeps and the
+        boot-time run all produce ``migrate-aspects-*`` rows, and which one a
+        prefix scan returns is down to row order.
+        """
+        full_prefix = f"urn:li:dataHubUpgrade:{urn_prefix}"
+        with self._conn() as c, c.cursor() as cur:
+            cur.execute(
+                "SELECT urn, metadata FROM metadata_aspect_v2 "
+                "WHERE aspect='dataHubUpgradeResult' AND version=0 "
+                "AND urn LIKE %s",
+                (f"{full_prefix}%{urn_suffix}",),
+            )
+            rows = cur.fetchall()
+        for row in rows:
+            md = row.get("metadata")
+            if not md:
+                continue
+            try:
+                parsed = json.loads(md)
+            except json.JSONDecodeError:
+                continue
+            return row["urn"].removeprefix("urn:li:dataHubUpgrade:"), parsed
+        return None, None
+
     def find_upgrade_result_by_urn_prefix(
         self, urn_prefix: str
     ) -> tuple[str | None, dict | None]:

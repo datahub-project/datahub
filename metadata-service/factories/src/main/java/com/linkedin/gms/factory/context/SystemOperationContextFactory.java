@@ -1,10 +1,15 @@
 package com.linkedin.gms.factory.context;
 
+import static com.linkedin.metadata.Constants.ENTITY_TYPE_INFO_ASPECT_NAME;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
+import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.config.search.EntityTypeListConfig;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -18,8 +23,15 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.EntityTypeUtils;
+import com.linkedin.metadata.utils.NextVersionEntityTypes;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.PrimaryStorageContext;
@@ -32,6 +44,7 @@ import io.datahubproject.metadata.context.usage.instrumentation.SessionContextEn
 import io.datahubproject.metadata.services.RestrictedService;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -64,6 +77,7 @@ public class SystemOperationContextFactory {
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
+      @Nonnull final SearchClusterRegistry searchClusterRegistry,
       @Nonnull final ConfigurationProvider configurationProvider,
       @Qualifier("systemEntityClient") @Nonnull final SystemEntityClient systemEntityClient,
       @Qualifier("mappingsBuilder") @Nonnull final MappingsBuilder mappingsBuilder,
@@ -71,7 +85,10 @@ public class SystemOperationContextFactory {
       @Autowired(required = false) @Qualifier("groupService") @Nullable
           final GroupService groupService,
       @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver,
-      @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache) {
+      @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache,
+      @Autowired(required = false) @Nullable final QueryTimeCanonicalizer queryTimeCanonicalizer,
+      @Autowired(required = false) @Nullable
+          final SearchTemplateCoordinator searchTemplateCoordinator) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
@@ -93,7 +110,9 @@ public class SystemOperationContextFactory {
             components,
             entityRegistry,
             mappingsBuilder,
-            configurationProvider.getElasticSearch().getSearch());
+            configurationProvider.getElasticSearch().getSearch(),
+            searchClusterRegistry,
+            searchTemplateCoordinator);
 
     OperationContext systemOperationContext =
         OperationContext.asSystem(
@@ -120,11 +139,19 @@ public class SystemOperationContextFactory {
             primaryStorageContext(primaryStorageResolver),
             configurationProvider.getAuthentication().isEnforceExistenceEnabled());
 
+    // Attach before the retrievers capture the instance below: OperationContext is immutable, so a
+    // later withX() would leave them holding a context without the canonicalizer.
+    if (queryTimeCanonicalizer != null) {
+      systemOperationContext =
+          systemOperationContext.withQueryTimeCanonicalizer(queryTimeCanonicalizer);
+    }
+
     entityClientAspectRetriever.setSystemOperationContext(systemOperationContext);
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
+    configureUnknownDataHandling(configurationProvider, systemOperationContext);
     return systemOperationContext;
   }
 
@@ -147,13 +174,17 @@ public class SystemOperationContextFactory {
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
+      @Nonnull final SearchClusterRegistry searchClusterRegistry,
       @Nonnull final ConfigurationProvider configurationProvider,
       @Nonnull final SystemTelemetryContext systemTelemetryContext,
       @Qualifier("mappingsBuilder") @Nonnull final MappingsBuilder mappingsBuilder,
       @Autowired(required = false) @Qualifier("groupService") @Nullable
           final GroupService groupService,
       @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver,
-      @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache) {
+      @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache,
+      @Autowired(required = false) @Nullable final QueryTimeCanonicalizer queryTimeCanonicalizer,
+      @Autowired(required = false) @Nullable
+          final SearchTemplateCoordinator searchTemplateCoordinator) {
 
     EntityClientAspectRetriever entityClientAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
@@ -169,7 +200,9 @@ public class SystemOperationContextFactory {
             components,
             entityRegistry,
             mappingsBuilder,
-            configurationProvider.getElasticSearch().getSearch());
+            configurationProvider.getElasticSearch().getSearch(),
+            searchClusterRegistry,
+            searchTemplateCoordinator);
 
     OperationContext systemOperationContext =
         OperationContext.asSystem(
@@ -195,10 +228,18 @@ public class SystemOperationContextFactory {
             primaryStorageContext(primaryStorageResolver),
             configurationProvider.getAuthentication().isEnforceExistenceEnabled());
 
+    // Attach before the retrievers capture the instance below: OperationContext is immutable, so a
+    // later withX() would leave them holding a context without the canonicalizer.
+    if (queryTimeCanonicalizer != null) {
+      systemOperationContext =
+          systemOperationContext.withQueryTimeCanonicalizer(queryTimeCanonicalizer);
+    }
+
     entityClientAspectRetriever.setSystemOperationContext(systemOperationContext);
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
+    configureUnknownDataHandling(configurationProvider, systemOperationContext);
     return systemOperationContext;
   }
 
@@ -207,9 +248,13 @@ public class SystemOperationContextFactory {
       @Nonnull BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull MappingsBuilder mappingsBuilder,
-      @Nullable SearchConfiguration searchConfiguration) {
+      @Nullable SearchConfiguration searchConfiguration,
+      @Nonnull SearchClusterRegistry searchClusterRegistry,
+      @Nullable SearchTemplateCoordinator searchTemplateCoordinator) {
     return SearchContext.builder()
         .indexConvention(components.getIndexConvention())
+        .searchClusterAccess(searchClusterRegistry)
+        .searchTemplateRuntime(searchTemplateCoordinator)
         .searchableFieldTypes(ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
         .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
         .defaultSearchEntityNames(
@@ -298,5 +343,55 @@ public class SystemOperationContextFactory {
     final Set<String> effective =
         EntityTypeUtils.resolve(viewConfiguration.getUnrestrictedEntityTypes(), entityRegistry);
     return viewConfiguration.toBuilder().effectiveUnrestrictedEntityTypes(effective).build();
+  }
+
+  /**
+   * Chooses, for this process, how data a newer version wrote is treated, from {@code
+   * featureFlags.unknownEntityAspectToleranceEnabled} and {@code
+   * featureFlags.unknownEnumToleranceEnabled}. Every process that runs the unknown-data paths (GMS,
+   * the MAE and MCE consumers, upgrade jobs) builds its system operation context here. When unknown
+   * entities are tolerated, an unknown entity type is tolerated only if a newer version registered
+   * it as an {@code entityType} row.
+   */
+  @VisibleForTesting
+  static void configureUnknownDataHandling(
+      @Nonnull final ConfigurationProvider configurationProvider,
+      @Nonnull final OperationContext systemOperationContext) {
+    configureUnknownDataHandling(
+        configurationProvider,
+        entityTypeUrn ->
+            systemOperationContext
+                    .getAspectRetriever()
+                    .getLatestAspectObject(
+                        systemOperationContext, entityTypeUrn, ENTITY_TYPE_INFO_ASPECT_NAME)
+                != null);
+  }
+
+  /**
+   * As above, for a process that runs the unknown-data paths without this factory's system
+   * operation context (e.g. a pod writing through {@code EntityService} in process). {@code
+   * entityTypeRowExists} tells whether a newer version registered an entity type.
+   */
+  @Nonnull
+  public static UnknownDataHandling configureUnknownDataHandling(
+      @Nonnull final ConfigurationProvider configurationProvider,
+      @Nonnull final Predicate<Urn> entityTypeRowExists) {
+    final boolean unknownEntityAspectTolerance =
+        configurationProvider.getFeatureFlags().isUnknownEntityAspectToleranceEnabled();
+    final boolean unknownEnumTolerance =
+        configurationProvider.getFeatureFlags().isUnknownEnumToleranceEnabled();
+    final UnknownDataHandling handling =
+        unknownEntityAspectTolerance || unknownEnumTolerance
+            ? TolerantHandling.of(
+                unknownEntityAspectTolerance,
+                unknownEnumTolerance,
+                new NextVersionEntityTypes(entityTypeRowExists))
+            : StrictHandling.INSTANCE;
+    UnknownDataHandlings.install(handling);
+    log.info(
+        "Unknown data tolerance: entity types, aspects and references {}; enum values {}",
+        unknownEntityAspectTolerance ? "enabled" : "disabled",
+        unknownEnumTolerance ? "enabled" : "disabled");
+    return handling;
   }
 }

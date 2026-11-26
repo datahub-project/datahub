@@ -2,10 +2,19 @@ namespace com.linkedin.assertion
 
 import com.linkedin.common.AuditStamp
 
-
+/**
+ * A user-defined note attached to an Assertion, giving technical owners more context about the
+ * assertion and how to troubleshoot failures. Stored as a separate aspect so that ingestion
+ * sources that UPSERT AssertionInfo do not accidentally overwrite user-authored notes.
+ */
+@Aspect = {
+  "name": "assertionNote",
+  "schemaVersion": 2
+}
 record AssertionNote {
     /**
     * The note to give technical owners more context about the assertion, and how to troubleshoot it.
+    * Rendered as markdown in the UI.
     */
     content: string
 

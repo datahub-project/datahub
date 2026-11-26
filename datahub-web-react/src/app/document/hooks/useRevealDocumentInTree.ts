@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom';
 import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useDocumentNavigation } from '@app/document/hooks/useDocumentNavigation';
 import { revealDocumentInTree } from '@app/document/utils/documentTreeReveal';
+import { isDocumentUnpublished, isExternalDocument } from '@app/document/utils/documentUtils';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
 
@@ -19,8 +20,13 @@ interface RevealLoaders {
 
 /**
  * When the open document changes via URL (deep link / in-app navigation), expand and
- * load its ancestor path in the sidebar tree so the selected row can mount and scroll
- * into view. No-op while roots are still initializing or when there is no document URN.
+ * load its ancestor path in the sidebar tree so the selected row can mount — but only
+ * if that path's root is already in the loaded sorted window. Never pages the root
+ * list to chase the open doc (that broke Name A–Z and scrolled users to the bottom).
+ *
+ * Page-0 can clear its spinner before missing source-platform roots are appended.
+ * Reveal waits until the open doc's root ancestor is actually in the tree so a
+ * late Confluence/Notion section still gets expanded once it lands.
  */
 export function useRevealDocumentInTree({
     loadChildren,
@@ -31,7 +37,7 @@ export function useRevealDocumentInTree({
 }: RevealLoaders): void {
     const { getCurrentDocumentUrn } = useDocumentNavigation();
     const documentUrn = getCurrentDocumentUrn();
-    const { getNode, expandNode, addNode } = useDocumentTree();
+    const { getNode, expandNode, addNode, rootUrns } = useDocumentTree();
 
     const getNodeRef = useRef(getNode);
     getNodeRef.current = getNode;
@@ -45,6 +51,8 @@ export function useRevealDocumentInTree({
     loadMoreChildrenRef.current = loadMoreChildren;
     const hasMoreChildrenRef = useRef(hasMoreChildren);
     hasMoreChildrenRef.current = hasMoreChildren;
+    const rootUrnsRef = useRef(rootUrns);
+    rootUrnsRef.current = rootUrns;
 
     // Prefer the profile's cached getDocument (same query + includeParentDocuments).
     const { data, loading: documentLoading } = useGetDocumentQuery({
@@ -52,6 +60,15 @@ export function useRevealDocumentInTree({
         skip: skip || !documentUrn || rootsLoading,
         fetchPolicy: 'cache-first',
     });
+
+    // Parent API order is direct-parent first; the sidebar root is last.
+    const parents = data?.document?.parentDocuments?.documents;
+    const rootAncestorUrn =
+        data?.document?.urn === documentUrn && parents?.length ? parents[parents.length - 1]?.urn : undefined;
+    // Use rootUrns, not getNode: initializeTree drops scrolled-off roots from the
+    // visible list but leaves them in the nodes map. A stale getNode hit would make
+    // reveal run against a root that getRootNodes() no longer renders.
+    const rootAncestorReady = !rootAncestorUrn || rootUrns.includes(rootAncestorUrn);
 
     useEffect(() => {
         if (skip || !documentUrn || rootsLoading || documentLoading || !data?.document) {
@@ -63,10 +80,14 @@ export function useRevealDocumentInTree({
             return undefined;
         }
 
+        if (!rootAncestorReady) {
+            return undefined;
+        }
+
         let cancelled = false;
 
         const run = async () => {
-            const parents = (data.document?.parentDocuments?.documents || []).map((parent) => ({
+            const parentDocs = (data.document?.parentDocuments?.documents || []).map((parent) => ({
                 urn: parent.urn,
                 title: parent.info?.title,
             }));
@@ -75,8 +96,15 @@ export function useRevealDocumentInTree({
                 await revealDocumentInTree({
                     documentUrn,
                     documentTitle: data.document?.info?.title,
-                    parentDocuments: parents,
+                    parentDocuments: parentDocs,
+                    documentMeta: {
+                        platform: data.document?.platform ?? null,
+                        isExternal: isExternalDocument(data.document),
+                        isUnpublished: isDocumentUnpublished(data.document),
+                        lastModifiedAt: data.document?.info?.lastModified?.time ?? 0,
+                    },
                     getNode: (urn) => getNodeRef.current(urn),
+                    isLoadedRoot: (urn) => rootUrnsRef.current.includes(urn),
                     expandNode: (urn) => expandNodeRef.current(urn),
                     ensureNode: (node) => {
                         if (!getNodeRef.current(node.urn)) {
@@ -101,5 +129,5 @@ export function useRevealDocumentInTree({
         return () => {
             cancelled = true;
         };
-    }, [skip, documentUrn, rootsLoading, documentLoading, data]);
+    }, [skip, documentUrn, rootsLoading, documentLoading, data, rootAncestorReady]);
 }

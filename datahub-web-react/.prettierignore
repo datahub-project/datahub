@@ -7,3 +7,6 @@
 **/build
 **/.gradle
 **/.pytest_cache
+
+# Test fixtures whose exact bytes are asserted (including malformed frontmatter)
+../metadata-ingestion/tests/integration/github_documents/fixtures

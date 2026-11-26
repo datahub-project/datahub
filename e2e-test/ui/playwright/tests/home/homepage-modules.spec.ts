@@ -1,16 +1,18 @@
 import { test, expect } from '../../fixtures/base-test';
 import { HomePage } from '../../pages/home.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.describe('Homepage Modules', () => {
   let homePage: HomePage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     homePage = new HomePage(page, logger, logDir);
     await homePage.navigateToHome();
-    await homePage.waitForPageLoad();
   });
 
-  test('your assets module is visible on homepage', async () => {
+  test('your assets module is visible on homepage', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     const isVisible = await homePage.isYourAssetsModuleVisible();
     expect(isVisible).toBe(true);
   });

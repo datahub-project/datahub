@@ -9,6 +9,21 @@ UI and scheduled ingestion run `datahub ingest` in **pre-built venvs** under **`
 
 The executor uses those installs when the run targets the **bundled CLI version** (aligned with **`BUNDLED_CLI_VERSION`**). Connector installs are **baked at image build time**—runtime env vars alone do not add new venvs.
 
+## Using a bundled venv
+
+A run uses a bundled venv only when the source's **CLI version** is set to **`bundled`** — the `version` execution argument (defaults to `latest`). In the DataHub UI, set it on the ingestion source under **Advanced → CLI Version**:
+
+- **`bundled`** → run from the pre-built **`/opt/datahub/venvs/{plugin}-bundled`** (read-only, **no** runtime install, no ephemeral-storage growth).
+- empty (default) or **`latest`** or a specific `acryl-datahub` version → build a [dynamic venv](#dynamic-venvs-and-the-uv-cache-non-bundled-runs) at runtime.
+
+The built-in system sources (`datahub-gc`, `datahub-documents`) are bootstrapped with **`bundled`** so they always run the CLI that ships in the executor image; override `ingestion.version` in their bootstrap values (`DATAHUB_GC_BOOTSTRAP_VALUES`, `DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES`) if your image does not bundle them.
+
+If a run requests `bundled` for a plugin the image does not bundle, it fails immediately with a `Bundled startup venv not found` error; there is no fallback to a dynamic venv. This is deliberate: a missing bundled venv is an image-build defect, so failing fast surfaces it instead of silently resolving packages at run time. Add the plugin to `BUNDLED_VENV_PLUGINS` when building the image, or request an explicit version instead of `bundled`. Runs that request an explicit version also fail on images that have no PyPI access or are **locked** (`uv` and `pip` binaries deliberately removed).
+
+### Executors that cannot install packages
+
+Set **`INGESTION_DEPENDENCY_RESOLUTION_ENABLED=false`** on an executor that must not, or cannot, install packages at run time (a locked or air-gapped image). Every run then uses the bundled venv for its plugin, whatever CLI version the source requests, so sources do not each need **CLI Version** set to `bundled`. The run log records the version that was requested. A run for a plugin the image does not bundle fails with the same `Bundled startup venv not found` error.
+
 ## Core (`datahub-actions`) vs Cloud (`datahub-executor`)
 
 | Offering          | Image (typical)                                                                   | Role                                  |
@@ -76,6 +91,28 @@ ENV BUNDLED_VENV_PLUGINS_ORACLE=oracle
 ```
 
 If everything resolves in one venv, avoid extra groups.
+
+## Dynamic venvs and the uv cache (non-bundled runs)
+
+When a run targets a CLI version or connector that is **not** bundled into the image, the executor builds a **dynamic venv** at runtime under **`/tmp/datahub/ingest/<execution-id>/`** and removes it when the run finishes. To keep repeated runs from filling disk, installs go through the [`uv`](https://docs.astral.sh/uv/) package cache: each package is unpacked **once** into a content-addressed cache (default **`$HOME/.cache/uv`**), and every venv **links** its files from that cache instead of copying them. This applies to both DataHub Core (**`datahub-actions`**) and DataHub Cloud (**`datahub-executor`**).
+
+The link method is controlled by **`UV_LINK_MODE`**:
+
+| Mode       | Behavior                                                                                                                                                                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hardlink` | Same-inode hardlinks from the cache. Smallest, most predictable footprint; **requires the cache and the venv directory to be on the same filesystem.**                                                                                                |
+| `clone`    | Copy-on-write reflinks on reflink-capable filesystems (XFS-reflink, btrfs, ZFS, APFS); **silently falls back to a full copy** when the active filesystem doesn't support reflinks (typically the overlay filesystems used by Kubernetes and Fargate). |
+| `copy`     | Full byte copy per venv. Always works, largest footprint.                                                                                                                                                                                             |
+| `symlink`  | Symlinks into the cache. Breaks if the cache is pruned or lives on a different mount at runtime.                                                                                                                                                      |
+
+uv's default link mode falls back to copying on overlay filesystems, so many runs each duplicate their dependencies. Setting **`UV_LINK_MODE=hardlink`** links them instead — N venvs that share a dependency cost its bytes once, not N times. The DataHub-provided Remote Executor Helm chart, Terraform module, and CloudFormation template default to `hardlink`.
+
+Two constraints follow from how hardlinks work:
+
+- **Same filesystem.** Hardlinks cannot cross filesystems. If `$HOME/.cache/uv` and `/tmp/datahub/ingest` are on different mounts (e.g. an `emptyDir` mounted at `/tmp` but the cache left on the container root), uv cannot link and falls back to copying — the run still succeeds, but the dedup savings are lost. Keep both on one volume, or move the cache with **`UV_CACHE_DIR`**.
+- **Read-only root.** The default cache path is on the container root filesystem. With a read-only root, point **`UV_CACHE_DIR`** at a writable volume — ideally the same one backing `/tmp/datahub/ingest`, so hardlinking keeps working.
+
+Repeated runs that use the same package artifacts reuse the cache, but new package versions, platforms, and build artifacts can continue to grow it. Monitor cache usage on long-lived executors and reclaim space with `uv cache prune` when needed.
 
 ## Rebuild from this repository
 

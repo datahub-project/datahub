@@ -32,7 +32,7 @@ const ModuleDetailsForm = ({ form, formValues }: Props) => {
                     label={t('details.nameLabel')}
                     placeholder={t('details.namePlaceholder')}
                     isRequired
-                    data-testid="module-name"
+                    inputTestId="module-name"
                 />
             </NameInput>
             {/* Should be used later, once support for description is added  */}

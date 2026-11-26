@@ -24,12 +24,10 @@ describe('getTreeRowChromeFlags', () => {
         hasToggle: true,
     };
 
-    it('shows caret and count for a collapsed parent', () => {
+    it('mounts count for a collapsed parent (row countReveal controls visibility)', () => {
         expect(getTreeRowChromeFlags(base)).toEqual({
             canExpand: true,
             showCount: true,
-            showRightChrome: true,
-            reserveCaretSlot: true,
         });
     });
 
@@ -38,16 +36,14 @@ describe('getTreeRowChromeFlags', () => {
         expect(getTreeRowChromeFlags({ ...base, isExpanded: true }).canExpand).toBe(true);
     });
 
-    it('hides caret and count when the sidebar is collapsed', () => {
+    it('hides expand and count when the sidebar is collapsed', () => {
         expect(getTreeRowChromeFlags({ ...base, isCollapsed: true })).toEqual({
             canExpand: false,
             showCount: false,
-            showRightChrome: false,
-            reserveCaretSlot: false,
         });
     });
 
-    it('reserves caret slot for leaves so icons stay aligned', () => {
+    it('does not expand leaves', () => {
         const flags = getTreeRowChromeFlags({
             ...base,
             hasChildren: false,
@@ -56,8 +52,6 @@ describe('getTreeRowChromeFlags', () => {
         });
         expect(flags.canExpand).toBe(false);
         expect(flags.showCount).toBe(false);
-        expect(flags.reserveCaretSlot).toBe(true);
-        expect(flags.showRightChrome).toBe(true);
     });
 
     it('hides count when count is zero or missing', () => {
@@ -65,7 +59,7 @@ describe('getTreeRowChromeFlags', () => {
         expect(getTreeRowChromeFlags({ ...base, count: undefined }).showCount).toBe(false);
     });
 
-    it('requires hasToggle to show the caret', () => {
+    it('requires hasToggle to allow expand', () => {
         expect(getTreeRowChromeFlags({ ...base, hasToggle: false }).canExpand).toBe(false);
     });
 });

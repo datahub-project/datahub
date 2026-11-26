@@ -5,8 +5,7 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
-import { EntityAndType } from '@app/entity/shared/types';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import EmbeddedListSearchHeader from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchHeader';
 import { EmbeddedListSearchResults } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchResults';
 import { EntityActionProps } from '@app/entityV2/shared/components/styled/search/EntitySearchResults';
@@ -16,17 +15,18 @@ import {
     SearchResultsInterface,
 } from '@app/entityV2/shared/components/styled/search/types';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { isListSubset } from '@app/entityV2/shared/utils';
 import { DEGREE_FILTER_NAME, FIELD_PATHS_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { mergeFilterSets } from '@app/search/utils/filterUtils';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';
+import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
 import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
-} from '@app/search/utils/types';
-import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
-import { Message } from '@app/shared/Message';
+} from '@app/searchV2/utils/types';
+import { Message } from '@app/sharedV2/Message';
 import { combineOrFilters } from '@src/app/searchV2/utils/filterUtils';
 import { SearchCfg } from '@src/conf';
 
@@ -100,6 +100,8 @@ type Props = {
     onChangeUnionType: (unionType: UnionType) => void;
     onTotalChanged?: (newTotal: number) => void;
     emptySearchQuery?: string | null;
+    /** Shown in place of "no results found" when the query is empty, e.g. "Type a query to search...". */
+    emptyQueryMessage?: string;
     fixedFilters?: FilterSet;
     fixedOrFilters?: AndFilterInput[];
     fixedQuery?: string | null;
@@ -132,6 +134,8 @@ type Props = {
     resetShouldRefetch?: () => void;
     applyView?: boolean;
     showFilterBar?: boolean;
+    isViewAllMode?: boolean;
+    handleViewAllClickWarning?: () => void;
     sort?: SortCriterion;
     searchFlags?: SearchFlags;
 };
@@ -148,6 +152,7 @@ export const EmbeddedListSearch = ({
     onChangeUnionType,
     onTotalChanged,
     emptySearchQuery,
+    emptyQueryMessage,
     fixedFilters,
     fixedOrFilters,
     fixedQuery,
@@ -165,6 +170,8 @@ export const EmbeddedListSearch = ({
     resetShouldRefetch,
     applyView = false,
     showFilterBar = true,
+    isViewAllMode,
+    handleViewAllClickWarning,
     sort,
     searchFlags,
 }: Props) => {
@@ -251,16 +258,26 @@ export const EmbeddedListSearch = ({
                 },
             },
             fetchPolicy: skipCache ? undefined : 'cache-first',
+            // The counts are only shown on the view switcher, which a list that ignores the view lacks.
+            skip: !applyView,
         });
     };
 
     const { total: allSearchCount, refetch: refetchAllSearchCount } = useGetViewSearchData(undefined);
     const { total: defaultViewCount, refetch: refetchDefaultViewCount } = useGetViewSearchData(defaultViewUrn);
+
+    const refetchViewCounts = () => {
+        if (!applyView) return;
+        refetchAllSearchCount?.();
+        if (defaultViewUrn) refetchDefaultViewCount?.();
+    };
+
     const { data: viewData } = useGetViewQuery({
         variables: {
             urn: defaultViewUrn || '',
         },
-        skip: !defaultViewUrn,
+        // A list that ignores the view does not load it, so it shows no switcher for it.
+        skip: !applyView || !defaultViewUrn,
     });
 
     const view = (viewData?.view?.__typename === 'DataHubView' && viewData?.view) || undefined;
@@ -271,8 +288,7 @@ export const EmbeddedListSearch = ({
                 input: searchInput,
             });
             resetShouldRefetch();
-            refetchAllSearchCount?.();
-            if (defaultViewUrn) refetchDefaultViewCount?.();
+            refetchViewCounts();
         }
     });
 
@@ -282,8 +298,7 @@ export const EmbeddedListSearch = ({
                 input: searchInput,
             });
             setShouldRefetchEmbeddedListSearch?.(false);
-            refetchAllSearchCount?.();
-            if (defaultViewUrn) refetchDefaultViewCount?.();
+            refetchViewCounts();
         }
     });
 
@@ -384,6 +399,11 @@ export const EmbeddedListSearch = ({
     if (error) {
         console.error('Failed to load results', error);
         errorMessage = t('embeddedSearch.loadError');
+    } else if (!finalQuery.trim() && emptyQueryMessage) {
+        // Reuses the same empty-state slot as the error/no-results message -- for callers like
+        // semantic search where an empty query has no meaningful results to show yet, this lets
+        // them show a "type a query" prompt instead of a misleading "no results found".
+        errorMessage = emptyQueryMessage;
     }
 
     return (
@@ -429,6 +449,8 @@ export const EmbeddedListSearch = ({
                 selectedViewUrn={selectedViewUrn || ''}
                 setSelectedViewUrn={setSelectedViewUrn}
                 applyView={applyView}
+                isViewAllMode={isViewAllMode}
+                handleViewAllClickWarning={handleViewAllClickWarning}
                 defaultViewUrn={defaultViewUrn}
                 allSearchCount={allSearchCount}
                 defaultViewCount={defaultViewCount}

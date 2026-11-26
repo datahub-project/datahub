@@ -1,19 +1,20 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Iterator, List, Optional, Set, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
-from google.api_core.exceptions import NotFound
-from google.cloud.aiplatform import ExperimentRun, PipelineJob
+from google.cloud.aiplatform import ExperimentRun, ModelEvaluation, PipelineJob
 from google.cloud.aiplatform.metadata import constants as metadata_constants
 from google.cloud.aiplatform.metadata.context import Context as MetadataContext
 from google.cloud.aiplatform.metadata.execution import Execution as MetadataExecution
 from google.cloud.aiplatform.metadata.experiment_resources import Experiment
+from google.cloud.aiplatform.models import Model
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
 from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -85,6 +86,7 @@ def test_pipeline_task_with_none_timestamps(
     mock_pipeline_job.location = "us-west2"
 
     gca_resource = MagicMock(spec=PipelineJobType)
+    gca_resource.update_time = mock_pipeline_job.update_time
     mock_pipeline_job.gca_resource = gca_resource
 
     task_detail = MagicMock(spec=PipelineTaskDetail)
@@ -119,6 +121,173 @@ def test_pipeline_task_with_none_timestamps(
         assert len(mcps) > 0, "Should generate MCPs for pipeline task"
 
 
+def test_training_reset_regional_caches_refetches_datasets(
+    source: VertexAISource,
+) -> None:
+    """Test that datasets are refetched per region."""
+    ext = source.training_extractor
+    ext.datasets = {"ds-region-1": MagicMock()}  # cache from a prior region
+
+    ext.reset_regional_caches()
+
+    region2_dataset = MagicMock()
+    region2_dataset.name = "ds-region-2"
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_training_extractor.rate_limited_gapic_list",
+        return_value=[region2_dataset],
+    ):
+        assert ext._search_dataset("ds-region-2") is region2_dataset
+        assert ext._search_dataset("ds-region-1") is None
+
+
+def test_model_reset_regional_caches_refetches_endpoints(
+    source: VertexAISource,
+) -> None:
+    """Test that endpoints are refetched per region."""
+    ext = source.model_extractor
+    region1_model = MagicMock()
+    region1_model.resource_name = "projects/p/locations/r1/models/m1"
+    ext.endpoints = {region1_model.resource_name: [MagicMock()]}
+
+    ext.reset_regional_caches()
+
+    region2_model = MagicMock()
+    region2_model.resource_name = "projects/p/locations/r2/models/m2"
+    region2_endpoint = MagicMock()
+    region2_endpoint.list_models.return_value = [
+        MagicMock(model="projects/p/locations/r2/models/m2")
+    ]
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_model_extractor.rate_limited_gapic_list",
+        return_value=[region2_endpoint],
+    ):
+        assert ext._search_endpoint(region2_model) == [region2_endpoint]
+        assert ext._search_endpoint(region1_model) == []
+
+
+def test_model_reset_regional_caches_refetches_models(
+    source: VertexAISource,
+) -> None:
+    """Test that models are refetched per region."""
+    ext = source.model_extractor
+    ext._models_cache = [MagicMock()]  # cache from a prior region
+
+    ext.reset_regional_caches()
+
+    region2_model = MagicMock()
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_model_extractor.rate_limited_gapic_list",
+        return_value=[region2_model],
+    ):
+        assert ext._list_models() == [region2_model]
+
+
+def test_evaluation_reuses_models_cache_within_region(
+    source: VertexAISource,
+) -> None:
+    """Test that evaluations are produced from a model listing reused within a region."""
+    ext = source.model_extractor
+    ext.reset_regional_caches()
+
+    model = MagicMock()
+    model.display_name = "m"
+    model.name = "m"
+    model.resource_name = "projects/p/locations/r/models/m"
+    evaluation = MagicMock()
+    evaluation.name = "eval-1"
+    evaluation.create_time = None
+
+    def gapic_side_effect(cls: object, *args: object, **kwargs: object) -> list:
+        if cls is ext.client.Model:
+            return [model]
+        if cls is ModelEvaluation:
+            return [evaluation]
+        raise AssertionError(f"unexpected listing: {cls}")
+
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_model_extractor.rate_limited_gapic_list",
+            side_effect=gapic_side_effect,
+        ) as mock_list,
+        patch.object(ext, "_list_versions", return_value=[]),
+        patch.object(
+            ext, "_gen_model_evaluation_mcps", return_value=iter([])
+        ) as gen_eval,
+    ):
+        list(ext.get_model_workunits())
+        list(ext.get_evaluation_workunits())
+
+    model_list_calls = [
+        c for c in mock_list.call_args_list if c.args and c.args[0] is ext.client.Model
+    ]
+    assert len(model_list_calls) == 1
+    gen_eval.assert_called_once_with(model, evaluation)
+
+
+def test_region_loop_resets_caches_each_region() -> None:
+    """Test that region transitions clear stale caches before the next region fetches."""
+    source = VertexAISource(
+        ctx=PipelineContext(run_id="region-reset-test"),
+        config=VertexAIConfig(
+            project_ids=["test-project"],
+            regions=["us-west1", "europe-west4"],
+            use_ml_metadata_for_lineage=False,
+            extract_execution_metrics=False,
+            # Reduce phase 1 to a single training-jobs fetch per region, so the
+            # side effect below fires exactly once per region deterministically.
+            include_pipelines=False,
+            include_experiments=False,
+            # Load-bearing: with model ingestion off, only a reset at the region
+            # boundary can clear the caches.
+            include_models=False,
+            include_evaluations=False,
+        ),
+    )
+    region1_dataset_key = "ds-region-1"
+    region1_model_key = "projects/test-project/locations/us-west1/models/m1"
+    region1_model = MagicMock()
+
+    # Snapshot each region's caches as its fetch begins
+    seen: List[Tuple[str, Set[str], Set[str], List[Model]]] = []
+
+    def fetch_phase1_side_effect(resource_type: str) -> Iterator[MetadataWorkUnit]:
+        assert resource_type == "training_jobs"
+        region = source._get_region()
+        seen.append(
+            (
+                region,
+                set(source.training_extractor.datasets or {}),
+                set(source.model_extractor.endpoints or {}),
+                list(source.model_extractor._models_cache or []),
+            )
+        )
+        if region == "us-west1":
+            # Simulate caches populated during region-1's fetch.
+            source.training_extractor.datasets = {region1_dataset_key: MagicMock()}
+            source.model_extractor.endpoints = {region1_model_key: [MagicMock()]}
+            source.model_extractor._models_cache = [region1_model]
+        return iter([])
+
+    def empty(*args: object, **kwargs: object) -> Iterator[MetadataWorkUnit]:
+        return iter([])
+
+    with (
+        patch("datahub.ingestion.source.vertexai.vertexai.aiplatform.init"),
+        patch.object(source, "_gen_project_workunits", side_effect=empty),
+        patch.object(
+            source, "_fetch_phase1_resource", side_effect=fetch_phase1_side_effect
+        ),
+    ):
+        list(source.get_workunits_internal())
+
+    assert [region for region, _, _, _ in seen] == ["us-west1", "europe-west4"]
+    # region-2's fetch began with region-1's caches already cleared.
+    _, region2_datasets, region2_endpoints, region2_models = seen[1]
+    assert region1_dataset_key not in region2_datasets
+    assert region1_model_key not in region2_endpoints
+    assert region1_model not in region2_models
+
+
 def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
     """Test that experiment runs with None create_time/update_time don't crash."""
     mock_exp = gen_mock_experiment()
@@ -128,6 +297,7 @@ def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
 
     mock_exp_run = MagicMock(spec=ExperimentRun)
     mock_exp_run.name = "test_run_none_timestamps"
+    mock_exp_run._is_legacy_experiment_run.return_value = False
     mock_exp_run.create_time = datetime(2022, 3, 21, 10, 0, 0, tzinfo=timezone.utc)
     mock_exp_run.update_time = datetime(2022, 3, 21, 10, 0, 0, tzinfo=timezone.utc)
     mock_exp_run.get_state.return_value = "COMPLETE"
@@ -397,9 +567,11 @@ def test_list_experiments_excludes_tensorboard_and_wraps_the_rest(
     experiment_extractor: VertexAIExperimentExtractor,
 ) -> None:
     regular_ctx = MagicMock()
-    regular_ctx.metadata = {}
+    regular_ctx.gca_resource.metadata = {}
     tb_ctx = MagicMock()
-    tb_ctx.metadata = {metadata_constants.TENSORBOARD_CUSTOM_JOB_EXPERIMENT_FIELD: True}
+    tb_ctx.gca_resource.metadata = {
+        metadata_constants.TENSORBOARD_CUSTOM_JOB_EXPERIMENT_FIELD: True
+    }
 
     with (
         patch(
@@ -413,24 +585,6 @@ def test_list_experiments_excludes_tensorboard_and_wraps_the_rest(
     assert len(experiments) == 1
     assert isinstance(experiments[0], Experiment)
     assert experiments[0]._metadata_context is regular_ctx
-
-
-def test_list_experiments_returns_empty_on_not_found(
-    experiment_extractor: VertexAIExperimentExtractor,
-) -> None:
-    """Projects without a Vertex AI Metadata Store return 404 — must skip, not crash."""
-    with (
-        patch(
-            "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.rate_limited_gapic_list",
-            side_effect=NotFound("Requested Metadata Store default not found"),
-        ),
-        patch.object(experiment_extractor, "_metadata_store_parent", return_value="p"),
-    ):
-        experiments = experiment_extractor._list_experiments_rate_limited()
-
-    assert experiments == []
-    warning_titles = [w.title for w in experiment_extractor.report.warnings]
-    assert "Vertex AI Metadata Store not found" in warning_titles
 
 
 def test_list_experiment_runs_combines_context_and_execution_nodes(

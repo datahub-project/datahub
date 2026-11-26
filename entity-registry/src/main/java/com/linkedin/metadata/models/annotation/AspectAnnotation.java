@@ -21,6 +21,7 @@ public class AspectAnnotation {
   private static final String IS_KEY_FIELD = "isKey";
   private static final String TIMESERIES_TYPE = "timeseries";
   private static final String SCHEMA_VERSION_FIELD = "schemaVersion";
+  private static final String ASPECT_JSON_FIELD = "aspectJson";
 
   String name;
   boolean isTimeseries;
@@ -32,6 +33,12 @@ public class AspectAnnotation {
    * com.linkedin.metadata.Constants#DEFAULT_SCHEMA_VERSION}.
    */
   long schemaVersion;
+
+  /**
+   * When true, the V3 entity document stores this aspect's JSON at {@code _aspectJson} in {@code
+   * _source} and does not index it.
+   */
+  boolean aspectJson;
 
   @Nonnull
   public static AspectAnnotation fromSchemaProperty(
@@ -60,12 +67,15 @@ public class AspectAnnotation {
         AnnotationUtils.getField(map, SCHEMA_VERSION_FIELD, Number.class)
             .map(Number::longValue)
             .orElse(DEFAULT_SCHEMA_VERSION);
+    boolean aspectJson =
+        AnnotationUtils.getField(map, ASPECT_JSON_FIELD, Boolean.class).orElse(false);
 
     return new AspectAnnotation(
         name.get(),
         isTimeseries,
         autoRender.orElseGet(() -> false),
         renderSpec.orElseGet(() -> null),
-        schemaVersion);
+        schemaVersion,
+        aspectJson);
   }
 }

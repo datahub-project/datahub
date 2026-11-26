@@ -11,7 +11,9 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,14 @@ import lombok.extern.slf4j.Slf4j;
 public class RoleService {
   private final EntityClient _entityClient;
 
+  /**
+   * Assigns (or with a null role, clears) the role membership of every given actor.
+   *
+   * <p>Actors are resolved and ingested as a batch: one existence query for all of them and one
+   * ingest for all of them, rather than a pair of round trips per actor. Actors that are malformed
+   * or do not exist are skipped with a warning, as are individual failures when the batch has to be
+   * retried actor by actor.
+   */
   public void batchAssignRoleToActors(
       @Nonnull OperationContext opContext,
       @Nonnull final List<String> actors,
@@ -31,43 +41,78 @@ public class RoleService {
       throw new RuntimeException(
           String.format("Role %s does not exist. Skipping batch role assignment", roleUrn));
     }
-    actors.forEach(
-        actor -> {
-          try {
-            assignRoleToActor(opContext, actor, roleUrn);
-          } catch (Exception e) {
-            log.warn(
-                String.format(
-                    "Failed to assign role %s to actor %s. Skipping actor assignment",
-                    roleUrn, actor),
-                e);
-          }
-        });
-  }
 
-  private void assignRoleToActor(
-      @Nonnull OperationContext opContext, @Nonnull final String actor, @Nullable final Urn roleUrn)
-      throws URISyntaxException, RemoteInvocationException {
-    final Urn actorUrn = Urn.createFromString(actor);
-    if (!_entityClient.exists(opContext, actorUrn)) {
-      log.warn(
-          String.format(
-              "Failed to assign role %s to actor %s, actor does not exist. Skipping actor assignment",
-              roleUrn, actor));
+    final List<Urn> actorUrns = new ArrayList<>(actors.size());
+    for (final String actor : actors) {
+      try {
+        actorUrns.add(Urn.createFromString(actor));
+      } catch (URISyntaxException e) {
+        log.warn(
+            String.format(
+                "Failed to assign role %s to actor %s, actor urn is malformed. Skipping actor assignment",
+                roleUrn, actor),
+            e);
+      }
+    }
+    if (actorUrns.isEmpty()) {
       return;
     }
 
-    final RoleMembership roleMembership = new RoleMembership();
-    if (roleUrn == null) {
-      roleMembership.setRoles(new UrnArray());
-    } else {
-      roleMembership.setRoles(new UrnArray(roleUrn));
+    // Resolving existence in one query keeps this at a single round trip regardless of actor count.
+    // The check itself cannot be dropped: ingesting a RoleMembership for an actor that does not
+    // exist would materialize that entity via its default key aspect, inventing a user.
+    final Set<Urn> existingActorUrns = _entityClient.filterExistingUrns(opContext, actorUrns);
+
+    final List<MetadataChangeProposal> proposals = new ArrayList<>(actorUrns.size());
+    for (final Urn actorUrn : actorUrns) {
+      if (!existingActorUrns.contains(actorUrn)) {
+        log.warn(
+            String.format(
+                "Failed to assign role %s to actor %s, actor does not exist. Skipping actor assignment",
+                roleUrn, actorUrn));
+        continue;
+      }
+      proposals.add(buildRoleMembershipProposal(actorUrn, roleUrn));
+    }
+    if (proposals.isEmpty()) {
+      return;
     }
 
-    // Ingest new RoleMembership aspect
-    final MetadataChangeProposal proposal =
-        buildSynchronousMetadataChangeProposal(
-            actorUrn, ROLE_MEMBERSHIP_ASPECT_NAME, roleMembership);
-    _entityClient.ingestProposal(opContext, proposal, false);
+    try {
+      _entityClient.batchIngestProposals(opContext, proposals, false);
+    } catch (Exception e) {
+      log.warn(
+          String.format(
+              "Failed to assign role %s to %s actors as one batch, retrying them individually",
+              roleUrn, proposals.size()),
+          e);
+      // Retrying per actor preserves the original behaviour that one bad actor does not prevent the
+      // rest from being assigned. Re-ingesting is safe because these are idempotent upserts.
+      proposals.forEach(proposal -> ingestRoleMembership(opContext, proposal, roleUrn));
+    }
+  }
+
+  @Nonnull
+  private static MetadataChangeProposal buildRoleMembershipProposal(
+      @Nonnull final Urn actorUrn, @Nullable final Urn roleUrn) {
+    final RoleMembership roleMembership = new RoleMembership();
+    roleMembership.setRoles(roleUrn == null ? new UrnArray() : new UrnArray(roleUrn));
+    return buildSynchronousMetadataChangeProposal(
+        actorUrn, ROLE_MEMBERSHIP_ASPECT_NAME, roleMembership);
+  }
+
+  private void ingestRoleMembership(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final MetadataChangeProposal proposal,
+      @Nullable final Urn roleUrn) {
+    try {
+      _entityClient.ingestProposal(opContext, proposal, false);
+    } catch (Exception e) {
+      log.warn(
+          String.format(
+              "Failed to assign role %s to actor %s. Skipping actor assignment",
+              roleUrn, proposal.getEntityUrn()),
+          e);
+    }
   }
 }

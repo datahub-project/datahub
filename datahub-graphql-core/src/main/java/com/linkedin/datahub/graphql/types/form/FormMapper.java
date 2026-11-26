@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.form;
 
 import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -16,10 +17,12 @@ import com.linkedin.datahub.graphql.generated.FormInfo;
 import com.linkedin.datahub.graphql.generated.FormPrompt;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
 import com.linkedin.datahub.graphql.generated.FormType;
+import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParams;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -59,7 +62,10 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     com.linkedin.form.FormInfo gmsFormInfo = new com.linkedin.form.FormInfo(dataMap);
     FormInfo formInfo = new FormInfo();
     formInfo.setName(gmsFormInfo.getName());
-    formInfo.setType(FormType.valueOf(gmsFormInfo.getType().toString()));
+    // A form type only a newer version knows shows as COMPLETION (the schema's default), not the
+    // stronger VERIFICATION.
+    formInfo.setType(
+        UnknownEnumValues.map(FormType.class, gmsFormInfo.getType(), FormType.COMPLETION));
     if (gmsFormInfo.hasDescription()) {
       formInfo.setDescription(gmsFormInfo.getDescription());
     }
@@ -74,7 +80,15 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     if (gmsFormInfo.hasPrompts()) {
       gmsFormInfo
           .getPrompts()
-          .forEach(FormPrompt -> formPrompts.add(mapFormPrompt(FormPrompt, formUrn)));
+          .forEach(
+              FormPrompt -> {
+                // Prompt types only a newer version knows (e.g. after a rollback) are skipped.
+                if (!handling().toleratesUnknownEnum()
+                    || UnknownEnumValues.mapOrNull(FormPromptType.class, FormPrompt.getType())
+                        != null) {
+                  formPrompts.add(mapFormPrompt(FormPrompt, formUrn));
+                }
+              });
     }
     return formPrompts;
   }
@@ -107,6 +121,12 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
   private FormActorAssignment mapFormActors(com.linkedin.form.FormActorAssignment gmsFormActors) {
     FormActorAssignment result = new FormActorAssignment();
     result.setOwners(gmsFormActors.isOwners());
+    if (gmsFormActors.hasOwnershipTypes()) {
+      result.setOwnershipTypes(
+          gmsFormActors.getOwnershipTypes().stream()
+              .map(this::mapOwnershipType)
+              .collect(Collectors.toList()));
+    }
     if (gmsFormActors.hasUsers()) {
       result.setUsers(
           gmsFormActors.getUsers().stream().map(this::mapUser).collect(Collectors.toList()));
@@ -116,6 +136,13 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
           gmsFormActors.getGroups().stream().map(this::mapGroup).collect(Collectors.toList()));
     }
     return result;
+  }
+
+  private OwnershipTypeEntity mapOwnershipType(Urn ownershipTypeUrn) {
+    OwnershipTypeEntity ownershipType = new OwnershipTypeEntity();
+    ownershipType.setUrn(ownershipTypeUrn.toString());
+    ownershipType.setType(EntityType.CUSTOM_OWNERSHIP_TYPE);
+    return ownershipType;
   }
 
   private CorpUser mapUser(Urn userUrn) {

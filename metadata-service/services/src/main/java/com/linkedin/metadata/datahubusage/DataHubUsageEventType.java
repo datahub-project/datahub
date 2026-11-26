@@ -55,6 +55,7 @@ public enum DataHubUsageEventType {
   CREATE_GLOSSARY_ENTITY_EVENT("CreateGlossaryEntityEvent"),
   CREATE_DOMAIN_EVENT("CreateDomainEvent"),
   MOVE_DOMAIN_EVENT("MoveDomainEvent"),
+  MOVE_DATA_PRODUCT_EVENT("MoveDataProductEvent"),
   INGESTION_TEST_CONNECTION_EVENT("IngestionTestConnectionEvent"),
   INGESTION_TEST_CONNECTION_CLICK_EVENT("IngestionTestConnectionClickEvent"),
   INGESTION_TEST_CONNECTION_CLOSE_EVENT("IngestionTestConnectionCloseEvent"),
@@ -161,6 +162,7 @@ public enum DataHubUsageEventType {
   WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
       "WelcomeToDataHubModalClickViewDocumentationEvent"),
   PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent"),
+  GITHUB_STAR_CLICK_EVENT("GithubStarClickEvent"),
   CREATE_DOCUMENT_EVENT("CreateDocumentEvent"),
   MOVE_DOCUMENT_EVENT("MoveDocumentEvent"),
   EDIT_DOCUMENT_EVENT("EditDocumentEvent"),
@@ -175,7 +177,10 @@ public enum DataHubUsageEventType {
   GO_TO_LOGICAL_PARENT_EVENT("GoToLogicalParentEvent"),
   GO_TO_PHYSICAL_CHILD_EVENT("GoToPhysicalChildEvent"),
   GO_TO_LOGICAL_PARENT_COLUMN_EVENT("GoToLogicalParentColumnEvent"),
-  GO_TO_PHYSICAL_CHILD_COLUMN_EVENT("GoToPhysicalChildColumnEvent");
+  GO_TO_PHYSICAL_CHILD_COLUMN_EVENT("GoToPhysicalChildColumnEvent"),
+  LANGUAGE_CHANGE_EVENT("LanguageChangeEvent"),
+  MFE_PAGE_VIEW_EVENT("MfePageViewEvent"),
+  MFE_LOAD_EVENT("MfeLoadEvent");
 
   private final String type;
 

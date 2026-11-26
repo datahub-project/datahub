@@ -15,6 +15,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
@@ -74,7 +75,18 @@ public class DomainUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
+            context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups)
+        || isAuthorizedToManageDataProductDomains(context, entityUrn);
+  }
+
+  /**
+   * The Domain of a Data Product is optional, so {@code MANAGE_ALL_DATA_PRODUCTS} also covers
+   * setting, changing and removing it, the same rule the domains-write validator applies.
+   */
+  private static boolean isAuthorizedToManageDataProductDomains(
+      @Nonnull QueryContext context, @Nonnull Urn entityUrn) {
+    return DATA_PRODUCT_ENTITY_NAME.equals(entityUrn.getEntityType())
+        && DataProductAuthorizationUtils.canManageAllDataProducts(context);
   }
 
   public static void setDomainForResources(
@@ -116,7 +128,7 @@ public class DomainUtils {
 
   public static void validateDomain(
       @Nonnull OperationContext opContext, Urn domainUrn, EntityService<?> entityService) {
-    if (!entityService.exists(opContext, domainUrn, true)) {
+    if (!existingUrns(opContext, List.of(domainUrn), entityService).contains(domainUrn)) {
       throw new IllegalArgumentException(
           String.format("Failed to validate Domain with urn %s. Urn does not exist.", domainUrn));
     }

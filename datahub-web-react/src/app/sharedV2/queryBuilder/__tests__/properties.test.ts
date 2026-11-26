@@ -47,14 +47,14 @@ describe('queryBuilder properties', () => {
         const containerProp = properties.find((p) => p.id === 'container');
         expect(containerProp?.displayName).toBe('Container');
         expect(containerProp?.description).toBe('The parent container of the asset.');
-        expect(containerProp?.valueType).toBe(ValueTypeId.URN);
+        expect(containerProp?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
         expect(containerProp?.valueOptions?.entityTypes).toContain(EntityType.Container);
     });
 
     it('should include domains property with correct display name', () => {
         const domainsProp = properties.find((p) => p.id === 'domains');
         expect(domainsProp?.displayName).toBe('Domain');
-        expect(domainsProp?.valueType).toBe(ValueTypeId.URN);
+        expect(domainsProp?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
         expect(domainsProp?.valueOptions?.entityTypes).toContain(EntityType.Domain);
     });
 

@@ -1,20 +1,33 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { useReactFlow } from 'reactflow';
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useOnSelectionChange, useReactFlow } from 'reactflow';
 
 import { LINEAGE_ANNOTATION_NODE_NAME } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import useAddAnnotationNodes from '@app/lineageV3/LineageAnnotationNode/useAddAnnotationNodes';
-import { useTrackLineageView } from '@app/lineageV3/LineageDisplay.hooks';
+import { DATA_FLOW_LINEAGE_CONTROL_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
+import {
+    useFitView,
+    useIsExpanding,
+    useLineageSettled,
+    useTrackLineageView,
+} from '@app/lineageV3/LineageDisplay.hooks';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 import LineageSidebar from '@app/lineageV3/LineageSidebar';
 import LineageVisualization from '@app/lineageV3/LineageVisualization';
-import { ColumnRef, LineageDisplayContext, LineageNodesContext } from '@app/lineageV3/common';
-import useBulkDataProductMemberships from '@app/lineageV3/queries/useBulkDataProductMemberships';
+import {
+    ColumnRef,
+    LineageDisplayContext,
+    LineageEntity,
+    LineageNodesContext,
+    setDefault,
+} from '@app/lineageV3/common';
+import useBulkBoundingBoxMemberships from '@app/lineageV3/queries/useBulkBoundingBoxMemberships';
 import useBulkEntityLineage from '@app/lineageV3/queries/useBulkEntityLineage';
 import useColumnHighlighting from '@app/lineageV3/useColumnHighlighting';
 import { getNodePriority } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import useComputeGraph from '@app/lineageV3/useComputeGraph/useComputeGraph';
 import useNodeHighlighting from '@app/lineageV3/useNodeHighlighting';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 
 type Props = {
     refetchCenterNode?: () => void;
@@ -32,6 +45,7 @@ export default function LineageDisplay({
     const [selectedColumn, setSelectedColumn] = useState<ColumnRef | null>(null);
     const [hoveredColumn, setHoveredColumn] = useState<ColumnRef | null>(null);
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+    const [selectedNode, setSelectedNode] = useSelectedNode();
     const [displayedMenuNode, setDisplayedMenuNode] = useState<string | null>(null);
 
     const {
@@ -52,19 +66,38 @@ export default function LineageDisplay({
     const shownUrns = useMemo(
         () =>
             flowNodes
-                .filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME && node.type !== LINEAGE_ANNOTATION_NODE_NAME)
+                .filter(
+                    (node) =>
+                        node.type !== LINEAGE_FILTER_NODE_NAME &&
+                        node.type !== LINEAGE_ANNOTATION_NODE_NAME &&
+                        node.type !== DATA_FLOW_LINEAGE_CONTROL_NODE_NAME,
+                )
                 .map((node) => node.data.urn || node.id),
         [flowNodes],
     );
-    const refetchUrn = useBulkEntityLineage(shownUrns);
-    useBulkDataProductMemberships();
+    // Node ids are not always urns: data product members have data-product-qualified ids, and an
+    // entity in multiple data products is rendered once per product. Column edges are computed from
+    // urns, so they need this to find the nodes to attach to.
+    const nodeIdsByUrn = useMemo(() => {
+        const map = new Map<string, string[]>();
+        flowNodes.forEach((node) => setDefault(map, node.data.urn || node.id, []).push(node.id));
+        return map;
+    }, [flowNodes]);
+    const { refetchUrn, loading: entitiesLoading } = useBulkEntityLineage(shownUrns);
+    const { loading: membershipsLoading } = useBulkBoundingBoxMemberships();
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, displayedAdjacencyList);
-    const { cllHighlightedNodes, highlightedColumns } = useColumnHighlighting(
-        selectedColumn,
-        hoveredColumn,
+    const {
+        columnHighlightSource,
+        columnHighlightedEdges,
+        cllHighlightedNodes,
+        highlightedColumns,
+        shownRelatedColumns,
+    } = useColumnHighlighting(
+        { selectedColumn, hoveredColumn, selectedNode: selectedNode?.urn ?? null, hoveredNode },
         fineGrainedLineage.indirect,
         shownUrns,
+        nodeIdsByUrn,
     );
 
     const finalNodes = useMemo(() => {
@@ -75,10 +108,11 @@ export default function LineageDisplay({
     }, [isModuleView, addAnnotationNodes, flowNodes, levelsInfo, levelsMap]);
 
     const { rootUrn, rootType, nodes, adjacencyList, nodeVersion } = useContext(LineageNodesContext);
+    const loaded = initialized !== undefined ? initialized && nodeVersion > 0 : nodeVersion > 0;
 
     // Track lineage view analytics
     useTrackLineageView({
-        initialized: initialized !== undefined ? initialized && nodeVersion > 0 : nodeVersion > 0,
+        initialized: loaded,
         type: rootType,
         adjacencyList,
         rootUrn,
@@ -115,7 +149,11 @@ export default function LineageDisplay({
 
     useEffect(() => setEdges(flowEdges), [flowEdges, getEdge, setEdges]);
 
-    useFitView(initialized !== undefined ? initialized && nodeVersion > 0 : nodeVersion > 0);
+    const fitting = useFitView(loaded);
+    const expanding = useIsExpanding();
+    // Not `loaded`: a home node whose lineage is empty, or only soft-deleted, never bumps nodeVersion
+    const fetched = initialized ?? nodeVersion > 0;
+    const settled = useLineageSettled(!fetched || expanding || entitiesLoading || membershipsLoading, fitting);
 
     return (
         <LineageDisplayContext.Provider
@@ -125,13 +163,18 @@ export default function LineageDisplay({
                 lineageFilters,
                 displayedMenuNode,
                 setDisplayedMenuNode,
+                selectedNode,
+                setSelectedNode,
                 selectedColumn,
                 setSelectedColumn,
                 hoveredColumn,
                 setHoveredColumn,
+                columnHighlightSource,
+                columnHighlightedEdges,
                 highlightedNodes,
                 cllHighlightedNodes,
                 highlightedColumns,
+                shownRelatedColumns,
                 highlightedEdges,
                 fineGrainedLineage: fineGrainedLineage.indirect,
                 fineGrainedOperations: fineGrainedLineage.fineGrainedOperations,
@@ -140,38 +183,31 @@ export default function LineageDisplay({
             }}
         >
             <LineageVisualization initialNodes={finalNodes} initialEdges={flowEdges} />
+            {/* For automated tests to wait on */}
+            <span hidden data-testid="lineage-state" data-state={settled ? 'settled' : 'loading'} />
             <LineageSidebar />
         </LineageDisplayContext.Provider>
     );
 }
 
-function useFitView(loaded: boolean) {
-    const { fitView } = useReactFlow();
-    const { displayVersion } = useContext(LineageNodesContext);
-    const [, displayVersionNodes] = displayVersion;
+/**
+ * The entity whose node is selected on the graph: shown in the lineage sidebar, and the source of
+ * column highlights for an entity that takes part in column lineage as a whole, e.g. a metric.
+ */
+function useSelectedNode(): [LineageEntity | null, (v: LineageEntity | null) => void] {
+    // Entity Profile sidebar, not lineage sidebar
+    const { setSidebarClosed } = useContext(EntitySidebarContext);
+    const [selectedNode, setSelectedNode] = useState<LineageEntity | null>(null);
 
-    useEffect(() => {
-        if (!loaded) return () => {};
-        const timeout = setTimeout(() => fitView({ duration: 1000, maxZoom: 2, padding: 0.5 }), 1000);
-        return () => {
-            clearTimeout(timeout);
-        };
-    }, [loaded, fitView]);
+    useOnSelectionChange({
+        onChange: useCallback(
+            ({ nodes }) => {
+                if (nodes.length) setSidebarClosed(true);
+                setSelectedNode(nodes.length ? nodes[nodes.length - 1].data : null);
+            },
+            [setSidebarClosed],
+        ),
+    });
 
-    useEffect(() => {
-        if (!loaded || !displayVersionNodes.length) return () => {};
-        const timeout = setTimeout(
-            () =>
-                fitView({
-                    duration: 1000,
-                    nodes: displayVersionNodes.map((urn) => ({ id: urn })),
-                    maxZoom: 1,
-                    padding: 0.2,
-                }),
-            100,
-        );
-        return () => {
-            clearTimeout(timeout);
-        };
-    }, [loaded, displayVersionNodes, fitView]);
+    return [selectedNode, setSelectedNode];
 }

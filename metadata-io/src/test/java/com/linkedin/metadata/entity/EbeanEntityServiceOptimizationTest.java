@@ -15,13 +15,17 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
+import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
+import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
@@ -43,8 +47,8 @@ public class EbeanEntityServiceOptimizationTest {
   // Default Aspect Generation Step
   // 1. *Key,
   // 2. browsePathsV2 & dataPlatformInstance
-  // 3. dataPlatformInfo
-  private static final int defaultAspectsGeneration = 3;
+  // dataPlatformInfo is read via cachingAspectRetriever, not EntityService/DAO
+  private static final int defaultAspectsGeneration = 2;
   // Next Version Calculation
   // 1. *Key
   // 2. browsePathsV2 & dataPlatformInstance
@@ -79,11 +83,18 @@ public class EbeanEntityServiceOptimizationTest {
             EbeanConfiguration.testDefault,
             null,
             List.of(),
-            null);
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server));
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     entityService =
-        new EntityServiceImpl(aspectDao, mock(EventProducer.class), false, preProcessHooks, true);
+        new EntityServiceImpl(
+            aspectDao,
+            mock(EventProducer.class),
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            mock(MetricUtils.class));
     entityService.setUpdateIndicesService(mock(UpdateIndicesService.class));
     entityService.setRetentionService(null);
   }

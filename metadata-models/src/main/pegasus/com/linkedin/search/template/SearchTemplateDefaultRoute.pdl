@@ -1,0 +1,14 @@
+namespace com.linkedin.search.template
+
+import com.linkedin.common.Urn
+
+/**
+ * Where a query goes when no route pattern matches. An explicit record with no
+ * template clears an inherited default, and the miss stays on this template.
+ */
+record SearchTemplateDefaultRoute {
+  /**
+   * Template to run when no pattern matches. Absent clears an inherited default.
+   */
+  template: optional Urn
+}

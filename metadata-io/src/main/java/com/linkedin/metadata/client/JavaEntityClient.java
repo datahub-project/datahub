@@ -8,6 +8,7 @@ import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
@@ -28,8 +29,10 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -38,6 +41,7 @@ import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -47,6 +51,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
+import com.linkedin.metadata.service.async.delete.PartialHardDeleteException;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -85,8 +90,13 @@ public class JavaEntityClient implements EntityClient {
   private static final int DEFAULT_RETRY_INTERVAL = 2;
   private static final int DEFAULT_RETRY_COUNT = 3;
 
+  // Failures that repeat on every attempt. A partial hard delete would delete against the same
+  // captured versions, and a validator refusal inside the delete stays refused.
   private static final Set<String> NON_RETRYABLE =
-      Set.of("com.linkedin.data.template.RequiredFieldNotPresentException");
+      Set.of(
+          "com.linkedin.data.template.RequiredFieldNotPresentException",
+          PartialHardDeleteException.class.getCanonicalName(),
+          ValidationException.class.getCanonicalName());
 
   private final Clock _clock = Clock.systemUTC();
   private final EntityService<?> entityService;
@@ -100,6 +110,35 @@ public class JavaEntityClient implements EntityClient {
   private final EventProducer eventProducer;
   private final EntityClientConfig entityClientConfig;
   private final MetricUtils metricUtils;
+  // Null for the system client and where ReliableHardDeleteFactory is not scanned.
+  @Nullable private final HardDeleteService hardDeleteService;
+
+  public JavaEntityClient(
+      final EntityService<?> entityService,
+      final DeleteEntityService deleteEntityService,
+      final EntitySearchService entitySearchService,
+      final CachingEntitySearchService cachingEntitySearchService,
+      final SearchService searchService,
+      final LineageSearchService lineageSearchService,
+      final TimeseriesAspectService timeseriesAspectService,
+      final RollbackService rollbackService,
+      final EventProducer eventProducer,
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
+    this(
+        entityService,
+        deleteEntityService,
+        entitySearchService,
+        cachingEntitySearchService,
+        searchService,
+        lineageSearchService,
+        timeseriesAspectService,
+        rollbackService,
+        eventProducer,
+        entityClientConfig,
+        metricUtils,
+        null);
+  }
 
   @Override
   @Nullable
@@ -216,8 +255,11 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Integer limit,
       @Nullable String field)
       throws RemoteInvocationException {
-    return cachingEntitySearchService.autoComplete(
-        opContext, entityType, query, field, filterOrDefaultEmptyFilter(requestFilters), limit);
+    return ValidationUtils.validateAutoCompleteResult(
+        opContext,
+        cachingEntitySearchService.autoComplete(
+            opContext, entityType, query, field, filterOrDefaultEmptyFilter(requestFilters), limit),
+        entityService);
   }
 
   /**
@@ -238,8 +280,11 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter requestFilters,
       @Nullable Integer limit)
       throws RemoteInvocationException {
-    return cachingEntitySearchService.autoComplete(
-        opContext, entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit);
+    return ValidationUtils.validateAutoCompleteResult(
+        opContext,
+        cachingEntitySearchService.autoComplete(
+            opContext, entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit),
+        entityService);
   }
 
   /**
@@ -634,6 +679,10 @@ public class JavaEntityClient implements EntityClient {
   @Override
   public void deleteEntity(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
       throws RemoteInvocationException {
+    if (hardDeleteService != null) {
+      hardDeleteService.deleteEntity(opContext, urn);
+      return;
+    }
     entityService.deleteUrn(opContext, urn);
   }
 
@@ -643,6 +692,44 @@ public class JavaEntityClient implements EntityClient {
     withRetry(
         () -> deleteEntityService.deleteReferencesTo(opContext, urn, false),
         "deleteEntityReferences");
+  }
+
+  @Override
+  @Nonnull
+  public ReferencesCleanup deleteReferencesThenEntity(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn) throws RemoteInvocationException {
+    if (hardDeleteService == null) {
+      return EntityClient.super.deleteReferencesThenEntity(opContext, urn);
+    }
+    final HardDeleteService.ReferenceCleanup references =
+        hardDeleteService.deleteReferencesThenEntity(
+            opContext, urn, this::referencesCleanupAsToday);
+    if (references == HardDeleteService.HANDED_OFF) {
+      return ReferencesCleanup.HANDED_OFF;
+    }
+    return new ReferencesCleanup() {
+      @Override
+      public void run() {
+        references.run();
+      }
+
+      @Override
+      @Nonnull
+      public Choice choice() {
+        return switch (references.choice()) {
+          case PENDING -> Choice.PENDING;
+          case REFERENCES_THEN_ENTITY -> Choice.REFERENCES_THEN_ENTITY;
+          case ENTITY_ONLY -> Choice.ENTITY_ONLY;
+          case HANDED_OFF -> Choice.HANDED_OFF;
+        };
+      }
+    };
+  }
+
+  /** The reference cleanup run as {@link #deleteEntityReferences} runs it without the service. */
+  private DeleteReferencesResponse referencesCleanupAsToday(
+      @Nonnull final Supplier<DeleteReferencesResponse> cleanup) {
+    return withRetry(cleanup, "deleteEntityReferences");
   }
 
   @Override
@@ -753,17 +840,50 @@ public class JavaEntityClient implements EntityClient {
     return response.getValues();
   }
 
+  private static AuditStamp sessionAuditStamp(@Nonnull OperationContext opContext) {
+    String actorUrnStr =
+        opContext.getSessionAuthentication().getActor() != null
+            ? opContext.getSessionAuthentication().getActor().toUrnStr()
+            : Constants.UNKNOWN_ACTOR;
+    return AuditStampUtils.createAuditStamp(actorUrnStr);
+  }
+
+  /**
+   * Implements {@code SystemEntityClient#ingestValidProposals}: one write per {@code
+   * batchIngestSize} group, as in {@link #batchIngestProposals}, of the proposals in it that pass
+   * proposal validation.
+   */
+  @Nonnull
+  public List<Pair<MetadataChangeProposal, Exception>> ingestValidProposals(
+      @Nonnull OperationContext opContext, @Nonnull List<MetadataChangeProposal> proposals) {
+    final AuditStamp auditStamp = sessionAuditStamp(opContext);
+    List<Pair<MetadataChangeProposal, Exception>> rejected = new ArrayList<>();
+    for (List<MetadataChangeProposal> group :
+        Lists.partition(proposals, Math.max(1, entityClientConfig.getBatchIngestSize()))) {
+      AspectsBatchImpl aspectsBatch =
+          AspectsBatchImpl.builder()
+              .mcpsRecordingRejected(
+                  group,
+                  auditStamp,
+                  opContext.getRetrieverContext(),
+                  opContext.getValidationContext().isAlternateValidation(),
+                  opContext.isSystemAuth())
+              .buildSkippingRejected(opContext);
+      rejected.addAll(aspectsBatch.getRejectedProposals());
+      if (!aspectsBatch.getItems().isEmpty()) {
+        entityService.ingestProposal(opContext, aspectsBatch, false);
+      }
+    }
+    return rejected;
+  }
+
   @Override
   @Nonnull
   public List<String> batchIngestProposals(
       @Nonnull OperationContext opContext,
       @Nonnull Collection<MetadataChangeProposal> metadataChangeProposals,
       boolean async) {
-    String actorUrnStr =
-        opContext.getSessionAuthentication().getActor() != null
-            ? opContext.getSessionAuthentication().getActor().toUrnStr()
-            : Constants.UNKNOWN_ACTOR;
-    final AuditStamp auditStamp = AuditStampUtils.createAuditStamp(actorUrnStr);
+    final AuditStamp auditStamp = sessionAuditStamp(opContext);
 
     List<String> updatedUrns = new ArrayList<>();
     Iterators.partition(
@@ -777,7 +897,8 @@ public class JavaEntityClient implements EntityClient {
                           batch,
                           auditStamp,
                           opContext.getRetrieverContext(),
-                          opContext.getValidationContext().isAlternateValidation())
+                          opContext.getValidationContext().isAlternateValidation(),
+                          opContext.isSystemAuth())
                       .build(opContext);
 
               List<IngestResult> results =

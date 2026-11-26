@@ -13,6 +13,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
@@ -28,6 +29,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
+import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
@@ -132,6 +134,18 @@ public class LineageControllerTest extends AbstractTestNGSpringContextTests {
 
       return authorizerChain;
     }
+
+    @Bean
+    public RestrictedService restrictedService() {
+      RestrictedService restrictedService = mock(RestrictedService.class);
+      when(restrictedService.encryptRestrictedUrn(any()))
+          .thenAnswer(
+              invocation -> {
+                Urn urn = invocation.getArgument(0);
+                return new Urn("restricted", "redacted-" + urn.getEntityType());
+              });
+      return restrictedService;
+    }
   }
 
   @Test
@@ -218,6 +232,15 @@ public class LineageControllerTest extends AbstractTestNGSpringContextTests {
             .anyMatch(
                 p -> p.getKey().equals("dataset") && p.getValue().getType().equals("DownstreamOf"));
     assertTrue(hasDownstreamOf, "Expected lineage triplets to include dataset DownstreamOf");
+
+    boolean hasColumnLineage =
+        captured.getAllowedEdgeTriplets().stream()
+            .anyMatch(
+                p ->
+                    p.getKey().equals("schemafield")
+                        && p.getValue().getType().equals("DownstreamOf")
+                        && p.getValue().getOpposingEntityType().equals("schemaField"));
+    assertTrue(hasColumnLineage, "Expected lineage triplets to include schemaField DownstreamOf");
   }
 
   @Test
@@ -410,7 +433,7 @@ public class LineageControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testScrollLineageUnauthorizedOnResultsReturnsForbidden() throws Exception {
+  public void testScrollLineageUnauthorizedOnResultsReturnsRestrictedUrns() throws Exception {
     stubLineageRegistry(
         "dataset", "Consumes", RelationshipDirection.OUTGOING, RelationshipDirection.INCOMING);
     stubScrollRelatedEntities(
@@ -439,7 +462,11 @@ public class LineageControllerTest extends AbstractTestNGSpringContextTests {
                   .contentType(MediaType.APPLICATION_JSON)
                   .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
                   .accept(MediaType.APPLICATION_JSON))
-          .andExpect(status().isForbidden());
+          .andExpect(status().is2xxSuccessful())
+          .andExpect(jsonPath("$.results.length()").value(2))
+          .andExpect(jsonPath("$.results[0].upstream").value("urn:li:restricted:redacted-dataset"))
+          .andExpect(
+              jsonPath("$.results[0].downstream").value("urn:li:restricted:redacted-dataset"));
     }
   }
 }

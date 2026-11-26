@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX;
 
 import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +53,14 @@ public class StructuredPropertyUtils {
 
   static final Date MIN_DATE = Date.valueOf("1000-01-01");
   static final Date MAX_DATE = Date.valueOf("9999-12-31");
+
+  // ES multi-field suffixes. Kept here (not imported from metadata-io) because this module
+  // cannot depend on ESUtils / V2MappingsBuilder; keep in sync with those definitions.
+  private static final String KEYWORD_SUBFIELD_SUFFIX = ".keyword";
+  private static final String DELIMITED_SUBFIELD_SUFFIX = ".delimited";
+  private static final String NGRAM_SUBFIELD_SUFFIX = ".ngram";
+  private static final List<String> ES_SUBFIELD_SUFFIXES =
+      List.of(KEYWORD_SUBFIELD_SUFFIX, DELIMITED_SUBFIELD_SUFFIX, NGRAM_SUBFIELD_SUFFIX);
 
   public static final String INVALID_SETTINGS_MESSAGE =
       "Cannot have property isHidden = true while other display location settings are also true.";
@@ -141,12 +150,59 @@ public class StructuredPropertyUtils {
   }
 
   /**
+   * Whether aggregations and exact-match filters should target {@code <field>.keyword} for this
+   * value type. DATE / NUMBER / URN parents are already the typed exact-match field (date, double,
+   * or keyword without a normalizer), so the {@code .keyword} suffix must not be appended.
+   * STRING/RICH_TEXT parents use a normalizer; {@code .keyword} holds the un-normalized value.
+   */
+  public static boolean usesKeywordSubfield(@Nonnull LogicalValueType type) {
+    return type != LogicalValueType.DATE
+        && type != LogicalValueType.NUMBER
+        && type != LogicalValueType.URN;
+  }
+
+  /**
+   * When a filter/facet already uses the versioned ES field path produced by {@link
+   * #toElasticsearchFieldName}, recover the logical value type from the trailing type segment. Used
+   * when definition lookup cannot run against that path (FQN extraction would be wrong).
+   */
+  @Nonnull
+  public static Optional<LogicalValueType> getLogicalValueTypeFromFieldName(
+      @Nonnull String fieldOrFacetName) {
+    if (!fieldOrFacetName.startsWith(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX)) {
+      return Optional.empty();
+    }
+    String path = fieldOrFacetName;
+    for (String suffix : ES_SUBFIELD_SUFFIXES) {
+      if (path.endsWith(suffix)) {
+        path = path.substring(0, path.length() - suffix.length());
+        break;
+      }
+    }
+    // Inverse of toElasticsearchFieldName: type is always the last '.' segment.
+    int lastDot = path.lastIndexOf('.');
+    if (lastDot < 0 || lastDot == path.length() - 1) {
+      return Optional.empty();
+    }
+    try {
+      return Optional.of(LogicalValueType.valueOf(path.substring(lastDot + 1).toUpperCase()));
+    } catch (IllegalArgumentException e) {
+      return Optional.empty();
+    }
+  }
+
+  /** A root structured-property field, including an analyzed subfield such as {@code .text}. */
+  public static boolean isStructuredPropertyField(@Nullable String fieldName) {
+    return fieldName != null && fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX);
+  }
+
+  /**
    * Given a structured property input field or facet name, return a valid structured property facet
    * name
    *
    * @param fieldOrFacetName input name
    * @param aspectRetriever aspect retriever
-   * @return guranteed facet name
+   * @return guaranteed facet name
    */
   public static Optional<String> toStructuredPropertyFacetName(
       @Nullable OperationFingerprint opContext,
@@ -155,18 +211,13 @@ public class StructuredPropertyUtils {
     return lookupDefinitionFromFilterOrFacetName(opContext, fieldOrFacetName, aspectRetriever)
         .map(
             urnDefinition -> {
-              switch (getLogicalValueType(urnDefinition.getSecond())) {
-                case DATE:
-                case NUMBER:
-                  return STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
+              String base =
+                  STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
                       + StructuredPropertyUtils.toElasticsearchFieldName(
                           urnDefinition.getFirst(), urnDefinition.getSecond());
-                default:
-                  return STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-                      + StructuredPropertyUtils.toElasticsearchFieldName(
-                          urnDefinition.getFirst(), urnDefinition.getSecond())
-                      + ".keyword";
-              }
+              return usesKeywordSubfield(getLogicalValueType(urnDefinition.getSecond()))
+                  ? base + KEYWORD_SUBFIELD_SUFFIX
+                  : base;
             });
   }
 
@@ -183,7 +234,7 @@ public class StructuredPropertyUtils {
           @Nullable OperationFingerprint opContext,
           @Nonnull String fieldOrFacetName,
           @Nullable AspectRetriever aspectRetriever) {
-    if (fieldOrFacetName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
+    if (isStructuredPropertyField(fieldOrFacetName)) {
       // Coming in from the UI this is structuredProperties.<FQN> + any particular specifier for
       // subfield (.keyword etc)
       String fqn = fieldOrFacetToFQN(fieldOrFacetName);
@@ -378,7 +429,7 @@ public class StructuredPropertyUtils {
 
     if (filter.getCriteria() != null) {
       for (Criterion c : filter.getCriteria()) {
-        if (c.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+        if (isStructuredPropertyField(c.getField())) {
           String fqn = fieldOrFacetToFQN(c.getField());
           fqns.add(fqn);
         }
@@ -388,7 +439,7 @@ public class StructuredPropertyUtils {
     if (filter.getOr() != null) {
       for (ConjunctiveCriterion cc : filter.getOr()) {
         for (Criterion c : cc.getAnd()) {
-          if (c.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+          if (isStructuredPropertyField(c.getField())) {
             String fqn = fieldOrFacetToFQN(c.getField());
             fqns.add(fqn);
           }
@@ -402,10 +453,11 @@ public class StructuredPropertyUtils {
   }
 
   private static String fieldOrFacetToFQN(String fieldOrFacet) {
-    return fieldOrFacet
-        .substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1)
-        .replace(".keyword", "")
-        .replace(".delimited", "");
+    String fqn = fieldOrFacet.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1);
+    for (String suffix : ES_SUBFIELD_SUFFIXES) {
+      fqn = fqn.replace(suffix, "");
+    }
+    return fqn;
   }
 
   public static Date toDate(PrimitivePropertyValue value) throws DateTimeParseException {

@@ -12,10 +12,13 @@ import com.linkedin.assertion.AssertionActionArray;
 import com.linkedin.assertion.AssertionActionType;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionNote;
 import com.linkedin.assertion.AssertionType;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -63,11 +66,20 @@ public class AssertionTypeTest {
               new AssertionActionArray(
                   ImmutableList.of(
                       new AssertionAction().setType(AssertionActionType.RESOLVE_INCIDENT))));
+  private static final AssertionNote TEST_ASSERTION_NOTE =
+      new AssertionNote()
+          .setContent("note from dedicated aspect")
+          .setLastModified(
+              new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn("urn:li:corpuser:test_user")));
 
   private static final String TEST_ASSERTION_URN_2 = "urn:li:assertion:guid-2";
 
   @Test
   public void testBatchLoad() throws Exception {
+    assertTrue(
+        com.linkedin.datahub.graphql.types.assertion.AssertionType.ASPECTS_TO_FETCH.contains(
+            Constants.STATUS_ASPECT_NAME),
+        "Assertion fallback must include status because AssertionMapper reads it");
 
     EntityClient client = Mockito.mock(EntityClient.class);
 
@@ -87,6 +99,9 @@ public class AssertionTypeTest {
     assertion1Aspects.put(
         Constants.ASSERTION_ACTIONS_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_ACTIONS.data())));
+    assertion1Aspects.put(
+        Constants.ASSERTION_NOTE_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_NOTE.data())));
     Mockito.when(
             client.batchGetV2(
                 any(),
@@ -129,6 +144,7 @@ public class AssertionTypeTest {
     assertEquals(assertion.getType(), EntityType.ASSERTION);
     assertEquals(assertion.getInfo().getType().toString(), AssertionType.DATASET.toString());
     assertEquals(assertion.getInfo().getDatasetAssertion(), null);
+    assertEquals(assertion.getInfo().getNote(), "note from dedicated aspect");
     assertEquals(assertion.getPlatform().getUrn(), "urn:li:dataPlatform:snowflake");
     assertEquals(
         assertion.getActions().getOnSuccess().get(0).getType(),

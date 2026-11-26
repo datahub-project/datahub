@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.glossary;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.GLOSSARY_NODE_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryNodeMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -48,7 +50,8 @@ public class GlossaryNodeType
           APPLICATION_MEMBERSHIP_ASPECT_NAME,
           ASSET_SETTINGS_ASPECT_NAME,
           DISPLAY_PROPERTIES_ASPECT_NAME,
-          INSTITUTIONAL_MEMORY_ASPECT_NAME);
+          INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          GLOBAL_TAGS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -78,12 +81,16 @@ public class GlossaryNodeType
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, GLOSSARY_NODE_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> glossaryNodeMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               GLOSSARY_NODE_ENTITY_NAME,
               new HashSet<>(glossaryNodeUrns),
-              ASPECTS_TO_RESOLVE);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : glossaryNodeUrns) {

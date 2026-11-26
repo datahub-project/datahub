@@ -28,10 +28,12 @@ import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
 import io.fabric8.kubernetes.client.dsl.ScalableResource;
+import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
@@ -1606,6 +1608,18 @@ public class KubernetesApiAccessorTest {
     KubernetesApiAccessor accessor = new KubernetesApiAccessor(client, config);
     accessor.deleteScaledObject("my-scaledobject", NAMESPACE);
     verify(genericResource).delete();
+
+    ArgumentCaptor<ResourceDefinitionContext> contextCaptor =
+        ArgumentCaptor.forClass(ResourceDefinitionContext.class);
+    verify(client).genericKubernetesResources(contextCaptor.capture());
+    ResourceDefinitionContext context = contextCaptor.getValue();
+    assertTrue(
+        context.isNamespaceScoped(),
+        "ScaledObject context must be namespace-scoped or the DELETE targets the cluster path");
+    assertEquals(context.getKind(), "ScaledObject");
+    assertEquals(context.getGroup(), "keda.sh");
+    assertEquals(context.getVersion(), "v1alpha1");
+    assertEquals(context.getPlural(), "scaledobjects");
   }
 
   @Test

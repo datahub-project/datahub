@@ -8,6 +8,7 @@
 import { test } from '../../fixtures/base-test';
 import { HomePagePostsPage } from '../../pages/settings/home-page-posts.page';
 import { withRandomSuffix } from '../../utils/random';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.describe('create announcement and link post', () => {
   let postsPage: HomePagePostsPage;
@@ -19,7 +20,7 @@ test.describe('create announcement and link post', () => {
     await postsPage.skipIntroducePage();
   });
 
-  test('create, edit and delete announcement post', async () => {
+  test('create, edit and delete announcement post', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     const announcementTitle = withRandomSuffix('Test Announcement');
     const announcementUpdated = `${announcementTitle} Updated`;
 
@@ -61,6 +62,10 @@ test.describe('create announcement and link post', () => {
     await postsPage.navigate();
     await postsPage.verifyPostVisible(linkTitle);
 
+    await postsPage.navigateToPinnedLinks();
+    await postsPage.verifyPostVisible(linkTitle);
+
+    await postsPage.navigate();
     await postsPage.editPost(linkTitle);
     await postsPage.selectPostType('Pinned Link');
     await postsPage.fillTitle(linkUpdated);
@@ -71,7 +76,23 @@ test.describe('create announcement and link post', () => {
     await postsPage.navigate();
     await postsPage.verifyPostVisible(linkUpdated);
 
+    await postsPage.navigateToPinnedLinks();
+    await postsPage.verifyPostVisible(linkUpdated);
+
+    await postsPage.navigate();
     await postsPage.deletePost(linkUpdated);
-    await postsPage.verifyPostRemovedFromHome(linkUpdated);
+    await postsPage.verifyPinnedLinkRemovedFromHome(linkUpdated);
+  });
+});
+
+test.describe('home page redesign', () => {
+  test('only offers announcements', { tag: [DomainTag.Catalog] }, async ({ apiMock, page, cleanup }) => {
+    await apiMock.setFeatureFlags({ showHomePageRedesign: true });
+    const postsPage = new HomePagePostsPage(page, { cleanup });
+    await postsPage.navigate();
+    await postsPage.skipIntroducePage();
+
+    await postsPage.openCreateForm();
+    await postsPage.verifyPinnedLinkOptionHidden();
   });
 });

@@ -20,6 +20,7 @@
     "descriptionUpdated": "Leírás frissítve",
     "expandTerm": "{{label}} kibontása",
     "managedTagTooltip": "Ezt a címkét egy másik platform kezeli",
+    "managedTermTooltip": "Ezt a kifejezést egy másik platform kezeli",
     "modal.addTagsTitle": "Címkék hozzáadása",
     "modal.addTermsTitle": "Fogalomtári kifejezések hozzáadása",
     "modal.addTitle": "{{entity}} hozzáadása",

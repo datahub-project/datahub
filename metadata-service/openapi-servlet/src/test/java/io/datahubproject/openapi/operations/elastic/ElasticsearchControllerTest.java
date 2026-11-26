@@ -51,6 +51,8 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -861,7 +863,12 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
           () -> ObjectMapperContext.builder().objectMapper(objectMapper).build(),
           () -> {
             // Set up OpenTelemetry SDK for testing
-            SdkTracerProvider tracerProvider = SdkTracerProvider.builder().build();
+            // OTel SDK 1.67+ returns a no-op tracer (invalid span contexts) when no span
+            // processor is registered, so register one that exports nowhere.
+            SdkTracerProvider tracerProvider =
+                SdkTracerProvider.builder()
+                    .addSpanProcessor(SimpleSpanProcessor.create(SpanExporter.composite()))
+                    .build();
             OpenTelemetry openTelemetry =
                 OpenTelemetrySdk.builder().setTracerProvider(tracerProvider).build();
 

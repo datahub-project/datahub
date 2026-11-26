@@ -7,7 +7,6 @@ from pathlib import Path
 
 from .catchup_executor import CatchUpScenarioExecutor
 from .config import ZDUTestConfig
-from .constants import MAE_SERVICE, ZDU_SERVICES_IN_ORDER
 from .context import TestContext, ValidationResult
 from .datahub_client import DataHubClient
 from .docker_compose import DockerComposeClient
@@ -38,6 +37,7 @@ from .phases.snapshot_t1 import SnapshotT1Phase
 from .phases.upgrade_blocking import UpgradeBlockingPhase
 from .phases.upgrade_blocking_rerun import UpgradeBlockingReRunPhase
 from .phases.upgrade_nonblocking import UpgradeNonBlockingPhase
+from .phases.upgrade_settings_only import UpgradeSettingsOnlyPhase
 from .phases.validation import ValidationPhase
 from .reporter import Reporter
 from .scenario_executor import ScenarioTypeRegistry
@@ -155,7 +155,6 @@ class ZDUTestRunner:
         report = ZDUReport(config=self._config)
         ctx = TestContext(gms_url=self._config.gms_url)
         # Cache the active scenario list so cross-scenario validators
-        # (e.g., Suite B TC-102 reading TC-101's expected_reindex_indices)
         # can look up siblings at validation time.
         ctx.all_scenarios = list(self._scenarios)
 
@@ -237,7 +236,7 @@ class ZDUTestRunner:
             log.info("▶ Phase: prepare_old_stack")
             prepare_phase = PrepareOldStackPhase(
                 docker=self._docker,
-                services_to_restart=ZDU_SERVICES_IN_ORDER,
+                services_to_restart=self._config.services_in_restart_order,
                 gms_service=self._config.gms_service,
                 health_url=self._config.gms_url,
                 timeout_s=180,
@@ -322,8 +321,9 @@ class ZDUTestRunner:
                 "rolling_restart",
                 RollingRestartPhase(
                     docker=self._docker,
-                    mae_service=MAE_SERVICE,
+                    mae_service=self._config.mae_service,
                     gms_service=self._config.gms_service,
+                    services_in_order=self._config.services_in_restart_order,
                     new_image_tag=self._config.new_image_tag,
                     build_images_root=self._config.build_images_root,
                 ),
@@ -360,6 +360,8 @@ class ZDUTestRunner:
                     mysql=self._mysql,
                     datahub=self._datahub,
                     gms_service=self._config.gms_service,
+                    consumer_services=self._config.consumer_services,
+                    old_image_tag=self._config.old_image_tag,
                     new_image_tag=self._config.new_image_tag,
                 ),
             ),
@@ -370,6 +372,8 @@ class ZDUTestRunner:
                     mysql=self._mysql,
                     datahub=self._datahub,
                     gms_service=self._config.gms_service,
+                    consumer_services=self._config.consumer_services,
+                    old_image_tag=self._config.old_image_tag,
                     new_image_tag=self._config.new_image_tag,
                 ),
             ),
@@ -381,6 +385,18 @@ class ZDUTestRunner:
                     datahub=self._datahub,
                     gms_service=self._config.gms_service,
                     new_image_tag=self._config.new_image_tag,
+                ),
+            ),
+            (
+                "upgrade_settings_only",
+                UpgradeSettingsOnlyPhase(
+                    docker=self._docker,
+                    es=self._es,
+                    gms_service=self._config.gms_service,
+                    upgrade_service=self._config.upgrade_service,
+                    timeout_s=self._config.sweep_timeout_s,
+                    new_image_tag=self._config.new_image_tag,
+                    build_images_root=self._config.build_images_root,
                 ),
             ),
             (

@@ -65,11 +65,14 @@ public class EventSchemaConstantsTest {
     assertNotNull(mclSchemaName);
     assertEquals(mclSchemaName, EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME);
 
-    var duheSchemaName =
-        schemaData.getSchemaNameForSchemaId(
-            SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT.getSchemaId());
-    assertNotNull(duheSchemaName);
-    assertEquals(duheSchemaName, EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME);
+    var peSchemaName =
+        schemaData.getSchemaNameForSchemaId(SchemaIdOrdinal.PLATFORM_EVENT.getSchemaId());
+    assertNotNull(peSchemaName);
+    assertEquals(peSchemaName, EventUtils.PLATFORM_EVENT_SCHEMA_NAME);
+
+    assertNull(
+        schemaData.getSchemaNameForSchemaId(SchemaIdOrdinal.RESERVED_8.getSchemaId()),
+        "Reserved former DUHE schema id 8 must not map to a published schema");
   }
 
   @Test
@@ -108,7 +111,7 @@ public class EventSchemaConstantsTest {
     assertTrue(allSchemaNames.contains(EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME));
     assertTrue(allSchemaNames.contains(EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME));
     assertTrue(allSchemaNames.contains(EventUtils.METADATA_CHANGE_EVENT_SCHEMA_NAME));
-    assertTrue(allSchemaNames.contains(EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME));
+    assertFalse(allSchemaNames.contains("DataHubUpgradeHistoryEvent"));
   }
 
   @Test
@@ -122,7 +125,7 @@ public class EventSchemaConstantsTest {
     assertEquals(SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1.getSchemaId(), 5);
     assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1.getSchemaId(), 6);
     assertEquals(SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1.getSchemaId(), 7);
-    assertEquals(SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT.getSchemaId(), 8);
+    assertEquals(SchemaIdOrdinal.RESERVED_8.getSchemaId(), 8);
     assertEquals(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1_FIX.getSchemaId(), 9);
     assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX.getSchemaId(), 10);
     assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG_V1_FIX.getSchemaId(), 11);
@@ -171,7 +174,6 @@ public class EventSchemaConstantsTest {
     assertNotNull(EventSchemaConstants.MCE_SCHEMA);
     assertNotNull(EventSchemaConstants.FMCE_SCHEMA);
     assertNotNull(EventSchemaConstants.MAE_SCHEMA);
-    assertNotNull(EventSchemaConstants.DUHE_SCHEMA);
     assertNotNull(EventSchemaConstants.FMCP_V1_SCHEMA);
     assertNotNull(EventSchemaConstants.FMCP_SCHEMA);
   }
@@ -192,7 +194,6 @@ public class EventSchemaConstantsTest {
     assertTrue(EventSchemaConstants.MCE_SCHEMA instanceof Schema);
     assertTrue(EventSchemaConstants.FMCE_SCHEMA instanceof Schema);
     assertTrue(EventSchemaConstants.MAE_SCHEMA instanceof Schema);
-    assertTrue(EventSchemaConstants.DUHE_SCHEMA instanceof Schema);
     assertTrue(EventSchemaConstants.FMCP_V1_SCHEMA instanceof Schema);
     assertTrue(EventSchemaConstants.FMCP_SCHEMA instanceof Schema);
   }
@@ -217,7 +218,6 @@ public class EventSchemaConstantsTest {
     assertTrue(schemaMap.containsKey(EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME));
     assertTrue(schemaMap.containsKey(EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME));
     assertTrue(schemaMap.containsKey(EventUtils.METADATA_CHANGE_EVENT_SCHEMA_NAME));
-    assertTrue(schemaMap.containsKey(EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME));
   }
 
   @Test
@@ -239,7 +239,7 @@ public class EventSchemaConstantsTest {
     // Verify specific mappings
     assertTrue(schemaMap.containsKey(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1.getSchemaId()));
     assertTrue(schemaMap.containsKey(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL.getSchemaId()));
-    assertTrue(schemaMap.containsKey(SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT.getSchemaId()));
+    assertFalse(schemaMap.containsKey(SchemaIdOrdinal.RESERVED_8.getSchemaId()));
     assertTrue(schemaMap.containsKey(SchemaIdOrdinal.PLATFORM_EVENT.getSchemaId()));
   }
 
@@ -357,8 +357,6 @@ public class EventSchemaConstantsTest {
         EventSchemaConstants.MAE_SCHEMA.getNamespace().contains("linkedin.pegasus2avro.mxe"));
     assertTrue(
         EventSchemaConstants.FMCP_SCHEMA.getNamespace().contains("linkedin.pegasus2avro.mxe"));
-    assertTrue(
-        EventSchemaConstants.DUHE_SCHEMA.getNamespace().contains("linkedin.pegasus2avro.mxe"));
     assertTrue(EventSchemaConstants.PE_SCHEMA.getNamespace().contains("linkedin.pegasus2avro.mxe"));
   }
 }

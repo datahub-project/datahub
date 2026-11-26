@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -16,8 +17,16 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.EntityFieldType;
+import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.SessionActorIdentity;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -25,7 +34,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.context.RelationshipTraversalContext;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -48,11 +56,16 @@ import io.datahubproject.metadata.context.RetrieverContext;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -129,23 +142,36 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   @Test
-  public void testUnauthorizedDocumentDoesNotLoadRelationships()
+  public void testDocumentUsesSharedRelationshipLoadPath()
       throws ExecutionException, InterruptedException {
     Urn documentUrn = UrnUtils.getUrn("urn:li:document:restricted");
     Document source = new Document();
     source.setUrn(documentUrn.toString());
     when(mockEnv.getSource()).thenReturn(source);
-    QueryContext context = mockEnv.getContext();
+    EntityRelationships emptyRelationships =
+        new EntityRelationships()
+            .setStart(0)
+            .setCount(0)
+            .setTotal(0)
+            .setRelationships(new EntityRelationshipArray());
+    when(_graphClient.getRelatedEntities(
+            eq(documentUrn.toString()),
+            eq(new HashSet<>(input.getTypes())),
+            same(com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING),
+            eq(input.getStart()),
+            eq(input.getCount()),
+            any()))
+        .thenReturn(emptyRelationships);
 
-    try (MockedStatic<AuthorizationUtils> authorizationUtils =
-        Mockito.mockStatic(AuthorizationUtils.class)) {
-      authorizationUtils
-          .when(() -> AuthorizationUtils.canView(context.getOperationContext(), documentUrn))
-          .thenReturn(false);
-
-      assertTrue(resolver.get(mockEnv).get().getRelationships().isEmpty());
-      Mockito.verifyNoInteractions(_graphClient);
-    }
+    assertTrue(resolver.get(mockEnv).get().getRelationships().isEmpty());
+    verify(_graphClient)
+        .getRelatedEntities(
+            eq(documentUrn.toString()),
+            eq(new HashSet<>(input.getTypes())),
+            same(com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING),
+            eq(input.getStart()),
+            eq(input.getCount()),
+            any());
   }
 
   @Test
@@ -187,6 +213,18 @@ public class EntityRelationshipsResultResolverTest {
   public void testFilterByRelatedEntityTypesKeepsMatching()
       throws ExecutionException, InterruptedException {
     input.setRelatedEntityTypes(List.of("corpuser"));
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+    assertEquals(result.getCount().intValue(), 2);
+    assertEquals(result.getRelationships().size(), 2);
+  }
+
+  // Callers pass entity types in the GraphQL enum form ("CORPUSER"/"DATASET"); the URN entity type
+  // is lowercase ("corpuser"/"dataset"). The filter must match case-insensitively rather than drop
+  // every edge and return an empty, correct-looking result.
+  @Test
+  public void testFilterByRelatedEntityTypesIsCaseInsensitive()
+      throws ExecutionException, InterruptedException {
+    input.setRelatedEntityTypes(List.of("CORPUSER"));
     EntityRelationshipsResult result = resolver.get(mockEnv).get();
     assertEquals(result.getCount().intValue(), 2);
     assertEquals(result.getRelationships().size(), 2);
@@ -465,6 +503,7 @@ public class EntityRelationshipsResultResolverTest {
     when(mockEnv.getSource()).thenReturn(domainSource);
 
     EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    stubParentAncestorWalk(entityGraphCache, "domain");
     EntityGraphBinding binding =
         EntityGraphBinding.builder().graphId("domain").source(GraphSnapshotSource.SEARCH).build();
     when(entityGraphCache.bindingForPolicyField("DOMAIN")).thenReturn(Optional.of(binding));
@@ -530,6 +569,7 @@ public class EntityRelationshipsResultResolverTest {
     when(mockEnv.getSource()).thenReturn(glossarySource);
 
     EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    stubParentAncestorWalk(entityGraphCache, "glossary");
     EntityGraphBinding binding =
         EntityGraphBinding.builder().graphId("glossary").source(GraphSnapshotSource.GRAPH).build();
     when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.GLOSSARY))
@@ -597,6 +637,7 @@ public class EntityRelationshipsResultResolverTest {
     when(mockEnv.getSource()).thenReturn(glossarySource);
 
     EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    stubParentAncestorWalk(entityGraphCache, "glossary");
     EntityGraphBinding binding =
         EntityGraphBinding.builder().graphId("glossary").source(GraphSnapshotSource.GRAPH).build();
     when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.GLOSSARY))
@@ -683,52 +724,16 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   @Test
-  public void testContainerChildRelationshipsExcludeSoftDeleted()
+  public void testContainerIsPartOfIncomingUsesGraphClientIncludingAssets()
       throws ExecutionException, InterruptedException, URISyntaxException {
     Urn parentContainer = Urn.createFromString("urn:li:container:parent");
-    Urn activeChild = Urn.createFromString("urn:li:container:activeChild");
-    Urn softDeletedChild = Urn.createFromString("urn:li:container:softDeletedChild");
+    Urn childContainer = Urn.createFromString("urn:li:container:child");
+    Urn childDataset =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
 
     Container containerSource = new Container();
     containerSource.setUrn(parentContainer.toString());
     when(mockEnv.getSource()).thenReturn(containerSource);
-
-    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
-    EntityGraphBinding binding =
-        EntityGraphBinding.builder().graphId("container").source(GraphSnapshotSource.GRAPH).build();
-    when(entityGraphCache.bindingForPolicyField("CONTAINER")).thenReturn(Optional.of(binding));
-    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.CONTAINER))
-        .thenReturn(Optional.of(binding));
-    when(entityGraphCache.expand(
-            eq("container"),
-            eq(GraphSnapshotSource.GRAPH),
-            eq(TraversalDirection.REVERSE),
-            eq(Set.of(parentContainer.toString())),
-            anyInt(),
-            eq(1),
-            eq(ReadMode.CACHED)))
-        .thenReturn(
-            GraphReadResult.fromVertices(
-                Set.of(
-                    parentContainer.toString(),
-                    activeChild.toString(),
-                    softDeletedChild.toString())));
-
-    QueryContext queryContext = getMockAllowContext();
-    OperationContext baseContext = queryContext.getOperationContext();
-    OperationContext opContext =
-        baseContext.toBuilder()
-            .retrieverContext(
-                RetrieverContext.builder()
-                    .entityGraphCache(entityGraphCache)
-                    .graphRetriever(GraphRetriever.EMPTY)
-                    .searchRetriever(SearchRetriever.EMPTY)
-                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
-                    .aspectRetriever(mock(AspectRetriever.class))
-                    .build())
-            .build(baseContext.getSessionAuthentication(), false);
-    when(queryContext.getOperationContext()).thenReturn(opContext);
-    when(mockEnv.getContext()).thenReturn(queryContext);
 
     RelationshipsInput containerInput = new RelationshipsInput();
     containerInput.setTypes(List.of("IsPartOf"));
@@ -738,48 +743,43 @@ public class EntityRelationshipsResultResolverTest {
     containerInput.setCount(10);
     when(mockEnv.getArgument(eq("input"))).thenReturn(containerInput);
 
-    when(_entityService.exists(any(), eq(Set.of(activeChild, softDeletedChild)), eq(false)))
-        .thenReturn(Set.of(activeChild));
-
-    EntityRelationshipsResult result = resolver.get(mockEnv).get();
-
-    assertEquals(result.getCount(), 1);
-    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), activeChild.toString());
-    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
-  }
-
-  @Test
-  public void testContainerChildRelationshipsFallsBackToGraphClientWhenNotDirectChildrenQuery()
-      throws ExecutionException, InterruptedException {
-    Container containerSource = new Container();
-    containerSource.setUrn("urn:li:container:parent");
-    when(mockEnv.getSource()).thenReturn(containerSource);
-
-    RelationshipsInput nonContainerChildrenInput = new RelationshipsInput();
-    nonContainerChildrenInput.setTypes(List.of("SomeType"));
-    nonContainerChildrenInput.setDirection(RelationshipDirection.INCOMING);
-    nonContainerChildrenInput.setStart(0);
-    nonContainerChildrenInput.setCount(10);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(nonContainerChildrenInput);
-
     when(_graphClient.getRelatedEntities(
-            eq("urn:li:container:parent"),
-            eq(new HashSet<>(nonContainerChildrenInput.getTypes())),
+            eq(parentContainer.toString()),
+            eq(new HashSet<>(containerInput.getTypes())),
             same(com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING),
-            eq(nonContainerChildrenInput.getStart()),
-            eq(nonContainerChildrenInput.getCount()),
+            eq(containerInput.getStart()),
+            eq(containerInput.getCount()),
             any()))
         .thenReturn(
             new EntityRelationships()
                 .setStart(0)
-                .setCount(0)
-                .setTotal(0)
-                .setRelationships(new EntityRelationshipArray()));
+                .setCount(2)
+                .setTotal(2)
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        List.of(
+                            new EntityRelationship().setEntity(childContainer).setType("IsPartOf"),
+                            new EntityRelationship()
+                                .setEntity(childDataset)
+                                .setType("IsPartOf")))));
+
+    // Soft-deleted dataset is present in the graph response but filtered via exists().
+    when(_entityService.exists(any(), eq(Set.of(childContainer, childDataset)), eq(false)))
+        .thenReturn(Set.of(childContainer));
 
     EntityRelationshipsResult result = resolver.get(mockEnv).get();
 
-    assertNotNull(result);
-    verify(_graphClient).getRelatedEntities(any(), any(), any(), any(), any(), any());
+    assertEquals(result.getCount(), 1);
+    assertEquals(result.getTotal(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), childContainer.toString());
+    verify(_graphClient)
+        .getRelatedEntities(
+            eq(parentContainer.toString()),
+            eq(new HashSet<>(containerInput.getTypes())),
+            same(com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING),
+            eq(containerInput.getStart()),
+            eq(containerInput.getCount()),
+            any());
   }
 
   @Test
@@ -855,6 +855,46 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   @Test
+  public void testSessionUserOutgoingMembershipHonorsRelatedEntityTypes()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn actorUrn = Urn.createFromString("urn:li:corpuser:test");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:session-group");
+    Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Editor");
+
+    CorpUser userSource = new CorpUser();
+    userSource.setUrn(actorUrn.toString());
+    when(mockEnv.getSource()).thenReturn(userSource);
+
+    SessionActorIdentity sessionIdentity =
+        new SessionActorIdentity(actorUrn, List.of(groupUrn), Set.of(roleUrn));
+    QueryContext queryContext =
+        withSessionActorIdentity(getMockAllowContext(actorUrn.toString()), sessionIdentity);
+    when(queryContext
+            .getOperationContext()
+            .getAuthorizationContext()
+            .resolveSessionActorRoles(any(), any()))
+        .thenReturn(Set.of(roleUrn));
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput membershipInput = new RelationshipsInput();
+    membershipInput.setTypes(List.of("IsMemberOfGroup", "IsMemberOfRole"));
+    membershipInput.setDirection(RelationshipDirection.OUTGOING);
+    membershipInput.setRelatedEntityTypes(List.of("dataHubRole"));
+    membershipInput.setStart(0);
+    // count=1 forces filter-before-paginate: page-then-filter would keep only the group and drop
+    // the role.
+    membershipInput.setCount(1);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(membershipInput);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), roleUrn.toString());
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
   public void testCorpGroupIncomingMembersUsesMembershipCache()
       throws ExecutionException, InterruptedException, URISyntaxException {
     Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
@@ -920,6 +960,625 @@ public class EntityRelationshipsResultResolverTest {
     assertEquals(result.getCount(), 1);
     assertEquals(result.getRelationships().get(0).getEntity().getUrn(), memberUrn.toString());
     verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  /**
+   * A member of a group via BOTH ingested ({@code IsMemberOfGroup}) and native ({@code
+   * IsMemberOfNativeGroup}) membership yields two membership edges to the same corpuser. The
+   * members list must collapse them to a single unique member (issue #14471), preferring the native
+   * (GUI-managed) edge. The total stays the raw edge count: per-page dedup keeps the read cheap
+   * (fetch only the requested page) rather than pre-scanning the whole membership set to correct
+   * the rare dual-membership count.
+   */
+  @Test
+  public void testCorpGroupIncomingMembersDeduplicatesAcrossMembershipEdgeTypes()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    Urn memberUrn = Urn.createFromString("urn:li:corpuser:member");
+
+    CorpGroup groupSource = new CorpGroup();
+    groupSource.setUrn(groupUrn.toString());
+    when(mockEnv.getSource()).thenReturn(groupSource);
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder()
+            .graphId("membership")
+            .source(GraphSnapshotSource.GRAPH)
+            .build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
+        .thenReturn(Optional.of(binding));
+    // Same neighbor URN returned once per requested edge type; count reflects edges, not members.
+    when(entityGraphCache.listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(groupUrn.toString()),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfGroup", "IsMemberOfNativeGroup")),
+            eq(1),
+            eq(0),
+            anyInt(),
+            any(ReadMode.class)))
+        .thenReturn(
+            MembershipNeighborResult.fromNeighbors(
+                List.of(
+                    new MembershipNeighborResult.Neighbor(memberUrn.toString(), "IsMemberOfGroup"),
+                    new MembershipNeighborResult.Neighbor(
+                        memberUrn.toString(), "IsMemberOfNativeGroup")),
+                2));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    OperationContext opContext =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build())
+            .build(baseContext.getSessionAuthentication(), false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput membersInput = new RelationshipsInput();
+    membersInput.setTypes(List.of("IsMemberOfGroup", "IsMemberOfNativeGroup"));
+    membersInput.setDirection(RelationshipDirection.INCOMING);
+    membersInput.setIncludeSoftDelete(false);
+    membersInput.setStart(0);
+    membersInput.setCount(10);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(membersInput);
+
+    when(_entityService.exists(any(), eq(Set.of(memberUrn)), eq(false)))
+        .thenReturn(Set.of(memberUrn));
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    // Raw edge total (2) is preserved; the returned list is deduped to the single unique member.
+    assertEquals(result.getTotal().intValue(), 2);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().size(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), memberUrn.toString());
+    assertEquals(result.getRelationships().get(0).getType(), "IsMemberOfNativeGroup");
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+
+    // Per-page dedup must not pre-scan the membership set: the resolver fetches only the requested
+    // page size (10), never the bounds.maxEdges cap.
+    verify(entityGraphCache)
+        .listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(groupUrn.toString()),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfGroup", "IsMemberOfNativeGroup")),
+            eq(1),
+            eq(0),
+            eq(10),
+            any(ReadMode.class));
+  }
+
+  /**
+   * A role's members ({@code IsMemberOfRole} INCOMING) can be both users and groups. The membership
+   * graph stores both edge types; reverse listing must be served from the membership path and
+   * surface group grants alongside users (not drop groups or bypass to the live graph).
+   */
+  @Test
+  public void testDataHubRoleIncomingMembersHonorsRelatedEntityTypes()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, List.of("corpuser"), null, 2);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), userUrn.toString());
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testDataHubRoleIncomingMembersRelatedEntityTypesUsesMaxEdgesFetchCap()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    int fetchCap = 2;
+    EntityGraphCache entityGraphCache =
+        setupDataHubRoleIncomingMembersMembershipCache(
+            userUrn, groupUrn, List.of("corpuser"), fetchCap, 2);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), userUrn.toString());
+    verify(entityGraphCache)
+        .listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq("urn:li:dataHubRole:Editor"),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfRole")),
+            anyInt(),
+            eq(0),
+            eq(fetchCap),
+            any(ReadMode.class));
+  }
+
+  @Test
+  public void testDataHubRoleIncomingMembersRelatedEntityTypesFailsClosedWhenFetchTruncated()
+      throws URISyntaxException {
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    // Cap fetches 2 neighbors but backend reports total 5 → refuse truncated filter+page.
+    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, List.of("corpuser"), 2, 5);
+
+    ExecutionException thrown =
+        expectThrows(ExecutionException.class, () -> resolver.get(mockEnv).get());
+    assertTrue(thrown.getCause() instanceof IllegalStateException);
+    assertTrue(thrown.getCause().getMessage().contains("fetch cap"));
+  }
+
+  @Test
+  public void testDataHubRoleIncomingMembersIncludeGroupsViaMembershipCache()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, null, null, 2);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    Set<String> members = new HashSet<>();
+    for (var rel : result.getRelationships()) {
+      members.add(rel.getEntity().getUrn());
+    }
+    assertTrue(
+        members.contains(groupUrn.toString()),
+        "role member listing must include group grants, not only users");
+    assertTrue(members.contains(userUrn.toString()));
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  /**
+   * @param relatedTypeFilterFetchCap when non-null (and relatedEntityTypes set), stubs {@code
+   *     maxEdgesForGraph} and expects {@code listRelated} count to match the cap
+   * @param reportedTotal total reported by the membership hit (may exceed fetched neighbors to
+   *     simulate truncation)
+   */
+  @Nonnull
+  private EntityGraphCache setupDataHubRoleIncomingMembersMembershipCache(
+      @Nonnull Urn userUrn,
+      @Nonnull Urn groupUrn,
+      @Nullable List<String> relatedEntityTypes,
+      @Nullable Integer relatedTypeFilterFetchCap,
+      int reportedTotal)
+      throws URISyntaxException {
+    Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Editor");
+
+    CorpGroup roleSource = new CorpGroup();
+    roleSource.setUrn(roleUrn.toString());
+    when(mockEnv.getSource()).thenReturn(roleSource);
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder()
+            .graphId("membership")
+            .source(GraphSnapshotSource.GRAPH)
+            .build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
+        .thenReturn(Optional.of(binding));
+    if (relatedTypeFilterFetchCap != null) {
+      when(entityGraphCache.maxEdgesForGraph("membership"))
+          .thenReturn(OptionalInt.of(relatedTypeFilterFetchCap));
+    }
+    when(entityGraphCache.listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(roleUrn.toString()),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfRole")),
+            anyInt(),
+            eq(0),
+            relatedTypeFilterFetchCap != null && relatedEntityTypes != null
+                ? eq(relatedTypeFilterFetchCap)
+                : anyInt(),
+            any(ReadMode.class)))
+        .thenReturn(
+            MembershipNeighborResult.fromNeighbors(
+                List.of(
+                    new MembershipNeighborResult.Neighbor(userUrn.toString(), "IsMemberOfRole"),
+                    new MembershipNeighborResult.Neighbor(groupUrn.toString(), "IsMemberOfRole")),
+                reportedTotal));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    OperationContext opContext =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build())
+            .build(baseContext.getSessionAuthentication(), false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput membersInput = new RelationshipsInput();
+    membersInput.setTypes(List.of("IsMemberOfRole"));
+    membersInput.setDirection(RelationshipDirection.INCOMING);
+    if (relatedEntityTypes != null) {
+      membersInput.setRelatedEntityTypes(relatedEntityTypes);
+    }
+    membersInput.setIncludeSoftDelete(false);
+    membersInput.setStart(0);
+    membersInput.setCount(50);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(membersInput);
+
+    when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
+    return entityGraphCache;
+  }
+
+  @Test
+  public void testGlossaryChildListingResolvesParentAncestorsOnceForAllChildren()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn grandparent = Urn.createFromString("urn:li:glossaryNode:grandparent");
+    Urn parentNode = Urn.createFromString("urn:li:glossaryNode:parent");
+    Urn termA = Urn.createFromString("urn:li:glossaryTerm:a");
+    Urn termB = Urn.createFromString("urn:li:glossaryTerm:b");
+
+    GlossaryNode glossarySource = new GlossaryNode();
+    glossarySource.setUrn(parentNode.toString());
+    when(mockEnv.getSource()).thenReturn(glossarySource);
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder().graphId("glossary").source(GraphSnapshotSource.GRAPH).build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.GLOSSARY))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.expand(
+            eq("glossary"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of(parentNode.toString())),
+            anyInt(),
+            eq(1),
+            eq(ReadMode.CACHED)))
+        .thenReturn(
+            GraphReadResult.fromVertices(
+                Set.of(parentNode.toString(), termA.toString(), termB.toString())));
+    when(entityGraphCache.expand(
+            eq("glossary"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(TraversalDirection.FORWARD),
+            anySet(),
+            anyInt(),
+            anyInt(),
+            any()))
+        .thenReturn(
+            GraphReadResult.fromVertices(Set.of(parentNode.toString(), grandparent.toString())));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    OperationContext opContext =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build())
+            .build(baseContext.getSessionAuthentication(), false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput glossaryInput = new RelationshipsInput();
+    glossaryInput.setTypes(List.of("IsPartOf"));
+    glossaryInput.setDirection(RelationshipDirection.INCOMING);
+    glossaryInput.setIncludeSoftDelete(false);
+    glossaryInput.setStart(0);
+    glossaryInput.setCount(10);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(glossaryInput);
+    when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal(), 2);
+    // One ancestor walk for the parent, however many children are checked.
+    verify(entityGraphCache, times(1))
+        .expand(
+            eq("glossary"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(TraversalDirection.FORWARD),
+            anySet(),
+            anyInt(),
+            anyInt(),
+            any());
+    Map<EntitySpec, Map<EntityFieldType, FieldResolver>> overrides =
+        opContext.getAuthorizationContext().getSessionResourceFieldOverrides();
+    for (Urn term : List.of(termA, termB)) {
+      Set<String> glossaryValues =
+          overrides
+              .get(new EntitySpec(term.getEntityType(), term.toString()))
+              .get(EntityFieldType.GLOSSARY)
+              .getFieldValuesFuture()
+              .join()
+              .getValues();
+      assertEquals(
+          glossaryValues, Set.of(term.toString(), parentNode.toString(), grandparent.toString()));
+    }
+  }
+
+  private static final ViewAuthorizationConfiguration VIEW_AUTH_ALL_RESTRICTED =
+      ViewAuthorizationConfiguration.builder()
+          .enabled(true)
+          .effectiveUnrestrictedEntityTypes(Set.of())
+          .build();
+
+  private record GlossaryChildListing(
+      QueryContext queryContext, OperationContext opContext, EntityGraphCache cache) {
+
+    Authorizer authorizer() {
+      return queryContext.getAuthorizer();
+    }
+  }
+
+  private static List<Urn> glossaryTerms(int count) {
+    return IntStream.range(0, count)
+        .mapToObj(i -> UrnUtils.getUrn(String.format("urn:li:glossaryTerm:term%04d", i)))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Serves {@code children} as the direct children of {@code parent} from the entity graph cache,
+   * with the given View Authorization configuration (null keeps the default test configuration,
+   * which has it off) and the system actor when {@code asSystem} is set.
+   */
+  private GlossaryChildListing givenGlossaryChildren(
+      Urn parent,
+      List<Urn> children,
+      @Nullable ViewAuthorizationConfiguration viewAuthorization,
+      boolean asSystem) {
+    GlossaryNode glossarySource = new GlossaryNode();
+    glossarySource.setUrn(parent.toString());
+    when(mockEnv.getSource()).thenReturn(glossarySource);
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    stubParentAncestorWalk(entityGraphCache, "glossary");
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder().graphId("glossary").source(GraphSnapshotSource.GRAPH).build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.GLOSSARY))
+        .thenReturn(Optional.of(binding));
+    Set<String> vertices = new HashSet<>();
+    vertices.add(parent.toString());
+    children.forEach(child -> vertices.add(child.toString()));
+    when(entityGraphCache.expand(
+            eq("glossary"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of(parent.toString())),
+            anyInt(),
+            eq(1),
+            eq(ReadMode.CACHED)))
+        .thenReturn(GraphReadResult.fromVertices(vertices));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    var builder =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build());
+    if (viewAuthorization != null) {
+      builder.operationContextConfig(
+          baseContext.getOperationContextConfig().toBuilder()
+              .viewAuthorizationConfiguration(viewAuthorization)
+              .build());
+    }
+    OperationContext opContext =
+        builder.build(
+            asSystem
+                ? baseContext.getSystemActorContext().getAuthentication()
+                : baseContext.getSessionAuthentication(),
+            false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+    when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
+    return new GlossaryChildListing(queryContext, opContext, entityGraphCache);
+  }
+
+  private EntityRelationshipsResult listGlossaryChildren(
+      @Nullable Integer start, @Nullable Integer count)
+      throws ExecutionException, InterruptedException {
+    RelationshipsInput glossaryInput = new RelationshipsInput();
+    glossaryInput.setTypes(List.of("IsPartOf"));
+    glossaryInput.setDirection(RelationshipDirection.INCOMING);
+    glossaryInput.setIncludeSoftDelete(false);
+    glossaryInput.setStart(start);
+    glossaryInput.setCount(count);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(glossaryInput);
+    return resolver.get(mockEnv).get();
+  }
+
+  private static List<String> relationshipUrns(EntityRelationshipsResult result) {
+    return result.getRelationships().stream()
+        .map(relationship -> relationship.getEntity().getUrn())
+        .collect(Collectors.toList());
+  }
+
+  private static Set<String> authorizedResources(Authorizer authorizer) {
+    ArgumentCaptor<AuthorizationRequest> requests =
+        ArgumentCaptor.forClass(AuthorizationRequest.class);
+    verify(authorizer, atLeast(0)).authorize(requests.capture());
+    return requests.getAllValues().stream()
+        .flatMap(request -> request.getResourceSpec().stream())
+        .map(EntitySpec::getEntity)
+        .collect(Collectors.toSet());
+  }
+
+  @Test
+  public void testChildListingWithCountZeroReturnsTotalAndChecksNothing()
+      throws ExecutionException, InterruptedException {
+    Urn parent = UrnUtils.getUrn("urn:li:glossaryNode:parent");
+    GlossaryChildListing listing =
+        givenGlossaryChildren(parent, glossaryTerms(5), VIEW_AUTH_ALL_RESTRICTED, false);
+
+    EntityRelationshipsResult result = listGlossaryChildren(0, 0);
+
+    assertEquals(result.getTotal(), 5);
+    assertEquals(result.getCount(), 0);
+    assertTrue(result.getRelationships().isEmpty());
+    assertTrue(authorizedResources(listing.authorizer()).isEmpty());
+    assertTrue(
+        listing.opContext().getAuthorizationContext().getSessionResourceFieldOverrides().isEmpty());
+    verify(listing.cache(), never())
+        .expand(
+            eq("glossary"),
+            any(),
+            eq(TraversalDirection.FORWARD),
+            anySet(),
+            anyInt(),
+            anyInt(),
+            any());
+  }
+
+  @Test
+  public void testChildListingChecksAndSeedsOnlyTheRequestedPage()
+      throws ExecutionException, InterruptedException {
+    Urn parent = UrnUtils.getUrn("urn:li:glossaryNode:parent");
+    List<Urn> children = glossaryTerms(2095);
+    GlossaryChildListing listing =
+        givenGlossaryChildren(parent, children, VIEW_AUTH_ALL_RESTRICTED, false);
+
+    EntityRelationshipsResult result = listGlossaryChildren(10, 50);
+
+    List<String> expectedPage =
+        children.stream().skip(10).limit(50).map(Urn::toString).collect(Collectors.toList());
+    assertEquals(result.getTotal(), 2095);
+    assertEquals(relationshipUrns(result), expectedPage);
+    assertEquals(authorizedResources(listing.authorizer()), Set.copyOf(expectedPage));
+    assertEquals(
+        listing.opContext().getAuthorizationContext().getSessionResourceFieldOverrides().size(),
+        50);
+  }
+
+  @Test
+  public void testChildListingReturnsShortPageWithUnfilteredTotalWhenChildrenAreHidden()
+      throws ExecutionException, InterruptedException {
+    Urn parent = UrnUtils.getUrn("urn:li:glossaryNode:parent");
+    List<Urn> children = glossaryTerms(4);
+    GlossaryChildListing listing =
+        givenGlossaryChildren(parent, children, VIEW_AUTH_ALL_RESTRICTED, false);
+    String hidden = children.get(1).toString();
+    when(listing.authorizer().authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            inv -> {
+              AuthorizationRequest request = inv.getArgument(0);
+              boolean denied =
+                  request
+                      .getResourceSpec()
+                      .map(spec -> hidden.equals(spec.getEntity()))
+                      .orElse(false);
+              return new AuthorizationResult(
+                  request,
+                  denied ? AuthorizationResult.Type.DENY : AuthorizationResult.Type.ALLOW,
+                  "");
+            });
+
+    EntityRelationshipsResult result = listGlossaryChildren(0, 3);
+
+    assertEquals(
+        relationshipUrns(result), List.of(children.get(0).toString(), children.get(2).toString()));
+    assertEquals(result.getCount(), 2);
+    assertEquals(result.getTotal(), 4);
+  }
+
+  @Test
+  public void testChildListingHonorsConfiguredPageLimits()
+      throws ExecutionException, InterruptedException {
+    Urn parent = UrnUtils.getUrn("urn:li:glossaryNode:parent");
+    GlossaryChildListing listing = givenGlossaryChildren(parent, glossaryTerms(50), null, false);
+    when(listing.queryContext().getDirectChildDefaultCount()).thenReturn(3);
+    when(listing.queryContext().getDirectChildMaxCount()).thenReturn(5);
+
+    assertEquals(listGlossaryChildren(0, null).getRelationships().size(), 3);
+    assertEquals(listGlossaryChildren(0, 40).getRelationships().size(), 5);
+  }
+
+  @Test
+  public void testChildListingAppliesDefaultAndMaximumCountAndClampsNegatives()
+      throws ExecutionException, InterruptedException {
+    Urn parent = UrnUtils.getUrn("urn:li:glossaryNode:parent");
+    List<Urn> children = glossaryTerms(1200);
+    givenGlossaryChildren(parent, children, null, false);
+
+    EntityRelationshipsResult omittedCount = listGlossaryChildren(0, null);
+    assertEquals(omittedCount.getRelationships().size(), 100);
+    assertEquals(omittedCount.getTotal(), 1200);
+
+    EntityRelationshipsResult oversizedCount = listGlossaryChildren(0, 5000);
+    assertEquals(oversizedCount.getRelationships().size(), 1000);
+
+    EntityRelationshipsResult negativeStart = listGlossaryChildren(-5, 3);
+    assertEquals(negativeStart.getStart(), 0);
+    assertEquals(
+        relationshipUrns(negativeStart),
+        children.subList(0, 3).stream().map(Urn::toString).collect(Collectors.toList()));
+
+    EntityRelationshipsResult negativeCount = listGlossaryChildren(0, -1);
+    assertTrue(negativeCount.getRelationships().isEmpty());
+    assertEquals(negativeCount.getTotal(), 1200);
+  }
+
+  @Test
+  public void testChildListingRunsNoViewChecksWhenViewAuthorizationDoesNotApply()
+      throws ExecutionException, InterruptedException {
+    Urn parent = UrnUtils.getUrn("urn:li:glossaryNode:parent");
+    List<Urn> children = glossaryTerms(20);
+
+    GlossaryChildListing disabled = givenGlossaryChildren(parent, children, null, false);
+    assertEquals(listGlossaryChildren(0, 20).getRelationships().size(), 20);
+    assertTrue(authorizedResources(disabled.authorizer()).isEmpty());
+
+    GlossaryChildListing unrestrictedType =
+        givenGlossaryChildren(
+            parent,
+            children,
+            ViewAuthorizationConfiguration.builder()
+                .enabled(true)
+                .effectiveUnrestrictedEntityTypes(Set.of("glossaryTerm"))
+                .build(),
+            false);
+    assertEquals(listGlossaryChildren(0, 20).getRelationships().size(), 20);
+    assertTrue(authorizedResources(unrestrictedType.authorizer()).isEmpty());
+
+    GlossaryChildListing systemActor =
+        givenGlossaryChildren(parent, children, VIEW_AUTH_ALL_RESTRICTED, true);
+    assertEquals(listGlossaryChildren(0, 20).getRelationships().size(), 20);
+    assertTrue(authorizedResources(systemActor.authorizer()).isEmpty());
+  }
+
+  /** The child listing resolves the parent's ancestors once; return just the parent. */
+  private static void stubParentAncestorWalk(EntityGraphCache entityGraphCache, String graphId) {
+    when(entityGraphCache.expand(
+            eq(graphId),
+            any(),
+            eq(TraversalDirection.FORWARD),
+            anySet(),
+            anyInt(),
+            anyInt(),
+            any()))
+        .thenAnswer(inv -> GraphReadResult.fromVertices(inv.getArgument(3)));
   }
 
   private com.linkedin.datahub.graphql.generated.EntityRelationship resultRelationship(

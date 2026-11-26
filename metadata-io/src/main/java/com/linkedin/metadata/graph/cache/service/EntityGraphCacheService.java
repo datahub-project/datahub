@@ -1,9 +1,12 @@
 package com.linkedin.metadata.graph.cache.service;
 
+import com.linkedin.metadata.cache.visibility.IndexVisibilityEstimator;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.graph.cache.AncestorWalkResult;
 import com.linkedin.metadata.graph.cache.EntityGraphBinding;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
+import com.linkedin.metadata.graph.cache.FullWalkPublishResult;
+import com.linkedin.metadata.graph.cache.FullWalkWriteBack;
 import com.linkedin.metadata.graph.cache.GraphReadResult;
 import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
 import com.linkedin.metadata.graph.cache.KnownEntityGraph;
@@ -21,6 +24,7 @@ import com.linkedin.metadata.graph.cache.service.rebuild.GraphCacheRebuilder;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotBuilder;
 import com.linkedin.metadata.graph.cache.store.EntityGraphDistributedStore;
 import com.linkedin.metadata.graph.cache.store.EntityGraphLocalViewCache;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Locale;
@@ -46,6 +50,7 @@ public class EntityGraphCacheService implements EntityGraphCache {
   private final GraphCacheReader reader;
   private final GraphCacheRebuilder rebuilder;
   private final GraphCacheInvalidator invalidator;
+  private final OperationContext systemOperationContext;
 
   public EntityGraphCacheService(
       @Nonnull EntityGraphCacheProperties properties,
@@ -54,11 +59,13 @@ public class EntityGraphCacheService implements EntityGraphCache {
       @Nonnull EntityGraphLocalViewCache localViews,
       @Nonnull EntityGraphSnapshotBuilder snapshotBuilder,
       @Nonnull OperationContext systemOperationContext,
-      @Nonnull ExecutorService rebuildExecutor) {
+      @Nonnull ExecutorService rebuildExecutor,
+      @Nonnull IndexVisibilityEstimator visibilityEstimator) {
     this.properties = properties;
     this.registry = registry;
     this.distributedStore = distributedStore;
     this.localViews = localViews;
+    this.systemOperationContext = systemOperationContext;
     SnapshotFreshnessEvaluator freshnessEvaluator =
         new SnapshotFreshnessEvaluator(distributedStore);
     this.rebuilder =
@@ -78,7 +85,8 @@ public class EntityGraphCacheService implements EntityGraphCache {
             freshnessEvaluator,
             rebuilder);
     this.invalidator =
-        new GraphCacheInvalidator(registry, distributedStore, localViews, systemOperationContext);
+        new GraphCacheInvalidator(
+            registry, distributedStore, localViews, systemOperationContext, visibilityEstimator);
   }
 
   @Override
@@ -91,6 +99,20 @@ public class EntityGraphCacheService implements EntityGraphCache {
       int limit,
       int maxDepth,
       @Nonnull ReadMode mode) {
+    return expand(graphId, source, direction, roots, limit, maxDepth, mode, false);
+  }
+
+  @Override
+  @Nonnull
+  public GraphReadResult expand(
+      @Nonnull String graphId,
+      @Nonnull GraphSnapshotSource source,
+      @Nonnull TraversalDirection direction,
+      @Nonnull Collection<String> roots,
+      int limit,
+      int maxDepth,
+      @Nonnull ReadMode mode,
+      boolean requireFullPath) {
     if (!properties.isEnabled()) {
       return GraphReadResult.miss(ReadMissReason.DISABLED);
     }
@@ -98,7 +120,35 @@ public class EntityGraphCacheService implements EntityGraphCache {
     if (definition == null) {
       return GraphReadResult.miss(ReadMissReason.INVALID_REQUEST);
     }
-    return reader.expand(definition, source, direction, roots, limit, maxDepth, mode);
+    return reader.expand(
+        definition, source, direction, roots, limit, maxDepth, mode, requireFullPath);
+  }
+
+  @Override
+  @Nonnull
+  public FullWalkPublishResult publishFullWalk(@Nonnull FullWalkWriteBack writeBack) {
+    if (!properties.isEnabled()) {
+      return recordFullWalkResult(FullWalkPublishResult.REJECTED_DISABLED);
+    }
+    EntityGraphDefinition definition =
+        writeBack.getGraphId() == null ? null : registry.getDefinition(writeBack.getGraphId());
+    return recordFullWalkResult(distributedStore.publishFullWalk(definition, writeBack));
+  }
+
+  @Nonnull
+  private FullWalkPublishResult recordFullWalkResult(@Nonnull FullWalkPublishResult result) {
+    if (result != FullWalkPublishResult.PUBLISHED) {
+      systemOperationContext
+          .getMetricUtils()
+          .ifPresent(
+              metrics ->
+                  metrics.incrementMicrometer(
+                      "entity.graph.cache.full_walk_publish_suppressed",
+                      1,
+                      "reason",
+                      result.name().toLowerCase(Locale.ROOT)));
+    }
+    return result;
   }
 
   @Override
@@ -164,6 +214,16 @@ public class EntityGraphCacheService implements EntityGraphCache {
     return binding == null ? Optional.empty() : Optional.of(binding);
   }
 
+  @Override
+  @Nonnull
+  public java.util.OptionalInt maxEdgesForGraph(@Nonnull String graphId) {
+    EntityGraphDefinition definition = registry.getDefinition(graphId);
+    if (definition == null || definition.getBounds() == null) {
+      return java.util.OptionalInt.empty();
+    }
+    return definition.getBounds().getMaxEdges();
+  }
+
   public void scheduledRebuild(@Nonnull EntityGraphDefinition definition) {
     if (!properties.isEnabled()) {
       return;
@@ -191,6 +251,14 @@ public class EntityGraphCacheService implements EntityGraphCache {
     invalidator.invalidateOnSyncBatch(batch);
   }
 
+  @Override
+  public void invalidateImmediately(@Nonnull SyncGraphInvalidationBatch batch) {
+    if (!properties.isEnabled()) {
+      return;
+    }
+    invalidator.invalidateImmediately(batch);
+  }
+
   public void onSnapshotUpdated(@Nonnull String cacheKey) {
     distributedStore.refreshPartialSeedIndex(cacheKey);
     localViews.evict(cacheKey);
@@ -198,5 +266,30 @@ public class EntityGraphCacheService implements EntityGraphCache {
 
   public EntityGraphLocalViewCache getLocalViews() {
     return localViews;
+  }
+
+  /**
+   * Samples Hazelcast snapshot map sizes. Called from the memory-pressure loop, not each scrape.
+   */
+  public void recordSnapshotEntryGauges() {
+    if (systemOperationContext == null) {
+      return;
+    }
+    Optional<MetricUtils> metrics = systemOperationContext.getMetricUtils();
+    if (metrics == null) {
+      return;
+    }
+    metrics.ifPresent(
+        utils -> {
+          int fullEntries = distributedStore.fullSnapshotCount();
+          if (fullEntries >= 0) {
+            utils.setMicrometerGauge("entity.graph.cache.entries", fullEntries, "graphId", "full");
+          }
+          int containerEntries = distributedStore.partialSnapshotCount("container");
+          if (containerEntries >= 0) {
+            utils.setMicrometerGauge(
+                "entity.graph.cache.entries", containerEntries, "graphId", "container");
+          }
+        });
   }
 }

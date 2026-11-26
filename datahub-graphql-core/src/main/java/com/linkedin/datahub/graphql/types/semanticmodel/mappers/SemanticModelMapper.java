@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.semanticmodel.mappers;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
@@ -15,12 +16,12 @@ import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
-import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipCardinality;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SemanticModel;
 import com.linkedin.datahub.graphql.generated.SemanticModelInfo;
 import com.linkedin.datahub.graphql.generated.SemanticModelRelationship;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.AiContextMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
@@ -47,7 +48,6 @@ import com.linkedin.metadata.key.SemanticModelKey;
 import com.linkedin.structured.StructuredProperties;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -123,6 +123,16 @@ public class SemanticModelMapper {
       if (domains.hasDomains() && !domains.getDomains().isEmpty()) {
         result.setDomain(DomainAssociationMapper.map(context, domains, entityUrn.toString()));
       }
+    }
+
+    final EnvelopedAspect envelopedApplications =
+        aspects.get(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME);
+    if (envelopedApplications != null) {
+      result.setApplications(
+          ApplicationAssociationMapper.mapList(
+              context,
+              new Applications(envelopedApplications.getValue().data()),
+              entityUrn.toString()));
     }
 
     final EnvelopedAspect envelopedInstitutionalMemory =
@@ -219,16 +229,10 @@ public class SemanticModelMapper {
       result.setNativeDefinition(pdl.getNativeDefinition());
     }
 
-    final List<Dataset> datasets;
-    if (pdl.hasDatasets() && pdl.getDatasets() != null) {
-      datasets =
-          pdl.getDatasets().stream()
-              .map(SemanticModelMapper::mapDatasetStub)
-              .collect(Collectors.toList());
-    } else {
-      datasets = Collections.emptyList();
-    }
-    result.setDatasets(datasets);
+    // Membership lives on members (semanticModelProperties / metricInfo.semanticModel).
+    // GraphQL still exposes SemanticModelInfo.datasets for compatibility; return empty
+    // until a field resolver hydrates members via reverse lookup.
+    result.setDatasets(Collections.emptyList());
 
     if (pdl.hasRelationships() && pdl.getRelationships() != null) {
       result.setRelationships(
@@ -237,13 +241,6 @@ public class SemanticModelMapper {
               .collect(Collectors.toList()));
     }
 
-    return result;
-  }
-
-  private static Dataset mapDatasetStub(final Urn datasetUrn) {
-    final Dataset result = new Dataset();
-    result.setUrn(datasetUrn.toString());
-    result.setType(EntityType.DATASET);
     return result;
   }
 

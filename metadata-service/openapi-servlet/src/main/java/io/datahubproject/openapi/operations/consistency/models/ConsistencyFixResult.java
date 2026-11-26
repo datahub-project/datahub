@@ -26,6 +26,13 @@ public class ConsistencyFixResult {
   public static ConsistencyFixResult from(
       @Nonnull CheckResult checkResult,
       @Nonnull com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixResult fixResult) {
+    return from(checkResult, fixResult, null);
+  }
+
+  public static ConsistencyFixResult from(
+      @Nonnull CheckResult checkResult,
+      @Nonnull com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixResult fixResult,
+      @Nullable Long totalEstimate) {
     return io.datahubproject.openapi.operations.consistency.models.ConsistencyFixResult.builder()
         .entitiesScanned(checkResult.getEntitiesScanned())
         .issuesFound(checkResult.getIssuesFound())
@@ -35,6 +42,7 @@ public class ConsistencyFixResult {
         .entitiesFixed(fixResult.getEntitiesFixed())
         .entitiesFailed(fixResult.getEntitiesFailed())
         .fixDetails(FixDetail.from(fixResult.getFixDetails()))
+        .totalEstimate(totalEstimate)
         .build();
   }
 
@@ -65,4 +73,12 @@ public class ConsistencyFixResult {
   @Schema(description = "Details of each fix operation")
   @Nonnull
   private List<FixDetail> fixDetails;
+
+  @Schema(
+      description =
+          "Estimated matching system-metadata documents for this request filter. "
+              + "Populated on the first request page (when no scroll ID is supplied) when a count "
+              + "is available.")
+  @Nullable
+  private Long totalEstimate;
 }

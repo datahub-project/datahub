@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import TermContent from '@app/sharedV2/tags/term/TermContent';
+import { useEmbeddedProfileLinkProps } from '@app/sharedV2/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, GlossaryTermAssociation } from '@types';
@@ -43,10 +43,11 @@ interface Props {
     refetch?: () => Promise<any>;
     showOneAndCount?: boolean;
     context?: string | null;
+    enableTooltip?: boolean;
 }
 
 export default function Term(props: Props) {
-    const { term, readOnly, showOneAndCount } = props;
+    const { term, readOnly, showOneAndCount, enableTooltip = true } = props;
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
     const previewContext = { propagationDetails: { context: props.context, attribution: term.attribution } };
@@ -54,7 +55,7 @@ export default function Term(props: Props) {
 
     if (readOnly) {
         return (
-            <HoverEntityTooltip entity={term.term} previewContext={previewContext}>
+            <HoverEntityTooltip entity={term.term} previewContext={previewContext} canOpen={enableTooltip}>
                 <TermWrapper $showOneAndCount={showOneAndCount}>
                     <TermContent {...props} />
                 </TermWrapper>
@@ -63,7 +64,11 @@ export default function Term(props: Props) {
     }
 
     return (
-        <HoverEntityTooltip canOpen={!isDeleteModalOpen} entity={term.term} width={250} previewContext={previewContext}>
+        <HoverEntityTooltip
+            canOpen={!isDeleteModalOpen && enableTooltip}
+            entity={term.term}
+            previewContext={previewContext}
+        >
             <TermLink
                 to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                 key={term.term.urn}

@@ -1,0 +1,20 @@
+extend type Query {
+  """
+  List root-level Data Products (paginated). Roots = products with no parentDataProduct.
+  """
+  getRootDataProducts(input: GetRootEntitiesInput!): GetRootDataProductsResult
+}
+
+type GetRootDataProductsResult {
+  dataProducts: [DataProduct!]!
+  start: Int!
+  count: Int!
+  total: Int!
+}
+
+extend type DataProduct {
+  """
+  Child data products (single-parent hierarchy via parentDataProduct).
+  """
+  childDataProducts(input: ScrollAcrossEntitiesInput!): ScrollResults
+}

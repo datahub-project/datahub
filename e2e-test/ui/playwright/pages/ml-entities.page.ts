@@ -111,7 +111,7 @@ export class MLEntitiesPage extends BasePage {
    * Click on a tab by its testid (e.g., "Features-entity-tab-header")
    */
   async clickTab(
-    tabName: 'Features' | 'Properties' | 'Group' | 'Models' | 'Summary' | 'Documents' | 'Incidents',
+    tabName: 'Features' | 'Properties' | 'Group' | 'Models' | 'Summary' | 'Documents' | 'Incidents' | 'Contents',
   ): Promise<void> {
     const tab = this.getTabLocator(tabName);
     await tab.click();
@@ -124,6 +124,10 @@ export class MLEntitiesPage extends BasePage {
 
   async expectTextVisible(text: string): Promise<void> {
     await expect(this.page.getByText(text, { exact: false })).toBeVisible();
+  }
+
+  async expectDescriptionVisible(text: string): Promise<void> {
+    await expect(this.page.getByTestId('description-viewer').getByText(text, { exact: false })).toBeVisible();
   }
 
   async expectModelLinkVisible(modelName: string): Promise<void> {

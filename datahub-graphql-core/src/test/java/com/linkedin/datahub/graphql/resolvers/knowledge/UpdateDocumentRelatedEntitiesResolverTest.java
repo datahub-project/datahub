@@ -11,6 +11,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateDocumentRelatedEntitiesInput;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
@@ -61,7 +62,8 @@ public class UpdateDocumentRelatedEntitiesResolverTest {
             eq(UrnUtils.getUrn(TEST_ARTICLE_URN)),
             any(),
             any(),
-            any(Urn.class));
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -78,7 +80,12 @@ public class UpdateDocumentRelatedEntitiesResolverTest {
 
     verify(mockService, times(1))
         .updateDocumentRelatedEntities(
-            any(OperationContext.class), any(), any(), eq(null), any(Urn.class));
+            any(OperationContext.class),
+            any(),
+            any(),
+            eq(null),
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -105,7 +112,8 @@ public class UpdateDocumentRelatedEntitiesResolverTest {
 
     // Verify service was NOT called
     verify(mockService, times(0))
-        .updateDocumentRelatedEntities(any(OperationContext.class), any(), any(), any(), any());
+        .updateDocumentRelatedEntities(
+            any(OperationContext.class), any(), any(), any(), any(), any(SearchIndexMode.class));
   }
 
   @Test
@@ -116,7 +124,8 @@ public class UpdateDocumentRelatedEntitiesResolverTest {
 
     doThrow(new RuntimeException("Service error"))
         .when(mockService)
-        .updateDocumentRelatedEntities(any(OperationContext.class), any(), any(), any(), any());
+        .updateDocumentRelatedEntities(
+            any(OperationContext.class), any(), any(), any(), any(), eq(SearchIndexMode.SYNC));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }

@@ -1,6 +1,8 @@
 # Instructions to add additional entry
 # 1. Add new entry to this list
 # 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+# 3. Update ROLE_PRIORITY in AcceptRoleResolver.java with the correct priority for the new role
+#    (higher number = more privileged; roles absent from the map are treated as lowest priority)
 - entityUrn: urn:li:dataHubRole:Admin
   entityType: dataHubRole
   aspectName: dataHubRoleInfo

@@ -1,0 +1,21 @@
+{
+    "actorsSearch.placeholder": "ユーザーまたはグループを検索",
+    "domainSelector.label": "Domain",
+    "domainSelector.placeholder": "Domainを選択",
+    "domainSelector.singleLabel": "Domain",
+    "domainSelector.singlePlaceholder": "Domainを選択",
+    "domainSelector.searchPlaceholder": "すべてのDomainを検索...",
+    "entitySearch.noEntitiesFound": "Entityが見つかりません",
+    "entitySearch.placeholder": "Entityを検索...",
+    "customOwnershipType": "カスタムOwnership Type",
+    "ingestionSource": "Ingestionソース",
+    "groupBy.displayValue": "{{label}}でグループ化",
+    "groupBy.group": "グループ化",
+    "selectItems.addMoreSection": "さらに追加",
+    "selectItems.entitiesLabel": "Entity",
+    "selectItems.itemsLabel": "項目",
+    "selectItems.noEntityFound": "{{entityName}}が見つかりません",
+    "selectItems.removeAll": "すべて外す",
+    "selectItems.searchForEntity": "{{entityName}}を検索...",
+    "selectItems.selectedSection": "選択済み"
+}

@@ -27,10 +27,7 @@ import org.springframework.util.StringUtils;
 @Slf4j
 public class EntityGraphCacheConfigLoader {
 
-  /**
-   * JSON overlay env var — merged after Spring defaults and optional config file (see rate
-   * limiter).
-   */
+  /** JSON overlay env var — merged after Spring defaults and the optional config file. */
   public static final String ENTITY_GRAPH_CACHE_CONFIG_JSON_ENV = "ENTITY_GRAPH_CACHE_CONFIG_JSON";
 
   private final ObjectMapper jsonMapper;
@@ -356,6 +353,32 @@ public class EntityGraphCacheConfigLoader {
       }
     }
 
+    if (graph.getPopulation() != null
+        && graph.getPopulation().getRebuildExecution() == RebuildExecution.STALE_WHILE_REVALIDATE) {
+      if (graph.getPopulation().getStrategy() != PopulationStrategy.LAZY) {
+        errors.add(
+            "graph "
+                + graphId
+                + ": rebuildExecution STALE_WHILE_REVALIDATE requires LAZY strategy");
+      } else if (graph.getScope() == null || graph.getScope().getMode() != ScopeMode.PARTIAL) {
+        errors.add(
+            "graph "
+                + graphId
+                + ": rebuildExecution STALE_WHILE_REVALIDATE requires PARTIAL scope");
+      }
+    }
+
+    if (graph.getInvalidation() != null
+        && graph.getInvalidation().getMarginSeconds() != null
+        && graph.getInvalidation().getMarginSeconds() < 0) {
+      errors.add("graph " + graphId + ": invalidation.marginSeconds must be >= 0");
+    }
+    if (graph.getInvalidation() != null
+        && graph.getInvalidation().getMaxWalkSeconds() != null
+        && graph.getInvalidation().getMaxWalkSeconds() <= 0) {
+      errors.add("graph " + graphId + ": invalidation.maxWalkSeconds must be > 0");
+    }
+
     if (hasLineage) {
       LineageEdgeConfig lineage = graph.getLineage();
       if (lineage.getEntityTypes() != null) {
@@ -377,28 +400,27 @@ public class EntityGraphCacheConfigLoader {
     boolean hasFilterFields = !CollectionUtils.isEmpty(graph.getBindings().getFilterFields());
     boolean hasPolicyFields = !CollectionUtils.isEmpty(graph.getBindings().getPolicyFieldTypes());
 
-    if (hasFilterFields) {
-      if (!"SEARCH".equals(normalizedBuildSource)) {
-        errors.add(
-            "graph " + graphId + ": filterFields requires buildSource search and scope.mode FULL");
-      } else if (graph.getScope() == null || graph.getScope().getMode() != ScopeMode.FULL) {
-        errors.add("graph " + graphId + ": filterFields requires scope.mode FULL");
-      }
+    ScopeMode scopeMode =
+        graph.getScope() != null && graph.getScope().getMode() != null
+            ? graph.getScope().getMode()
+            : ScopeMode.FULL;
+    boolean fullSearchOrGraph =
+        ("SEARCH".equals(normalizedBuildSource) || "GRAPH".equals(normalizedBuildSource))
+            && scopeMode == ScopeMode.FULL;
+
+    if (hasFilterFields && !fullSearchOrGraph) {
+      errors.add(
+          "graph "
+              + graphId
+              + ": filterFields requires buildSource search or graph and scope.mode FULL");
     }
 
-    if (hasPolicyFields) {
-      if ("PRIMARY".equals(normalizedBuildSource)) {
-        // ok
-      } else if ("SEARCH".equals(normalizedBuildSource)
-          && graph.getScope() != null
-          && graph.getScope().getMode() == ScopeMode.FULL) {
-        // Bundled domain@search — policy expansion uses the same FULL search snapshot.
-      } else {
-        errors.add(
-            "graph "
-                + graphId
-                + ": policyFieldTypes requires buildSource primary, or search with scope.mode FULL");
-      }
+    if (hasPolicyFields && !"PRIMARY".equals(normalizedBuildSource) && !fullSearchOrGraph) {
+      errors.add(
+          "graph "
+              + graphId
+              + ": policyFieldTypes requires buildSource primary, or search/graph with"
+              + " scope.mode FULL");
     }
 
     if ("PRIMARY".equals(normalizedBuildSource) && hasFilterFields) {

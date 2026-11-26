@@ -1,4 +1,4 @@
-import { Dropdown, MenuItemProps } from 'antd';
+import { Dropdown } from '@components';
 import React from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -30,17 +30,17 @@ const StyledDropDownOption = styled.div<{ $disabled?: boolean }>`
     `}
 `;
 
-const DescriptionText = styled.span`
+const DescriptionText = styled.span<{ $highlighted?: boolean }>`
     display: block;
     font-size: 12px;
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => (props.$highlighted ? props.theme.colors.textBrand : props.theme.colors.textSecondary)};
 `;
 
 type Props = {
     item: NavBarMenuDropdownItem;
     isCollapsed?: boolean;
     isSelected?: boolean;
-} & MenuItemProps;
+} & React.HTMLAttributes<HTMLDivElement>;
 
 export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, ...props }: Props) {
     const history = useHistory();
@@ -99,7 +99,9 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
                                         // Default rendering for other items
                                         <Text>{dropdownItem.title}</Text>
                                     )}
-                                    <DescriptionText>{dropdownItem.description}</DescriptionText>
+                                    <DescriptionText $highlighted={dropdownItem.isDescriptionHighlighted}>
+                                        {dropdownItem.description}
+                                    </DescriptionText>
                                 </StyledDropDownOption>
                             );
                         })}

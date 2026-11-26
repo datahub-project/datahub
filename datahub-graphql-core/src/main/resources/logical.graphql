@@ -9,14 +9,14 @@ extend type Dataset implements HasLogicalParent {
   """
   If this entity represents a physical asset, this is its logical parent, from which metadata can propagate.
   """
-  logicalParent: Entity
+  logicalParent: Entity @aspectMapping(aspects: ["logicalParent"])
 }
 
 extend type SchemaFieldEntity implements HasLogicalParent {
   """
   If this entity represents a physical asset, this is its logical parent, from which metadata can propagate.
   """
-  logicalParent: Entity
+  logicalParent: Entity @aspectMapping(aspects: ["logicalParent"])
 }
 
 input SetLogicalParentInput {

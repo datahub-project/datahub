@@ -11,6 +11,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { EntityDocumentationPage } from '../../pages/entity-documentation.page';
 import { TIMEOUTS } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'mutations' });
 
@@ -23,7 +24,10 @@ test.describe('edit documentation and link to dataset', () => {
     docPage = new EntityDocumentationPage(page, logger, logDir);
   });
 
-  test('edit field documentation', async ({ page }) => {
+  test('edit field documentation', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page }) => {
+    // Two edit→save→refetch cycles under CI load; default 60s is tight.
+    test.setTimeout(120_000);
+
     const testId = Math.floor(Math.random() * 100000);
     const documentationEdited = `This is test${testId} documentation EDITED`;
 

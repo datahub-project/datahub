@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ModalButton } from '@components/components/Modal/Modal';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
+import { ANT_NOTIFICATION_Z_INDEX } from '@app/sharedV2/constants';
 
 const modalBodyStyles = {
     overflow: 'auto',

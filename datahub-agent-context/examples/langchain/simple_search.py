@@ -41,8 +41,8 @@ bedrock_runtime = boto3.client(
 
 model = ChatBedrock(
     client=bedrock_runtime,
-    model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    model_kwargs={"max_tokens": 2048, "temperature": 0},
+    model_id="us.anthropic.claude-haiku-5-5",
+    model_kwargs={"max_tokens": 2048},
 )
 
 agent = create_agent(
