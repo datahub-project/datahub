@@ -552,6 +552,8 @@ without changing the machine default. Select the default instance for this shell
 with `eval "$(scripts/dev/datahub-dev.sh shell-env)"`. Stop retains the profiles.
 See [scripts/dev/README.md](scripts/dev/README.md) for details and offline tests.
 
+**CI:** `.github/workflows/docker-free-e2e.yml` runs the pytest smoke suite on this stack (label `docker-free:pytests` on a PR). See [`smoke-test/README.md`](smoke-test/README.md#the-docker-free-pytest-lane-in-ci).
+
 ### End-to-End Workflow
 
 0. **Setup** (once): `scripts/dev/datahub-dev.sh setup` — installs Python dev environment (provides `datahub` CLI). For frontend work, also run `scripts/dev/datahub-dev.sh setup frontend`.

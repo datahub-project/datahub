@@ -195,6 +195,7 @@ def size_selected(
     xdist_workers: int,
     raw_pr_tags: str,
     changed_tests: Sequence[str],
+    weights_stem: str,
 ) -> tuple[PackedSuite, dict[str, Any]]:
     """Smart-select ``items``, then pick the fewest batches that meet the target.
 
@@ -215,7 +216,9 @@ def size_selected(
             smart_testing.apply_markers(item, tag_map)
         chosen = smart_testing.selected_items(items, tag_map, pr, changed_tests)
     target_wall = env_vars.get_plan_target_batch_seconds(TARGET_BATCH_WALL_SECONDS)
-    packed = size_batches(chosen, max_batches, xdist_workers, target_wall)
+    packed = size_batches(
+        chosen, max_batches, xdist_workers, target_wall, weights_stem=weights_stem
+    )
     return packed, {
         "max_batches": max_batches,
         "target_wall": target_wall,
@@ -252,10 +255,13 @@ def pytest_collection_modifyitems(
     batch_number = env_vars.get_batch_number()
     xdist_workers = env_vars.get_pytest_xdist_workers()
     max_batches = config.getoption("--size-batches")
+    weights_stem = backend.weights_stem
     sizing: dict[str, Any] = {}
     if max_batches is None:
         batch_count = max(1, env_vars.get_batch_count())
-        packed = plan_collected_items(selected, batch_count, xdist_workers)
+        packed = plan_collected_items(
+            selected, batch_count, xdist_workers, weights_stem=weights_stem
+        )
     else:
         packed, sizing = size_selected(
             selected,
@@ -263,6 +269,7 @@ def pytest_collection_modifyitems(
             xdist_workers=xdist_workers,
             raw_pr_tags=env_vars.get_smart_testing_tags(),
             changed_tests=env_vars.get_smoke_changed_tests(),
+            weights_stem=weights_stem,
         )
         batch_count = len(packed.plans)
         selected = [item for scope in packed.items_by_scope.values() for item in scope]

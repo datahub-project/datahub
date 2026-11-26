@@ -326,6 +326,26 @@ python3 smoke-test/check_env_parity.py
 It fails on a difference not listed in `env-parity-allowlist.txt`, and on an allowlist line that
 no longer matches a difference. CI runs it in report-only mode in the GMS-lite Local Stack workflow.
 
+### The Docker-free pytest lane in CI
+
+`.github/workflows/docker-free-e2e.yml` runs the full pytest suite on the Docker-free stack, in
+9 batches. One job builds the jars, the embedded OpenSearch node and the frontend bundle; each
+batch boots its own stack with the `.github/actions/docker-free-stack` action and runs `smoke.sh`
+with `SMOKE_BACKEND=local`, which deselects the tests marked `requires(...)` for what that stack
+lacks.
+
+- **When it runs:** on every push to `master`. On a pull request only with the
+  `docker-free:pytests` label. A failing batch fails the run, on pull requests and on `master`.
+- **Results:** each batch uploads `Test Results (docker-free smoke tests) pytests <N>` and, on failure,
+  `logs-docker-free-pytests-<N>` (launcher, GMS, system-update, frontend and OpenSearch logs). The
+  Boot stack step writes the boot timings to the job summary.
+- **Batching:** `SMOKE_BACKEND=local` packs batches on `pytest_test_weights_docker_free.json`, the
+  lane's own durations, instead of the Docker lane's `pytest_test_weights.json`. Tests run at
+  different speeds on the two stacks. `update-test-weights.yml` refreshes both files weekly from
+  each lane's `master` runs.
+- **Retry:** "Re-run failed jobs" runs only the failed modules of each failed batch, as on the
+  Docker lane. The build artifact lives one day, so re-run within that.
+
 ## Test Organization
 
 - `test_e2e.py` - Main test suite (1387 lines)
