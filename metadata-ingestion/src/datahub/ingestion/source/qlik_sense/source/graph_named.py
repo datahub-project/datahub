@@ -21,7 +21,11 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     _GraphNamedApps,
     _SpaceNeed,
 )
-from datahub.ingestion.source.qlik_sense.source_utils import _bounded_list, _qlik_app_id
+from datahub.ingestion.source.qlik_sense.source_utils import (
+    _bounded_list,
+    _describe_error,
+    _qlik_app_id,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetLineageType
 
 logger = logging.getLogger(__name__)
@@ -53,9 +57,12 @@ class GraphNamedMixin(FileEntitiesMixin):
             try:
                 statements = future.result()
             except Exception as e:
-                logger.debug(f"Unable to read reload statements of app {app_id}: {e}")
-                self.reporter.apps_without_reload_paths.append(f"{app_id}: {e}")
-                self._reload_path_failures.append(f"{app_id}: {e}")
+                logger.debug(
+                    f"Unable to read reload statements of app {app_id}", exc_info=True
+                )
+                error = _describe_error(e)
+                self.reporter.apps_without_reload_paths.append(f"{app_id}: {error}")
+                self._reload_path_failures.append(f"{app_id}: {error}")
                 self._reload_files_unread.add(app_id)
                 statements = []
             self._record_reload_files(app_id, statements)

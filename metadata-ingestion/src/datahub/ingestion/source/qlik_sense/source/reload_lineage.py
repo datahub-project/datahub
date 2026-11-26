@@ -37,6 +37,7 @@ from datahub.ingestion.source.qlik_sense.source.resolution import SourceResoluti
 from datahub.ingestion.source.qlik_sense.source_models import _SpaceNeed
 from datahub.ingestion.source.qlik_sense.source_utils import (
     _bounded_list,
+    _describe_error,
     _error_type,
     _refs_of_field_sources,
 )
@@ -375,8 +376,12 @@ class ReloadSqlMixin(SourceResolutionMixin):
                 labels = self.qlik_api.get_database_labels(app.qri)
             except Exception as e:
                 # The tables stay unlabelled, so their lineage is only added to.
-                logger.debug(f"Unable to read database labels of app {app.id}: {e}")
-                self.reporter.database_label_read_failures.append(f"{app.id}: {e}")
+                logger.debug(
+                    f"Unable to read database labels of app {app.id}", exc_info=True
+                )
+                self.reporter.database_label_read_failures.append(
+                    f"{app.id}: {_describe_error(e)}"
+                )
                 return
         for table, qri in unlabelled:
             if qri in labels:

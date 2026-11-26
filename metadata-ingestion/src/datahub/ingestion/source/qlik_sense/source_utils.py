@@ -13,6 +13,7 @@ from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
 from datahub.ingestion.source.qlik_sense.qvd_lineage import QvdWrite
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnRef
+from datahub.utilities.urns.error import InvalidUrnError
 
 MappingT = TypeVar("MappingT")
 
@@ -75,7 +76,7 @@ def _schema_field_parent(urn: str) -> Optional[str]:
     # Lineage another tool wrote may hold any kind of URN.
     try:
         return SchemaFieldUrn.from_string(urn).parent
-    except Exception:
+    except InvalidUrnError:
         return None
 
 
@@ -124,6 +125,11 @@ def _patch_workunits(
 def _bounded_list(items: List[str], limit: int = 10) -> str:
     more = f" (and {len(items) - limit} more)" if len(items) > limit else ""
     return ", ".join(items[:limit]) + more
+
+
+def _describe_error(error: Exception) -> str:
+    # The type tells failures apart when the message is empty or generic.
+    return f"{type(error).__name__}: {error}" if str(error) else type(error).__name__
 
 
 def _error_type(error: Optional[Exception]) -> str:

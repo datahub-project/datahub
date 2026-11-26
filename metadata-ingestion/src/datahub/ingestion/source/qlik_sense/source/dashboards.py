@@ -36,6 +36,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn
 from datahub.specific.chart import ChartPatchBuilder
+from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import guess_entity_type
 
 
@@ -372,7 +373,7 @@ class DashboardMixin(AppTablesMixin):
             return False
         try:
             name = DatasetUrn.from_string(urn).name
-        except Exception:
+        except InvalidUrnError:
             return False
         instance = self.config.platform_instance
         if instance and name.startswith(f"{instance}."):

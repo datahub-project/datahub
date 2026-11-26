@@ -186,13 +186,8 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
                 message="Skipping unchanged apps needs stateful ingestion, so every "
                 "app is read.",
             )
-        try:
-            self.qlik_api = self._create_api(self.config)
-        except Exception as e:
-            logger.warning(e)
-            exit(
-                1
-            )  # Exit pipeline as we are not able to connect to Qlik Client Service.
+        # A failure to connect is raised, so the pipeline fails with its cause.
+        self.qlik_api = self._create_api(self.config)
 
     @staticmethod
     def _create_api(config: QlikSourceConfig) -> QlikBaseAPI:

@@ -40,6 +40,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.com.linkedin.pegasus2avro.schema import MySqlDDL, SchemaMetadata
 from datahub.metadata.urns import DatasetUrn
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.utilities.urns.error import InvalidUrnError
 
 
 class OnPremQvdMixin(ReloadSqlMixin):
@@ -224,7 +225,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
         path, and app tables by their app id."""
         try:
             dataset = DatasetUrn.from_string(urn)
-        except Exception:
+        except InvalidUrnError:
             return None
         if dataset.platform != builder.make_data_platform_urn(self.platform):
             return None

@@ -1211,3 +1211,15 @@ def test_engine_reply_without_result_names_the_request(
 
     with pytest.raises(EngineError, match="OpenDoc.*OnSessionTimedOut"):
         connection.websocket_send_request(method="OpenDoc")
+
+
+def test_source_raises_when_it_cannot_connect(
+    requests_mock: requests_mock_module.Mocker,
+) -> None:
+    requests_mock.get("https://tenant.example.com/api/v1/api-keys", status_code=401)
+    # The pipeline reports the cause instead of the process exiting.
+    with pytest.raises(requests.HTTPError):
+        QlikSenseSource(
+            QlikSourceConfig.model_validate(CLOUD_CONFIG),
+            PipelineContext(run_id="test-cloud"),
+        )

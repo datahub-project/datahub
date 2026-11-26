@@ -16,6 +16,7 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     _ResolvedSources,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
+    _describe_error,
     _qlik_app_id,
     _qlik_field_id,
 )
@@ -225,9 +226,13 @@ class SourceResolutionMixin(FileIdentityMixin):
                     self.qlik_api.get_lineage_upstreams(self._app_qris[app_id])
                 )
             except Exception as e:
-                logger.debug(f"Unable to read upstream lineage of app {app_id}: {e}")
+                logger.debug(
+                    f"Unable to read upstream lineage of app {app_id}", exc_info=True
+                )
                 upstreams = None
-                self._upstream_graph_read_failures.append(f"{app_id}: {e}")
+                self._upstream_graph_read_failures.append(
+                    f"{app_id}: {_describe_error(e)}"
+                )
                 self._keep_graph_named_urns(app_id)
             self._lineage_upstreams[app_id] = upstreams
         return self._lineage_upstreams[app_id]
