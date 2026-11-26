@@ -11,13 +11,13 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
 import com.linkedin.ingestion.DataHubIngestionSourceRunSummary;
-import javax.annotation.Nullable;
 import org.testng.annotations.Test;
 
 public class IngestionSourceRunEventsTest {
 
   private static final Urn RUN = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:run");
   private static final Urn OTHER_RUN = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:other");
+  private static final Urn SUCCESS_RUN = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:success");
 
   @Test
   public void testEventHoldsFactsAboutTheRun() {
@@ -45,8 +45,9 @@ public class IngestionSourceRunEventsTest {
 
   @Test
   public void testSummaryClassifiesStatuses() {
-    assertEquals(
-        summary(RUN, 100L, "SUCCESS").getLastSuccessfulRunRequestedAtMillis(), Long.valueOf(100L));
+    DataHubIngestionSourceRunSummary success = summary(RUN, 100L, "SUCCESS");
+    assertEquals(success.getLastSuccessfulExecutionRequest(), RUN);
+    assertEquals(success.getLastSuccessfulRunRequestedAtMillis(), Long.valueOf(100L));
     for (String failed : new String[] {"FAILURE", "TIMEOUT", "ABORTED", "ROLLBACK_FAILED"}) {
       DataHubIngestionSourceRunSummary summary = summary(RUN, 100L, failed);
       assertEquals(summary.getLastFailedRunRequestedAtMillis(), Long.valueOf(100L), failed);
@@ -66,8 +67,19 @@ public class IngestionSourceRunEventsTest {
   }
 
   @Test
+  public void testRedeliveredSummaryIsUnchanged() {
+    DataHubIngestionSourceRunSummary stored =
+        withFailure(withSuccess(summary(RUN, 200L, "SUCCESS"), RUN, 200L), 150L);
+    DataHubIngestionSourceRunSummary redelivered = copy(stored);
+
+    assertFalse(IngestionSourceRunEvents.merge(stored, redelivered));
+    assertEquals(redelivered, stored);
+  }
+
+  @Test
   public void testOlderRunKeepsTheLatestRunButRecordsItsOutcome() {
-    DataHubIngestionSourceRunSummary stored = withTimes(summary(RUN, 200L, "RUNNING"), 150L, null);
+    DataHubIngestionSourceRunSummary stored =
+        withSuccess(summary(RUN, 200L, "RUNNING"), SUCCESS_RUN, 150L);
     DataHubIngestionSourceRunSummary proposed = summary(OTHER_RUN, 100L, "FAILURE");
 
     assertTrue(IngestionSourceRunEvents.merge(stored, proposed));
@@ -75,27 +87,45 @@ public class IngestionSourceRunEventsTest {
     assertEquals(proposed.getLastExecutionRequest(), RUN);
     assertEquals(proposed.getLastRunRequestedAtMillis(), 200L);
     assertEquals(proposed.getLastRunStatus(), "RUNNING");
+    assertEquals(proposed.getLastSuccessfulExecutionRequest(), SUCCESS_RUN);
     assertEquals(proposed.getLastSuccessfulRunRequestedAtMillis(), Long.valueOf(150L));
     assertEquals(proposed.getLastFailedRunRequestedAtMillis(), Long.valueOf(100L));
   }
 
   @Test
   public void testNewStatusOfTheLatestRunReplacesIt() {
-    DataHubIngestionSourceRunSummary stored = withTimes(summary(RUN, 200L, "RUNNING"), 150L, 120L);
+    DataHubIngestionSourceRunSummary stored =
+        withFailure(withSuccess(summary(RUN, 200L, "RUNNING"), SUCCESS_RUN, 150L), 120L);
     DataHubIngestionSourceRunSummary proposed = summary(RUN, 200L, "SUCCESS");
 
     IngestionSourceRunEvents.merge(stored, proposed);
 
     assertEquals(proposed.getLastRunStatus(), "SUCCESS");
+    assertEquals(proposed.getLastSuccessfulExecutionRequest(), RUN);
     assertEquals(proposed.getLastSuccessfulRunRequestedAtMillis(), Long.valueOf(200L));
     assertEquals(proposed.getLastFailedRunRequestedAtMillis(), Long.valueOf(120L));
   }
 
   @Test
+  public void testRequestsAtTheSameTimeAreOrderedByUrn() {
+    // OTHER_RUN's urn sorts before RUN's, so RUN is the latest whichever is stored.
+    DataHubIngestionSourceRunSummary proposedLater = summary(RUN, 100L, "SUCCESS");
+    IngestionSourceRunEvents.merge(summary(OTHER_RUN, 100L, "SUCCESS"), proposedLater);
+    assertEquals(proposedLater.getLastExecutionRequest(), RUN);
+    assertEquals(proposedLater.getLastSuccessfulExecutionRequest(), RUN);
+
+    DataHubIngestionSourceRunSummary proposedEarlier = summary(OTHER_RUN, 100L, "SUCCESS");
+    IngestionSourceRunEvents.merge(summary(RUN, 100L, "SUCCESS"), proposedEarlier);
+    assertEquals(proposedEarlier.getLastExecutionRequest(), RUN);
+    assertEquals(proposedEarlier.getLastSuccessfulExecutionRequest(), RUN);
+  }
+
+  @Test
   public void testOutcomeTimesNeverMoveBackwards() {
-    DataHubIngestionSourceRunSummary stored = withTimes(summary(RUN, 200L, "SUCCESS"), 200L, 180L);
+    DataHubIngestionSourceRunSummary stored =
+        withFailure(withSuccess(summary(RUN, 200L, "SUCCESS"), RUN, 200L), 180L);
     DataHubIngestionSourceRunSummary proposed =
-        withTimes(summary(OTHER_RUN, 100L, "SUCCESS"), 100L, 90L);
+        withFailure(withSuccess(summary(OTHER_RUN, 100L, "SUCCESS"), OTHER_RUN, 100L), 90L);
 
     IngestionSourceRunEvents.merge(stored, proposed);
 
@@ -104,22 +134,25 @@ public class IngestionSourceRunEventsTest {
 
   @Test
   public void testRollbackOfTheLastSuccessTakesTheWritersReplacement() {
-    DataHubIngestionSourceRunSummary stored = withTimes(summary(RUN, 200L, "SUCCESS"), 200L, null);
+    DataHubIngestionSourceRunSummary stored = summary(RUN, 200L, "SUCCESS");
 
     DataHubIngestionSourceRunSummary replaced =
-        withTimes(summary(RUN, 200L, "ROLLED_BACK"), 150L, null);
+        withSuccess(summary(RUN, 200L, "ROLLED_BACK"), OTHER_RUN, 150L);
     IngestionSourceRunEvents.merge(stored, replaced);
+    assertEquals(replaced.getLastSuccessfulExecutionRequest(), OTHER_RUN);
     assertEquals(replaced.getLastSuccessfulRunRequestedAtMillis(), Long.valueOf(150L));
 
     DataHubIngestionSourceRunSummary none = summary(RUN, 200L, "ROLLED_BACK");
     IngestionSourceRunEvents.merge(stored, none);
+    assertFalse(none.hasLastSuccessfulExecutionRequest());
     assertFalse(none.hasLastSuccessfulRunRequestedAtMillis());
   }
 
   @Test
-  public void testRollbackOfAnOlderRunKeepsTheLastSuccess() {
-    DataHubIngestionSourceRunSummary stored = withTimes(summary(RUN, 200L, "SUCCESS"), 200L, null);
-    DataHubIngestionSourceRunSummary proposed = summary(OTHER_RUN, 100L, "ROLLED_BACK");
+  public void testRollbackOfAnotherRunWithTheSameRequestTimeKeepsTheLastSuccess() {
+    // The last success is identified by its execution request, not its request time.
+    DataHubIngestionSourceRunSummary stored = summary(RUN, 200L, "SUCCESS");
+    DataHubIngestionSourceRunSummary proposed = summary(OTHER_RUN, 200L, "ROLLED_BACK");
 
     IngestionSourceRunEvents.merge(stored, proposed);
 
@@ -132,17 +165,23 @@ public class IngestionSourceRunEventsTest {
         run, input(requestedAt), new ExecutionRequestResult().setStatus(status));
   }
 
-  private static DataHubIngestionSourceRunSummary withTimes(
-      DataHubIngestionSourceRunSummary summary, @Nullable Long success, @Nullable Long failure) {
-    summary.removeLastSuccessfulRunRequestedAtMillis();
-    summary.removeLastFailedRunRequestedAtMillis();
-    if (success != null) {
-      summary.setLastSuccessfulRunRequestedAtMillis(success);
-    }
-    if (failure != null) {
-      summary.setLastFailedRunRequestedAtMillis(failure);
-    }
+  private static DataHubIngestionSourceRunSummary withSuccess(
+      DataHubIngestionSourceRunSummary summary, Urn run, long requestedAt) {
+    IngestionSourceRunEvents.setLastSuccess(summary, run, requestedAt);
     return summary;
+  }
+
+  private static DataHubIngestionSourceRunSummary withFailure(
+      DataHubIngestionSourceRunSummary summary, long requestedAt) {
+    return summary.setLastFailedRunRequestedAtMillis(requestedAt);
+  }
+
+  private static DataHubIngestionSourceRunSummary copy(DataHubIngestionSourceRunSummary summary) {
+    try {
+      return summary.copy();
+    } catch (CloneNotSupportedException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   private static ExecutionRequestInput input(long requestedAt) {

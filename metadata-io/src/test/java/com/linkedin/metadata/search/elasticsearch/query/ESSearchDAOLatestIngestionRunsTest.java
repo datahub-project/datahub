@@ -67,7 +67,7 @@ public class ESSearchDAOLatestIngestionRunsTest {
   public void testRequestGroupsBySourceWithLatestRunPerStatus() {
     String source =
         esSearchDAO
-            .buildLatestIngestionRunsRequest(opContext, Set.of(SOURCE_A, SOURCE_B))
+            .buildLatestIngestionRunsRequest(opContext, Set.of(SOURCE_A, SOURCE_B), Set.of())
             .source()
             .toString();
 
@@ -79,6 +79,23 @@ public class ESSearchDAOLatestIngestionRunsTest {
     assertTrue(source.contains("\"TIMEOUT\""), source);
     assertTrue(source.contains("\"ROLLBACK_FAILED\""), source);
     assertFalse(source.contains("CANCELLED"), source);
+  }
+
+  @Test
+  public void testRequestIgnoresExcludedRuns() {
+    String source =
+        esSearchDAO
+            .buildLatestIngestionRunsRequest(
+                opContext,
+                Set.of(SOURCE_A),
+                Set.of(UrnUtils.getUrn("urn:li:dataHubExecutionRequest:rolled-back")))
+            .source()
+            .toString();
+
+    assertTrue(
+        source.contains(
+            "\"must_not\":[{\"terms\":{\"urn\":[\"urn:li:dataHubExecutionRequest:rolled-back\"]"),
+        source);
   }
 
   @Test
@@ -98,7 +115,7 @@ public class ESSearchDAOLatestIngestionRunsTest {
 
     String source =
         v3SearchDAO
-            .buildLatestIngestionRunsRequest(opContext, Set.of(SOURCE_A))
+            .buildLatestIngestionRunsRequest(opContext, Set.of(SOURCE_A), Set.of())
             .source()
             .toString();
 
@@ -129,7 +146,7 @@ public class ESSearchDAOLatestIngestionRunsTest {
         .thenReturn(response);
 
     Map<Urn, LatestIngestionRuns> runs =
-        esSearchDAO.getLatestIngestionRuns(opContext, Set.of(SOURCE_A, SOURCE_B));
+        esSearchDAO.getLatestIngestionRuns(opContext, Set.of(SOURCE_A, SOURCE_B), Set.of());
 
     assertEquals(runs.keySet(), Set.of(SOURCE_A));
     LatestIngestionRuns a = runs.get(SOURCE_A);
@@ -153,7 +170,7 @@ public class ESSearchDAOLatestIngestionRunsTest {
                 Mockito.eq(RequestOptions.DEFAULT)))
         .thenReturn(empty);
 
-    assertTrue(esSearchDAO.getLatestIngestionRuns(opContext, sources).isEmpty());
+    assertTrue(esSearchDAO.getLatestIngestionRuns(opContext, sources, Set.of()).isEmpty());
 
     ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
     Mockito.verify(mockClient, Mockito.times(2))
@@ -172,7 +189,7 @@ public class ESSearchDAOLatestIngestionRunsTest {
 
   @Test
   public void testEmptyInputSkipsSearch() {
-    assertTrue(esSearchDAO.getLatestIngestionRuns(opContext, Set.of()).isEmpty());
+    assertTrue(esSearchDAO.getLatestIngestionRuns(opContext, Set.of(), Set.of()).isEmpty());
     Mockito.verifyNoInteractions(mockClient);
   }
 

@@ -247,7 +247,8 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
                   latestRuns.getLatestRun(), latestInput, result(runs, latestRuns.getLatestRun()));
           ExecutionRequestInput success = input(runs, latestRuns.getLatestSuccessfulRun());
           if (success != null) {
-            summary.setLastSuccessfulRunRequestedAtMillis(success.getRequestedAt());
+            IngestionSourceRunEvents.setLastSuccess(
+                summary, latestRuns.getLatestSuccessfulRun(), success.getRequestedAt());
           }
           ExecutionRequestInput failure = input(runs, latestRuns.getLatestFailedRun());
           if (failure != null) {

@@ -9,6 +9,7 @@ import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_SUMMARY_ASPEC
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -153,7 +154,7 @@ public class IngestionSourceRunEventHookTest {
 
     // One read for the results' inputs and one for the source.
     verify(client, times(2)).batchGetV2(any(OperationContext.class), any(), any());
-    verify(entitySearchService, never()).getLatestIngestionRuns(any(), any());
+    verify(entitySearchService, never()).getLatestIngestionRuns(any(), any(), any());
     List<DataHubIngestionSourceRunSummary> summaries = emittedSummaries(2);
     assertEquals(summaries.get(1).getLastRunRequestedAtMillis(), 50L);
     assertEquals(summaries.get(1).getLastFailedRunRequestedAtMillis(), Long.valueOf(50L));
@@ -162,8 +163,9 @@ public class IngestionSourceRunEventHookTest {
   @Test
   public void testRollbackProposesThePreviousSuccess() throws Exception {
     inputs.put(EARLIER_RUN, input(SOURCE, 60L));
-    when(entitySearchService.getLatestIngestionRuns(any(), eq(Set.of(SOURCE))))
-        .thenReturn(Map.of(SOURCE, new LatestIngestionRuns(RUN, EARLIER_RUN, null)));
+    // The rolled-back run is left out of the lookup, as the index may still show it as SUCCESS.
+    when(entitySearchService.getLatestIngestionRuns(any(), eq(Set.of(SOURCE)), eq(Set.of(RUN))))
+        .thenReturn(Map.of(SOURCE, new LatestIngestionRuns(EARLIER_RUN, EARLIER_RUN, null)));
 
     hook.invoke(
         opContext,
@@ -171,32 +173,36 @@ public class IngestionSourceRunEventHookTest {
 
     DataHubIngestionSourceRunSummary summary = emittedSummaries(1).get(0);
     assertEquals(summary.getLastRunStatus(), "ROLLED_BACK");
+    assertEquals(summary.getLastSuccessfulExecutionRequest(), EARLIER_RUN);
     assertEquals(summary.getLastSuccessfulRunRequestedAtMillis(), Long.valueOf(60L));
   }
 
   @Test
-  public void testRollbackKeepsTheSuccessWhileTheIndexStillShowsIt() throws Exception {
-    when(entitySearchService.getLatestIngestionRuns(any(), eq(Set.of(SOURCE))))
-        .thenReturn(Map.of(SOURCE, new LatestIngestionRuns(RUN, RUN, null)));
-
-    hook.invoke(
-        opContext,
-        mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("ROLLING_BACK"), result("SUCCESS")));
-
-    assertEquals(
-        emittedSummaries(1).get(0).getLastSuccessfulRunRequestedAtMillis(), Long.valueOf(100L));
-  }
-
-  @Test
   public void testRollbackOfTheOnlySuccessProposesNone() throws Exception {
-    when(entitySearchService.getLatestIngestionRuns(any(), eq(Set.of(SOURCE))))
-        .thenReturn(Map.of(SOURCE, new LatestIngestionRuns(RUN, null, null)));
+    when(entitySearchService.getLatestIngestionRuns(any(), eq(Set.of(SOURCE)), eq(Set.of(RUN))))
+        .thenReturn(Map.of(SOURCE, new LatestIngestionRuns(EARLIER_RUN, null, null)));
 
     hook.invoke(
         opContext,
         mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("ROLLED_BACK"), result("SUCCESS")));
 
     assertFalse(emittedSummaries(1).get(0).hasLastSuccessfulRunRequestedAtMillis());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testSummaryIsWrittenBeforeTheEvent() throws Exception {
+    hook.invoke(opContext, mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, inputs.get(RUN), null));
+
+    ArgumentCaptor<Collection<MetadataChangeProposal>> captor =
+        ArgumentCaptor.forClass(Collection.class);
+    verify(client, times(2)).batchIngestProposals(any(), captor.capture(), eq(false));
+    assertEquals(
+        captor.getAllValues().stream()
+            .flatMap(Collection::stream)
+            .map(MetadataChangeProposal::getAspectName)
+            .toList(),
+        List.of(INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME, INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME));
   }
 
   @Test
@@ -238,7 +244,8 @@ public class IngestionSourceRunEventHookTest {
             mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, inputs.get(RUN), null),
             mcl(otherRun, EXECUTION_REQUEST_INPUT_ASPECT_NAME, inputs.get(otherRun), null)));
 
-    verify(client, times(2)).batchIngestProposals(eq(withMetrics), any(), anyBoolean());
+    // The first run's summary write fails, so its event is not written; the second run gets both.
+    verify(client, times(3)).batchIngestProposals(eq(withMetrics), any(), anyBoolean());
     verify(metricUtils).increment(eq(IngestionSourceRunEventHook.class), any(String.class), eq(1d));
   }
 
@@ -275,16 +282,21 @@ public class IngestionSourceRunEventHookTest {
       throws Exception {
     ArgumentCaptor<Collection<MetadataChangeProposal>> captor =
         ArgumentCaptor.forClass(Collection.class);
-    verify(client, times(count)).batchIngestProposals(any(), captor.capture(), eq(false));
-    return captor.getAllValues().stream()
-        .flatMap(Collection::stream)
-        .filter(proposal -> aspectName.equals(proposal.getAspectName()))
-        .peek(proposal -> assertEquals(proposal.getEntityUrn(), SOURCE))
-        .map(
-            proposal ->
-                GenericRecordUtils.deserializeAspect(
-                    proposal.getAspect().getValue(), proposal.getAspect().getContentType(), clazz))
-        .toList();
+    verify(client, atLeastOnce()).batchIngestProposals(any(), captor.capture(), eq(false));
+    List<T> aspects =
+        captor.getAllValues().stream()
+            .flatMap(Collection::stream)
+            .filter(proposal -> aspectName.equals(proposal.getAspectName()))
+            .peek(proposal -> assertEquals(proposal.getEntityUrn(), SOURCE))
+            .map(
+                proposal ->
+                    GenericRecordUtils.deserializeAspect(
+                        proposal.getAspect().getValue(),
+                        proposal.getAspect().getContentType(),
+                        clazz))
+            .toList();
+    assertEquals(aspects.size(), count);
+    return aspects;
   }
 
   private static MetadataChangeLog mcl(

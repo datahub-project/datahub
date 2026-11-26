@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.HashMap;
@@ -183,7 +184,7 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
                 .map(change -> sourceUrn(change, inputs))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
-    Map<Urn, Long> successesAfterRollback =
+    Map<Urn, Pair<Urn, Long>> successesAfterRollback =
         successesAfterRollback(operationContext, changes, inputs);
 
     for (RunChange change : changes) {
@@ -195,22 +196,22 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
       ExecutionRequestInput input = inputs.get(change.executionRequest());
       DataHubIngestionSourceRunSummary summary =
           IngestionSourceRunEvents.buildSummary(change.executionRequest(), input, change.result());
-      Long successAfterRollback = successesAfterRollback.get(change.executionRequest());
+      Pair<Urn, Long> successAfterRollback = successesAfterRollback.get(change.executionRequest());
       if (successAfterRollback != null) {
-        summary.setLastSuccessfulRunRequestedAtMillis(successAfterRollback);
+        IngestionSourceRunEvents.setLastSuccess(
+            summary, successAfterRollback.getFirst(), successAfterRollback.getSecond());
       }
+      // The summary and the event are separate writes (a batch mixing a versioned and a timeseries
+      // aspect is not one transaction). The summary goes first: it is what the source list reads,
+      // and if the event write then fails only one history entry is missing.
       try {
-        systemEntityClient.batchIngestProposals(
+        ingest(operationContext, sourceUrn, INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME, summary);
+        ingest(
             operationContext,
-            List.of(
-                AspectUtils.buildMetadataChangeProposal(
-                    sourceUrn,
-                    INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
-                    IngestionSourceRunEvents.buildEvent(
-                        change.executionRequest(), input, change.result(), source.getType())),
-                AspectUtils.buildMetadataChangeProposal(
-                    sourceUrn, INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME, summary)),
-            false);
+            sourceUrn,
+            INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
+            IngestionSourceRunEvents.buildEvent(
+                change.executionRequest(), input, change.result(), source.getType()));
       } catch (Exception e) {
         failed(operationContext);
         log.error(
@@ -223,16 +224,27 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
     }
   }
 
+  private void ingest(
+      @Nonnull OperationContext operationContext,
+      @Nonnull Urn sourceUrn,
+      @Nonnull String aspectName,
+      @Nonnull RecordTemplate aspect)
+      throws Exception {
+    systemEntityClient.batchIngestProposals(
+        operationContext,
+        List.of(AspectUtils.buildMetadataChangeProposal(sourceUrn, aspectName, aspect)),
+        false);
+  }
+
   /**
-   * For each run being rolled back, keyed by its execution request, the request time of its
-   * source's latest successful run as the execution-request index now has it. That replaces the
-   * rolled-back run if it was the last success (see {@link IngestionSourceRunEvents#merge}); a run
-   * with no entry leaves the source with no last success. While the index still shows the
-   * rolled-back run as the latest success, or the replacement cannot be read, the rolled-back run's
-   * own time is used, which leaves the last success unchanged until its next rollback status.
+   * For each run being rolled back, keyed by its execution request, its source's latest other
+   * successful run and that run's request time, read from the execution request index with the
+   * rolled-back runs left out. That replaces the rolled-back run if it was the last success (see
+   * {@link IngestionSourceRunEvents#merge}); a run with no entry leaves the source with no last
+   * success.
    */
   @Nonnull
-  private Map<Urn, Long> successesAfterRollback(
+  private Map<Urn, Pair<Urn, Long>> successesAfterRollback(
       @Nonnull OperationContext operationContext,
       @Nonnull List<RunChange> changes,
       @Nonnull Map<Urn, ExecutionRequestInput> inputs) {
@@ -245,7 +257,7 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
                             change.result().getStatus())
                         && sourceUrn(change, inputs) != null)
             .collect(Collectors.toList());
-    Map<Urn, Long> successes = new HashMap<>();
+    Map<Urn, Pair<Urn, Long>> successes = new HashMap<>();
     if (rollbacks.isEmpty()) {
       return successes;
     }
@@ -253,7 +265,8 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
     entitySearchService
         .getLatestIngestionRuns(
             operationContext,
-            rollbacks.stream().map(change -> sourceUrn(change, inputs)).collect(Collectors.toSet()))
+            rollbacks.stream().map(change -> sourceUrn(change, inputs)).collect(Collectors.toSet()),
+            rollbacks.stream().map(RunChange::executionRequest).collect(Collectors.toSet()))
         .forEach(
             (sourceUrn, runs) -> {
               if (runs.getLatestSuccessfulRun() != null) {
@@ -264,17 +277,12 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
         executionRequestInputs(operationContext, new HashSet<>(latestSuccesses.values()));
     for (RunChange rollback : rollbacks) {
       Urn latestSuccess = latestSuccesses.get(sourceUrn(rollback, inputs));
-      if (latestSuccess == null) {
-        continue;
-      }
       ExecutionRequestInput replacement =
-          latestSuccess.equals(rollback.executionRequest())
-              ? null
-              : successInputs.get(latestSuccess);
-      successes.put(
-          rollback.executionRequest(),
-          (replacement != null ? replacement : inputs.get(rollback.executionRequest()))
-              .getRequestedAt());
+          latestSuccess != null ? successInputs.get(latestSuccess) : null;
+      if (replacement != null) {
+        successes.put(
+            rollback.executionRequest(), Pair.of(latestSuccess, replacement.getRequestedAt()));
+      }
     }
     return successes;
   }

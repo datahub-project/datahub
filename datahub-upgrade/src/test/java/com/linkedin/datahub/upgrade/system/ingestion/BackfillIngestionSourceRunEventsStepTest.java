@@ -133,6 +133,7 @@ public class BackfillIngestionSourceRunEventsStepTest {
     DataHubIngestionSourceRunSummary summary = summaryOf(items);
     assertEquals(summary.getLastExecutionRequest(), LATEST_RUN);
     assertEquals(summary.getLastRunStatus(), "RUNNING");
+    assertEquals(summary.getLastSuccessfulExecutionRequest(), SUCCESS_RUN);
     assertEquals(summary.getLastSuccessfulRunRequestedAtMillis(), Long.valueOf(100));
     assertEquals(summary.getLastFailedRunRequestedAtMillis(), Long.valueOf(200));
     assertEquals(
