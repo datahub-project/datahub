@@ -1,11 +1,11 @@
 {
-    "autoPropagatedDescription": "この説明は上流のColumnから自動的に伝播されました。<learnMore>詳細</learnMore>",
+    "autoPropagatedDescription": "この説明は上流のColumnから自動的に引き継がれました。<learnMore>詳細</learnMore>",
     "ingested": "取り込み済み",
     "ingestedFrom": "{{origin}}から取り込み済み",
     "origin": "起点",
     "originLabel": "起点",
-    "propagated": "伝播済み",
-    "propagatedDescriptionTitle": "伝播された説明",
+    "propagated": "引き継ぎ済み",
+    "propagatedDescriptionTitle": "引き継がれた説明",
     "sourceLabel": "ソース",
     "via": "経由",
     "viaLabel": "経由"
