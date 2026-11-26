@@ -209,7 +209,11 @@ def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
         return FileStorage(
             platform=FilePlatform.ABS,
             location=location,
-            likely_qri_connection_id=qri_part_id(location),
+            # Qlik Cloud saves an Azure connection's container as its blob
+            # HTTPS URL, which its files' QRIs are built from.
+            likely_qri_connection_id=qri_part_id(
+                f"https://{azure.account_name}.blob.core.windows.net/{location}"
+            ),
         )
     for platform, store in (
         (FilePlatform.S3, S3ObjectStore),
