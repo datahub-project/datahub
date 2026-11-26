@@ -142,7 +142,8 @@ public class SampleDataFixtureConfiguration {
    * DelegatingMappingsBuilder with both v2 and v3 mappings builders.
    */
   private MappingsBuilder createMappingsBuilder() {
-    return createDelegatingMappingsBuilder(SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+    return createDelegatingMappingsBuilder(
+        SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION, _searchClient);
   }
 
   @Bean
@@ -172,7 +173,12 @@ public class SampleDataFixtureConfiguration {
             .build();
 
     return new ESIndexBuilder(
-        _searchClient, testConfig, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
+        _searchClient,
+        testConfig,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        Map.of(),
+        gitVersion,
+        _searchClient);
   }
 
   protected ElasticSearchService entitySearchServiceHelper(
@@ -206,7 +212,8 @@ public class SampleDataFixtureConfiguration {
         TEST_ES_SEARCH_CONFIG,
         new V2MappingsBuilder(
             TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH),
         new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention, false),
         searchDAO,
         browseDAO,

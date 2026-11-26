@@ -48,6 +48,8 @@ export type Theme = {
                 path: string;
                 shouldOpenInNewTab: boolean;
                 description?: string;
+                // Highlights the description, and hides it when showGithubStarPrompt is off.
+                isGithubStarPrompt?: boolean;
             }[];
         };
     };

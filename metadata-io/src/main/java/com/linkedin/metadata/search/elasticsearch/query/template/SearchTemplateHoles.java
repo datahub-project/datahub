@@ -10,6 +10,16 @@ import javax.annotation.Nullable;
 
 /** Named splice points in a query body. Where a tag sits inside the JSON is not checked. */
 public final class SearchTemplateHoles {
+  /** Native embedding clauses placeholder, rendered only by the later native mixed query. */
+  public static final String EMBEDDING_CLAUSES_JSON = "embeddingClausesJson";
+
+  /**
+   * Sections where the native mixed query may cite {@link #EMBEDDING_CLAUSES_JSON}. Such a template
+   * is valid to store, and a build that does not run it fails the search when it is selected.
+   */
+  private static final java.util.Set<String> NATIVE_QUERY_SECTIONS =
+      java.util.Set.of("query", "clauses", "rescore", "queryFragments");
+
   private static final Pattern TAG = Pattern.compile("\\{\\{[#&/]?\\s*([A-Za-z0-9_]+)\\s*}}");
   private static final Pattern SPLICE = Pattern.compile("\\{\\{&\\s*([A-Za-z0-9_]+)\\s*}}");
   private static final Pattern SECTION = Pattern.compile("\\{\\{#\\s*([A-Za-z0-9_]+)\\s*}}");
@@ -55,7 +65,8 @@ public final class SearchTemplateHoles {
           nameEnd++;
         }
         String name = template.substring(nameStart, nameEnd);
-        if (!allowedUnescaped(name, fragments, template)) {
+        if (!allowedUnescaped(name, fragments, template)
+            && !(EMBEDDING_CLAUSES_JSON.equals(name) && NATIVE_QUERY_SECTIONS.contains(section))) {
           throw new SearchTemplateException("Search template " + section + " unescapes " + name);
         }
       }
@@ -65,7 +76,8 @@ public final class SearchTemplateHoles {
 
   private static boolean allowedUnescaped(
       @Nonnull String name, @Nonnull Set<String> fragments, @Nonnull String template) {
-    if (name.isEmpty() || ".".equals(name)) {
+    // Reserved for the native mixed query, so a fragment cannot splice it into another section.
+    if (name.isEmpty() || ".".equals(name) || EMBEDDING_CLAUSES_JSON.equals(name)) {
       return false;
     }
     if (SearchTemplateContextVariables.STRUCTURED_QUERY.equals(name)) {

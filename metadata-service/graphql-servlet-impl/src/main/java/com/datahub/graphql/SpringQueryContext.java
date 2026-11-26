@@ -34,6 +34,9 @@ public class SpringQueryContext implements QueryContext {
   @Nonnull private final DataHubAppConfiguration dataHubAppConfig;
   @Nonnull private final RelationshipTraversalContext relationshipTraversalContext;
   private final int maxParentDepth;
+  private final int maxSiblingGroupUrns;
+  private final int directChildDefaultCount;
+  private final int directChildMaxCount;
 
   @Nullable private AspectMappingRegistry aspectMappingRegistry;
   private final ConcurrentHashMap<String, AspectLoadContext> aspectLoadContexts =
@@ -66,6 +69,9 @@ public class SpringQueryContext implements QueryContext {
     this.relationshipTraversalContext =
         new RelationshipTraversalContext(queryConfig.getMaxVisitedUrns());
     this.maxParentDepth = queryConfig.getMaxParentDepth();
+    this.maxSiblingGroupUrns = queryConfig.getMaxSiblingGroupUrns();
+    this.directChildDefaultCount = queryConfig.getDirectChildDefaultCount();
+    this.directChildMaxCount = queryConfig.getDirectChildMaxCount();
 
     GraphqlRequestUsageClassifier.Result classification =
         GraphqlRequestUsageClassifier.classify(
@@ -88,6 +94,21 @@ public class SpringQueryContext implements QueryContext {
   @Override
   public int getMaxParentDepth() {
     return maxParentDepth;
+  }
+
+  @Override
+  public int getMaxSiblingGroupUrns() {
+    return maxSiblingGroupUrns;
+  }
+
+  @Override
+  public int getDirectChildDefaultCount() {
+    return directChildDefaultCount;
+  }
+
+  @Override
+  public int getDirectChildMaxCount() {
+    return directChildMaxCount;
   }
 
   @Override

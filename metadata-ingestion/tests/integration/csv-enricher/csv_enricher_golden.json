@@ -141,6 +141,31 @@
     }
 },
 {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD),field_foo)",
+    "changeType": "UPSERT",
+    "aspectName": "structuredProperties",
+    "aspect": {
+        "json": {
+            "properties": [
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.test.classification",
+                    "values": [
+                        {
+                            "string": "Sensitive"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:DATABASE",
     "changeType": "UPSERT",
@@ -1274,6 +1299,22 @@
 {
     "entityType": "notebook",
     "entityUrn": "urn:li:notebook:(querybook,1234)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD),field_foo)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

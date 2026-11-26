@@ -1,5 +1,5 @@
 import { toast } from '@components';
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
@@ -95,8 +95,12 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
         Array.from(initialSetOfRelationshipsUrns).map((urn) => ({ urn, type: extractTypeFromUrn(urn) })) || [],
     );
 
+    // Auto-expand only once: a failed fetch resets the node to UNFETCHED, so re-running on every
+    // UNFETCHED would re-request a failing urn in a loop while the modal is open.
+    const autoExpandedRef = useRef(false);
     useEffect(() => {
-        if (fetchStatus === FetchStatus.UNFETCHED) {
+        if (fetchStatus === FetchStatus.UNFETCHED && !autoExpandedRef.current) {
+            autoExpandedRef.current = true;
             expandOneLevel();
         }
     }, [fetchStatus, expandOneLevel]);

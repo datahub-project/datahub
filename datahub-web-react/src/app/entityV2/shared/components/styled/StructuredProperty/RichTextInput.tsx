@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { Editor } from '@src/alchemy-components/components/Editor/Editor';
+import { Editor } from '@app/sharedV2/editor/Editor';
 
 // The Editor draws no border of its own, so this box is ours to own.
 const StyledEditor = styled(Editor)`

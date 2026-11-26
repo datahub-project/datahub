@@ -5,11 +5,15 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.datahubproject.openapi.v2.models.GenericRelationship;
 import io.datahubproject.openapi.v3.models.LineageRelationship;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.testng.annotations.Test;
 
@@ -87,5 +91,35 @@ public class ScrollUtilsTest {
     assertTrue(ScrollUtils.keepByLineageDirection(edge, List.of(DATASET_A), null));
     assertTrue(ScrollUtils.keepByLineageDirection(edge, null, LineageDirection.UPSTREAM));
     assertTrue(ScrollUtils.keepByLineageDirection(edge, List.of(), LineageDirection.UPSTREAM));
+  }
+
+  @Test
+  public void testToLineageRelationshipsOrientsColumnLineage() {
+    LineageRegistry registry =
+        TestOperationContexts.systemContextNoSearchAuthorization().getLineageRegistry();
+    String upstreamField = "urn:li:schemaField:(" + DATASET_A + ",col_a)";
+    String downstreamField = "urn:li:schemaField:(" + DATASET_B + ",col_a)";
+
+    // Fine-grained lineage is stored as downstream column --DownstreamOf--> upstream column
+    List<LineageRelationship> edges =
+        ScrollUtils.toLineageRelationships(
+            List.of(
+                new RelatedEntities(
+                    "DownstreamOf",
+                    downstreamField,
+                    upstreamField,
+                    RelationshipDirection.OUTGOING,
+                    null)),
+            registry);
+
+    assertEquals(edges.size(), 1);
+    assertEquals(edges.get(0).getUpstream(), upstreamField);
+    assertEquals(edges.get(0).getDownstream(), downstreamField);
+    assertTrue(
+        ScrollUtils.keepByLineageDirection(
+            edges.get(0), List.of(upstreamField), LineageDirection.DOWNSTREAM));
+    assertFalse(
+        ScrollUtils.keepByLineageDirection(
+            edges.get(0), List.of(upstreamField), LineageDirection.UPSTREAM));
   }
 }

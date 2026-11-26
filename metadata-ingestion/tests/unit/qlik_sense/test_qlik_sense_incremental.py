@@ -1,4 +1,5 @@
 import json
+import pathlib
 from typing import Dict, List, Optional, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 
@@ -6,20 +7,31 @@ import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.qlik_sense.app_state import (
     AppCheckpoint,
+    QlikAppCheckpointState,
     QlikAppStateHandler,
 )
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
+from datahub.ingestion.source.qlik_sense.data_classes import App
+from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
+from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
+    DatasetLineageTypeClass,
+    MetadataChangeProposalClass,
     StatusClass,
+    UpstreamClass,
+    UpstreamLineageClass,
     _Aspect,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401
 from tests.unit.qlik_sense.qlik_fakes import (
     APP,
@@ -70,6 +82,13 @@ class _Qlik:
         self.objects_fail = False
         self.apps_without_sheets: Set[str] = set()
         self.failing_streams: Set[str] = set()
+        self.scripts: Dict[str, str] = {}
+        self.extra_connections: List[Dict[str, object]] = []
+        self.data_models: Dict[str, List[Dict[str, object]]] = {}
+        self.data_model_fails_for: Set[str] = set()
+        self.variables: Dict[str, Dict[str, str]] = {}
+        self.variables_fail_for: Set[str] = set()
+        self.connections_fail = False
 
     def qrs_get(
         self, url: str, params: Optional[Dict[str, str]] = None, **_: object
@@ -98,7 +117,9 @@ class _Qlik:
                 return FakeResponse({}, status_code=503)
             return FakeResponse(self.objects)
         if url.endswith("/dataconnection/full"):
-            return FakeResponse([self.data_connection])
+            if self.connections_fail:
+                return FakeResponse({}, status_code=503)
+            return FakeResponse([self.data_connection, *self.extra_connections])
         raise AssertionError(url)
 
     def open_engine(self, app_id: str, **_: object) -> MagicMock:
@@ -113,7 +134,13 @@ class _Qlik:
             if app_id == "app-1"
             else _app_engine_calls(app_id)
         )
-        websocket.get_script.return_value = LOAD_SCRIPT
+        websocket.get_script.return_value = self.scripts.get(app_id, LOAD_SCRIPT)
+        websocket.get_variables.return_value = self.variables.get(app_id, {})
+        if app_id in self.variables_fail_for:
+            websocket.get_variables.side_effect = TimeoutError("timed out")
+        websocket.get_data_model_tables.return_value = self.data_models.get(app_id, [])
+        if app_id in self.data_model_fails_for:
+            websocket.get_data_model_tables.side_effect = TimeoutError("timed out")
         return websocket
 
 
@@ -137,15 +164,20 @@ class _DataHub:
     def get_entities(
         self, entity_name: str, urns: List[str], aspects: List[str]
     ) -> Dict[str, Dict[str, Tuple[_Aspect, None]]]:
-        assert aspects == [StatusClass.ASPECT_NAME]
         found: Dict[str, Dict[str, Tuple[_Aspect, None]]] = {}
         for urn in urns:
-            status = self.aspects.get((urn, StatusClass.ASPECT_NAME))
-            if isinstance(status, StatusClass):
-                removed = status.removed or urn in self.soft_deleted
-                found[urn] = {
-                    StatusClass.ASPECT_NAME: (StatusClass(removed=removed), None)
-                }
+            if aspects == [StatusClass.ASPECT_NAME]:
+                status = self.aspects.get((urn, StatusClass.ASPECT_NAME))
+                if isinstance(status, StatusClass):
+                    removed = status.removed or urn in self.soft_deleted
+                    found[urn] = {
+                        StatusClass.ASPECT_NAME: (StatusClass(removed=removed), None)
+                    }
+            else:
+                assert aspects == [UpstreamLineageClass.ASPECT_NAME]
+                lineage = self.aspects.get((urn, UpstreamLineageClass.ASPECT_NAME))
+                if lineage is not None:
+                    found[urn] = {UpstreamLineageClass.ASPECT_NAME: (lineage, None)}
         return found
 
     def write(self, workunits: List[MetadataWorkUnit]) -> None:
@@ -163,6 +195,8 @@ def _run(
     run_id: str,
     **overrides: object,
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
+    on_prem = overrides.pop("on_prem", {})
+    assert isinstance(on_prem, dict)
     with (
         patch(
             "datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session"
@@ -184,6 +218,7 @@ def _run(
                         "skip_unchanged_apps": overrides.pop(
                             "skip_unchanged_apps", True
                         ),
+                        **on_prem,
                     },
                     **overrides,
                 }
@@ -234,6 +269,30 @@ def test_unchanged_app_is_skipped_and_kept(mock_datahub_graph: MagicMock) -> Non
         assert later.reporter.apps_skipped_unchanged == 1
         assert not [wu for wu in later_wus if wu.id.startswith("soft-delete-")]
         assert app_urns <= set(_stale_urns(later))
+
+
+def test_app_opened_without_its_data_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+    read_app = QlikOnPremAPI._read_app
+
+    def without_data(api: QlikOnPremAPI, *args: object, **kwargs: object) -> object:
+        app = read_app(api, *args, **kwargs)  # type: ignore[arg-type]
+        if isinstance(app, App):
+            app.data_load_failed = True
+        return app
+
+    with patch.object(QlikOnPremAPI, "_read_app", without_data):
+        first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    # A timeout or section access may have kept the data model out, which a
+    # later run can read.
+    assert qlik.engine_opens == 2
+    assert second.reporter.apps_skipped_unchanged == 0
 
 
 def test_app_with_removed_child_is_still_skipped(
@@ -809,3 +868,507 @@ def test_partly_read_app_is_kept_for_a_limited_number_of_runs(
     assert not [wu for wu in outcomes[1][1] if wu.get_urn() == container]
     assert [wu for wu in outcomes[3][1] if wu.get_urn() == container]
     assert not _soft_deleted_urns(outcomes[3][1])
+
+
+QVD_FOLDER: Dict[str, object] = {
+    "name": "QVD Data",
+    "connectionstring": "\\\\nas\\qvd",
+    "type": "folder",
+}
+STORING_SCRIPT = """
+Orders: LOAD id, amount FROM [lib://QVD Data/raw/orders.qvd] (qvd);
+STORE Orders INTO [lib://QVD Data/clean/orders.qvd] (qvd);
+"""
+READING_SCRIPT = "Sales: LOAD id FROM [lib://QVD Data/clean/orders.qvd] (qvd);"
+CLEAN_QVD = (
+    "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,//nas/qvd/clean/orders.qvd,PROD)"
+)
+
+
+def _qvd_qlik() -> _Qlik:
+    qlik = _Qlik()
+    qlik.other_apps = [SECOND_APP]
+    qlik.extra_connections = [QVD_FOLDER]
+    qlik.scripts = {"app-1": STORING_SCRIPT, "app-2": READING_SCRIPT}
+    return qlik
+
+
+def _qvd_lineage_ops(
+    workunits: List[MetadataWorkUnit], qvd_urn: str = CLEAN_QVD
+) -> List[Tuple[str, str]]:
+    """The (op, upstream dataset) of each table edge patched onto the QVD."""
+    ops = []
+    for wu in workunits:
+        if (
+            wu.get_urn() == qvd_urn
+            and isinstance(wu.metadata, MetadataChangeProposalClass)
+            and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+            and wu.metadata.aspect is not None
+        ):
+            for op in json.loads(wu.metadata.aspect.value):
+                parts = op["path"].split("/")
+                if parts[1] == "upstreams":
+                    ops.append((op["op"], parts[2].replace("~1", "/")))
+    return ops
+
+
+def _qvd_upstreams(workunits: List[MetadataWorkUnit]) -> List[str]:
+    return [urn for op, urn in _qvd_lineage_ops(workunits) if op == "add"]
+
+
+def test_kept_unchanged_app_still_writes_its_qvd(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    datahub = _DataHub(mock_datahub_graph)
+    first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    writer = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    assert _qvd_upstreams(first_wus) == [writer]
+
+    # Only the reading app changed, so the writing app is kept from its
+    # checkpoint, whose QVD writes keep its edge.
+    edited_app = {**SECOND_APP, "modifiedDate": "2024-02-01T09:00:00.000Z"}
+    qlik.other_apps = [edited_app]
+    second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert second.reporter.apps_skipped_unchanged == 1
+    assert _qvd_upstreams(second_wus) == [writer]
+
+
+def test_edge_into_a_storage_qvd_the_app_no_longer_writes_is_removed(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    storage_qvd = (
+        "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qlik/clean/orders.qvd,PROD)"
+    )
+    writer = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    mapping = {
+        "file_connection_to_storage": {
+            "Lake": {"storage_uri": "abfss://lake@account.dfs.core.windows.net/qlik"}
+        }
+    }
+    qlik = _qvd_qlik()
+    qlik.scripts["app-1"] = STORING_SCRIPT.replace(
+        "lib://QVD Data/clean", "lib://Lake/clean"
+    )
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", **mapping)
+    datahub.write(first_wus)
+    assert _qvd_lineage_ops(first_wus, storage_qvd) == [("add", writer)]
+    # The patch as DataHub applied it.
+    datahub.aspects[(storage_qvd, UpstreamLineageClass.ASPECT_NAME)] = (
+        UpstreamLineageClass(
+            upstreams=[UpstreamClass(dataset=writer, type=DatasetLineageTypeClass.COPY)]
+        )
+    )
+
+    # No app touches the file any more, and storage files are never soft-deleted.
+    qlik.scripts["app-1"] = (
+        "Orders: LOAD id FROM [lib://QVD Data/raw/orders.qvd] (qvd);"
+    )
+    qlik.app = {**qlik.app, "modifiedDate": "2024-02-01T09:00:00.000Z"}
+    _, second_wus = _run(mock_datahub_graph, qlik, "run-2", **mapping)
+
+    assert _qvd_lineage_ops(second_wus, storage_qvd) == [("remove", writer)]
+
+
+def test_app_read_while_data_connections_were_unread_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    qlik.connections_fail = True
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    opens = qlik.engine_opens
+
+    # Its lib:// QVDs were unresolved, so it is not kept as unchanged even
+    # though the connections still can't be listed.
+    second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert second.reporter.apps_skipped_unchanged == 0
+    assert qlik.engine_opens == opens + 2
+
+
+def test_app_checkpoint_from_before_qvd_lineage_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    opens = qlik.engine_opens
+
+    def without_qvds(
+        handler: QlikAppStateHandler, app_id: str
+    ) -> Optional[AppCheckpoint]:
+        checkpoint = _previous_checkpoint(handler, app_id)
+        return checkpoint.model_copy(update={"qvds": None}) if checkpoint else None
+
+    with patch.object(QlikAppStateHandler, "previous", without_qvds):
+        second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
+
+    # Its QVD writes are unknown, so it is read rather than kept, and the QVD's
+    # lineage is written from what it writes now instead of being blocked.
+    assert qlik.engine_opens == opens + 2
+    assert second.reporter.apps_skipped_unchanged == 0
+    assert _qvd_upstreams(second_wus)
+
+
+def test_app_checkpoint_from_before_binary_lineage_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    opens = qlik.engine_opens
+
+    def without_binary(
+        handler: QlikAppStateHandler, app_id: str
+    ) -> Optional[AppCheckpoint]:
+        checkpoint = _previous_checkpoint(handler, app_id)
+        return (
+            AppCheckpoint.model_validate(
+                checkpoint.model_dump(exclude={"binary_tables", "data_model_fields"})
+            )
+            if checkpoint
+            else None
+        )
+
+    with patch.object(QlikAppStateHandler, "previous", without_binary):
+        second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert qlik.engine_opens == opens + 2
+    assert second.reporter.apps_skipped_unchanged == 0
+
+
+def test_partly_read_app_kept_from_its_checkpoint_only_adds_qvd_lineage(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", skip_unchanged_apps=False)
+    datahub.write(first_wus)
+
+    qlik.engine_fails_for = {"app-1"}
+    second, second_wus = _run(
+        mock_datahub_graph, qlik, "run-2", skip_unchanged_apps=False
+    )
+
+    # Its last full read may no longer be what it writes, so the QVD's edges
+    # are added to rather than replaced.
+    assert not [op for op, _ in _qvd_lineage_ops(second_wus) if op == "remove"]
+    assert any(
+        wu.get_urn() == CLEAN_QVD
+        and isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.changeType == "PATCH"
+        for wu in second_wus
+    )
+    assert "Lineage of Qlik QVDs only added to" in [
+        warning.title for warning in second.reporter.warnings
+    ]
+
+
+def test_onprem_qvd_lineage_golden(
+    pytestconfig: pytest.Config,
+    tmp_path: pathlib.Path,
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    # One app loads a raw QVD and stores a clean one, which another app loads.
+    _DataHub(mock_datahub_graph)
+    _, workunits = _run(
+        mock_datahub_graph, _qvd_qlik(), "run-1", skip_unchanged_apps=False
+    )
+    output_path = tmp_path / "qlik_onprem_qvd_lineage.json"
+    write_metadata_file(output_path, [wu.metadata for wu in workunits])
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=pathlib.Path(__file__).parent / "golden_onprem_qvd_lineage.json",
+    )
+
+
+ORDERS_DATA_MODEL: List[Dict[str, object]] = [
+    {"qName": "Orders", "qFields": [{"qName": "id"}, {"qName": "amount"}]}
+]
+MODEL_ORDERS = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+FRONT_ORDERS = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-2.orders,PROD)"
+
+
+def _binary_qlik(front_script: str) -> _Qlik:
+    """app-2 loads app-1's data model with BINARY."""
+    qlik = _qvd_qlik()
+    qlik.scripts = {"app-1": STORING_SCRIPT, "app-2": front_script}
+    qlik.data_models = {"app-1": ORDERS_DATA_MODEL, "app-2": ORDERS_DATA_MODEL}
+    return qlik
+
+
+def _written_lineage(
+    workunits: List[MetadataWorkUnit], urn: str
+) -> List[UpstreamLineageClass]:
+    return [
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.entityUrn == urn
+        and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+    ]
+
+
+def test_binary_load_from_an_app_kept_unchanged_still_links_its_tables(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://QVD Data/sales model.qvf];")
+    datahub = _DataHub(mock_datahub_graph)
+    on_prem: Dict[str, object] = {
+        "read_data_model": True,
+        "binary_file_to_app": {"lib://QVD Data/sales model.qvf": "app-1"},
+    }
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", on_prem=on_prem)
+    datahub.write(first_wus)
+
+    # Only the loading app changed, so the model app is kept from its
+    # checkpoint, which holds its tables and their fields.
+    qlik.other_apps = [{**SECOND_APP, "modifiedDate": "2024-02-01T09:00:00.000Z"}]
+    second, second_wus = _run(mock_datahub_graph, qlik, "run-2", on_prem=on_prem)
+
+    assert second.reporter.apps_skipped_unchanged == 1
+    [lineage] = _written_lineage(second_wus, FRONT_ORDERS)
+    assert [upstream.dataset for upstream in lineage.upstreams] == [MODEL_ORDERS]
+    assert lineage.fineGrainedLineages is not None
+    assert [(fg.upstreams, fg.downstreams) for fg in lineage.fineGrainedLineages] == [
+        (
+            [f"urn:li:schemaField:({MODEL_ORDERS},{field})"],
+            [f"urn:li:schemaField:({FRONT_ORDERS},{field})"],
+        )
+        for field in ["id", "amount"]
+    ]
+
+
+@pytest.mark.parametrize("failure", ["data model", "variables"])
+def test_binary_tables_are_kept_when_a_read_cant_find_them(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    failure: str,
+) -> None:
+    qlik = _binary_qlik("Binary [lib://$(vApps)/sales model.qvf];")
+    qlik.variables = {"app-2": {"vApps": "QVD Data"}}
+    datahub = _DataHub(mock_datahub_graph)
+    on_prem: Dict[str, object] = {"read_data_model": True}
+    first, first_wus = _run(
+        mock_datahub_graph, qlik, "run-1", on_prem=on_prem, skip_unchanged_apps=False
+    )
+    datahub.write(first_wus)
+    assert FRONT_ORDERS in _stale_urns(first)
+
+    if failure == "data model":
+        qlik.data_model_fails_for = {"app-2"}
+    else:
+        qlik.variables_fail_for = {"app-2"}
+    second, second_wus = _run(
+        mock_datahub_graph, qlik, "run-2", on_prem=on_prem, skip_unchanged_apps=False
+    )
+
+    # The next run may find them, so the app's last read is kept.
+    assert FRONT_ORDERS in _stale_urns(second)
+    assert FRONT_ORDERS not in _soft_deleted_urns(second_wus)
+    assert "Unable to fully read Qlik app" in [
+        warning.title for warning in second.reporter.warnings
+    ]
+
+
+def _partly_read(source: QlikSenseSource) -> bool:
+    return any(
+        entry.title == "Unable to fully read Qlik app"
+        for entry in [*source.reporter.warnings, *source.reporter.failures]
+    )
+
+
+def test_binary_app_whose_data_is_never_readable_is_not_partly_read(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://QVD Data/sales model.qvf];")
+    # As section access denying the data to the service user from the start.
+    qlik.data_model_fails_for = {"app-2"}
+    datahub = _DataHub(mock_datahub_graph)
+    on_prem: Dict[str, object] = {"read_data_model": True}
+    for run_id in ["run-1", "run-2"]:
+        source, workunits = _run(
+            mock_datahub_graph, qlik, run_id, on_prem=on_prem, skip_unchanged_apps=False
+        )
+        datahub.write(workunits)
+
+        # Its last read holds no BINARY tables to keep, so stale removal runs.
+        assert not source.reporter.failures
+        assert not _partly_read(source)
+        assert FRONT_ORDERS not in _stale_urns(source)
+
+
+def test_binary_path_variables_unread_without_read_data_model_is_not_partly_read(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://$(vApps)/sales model.qvf];")
+    qlik.variables = {"app-2": {"vApps": "QVD Data"}}
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", skip_unchanged_apps=False)
+    datahub.write(first_wus)
+
+    qlik.variables_fail_for = {"app-2"}
+    second, _ = _run(mock_datahub_graph, qlik, "run-2", skip_unchanged_apps=False)
+
+    assert not second.reporter.failures
+    assert not _partly_read(second)
+
+
+def test_binary_tables_are_let_go_after_max_partial_reads_kept(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://QVD Data/sales model.qvf];")
+    datahub = _DataHub(mock_datahub_graph)
+    on_prem: Dict[str, object] = {"read_data_model": True}
+
+    def run(run_id: str) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
+        source, workunits = _run(
+            mock_datahub_graph,
+            qlik,
+            run_id,
+            on_prem=on_prem,
+            skip_unchanged_apps=False,
+            max_partial_reads_kept=1,
+        )
+        datahub.write(workunits)
+        return source, workunits
+
+    run("run-1")
+    # Section access now denies the app's data for good.
+    qlik.data_model_fails_for = {"app-2"}
+    kept, _ = run("run-2")
+    let_go, let_go_wus = run("run-3")
+    after, _ = run("run-4")
+
+    assert _partly_read(kept)
+    assert FRONT_ORDERS in _stale_urns(kept)
+    # A failure would skip stale removal for every app, run after run.
+    assert not let_go.reporter.failures
+    assert not _partly_read(let_go)
+    assert "Qlik BINARY tables are no longer kept" in [
+        warning.title for warning in let_go.reporter.warnings
+    ]
+    assert FRONT_ORDERS in _soft_deleted_urns(let_go_wus)
+    assert not after.reporter.failures
+    assert not _partly_read(after)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param("data model", id="its data model can't be read"),
+        pytest.param("engine", id="it is partly read and kept"),
+    ],
+)
+def test_binary_load_keeps_column_lineage_when_the_model_app_is_not_fully_read(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    failure: str,
+) -> None:
+    qlik = _binary_qlik("Binary [lib://QVD Data/sales model.qvf];")
+    datahub = _DataHub(mock_datahub_graph)
+    on_prem: Dict[str, object] = {
+        "read_data_model": True,
+        "binary_file_to_app": {"lib://QVD Data/sales model.qvf": "app-1"},
+    }
+    _, first_wus = _run(
+        mock_datahub_graph, qlik, "run-1", on_prem=on_prem, skip_unchanged_apps=False
+    )
+    datahub.write(first_wus)
+
+    if failure == "data model":
+        qlik.data_model_fails_for = {"app-1"}
+    else:
+        qlik.engine_fails_for = {"app-1"}
+    _, second_wus = _run(
+        mock_datahub_graph, qlik, "run-2", on_prem=on_prem, skip_unchanged_apps=False
+    )
+
+    # The model app's fields come from its checkpoint.
+    [lineage] = _written_lineage(second_wus, FRONT_ORDERS)
+    assert [upstream.dataset for upstream in lineage.upstreams] == [MODEL_ORDERS]
+    assert lineage.fineGrainedLineages is not None
+    assert [fg.upstreams for fg in lineage.fineGrainedLineages] == [
+        [f"urn:li:schemaField:({MODEL_ORDERS},{field})"] for field in ["id", "amount"]
+    ]
+
+
+def test_binary_load_only_adds_lineage_when_the_model_apps_fields_are_unknown(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _binary_qlik("Binary [lib://QVD Data/sales model.qvf];")
+    qlik.data_model_fails_for = {"app-1"}
+    _, workunits = _run(
+        mock_datahub_graph,
+        qlik,
+        "run-1",
+        on_prem={
+            "read_data_model": True,
+            "binary_file_to_app": {"lib://QVD Data/sales model.qvf": "app-1"},
+        },
+        skip_unchanged_apps=False,
+    )
+
+    # Written whole, it would drop the column edges an earlier run wrote.
+    assert not _written_lineage(workunits, FRONT_ORDERS)
+    assert any(
+        wu.get_urn() == FRONT_ORDERS
+        and isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.changeType == "PATCH"
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+        and wu.metadata.aspect is not None
+        and MODEL_ORDERS in json.dumps(json.loads(wu.metadata.aspect.value))
+        for wu in workunits
+    )
+
+
+@pytest.mark.parametrize(
+    "app_run, stale_run, known",
+    [
+        pytest.param(None, None, True, id="first run"),
+        pytest.param("run-1", "run-1", True, id="trusted"),
+        pytest.param("run-1", "run-2", False, id="app checkpoint from an older run"),
+        pytest.param(None, "run-1", False, id="app checkpoint not saved"),
+        pytest.param("run-1", None, False, id="no stale entity removal state"),
+    ],
+)
+def test_previous_apps_are_unknown_when_checkpoints_are_untrusted(
+    app_run: Optional[str], stale_run: Optional[str], known: bool
+) -> None:
+    stale_job_id = JobId("stale")
+    apps = {"app-2": AppCheckpoint(urns=["urn:li:container:app-2"])}
+    provider = MagicMock()
+    provider.is_stateful_ingestion_configured.return_value = True
+    handler = QlikAppStateHandler(
+        provider, MagicMock(), "pipeline", "run-3", stale_job_id
+    )
+    last = {
+        handler.job_id: Checkpoint(
+            job_name=handler.job_id,
+            pipeline_name="pipeline",
+            run_id=app_run,
+            state=QlikAppCheckpointState(apps=apps),
+        )
+        if app_run
+        else None,
+        stale_job_id: Checkpoint(
+            job_name=stale_job_id,
+            pipeline_name="pipeline",
+            run_id=stale_run,
+            state=GenericCheckpointState(),
+        )
+        if stale_run
+        else None,
+    }
+    provider.get_last_checkpoint.side_effect = lambda job_id, _: last[job_id]
+
+    # Unknown apps, rather than none, keep another app's shared-table edges.
+    expected = (apps if app_run else {}) if known else None
+    assert handler.previous_apps() == expected

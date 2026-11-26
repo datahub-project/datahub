@@ -22,11 +22,15 @@ from tests.e2e.utils import (
     get_kafka_schema_registry,
     get_queue_ingest_prometheus_url,
 )
+from utilities.backends import Capability
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [
+    pytest.mark.domain(Domain.PLATFORM),
+    pytest.mark.requires(Capability.KAFKA),
+]
 
 
 def _fetch_messaging_ingest_total(prom_url: str) -> float:
@@ -84,8 +88,12 @@ def test_queue_ingest_metadata_ingest_metric_on_mce():
     emitter.flush()
     time.sleep(2)
 
+    # On the GMS fallback the counter only moves if GMS embeds the consumer; with a
+    # standalone MCE consumer it never does, and the full budget just delays the skip.
+    attempts = 25 if source == "mce" else 8
+
     @tenacity.retry(
-        stop=tenacity.stop_after_attempt(25),
+        stop=tenacity.stop_after_attempt(attempts),
         wait=tenacity.wait_fixed(3),
         reraise=True,
     )

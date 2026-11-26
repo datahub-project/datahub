@@ -1,11 +1,17 @@
 import json
 import logging
 import ssl
+import threading
 import time
 from contextlib import contextmanager
 from typing import Callable, Dict, Iterator, List, Literal, Optional, Set, Union
 
-from websocket import WebSocket, create_connection
+from websocket import (
+    WebSocket,
+    WebSocketConnectionClosedException,
+    WebSocketTimeoutException,
+    create_connection,
+)
 
 from datahub.ingestion.source.qlik_sense.config import Constant
 from datahub.ingestion.source.qlik_sense.data_classes import Chart, Sheet
@@ -14,6 +20,57 @@ logger = logging.getLogger(__name__)
 
 # Engine JSON-RPC error code LOCERR_GENERIC_ACCESS_DENIED.
 ENGINE_ACCESS_DENIED = 5
+
+# The Engine's connection can time out or drop while it is being opened, as
+# happens on busy tenants. Nothing has been sent yet, so it is safe to retry.
+# Authentication and certificate errors are not retried.
+CONNECT_ATTEMPTS = 3
+CONNECT_RETRY_SECONDS = 2.0
+_TRANSIENT_CONNECT_ERRORS = (
+    TimeoutError,
+    ConnectionError,
+    WebSocketTimeoutException,
+    WebSocketConnectionClosedException,
+)
+# A refused connection means nothing listens on the Engine port, as while the
+# Engine service restarts, which takes minutes rather than seconds.
+REFUSED_RETRY_SECONDS = 15.0
+REFUSED_BUDGET_SECONDS = 300.0
+
+
+class RefusedConnectionBudget:
+    """How long connections to one Engine are retried while it refuses them.
+    It is shared by all workers and counts from the first refusal in a row, so an
+    Engine that stays down fails each app read at once instead of after its own
+    wait. Any other outcome of a connection attempt starts a new count."""
+
+    def __init__(self, seconds: float = REFUSED_BUDGET_SECONDS) -> None:
+        self.seconds = seconds
+        self._lock = threading.Lock()
+        self._refused_since: Optional[float] = None
+        self._longest_streak = 0.0
+
+    def record_refusal(self) -> bool:
+        """Records a refusal and returns whether the budget still allows a retry."""
+        with self._lock:
+            now = time.monotonic()
+            if self._refused_since is None:
+                self._refused_since = now
+            self._longest_streak = max(self._longest_streak, now - self._refused_since)
+            return now - self._refused_since < self.seconds
+
+    def reset(self) -> None:
+        with self._lock:
+            if self._refused_since is not None:
+                self._longest_streak = max(
+                    self._longest_streak, time.monotonic() - self._refused_since
+                )
+            self._refused_since = None
+
+    @property
+    def longest_streak_seconds(self) -> float:
+        with self._lock:
+            return self._longest_streak
 
 
 class EngineError(RuntimeError):
@@ -34,22 +91,76 @@ class WebsocketConnection:
         match_response_id: bool = False,
         sslopt: Optional[Dict[str, object]] = None,
         timeout: Optional[float] = None,
+        refusals: Optional[RefusedConnectionBudget] = None,
     ) -> None:
         self._match_response_id = match_response_id
         # Applies to the handshake and to each receive.
         self._timeout = timeout
-        self.socket_connection: Optional[WebSocket] = create_connection(
-            url,
-            header=header,
-            sslopt=sslopt or {},
-            # The pure-Python frame check costs more CPU than the rest of an app
-            # read, and recv() already rejects invalid UTF-8 when it decodes.
-            skip_utf8_validation=True,
-            timeout=timeout,
+        self.socket_connection: Optional[WebSocket] = self._connect(
+            url, header, sslopt or {}, timeout, refusals
         )
         self.request_id = 0
         # Engine object handles, innermost last; -1 is the global handle.
         self._handles = [-1]
+
+    @staticmethod
+    def _connect(
+        url: str,
+        header: Dict[str, str],
+        sslopt: Dict[str, object],
+        timeout: Optional[float],
+        refusals: Optional[RefusedConnectionBudget],
+    ) -> WebSocket:
+        def connect() -> WebSocket:
+            return create_connection(
+                url,
+                header=header,
+                sslopt=sslopt,
+                # The pure-Python frame check costs more CPU than the rest of
+                # an app read, and recv() already rejects invalid UTF-8 when it
+                # decodes.
+                skip_utf8_validation=True,
+                timeout=timeout,
+            )
+
+        attempt = 1
+        first_refusal: Optional[float] = None
+        while True:
+            try:
+                connection = connect()
+            except Exception as e:
+                if refusals is not None and isinstance(e, ConnectionRefusedError):
+                    now = time.monotonic()
+                    if first_refusal is None:
+                        first_refusal = now
+                    # Other workers' outcomes reset the shared count, so this read
+                    # also stops once it has waited for the whole budget itself.
+                    if (
+                        not refusals.record_refusal()
+                        or now - first_refusal >= refusals.seconds
+                    ):
+                        raise
+                    logger.info(
+                        f"Engine at {url} refused the connection, retrying: {e}"
+                    )
+                    time.sleep(REFUSED_RETRY_SECONDS)
+                    continue
+                if refusals is not None:
+                    refusals.reset()
+                if not isinstance(e, _TRANSIENT_CONNECT_ERRORS) or (
+                    attempt >= CONNECT_ATTEMPTS
+                ):
+                    raise
+                logger.info(
+                    f"Retrying Engine connection to {url} after attempt "
+                    f"{attempt} failed: {e}"
+                )
+                time.sleep(CONNECT_RETRY_SECONDS * attempt)
+                attempt += 1
+            else:
+                if refusals is not None:
+                    refusals.reset()
+                return connection
 
     @classmethod
     def for_cloud(
@@ -59,9 +170,14 @@ class WebsocketConnection:
         app_id: str,
         timeout: Optional[float] = None,
     ) -> "WebsocketConnection":
+        # Qlik Cloud also sends push notifications, such as OnConnected and
+        # session events, between replies. Matching replies by id skips them;
+        # reading the next message instead would pair each later request with
+        # the reply to the one before it.
         return cls(
             f"wss://{tenant_hostname}/app/{app_id}",
             header={"Authorization": f"Bearer {api_key}"},
+            match_response_id=True,
             timeout=timeout,
         )
 
@@ -78,6 +194,7 @@ class WebsocketConnection:
         assert_hostname: Union[str, Literal[False], None] = None,
         key_password: Optional[str] = None,
         timeout: Optional[float] = None,
+        refusals: Optional[RefusedConnectionBudget] = None,
     ) -> "WebsocketConnection":
         # Direct Engine access. Certificate auth does not go through the proxy,
         # and the engine interleaves JSON-RPC replies with push notifications.
@@ -99,6 +216,7 @@ class WebsocketConnection:
             match_response_id=True,
             sslopt=sslopt,
             timeout=timeout,
+            refusals=refusals,
         )
 
     @property
@@ -126,12 +244,22 @@ class WebsocketConnection:
         }
 
     @staticmethod
-    def _result(message: Dict) -> Dict:
+    def _result(message: Dict, request: Dict) -> Dict:
         if "error" in message:
             raise EngineError(message["error"])
+        if Constant.RESULT not in message:
+            # Usually a push notification, such as a session or reload event,
+            # read in place of the reply.
+            raise EngineError(
+                {
+                    "message": f"Engine reply to {request['method']} (request "
+                    f"{request['id']}) has no result: {json.dumps(message)[:300]}"
+                }
+            )
         return message[Constant.RESULT]
 
-    def _recv_matching(self, socket_connection: WebSocket, request_id: int) -> Dict:
+    def _recv_matching(self, socket_connection: WebSocket, request: Dict) -> Dict:
+        request_id = request["id"]
         # Push notifications keep each receive short of the socket timeout, so
         # the whole wait for the reply is bounded too.
         deadline = time.monotonic() + self._timeout if self._timeout else None
@@ -145,18 +273,18 @@ class WebsocketConnection:
                     f"No Engine reply to request {request_id} within {self._timeout}s"
                 )
             if message.get("id") == request_id:
-                return self._result(message)
+                return self._result(message, request)
 
     def _send_request(self, request: Dict) -> Dict:
         if not self.socket_connection:
             return {}
         self.socket_connection.send(json.dumps(request))
         if self._match_response_id:
-            return self._recv_matching(self.socket_connection, request["id"])
+            return self._recv_matching(self.socket_connection, request)
         resp = self.socket_connection.recv()
         if request["handle"] == -1:
             resp = self.socket_connection.recv()
-        return self._result(json.loads(resp))
+        return self._result(json.loads(resp), request)
 
     def websocket_send_request(
         self, method: str, params: Optional[Union[Dict, List]] = None
@@ -177,6 +305,43 @@ class WebsocketConnection:
         """Load script of the open app. Must be called on the app handle."""
         response = self.websocket_send_request(method="GetScript")
         return response.get(Constant.QSCRIPT) or ""
+
+    def get_variables(self) -> Dict[str, str]:
+        """Definitions of the app's variables, by name, as the app was last
+        saved or reloaded, including variables set in included script files.
+        Must be called on the app handle."""
+        with self.restore_handle():
+            self.websocket_send_request(
+                method="CreateSessionObject",
+                params={
+                    "qProp": {
+                        "qInfo": {"qType": "VariableList"},
+                        "qVariableListDef": {
+                            "qType": "variable",
+                            "qShowReserved": False,
+                            "qShowConfig": False,
+                        },
+                    }
+                },
+            )
+            layout = self.websocket_send_request(method="GetLayout")
+        items = layout[Constant.QLAYOUT]["qVariableList"]["qItems"]
+        return {item["qName"]: item.get("qDefinition") or "" for item in items}
+
+    def get_data_model_tables(self) -> List[Dict]:
+        """The tables of the app's data model, with their fields, as the last
+        reload left them. Needs the app opened with its data."""
+        response = self.websocket_send_request(
+            method="GetTablesAndKeys",
+            params={
+                "qWindowSize": {"qcx": 0, "qcy": 0},
+                "qNullSize": {"qcx": 0, "qcy": 0},
+                "qCellHeight": 0,
+                "qSyntheticMode": False,
+                "qIncludeSysVars": False,
+            },
+        )
+        return response.get("qtr") or []
 
     def get_object_properties(
         self, on_fallback: Callable[[str], None]

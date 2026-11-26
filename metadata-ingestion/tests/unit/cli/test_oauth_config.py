@@ -4,7 +4,7 @@ import base64
 import json
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Iterator, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,8 +26,8 @@ from datahub.entrypoints import init
 @pytest.fixture
 def config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path = tmp_path / ".datahubenv"
-    monkeypatch.setattr("datahub.entrypoints.DATAHUB_CONFIG_PATH", str(path))
-    monkeypatch.setattr("datahub.cli.config_utils.DATAHUB_CONFIG_PATH", str(path))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("DATAHUB_PROFILE", raising=False)
     return path
 
 
@@ -211,10 +211,7 @@ class TestRefreshOAuthTokenIfNeeded:
     def test_returns_none_when_no_config_file(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(
-            "datahub.cli.config_utils.DATAHUB_CONFIG_PATH",
-            str(tmp_path / "nonexistent.datahubenv"),
-        )
+        monkeypatch.setenv("HOME", str(tmp_path))
         result = refresh_oauth_token_if_needed()
         assert result is None
 
@@ -420,7 +417,7 @@ class TestRefreshOAuthTokenIfNeeded:
 
 class TestInitOAuthFlag:
     @pytest.fixture(autouse=True)
-    def _mock_pkce_login(self) -> Any:
+    def _mock_pkce_login(self) -> Iterator[MagicMock]:
         from datahub.cli.oauth_cli import OAuthResult
 
         result = OAuthResult(

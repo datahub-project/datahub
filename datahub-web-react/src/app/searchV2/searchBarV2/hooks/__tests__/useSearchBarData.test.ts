@@ -1,9 +1,10 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SearchBarDataOptions, useSearchBarData } from '@app/searchV2/searchBarV2/hooks/useSearchBarData';
 import { useAppConfig } from '@app/useAppConfig';
 import { SearchBarApi } from '@src/types.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const { search, autocomplete, selectedViewState } = vi.hoisted(() => ({
     search: vi.fn(),

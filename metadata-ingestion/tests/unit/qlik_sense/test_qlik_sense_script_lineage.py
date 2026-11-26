@@ -5,8 +5,8 @@ import pytest
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     apply_crosstable,
     apply_preceding_loads,
-    connection_lookup_names,
     drop_condition_variables,
+    expand_variables,
     expression_names,
     has_qualified_name,
     infer_data_connection,
@@ -413,14 +413,6 @@ def test_has_qualified_name(
     assert has_qualified_name(urn, platform, instance) == expected
 
 
-def test_connection_lookup_names_strips_cloud_space() -> None:
-    assert connection_lookup_names("Finance:Sales SQL") == [
-        "Finance:Sales SQL",
-        "Sales SQL",
-    ]
-    assert connection_lookup_names("Sales SQL") == ["Sales SQL"]
-
-
 PRECEDING_LOAD_SCRIPT = """
 LIB CONNECT TO 'Sales SQL';
 Orders:
@@ -803,7 +795,10 @@ FOR EACH vTable IN 'db.s.a', 'db.s.b'
   T: SQL SELECT * FROM $(vTable);
 NEXT vTable
 """
-    assert [t.sql for t in parse_load_script(script)] == ["SELECT * FROM $(vTable)"]
+    [table] = parse_load_script(script)
+    assert table.sql == "SELECT * FROM $(vTable)"
+    # So the warning doesn't send operators to script_variables for it.
+    assert table.runtime_variables == ["vTable"]
 
 
 def test_parse_load_script_stops_at_exit_script() -> None:
@@ -1038,3 +1033,27 @@ def test_crosstable_fields(
     assert (
         apply_crosstable(table.crosstable, table.preceding_loads, columns) == expected
     )
+
+
+@pytest.mark.parametrize(
+    "expression, expanded",
+    [
+        ("Aggr(Sum(Sales), Day, $(vGrain))", "Aggr(Sum(Sales), Day, HOUR)"),
+        # A variable can name another variable.
+        ("Sum($(vMeasure))", "Sum(Sales)"),
+        # An = definition expands to its calculated value, which is unknown.
+        ("Max($(vMax))", "Max($(vMax))"),
+        ("$(vUnknown)", "$(vUnknown)"),
+        ("$(=Max(Year))", "$(=Max(Year))"),
+        ("$(vSelf)", "$(vSelf)"),
+    ],
+)
+def test_variables_expand_to_their_definition(expression: str, expanded: str) -> None:
+    variables = {
+        "vGrain": "HOUR",
+        "vMeasure": "$(vField)",
+        "vField": "Sales",
+        "vMax": "=Max(Year)",
+        "vSelf": "$(vSelf)",
+    }
+    assert expand_variables(expression, variables) == expanded

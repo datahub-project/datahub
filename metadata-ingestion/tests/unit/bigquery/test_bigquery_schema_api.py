@@ -41,33 +41,36 @@ def make_api() -> BigQuerySchemaApi:
 
 
 def table_row(
-    name: str, table_type: str = "BASE TABLE", ddl: Optional[str] = None
+    name: str,
+    table_type: str = "BASE TABLE",
+    ddl: Optional[str] = None,
+    comment: Optional[str] = None,
 ) -> Row:
     return make_row(
         table_name=name,
         created=NOW,
         table_type=table_type,
-        comment=None,
+        comment=comment,
         ddl=ddl,
     )
 
 
-def view_row(name: str) -> Row:
+def view_row(name: str, comment: Optional[str] = None) -> Row:
     return make_row(
         table_name=name,
         created=NOW,
-        comment=None,
+        comment=comment,
         view_definition="SELECT 1",
         table_type="VIEW",
         labels=None,
     )
 
 
-def snapshot_row(name: str) -> Row:
+def snapshot_row(name: str, comment: Optional[str] = None) -> Row:
     return make_row(
         table_name=name,
         created=NOW,
-        comment=None,
+        comment=comment,
         ddl="CREATE SNAPSHOT",
         snapshot_time=NOW,
         base_table_catalog=PROJECT,
@@ -257,6 +260,14 @@ class TestTables:
 
         assert table.expires is None
 
+    def test_comment_is_decoded(self) -> None:
+        """table.comment reaches here as an escaped BigQuery SQL string literal."""
+        table = BigQuerySchemaApi._make_bigquery_table(
+            table_row("t", comment='"a\\nb \\"q\\""'), None
+        )
+
+        assert table.comment == 'a\nb "q"'
+
 
 class TestViewsAndSnapshots:
     def test_broken_view_row_is_reported(self) -> None:
@@ -288,6 +299,34 @@ class TestViewsAndSnapshots:
         assert snapshots[0].base_table_identifier is not None
         assert snapshots[0].base_table_identifier.table == "base"
         assert "Failed to process snapshot" in {w.title for w in report.warnings}
+
+    def test_view_comment_is_decoded(self) -> None:
+        api = make_api()
+        with patch.object(
+            api,
+            "get_query_result",
+            return_value=[view_row("v", comment='"a\\nb \\"q\\""')],
+        ):
+            views = list(
+                api.get_views_for_dataset(PROJECT, DATASET, False, BigQueryV2Report())
+            )
+
+        assert views[0].comment == 'a\nb "q"'
+
+    def test_snapshot_comment_is_decoded(self) -> None:
+        api = make_api()
+        with patch.object(
+            api,
+            "get_query_result",
+            return_value=[snapshot_row("s", comment='"a\\nb \\"q\\""')],
+        ):
+            snapshots = list(
+                api.get_snapshots_for_dataset(
+                    PROJECT, DATASET, True, BigQueryV2Report()
+                )
+            )
+
+        assert snapshots[0].comment == 'a\nb "q"'
 
 
 class TestConstraints:
@@ -391,13 +430,6 @@ class TestColumns:
             w.title for w in report.warnings
         }
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=AssertionError,
-        reason="get_columns_for_dataset checks column_limit against the `columns` "
-        "dict while iterating the cursor, but that dict is only populated from "
-        "raw_rows after the loop, so the limit never applies.",
-    )
     def test_column_limit_caps_the_columns_kept_per_table(self) -> None:
         api = make_api()
         report = BigQueryV2Report()
@@ -435,6 +467,78 @@ class TestColumns:
             w.title for w in report.warnings
         }
 
+    def test_policy_tag_failure_mid_stream_clears_raw_tags(self) -> None:
+        # Tags streamed before the failure must not be emitted as raw resource names.
+        api = make_api()
+        report = BigQueryV2Report()
+        rows = [
+            self._column_row(
+                "t1", "c0", 1, policy_tags=["projects/p/taxonomies/1/policyTags/2"]
+            ),
+            self._column_row("t2", "c0", 1, policy_tags=123),
+        ]
+        with (
+            patch.object(api, "get_query_result", return_value=rows),
+            patch.object(api, "build_policy_tag_display_name_mapping") as build_mapping,
+        ):
+            columns = api.get_columns_for_dataset(
+                PROJECT,
+                DATASET,
+                column_limit=10,
+                report=report,
+                extract_policy_tags_from_catalog=True,
+            )
+
+        assert columns is not None
+        assert columns["t1"][0].policy_tags == []
+        assert columns["t2"][0].policy_tags == []
+        build_mapping.assert_not_called()
+
+    def test_policy_tags_are_resolved_to_display_names(self) -> None:
+        api = make_api()
+        report = BigQueryV2Report()
+        tag = "projects/p/taxonomies/1/policyTags/2"
+        rows = [
+            self._column_row("tagged", "c0", 1, policy_tags=[tag]),
+            self._column_row("plain", "c0", 1, policy_tags=None),
+        ]
+        with (
+            patch.object(api, "get_query_result", return_value=rows),
+            patch.object(
+                api, "build_policy_tag_display_name_mapping", return_value={tag: "PII"}
+            ),
+        ):
+            columns = api.get_columns_for_dataset(
+                PROJECT,
+                DATASET,
+                column_limit=10,
+                report=report,
+                extract_policy_tags_from_catalog=True,
+            )
+
+        assert columns is not None
+        assert columns["tagged"][0].policy_tags == ["PII"]
+        assert columns["plain"][0].policy_tags == []
+
+    def test_non_contiguous_table_rows_are_merged_and_reported(self) -> None:
+        api = make_api()
+        report = BigQueryV2Report()
+        rows = [
+            self._column_row("a", "c0", 1),
+            self._column_row("b", "c0", 1),
+            self._column_row("a", "c1", 2),
+        ]
+        with patch.object(api, "get_query_result", return_value=rows):
+            columns = api.get_columns_for_dataset(
+                PROJECT, DATASET, column_limit=10, report=report
+            )
+
+        assert columns is not None
+        assert [c.name for c in columns["a"]] == ["c0", "c1"]
+        assert "Column rows for a table were not contiguous" in {
+            w.title for w in report.warnings
+        }
+
 
 def test_partition_info_rejects_blank_field_names() -> None:
     with pytest.raises(ValueError):
@@ -463,3 +567,18 @@ def test_dataset_metadata_batch_groups_by_location() -> None:
         {"location": "US", "names": {"b"}},
     ]
     assert [d.comment for d in datasets] == ["a doc", "b doc"]
+
+
+def test_dataset_comment_is_decoded() -> None:
+    """dataset.comment reaches here as an escaped BigQuery SQL string literal."""
+    api = make_api()
+    datasets = [BigqueryDataset(name="a", location="US")]
+
+    with patch.object(
+        api,
+        "_fetch_dataset_metadata_batch",
+        return_value={"a": {"description": '"a\\nb \\"q\\""'}},
+    ):
+        api._enrich_datasets_with_metadata(PROJECT, datasets)
+
+    assert datasets[0].comment == 'a\nb "q"'

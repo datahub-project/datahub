@@ -13,9 +13,9 @@ import SchemaFieldPrompts from '@app/entityV2/shared/entityForm/schemaFieldPromp
 import useShouldShowVerificationPrompt from '@app/entityV2/shared/entityForm/useShouldShowVerificationPrompt';
 import { DeferredRenderComponent } from '@app/sharedV2/DeferredRenderComponent';
 import Loading from '@app/sharedV2/Loading';
+import { Editor } from '@app/sharedV2/editor/Editor';
 import useHasComponentRendered from '@app/sharedV2/useHasComponentRendered';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 import { FormPrompt } from '@types';
 

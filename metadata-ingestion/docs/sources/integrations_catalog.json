@@ -249,6 +249,12 @@
       "Lower Casing"
     ]
   },
+  "langfuse": {
+    "platform_type": "AI+ML",
+    "connection_type": "Pull",
+    "title": "Langfuse",
+    "description": "Langfuse is an open-source LLM engineering platform for tracing, prompt management and evaluation of LLM applications."
+  },
   "ldap": {
     "platform_type": "Identity Provider",
     "connection_type": "Pull",
@@ -935,7 +941,6 @@
     "img_path": "img/logos/platforms/cratedb.svg"
   },
   "hightouch": {
-    "api_connector": true,
     "platform_type": "ETL/ELT",
     "title": "Hightouch",
     "description": "Reverse ETL platform that syncs data from your warehouse to business tools like CRMs, ad platforms, and SaaS apps.",
@@ -1083,6 +1088,12 @@
     "connection_type": "Pull",
     "description": "Import files and documentation from GitHub repositories into DataHub as Documents, keeping them discoverable and governed alongside the rest of your metadata. Ingested on a schedule through UI or CLI ingestion.",
     "img_path": "img/logos/platforms/github.png"
+  },
+  "gitlab": {
+    "platform_type": "Collaboration",
+    "connection_type": "Pull",
+    "description": "Import files and documentation from GitLab projects, on GitLab.com or a self-managed instance, into DataHub as Documents. Ingested on a schedule through UI or CLI ingestion.",
+    "img_path": "img/logos/platforms/gitlab.png"
   },
   "excel": {
     "platform_type": "Metadata Systems",

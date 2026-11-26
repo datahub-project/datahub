@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it } from 'vitest';
 
 import { useGetIngestionLink } from '@app/sharedV2/ingestionSources/useGetIngestionLink';
 import { PageRoutes } from '@conf/Global';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useGetIngestionLink', () => {
     it('should return INGESTION when ingestion sources exist', () => {

@@ -1,5 +1,6 @@
 plugins {
   id 'java-library'
+  id 'java-test-fixtures'
 }
 apply from: '../../gradle/coverage/java-coverage.gradle'
 
@@ -85,6 +86,7 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
   testImplementation externalDependency.hazelcastTest
+
   testImplementation externalDependency.bucket4jCore
   testImplementation externalDependency.bucket4jHazelcast
   testImplementation externalDependency.javatuples
@@ -102,6 +104,14 @@ dependencies {
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
 
+
+  // Process boot-test harness (io.datahubproject.test.boot), shared by the war, consumer-job and
+  // datahub-upgrade boot tests. See gradle/testing/boot-test.gradle.
+  testFixturesApi externalDependency.springBoot
+  testFixturesApi externalDependency.springKafka
+  testFixturesApi externalDependency.kafkaClients
+  testFixturesApi externalDependency.mockito
+  testFixturesApi externalDependency.testng
 
   constraints {
     implementation(externalDependency.snappy) {

@@ -264,6 +264,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsS
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserHomePageSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.siblings.SiblingGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.siblings.SiblingsSearchResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
@@ -416,6 +417,8 @@ import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.execution.DataFetcherResult;
 import graphql.language.InterfaceTypeDefinition;
+import graphql.language.ObjectTypeExtensionDefinition;
+import graphql.language.TypeName;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.StaticDataFetcher;
@@ -912,6 +915,7 @@ public class GmsGraphQLEngine {
     configureMetadataAttributionResolver(builder);
     configureVersionPropertiesResolvers(builder);
     configureVersionSetResolvers(builder);
+    configureGenericRelationshipsResolvers(builder);
     configureGlobalHomePageSettingsResolvers(builder);
     configurePageTemplateResolvers(builder);
     configureDataHubFileResolvers(builder);
@@ -966,6 +970,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(TESTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(STEPS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LINEAGE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(SIBLINGS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(PROPERTIES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE))
@@ -1076,6 +1081,34 @@ public class GmsGraphQLEngine {
     } catch (IOException e) {
       throw new RuntimeException("Failed to list GraphQL interface schema files", e);
     }
+  }
+
+  /**
+   * Object types that the interface schema files extend with {@code implements <interfaceName>}.
+   * graphql-java does not inherit data fetchers from an interface, so each implementer is wired.
+   *
+   * <p>Only {@code extend type ... implements} in {@code interfaces/*.graphql} is seen, not {@code
+   * type X implements} in other schema files or plugin schemas. EntityIncidentsWiringTest checks
+   * the built schema for any type this misses.
+   */
+  public static List<String> typesImplementing(@Nonnull final String interfaceName) {
+    final SchemaParser parser = new SchemaParser();
+    return interfaceSchemaFiles().stream()
+        .flatMap(
+            schemaFile ->
+                parser.parse(fileBasedSchema(schemaFile)).objectTypeExtensions().values().stream())
+        .flatMap(List::stream)
+        .filter(
+            extension ->
+                extension.getImplements().stream()
+                    .anyMatch(
+                        type ->
+                            type instanceof TypeName typeName
+                                && typeName.getName().equals(interfaceName)))
+        .map(ObjectTypeExtensionDefinition::getName)
+        .distinct()
+        .sorted()
+        .collect(Collectors.toList());
   }
 
   public static String fileBasedSchema(String fileName) {
@@ -1207,6 +1240,7 @@ public class GmsGraphQLEngine {
                     new ProductUpdateResolver(
                         this.productUpdateService, this.featureFlags, this.entityService))
                 .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
+                .dataFetcher("siblingGroups", new SiblingGroupsResolver(this.siblingGraphService))
                 .dataFetcher("search", new SearchResolver(this.entityClient))
                 .dataFetcher(
                     "searchAcrossEntities",
@@ -1840,6 +1874,13 @@ public class GmsGraphQLEngine {
                     new EntityTypeResolver(
                         entityTypes, (env) -> ((SearchResult) env.getSource()).getEntity())))
         .type(
+            "SiblingMember",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "entity",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((SiblingMember) env.getSource()).getEntity())))
+        .type(
             "MatchedField",
             typeWiring ->
                 typeWiring.dataFetcher(
@@ -2424,7 +2465,11 @@ public class GmsGraphQLEngine {
                         siblingGraphService,
                         restrictedService,
                         this.authorizationConfiguration,
-                        this.featureFlags)));
+                        this.featureFlags))
+                .dataFetcher(
+                    "relatedDocuments",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
+                        documentService, entityClient)));
   }
 
   private void configureEntityPathResolvers(final RuntimeWiring.Builder builder) {
@@ -2471,7 +2516,10 @@ public class GmsGraphQLEngine {
                 "manager",
                 new LoadableTypeResolver<>(
                     corpUserType,
-                    (env) -> ((CorpUserInfo) env.getSource()).getManager().getUrn())));
+                    (env) -> {
+                      final CorpUser manager = ((CorpUserInfo) env.getSource()).getManager();
+                      return manager != null ? manager.getUrn() : null;
+                    })));
     builder.type(
         "CorpUserHomePageSettings",
         typeWiring ->
@@ -2979,7 +3027,14 @@ public class GmsGraphQLEngine {
                 typeWiring
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
-                        "relationships", new EntityRelationshipsResultResolver(graphClient)))
+                        "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher(
+                        "lineage",
+                        new EntityLineageResultResolver(
+                            siblingGraphService,
+                            restrictedService,
+                            this.authorizationConfiguration,
+                            this.featureFlags)))
         .type(
             "ERModelRelationshipProperties",
             typeWiring ->
@@ -3819,7 +3874,14 @@ public class GmsGraphQLEngine {
                               : null;
                         }))
                 .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient))
-                .dataFetcher("aspects", new WeaklyTypedAspectsResolver()));
+                .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService,
+                        restrictedService,
+                        this.authorizationConfiguration,
+                        this.featureFlags)));
   }
 
   private void configureContractResolvers(final RuntimeWiring.Builder builder) {
@@ -3920,8 +3982,9 @@ public class GmsGraphQLEngine {
     builder.type(
         "DataHubRole",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "relationships", new EntityRelationshipsResultResolver(graphClient)));
+            typeWiring
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher("aspects", new WeaklyTypedAspectsResolver()));
   }
 
   private void configureViewResolvers(final RuntimeWiring.Builder builder) {
@@ -4295,19 +4358,16 @@ public class GmsGraphQLEngine {
                           : null;
                     })));
 
-    // Add incidents attribute to all entities that support it
-    final List<String> entitiesWithIncidents =
-        ImmutableList.of(
-            "Dataset",
-            "DataJob",
-            "DataFlow",
-            "Dashboard",
-            "Chart",
-            "MLModel",
-            "MLFeature",
-            "MLFeatureTable",
-            "SchemaFieldEntity");
-    for (String entity : entitiesWithIncidents) {
+    final List<String> incidentEntityTypes = typesImplementing(HAS_INCIDENTS_INTERFACE);
+    if (incidentEntityTypes.isEmpty()) {
+      // An empty classpath scan leaves every incidents field null. Log it rather than fail
+      // startup, so the rest of GMS (including ingestion) keeps running.
+      log.error(
+          "No GraphQL types implement {} in the interface schemas; incidents fields will resolve"
+              + " to null",
+          HAS_INCIDENTS_INTERFACE);
+    }
+    for (String entity : incidentEntityTypes) {
       builder.type(
           entity,
           typeWiring ->
@@ -4439,6 +4499,45 @@ public class GmsGraphQLEngine {
                           ? versionProperties.getVersionSet().getUrn()
                           : null;
                     })));
+  }
+
+  /**
+   * Entity types that declare {@code relationships} in the schema but whose own wiring doesn't
+   * register it. They resolve it from the graph like every other entity type.
+   */
+  private static final List<String> GENERIC_RELATIONSHIPS_TYPES =
+      List.of(
+          "AccessTokenMetadata",
+          "BusinessAttribute",
+          "DataContract",
+          "DataHubConnection",
+          "DataHubPageModule",
+          "DataHubPageTemplate",
+          "DataHubPolicy",
+          "DataPlatform",
+          "DataPlatformInstance",
+          "DataTypeEntity",
+          "EntityTypeEntity",
+          "ExecutionRequest",
+          "Form",
+          "Post",
+          "StructuredPropertyEntity",
+          "Test",
+          "VersionSet");
+
+  /**
+   * Adds {@code relationships} to the types' other data fetchers; the wiring merges per type. The
+   * entity service lets the resolver drop deleted neighbors unless the caller asks for them.
+   */
+  private void configureGenericRelationshipsResolvers(final RuntimeWiring.Builder builder) {
+    GENERIC_RELATIONSHIPS_TYPES.forEach(
+        type ->
+            builder.type(
+                type,
+                typeWiring ->
+                    typeWiring.dataFetcher(
+                        "relationships",
+                        new EntityRelationshipsResultResolver(graphClient, entityService))));
   }
 
   private void configureVersionSetResolvers(final RuntimeWiring.Builder builder) {

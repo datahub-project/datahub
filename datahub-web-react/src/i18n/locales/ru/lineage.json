@@ -74,6 +74,7 @@
     "levelFilter.directTooltip": "Показать напрямую связанные ассеты данных",
     "levelFilter.indirect": "косвенные",
     "levelFilter.indirectTooltip": "Показать косвенно связанные ассеты данных",
+    "loadError": "Не удалось загрузить граф lineage. Повторите попытку.",
     "manageLineage.changeToHome": "Сделать домашним",
     "manageLineage.dashboardNoDownstream": "У дашбордов нет нижестоящего lineage",
     "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",

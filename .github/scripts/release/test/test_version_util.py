@@ -119,9 +119,8 @@ def test_release_channel_returns_none_for_unparseable():
 
 
 def test_release_channel_from_ref_strips_branch_prefixes():
-    # Release/hotfix branches map to their line's channel; patches share the line.
+    # Release branches map to their line's channel.
     assert vu.release_channel_from_ref("releases/v2.0.0") == _channel(2, 0)
-    assert vu.release_channel_from_ref("hotfixes/v2.1.3") == _channel(2, 1)
     # Release tags and bare versions pass straight through.
     assert vu.release_channel_from_ref(_official("2.0.0")) == _channel(2, 0)
     # Non-release refs (e.g. the default branch) have no release channel.

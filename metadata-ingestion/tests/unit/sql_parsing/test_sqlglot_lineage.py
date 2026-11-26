@@ -1,4 +1,6 @@
 import pathlib
+import signal
+import time
 from typing import Dict, List, Optional
 
 import pytest
@@ -10,6 +12,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     sqlglot_lineage,
 )
 from datahub.testing.check_sql_parser_result import assert_sql_result
+from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
 
@@ -20,6 +23,36 @@ def _disable_cooperative_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_ENABLED", False
     )
+
+
+@pytest.mark.skipif(
+    not hasattr(signal, "setitimer"),
+    reason="interrupting optimize needs SIGALRM, which Windows lacks",
+)
+def test_optimize_timeout_skips_column_lineage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_ENABLED", True
+    )
+    monkeypatch.setattr(
+        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_SECONDS", 1
+    )
+
+    def _hang(*_args: object, **_kwargs: object) -> None:
+        time.sleep(30)
+
+    monkeypatch.setattr("sqlglot.optimizer.optimizer.optimize", _hang)
+
+    started = time.perf_counter()
+    result = sqlglot_lineage(
+        "SELECT a FROM t",
+        schema_resolver=SchemaResolver(platform="bigquery"),
+        override_dialect="bigquery",
+    )
+
+    assert time.perf_counter() - started < 5
+    assert isinstance(result.debug_info.column_error, CooperativeTimeoutError)
 
 
 def test_invalid_sql() -> None:
@@ -416,6 +449,115 @@ FROM source_db.dbo.source_table
 """,
         dialect="tsql",
         expected_file=RESOURCE_DIR / "test_mssql_insert_column_name_mapping.json",
+    )
+
+
+_INSERT_COLUMN_LIST_SCHEMAS = {
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)": {
+        "x": "VARCHAR",
+        "y": "NUMBER",
+    },
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src2,PROD)": {
+        "p": "VARCHAR",
+        "q": "NUMBER",
+    },
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt,PROD)": {
+        "a": "VARCHAR",
+        "b": "NUMBER",
+    },
+}
+
+
+@pytest.mark.parametrize(
+    "shape, sql, schemas",
+    [
+        pytest.param(
+            "swapped_names",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT b, a FROM my_db.my_schema.tgt2",
+            None,
+            id="swapped_names",
+        ),
+        pytest.param(
+            "different_names",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT x, y FROM my_db.my_schema.src",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="different_names",
+        ),
+        pytest.param(
+            "insert_overwrite",
+            "INSERT OVERWRITE INTO my_db.my_schema.tgt (b, a) SELECT y, x FROM my_db.my_schema.src",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="insert_overwrite",
+        ),
+        pytest.param(
+            "duplicate_select_names",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT s.x, s2.x "
+            "FROM my_db.my_schema.src s JOIN my_db.my_schema.src s2 ON s.y = s2.y",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="duplicate_select_names",
+        ),
+        pytest.param(
+            "union",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT x, y FROM my_db.my_schema.src "
+            "UNION ALL SELECT p, q FROM my_db.my_schema.src2",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="union",
+        ),
+        pytest.param(
+            "select_star_with_schema",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT * FROM my_db.my_schema.src",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="select_star_with_schema",
+        ),
+        pytest.param(
+            "select_star_without_schema",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT * FROM my_db.my_schema.src",
+            None,
+            id="select_star_without_schema",
+        ),
+        pytest.param(
+            # The unknown table's star stays unexpanded, so positions can't be matched
+            # even though the projection count equals the column list's.
+            "qualified_star_without_schema",
+            "INSERT INTO my_db.my_schema.tgt (a, b) SELECT u.*, s.x "
+            "FROM my_db.my_schema.unknown u JOIN my_db.my_schema.src s ON u.y = s.y",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="qualified_star_without_schema",
+        ),
+        pytest.param(
+            "count_mismatch",
+            "INSERT INTO my_db.my_schema.tgt (a) SELECT x, y FROM my_db.my_schema.src",
+            _INSERT_COLUMN_LIST_SCHEMAS,
+            id="count_mismatch",
+        ),
+        pytest.param(
+            # Snowflake folds the quoted target name like the rest of the query, so it
+            # still resolves to the target schema's declared casing.
+            "quoted_mixed_case_target",
+            'INSERT INTO my_db.my_schema.tgt_mixed ("CamelCase", b) '
+            "SELECT x, y FROM my_db.my_schema.src",
+            {
+                **_INSERT_COLUMN_LIST_SCHEMAS,
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt_mixed,PROD)": {
+                    "CamelCase": "VARCHAR",
+                    "b": "NUMBER",
+                },
+            },
+            id="quoted_mixed_case_target",
+        ),
+    ],
+)
+def test_insert_column_list_maps_positionally(
+    shape: str,
+    sql: str,
+    schemas: Optional[Dict[str, Dict[str, str]]],
+) -> None:
+    # The i-th SELECT output feeds the i-th listed target column, whatever it is named.
+    assert_sql_result(
+        sql,
+        dialect="snowflake",
+        schemas=schemas,
+        expected_file=RESOURCE_DIR / f"test_insert_column_list_{shape}.json",
     )
 
 
@@ -3018,6 +3160,286 @@ FROM My_Dict
         expected_file=RESOURCE_DIR
         / "test_clickhouse_bare_dictget_unqualified_source_keeps_db_urn.json",
     )
+
+
+def test_snowflake_copy_into_uri() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM 'gcs://b/p/'",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_copy_into_uri.json",
+    )
+
+
+def test_snowflake_copy_into_stage() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM @stg/p",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_copy_into_stage.json",
+    )
+
+
+def test_snowflake_copy_into_column_list() -> None:
+    assert_sql_result(
+        "COPY INTO t (a, b) FROM 's3://b/p/'",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_copy_into_column_list.json",
+    )
+
+
+def test_snowflake_copy_into_from_table() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM other_table",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_copy_into_from_table.json",
+    )
+
+
+def test_snowflake_copy_into_from_stage_select() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM (SELECT $1, $2 FROM @stg/p)",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_copy_into_from_stage_select.json",
+    )
+
+
+def test_snowflake_copy_unload_to_stage() -> None:
+    assert_sql_result(
+        "COPY INTO @stg/out FROM src",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_copy_unload_to_stage.json",
+    )
+
+
+def test_snowflake_grant() -> None:
+    assert_sql_result(
+        "GRANT SELECT ON v TO ROLE r",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_grant.json",
+    )
+
+
+def test_snowflake_revoke() -> None:
+    assert_sql_result(
+        "REVOKE SELECT ON v FROM ROLE r",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_revoke.json",
+    )
+
+
+def test_postgres_copy_to_file() -> None:
+    assert_sql_result(
+        "COPY t TO '/f'",
+        dialect="postgres",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_postgres_copy_to_file.json",
+    )
+
+
+def test_postgres_copy_from_file() -> None:
+    assert_sql_result(
+        "COPY t FROM '/f'",
+        dialect="postgres",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_postgres_copy_from_file.json",
+    )
+
+
+def test_postgres_copy_subquery_to_file() -> None:
+    assert_sql_result(
+        "COPY (SELECT a FROM src) TO '/f'",
+        dialect="postgres",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_postgres_copy_subquery_to_file.json",
+    )
+
+
+def test_redshift_copy_subquery_to_s3() -> None:
+    assert_sql_result(
+        "COPY (SELECT a FROM src) TO 's3://b/p'",
+        dialect="redshift",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_redshift_copy_subquery_to_s3.json",
+    )
+
+
+def test_snowflake_copy_into_unquoted_file_format() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM @stg/p FILE_FORMAT=(FORMAT_NAME=db.s.ff)",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_copy_into_unquoted_file_format.json",
+    )
+
+
+def test_snowflake_copy_into_from_stage_select_unquoted_file_format() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM (SELECT $1 FROM @stg/p) FILE_FORMAT=(FORMAT_NAME=ff)",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_copy_into_from_stage_select_unquoted_file_format.json",
+    )
+
+
+def test_snowflake_truncate_table() -> None:
+    assert_sql_result(
+        "TRUNCATE TABLE t",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_truncate_table.json",
+    )
+
+
+def test_redshift_copy_from_s3() -> None:
+    assert_sql_result(
+        "COPY t FROM 's3://b/p' IAM_ROLE 'arn:aws:iam::1:role/r' FORMAT AS PARQUET",
+        dialect="redshift",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_redshift_copy_from_s3.json",
+    )
+
+
+def test_snowflake_insert_from_stage() -> None:
+    assert_sql_result(
+        "INSERT INTO t SELECT $1 FROM @stg/p",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_insert_from_stage.json",
+    )
+
+
+def test_snowflake_ctas_from_stage() -> None:
+    assert_sql_result(
+        "CREATE TABLE t AS SELECT $1 FROM @stg/p",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_ctas_from_stage.json",
+    )
+
+
+def test_snowflake_select_from_stage() -> None:
+    assert_sql_result(
+        "SELECT $1 FROM @stg/p",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_select_from_stage.json",
+    )
+
+
+def test_databricks_copy_into_from_uri_select() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM (SELECT a FROM 's3://b/p') FILEFORMAT = PARQUET",
+        dialect="databricks",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_databricks_copy_into_from_uri_select.json",
+    )
+
+
+def test_databricks_copy_into_from_non_storage_uri_select() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM (SELECT a FROM `raw://events`) FILEFORMAT = PARQUET",
+        dialect="databricks",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR
+        / "test_databricks_copy_into_from_non_storage_uri_select.json",
+    )
+
+
+def test_databricks_copy_into_from_dbfs_select() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM (SELECT a FROM 'dbfs:/mnt/p') FILEFORMAT = PARQUET",
+        dialect="databricks",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_databricks_copy_into_from_dbfs_select.json",
+    )
+
+
+def test_databricks_copy_into_from_file_select() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM (SELECT a FROM 'file:/tmp/p') FILEFORMAT = PARQUET",
+        dialect="databricks",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_databricks_copy_into_from_file_select.json",
+    )
+
+
+def test_postgres_grant() -> None:
+    assert_sql_result(
+        "GRANT SELECT ON v TO r",
+        dialect="postgres",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_postgres_grant.json",
+    )
+
+
+def test_ddl_statements_skip_column_lineage() -> None:
+    resolver = SchemaResolver(platform="snowflake")
+    for sql in (
+        "DROP TABLE t",
+        "TRUNCATE TABLE t",
+        "ALTER TABLE t ADD COLUMN c INT",
+        "ALTER SESSION SET TIMEZONE = 'UTC'",
+        "COPY INTO t FROM 'gcs://b/p/'",
+        "COPY INTO @stg/out FROM src",
+        "GRANT SELECT ON v TO ROLE r",
+        "REVOKE SELECT ON v FROM ROLE r",
+    ):
+        result = sqlglot_lineage(
+            sql,
+            schema_resolver=resolver,
+            default_db="db",
+            default_schema="schema",
+        )
+        assert result.debug_info.column_error is None, sql
+        assert result.debug_info.error is None, sql
+
+
+def test_snowflake_truncate_multiple_tables_are_writes() -> None:
+    result = sqlglot_lineage(
+        "TRUNCATE TABLE a, b",
+        schema_resolver=SchemaResolver(platform="snowflake"),
+        default_db="db",
+        default_schema="schema",
+    )
+    assert result.in_tables == []
+    assert {DatasetUrn.from_string(urn).name for urn in result.out_tables} == {
+        "db.schema.a",
+        "db.schema.b",
+    }
+    assert result.debug_info.column_error is None
 
 
 def test_clickhouse_materialized_view_to_table() -> None:

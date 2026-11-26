@@ -15,6 +15,7 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     PLATFORM,
     ExternalPlatforms,
     ExternalURLs,
+    ResourceKinds,
     URIPatterns,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import ArtifactURNs
@@ -37,9 +38,12 @@ class VertexAIUrnBuilder:
         self._name_formatter = VertexAINameFormatter(get_project_id_fn)
 
     def make_ml_model_urn(self, model_version: VersionInfo, model_name: str) -> str:
+        return self.make_ml_model_version_urn(model_name, model_version.version_id)
+
+    def make_ml_model_version_urn(self, model_name: str, version_id: str) -> str:
         return builder.make_ml_model_urn(
             platform=self.platform,
-            model_name=f"{model_name}_{model_version.version_id}",
+            model_name=f"{model_name}_{version_id}",
             env=self.env,
         )
 
@@ -77,58 +81,58 @@ class VertexAINameFormatter:
         self._get_project_id = get_project_id_fn
 
     def format_model_group_name(self, entity_id: str) -> str:
-        return f"{self._get_project_id()}.model_group.{entity_id}"
+        return f"{self._get_project_id()}.{ResourceKinds.MODEL_GROUP}.{entity_id}"
 
     def format_endpoint_name(self, entity_id: str) -> str:
-        return f"{self._get_project_id()}.endpoint.{entity_id}"
+        return f"{self._get_project_id()}.{ResourceKinds.ENDPOINT}.{entity_id}"
 
     def format_model_name(self, entity_id: str) -> str:
-        return f"{self._get_project_id()}.model.{entity_id}"
+        return f"{self._get_project_id()}.{ResourceKinds.MODEL}.{entity_id}"
 
     def format_dataset_name(self, entity_id: str) -> str:
-        return f"{self._get_project_id()}.dataset.{entity_id}"
+        return f"{self._get_project_id()}.{ResourceKinds.DATASET}.{entity_id}"
 
     def format_job_name(self, entity_id: Optional[str]) -> str:
         if entity_id is None:
             raise ValueError("entity_id cannot be None for job name formatting")
-        return f"{self._get_project_id()}.job.{entity_id}"
+        return f"{self._get_project_id()}.{ResourceKinds.JOB}.{entity_id}"
 
     def format_experiment_id(self, entity_id: Optional[str]) -> str:
         if entity_id is None:
             raise ValueError("entity_id cannot be None for experiment ID formatting")
-        return f"{self._get_project_id()}.experiment.{entity_id}"
+        return f"{self._get_project_id()}.{ResourceKinds.EXPERIMENT}.{entity_id}"
 
     def format_experiment_run_name(self, entity_id: Optional[str]) -> str:
         if entity_id is None:
             raise ValueError(
                 "entity_id cannot be None for experiment run name formatting"
             )
-        return f"{self._get_project_id()}.experiment_run.{entity_id}"
+        return f"{self._get_project_id()}.{ResourceKinds.EXPERIMENT_RUN}.{entity_id}"
 
     def format_run_execution_name(self, entity_id: Optional[str]) -> str:
         if entity_id is None:
             raise ValueError(
                 "entity_id cannot be None for run execution name formatting"
             )
-        return f"{self._get_project_id()}.execution.{entity_id}"
+        return f"{self._get_project_id()}.{ResourceKinds.EXECUTION}.{entity_id}"
 
     def format_pipeline_run_id(self, entity_id: Optional[str]) -> str:
         """Format ID for a pipeline run (execution instance)."""
         if entity_id is None:
             raise ValueError("entity_id cannot be None for pipeline run ID formatting")
-        return f"{self._get_project_id()}.pipeline_run.{entity_id}"
+        return f"{self._get_project_id()}.{ResourceKinds.PIPELINE_RUN}.{entity_id}"
 
     def format_pipeline_task_run_id(self, entity_id: Optional[str]) -> str:
         if entity_id is None:
             raise ValueError(
                 "entity_id cannot be None for pipeline task run ID formatting"
             )
-        return f"{self._get_project_id()}.pipeline_task_run.{entity_id}"
+        return f"{self._get_project_id()}.{ResourceKinds.PIPELINE_TASK_RUN}.{entity_id}"
 
     def format_evaluation_name(self, entity_id: Optional[str]) -> str:
         if entity_id is None:
             raise ValueError("entity_id cannot be None for evaluation name formatting")
-        return f"{self._get_project_id()}.model_evaluation.{entity_id}"
+        return f"{self._get_project_id()}.{ResourceKinds.MODEL_EVALUATION}.{entity_id}"
 
 
 class VertexAIExternalURLBuilder:

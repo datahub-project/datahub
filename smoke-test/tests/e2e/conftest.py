@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from typing import List, Optional, Set
@@ -11,7 +12,15 @@ from datahub.ingestion.graph.client import (
     DataHubGraph,
     get_default_graph,
 )
-from shard_pack import is_global_policy_mutator, items_for_batch, plan_collected_items
+from shard_pack import (
+    is_global_policy_mutator,
+    items_for_batch,
+    items_for_scopes,
+    loadscope_key,
+    plan_collected_items,
+)
+from smart_testing import collection as smart_testing
+from smart_testing.taxonomy import TagMap
 from tests.e2e.test_result_msg import send_message
 from tests.e2e.utils import (
     TestSessionWrapper,
@@ -27,6 +36,7 @@ from tests.e2e.utils import (
     wait_for_writes_to_sync,
 )
 from utilities import env_vars
+from utilities.backend_plugin import configured_backend
 from utilities.domains import (
     ALL_DOMAINS,
     domains_of,
@@ -220,14 +230,27 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
+_SMART_MODE = pytest.StashKey[smart_testing.Mode]()
+_SMART_TAG_MAP = pytest.StashKey[Optional[TagMap]]()
+
+
 def pytest_configure(config: pytest.Config) -> None:
     # Validate here rather than during collection: a bad value raised from
     # pytest_collection_modifyitems surfaces as an INTERNALERROR instead of a
     # readable usage error.
     try:
         parse_requested_domains(config.getoption("--domain"))
+        mode = smart_testing.parse_mode(env_vars.get_smart_testing_mode())
     except ValueError as exc:
         raise pytest.UsageError(str(exc)) from exc
+    config.stash[_SMART_MODE] = mode
+    # Off (the default) reads nothing: no tag map, no markers, no validation.
+    config.stash[_SMART_TAG_MAP] = smart_testing.load_for_mode(mode)
+    if mode is smart_testing.Mode.SHADOW:
+        config.pluginmanager.register(
+            smart_testing.FinalOutcomeRecorder(),
+            "smart-testing-final-outcome",
+        )
 
 
 def pytest_runtest_setup(item: Item) -> None:
@@ -254,7 +277,13 @@ def pytest_itemcollected(item: Item) -> None:
     ``_CHANGED_TESTS`` holds repo-relative paths while ``item.fspath`` is
     absolute, so match by suffix -- the same approach the FILTERED_TESTS retry
     path uses.
+
+    Also applies smart-testing tags from test_tags.yaml as markers, unless
+    smart testing is off.
     """
+    tag_map = item.config.stash.get(_SMART_TAG_MAP, None)
+    if tag_map is not None:
+        smart_testing.apply_markers(item, tag_map)
     if not _CHANGED_TESTS:
         return
     module_path = str(item.fspath)
@@ -315,6 +344,58 @@ def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
     logger.warning("Unknown SMOKE_POLICY_PHASE=%r; running all collected tests", phase)
 
 
+def _apply_batch_plan(config: pytest.Config, items: List[Item], path: str) -> None:
+    """Keep only the scopes the CI plan assigns to BATCH_NUMBER.
+
+    Fails closed: an unreadable plan or out-of-range batch stops the run rather
+    than silently running the whole collected suite.
+    """
+    batch_number = env_vars.get_batch_number()
+    try:
+        with open(path) as f:
+            plan = json.load(f)
+        scopes = plan["batches"][batch_number]["scopes"]
+    except (OSError, ValueError, KeyError, IndexError, TypeError) as exc:
+        pytest.exit(
+            f"SMOKE_BATCH_PLAN={path}: cannot read scopes for batch {batch_number}: {exc!r}",
+            returncode=pytest.ExitCode.USAGE_ERROR,
+        )
+    # A plan built for another backend lists scopes this run deselected (or
+    # misses ones it needs), which would otherwise only log the warning below.
+    # Plans from before the backend field existed were always docker/select.
+    backend, mode = configured_backend(config)
+    planned = (plan.get("backend", "docker"), plan.get("backend_mode", "select"))
+    if planned != (backend.value, mode.value):
+        pytest.exit(
+            f"SMOKE_BATCH_PLAN={path} was planned for SMOKE_BACKEND={planned[0]} "
+            f"SMOKE_BACKEND_MODE={planned[1]}, but this run uses "
+            f"{backend.value}/{mode.value}",
+            returncode=pytest.ExitCode.USAGE_ERROR,
+        )
+    kept = items_for_scopes(items, scopes)
+    matched = {loadscope_key(item.nodeid) for item in kept}
+    missing = [scope for scope in scopes if scope not in matched]
+    if missing:
+        # A planned scope that collects nothing here means the plan and this
+        # job's collection disagree (different -m, a skipped import, ...).
+        logger.warning(
+            "SMOKE_BATCH_PLAN: %s of %s planned scope(s) matched no collected test: %s",
+            len(missing),
+            len(scopes),
+            ", ".join(missing[:5]),
+        )
+    deselected = [item for item in items if loadscope_key(item.nodeid) not in matched]
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    logger.info(
+        "SMOKE_BATCH_PLAN: batch %s runs %s tests from %s planned scope(s)",
+        batch_number,
+        len(kept),
+        len(scopes),
+    )
+    items[:] = kept
+
+
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: List[Item]
@@ -335,6 +416,20 @@ def pytest_collection_modifyitems(
             )
 
     _apply_domain_filter(config, items)
+    batch_plan_path = env_vars.get_smoke_batch_plan()
+    if batch_plan_path:
+        # CI's smoke_test_matrix job already smart-selected and packed this run;
+        # the plan is the selection, so neither step repeats here.
+        _apply_batch_plan(config, items, batch_plan_path)
+    else:
+        smart_testing.filter_items(
+            config,
+            items,
+            mode=config.stash[_SMART_MODE],
+            tag_map=config.stash[_SMART_TAG_MAP],
+            raw_pr_tags=env_vars.get_smart_testing_tags(),
+            changed_tests=_CHANGED_TESTS,
+        )
 
     # Check if FILTERED_TESTS is set (for retry logic)
     filtered_tests_file = env_vars.get_filtered_tests_file()
@@ -377,6 +472,10 @@ def pytest_collection_modifyitems(
             )
             # Fall through to normal batching logic
 
+    if batch_plan_path:
+        _apply_smoke_policy_phase_filter(items)
+        return
+
     # Get batch configuration
     batch_count_env = env_vars.get_batch_count()
     batch_count = int(batch_count_env)
@@ -388,14 +487,21 @@ def pytest_collection_modifyitems(
         return
 
     xdist_workers = env_vars.get_pytest_xdist_workers()
-    packed = plan_collected_items(items, batch_count, xdist_workers)
+    backend, _ = configured_backend(config)
+    packed = plan_collected_items(
+        items,
+        batch_count,
+        xdist_workers,
+        weights_stem=backend.weights_stem,
+    )
 
     logger.info(
-        "Batching %s tests from %s scopes across %s batches (xdist_workers=%s)",
+        "Batching %s tests from %s scopes across %s batches (xdist_workers=%s, weights=%s)",
         len(items),
         len(packed.shards),
         batch_count,
         xdist_workers,
+        backend.weights_stem,
     )
 
     for i, plan in enumerate(packed.plans):

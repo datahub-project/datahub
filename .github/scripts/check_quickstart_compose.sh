@@ -63,5 +63,23 @@ if [ "$ORIGINAL_CONTENT" != "$NEW_CONTENT" ]; then
     exit 1
 fi
 
+# `docker compose config` freezes every ${VAR} it resolves, so the generator swaps
+# placeholders back for the ones users may override. Fail if one of them is lost.
+# datahub-ai-service's overrides (DATAHUB_MAPPED_AI_PORT, DATAHUB_AI_MCP_ENABLED,
+# DATAHUB_AI_IMAGE) join this list when the service joins the `quickstart` profile.
+MISSING=0
+for expr in \
+    '${DATAHUB_MAPPED_GMS_PORT:-8080}' \
+    '${DATAHUB_MAPPED_FRONTEND_PORT:-9002}'; do
+    if ! grep -qF -- "$expr" "$OUTPUT_FILE"; then
+        echo "ERROR: $OUTPUT_FILE no longer contains $expr"
+        MISSING=1
+    fi
+done
+if [ "$MISSING" -ne 0 ]; then
+    echo "Keep its placeholder in generateQuickstartComposeConfig (docker/build.gradle)."
+    exit 1
+fi
+
 echo "quickstart docker-compose config is up-to-date"
 exit 0

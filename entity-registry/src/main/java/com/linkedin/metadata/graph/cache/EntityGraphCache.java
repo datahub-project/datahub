@@ -210,4 +210,12 @@ public interface EntityGraphCache {
    * <p>See {@code docs/deploy/gms-entity-graph-cache.md} — Invalidation section.
    */
   void invalidateOnSyncBatch(@Nonnull SyncGraphInvalidationBatch batch);
+
+  /**
+   * Invalidates now, ignoring any {@code invalidation.visibility} a graph configures. For deletes
+   * and rollbacks that bypass the sync-index path and should not wait for a visibility bound.
+   */
+  default void invalidateImmediately(@Nonnull SyncGraphInvalidationBatch batch) {
+    invalidateOnSyncBatch(batch);
+  }
 }

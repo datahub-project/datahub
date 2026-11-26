@@ -1,6 +1,5 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import { useIsHomePage } from '@app/sharedV2/useIsHomePage';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock react-router
 const mockUseLocation = vi.fn();

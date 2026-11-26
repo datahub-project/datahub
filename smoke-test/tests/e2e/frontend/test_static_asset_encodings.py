@@ -11,6 +11,7 @@ import pytest
 import requests
 
 from tests.e2e.utils import get_frontend_url
+from utilities.backends import Capability
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.domain(Domain.PLATFORM),
     pytest.mark.p0,
+    pytest.mark.requires(Capability.PLAY_FRONTEND),
 ]
 
 _GZIP_MAGIC = b"\x1f\x8b"

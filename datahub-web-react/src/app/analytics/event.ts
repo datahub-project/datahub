@@ -187,6 +187,7 @@ export enum EventType {
     // Micro frontend (MFE) host events
     MfePageViewEvent,
     MfeLoadEvent,
+    GithubStarClickEvent,
 }
 
 /**
@@ -1112,6 +1113,11 @@ export interface WelcomeToDataHubModalClickViewDocumentationEvent extends BaseEv
     url: string;
 }
 
+export interface GithubStarClickEvent extends BaseEvent {
+    type: EventType.GithubStarClickEvent;
+    sourceType: 'welcomeModal' | 'resourcesMenu';
+}
+
 export interface ProductTourButtonClickEvent extends BaseEvent {
     type: EventType.ProductTourButtonClickEvent;
     originPage: string; // Page where the button was clicked
@@ -1352,11 +1358,11 @@ export interface DeleteDocumentEvent extends BaseEvent {
 }
 
 /**
- * Logged when a user imports documents from a source (file upload or GitHub).
+ * Logged when a user imports documents from a source (file upload, GitHub, GitLab, Notion or Confluence).
  */
 export interface ImportDocumentsEvent extends BaseEvent {
     type: EventType.ImportDocumentsEvent;
-    source: 'FILE_UPLOAD' | 'GITHUB' | 'NOTION' | 'CONFLUENCE';
+    source: 'FILE_UPLOAD' | 'GITHUB' | 'GITLAB' | 'NOTION' | 'CONFLUENCE';
     createdCount: number;
     updatedCount: number;
     failedCount: number;
@@ -1578,6 +1584,7 @@ export type Event =
     | WelcomeToDataHubModalExitEvent
     | WelcomeToDataHubModalClickViewDocumentationEvent
     | ProductTourButtonClickEvent
+    | GithubStarClickEvent
     | IngestionTestConnectionEvent
     | IngestionExecutionResultViewedEvent
     | IngestionViewAllClickEvent

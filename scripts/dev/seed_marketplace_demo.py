@@ -96,7 +96,9 @@ def emit_dataset(graph, platform: str, name: str, description: str) -> str:
     graph.emit_mcp(
         MetadataChangeProposalWrapper(
             entityUrn=urn,
-            aspect=DatasetPropertiesClass(name=name.split(".")[-1], description=description),
+            aspect=DatasetPropertiesClass(
+                name=name.split(".")[-1], description=description
+            ),
         )
     )
     return urn

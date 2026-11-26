@@ -396,10 +396,13 @@ def _poll_aggregate_lag(
             auth.note_denied()
             continue
         auth.note_ok()
+        # The local stack has no Kafka broker (in-memory queue), so the broker
+        # CLI fallback cannot run there.
         if (
             consumer_group
             and api_available
             and not group_found
+            and env_vars.get_smoke_backend() != "local"
             and _wait_for_kafka_consumer_group_lag(
                 consumer_group,
                 max(1, int(max_timeout_in_sec - (time.time() - start_time))),
@@ -626,7 +629,9 @@ def _capture_offset_targets(
             )
             return None
         for partition, (offset, lag) in partitions.items():
-            targets[(consumer_type, partition)] = offset + lag
+            # A partition with no lag has already consumed this call's write.
+            if lag > 0:
+                targets[(consumer_type, partition)] = offset + lag
     return targets
 
 
@@ -641,8 +646,12 @@ def _await_offset_targets(
     Returns the targets still outstanding (empty dict means fully consumed).
     """
     remaining = dict(targets)
+    first_check = True
     while remaining and time.time() < deadline:
-        time.sleep(poll_interval_sec)
+        # Check before the first sleep: the consumer has often caught up already.
+        if not first_check:
+            time.sleep(poll_interval_sec)
+        first_check = False
         for consumer_type in {c for (c, _p) in remaining}:
             endpoint = _MESSAGING_LAG_ENDPOINTS[consumer_type]
             partitions = _fetch_detailed_partitions(gms_url, endpoint)

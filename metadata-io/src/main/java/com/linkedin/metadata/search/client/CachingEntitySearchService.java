@@ -22,8 +22,11 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateHybrid;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -183,6 +186,38 @@ public class CachingEntitySearchService {
       @Nonnull List<String> facets) {
     size = ConfigUtils.applyLimit(entitySearchService.getSearchServiceConfig(), size);
     OperationContext bound = SearchTemplateRuntimes.bind(opContext, query, false, entityNames);
+    ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
+    if (SearchTemplateSurfaces.semantic(bound)) {
+      // The Java builder is keyword search, so semantic search without a template fails
+      if (resolved == null) {
+        throw new SearchTemplateFailClosedException(
+            "Semantic search runs a search template, and no template serves this request");
+      }
+      // A template that reaches no vector rung can only serve a keyword page, so it is not run.
+      // One the caller's searchTemplate named is a bad request. One a slot or seed selected is the
+      // deployment's misconfiguration, so it stays a server error.
+      if (!resolved.isVectorReachable()) {
+        final String message =
+            "Semantic search is served only by a vector rung, and search template "
+                + resolved.getUrn()
+                + " reaches none";
+        throw SearchTemplateMetrics.SLOT_CALLER.equals(resolved.getEngineSlot())
+            ? new SearchTemplateFailClosedException(
+                message,
+                new IllegalArgumentException(
+                    "SearchFlags.searchTemplate names "
+                        + resolved.getUrn()
+                        + ", which reaches no vector rung, and only a vector rung serves semantic"
+                        + " search"))
+            : new SearchTemplateFailClosedException(message);
+      }
+      return searchOnce(
+          bound, resolved, entityNames, query, filters, sortCriteria, from, size, facets);
+    }
+    if (resolved != null && resolved.isVectorReachable()) {
+      return searchOnce(
+          bound, resolved, entityNames, query, filters, sortCriteria, from, size, facets);
+    }
     return new CacheableSearcher<>(
             cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
             batchSize,
@@ -207,6 +242,56 @@ public class CachingEntitySearchService {
                     querySize),
             enableCache)
         .getSearchResults(opContext, from, size);
+  }
+
+  /**
+   * A template that can reach a vector rung runs once for the caller's page, not in batches: a
+   * vector rung retrieves one window sized from the page, and the ladder's predicates see the
+   * caller's size. The result is cached under that page, unless a vector rung failed over to the
+   * ladder's next, so the next search tries it again. Semantic search always runs here, and fails
+   * unless a vector rung served its page, so its cache key holds no other page.
+   */
+  @Nonnull
+  private SearchResult searchOnce(
+      @Nonnull OperationContext bound,
+      @Nonnull ResolvedSearchTemplate resolved,
+      @Nonnull List<String> entityNames,
+      @Nonnull String query,
+      @Nullable Filter filters,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      int size,
+      @Nonnull List<String> facets) {
+    final Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME);
+    final Object cacheKey =
+        Septet.with(
+            bound.getSearchContextId(),
+            cacheKeyList(entityNames),
+            query,
+            filters != null ? toJsonString(filters) : null,
+            CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
+            cacheKeyList(facets),
+            new CacheableSearcher.QueryPagination(from, size));
+    if (enableCache(bound.getSearchContext().getSearchFlags())) {
+      final String json = cache.get(cacheKey, String.class);
+      if (json != null) {
+        return toRecordTemplate(SearchResult.class, json);
+      }
+    }
+    final SearchResult result =
+        getRawSearchResults(bound, entityNames, query, filters, sortCriteria, from, size, facets);
+    // A keyword rung the ladder served, or a search that left the template path after bind, as one
+    // with the skip-template flag set inside it does
+    if (SearchTemplateSurfaces.semantic(bound) && !resolved.isVectorServed()) {
+      throw new SearchTemplateFailClosedException(
+          "Semantic search is served only by a vector rung, and search template "
+              + resolved.getUrn()
+              + " did not serve one");
+    }
+    if (enableCache && !resolved.isSkipResultCache()) {
+      cache.put(cacheKey, toJsonString(result));
+    }
+    return result;
   }
 
   /** Returns cached auto-complete results. */

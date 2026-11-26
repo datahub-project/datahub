@@ -1,9 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { useHideLineageInSearchCards } from '@app/useAppConfig';
 import { AppConfigContext } from '@src/appConfigContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import type { AppConfig } from '@types';
 

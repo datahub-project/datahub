@@ -140,9 +140,6 @@ export class DataProductEntity implements Entity<DataProduct> {
         },
         {
             component: SidebarDomainSection,
-            properties: {
-                updateOnly: true,
-            },
         },
         {
             component: SidebarApplicationSection,
@@ -290,11 +287,16 @@ export class DataProductEntity implements Entity<DataProduct> {
             domains: (data?.domain && [data?.domain?.domain]) || [],
             count: (data?.domain && 1) || 0,
         };
+        // Exposed as `children`, like domains and glossary nodes, so the entity menu can disable delete.
+        const children = data?.childDataProducts
+            ? { relationships: [], total: data.childDataProducts.total }
+            : undefined;
         return {
             name,
             externalUrl,
             entityCount,
             parentDomains,
+            children,
         };
     };
 

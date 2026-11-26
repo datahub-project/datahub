@@ -140,32 +140,8 @@ fragment glossaryNode on GlossaryNode {
         termsCount
         nodesCount
     }
-    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 1000 }) {
+    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
         total
-        relationships {
-            type
-            entity {
-                ... on HasProperties {
-                    properties {
-                        name
-                        description
-                    }
-                }
-                ... on GlossaryTerm {
-                    urn
-                    name
-                    type
-                    hierarchicalName
-                }
-                ... on GlossaryNode {
-                    urn
-                    type
-                    displayProperties {
-                        ...displayPropertiesFields
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -1929,6 +1905,7 @@ fragment entityPrivileges on EntityPrivileges {
     canEditLineage
     canEditDomains
     canEditDataProducts
+    canManageDataProducts
     canEditTags
     canEditGlossaryTerms
     canEditDescription
@@ -1941,6 +1918,7 @@ fragment entityPrivileges on EntityPrivileges {
     canEditSchemaFieldTags
     canEditSchemaFieldGlossaryTerms
     canEditSchemaFieldDescription
+    canEditSchemaFieldProperties
     canViewQueries
     canEditQueries
     canEditEmbed

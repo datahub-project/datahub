@@ -36,6 +36,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
 VIEWS = SnowflakeShowKind.VIEWS
 STREAMS = SnowflakeShowKind.STREAMS
 DYNAMIC_TABLES = SnowflakeShowKind.DYNAMIC_TABLES
+INTERACTIVE_TABLES = SnowflakeShowKind.INTERACTIVE_TABLES
 
 # Built from the enum so the fake connection recognises exactly the object classes the
 # connector can ask for - a new kind cannot be paged without this fixture understanding it.
@@ -129,6 +130,17 @@ def _row(kind: SnowflakeShowKind, schema_name: str, name: str) -> Dict[str, Any]
             "base_tables": None,
         }
     if kind == DYNAMIC_TABLES:
+        return {
+            "name": name,
+            "schema_name": schema_name,
+            "created_on": created,
+            "comment": None,
+            "text": f"CREATE DYNAMIC TABLE {name} AS SELECT 1",
+            "target_lag": "1 hour",
+            "bytes": 0,
+            "rows": 0,
+        }
+    if kind == INTERACTIVE_TABLES:
         return {
             "name": name,
             "schema_name": schema_name,

@@ -34,7 +34,7 @@ def convert_upstream_lineage_to_patch(
     for upstream in aspect.upstreams:
         patch_builder.add_upstream_lineage(upstream)
     for fine_upstream in aspect.fineGrainedLineages or []:
-        patch_builder.add_fine_grained_upstream_lineage(fine_upstream)
+        patch_builder.add_fine_grained_lineage(fine_upstream)
     mcp = next(iter(patch_builder.build()))
     return MetadataWorkUnit(id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp)
 
@@ -179,9 +179,11 @@ def convert_chart_info_to_patch(
     return None
 
 
-def convert_dashboard_info_to_patch(
+def dashboard_info_patch_builder(
     urn: str, aspect: DashboardInfoClass, system_metadata: Optional[SystemMetadataClass]
-) -> Optional[MetadataWorkUnit]:
+) -> DashboardPatchBuilder:
+    """A patch that adds the aspect's edges and sets its fields, which a caller
+    can add further operations to before building it."""
     patch_builder = DashboardPatchBuilder(urn, system_metadata)
 
     if aspect.customProperties:
@@ -226,7 +228,13 @@ def convert_dashboard_info_to_patch(
     if aspect.lastModified:
         patch_builder.set_last_modified(last_modified=aspect.lastModified)
 
-    values = patch_builder.build()
+    return patch_builder
+
+
+def convert_dashboard_info_to_patch(
+    urn: str, aspect: DashboardInfoClass, system_metadata: Optional[SystemMetadataClass]
+) -> Optional[MetadataWorkUnit]:
+    values = dashboard_info_patch_builder(urn, aspect, system_metadata).build()
 
     if values:
         logger.debug(

@@ -29,7 +29,7 @@ public class DeleteBusinessAttributeResolverTest {
   private void init() throws Exception {
     mockClient = Mockito.mock(EntityClient.class);
     references = Mockito.mock(EntityClient.ReferencesCleanup.class);
-    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
+    Mockito.when(mockClient.deleteReferencesThenEntity(any(), any())).thenReturn(references);
     mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     mockAuthentication = Mockito.mock(Authentication.class);
   }
@@ -60,7 +60,7 @@ public class DeleteBusinessAttributeResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntityThenReferences(
+        .deleteReferencesThenEntity(
             any(OperationContext.class),
             Mockito.eq(Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN)));
   }
@@ -81,7 +81,7 @@ public class DeleteBusinessAttributeResolverTest {
                 "Unauthorized to perform this action. Please contact your DataHub administrator."));
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .deleteEntityThenReferences(
+        .deleteReferencesThenEntity(
             any(OperationContext.class),
             Mockito.eq(Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN)));
   }
@@ -105,7 +105,7 @@ public class DeleteBusinessAttributeResolverTest {
             .equals(String.format("This urn does not exist: %s", TEST_BUSINESS_ATTRIBUTE_URN)));
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .deleteEntityThenReferences(
+        .deleteReferencesThenEntity(
             any(OperationContext.class),
             Mockito.eq(Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN)));
   }

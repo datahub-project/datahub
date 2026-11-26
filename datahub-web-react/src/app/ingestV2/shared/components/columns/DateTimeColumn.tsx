@@ -3,8 +3,8 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
-import isPresent from '@app/utils/isPresent';
 import dayjs from '@utils/dayjs';
+import isPresent from '@utils/isPresent';
 
 /**
  * l - M/D/YYYY

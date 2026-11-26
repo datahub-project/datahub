@@ -166,6 +166,40 @@ def get_smoke_dump_batch_plan() -> Optional[str]:
     return value or None
 
 
+def get_smoke_batch_plan() -> Optional[str]:
+    """Path to a CI-computed batch plan (SMOKE_BATCH_PLAN).
+
+    When set, conftest runs exactly the scopes planned for BATCH_NUMBER instead
+    of smart-filtering and re-packing the collected set itself.
+    """
+    value = os.getenv("SMOKE_BATCH_PLAN", "").strip()
+    return value or None
+
+
+def get_smoke_plan_smart_mode() -> str:
+    """Smart-testing mode recorded in the batch plan (SMOKE_PLAN_SMART_MODE).
+
+    Kept apart from SMOKE_SMART_TESTING so that recording the mode never turns
+    on conftest's own smart filtering while the plan is collected.
+    """
+    return os.getenv("SMOKE_PLAN_SMART_MODE", "").strip()
+
+
+def get_plan_target_batch_seconds(default: float) -> float:
+    """Per-batch pytest target for sizing a smart-selected matrix.
+
+    SMOKE_PLAN_TARGET_BATCH_SECONDS lets CI trade runners for wall clock on
+    pull requests without changing the planner's default. Unset, blank or not
+    a positive number means ``default``.
+    """
+    raw = os.getenv("SMOKE_PLAN_TARGET_BATCH_SECONDS", "").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 def get_pytest_xdist_workers() -> int:
     """pytest-xdist worker count used for a batch's parallel phase.
 
@@ -289,6 +323,29 @@ def get_smoke_changed_tests() -> List[str]:
     return raw.split() if raw else []
 
 
+def get_smart_testing_mode() -> str:
+    """Smart test selection mode (CI sets SMOKE_SMART_TESTING): off, shadow, or active."""
+    return os.getenv("SMOKE_SMART_TESTING", "off").strip().lower() or "off"
+
+
+def get_smart_testing_tags() -> str:
+    """PR tags JSON from the CI classifier (SMOKE_SMART_TAGS); empty means no filtering."""
+    return os.getenv("SMOKE_SMART_TAGS", "").strip()
+
+
+def get_smoke_backend() -> str:
+    """Stack the smoke tests run against (SMOKE_BACKEND): docker (default) or local.
+
+    See utilities/backends.py.
+    """
+    return os.getenv("SMOKE_BACKEND", "").strip() or "docker"
+
+
+def get_smoke_backend_mode() -> str:
+    """Which tests to run on SMOKE_BACKEND (SMOKE_BACKEND_MODE): select (default) or canary."""
+    return os.getenv("SMOKE_BACKEND_MODE", "").strip() or "select"
+
+
 def get_smoke_policy_phase() -> Optional[str]:
     """Smoke-test policy phase: ``1`` (non-mutators), ``2`` (mutators), or unset (all)."""
     raw = os.getenv("SMOKE_POLICY_PHASE", "").strip()
@@ -328,6 +385,16 @@ def get_elasticsearch_url() -> str:
 def get_elasticsearch_index() -> str:
     """Elasticsearch index name for usage events."""
     return os.getenv("ELASTICSEARCH_INDEX", "datahub_usage_event")
+
+
+def get_index_prefix() -> str:
+    """Search index prefix (INDEX_PREFIX). Empty on Docker; local stacks set one."""
+    return os.getenv("INDEX_PREFIX", "")
+
+
+def get_executor_url() -> str:
+    """Executor base URL (DATAHUB_EXECUTOR_URL)."""
+    return os.getenv("DATAHUB_EXECUTOR_URL", "http://localhost:9004")
 
 
 # ============================================================================
