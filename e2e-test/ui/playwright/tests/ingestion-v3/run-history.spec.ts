@@ -1,4 +1,4 @@
-import { test } from '../../fixtures/base-test';
+import { test, expect } from '../../fixtures/base-test';
 import { IngestionV3Page } from '../../pages/ingestion/v3/ingestion-v3.page';
 import { DomainTag, TestTag } from '../../utils/test-tags';
 
@@ -18,8 +18,6 @@ test.describe('run history tab in manage data sources', () => {
     ingestionPage = new IngestionV3Page(page, logger, logDir);
 
     await apiMock.setFeatureFlags({
-      showIngestionPageRedesign: true,
-      ingestionOnboardingRedesignV1: true,
       showNavBarRedesign: true,
     });
 
@@ -66,6 +64,21 @@ test.describe('run history tab in manage data sources', () => {
     await ingestionPage.runHistoryTab.open();
     await ingestionPage.runHistoryTab.filterBySource(FILTER_SOURCE_1);
 
+    await ingestionPage.runHistoryTab.expectExecutionRowVisible(FILTER_EXEC_1_URN);
+    await ingestionPage.runHistoryTab.expectExecutionRowHidden(FILTER_EXEC_2_URN);
+  });
+
+  test('keep the run history filters after returning from run details', async ({ page }) => {
+    await ingestionPage.runHistoryTab.open();
+    await ingestionPage.runHistoryTab.filterBySource(FILTER_SOURCE_1);
+    await ingestionPage.runHistoryTab.expectExecutionRowHidden(FILTER_EXEC_2_URN);
+    const filteredUrl = page.url();
+
+    await ingestionPage.runHistoryTab.openRunDetails(FILTER_EXEC_1_URN);
+    await expect(ingestionPage.runHistoryTab.backBreadcrumb).toHaveText('Run history');
+    await ingestionPage.runHistoryTab.backBreadcrumb.click();
+
+    await expect(page).toHaveURL(filteredUrl);
     await ingestionPage.runHistoryTab.expectExecutionRowVisible(FILTER_EXEC_1_URN);
     await ingestionPage.runHistoryTab.expectExecutionRowHidden(FILTER_EXEC_2_URN);
   });

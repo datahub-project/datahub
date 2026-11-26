@@ -4,18 +4,18 @@ import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import i18next from 'i18next';
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import SemanticModelPreview from '@app/entityV2/semanticModel/preview/SemanticModelPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
     EntityProfile,
     LineageTab,
     PropertiesTab,
+    SidebarApplicationSection,
     SidebarDomainSection,
     SidebarEntityHeader,
     SidebarGlossaryTermsSection,
@@ -24,7 +24,7 @@ import {
     SidebarTagsSection,
     SummaryTab,
 } from '@app/entityV2/shared/profileChunks';
-import { EntitySidebarTab, EntityTab } from '@app/entityV2/shared/types';
+import { EntitySidebarTab, EntityTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
 
 import { useGetSemanticModelQuery } from '@graphql/semanticModel.generated';
@@ -98,12 +98,16 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
             component: SidebarDomainSection,
         },
         {
+            component: SidebarApplicationSection,
+        },
+        {
             component: SidebarStructuredProperties,
         },
     ];
 
     getSidebarTabs = (): EntitySidebarTab[] => [
         {
+            key: EntitySidebarTabKey.LINEAGE,
             name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
             description: i18next.t('entity.types:sidebar.lineageDescription'),
@@ -113,6 +117,7 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
             },
         },
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
@@ -227,6 +232,7 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.LINEAGE,
         ]);
     };

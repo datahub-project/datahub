@@ -4,7 +4,7 @@ import omit from 'lodash/omit';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';

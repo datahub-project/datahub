@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { SearchBar } from '@components/components/SearchBar/SearchBar';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 
-import { useGetSiblingPlatforms } from '@app/entity/shared/siblingUtils';
+import { useGetSiblingPlatforms } from '@app/entityV2/shared/siblingUtils';
 import ChangeTransactionView, {
     ChangeTransactionEntry,
     VersionEntry,

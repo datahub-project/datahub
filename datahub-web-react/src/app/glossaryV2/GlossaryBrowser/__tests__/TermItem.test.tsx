@@ -33,11 +33,11 @@ const baseTerm = {
     domain: null,
 } as any;
 
-const renderTermItem = (term: any) =>
+const renderTermItem = (term: any, termUrnToHide?: string) =>
     render(
         <ThemeProvider theme={themeV2}>
             <BrowserRouter>
-                <TermItem term={term} depth={0} />
+                <TermItem term={term} depth={0} termUrnToHide={termUrnToHide} />
             </BrowserRouter>
         </ThemeProvider>,
     );
@@ -105,5 +105,17 @@ describe('TermItem — live deprecation state when this row is the open entity',
             deprecation: { deprecated: true, note: null, actor: null, decommissionTime: null },
         });
         expect(screen.getByTestId('deprecation-icon')).toBeInTheDocument();
+    });
+});
+
+describe('TermItem — termUrnToHide', () => {
+    it('hides the row when its urn matches termUrnToHide', () => {
+        renderTermItem(baseTerm, baseTerm.urn);
+        expect(screen.queryByText('Adoptions')).not.toBeInTheDocument();
+    });
+
+    it('shows the row when termUrnToHide is a different term', () => {
+        renderTermItem(baseTerm, 'urn:li:glossaryTerm:other');
+        expect(screen.getByText('Adoptions')).toBeInTheDocument();
     });
 });

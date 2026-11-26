@@ -220,6 +220,25 @@ meta_mapping:
 
 This will add `alice@company.com` and `bob@company.com` as owners (matching `.*@company.com`) but skip `contractor@external.com` (doesn't match the pattern).
 
+The same applies to `add_tag`, `add_term` and `add_terms`, including nested keys: each matching item produces its own tag or term. For list values, `{{ $match }}` is replaced with the whole matching item, even when the pattern only matches part of it.
+
+```yaml
+meta:
+  governance:
+    tags: ["Domain: Sales", "PII"]
+```
+
+```yaml
+meta_mapping:
+  governance.tags:
+    match: ".*"
+    operation: "add_tag"
+    config:
+      tag: "{{ $match }}"
+```
+
+This adds two tags, `Domain: Sales` and `PII`.
+
 #### dbt query_tag automated mappings
 
 This works similarly as the dbt meta mapping but for the query tags
@@ -468,6 +487,14 @@ source:
 ```
 
 If you have models that have tons of sources from other projects listed in the "Composed Of" section, it may also make sense to hide sources.
+
+#### Dremio
+
+With `target_platform: dremio`, dbt names datasets the way the Dremio source does (`dremio.<space or source>.<folders>.<table>`, lowercased, without dbt-dremio's `no_schema` folder), so dbt models link to the Dremio datasets as siblings and dbt lineage points at them.
+
+- Write `target_platform` in lowercase. Other casings name the data platform itself differently, and those datasets don't link to the Dremio source's.
+- Keep `include_database_name` at its default (`true`). Without the space or source, the names can't match.
+- For tables in nested folders (paths of more than 3 parts), column-level lineage may be missing for columns not qualified with a table alias; table-level lineage is unaffected.
 
 #### Reducing "composed of" sprawl by hiding sources
 

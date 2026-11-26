@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import { useMutationUrn } from '@app/entity/shared/EntityContext';
 import { pathMatchesExact } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { useMutationUrn } from '@app/entityV2/shared/EntityContext';
 import NotesSection from '@app/entityV2/shared/notes/NotesSection';
 import FieldBusinessAttribute from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldBusinessAttribute';
 import FieldDescription from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDescription';

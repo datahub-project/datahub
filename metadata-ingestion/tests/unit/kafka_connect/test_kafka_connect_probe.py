@@ -8,12 +8,6 @@ import re
 from typing import Dict, Iterable, List, Tuple
 from unittest import mock
 
-# jpype.imports must precede the kafka_connect modules: transform_plugins
-# imports java.util.regex at import time, which only resolves once it is
-# loaded. Run alone, this file would otherwise switch RegexRouter support off
-# for the whole process.
-import jpype
-import jpype.imports  # noqa: F401
 import pytest
 import requests
 import requests_mock
@@ -41,6 +35,7 @@ from datahub.ingestion.source.kafka_connect.kafka_connect_probe import (
     DISCLOSED_CONFIG_KEYS,
     PROBE_REQUEST_TIMEOUT_SECONDS,
     KafkaConnectMetadataProbe,
+    disclosed_config,
     source_for_probe,
 )
 from datahub.metadata.schema_classes import DataJobInputOutputClass
@@ -561,6 +556,22 @@ def test_no_disclosed_key_names_a_credential() -> None:
     assert not {"connection.url", "connection.uri", "query"} & DISCLOSED_CONFIG_KEYS
 
 
+def test_by_logical_table_router_routing_rule_is_disclosed() -> None:
+    disclosed = disclosed_config(
+        {
+            "transforms": "Reroute",
+            "transforms.Reroute.type": "io.debezium.transforms.ByLogicalTableRouter",
+            "transforms.Reroute.topic.regex": "(shard1)\\.(.*)\\.(.*)",
+            "transforms.Reroute.topic.replacement": "cdc-$3",
+            "transforms.Reroute.key.field.regex": "(.*)",
+        }
+    )
+
+    assert disclosed["transforms.Reroute.topic.regex"] == "(shard1)\\.(.*)\\.(.*)"
+    assert disclosed["transforms.Reroute.topic.replacement"] == "cdc-$3"
+    assert "transforms.Reroute.key.field.regex" not in disclosed
+
+
 def test_a_connector_deleted_after_listing_is_a_bad_argument() -> None:
     with requests_mock.Mocker() as m:
         _mock_cluster(m, CLUSTER, TOPICS)
@@ -880,3 +891,38 @@ def test_confluent_cloud_connectors_go_through_the_shim() -> None:
             ],
         )
     ]
+
+
+def test_a_connector_ingestion_cannot_parse_is_reported_as_not_emitted() -> None:
+    with requests_mock.Mocker() as m:
+        m.get(f"{CONNECT}/connectors", json=["odd"])
+        m.get(f"{CONNECT}/connectors/odd", json={"name": "odd", "config": {}})
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            assert probe.connector("odd") == {"name": "odd", "emitted": False}
+            assert probe.connector_topics("odd") == []
+            assert probe.connector_lineage("odd") == []
+
+
+def test_connector_topics_is_empty_when_the_runtime_api_is_switched_off() -> None:
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(
+            _recipe(use_connect_topics_api=False)
+        ) as probe:
+            assert probe.connector_topics("orders-sink") == []
+        assert not any("/topics" in r.url for r in m.request_history)
+
+
+def test_connector_lineage_honours_its_row_limit() -> None:
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            assert len(probe.connector_lineage("orders-sink", limit=1)) == 1
+
+
+def test_a_connector_listing_that_is_not_a_list_is_a_read_failure() -> None:
+    with requests_mock.Mocker() as m:
+        m.get(f"{CONNECT}/connectors", json={"error": "unexpected"})
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            with pytest.raises(ProbeReadFailed):
+                probe.connectors()

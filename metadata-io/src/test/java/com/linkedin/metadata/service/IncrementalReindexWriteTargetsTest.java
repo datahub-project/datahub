@@ -214,16 +214,33 @@ public class IncrementalReindexWriteTargetsTest {
   }
 
   @Test
-  public void testFillTargetsInSelectsRebuildsInFlight() {
+  public void testFillTargetsInSelectsFillsInFlight() {
     Map<String, String> state =
         IncrementalReindexState.setBackfillPending(null, V3_INDEX, V3_INDEX + "_next", 100L);
-    // A fill writing the alias itself is already reached by every live write.
     state = IncrementalReindexState.setBackfillPending(state, "tagindex_v3", "tagindex_v3", 100L);
     // A swapped index is a rollback target, not a fill target.
     state = phase1(state, V2_INDEX, V2_OLD_BACKING, IncrementalReindexState.Status.COMPLETED);
 
     assertEquals(
-        IncrementalReindexWriteTargets.fillTargetsIn(state), Map.of(V3_INDEX, V3_INDEX + "_next"));
+        IncrementalReindexWriteTargets.fillTargetsIn(state),
+        Map.of(V3_INDEX, V3_INDEX + "_next", "tagindex_v3", "tagindex_v3"));
+  }
+
+  @Test
+  public void testAFillInPlaceIsNotMirroredButIsReportedAsAnActiveTarget() {
+    IncrementalReindexWriteTargets targets =
+        new IncrementalReindexWriteTargets(
+            Map.of(),
+            Map.of(V3_INDEX, V3_INDEX + "_next", "tagindex_v3", "tagindex_v3"),
+            null,
+            null,
+            true);
+
+    // A live write already reaches the alias, so a fill in place has no copy to mirror into.
+    assertEquals(targets.fillTargetFor("tagindex_v3"), Optional.empty());
+    assertEquals(targets.activeFillTargetFor("tagindex_v3"), Optional.of("tagindex_v3"));
+    assertEquals(targets.fillTargetFor(V3_INDEX), Optional.of(V3_INDEX + "_next"));
+    assertEquals(targets.activeFillTargetFor(V3_INDEX), Optional.of(V3_INDEX + "_next"));
   }
 
   @Test

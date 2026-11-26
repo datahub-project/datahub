@@ -7,6 +7,7 @@ import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 import static com.linkedin.metadata.utils.metrics.ExceptionUtils.collectMetrics;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static io.datahubproject.metadata.context.SystemTelemetryContext.EVENT_SOURCE_KEY;
@@ -93,6 +94,8 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.SyncSearchIndexUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.UnknownReferenceMerger;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -104,6 +107,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.context.ValidationContext;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
@@ -171,6 +175,14 @@ import org.apache.commons.lang3.StringUtils;
  */
 @Slf4j
 public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
+  private static final UnknownDataGuard UNKNOWN_MCL =
+      UnknownDataGuard.forSite(EntityServiceImpl.class, "MCL");
+  private static final UnknownDataGuard UNKNOWN_READ =
+      UnknownDataGuard.forSite(EntityServiceImpl.class, "read of");
+  private static final UnknownDataGuard KEPT_REFERENCES =
+      UnknownDataGuard.forSite(EntityServiceImpl.class, "stored references in aspect write");
+  private static final UnknownDataGuard UNKNOWN_ROLLBACK_ROW =
+      UnknownDataGuard.forSite(EntityServiceImpl.class, "rollback row (left in place)");
 
   /**
    * As described above, the latest version of an aspect should <b>always</b> take the value 0, with
@@ -350,6 +362,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull SemanticNoOpComparator semanticNoOpComparator) {
 
     try {
+      // Before the no-op check, so writing back what was read changes nothing.
+      if (opContext != null && changeMCP.getRecordTemplate() != null) {
+        mergeStoredReferences(opContext, changeMCP, latestAspect);
+      }
+
       // This is the proposed version for this MCP, it can never be 0 (even if stored with row
       // version 0)
       long rowNextVersion = Math.max(1, changeMCP.getNextAspectVersion());
@@ -543,6 +560,64 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         storedSystemMetadata.getAspectCreated(GetMode.NULL), SetMode.REMOVE_IF_NULL);
   }
 
+  /**
+   * Puts back, in the version a rollback makes the latest, the references to entity types this
+   * version doesn't know (written by a newer version before a rollback), which reads drop: the
+   * older row is deleted after the copy, so they would be lost. The rest stays as read, so the
+   * restored record matches the system metadata copied with it (e.g. after a schema migration on
+   * read).
+   */
+  private static void restoreStoredReferences(
+      @Nonnull OperationContext opContext, @Nonnull final SystemAspect surviving) {
+    // Lazy: getDatabaseAspect() parses the stored row, which only tolerant handling needs.
+    handling()
+        .mergeStoredReferences(
+            surviving.getRecordTemplate(),
+            () -> surviving.getDatabaseAspect().map(SystemAspect::getRecordTemplate).orElse(null),
+            opContext.getEntityRegistry());
+  }
+
+  /**
+   * Keeps the stored references to entity types this version doesn't know (written by a newer
+   * version before a rollback), which reads drop, in the aspect being written, and rejects a write
+   * that adds one; a typo stays a client error. Compared with the stored row as written, not the
+   * in-memory latest aspect, so applying it again changes nothing.
+   */
+  private static void mergeStoredReferences(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final ChangeMCP changeMCP,
+      @Nullable final SystemAspect latestAspect) {
+    // Lazy: getDatabaseAspect() parses the stored row, which only tolerant handling needs.
+    final UnknownReferenceMerger.MergeResult result =
+        handling()
+            .mergeStoredReferences(
+                changeMCP.getRecordTemplate(),
+                () ->
+                    latestAspect == null
+                        ? null
+                        : latestAspect
+                            .getDatabaseAspect()
+                            .map(SystemAspect::getRecordTemplate)
+                            .orElse(null),
+                opContext.getEntityRegistry());
+    if (!result.added().isEmpty()) {
+      throw new ValidationException(
+          String.format(
+              "Aspect %s of %s references entity types this version doesn't know: %s",
+              changeMCP.getAspectName(), changeMCP.getUrn(), result.added()));
+    }
+    if (result.preserved() > 0) {
+      KEPT_REFERENCES.kept(
+          opContext.getMetricUtils(),
+          changeMCP.getAspectName(),
+          result.preserved(),
+          result.preserved()
+              + " stored references to entity types this version doesn't know in "
+              + changeMCP.getAspectName(),
+          changeMCP.getUrn());
+    }
+  }
+
   public void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService) {
     this.updateIndicesService = updateIndicesService;
   }
@@ -593,8 +668,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     if (alwaysIncludeKeyAspect) {
       // Add "key" aspects for each urn. TODO: Replace this with a materialized key aspect.
-      urnToAspects
-          .keySet()
+      // Urns of entity types unknown to this build (after a version rollback) have no key spec,
+      // so they keep an empty result instead of failing the whole batch.
+      urnToAspects.keySet().stream()
+          .filter(key -> admitRead(opContext, key))
           .forEach(
               key -> {
                 final RecordTemplate keyAspect =
@@ -621,6 +698,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     .add(systemAspect.getRecordTemplate()));
 
     return urnToAspects;
+  }
+
+  @Nonnull
+  @Override
+  public Optional<SystemAspect> getLatestSystemAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName) {
+    return EntityUtils.toSystemAspects(
+            opContext,
+            opContext.getRetrieverContext(),
+            getLatestAspect(opContext, Set.of(urn), Set.of(aspectName), false).values())
+        .stream()
+        .findFirst();
   }
 
   @Nonnull
@@ -934,11 +1025,28 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       Set<EntityAspectIdentifier> dbKeys,
       boolean alwaysIncludeKeyAspect) {
 
+    // Urns of entity types unknown to this build (after a version rollback) are left out of the
+    // result, as if not found, instead of failing the whole batch.
+    final Set<EntityAspectIdentifier> knownDbKeys =
+        dbKeys.stream()
+            .filter(
+                dbKey ->
+                    handling()
+                        .admitUrn(
+                            UNKNOWN_READ,
+                            opContext.getEntityRegistry(),
+                            opContext.getMetricUtils(),
+                            dbKey.getUrn(),
+                            null))
+            .collect(Collectors.toSet());
+
     Set<Urn> urns =
-        dbKeys.stream().map(dbKey -> UrnUtils.getUrn(dbKey.getUrn())).collect(Collectors.toSet());
+        knownDbKeys.stream()
+            .map(dbKey -> UrnUtils.getUrn(dbKey.getUrn()))
+            .collect(Collectors.toSet());
 
     final Map<EntityAspectIdentifier, EnvelopedAspect> envelopedAspectMap =
-        getEnvelopedAspects(opContext, dbKeys);
+        getEnvelopedAspects(opContext, knownDbKeys);
 
     // Group result by Urn
     final Map<String, List<EnvelopedAspect>> urnToAspects =
@@ -2262,11 +2370,21 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .filter(
                       result -> { // only versioned MCLs
                         MetadataChangeLog mcl = result.getMetadataChangeLog();
-                        return !opContext
-                            .getEntityRegistry()
-                            .getEntitySpec(mcl.getEntityType())
-                            .getAspectSpec(mcl.getAspectName())
-                            .isTimeseries();
+                        if (!handling().toleratesUnknownEntityAspect()) {
+                          // Strict handling throws for an unknown entity type, as before.
+                          return !handling()
+                              .entitySpecForData(opContext.getEntityRegistry(), mcl.getEntityType())
+                              .orElseThrow()
+                              .getAspectSpec(mcl.getAspectName())
+                              .isTimeseries();
+                        }
+                        return handling()
+                            .aspectSpecForData(
+                                opContext.getEntityRegistry(),
+                                mcl.getEntityType(),
+                                mcl.getAspectName())
+                            .map(spec -> !spec.isTimeseries())
+                            .orElse(false);
                       })
                   .map(MCLEmitResult::getMetadataChangeLog)
                   .collect(Collectors.toList()));
@@ -2414,12 +2532,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         log.warn("MCP observer call site failed; ingest continuing", t);
       }
     }
+    final AspectsBatch batch =
+        DefaultAspectsUtil.withoutGuardedWritesToEntitiesCreatedByTimeseries(
+            opContext, aspectsBatch, this);
     Stream<IngestResult> timeseriesIngestResults =
-        ingestTimeseriesProposal(opContext, aspectsBatch, async);
+        ingestTimeseriesProposal(opContext, batch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
-        async
-            ? ingestProposalAsync(opContext, aspectsBatch)
-            : ingestProposalSync(opContext, aspectsBatch);
+        async ? ingestProposalAsync(opContext, batch) : ingestProposalSync(opContext, batch);
 
     return Stream.concat(nonTimeseriesIngestResults, timeseriesIngestResults)
         .collect(Collectors.toList());
@@ -3049,9 +3168,21 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     log.debug(
         "Invoked listUrns with entityName: {}, start: {}, count: {}", entityName, start, count);
 
+    final Optional<EntitySpec> entitySpec =
+        handling().entitySpecForData(opContext.getEntityRegistry(), entityName);
+    if (entitySpec.isEmpty()) {
+      // An entity type this registry doesn't know (e.g. added by a newer version before a
+      // rollback) has no urns this version can list.
+      UNKNOWN_READ.skipped(opContext.getMetricUtils(), entityName, null, "listUrns");
+      return new ListUrnsResult()
+          .setStart(start)
+          .setCount(0)
+          .setTotal(0)
+          .setEntities(new UrnArray());
+    }
+
     // If a keyAspect exists, the entity exists.
-    final String keyAspectName =
-        opContext.getEntityRegistry().getEntitySpec(entityName).getKeyAspectSpec().getName();
+    final String keyAspectName = entitySpec.get().getKeyAspectSpec().getName();
     final ListResult<String> keyAspectList =
         aspectDao.listUrns(opContext, entityName, keyAspectName, start, count);
 
@@ -3251,13 +3382,29 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return mcls.stream()
         .map(
             mcl -> {
-              Urn entityUrn = mcl.getEntityUrn();
-              AspectSpec aspectSpec =
-                  opContext
-                      .getEntityRegistry()
-                      .getEntitySpec(mcl.getEntityType())
-                      .getAspectSpec(mcl.getAspectName());
-              return conditionallyProduceMCLAsync(opContext, aspectSpec, mcl);
+              if (!handling().toleratesUnknownEntityAspect()) {
+                Urn entityUrn = mcl.getEntityUrn();
+                // Strict handling throws for an unknown entity type, as before.
+                AspectSpec aspectSpec =
+                    handling()
+                        .entitySpecForData(opContext.getEntityRegistry(), mcl.getEntityType())
+                        .orElseThrow()
+                        .getAspectSpec(mcl.getAspectName());
+                return conditionallyProduceMCLAsync(opContext, aspectSpec, mcl);
+              }
+              Optional<AspectSpec> aspectSpec =
+                  handling()
+                      .aspectSpecForData(
+                          opContext.getEntityRegistry(), mcl.getEntityType(), mcl.getAspectName());
+              if (aspectSpec.isEmpty()) {
+                UNKNOWN_MCL.skipped(
+                    opContext.getMetricUtils(),
+                    mcl.getEntityType(),
+                    mcl.getAspectName(),
+                    mcl.getEntityUrn());
+                return MCLEmitResult.builder().metadataChangeLog(mcl).build();
+              }
+              return conditionallyProduceMCLAsync(opContext, aspectSpec.get(), mcl);
             })
         .collect(Collectors.toList());
   }
@@ -3271,7 +3418,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     boolean isNoOp = isNoOp(aspectSpec, metadataChangeLog);
     if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
-      log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
+      log.debug("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
 
       log.debug("Serialized MCL event: {}", metadataChangeLog);
       Pair<Future<?>, Boolean> emissionStatus =
@@ -3410,6 +3557,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return getLatestAspectUnions(opContext, urns, aspectNames, alwaysIncludeKeyAspect)
         .entrySet()
         .stream()
+        // A urn of an entity type this registry doesn't know (e.g. after a rollback) has no
+        // snapshot; leave it out, as the V2 reads do, instead of failing the whole batch.
+        .filter(entry -> admitRead(opContext, entry.getKey()))
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
@@ -3546,7 +3696,25 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       boolean hardDelete,
       boolean preProcessHooks) {
     return rollbackWithConditions(
-        opContext, aspectRows, conditions, hardDelete, DeletePurpose.ROLLBACK);
+        withRollbackDeletion(opContext),
+        aspectRows,
+        conditions,
+        hardDelete,
+        DeletePurpose.ROLLBACK);
+  }
+
+  /**
+   * Marks the context so validators can tell a rollback from an ordinary delete. It reaches both
+   * the delete validation and the nested status write of a soft delete.
+   */
+  private static OperationContext withRollbackDeletion(@Nonnull OperationContext opContext) {
+    final ValidationContext validationContext =
+        opContext.getValidationContext() != null
+            ? opContext.getValidationContext().toBuilder().isRollbackDeletion(true).build()
+            : ValidationContext.builder().isRollbackDeletion(true).build();
+    return opContext.toBuilder()
+        .validationContext(validationContext)
+        .build(opContext.getSessionActorContext(), false);
   }
 
   /**
@@ -3589,6 +3757,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         aspectRows.stream()
             .map(
                 aspectToRemove -> {
+                  // After a rollback, a run can include rows the newer build wrote for entities or
+                  // aspects this build does not know. They cannot be deleted here (no spec to emit
+                  // the MCL with), so leave them in place for the newer build instead of failing
+                  // the whole rollback on the first one.
+                  if (deletePurpose == DeletePurpose.ROLLBACK
+                      && !handling()
+                          .admitUrn(
+                              UNKNOWN_ROLLBACK_ROW,
+                              opContext.getEntityRegistry(),
+                              opContext.getMetricUtils(),
+                              aspectToRemove.getUrn(),
+                              aspectToRemove.getAspectName())) {
+                    return null;
+                  }
                   RollbackResult result =
                       deleteAspectWithoutMCL(
                           opContext,
@@ -3598,10 +3780,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           hardDelete,
                           deletePurpose);
                   if (result != null) {
+                    // Strict handling keeps the original lookup, which logs and skips an unknown
+                    // aspect below instead of throwing.
                     Optional<AspectSpec> aspectSpec =
-                        opContext
-                            .getEntityRegistryContext()
-                            .getAspectSpec(result.entityName, result.aspectName);
+                        handling().toleratesUnknownEntityAspect()
+                            ? handling()
+                                .aspectSpecForData(
+                                    opContext.getEntityRegistry(),
+                                    result.entityName,
+                                    result.aspectName)
+                            : opContext
+                                .getEntityRegistryContext()
+                                .getAspectSpec(result.entityName, result.aspectName);
                     if (!aspectSpec.isPresent()) {
                       log.error(
                           "Issue while rolling back: unknown aspect {} for entity {}",
@@ -3651,6 +3841,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         removedAspects, rowsDeletedFromEntityDeletion.get(), removedAspectResults);
   }
 
+  /** False, counted and logged, for a urn of an entity type the registry doesn't know. */
+  private static boolean admitRead(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
+    return handling()
+        .admitEvent(
+            UNKNOWN_READ,
+            opContext.getEntityRegistry(),
+            opContext.getMetricUtils(),
+            urn,
+            urn.getEntityType(),
+            null);
+  }
+
   @Override
   public RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn) {
     return deleteUrn(opContext, urn, null);
@@ -3669,7 +3871,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     Integer rowsDeletedFromEntityDeletion = 0;
 
     final EntitySpec spec =
-        opContext.getEntityRegistry().getEntitySpec(PegasusUtils.urnToEntityName(urn));
+        handling().toleratesUnknownEntityAspect()
+            ? opContext
+                .getEntityRegistry()
+                .findEntitySpec(PegasusUtils.urnToEntityName(urn))
+                .orElseThrow(
+                    () ->
+                        new IllegalArgumentException(
+                            String.format(
+                                "Cannot delete %s: its entity type is not in the entity registry",
+                                urn)))
+            : handling()
+                .entitySpecForData(opContext.getEntityRegistry(), PegasusUtils.urnToEntityName(urn))
+                .orElseThrow();
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     String keyAspectName = opContext.getKeyAspectName(urn);
 
@@ -3804,8 +4018,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nullable String aspectName,
       boolean includeSoftDeleted,
       boolean forUpdate) {
+    // After a rollback, urns of entity types this build does not know (e.g. graph edges written by
+    // a newer build) are reported as non-existent instead of failing the whole lookup.
+    final List<Urn> knownUrns =
+        urns.stream().filter(urn -> admitRead(opContext, urn)).collect(Collectors.toList());
+    if (knownUrns.isEmpty() && handling().toleratesUnknownEntityAspect()) {
+      return new HashSet<>();
+    }
+
     final Set<EntityAspectIdentifier> dbKeys =
-        urns.stream()
+        knownUrns.stream()
             .map(
                 urn ->
                     new EntityAspectIdentifier(
@@ -3828,7 +4050,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .collect(Collectors.toSet());
 
     Set<Urn> existing =
-        urns.stream()
+        knownUrns.stream()
             .filter(urn -> existingUrnStrings.contains(urn.toString()))
             .collect(Collectors.toSet());
 
@@ -3879,6 +4101,92 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
   }
 
+  /**
+   * Runs the delete validators on a delete of {@code aspectName} of {@code entityUrn}, as {@link
+   * #deleteAspectWithoutMCL} does before it opens the delete transaction.
+   *
+   * @return the item the validators accepted
+   */
+  private MCPItem validateDeleteItem(
+      @Nonnull OperationContext opContext, @Nonnull Urn entityUrn, @Nonnull String aspectName) {
+    // The caller's stamp, as on the delete changelog: the soft-delete status and the side-effect
+    // changelogs name who removed it, and the system only when the system runs it.
+    final MCPItem deleteItem =
+        DeleteItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(aspectName)
+            .auditStamp(opContext.getAuditStamp())
+            .build(opContext.getAspectRetriever());
+
+    final ValidationExceptionCollection exceptions =
+        AspectsBatch.validateProposed(
+            opContext, List.of(deleteItem), opContext.getRetrieverContext(), opContext);
+    if (!exceptions.isEmpty()) {
+      throw new ValidationException(
+          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions));
+    }
+    return deleteItem;
+  }
+
+  /**
+   * Ordinary destructive deletion of a structured property (hard-deleting the entity, or directly
+   * deleting its propertyDefinition aspect) is only permitted once the property is soft-deleted.
+   * Rollback-purpose deletion (ingestion rollback / nuke) and true system sessions are exempt.
+   */
+  private static boolean guardsStructuredPropertyDelete(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull String aspectName,
+      boolean entityWideHardDelete,
+      @Nonnull DeletePurpose deletePurpose) {
+    return STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())
+        && (entityWideHardDelete || STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectName))
+        && deletePurpose == DeletePurpose.ORDINARY
+        && !opContext.isSystemAuth()
+        // Oversized-aspect remediation must be able to remove a poisoned propertyDefinition
+        // regardless of soft-delete state (same exemption as AspectSizePayloadValidator);
+        // its rejection would otherwise be swallowed by processPendingDeletions and the
+        // aspect would stay oversized forever.
+        && !(opContext.getValidationContext() != null
+            && opContext.getValidationContext().isRemediationDeletion());
+  }
+
+  /**
+   * Deleting a nonexistent target aspect is a no-op today and must stay one (idempotent cleanup),
+   * so this only rejects when the aspect being deleted actually exists. {@code
+   * primaryReadOpContext} must read from PRIMARY: the documented two-step (soft-delete, then hard
+   * delete) is read-your-writes, and a lagging read replica could miss the just-committed status
+   * row and wrongly reject the hard delete.
+   */
+  private void rejectUnlessSoftDeleted(
+      @Nonnull OperationContext primaryReadOpContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull String aspectName) {
+    final String urn = entityUrn.toString();
+    if (!isSoftDeleted(primaryReadOpContext, urn)
+        && latestAspectExists(primaryReadOpContext, urn, aspectName)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Hard delete rejected for structured property qualifiedName '%s'. Hard deletion "
+                  + "can leave a permanent entity-index mapping for this normalized name, "
+                  + "preventing reuse until the affected entity indices are reindexed with "
+                  + "SystemUpdate. Soft-delete the property first to confirm, or leave it "
+                  + "soft-deleted; soft deletion is reversible.",
+              entityUrn.getId()));
+    }
+  }
+
+  @Override
+  public void validateKeyDelete(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    final String keyAspectName = opContext.getKeyAspectName(urn);
+    validateDeleteItem(opContext, urn, keyAspectName);
+    if (guardsStructuredPropertyDelete(
+        opContext, urn, keyAspectName, true, DeletePurpose.ORDINARY)) {
+      rejectUnlessSoftDeleted(
+          opContext.withReadPreference(ReadPreference.PRIMARY), urn, keyAspectName);
+    }
+  }
+
   /** Does not emit MCL */
   @VisibleForTesting
   @Nullable
@@ -3925,23 +4233,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     // Validate pre-conditions before running queries
     Urn entityUrn = UrnUtils.getUrn(urn);
-
-    // Runs simple validations
-    MCPItem deleteItem =
-        DeleteItemImpl.builder()
-            .urn(entityUrn)
-            .aspectName(aspectName)
-            .auditStamp(auditStamp)
-            .build(opContext.getAspectRetriever());
-
-    // Delete validation hooks
-    ValidationExceptionCollection exceptions =
-        AspectsBatch.validateProposed(
-            opContext, List.of(deleteItem), opContext.getRetrieverContext(), opContext);
-    if (!exceptions.isEmpty()) {
-      throw new ValidationException(
-          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions));
-    }
+    MCPItem deleteItem = validateDeleteItem(opContext, entityUrn, aspectName);
 
     // Hard delete wipes all aspects in one shot; capture aspects needed by post-commit side
     // effects before deleteUrn. Structured properties: PropertyDefinitionDeleteSideEffect.
@@ -3951,24 +4243,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final DataProductPropertiesBeforeHardDelete dataProductPropertiesBeforeHardDelete =
         new DataProductPropertiesBeforeHardDelete();
 
-    // Ordinary destructive deletion of a structured property (hard-deleting the entity, or
-    // directly deleting its propertyDefinition aspect) is only permitted once the property is
-    // soft-deleted. Rollback-purpose deletion (ingestion rollback / nuke) and true system sessions
-    // are exempt; see the guard below.
     final boolean entityWideHardDelete =
         hardDelete && aspectName.equals(opContext.getKeyAspectName(entityUrn));
     final boolean guardStructuredPropertyDelete =
-        STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())
-            && (entityWideHardDelete
-                || STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectName))
-            && deletePurpose == DeletePurpose.ORDINARY
-            && !opContext.isSystemAuth()
-            // Oversized-aspect remediation must be able to remove a poisoned propertyDefinition
-            // regardless of soft-delete state (same exemption as AspectSizePayloadValidator);
-            // its rejection would otherwise be swallowed by processPendingDeletions and the
-            // aspect would stay oversized forever.
-            && !(opContext.getValidationContext() != null
-                && opContext.getValidationContext().isRemediationDeletion());
+        guardsStructuredPropertyDelete(
+            opContext, entityUrn, aspectName, entityWideHardDelete, deletePurpose);
 
     // Gate the shared DB-delete primitive at the (urn, aspect) conflict unit, off the DB
     // connection,
@@ -4007,17 +4286,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           guardStructuredPropertyDelete
               ? opContext.withReadPreference(ReadPreference.PRIMARY)
               : opContext;
-      if (guardStructuredPropertyDelete
-          && !isSoftDeleted(primaryReadOpContext, urn)
-          && latestAspectExists(primaryReadOpContext, urn, aspectName)) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Hard delete rejected for structured property qualifiedName '%s'. Hard deletion "
-                    + "can leave a permanent entity-index mapping for this normalized name, "
-                    + "preventing reuse until the affected entity indices are reindexed with "
-                    + "SystemUpdate. Soft-delete the property first to confirm, or leave it "
-                    + "soft-deleted; soft deletion is reversible.",
-                entityUrn.getId()));
+      if (guardStructuredPropertyDelete) {
+        rejectUnlessSoftDeleted(primaryReadOpContext, entityUrn, aspectName);
       }
       result =
           aspectDao
@@ -4187,6 +4457,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       // aspect
                       // as a result we copy information from survivingAspect to latest and delete
                       // survivingAspect
+                      restoreStoredReferences(opContext, survivingAspect);
                       latest.setRecordTemplate(survivingAspect.getRecordTemplate());
                       latest.setSystemMetadata(survivingAspect.getSystemMetadata());
                       latest.setAuditStamp(survivingAspect.getAuditStamp());
@@ -4409,14 +4680,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 result.getAspectName(),
                 Boolean.TRUE.equals(result.getKeyAffected()));
         if (!invalidationBatch.isEmpty()) {
-          opContext.getEntityGraphCache().invalidateOnSyncBatch(invalidationBatch);
+          opContext.getEntityGraphCache().invalidateImmediately(invalidationBatch);
         }
       } else if (result.getChangeType() == ChangeType.UPSERT) {
         SyncGraphInvalidationBatch invalidationBatch =
             EntityGraphSyncInvalidationSupport.fromSyncAspectRollback(
                 opContext, entityUrn.toString(), entityUrn.getEntityType(), result.getAspectName());
         if (!invalidationBatch.isEmpty()) {
-          opContext.getEntityGraphCache().invalidateOnSyncBatch(invalidationBatch);
+          opContext.getEntityGraphCache().invalidateImmediately(invalidationBatch);
         }
       }
     }

@@ -139,13 +139,13 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isShowSearchBarAutocompleteRedesign()).thenReturn(false);
     when(mockFeatureFlags.isShowManageTags()).thenReturn(false);
     when(mockFeatureFlags.isShowIntroducePage()).thenReturn(false);
-    when(mockFeatureFlags.isShowIngestionPageRedesign()).thenReturn(false);
     when(mockFeatureFlags.isShowLineageExpandMore()).thenReturn(false);
     when(mockFeatureFlags.isShowStatsTabRedesign()).thenReturn(false);
     when(mockFeatureFlags.isShowHomePageRedesign()).thenReturn(false);
     when(mockFeatureFlags.isShowProductUpdates()).thenReturn(false);
     when(mockFeatureFlags.isLogicalModelsEnabled()).thenReturn(false);
     when(mockFeatureFlags.isShowHomepageUserRole()).thenReturn(false);
+    when(mockFeatureFlags.isShowGithubStarPrompt()).thenReturn(true);
     when(mockFeatureFlags.isAssetSummaryPageV1()).thenReturn(false);
     when(mockFeatureFlags.isDatasetSummaryPageV1()).thenReturn(false);
     when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(false);
@@ -188,6 +188,9 @@ public class AppConfigResolverTest {
     assertEquals(
         result.getHomePageConfig().getFirstInPersonalSidebar(), PersonalSidebarSection.YOUR_ASSETS);
     assertNotNull(result.getFeatureFlags());
+    assertTrue(result.getFeatureFlags().getShowIngestionPageRedesign());
+    assertTrue(result.getFeatureFlags().getIngestionOnboardingRedesignV1());
+    assertTrue(result.getFeatureFlags().getShowGithubStarPrompt());
     assertNotNull(result.getChromeExtensionConfig());
     assertFalse(result.getChromeExtensionConfig().getEnabled());
   }
@@ -475,6 +478,9 @@ public class AppConfigResolverTest {
     assertEquals(
         entityTypeByResourceType.get(PoliciesConfig.APPLICATION_PRIVILEGES.getResourceType()),
         EntityType.APPLICATION);
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.ASSERTION_PRIVILEGES.getResourceType()),
+        EntityType.ASSERTION);
   }
 
   @Test
@@ -1197,5 +1203,16 @@ public class AppConfigResolverTest {
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
     assertNotNull(result.getEntityIndexV3());
     assertFalse(Boolean.TRUE.equals(result.getEntityIndexV3().getEnabled()));
+  }
+
+  @Test
+  public void testMcpServerEnabledFollowsTheFeatureFlag() throws Exception {
+    when(mockFeatureFlags.isMcpServerEnabled()).thenReturn(false);
+    assertFalse(
+        resolver.get(mockDataFetchingEnvironment).get().getFeatureFlags().getMcpServerEnabled());
+
+    when(mockFeatureFlags.isMcpServerEnabled()).thenReturn(true);
+    assertTrue(
+        resolver.get(mockDataFetchingEnvironment).get().getFeatureFlags().getMcpServerEnabled());
   }
 }

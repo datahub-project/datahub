@@ -53,6 +53,13 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
   @Getter private final SearchClientShim<?> client;
 
   private static final String PIT_EXECUTOR_METRIC_NAME = "graph-query-pit";
+
+  /**
+   * Extra socket time past the hop deadline, so the server-side timed_out page, which still carries
+   * the hits collected so far, usually arrives before the client gives up on the search.
+   */
+  private static final long SOCKET_GRACE_MILLIS = 1000L;
+
   // Exact per-query values go on the esQuery span; as metric tags they would be unbounded.
   static final String SEARCH_URNS_ATTR = "search.urns";
   static final String SEARCH_HITS_ATTR = "search.hits";
@@ -104,8 +111,10 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
     log.info("Initialized PIT thread pool with {} threads and bounded queue", maxThreads);
   }
 
-  /** Shutdown the PIT executor service gracefully. */
+  /** Shutdown the PIT and lineage executor services gracefully. */
+  @Override
   public void shutdown() {
+    super.shutdown();
     if (pitExecutor != null && !pitExecutor.isShutdown()) {
       log.info("Shutting down PIT thread pool");
       pitExecutor.shutdown();
@@ -318,22 +327,38 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         searchRequest.source(searchSourceBuilder);
 
         // Execute search
-        SearchResponse response =
-            opContext.withSpan(
-                "esQuery",
-                () -> {
-                  try {
-                    if (metricUtils != null)
-                      metricUtils.increment(
-                          this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-                    return timedSearch(opContext, searchRequest, entityUrns.size());
-                  } catch (Exception e) {
-                    log.error("Search query failed for slice {}", sliceId, e);
-                    throw new ESQueryException("Search query failed for slice " + sliceId, e);
-                  }
-                },
-                MetricUtils.DROPWIZARD_NAME,
-                MetricUtils.name(this.getClass(), "esQuery"));
+        SearchResponse response;
+        try {
+          response =
+              opContext.withSpan(
+                  "esQuery",
+                  () -> {
+                    try {
+                      if (metricUtils != null)
+                        metricUtils.increment(
+                            this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
+                      return timedSearch(
+                          opContext,
+                          searchRequest,
+                          entityUrns.size(),
+                          lineageRequestOptions(deadline + SOCKET_GRACE_MILLIS));
+                    } catch (Exception e) {
+                      if (System.currentTimeMillis() >= deadline) {
+                        throw new LineageTimeoutException(
+                            "Search for slice " + sliceId + " did not finish before the deadline",
+                            e);
+                      }
+                      log.error("Search query failed for slice {}", sliceId, e);
+                      throw new ESQueryException("Search query failed for slice " + sliceId, e);
+                    }
+                  },
+                  MetricUtils.DROPWIZARD_NAME,
+                  MetricUtils.name(this.getClass(), "esQuery"));
+        } catch (LineageTimeoutException e) {
+          stopSliceOnTimeout(
+              sliceId, "hop deadline passed during search", allowPartialResults, sliceIncomplete);
+          break;
+        }
 
         // A timed-out page still carries the hits collected before the shard budget ran out.
         // Extract them first, then stop; an empty timed-out page must not read as "no more
@@ -361,17 +386,29 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         }
 
         // Extract relationships from current page
-        List<LineageRelationship> pageRelationships =
-            GraphQueryUtils.extractRelationships(
-                entityUrns,
-                response,
-                lineageGraphFilters,
-                visitedEntities,
-                viaEntities,
-                numHops,
-                remainingHops,
-                existingPaths,
-                false); // exploreMultiplePaths - not needed for impact lineage
+        List<LineageRelationship> pageRelationships;
+        try {
+          pageRelationships =
+              GraphQueryUtils.extractRelationships(
+                  entityUrns,
+                  response,
+                  lineageGraphFilters,
+                  visitedEntities,
+                  viaEntities,
+                  numHops,
+                  remainingHops,
+                  existingPaths,
+                  false, // exploreMultiplePaths - not needed for impact lineage
+                  deadline);
+        } catch (LineageTimeoutException e) {
+          // The page is dropped: its relationships were only partly extracted.
+          stopSliceOnTimeout(
+              sliceId,
+              "hop deadline passed during extraction",
+              allowPartialResults,
+              sliceIncomplete);
+          break;
+        }
 
         int before = sliceRelationships.size();
         sliceRelationships.addAll(pageRelationships);
@@ -440,13 +477,16 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
    * the query's URN count, page hit count and took.
    */
   private SearchResponse timedSearch(
-      @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest, int urnCount)
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchRequest searchRequest,
+      int urnCount,
+      @Nonnull RequestOptions requestOptions)
       throws IOException {
     SearchResponse response =
         SearchTookMetrics.time(
             metricUtils,
             SearchOperation.GRAPH_QUERY_PIT,
-            () -> graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT));
+            () -> graphClient(opContext).search(opContext, searchRequest, requestOptions));
     Span span = Span.current();
     span.setAttribute(SEARCH_URNS_ATTR, urnCount);
     if (response != null) {

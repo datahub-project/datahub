@@ -228,7 +228,12 @@ public class JdbcUrlParserTest {
   public void applyPostgresMetadataSchema_leavesDefaultAndNonPostgresUntouched() {
     String postgres = "jdbc:postgresql://localhost:5432/datahub";
     String mysql = "jdbc:mysql://localhost:3306/datahub";
+    String h2 = "jdbc:h2:mem:test;IGNORECASE=TRUE;mode=mysql;DB_CLOSE_DELAY=-1;";
+    String mysqlMultiHost = "jdbc:mysql://host1:3306,host2:3306/datahub";
     assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(postgres, "public"), postgres);
+    assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(h2, "public"), h2);
+    assertEquals(
+        JdbcUrlParser.applyPostgresMetadataSchema(mysqlMultiHost, "public"), mysqlMultiHost);
     assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(postgres, " PUBLIC "), postgres);
     assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(mysql, "dhub"), mysql);
     assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(mysql, "bad-name"), mysql);

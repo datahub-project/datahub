@@ -140,6 +140,7 @@ export const WithAnimatedDot: Story = {
         arrows: false,
         dots: true,
         animateDot: true,
+        dotDuration: 3000,
     },
     render: (args) => (
         <div style={{ width: '400px' }}>

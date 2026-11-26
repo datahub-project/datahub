@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.cache.config;
 
+import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.InvalidationVisibility;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.PopulationStrategy;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.RebuildExecution;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
@@ -77,5 +78,18 @@ public final class EntityGraphModel {
     LocalEvictionLimits localEviction;
     boolean enabled;
     GraphSnapshotSource buildSource;
+
+    /** Null means {@link InvalidationVisibility#NONE}. */
+    InvalidationVisibility invalidationVisibility;
+
+    int invalidationMarginSeconds;
+
+    /** Zero or less means the rebuild lease. */
+    int invalidationMaxWalkSeconds;
+
+    public boolean usesInvalidationVisibility() {
+      return invalidationVisibility != null
+          && invalidationVisibility != InvalidationVisibility.NONE;
+    }
   }
 }

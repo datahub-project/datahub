@@ -27,7 +27,6 @@ import yaml
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
-from datahub.api.entities.dataset.dataset import Dataset
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
@@ -75,6 +74,7 @@ from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import (
+    ROLE_ARN_PATTERN,
     AwsSourceConfig,
     make_dynamodb_dataset_name,
 )
@@ -103,12 +103,11 @@ from datahub.ingestion.source.aws.tag_entities import (
     LakeFormationTagPlatformResourceId,
 )
 from datahub.ingestion.source.common.presto_view_decoder import (
-    FALLBACK_HIVE_TYPE,
     PrestoViewColumn,
     decode_presto_view,
+    get_presto_view_column_schema,
     get_presto_view_columns,
     is_presto_view,
-    trino_type_to_hive_type,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -148,7 +147,6 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     MetadataAttributionClass,
-    NullTypeClass,
     OperationClass,
     OperationTypeClass,
     OwnerClass,
@@ -198,6 +196,18 @@ LAKE_FORMATION_TAG_ORIGIN = "lake-formation"
 # partition/region agreement is validated separately (check_catalog_arn_keys) against botocore's
 # authoritative partition data, so the shape here only pins the segments and the 12-digit account.
 GLUE_CATALOG_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:glue:([^:\s]+):\d{12}$")
+
+FIELD_PATH_V2_PREFIX = "[version=2.0]"
+# Only the annotations a v2 field path adds, each a whole "."-separated segment. Glue
+# column names may themselves contain brackets and dots (e.g. "[col_a]", "col.b",
+# "a[type=x]b"), so stripping every [...] and "." would mangle them. A column whose
+# name starts with an annotation-like segment followed by "." (e.g. "[type=x].y") is
+# indistinguishable from an annotation and still simplifies to "y".
+FIELD_PATH_V2_ANNOTATION_PATTERN = re.compile(
+    r"(?<![^.])\[(?:version|type|key)=[^\]]*\]\."
+)
+# Field paths through these types are kept whole, as their simplified forms can collide.
+FIELD_PATH_V2_UNSIMPLIFIED_TYPES = ("[type=array]", "[type=map]", "[type=union]")
 
 
 @lru_cache(maxsize=None)
@@ -252,8 +262,7 @@ DYNAMODB_STS_ROLE_ARN = "dynamodb.sts.roleArn"
 DYNAMODB_TABLE_ARN_PATTERN = re.compile(
     r"^arn:aws[a-z-]*:dynamodb:([^:\s]+):(\d{12}):table/([^/\s]+)$"
 )
-# arn:{partition}:iam::{account}:role/{name}
-DYNAMODB_STS_ROLE_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:iam::(\d{12}):role/.+$")
+DYNAMODB_STS_ROLE_ARN_PATTERN = ROLE_ARN_PATTERN
 # Cap STS GetCallerIdentity retries: building a session + client is expensive (~seconds with an
 # SSO profile) and _aws_config() already retries internally, so don't re-attempt once per node for
 # a persistent failure (AccessDenied) or sustained throttling across an unbounded node count.
@@ -693,6 +702,14 @@ class GlueSourceConfig(
         return self
 
 
+def simplify_glue_field_path(field_path: str) -> str:
+    if not field_path.startswith(FIELD_PATH_V2_PREFIX) or any(
+        marker in field_path for marker in FIELD_PATH_V2_UNSIMPLIFIED_TYPES
+    ):
+        return field_path
+    return FIELD_PATH_V2_ANNOTATION_PATTERN.sub("", field_path)
+
+
 @dataclass
 class GlueSourceReport(StaleEntityRemovalSourceReport):
     catalog_id: Optional[str] = None
@@ -722,6 +739,9 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_view_schema_from_view_definition: int = 0
     num_view_placeholder_schema_unresolved: int = 0
     num_view_columns_type_unresolved: int = 0
+    # Counts skipped column edges, not columns: a table with both storage and
+    # resource-link lineage skips (and warns about) the same column once per upstream.
+    num_column_lineage_empty_field_path: int = 0
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
@@ -2244,12 +2264,24 @@ class GlueSource(StatefulIngestionSourceBase):
         schema_metadata_for_upstream: SchemaMetadata,
     ) -> List[FineGrainedLineageClass]:
         upstream_paths = {
-            Dataset._simplify_field_path(f.fieldPath)
+            simplify_glue_field_path(f.fieldPath)
             for f in schema_metadata_for_upstream.fields
         }
         fine_grained_lineages: List[FineGrainedLineageClass] = []
         for field in schema_metadata.fields:
-            field_path_v1 = Dataset._simplify_field_path(field.fieldPath)
+            field_path_v1 = simplify_glue_field_path(field.fieldPath)
+            if not field_path_v1:
+                # An empty field path makes an invalid schemaField URN, which GMS rejects
+                # along with the rest of its write batch.
+                self.report.num_column_lineage_empty_field_path += 1
+                self.report.warning(
+                    title="Column lineage skipped for unsupported column name",
+                    message="The column's field path is empty once its type annotations are "
+                    "removed, so no valid column-level lineage could be built for it. The "
+                    "table's other lineage is unaffected.",
+                    context=f"{dataset_urn} upstream={upstream_urn} field_path={field.fieldPath}",
+                )
+                continue
             if field_path_v1 in upstream_paths:
                 fine_grained_lineages.append(
                     FineGrainedLineageClass(
@@ -3175,38 +3207,18 @@ class GlueSource(StatefulIngestionSourceBase):
         fields: List[SchemaField] = []
         unconverted_columns: List[str] = []
         for column in view_columns:
-            try:
-                hive_type = trino_type_to_hive_type(column["type"])
-                conversion_failed = False
-            except ValueError:
-                # Too long or too deeply nested to convert; keep the column.
-                hive_type = FALLBACK_HIVE_TYPE
-                conversion_failed = True
-            schema_fields = get_schema_fields_for_hive_column(
-                hive_column_name=column["name"],
-                hive_column_type=hive_type,
-                default_nullable=True,
-            )
-            if schema_fields:
-                # The Hive parser falls back to NullType instead of raising when it
-                # cannot read a type (for a nested field too), so surface those
-                # columns rather than count the view as fully recovered.
-                if conversion_failed or any(
-                    isinstance(field.type.type, NullTypeClass)
-                    for field in schema_fields
-                ):
-                    unconverted_columns.append(f"{column['name']} ({column['type']})")
-                # Keep the engine's own type (e.g. `timestamp(3) with time zone`)
-                # rather than the Hive approximation used to build the field.
-                schema_fields[0].nativeDataType = column["type"]
+            column_schema = get_presto_view_column_schema(column)
+            if column_schema.type_unresolved:
+                unconverted_columns.append(f"{column['name']} ({column['type']})")
+            if column_schema.fields:
                 self._apply_column_lf_tags(
-                    schema_fields,
+                    column_schema.fields,
                     column["name"],
                     column_tags,
                     column_parent_tags,
                     column_parent_origin,
                 )
-                fields.extend(schema_fields)
+                fields.extend(column_schema.fields)
 
         if unconverted_columns:
             self.report.num_view_columns_type_unresolved += len(unconverted_columns)

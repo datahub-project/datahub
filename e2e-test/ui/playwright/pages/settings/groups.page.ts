@@ -79,7 +79,8 @@ export class GroupsPage extends BaseSettingsPage {
 
   async navigate(): Promise<void> {
     await this.page.goto('/settings/identities/groups');
-    await this.page.waitForLoadState('networkidle');
+    // No networkidle here: on CI this page has held a request open for the whole
+    // 120s test budget. The container check below is the readiness signal.
     await expect(this.manageContainer).toBeVisible({ timeout: WAIT_TIMEOUT });
   }
 

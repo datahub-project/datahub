@@ -1,8 +1,11 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -22,6 +25,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.JacksonStreamConstraints;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -49,6 +53,8 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 @Builder(toBuilder = true)
 public class PatchItemImpl implements PatchMCP {
+  private static final ObjectMapper OBJECT_MAPPER = JacksonStreamConstraints.createObjectMapper();
+
   // A JSON property name (patch key) longer than this previously failed with a Jackson
   // StreamConstraintsException (default maxNameLength=50000). Such names are now accepted, but we
   // log which entity/aspect/key was oversized — the exception never included the offending name, so
@@ -103,7 +109,10 @@ public class PatchItemImpl implements PatchMCP {
       mcp.setChangeType(getChangeType());
       mcp.setEntityType(getEntitySpec().getName());
       mcp.setAspectName(getAspectName());
-      mcp.setAspect(GenericRecordUtils.serializePatch(getPatch()));
+      mcp.setAspect(
+          genericJsonPatch != null
+              ? GenericRecordUtils.serializePatch(genericJsonPatch, OBJECT_MAPPER)
+              : GenericRecordUtils.serializePatch(getPatch()));
       mcp.setSystemMetadata(getSystemMetadata());
       mcp.setEntityKeyAspect(
           GenericRecordUtils.serializeAspect(
@@ -410,11 +419,23 @@ public class PatchItemImpl implements PatchMCP {
     }
 
     public PatchItemImpl build(EntityRegistry entityRegistry) {
-      urn(ValidationApiUtils.validateUrn(entityRegistry, this.urn));
-      log.debug("entity type = {}", this.urn.getEntityType());
+      if (handling().toleratesUnknownEntityAspect()) {
+        // Check the entity type before validating the urn: an unknown type (e.g. written by a newer
+        // version before a rollback) must fail as a ValidationException, like an unknown aspect,
+        // not as the IllegalArgumentException batch building treats as "skip silently".
+        entitySpec(ValidationApiUtils.validateEntity(entityRegistry, this.urn.getEntityType()));
+        log.debug("entity spec = {}", this.entitySpec);
+        ValidationApiUtils.validateKeyEntityTypes(entityRegistry, this.urn);
 
-      entitySpec(ValidationApiUtils.validateEntity(entityRegistry, this.urn.getEntityType()));
-      log.debug("entity spec = {}", this.entitySpec);
+        urn(ValidationApiUtils.validateUrn(entityRegistry, this.urn));
+        log.debug("entity type = {}", this.urn.getEntityType());
+      } else {
+        urn(ValidationApiUtils.validateUrn(entityRegistry, this.urn));
+        log.debug("entity type = {}", this.urn.getEntityType());
+
+        entitySpec(ValidationApiUtils.validateEntity(entityRegistry, this.urn.getEntityType()));
+        log.debug("entity spec = {}", this.entitySpec);
+      }
 
       aspectSpec(ValidationApiUtils.validateAspect(this.entitySpec, this.aspectName));
       log.debug("aspect spec = {}", this.aspectSpec);

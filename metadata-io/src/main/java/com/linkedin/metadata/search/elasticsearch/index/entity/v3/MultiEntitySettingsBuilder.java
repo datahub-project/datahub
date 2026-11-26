@@ -1,10 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.SearchGroupIndexSettingsConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.BaseConfigurationLoader;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingFieldConfigBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -13,17 +16,21 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 
 /** Builder for generating settings for elasticsearch indices with entity-based field structure */
 public class MultiEntitySettingsBuilder implements SettingsBuilder {
+  static final String PRIMARY_SEARCH_GROUP = "primary";
   private static final String ANALYSIS_SETTING = "analysis";
 
   public final Map<String, Object> settings;
   private final Map<String, Object> analyzerConfiguration;
   private final Integer maxFieldsLimit;
+  @Nonnull private final SearchGroupIndexSettingsConfiguration defaultSearchGroupSettings;
+  @Nonnull private final Map<String, SearchGroupIndexSettingsConfiguration> searchGroupSettings;
   @Nonnull private final IndexConvention indexConvention;
   @Nullable private final SearchClientShim<?> searchClientShim;
   @Nullable private final SemanticSearchConfiguration semanticSearchConfiguration;
@@ -41,7 +48,20 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
       @Nonnull EntityIndexConfiguration entityIndexConfiguration,
       @Nonnull IndexConvention indexConvention)
       throws IOException {
-    this(entityIndexConfiguration, indexConvention, null, null);
+    this(entityIndexConfiguration, indexConvention, null);
+  }
+
+  /** Semantic configuration defaults to the entity index configuration's own semantic block. */
+  public MultiEntitySettingsBuilder(
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
+      @Nonnull IndexConvention indexConvention,
+      @Nullable SearchClientShim<?> searchClientShim)
+      throws IOException {
+    this(
+        entityIndexConfiguration,
+        indexConvention,
+        searchClientShim,
+        entityIndexConfiguration.getSemanticSearch());
   }
 
   public MultiEntitySettingsBuilder(
@@ -54,6 +74,11 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
     this.searchClientShim = searchClientShim;
     this.semanticSearchConfiguration = semanticSearchConfiguration;
     this.maxFieldsLimit = entityIndexConfiguration.getV3().getMaxFieldsLimit();
+    this.defaultSearchGroupSettings =
+        Optional.ofNullable(entityIndexConfiguration.getV3().getDefaultSettings())
+            .orElseGet(SearchGroupIndexSettingsConfiguration::new);
+    this.searchGroupSettings =
+        Optional.ofNullable(entityIndexConfiguration.getV3().getGroups()).orElseGet(Map::of);
 
     if (!entityIndexConfiguration.getV3().getAnalyzerConfig().trim().isEmpty()) {
       this.analyzerConfiguration =
@@ -76,11 +101,13 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
       return new HashMap<>();
     }
     Map<String, Object> indexSettings = buildIndexSettings(indexConfiguration);
-    // Embeddings contributed for any entity are on every V3 index. OpenSearch rejects a
-    // knn_vector unless index.knn is true, including on entities that never store a vector.
-    // Elasticsearch keeps k-NN on dense_vector and rejects index.knn.
-    if (SemanticEmbeddingMappings.enabledForAnyEntity(semanticSearchConfiguration)
-        && SemanticEmbeddingMappings.shouldEnableIndexLevelKnn(searchClientShim)) {
+    applySearchGroupSettings(indexSettings, indexName);
+    // The shared mapping includes embeddings whenever semantic indexing is enabled, including
+    // when no entity has opted in. OpenSearch rejects knn_vector unless index.knn is true on
+    // every index that receives that mapping. Elasticsearch rejects index.knn.
+    if (shouldEnableIndexLevelKnn(indexName)
+        || (SemanticEmbeddingFieldConfigBuilder.semanticIndexingEnabled(semanticSearchConfiguration)
+            && SemanticEmbeddingMappings.shouldEnableIndexLevelKnn(searchClientShim))) {
       indexSettings.put("knn", true);
     }
     return indexSettings;
@@ -136,9 +163,11 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
 
   private Map<String, Object> buildMergedAnalysisConfiguration(
       @Nonnull final IndexConfiguration indexConfiguration) throws IOException {
+    // Reuse the V2 analysis files shipped in this build. The v2.5 stem and synonym files are not
+    // here; a build that has them can pass enableSearchV2_5.
     Map<String, Object> legacyAnalysis =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention)
-            .buildAnalysisSettings(indexConfiguration);
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false)
+            .buildAnalysisSettings(indexConfiguration, false);
     if (analyzerConfiguration == null || analyzerConfiguration.isEmpty()) {
       return withRichTextAnalyzers(new HashMap<>(legacyAnalysis));
     }
@@ -252,5 +281,55 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
           }
         });
     return merged;
+  }
+
+  private boolean shouldEnableIndexLevelKnn(@Nonnull final String indexName) {
+    // Per-entity V3 indices (e.g. documentindex_v3) carry root embeddings when semantic search is
+    // enabled for that entity — those need index.knn independently of the primary search group.
+    if (SemanticEmbeddingMappings.isSemanticEnabledV3Index(
+        semanticSearchConfiguration, indexName)) {
+      return SemanticEmbeddingMappings.shouldEnableIndexLevelKnn(searchClientShim);
+    }
+    // Index settings/mappings are built at index-creation time — no request context;
+    // resolves the deploy-wide prefix.
+    if (!indexName.equals(
+        indexConvention.getEntityIndexNameV3(OperationFingerprint.EMPTY, PRIMARY_SEARCH_GROUP))) {
+      return false;
+    }
+    // Same gate as the embedding mappings: without vector fields, index.knn only adds
+    // native-memory circuit-breaker overhead.
+    if (!SemanticEmbeddingFieldConfigBuilder.semanticIndexingEnabled(semanticSearchConfiguration)) {
+      return false;
+    }
+    return SemanticEmbeddingMappings.shouldEnableIndexLevelKnn(searchClientShim);
+  }
+
+  private void applySearchGroupSettings(
+      @Nonnull final Map<String, Object> indexSettings, @Nonnull final String indexName) {
+    final SearchGroupIndexSettingsConfiguration settingsConfiguration =
+        resolveSearchGroupSettings(indexName);
+    if (settingsConfiguration.getNumberOfShards() != null) {
+      indexSettings.put("number_of_shards", settingsConfiguration.getNumberOfShards());
+    }
+    if (settingsConfiguration.getNumberOfReplicas() != null) {
+      indexSettings.put("number_of_replicas", settingsConfiguration.getNumberOfReplicas());
+    }
+  }
+
+  @Nonnull
+  private SearchGroupIndexSettingsConfiguration resolveSearchGroupSettings(
+      @Nonnull final String indexName) {
+    // Index settings/mappings are built at index-creation time — no request context;
+    // resolves the deploy-wide prefix.
+    return searchGroupSettings.entrySet().stream()
+        .filter(
+            entry ->
+                indexName.equals(
+                    indexConvention.getEntityIndexNameV3(
+                        OperationFingerprint.EMPTY, entry.getKey())))
+        .map(Map.Entry::getValue)
+        .filter(settingsConfiguration -> settingsConfiguration != null)
+        .findFirst()
+        .orElse(defaultSearchGroupSettings);
   }
 }

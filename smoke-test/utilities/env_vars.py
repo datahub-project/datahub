@@ -166,6 +166,40 @@ def get_smoke_dump_batch_plan() -> Optional[str]:
     return value or None
 
 
+def get_smoke_batch_plan() -> Optional[str]:
+    """Path to a CI-computed batch plan (SMOKE_BATCH_PLAN).
+
+    When set, conftest runs exactly the scopes planned for BATCH_NUMBER instead
+    of smart-filtering and re-packing the collected set itself.
+    """
+    value = os.getenv("SMOKE_BATCH_PLAN", "").strip()
+    return value or None
+
+
+def get_smoke_plan_smart_mode() -> str:
+    """Smart-testing mode recorded in the batch plan (SMOKE_PLAN_SMART_MODE).
+
+    Kept apart from SMOKE_SMART_TESTING so that recording the mode never turns
+    on conftest's own smart filtering while the plan is collected.
+    """
+    return os.getenv("SMOKE_PLAN_SMART_MODE", "").strip()
+
+
+def get_plan_target_batch_seconds(default: float) -> float:
+    """Per-batch pytest target for sizing a smart-selected matrix.
+
+    SMOKE_PLAN_TARGET_BATCH_SECONDS lets CI trade runners for wall clock on
+    pull requests without changing the planner's default. Unset, blank or not
+    a positive number means ``default``.
+    """
+    raw = os.getenv("SMOKE_PLAN_TARGET_BATCH_SECONDS", "").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 def get_pytest_xdist_workers() -> int:
     """pytest-xdist worker count used for a batch's parallel phase.
 
@@ -287,6 +321,16 @@ def get_smoke_changed_tests() -> List[str]:
     """
     raw = os.getenv("SMOKE_CHANGED_TESTS", "").strip()
     return raw.split() if raw else []
+
+
+def get_smart_testing_mode() -> str:
+    """Smart test selection mode (CI sets SMOKE_SMART_TESTING): off, shadow, or active."""
+    return os.getenv("SMOKE_SMART_TESTING", "off").strip().lower() or "off"
+
+
+def get_smart_testing_tags() -> str:
+    """PR tags JSON from the CI classifier (SMOKE_SMART_TAGS); empty means no filtering."""
+    return os.getenv("SMOKE_SMART_TAGS", "").strip()
 
 
 def get_smoke_policy_phase() -> Optional[str]:

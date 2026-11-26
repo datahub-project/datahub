@@ -39,8 +39,7 @@ interface Props {
 
 /**
  * Warns that the Snowflake recipe uses deprecated username+password auth and
- * links to the key-pair migration guide. Shared across the legacy and ingestV2
- * source builders.
+ * links to the key-pair migration guide.
  */
 export const SnowflakePasswordAuthDeprecationWarning = ({ recipe }: Props) => {
     const { t } = useTranslation('ingestion.sourceBuilder');

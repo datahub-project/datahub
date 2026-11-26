@@ -920,6 +920,53 @@ def test_get_column_type_array():
     assert isinstance(result.item_type, types.String)
 
 
+@pytest.mark.parametrize(
+    "athena_type, dimensions",
+    [("array<array<string>>", 2), ("array<array<array<string>>>", 3)],
+)
+def test_get_column_type_nested_array(athena_type: str, dimensions: int) -> None:
+    # SQLAlchemy refuses ARRAY(ARRAY(...)); before the fix this raised
+    # "Do not nest ARRAY types" and the whole table lost its columns.
+    result = CustomAthenaRestDialect()._get_column_type(type_=athena_type)
+
+    assert isinstance(result, types.ARRAY)
+    assert result.dimensions == dimensions
+    assert isinstance(result.item_type, types.String)
+
+
+def test_nested_array_in_struct_schema_fields() -> None:
+    # A nested array inside a struct goes through the dict (`type_["items"]`)
+    # branch of `_get_column_type`, which crashed the same way.
+    fields = _athena_schema_fields("s", "struct<a:array<array<string>>,b:int>")
+
+    assert (
+        "[version=2.0].[type=struct].[type=struct].s.[type=array].[type=array]"
+        ".[type=string].a"
+    ) in {f.fieldPath for f in fields}
+
+
+def test_nested_array_of_struct_schema_fields() -> None:
+    # The shape of Overture Maps' divisions `hierarchies` column.
+    fields = _athena_schema_fields(
+        "hierarchies",
+        "array<array<struct<division_id:string,subtype:string,name:string>>>",
+    )
+
+    by_path = {f.fieldPath: f for f in fields}
+    root = (
+        "[version=2.0].[type=struct].[type=array].[type=array].[type=struct]"
+        ".hierarchies"
+    )
+    assert isinstance(by_path[root].type.type, ArrayTypeClass)
+    assert by_path[root].nativeDataType.startswith("array<array<STRUCT<")
+    assert set(by_path) == {
+        root,
+        f"{root}.[type=string].division_id",
+        f"{root}.[type=string].subtype",
+        f"{root}.[type=string].name",
+    }
+
+
 def test_get_column_type_map():
     result = CustomAthenaRestDialect()._get_column_type(type_="map<string,int>")
 

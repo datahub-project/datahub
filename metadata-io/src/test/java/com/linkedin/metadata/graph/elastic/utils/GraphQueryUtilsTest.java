@@ -4,6 +4,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.UrnArray;
@@ -15,6 +16,8 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
+import com.linkedin.metadata.graph.elastic.TestUtils;
 import com.linkedin.metadata.graph.elastic.ThreadSafePathStore;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -33,6 +36,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -73,6 +77,50 @@ public class GraphQueryUtilsTest {
     org.mockito.Mockito.when(mockOpContext.getSearchContext()).thenReturn(mockSearchContext);
     org.mockito.Mockito.when(mockSearchContext.getSearchFlags()).thenReturn(mockSearchFlags);
     org.mockito.Mockito.when(mockSearchFlags.isIncludeSoftDeleted()).thenReturn(false);
+  }
+
+  @Test
+  public void testExtractRelationshipsStopsOncePastDeadline() {
+    SearchResponse response =
+        TestUtils.createFakeSearchResponse(
+            TestUtils.createFakeLineageHits(2, TEST_URN_1.toString(), "dest_", "DownstreamOf"), 2);
+
+    assertThrows(
+        LineageTimeoutException.class,
+        () ->
+            GraphQueryUtils.extractRelationships(
+                Set.of(TEST_URN_1),
+                response,
+                null,
+                new HashSet<>(),
+                new HashSet<>(),
+                1,
+                0,
+                new ThreadSafePathStore(),
+                false,
+                System.currentTimeMillis() - 1));
+  }
+
+  @Test
+  public void testExtractRelationshipsFromSearchResponsesStopsOncePastDeadline() {
+    SearchResponse response =
+        TestUtils.createFakeSearchResponse(
+            TestUtils.createFakeLineageHits(2, TEST_URN_1.toString(), "dest_", "DownstreamOf"), 2);
+
+    assertThrows(
+        LineageTimeoutException.class,
+        () ->
+            GraphQueryUtils.extractRelationshipsFromSearchResponses(
+                Set.of(TEST_URN_1),
+                Stream.of(response),
+                null,
+                new HashSet<>(),
+                new HashSet<>(),
+                1,
+                new ThreadSafePathStore(),
+                false,
+                null,
+                System.currentTimeMillis() - 1));
   }
 
   @Test

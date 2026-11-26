@@ -8,7 +8,7 @@ import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getAssertionSummaryCardHeaderByStatus } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
 import { buildAssertionUrlSearch } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
 import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { EntityType } from '@src/types.generated';
 
@@ -54,7 +54,7 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ gr
                 const url = `${entityRegistry.getEntityUrl(
                     EntityType.Dataset,
                     entityData.urn,
-                )}/${EntityTabPath.QUALITY}/List${buildAssertionUrlSearch({ type: group.type, status: status.resultType })}`;
+                )}/${EntityTabPath.QUALITY}/List${buildAssertionUrlSearch({ type: group.type, customType: group.customType, status: status.resultType })}`;
                 return (
                     <Tooltip
                         key={status.text}

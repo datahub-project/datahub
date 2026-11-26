@@ -40,7 +40,7 @@ vi.mock('@app/context/useUserContext', () => ({
     useUserContext: () => ({ localState: { selectedViewUrn: SELECTED_VIEW_URN } }),
 }));
 let entityAsksToRefetch = false;
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityContext: () => ({
         shouldRefetchEmbeddedListSearch: entityAsksToRefetch,
         setShouldRefetchEmbeddedListSearch: vi.fn(),

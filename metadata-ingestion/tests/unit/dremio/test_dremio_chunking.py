@@ -2,6 +2,7 @@ from typing import Dict, List
 from unittest.mock import Mock
 
 import pytest
+import requests
 
 from datahub.ingestion.source.dremio.dremio_api import (
     DREMIO_MAX_JOB_OUTPUT_ROWS,
@@ -183,6 +184,42 @@ class TestDremioChunking:
         assert "KeyError: 'rows'" in warning_call[1]["message"]
         assert "query_extraction" in warning_call[1]["context"]
 
+    @pytest.mark.parametrize(
+        "error",
+        [
+            DremioAPIException("Query timed out"),
+            requests.ConnectionError("connection reset mid-stream"),
+        ],
+    )
+    def test_get_queries_chunked_failure_after_first_chunk_is_reported(
+        self, dremio_api, error
+    ):
+        # A failure after some pages were read must keep the rows already
+        # yielded, mark the fetch incomplete and report it, so the stateful
+        # time window is not advanced past jobs that were never read.
+        dremio_api.report = DremioSourceReport()
+        dremio_api._chunk_size = 1
+        dremio_api.execute_query_iter = Mock(
+            side_effect=[iter([{"query_id": "q1"}]), error]
+        )
+
+        queries = list(
+            dremio_api._get_queries_chunked("SELECT * FROM jobs {limit_clause}")
+        )
+
+        assert [q["query_id"] for q in queries] == ["q1"]
+        assert dremio_api.report.query_fetch_incomplete
+        assert len(dremio_api.report.failures) == 1
+
+    def test_get_queries_chunked_complete_fetch_not_marked_incomplete(self, dremio_api):
+        dremio_api.report = DremioSourceReport()
+        dremio_api.execute_query_iter = Mock(return_value=iter([{"query_id": "q1"}]))
+
+        list(dremio_api._get_queries_chunked("SELECT * FROM jobs {limit_clause}"))
+
+        assert not dremio_api.report.query_fetch_incomplete
+        assert len(dremio_api.report.failures) == 0
+
     def test_get_all_tables_and_columns_uses_global_query(self, dremio_api):
         # get_all_tables_and_columns must use the global query path, not per-container.
         dremio_api.edition = DremioEdition.ENTERPRISE
@@ -347,6 +384,8 @@ class TestDremioChunking:
         dremio_api.report.failure.assert_called_once()
         failure_call = dremio_api.report.failure.call_args
         assert "'rows'" in failure_call.kwargs["context"]
+        # `is True`: report is a Mock, so an unset attribute would be truthy.
+        assert dremio_api.report.dataset_fetch_incomplete is True
 
     def test_extract_all_queries_uses_chunking(self, dremio_api):
         dremio_api.edition = DremioEdition.ENTERPRISE

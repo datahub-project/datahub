@@ -49,7 +49,10 @@ buildscript {
   // CVE-2026-77420 (HISTORY_IGNORE ReDoS): fixed in 4.3.1+ / 3.30.15+
   ext.jlineVersion = '4.3.1'
   // CVE-2026-45292 (W3C Baggage unbounded memory): fixed in opentelemetry-api / trace-propagators 1.62.0+
-  ext.openTelemetryVersion = '1.62.0'
+  // CVE-2026-118259: fixed in opentelemetry-api 1.67.0+
+  ext.openTelemetryVersion = '1.67.0'
+  // org.apache.kerby (transitive): CVE-2026-57914 in kerby-asn1, fixed in 2.1.2. Align the whole group.
+  ext.kerbyVersion = '2.1.2'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.4'
@@ -113,7 +116,7 @@ buildscript {
   // Mockito inline mocks need byte-buddy + byte-buddy-agent matched and >= 1.17.5 (ASM 9.8) to
   // instrument Java 25 runtime classes; forced in the resolutionStrategy block below.
   ext.byteBuddyVersion = '1.18.11'
-  ext.openLineageVersion = '1.53.0'
+  ext.openLineageVersion = '1.55.0'
   ext.awsSdk2Version = '2.54.16'
   ext.micrometerVersion = '1.16.6'
   // CVE-2026-1002; CVE-2026-6860 / GHSA-3g76-f9xq-8vp6 (SNI cache growth); fabric8 kubernetes-httpclient-vertx
@@ -128,6 +131,7 @@ buildscript {
   // CVE-2026-59902 (netty-transport-sctp): 4.2.17+
   // CVE-2026-100660..100665 (netty-codec-http3 / QUIC): 4.2.18+
   ext.nettyVersion = '4.2.19.Final' // align all io.netty modules (excl. netty-tcnative line)
+  ext.nettyTcnativeVersion = '2.0.84.Final' // CVE-2026-116541; matches tcnative.version in netty-parent 4.2.19.Final; bump together with nettyVersion
   // CVE-2026-45799: wire-runtime skipGroup() negative-length crash (fixed in 6.3.0+);
   // transitive via schema-registry-serde → wire-compiler → wire-runtime-jvm
   ext.wireVersion = '6.3.0'
@@ -146,8 +150,15 @@ buildscript {
 
   // CVE-2026-111497 (Brotli out-of-bounds write), CVE-2026-106069 (TLS hostname bypass),
   // CVE-2026-105482 (dns.resolve NUL truncation): fixed in 22.23.4 (October 2026 security release)
+  // nodeVersion is only what the node-gradle plugin downloads when it downloads Node. CI installs
+  // Node itself (.github/actions/setup-toolchain) and uses that copy, which only has to share the
+  // major version; downloading a second copy adds ~30s per Node task and fails when nodejs.org flakes.
+  // An explicit -PuseSystemNode=<bool> (or ORG_GRADLE_PROJECT_useSystemNode) always wins.
   ext.nodeVersion = '22.23.4'
   ext.yarnVersion = '1.22.22'
+  ext.useSystemNode = project.hasProperty('useSystemNode')
+      ? project.getProperty('useSystemNode').toBoolean()
+      : System.getenv('CI') == 'true'
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
@@ -193,17 +204,27 @@ buildscript {
 }
 
 plugins {
-  id 'com.gorylenko.gradle-git-properties' version '2.5.3'
+  id 'com.gorylenko.gradle-git-properties' version '4.0.1'
   id 'com.gradleup.shadow' version '9.3.0' apply false
   id 'com.palantir.docker' version '0.35.0' apply false
   id 'com.avast.gradle.docker-compose' version '0.17.21'
   id "com.diffplug.spotless" version "7.0.4"
   id 'com.adarshr.test-logger' version '4.0.0'
+  id 'org.jreleaser' version '1.27.0'
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
 
 apply from: "gradle/docker/docker-utils.gradle"
+
+// Lock shared by every Yarn 1 `yarn install` task (attach with usesService). The installs share the
+// global yarn cache, and Yarn 1 can corrupt a cache entry when two installs extract the same package
+// at once ("the file appears to be corrupt ... ENOENT"). maxParallelUsages = 1 keeps Gradle from
+// running two of them together. It replaces `yarn install --mutex file:...`, whose lock must be
+// refreshed every 5s and fails the install with ECOMPROMISED when a loaded CI runner misses that.
+ext.yarnInstallLock = gradle.sharedServices.registerIfAbsent('yarnInstallLock', BuildService) {
+  maxParallelUsages = 1
+}
 
 // Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
 ext.jacksonVersion = '2.21.7'
@@ -336,8 +357,8 @@ project.ext.externalDependency = [
     'jsonPatch': 'jakarta.json:jakarta.json-api:2.1.3',
     'jsonPathImpl': 'org.eclipse.parsson:parsson:1.1.6',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
-    'jsonSmart': 'net.minidev:json-smart:2.5.2',
-    'json': 'org.json:json:20231013',
+    'jsonSmart': 'net.minidev:json-smart:2.6.1', // CVE-2026-113602
+    'json': 'org.json:json:20260814',
     'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
     'jjwtApi': "io.jsonwebtoken:jjwt-api:$jjwtVersion",
     'jjwtImpl': "io.jsonwebtoken:jjwt-impl:$jjwtVersion",
@@ -416,7 +437,7 @@ project.ext.externalDependency = [
     'pac4j': 'org.pac4j:pac4j-oidc:6.5.8',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.3-PLAY3.0",
     // CVE-2026-54291: channel-binding auth downgrade fixed in 42.7.12+
-    'postgresql': 'org.postgresql:postgresql:42.7.12',
+    'postgresql': 'org.postgresql:postgresql:42.7.15', // CVE-2026-107314, CVE-2026-107315
     'protobuf': 'com.google.protobuf:protobuf-java:4.36.2',
     'grpcProtobuf': "io.grpc:grpc-protobuf:$grpcVersion",
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
@@ -425,7 +446,8 @@ project.ext.externalDependency = [
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
     'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.1.0',
     // CVE-2026-23903 / CVE-2026-23901: fixed in Shiro 2.1.0+; CVE-2026-49268 (DefaultLdapRealm LDAP DN injection): 2.2.1+
-    'shiroCore': 'org.apache.shiro:shiro-core:2.2.1',
+    // CVE-2026-56130, CVE-2026-58301, CVE-2026-74762, CVE-2026-129320: fixed in Shiro 3.0.2
+    'shiroCore': 'org.apache.shiro:shiro-core:3.0.2',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
     'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.5.0',
     'sparkHive' : 'org.apache.spark:spark-hive_2.12:3.5.0',
@@ -476,7 +498,7 @@ project.ext.externalDependency = [
     'fabric8KubernetesClient': 'io.fabric8:kubernetes-client:7.4.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.7',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.8',
     'wire': "com.squareup.wire:wire-compiler:${wireVersion}",
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'jline':'jline:jline:1.4.1',
@@ -493,6 +515,14 @@ project.ext.externalDependency = [
     'djlApi': 'ai.djl:api:0.36.0',
     'djlHuggingFaceTokenizers': 'ai.djl.huggingface:tokenizers:0.36.0'
 ]
+
+// Dead-suite guard opt-outs: Test task path -> reason it legitimately runs no tests. A listed task
+// may discover zero tests or be NO-SOURCE without failing the build (see the dead-suite guard in
+// tasks.withType(Test) below). Every entry is a suite that can go dead unnoticed, so add one only
+// with a reason, e.g.
+//   ':some:module:test': 'only shared test helpers, consumed by other modules\' tests',
+// Empty today: every OSS Test task with test sources runs at least one test.
+project.ext.deadSuiteGuardOptOut = [:]
 
 allprojects {
   // Gradle 9 removed Project.exec/javaexec; route build-script exec/javaexec through the injected
@@ -524,10 +554,74 @@ allprojects {
 
   tasks.withType(Test).configureEach { task ->
     environment "DATAHUB_SYSTEM_CLIENT_SECRET", "TestOnlyNotASecret"
-    // Gradle 9 flips failOnNoDiscoveredTests to true: a test task with sources but zero discovered
-    // tests now fails (Gradle 8 passed silently). Some modules legitimately have only helper/support
-    // test sources, so restore the Gradle-8 behaviour globally.
-    failOnNoDiscoveredTests = false
+    // Dead-suite guard: a Test task that runs nothing must fail, not go green. Failure modes:
+    //  1. NO-SOURCE: no test classes (e.g. a custom Test task that lost its testClassesDirs
+    //     wiring, or an include pattern matching nothing). Gradle skips the task before test
+    //     discovery, so nothing below fires; the onlyIf check runs after test compilation instead.
+    //  2. Executes but discovers no tests (wrong framework). failOnNoDiscoveredTests catches it,
+    //     but only when the task has no filters configured.
+    //  3. Executes zero tests overall: a TestNG suite XML or group selecting nothing, or case 2 on
+    //     a filtered task. Gradle passes this; the doLast count check fails it. The count is per
+    //     task, so one dead <test> block inside a suite XML that otherwise runs is not caught.
+    // Opt a task out only via deadSuiteGuardOptOut (top of this file), with a reason.
+    def deadSuiteOptOutReason = rootProject.ext.deadSuiteGuardOptOut[task.path]
+    failOnNoDiscoveredTests = deadSuiteOptOutReason == null
+    def projectSourceSets = task.project.extensions.findByName('sourceSets')
+    if (deadSuiteOptOutReason == null && projectSourceSets != null) {
+      def deadSuiteHint = "Fix the task's wiring, or add '${task.path}' to deadSuiteGuardOptOut " +
+          "in the root build.gradle with a reason."
+      task.onlyIf('dead-suite guard: test sources must produce test classes') {
+        def classesDirs = task.testClassesDirs.files
+        if (classesDirs.isEmpty()) {
+          // Gradle 9 no longer wires conventions onto custom Test tasks: an unwired one has no
+          // classes dirs at all and can never run anything.
+          def msg = "${task.path} has no testClassesDirs (it would be NO-SOURCE and pass). " +
+              deadSuiteHint
+          // Gradle hides the cause of an onlyIf failure unless run with --stacktrace.
+          task.logger.error(msg)
+          throw new GradleException(msg)
+        }
+        // Mirrors Test#getCandidateClassFiles, the input whose emptiness makes the task NO-SOURCE.
+        def candidates = task.testClassesDirs.asFileTree.matching {
+          include task.includes
+          exclude task.excludes
+        }
+        if (candidates.isEmpty()) {
+          // Check the source sets the task actually runs (e.g. a custom integration-test source
+          // set), falling back to `test` when its dirs don't belong to any source set.
+          def backing = projectSourceSets.findAll { ss ->
+            ss.output.classesDirs.files.any { classesDirs.contains(it) }
+          }
+          if (backing.isEmpty()) {
+            backing = [projectSourceSets.findByName('test')].findAll { it != null }
+          }
+          def withSources = backing.findAll { ss ->
+            !ss.allSource.matching {
+              include '**/*.java', '**/*.kt', '**/*.groovy', '**/*.scala'
+            }.isEmpty()
+          }
+          if (!withSources.isEmpty()) {
+            def msg = "${task.path} has no test classes to run (it would be NO-SOURCE and pass) " +
+                "although source set(s) ${withSources*.name} have test sources. ${deadSuiteHint}"
+            task.logger.error(msg)
+            throw new GradleException(msg)
+          }
+        }
+        true
+      }
+      long executedTests = 0
+      task.afterSuite { desc, result ->
+        if (desc.parent == null) {
+          executedTests += result.testCount
+        }
+      }
+      task.doLast {
+        if (executedTests == 0) {
+          throw new GradleException(
+              "${task.path} ran zero tests (check its suite XML, groups and filters). ${deadSuiteHint}")
+        }
+      }
+    }
     if (task.project.name != "metadata-io") {
       // https://docs.gradle.org/current/userguide/performance.html
       maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
@@ -535,6 +629,20 @@ allprojects {
       if (project.configurations.getByName("testImplementation").getDependencies()
               .any { it.getName().contains("testng") }) {
         useTestNG()
+        // Gradle's TestNG detection ignores method annotations on abstract classes, so a subclass
+        // whose only @Test methods are inherited from one is silently never run. Fail instead.
+        task.doFirst {
+          // Only where Gradle's TestNG class scan decides what runs: not after a module switches the
+          // task to JUnit, and not when suite XML files pick the classes.
+          if (task.scanForTestClasses && task.options instanceof org.gradle.api.tasks.testing.testng.TestNGOptions
+              && task.options.suiteXmlFiles.isEmpty()) {
+            def problems = io.datahubproject.TestNgInheritedTestsCheck.findUndetectedTestClasses(
+                task.candidateClassFiles.files, task.testClassesDirs.files + task.classpath.files)
+            if (!problems.isEmpty()) {
+              throw new GradleException("TestNG test classes Gradle would skip:\n  " + problems.join("\n  "))
+            }
+          }
+        }
         // Configure TestNG to work better with test-logger
         testLogging {
           events "failed", "skipped"
@@ -543,6 +651,9 @@ allprojects {
         }
       }
     }
+
+    // A TestNG run silently skips JUnit test methods; fail instead (see JUnitInTestNGGuard).
+    task.doFirst(new io.datahubproject.JUnitInTestNGGuard())
   }
 
   /**
@@ -683,11 +794,15 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "io.confluent:kafka-schema-types:${rootProject.ext.confluentSerdeVersion}"
     resolutionStrategy.force "org.jline:jline:${rootProject.ext.jlineVersion}"
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
-    resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981, CVE-2026-59739; overrides d2's 3.6.3
-    resolutionStrategy.force 'org.apache.zookeeper:zookeeper-jute:3.8.7'
+    resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981, CVE-2026-59739, CVE-2026-100235, CVE-2026-100252, CVE-2026-100300, CVE-2026-100302, CVE-2026-115448; overrides d2's 3.6.3
+    resolutionStrategy.force 'org.apache.zookeeper:zookeeper-jute:3.8.8'
     resolutionStrategy.force 'org.apache.thrift:libthrift:0.24.0' // CVE-2026-48586 (TZlibTransport zip-bomb DoS); transitive via jena-arq
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
+      if (details.requested.group == 'org.apache.kerby') {
+        details.useVersion(rootProject.ext.kerbyVersion)
+        details.because("CVE-2026-57914 (kerby-asn1); keep all kerby/kerb-* modules on ${rootProject.ext.kerbyVersion}")
+      }
       if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
         details.useTarget(rootProject.ext.externalDependency.lz4Java)
         details.because("CVE-2025-12183, CVE-2026-59949, CVE-2026-106451; align org.lz4:lz4-java to at.yawk fork (${rootProject.ext.lz4JavaVersion})")
@@ -715,10 +830,14 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.because("Jackson aligned to ${v}")
       }
       // Align all Netty modules to nettyVersion (e.g. from awssdk netty-nio-client).
-      // Exclude netty-tcnative-*: they use a separate 2.x version line and have no 4.1.x release.
+      // netty-tcnative-* use a separate 2.0.x version line, aligned to nettyTcnativeVersion instead.
       if (details.requested.group == 'io.netty' && !details.requested.name.startsWith('netty-tcnative')) {
         details.useVersion(rootProject.ext.nettyVersion)
         details.because("Netty aligned to ${rootProject.ext.nettyVersion} for CVE fixes")
+      }
+      if (details.requested.group == 'io.netty' && details.requested.name.startsWith('netty-tcnative')) {
+        details.useVersion(rootProject.ext.nettyTcnativeVersion)
+        details.because("netty-tcnative aligned to ${rootProject.ext.nettyTcnativeVersion} for CVE-2026-116541")
       }
       if (details.requested.group == 'com.squareup.wire') {
         details.useVersion(rootProject.ext.wireVersion)
@@ -743,6 +862,12 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
           && details.requested.name != 'opentelemetry-api-incubator') {
         details.useVersion(rootProject.ext.openTelemetryVersion)
         details.because("OpenTelemetry aligned to ${rootProject.ext.openTelemetryVersion} for CVE-2026-45292")
+      }
+      // opentelemetry-api-incubator ships on the matching -alpha line. The SDK calls into it, so it must
+      // move with openTelemetryVersion or the SDK hits classes removed from opentelemetry-api.
+      if (details.requested.group == 'io.opentelemetry' && details.requested.name == 'opentelemetry-api-incubator') {
+        details.useVersion("${rootProject.ext.openTelemetryVersion}-alpha")
+        details.because("opentelemetry-api-incubator aligned to ${rootProject.ext.openTelemetryVersion}-alpha to match the SDK")
       }
       if (details.requested.group == 'org.apache.parquet') {
         details.useVersion(rootProject.ext.parquetVersion)
@@ -829,13 +954,57 @@ allprojects {
   }
 }
 
+// With useSystemNode (the CI default), the node plugin runs whatever `node` is on PATH. Fail early,
+// with a fix in the message, if it is missing or on a different major version than nodeVersion,
+// rather than building with whatever the runner image happens to ship.
+if (rootProject.ext.useSystemNode) {
+  def expectedNodeMajor = rootProject.ext.nodeVersion.tokenize('.')[0]
+  def verifySystemNode = tasks.register('verifySystemNode') {
+    group = 'verification'
+    description = "Checks that the Node on PATH is major version ${expectedNodeMajor} (useSystemNode=true)."
+    doLast {
+      String found = null
+      try {
+        def node = providers.exec {
+          commandLine 'node', '--version'
+          ignoreExitValue = true
+        }
+        if (node.result.get().exitValue == 0) {
+          found = node.standardOutput.asText.get().trim()
+        }
+      } catch (Exception ignored) {
+        // node is not on PATH; reported below.
+      }
+      def foundMajor = found?.replaceFirst(/^v/, '')?.tokenize('.')?.getAt(0)
+      if (foundMajor != expectedNodeMajor) {
+        throw new GradleException(
+          "useSystemNode=true needs Node ${expectedNodeMajor}.x on PATH, but found ${found ?: 'no node'}.\n" +
+          "In CI, install it with .github/actions/setup-toolchain (node: true, node-version: '${expectedNodeMajor}').\n" +
+          "Or pass -PuseSystemNode=false to let Gradle download Node ${rootProject.ext.nodeVersion}.")
+      }
+    }
+  }
+  subprojects {
+    pluginManager.withPlugin('com.github.node-gradle.node') {
+      tasks.withType(com.github.gradle.node.task.BaseTask).configureEach {
+        dependsOn verifySystemNode
+      }
+    }
+  }
+}
+
 apply plugin: 'com.gorylenko.gradle-git-properties'
+
+def gitDescribe = providers.exec {
+  workingDir rootProject.projectDir
+  commandLine 'git', 'describe', '--tags', '--always', '--abbrev=7'
+}.standardOutput.asText.map { it.trim() }
+
 gitProperties {
   keys = ['git.commit.id','git.commit.id.describe','git.commit.time']
-  // using any tags (not limited to annotated tags) for "git.commit.id.describe" property
-  // see http://ajoberstar.org/grgit/grgit-describe.html for more info about the describe method and available parameters
-  // 'it' is an instance of org.ajoberstar.grgit.Grgit
-  customProperty 'git.commit.id.describe', { it.describe(tags: true) }
+  // Include lightweight tags. The plugin's custom JGit describe path resolves the primary checkout
+  // in linked worktrees, so run Git from this worktree until upstream handles that case correctly.
+  customProperty 'git.commit.id.describe', { gitDescribe.get() }
   gitPropertiesResourceDir = rootProject.buildDir
   failOnNoGitDirectory = false
 }
@@ -843,6 +1012,7 @@ gitProperties {
 def gitPropertiesGenerated = false
 
 apply from: 'gradle/versioning/versioning-global.gradle'
+apply from: 'gradle/publishing/jreleaser.gradle'
 
 tasks.register("generateGitPropertiesGlobal", com.gorylenko.GenerateGitPropertiesTask) {
   doFirst {
@@ -858,8 +1028,9 @@ tasks.register("generateGitPropertiesGlobal", com.gorylenko.GenerateGitPropertie
 
 subprojects {
 
-  apply plugin: 'maven-publish'
-  apply plugin: 'com.diffplug.spotless'
+  // Python subprojects call the `build` lifecycle task, which only `base` provides. They don't
+  // get it from the Java plugin, so it is applied here for all subprojects.
+  apply plugin: 'base'
 
   // Enable dependency locking for all configurations
   dependencyLocking {
@@ -877,6 +1048,40 @@ subprojects {
     into "$project.buildDir/resources/main"
   }
 
+  // Publishing and Spotless apply only to JVM projects. Applying Spotless while Gradle is still
+  // adding the java plugin fails, so this runs after evaluation instead.
+  afterEvaluate {
+    if (!project.plugins.hasPlugin(JavaPlugin)) {
+      return
+    }
+    project.apply plugin: 'maven-publish'
+    project.apply plugin: 'com.diffplug.spotless'
+    project.spotless {
+      // Format checks run in lint-jobs.yml (spotless-check) and ./gradlew lintCheck,
+      // not as part of check/build.
+      enforceCheck false
+      if (!(project.name in ['avroutil1-helper-all-fork', 'datahub-web-react', 'smoke-test'])) {
+        java {
+          googleJavaFormat(googleJavaFormatVersion)
+          target project.fileTree(project.projectDir) {
+            include 'src/**/*.java'
+            include 'app/**/*.java'
+            include 'test/**/*.java'
+            exclude 'src/**/resources/'
+            exclude 'src/**/generated/'
+            exclude 'src/**/mainGeneratedDataTemplate/'
+            exclude 'src/**/mainGeneratedAvroSchema/'
+            exclude 'src/**/mainGeneratedGraphQL/'
+            exclude 'src/**/generatedJsonSchema/'
+            exclude 'src/**/mainGeneratedRest/'
+            exclude 'src/renamed/avro/'
+            exclude 'src/test/sample-test-plugins/'
+          }
+        }
+      }
+    }
+  }
+
   plugins.withType(JavaPlugin).configureEach {
     if (project.name == 'avroutil1-helper-all-fork') {
       return
@@ -886,6 +1091,12 @@ subprojects {
     }
     if (project.name == 'datahub-web-react') {
       return
+    }
+    // Wiring ratchet (gradle/wiring/README.md). datahub-frontend is Play/Guice, not Spring.
+    // Embedded OpenSearch must keep its classpath independent of DataHub and Spring.
+    if (project.path != ':wiring-coverage' && project.path != ':datahub-frontend'
+        && project.path != ':metadata-service:opensearch-embedded') {
+      project.apply from: rootProject.file('gradle/wiring/wiring-coverage.gradle')
     }
     /* TODO: evaluate ignoring jar timestamps for increased caching (compares checksum instead)
     jar {
@@ -899,8 +1110,11 @@ subprojects {
     // Spring Kafka 4.0 has Jackson 3 support but falls back to Jackson 2 when tools.jackson is absent.
     configurations.all {
       exclude group: 'biz.aQute.bnd', module: 'biz.aQute.bnd.annotation'
-      exclude group: 'tools.jackson.core'
-      exclude group: 'tools.jackson'
+      // OpenSearch 3.7's x-content needs Jackson 3 in its standalone process.
+      if (project.path != ':metadata-service:opensearch-embedded') {
+        exclude group: 'tools.jackson.core'
+        exclude group: 'tools.jackson'
+      }
     }
 
     dependencies {
@@ -938,29 +1152,6 @@ subprojects {
         implementation(externalDependency.protobuf)
         implementation(externalDependency.xercesImpl) // Xerces CVEs (2 high, 1 medium)
         implementation(externalDependency.gson) // Gson before 2.8.9: deserialization DoS (writeReplace)
-      }
-    }
-
-    spotless {
-      // Format checks run in lint-jobs.yml (spotless-check) and ./gradlew lintCheck,
-      // not as part of check/build.
-      enforceCheck false
-      java {
-        googleJavaFormat(googleJavaFormatVersion)
-        target project.fileTree(project.projectDir) {
-          include 'src/**/*.java'
-          include 'app/**/*.java'
-          include 'test/**/*.java'
-          exclude 'src/**/resources/'
-          exclude 'src/**/generated/'
-          exclude 'src/**/mainGeneratedDataTemplate/'
-          exclude 'src/**/mainGeneratedAvroSchema/'
-          exclude 'src/**/mainGeneratedGraphQL/'
-          exclude 'src/**/generatedJsonSchema/'
-          exclude 'src/**/mainGeneratedRest/'
-          exclude 'src/renamed/avro/'
-          exclude 'src/test/sample-test-plugins/'
-        }
       }
     }
 
@@ -1024,14 +1215,17 @@ wrapper {
   distributionSha256Sum = 'a3c4ba4aca8f0075688b9c5b18939fd28e8cb4357c227da5c1d9f38343791439'
 }
 
-def spotlessApplyTasks = subprojects.collect { "${it.path}:spotlessApply" }
-def spotlessCheckTasks = subprojects.collect { "${it.path}:spotlessCheck" }
+// Spotless is applied only to Java projects, so only those have these tasks. Resolved lazily
+// because plugins are applied after this script runs.
+def spotlessTaskPaths = { String taskName ->
+  subprojects.findAll { it.plugins.hasPlugin('com.diffplug.spotless') }.collect { "${it.path}:${taskName}" }
+}
 
 tasks.register('format') {
   dependsOn(':datahub-web-react:graphqlPrettierWrite')
   dependsOn(':datahub-web-react:githubActionsPrettierWrite')
   dependsOn(':datahub-web-react:mdPrettierWrite')
-  dependsOn(spotlessApplyTasks)
+  dependsOn { spotlessTaskPaths('spotlessApply') }
   dependsOn(':scripts:dev:lintFix')
 }
 
@@ -1039,7 +1233,7 @@ tasks.register('formatChanged') {
   dependsOn(':datahub-web-react:graphqlPrettierWriteChanged')
   dependsOn(':datahub-web-react:githubActionsPrettierWriteChanged')
   dependsOn(':datahub-web-react:mdPrettierWriteChanged')
-  dependsOn(spotlessApplyTasks)
+  dependsOn { spotlessTaskPaths('spotlessApply') }
   dependsOn(':scripts:dev:lintFix')
 }
 
@@ -1049,6 +1243,8 @@ tasks.register('lintCheck') {
   dependsOn(':metadata-ingestion:lint')
   dependsOn(':datahub-actions:lint')
   dependsOn(':datahub-agent-context:lint')
+  dependsOn(':packages:datahub-core-mcp-tools:lint')
+  dependsOn(':packages:datahub-ai-service:lint')
   dependsOn(':metadata-ingestion-modules:airflow-plugin:lint')
   dependsOn(':metadata-ingestion-modules:gx-plugin:lint')
   dependsOn(':metadata-ingestion-modules:dagster-plugin:lint')
@@ -1061,7 +1257,7 @@ tasks.register('lintCheck') {
   dependsOn(':datahub-web-react:githubActionsPrettierCheck')
   dependsOn(':datahub-web-react:docusaurusMarkdownLint')
   dependsOn(':docs-website:yarnLint')
-  dependsOn(spotlessCheckTasks)
+  dependsOn { spotlessTaskPaths('spotlessCheck') }
 }
 
 tasks.register('lintFix') {
@@ -1071,6 +1267,8 @@ tasks.register('lintFix') {
   dependsOn(':metadata-ingestion:lintFix')
   dependsOn(':datahub-actions:lintFix')
   dependsOn(':datahub-agent-context:lintFix')
+  dependsOn(':packages:datahub-core-mcp-tools:lintFix')
+  dependsOn(':packages:datahub-ai-service:lintFix')
   dependsOn(':metadata-ingestion-modules:airflow-plugin:lintFix')
   dependsOn(':metadata-ingestion-modules:gx-plugin:lintFix')
   dependsOn(':metadata-ingestion-modules:dagster-plugin:lintFix')
@@ -1142,3 +1340,15 @@ tasks.register('verifyVendorJars') {
 // Cross-module aggregated JaCoCo report (recovers coverage of a class produced by tests in
 // another module). See gradle/coverage/java-coverage-aggregation.gradle for details.
 apply from: 'gradle/coverage/java-coverage-aggregation.gradle'
+
+// Process boot tests: start every OSS process's real Spring context (GMS, MAE/MCE consumers,
+// system-update) under the kafka and pgqueue transports. Not part of `test`/`check`; CI runs this
+// on PRs that touch wiring and nightly. See gradle/testing/boot-test.gradle.
+tasks.register('bootTests') {
+  group = 'verification'
+  description = 'Boots every OSS process and checks its required/forbidden bean contract.'
+  dependsOn ':metadata-service:war:bootTest',
+      ':metadata-jobs:mae-consumer-job:bootTest',
+      ':metadata-jobs:mce-consumer-job:bootTest',
+      ':datahub-upgrade:bootTest'
+}

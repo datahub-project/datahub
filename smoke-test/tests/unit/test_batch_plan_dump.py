@@ -7,11 +7,13 @@ from pathlib import Path
 import pytest
 from _pytest.mark.structures import Mark
 
-from shard_pack import ModuleShard, pack_module_plans
+from shard_pack import TARGET_BATCH_WALL_SECONDS, ModuleShard, pack_module_plans
+from utilities import batch_plan_dump
 from utilities.batch_plan_dump import (
     markexpr_filtered_items,
     resolve_dump_path,
     serialize_batch_plans,
+    size_selected,
 )
 from utilities.domains import Domain
 from utilities.env_vars import get_smoke_dump_batch_plan
@@ -103,3 +105,95 @@ def test_write_dump_creates_parent_dirs(tmp_path: Path) -> None:
     dest = tmp_path / "nested" / "plan.json"
     write_dump({"ok": True}, str(dest))
     assert dest.read_text().strip() == '{\n  "ok": true\n}'
+
+
+def test_size_selected_records_candidate_scopes_and_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SMOKE_PLAN_SMART_MODE", " active ")
+    # Packing needs real pytest items; this test only covers the plan metadata.
+    monkeypatch.setattr(batch_plan_dump, "size_batches", lambda *_: None)
+    monkeypatch.setattr(batch_plan_dump, "slowest_scope_seconds", lambda _: 0.0)
+    items = [
+        _FakeItem("tests/a.py::test_one"),
+        _FakeItem("tests/a.py::test_two"),
+        _FakeItem("tests/b.py::TestB::test_three"),
+        _FakeItem("tests/c.py::test_four"),
+    ]
+    _, meta = size_selected(
+        items,  # type: ignore[arg-type]
+        max_batches=2,
+        xdist_workers=1,
+        raw_pr_tags="",
+        changed_tests=[],
+    )
+    assert meta["candidate_test_count"] == 4
+    assert meta["candidate_scope_count"] == 3
+    assert meta["smart_mode"] == "active"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (None, TARGET_BATCH_WALL_SECONDS),
+        ("300", 300.0),
+        ("0", TARGET_BATCH_WALL_SECONDS),
+        ("five", TARGET_BATCH_WALL_SECONDS),
+    ],
+)
+def test_size_selected_uses_target_from_env(
+    monkeypatch: pytest.MonkeyPatch, raw: str | None, expected: float
+) -> None:
+    if raw is None:
+        monkeypatch.delenv("SMOKE_PLAN_TARGET_BATCH_SECONDS", raising=False)
+    else:
+        monkeypatch.setenv("SMOKE_PLAN_TARGET_BATCH_SECONDS", raw)
+    targets: list[float] = []
+    monkeypatch.setattr(
+        batch_plan_dump,
+        "size_batches",
+        lambda items, max_batches, workers, target: targets.append(target),
+    )
+    monkeypatch.setattr(batch_plan_dump, "slowest_scope_seconds", lambda _: 0.0)
+    items = [_FakeItem("tests/a.py::test_one")]
+    _, meta = size_selected(
+        items,  # type: ignore[arg-type]
+        max_batches=20,
+        xdist_workers=3,
+        raw_pr_tags="",
+        changed_tests=[],
+    )
+    assert targets == [expected]
+    assert meta["target_wall"] == expected
+
+
+def test_size_selected_counts_candidates_before_smart_filtering(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(batch_plan_dump, "size_batches", lambda *_: None)
+    monkeypatch.setattr(batch_plan_dump, "slowest_scope_seconds", lambda _: 0.0)
+    monkeypatch.setattr(batch_plan_dump, "load_tag_map", lambda: None)
+    monkeypatch.setattr(
+        batch_plan_dump.smart_testing, "apply_markers", lambda item, tag_map: None
+    )
+    items = [
+        _FakeItem("tests/a.py::test_one"),
+        _FakeItem("tests/b.py::TestB::test_two"),
+        _FakeItem("tests/c.py::test_three"),
+    ]
+    # Selection keeps one scope; the candidate counts must still cover all three.
+    monkeypatch.setattr(
+        batch_plan_dump.smart_testing,
+        "selected_items",
+        lambda items, tag_map, pr, changed: items[:1],
+    )
+    _, meta = size_selected(
+        items,  # type: ignore[arg-type]
+        max_batches=2,
+        xdist_workers=1,
+        raw_pr_tags='{"feature-user": ["lineage"], "confidence": "HIGH"}',
+        changed_tests=[],
+    )
+    assert meta["candidate_test_count"] == 3
+    assert meta["candidate_scope_count"] == 3
+    assert meta["smart_tags_applied"] is True

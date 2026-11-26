@@ -35,6 +35,8 @@ import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -763,5 +765,56 @@ public class SiblingsSearchBatchLoaderTest {
 
     assertEquals(results.get(0).getCount(), 0);
     assertNull(results.get(0).getNextScrollId());
+  }
+
+  /**
+   * A batch wider than the chunk limit is split, and each chunk scopes its own attribution and
+   * totals. Regressions here are silent: a dropped chunk returns "no siblings" for every key in it,
+   * which is indistinguishable from a dataset genuinely having none.
+   */
+  @Test
+  public void testBatchWiderThanChunkLimitIsSplitAndEveryKeyStillAnswered() throws Exception {
+    // One past the chunk limit, so the batch must split into exactly two searches.
+    final int keyCount = 26;
+
+    final List<String> requested = new ArrayList<>(keyCount);
+    final List<String> hits = new ArrayList<>(keyCount);
+    final Map<String, List<String>> siblingsByHit = new HashMap<>(keyCount);
+    for (int i = 0; i < keyCount; i++) {
+      final String dbt = String.format("urn:li:dataset:(urn:li:dataPlatform:dbt,tbl%d,PROD)", i);
+      final String snow =
+          String.format("urn:li:dataset:(urn:li:dataPlatform:snowflake,tbl%d,PROD)", i);
+      requested.add(dbt);
+      hits.add(snow);
+      siblingsByHit.put(snow, List.of(dbt));
+    }
+
+    // Every chunk sees the same page; the loader must narrow it to its own urns.
+    stubSearch(searchResult(hits));
+    stubSiblingAspects(siblingsByHit);
+
+    final List<SiblingsSearchBatchLoader.Key> keys = new ArrayList<>(keyCount);
+    for (String urn : requested) {
+      keys.add(key(urn, 1));
+    }
+
+    final List<ScrollResults> results =
+        SiblingsSearchBatchLoader.batchLoad(keys, _context, _entityClient, _viewService);
+
+    // Per-key correctness before the call count: a key silently losing its siblings is the
+    // damaging failure, so it should be the one the report names.
+    assertEquals(results.size(), keyCount);
+    for (int i = 0; i < keyCount; i++) {
+      final ScrollResults result = results.get(i);
+      assertEquals(result.getTotal(), 1, "wrong total for key " + i);
+      assertEquals(result.getSearchResults().size(), 1, "wrong hit count for key " + i);
+      assertEquals(
+          result.getSearchResults().get(0).getEntity().getUrn(),
+          hits.get(i),
+          "key " + i + " was attributed the wrong sibling");
+    }
+
+    // Guards the split itself: if the chunk limit ever stops applying, this is the only signal.
+    verifySearchCount(2);
   }
 }

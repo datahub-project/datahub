@@ -1,8 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import ChartFieldsTable from '@app/entityV2/chart/summary/ChartFieldsTable';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 
 import { SchemaField } from '@types';

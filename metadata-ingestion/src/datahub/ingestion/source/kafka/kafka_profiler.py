@@ -58,6 +58,7 @@ from datahub.metadata.schema_classes import (
     UnionTypeClass,
     ValueFrequencyClass,
 )
+from datahub.utilities.urns.field_paths import KEY_FIELD_PATH_MARKER
 
 logger = logging.getLogger(__name__)
 
@@ -115,9 +116,13 @@ def is_overflow_value(v: FieldValue) -> bool:
 def clean_field_path(field_path: str) -> str:
     # Return the innermost field name, ignoring Avro path tokens like
     # [version=...]/[type=...] and stripping any trailing [key=...] suffix.
-    parts = field_path.split(".")
-    for part in reversed(parts):
-        if part and not (part.startswith("[version=") or part.startswith("[type=")):
+    # The version token itself contains a dot ("[version=2.0]"), so drop it
+    # before splitting or its tail ("0]") would be mistaken for a field name.
+    body = field_path
+    if body.startswith("[version=") and "]" in body:
+        body = body[body.index("]") + 1 :].lstrip(".")
+    for part in reversed(body.split(".")):
+        if part and not part.startswith("[type="):
             return part.split("[key=")[0]
 
     return field_path
@@ -299,7 +304,7 @@ class KafkaProfiler:
                 # Look for field with [key=True] annotation and the matching base name
                 for schema_field in schema_metadata.fields:
                     if (
-                        "[key=True]" in schema_field.fieldPath
+                        KEY_FIELD_PATH_MARKER in schema_field.fieldPath
                         and clean_field_path(schema_field.fieldPath) == base_field_name
                     ):
                         return schema_field.fieldPath
@@ -314,7 +319,7 @@ class KafkaProfiler:
             key_schema_fields = [
                 schema_field
                 for schema_field in schema_metadata.fields
-                if "[key=True]" in schema_field.fieldPath
+                if KEY_FIELD_PATH_MARKER in schema_field.fieldPath
             ]
 
             # If we found exactly one key field, use its full fieldPath
@@ -336,7 +341,7 @@ class KafkaProfiler:
         if schema_metadata and schema_metadata.fields:
             for schema_field in schema_metadata.fields:
                 # Skip key fields when looking for regular field matches
-                if "[key=True]" in schema_field.fieldPath:
+                if KEY_FIELD_PATH_MARKER in schema_field.fieldPath:
                     continue
 
                 if clean_field_path(schema_field.fieldPath) == clean_sample:

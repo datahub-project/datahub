@@ -1,9 +1,9 @@
-import { waitFor } from '@testing-library/react';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useInfiniteScrollStructuredProperties } from '@app/permissions/policy/structuredProperties/useInfiniteScrollStructuredProperties';
 import { useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock the GraphQL hook
 vi.mock('@src/graphql/search.generated', () => ({

@@ -1,0 +1,53 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "0ee7fdadce6a413d53692c1d12335d50810a5cc7c5f94342a7c60ed32cf86032",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_source,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_target,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_target,PROD)",
+                "column": "col_a",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_source,PROD)",
+                    "column": "col_a"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"MY_SOURCE\".\"COL_A\" AS \"COL_A\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_target,PROD)",
+                "column": "current_timestamp()",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                    }
+                },
+                "native_column_type": "TIMESTAMPLTZ"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "CURRENT_TIMESTAMP() AS \"_COL_1\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO my_db.my_schema.my_target SELECT col_a, CURRENT_TIMESTAMP() FROM my_db.my_schema.my_source"
+    }
+}

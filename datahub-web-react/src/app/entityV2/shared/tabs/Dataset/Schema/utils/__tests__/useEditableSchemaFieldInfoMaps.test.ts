@@ -1,6 +1,5 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import useEditableSchemaFieldInfoMaps from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EditableSchemaMetadata } from '@types';
 

@@ -7,6 +7,7 @@ import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { getRelatedEntitiesUrl as getBusinessAttributeRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';
 import { getRelatedAssetsUrl } from '@app/entityV2/glossaryTerm/utils';
+import { TabType } from '@app/entityV2/group/types';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
@@ -23,6 +24,7 @@ import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttr
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { hasPropagationDetails } from '@app/sharedV2/propagation/utils';
 import TagPill from '@app/sharedV2/tags/TagPill';
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -134,11 +136,18 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
             href: resolveRuntimePath(getBusinessAttributeRelatedEntitiesUrl(entityRegistry, entity.urn)),
             label: tTypes('businessAttribute.viewRelatedEntities'),
         });
+    } else if (memberCount != null && memberCount > 0) {
+        relatedLinks.push({
+            href: resolveRuntimePath(
+                `${entityRegistry.getEntityUrl(entity.type, entity.urn)}/${TabType.Members.toLowerCase()}`,
+            ),
+            label: tTypes('group.viewAllMembers'),
+        });
     }
 
     const owners = properties?.ownership?.owners ?? [];
-    const tags = properties?.globalTags?.tags ?? [];
-    const terms = properties?.glossaryTerms?.terms ?? [];
+    const tags = (properties?.globalTags?.tags ?? []).filter((tag) => !isRemovedAssociation(tag));
+    const terms = (properties?.glossaryTerms?.terms ?? []).filter((term) => !isRemovedAssociation(term));
     const domain = properties?.domain?.domain;
     const dataProduct = properties?.dataProduct?.relationships?.[0]?.entity;
 

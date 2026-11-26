@@ -498,3 +498,19 @@ def test_a_whitespace_only_username_is_rejected():
     config = _postgres(username="   ", **_IAM)
     with pytest.raises(ValueError, match="username is required"):
         config.rds_iam_token_manager()
+
+
+def test_an_unparseable_uri_falls_back_to_host_port_and_the_config_user() -> None:
+    """The fallback the security test above keeps narrow: a URI that does not
+    parse at all signs for host_port and the configured username."""
+    config = _postgres(sqlalchemy_uri="not a url")
+    assert config.rds_iam_endpoint() == ("db.rds.amazonaws.com", 5432)
+    assert config.rds_iam_username() == "u"
+
+
+def test_a_uri_without_a_host_falls_back_to_host_port() -> None:
+    config = _postgres(
+        host_port="db.rds.amazonaws.com", sqlalchemy_uri="postgresql:///db"
+    )
+    # The dialect default port fills in when host_port carries none.
+    assert config.rds_iam_endpoint() == ("db.rds.amazonaws.com", 5432)

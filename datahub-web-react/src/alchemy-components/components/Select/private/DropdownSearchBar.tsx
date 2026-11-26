@@ -19,9 +19,18 @@ interface DropdownSearchBarProps {
     size?: SelectSizeOptions;
     onChange?: (value: string) => void;
     onClear?: () => void;
+    /** Focus the input as soon as the dropdown opens, so typing filters right away. */
+    autoFocus?: boolean;
 }
 
-export default function DropdownSearchBar({ placeholder, value, size, onChange, onClear }: DropdownSearchBarProps) {
+export default function DropdownSearchBar({
+    placeholder,
+    value,
+    size,
+    onChange,
+    onClear,
+    autoFocus,
+}: DropdownSearchBarProps) {
     const { t } = useTranslation('alchemy');
     return (
         <SearchInputContainer>
@@ -35,6 +44,7 @@ export default function DropdownSearchBar({ placeholder, value, size, onChange, 
                 style={{ fontSize: size || 'md' }}
                 inputTestId="dropdown-search-input"
                 onClear={onClear}
+                autoFocus={autoFocus}
                 data-testid="dropdown-search-bar"
             />
         </SearchInputContainer>

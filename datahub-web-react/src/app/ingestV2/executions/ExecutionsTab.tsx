@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import { DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import EmptyState, { EmptyReasons } from '@app/ingestV2/executions/components/EmptyState';
-import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
 import ExecutionsTable from '@app/ingestV2/executions/components/ExecutionsTable';
 import Filters from '@app/ingestV2/executions/components/Filters';
 import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
@@ -63,9 +62,8 @@ interface Props {
     isActive: boolean;
     /** Invoked when the user clicks a source name in a run row; owns navigation. */
     onSourceClick: (record: ExecutionRequestRecord) => void;
-    /** Returns the route to a run-details page for the given execution urn, or undefined to fall
-     * back to the legacy in-place modal. */
-    getRunDetailsPath: (urn: string) => string | undefined;
+    /** Returns the route to a run-details page for the given execution urn. */
+    getRunDetailsPath: (urn: string) => string;
     /** Stashed as location state on the run-details route so its breadcrumb can link back here. */
     runDetailsFromUrl: string;
 }
@@ -81,7 +79,6 @@ export const ExecutionsTab = ({
 }: Props) => {
     const { t } = useTranslation('ingestion');
     const [appliedFilters, setAppliedFilters] = useState<Map<string, string[]>>(new Map());
-    const [executionRequestUrnToView, setExecutionRequestUrnToView] = useState<undefined | string>(undefined);
 
     const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
     // When filters changed, reset page to 1
@@ -133,58 +130,48 @@ export const ExecutionsTab = ({
     return (
         <>
             {error && <Message type="error" content={t('executions.loadError')} />}
-            <>
-                <SourceContainer>
-                    <HeaderContainer>
-                        <StyledTabToolbar>
-                            <Filters
-                                onFiltersApplied={(newFilters) => setAppliedFilters(newFilters)}
-                                hideSystemSources={hideSystemSources}
-                                shouldPreserveParams={shouldPreserveParams}
-                            />
-                            <RefreshButton onClick={() => refetch()} />
-                        </StyledTabToolbar>
-                    </HeaderContainer>
+            <SourceContainer>
+                <HeaderContainer>
+                    <StyledTabToolbar>
+                        <Filters
+                            onFiltersApplied={(newFilters) => setAppliedFilters(newFilters)}
+                            hideSystemSources={hideSystemSources}
+                            shouldPreserveParams={shouldPreserveParams}
+                        />
+                        <RefreshButton onClick={() => refetch()} />
+                    </StyledTabToolbar>
+                </HeaderContainer>
 
-                    {!loading && executionRequests.length === 0 ? (
-                        <EmptyState reason={hasAppliedFilters ? EmptyReasons.FILTERS_APPLIED : EmptyReasons.NO_ITEMS} />
-                    ) : (
-                        <>
-                            <TableContainer>
-                                <ExecutionsTable
-                                    executionRequests={executionRequests || []}
-                                    setFocusExecutionUrn={setExecutionRequestUrnToView}
-                                    handleRollback={handleRollbackExecution}
-                                    handleCancelExecution={handleCancelExecution}
-                                    loading={loading}
-                                    isLastPage={isLastPage}
-                                    onSourceClick={onSourceClick}
-                                    getRunDetailsPath={getRunDetailsPath}
-                                    runDetailsFromUrl={runDetailsFromUrl}
-                                />
-                            </TableContainer>
-                            <PaginationContainer>
-                                <Pagination
-                                    currentPage={page}
-                                    itemsPerPage={pageSize}
-                                    total={totalExecutionRequests}
-                                    showLessItems
-                                    onPageChange={onPageChangeHandler}
-                                    showSizeChanger={false}
-                                    hideOnSinglePage
-                                />
-                            </PaginationContainer>
-                        </>
-                    )}
-                </SourceContainer>
-                {executionRequestUrnToView && (
-                    <ExecutionDetailsModal
-                        urn={executionRequestUrnToView}
-                        open
-                        onClose={() => setExecutionRequestUrnToView(undefined)}
-                    />
+                {!loading && executionRequests.length === 0 ? (
+                    <EmptyState reason={hasAppliedFilters ? EmptyReasons.FILTERS_APPLIED : EmptyReasons.NO_ITEMS} />
+                ) : (
+                    <>
+                        <TableContainer>
+                            <ExecutionsTable
+                                executionRequests={executionRequests || []}
+                                handleRollback={handleRollbackExecution}
+                                handleCancelExecution={handleCancelExecution}
+                                loading={loading}
+                                isLastPage={isLastPage}
+                                onSourceClick={onSourceClick}
+                                getRunDetailsPath={getRunDetailsPath}
+                                runDetailsFromUrl={runDetailsFromUrl}
+                            />
+                        </TableContainer>
+                        <PaginationContainer>
+                            <Pagination
+                                currentPage={page}
+                                itemsPerPage={pageSize}
+                                total={totalExecutionRequests}
+                                showLessItems
+                                onPageChange={onPageChangeHandler}
+                                showSizeChanger={false}
+                                hideOnSinglePage
+                            />
+                        </PaginationContainer>
+                    </>
                 )}
-            </>
+            </SourceContainer>
         </>
     );
 };

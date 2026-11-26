@@ -52,8 +52,8 @@ if doc:
 doc = client.entities.get(DocumentUrn("my-tutorial-doc"))
 
 if doc:
-    # Hide document from global search and sidebar
-    # Useful for making documents only accessible via related assets (e.g., for AI agents)
+    # Hide document from global search and sidebar by default (not access control)
+    # Useful for documents meant to be reached through related assets (e.g., AI agents)
     doc.hide_from_global_context()
     client.entities.upsert(doc)
     print("Document hidden from global context!")

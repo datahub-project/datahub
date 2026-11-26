@@ -353,6 +353,32 @@ public class EntityGraphCacheConfigLoader {
       }
     }
 
+    if (graph.getPopulation() != null
+        && graph.getPopulation().getRebuildExecution() == RebuildExecution.STALE_WHILE_REVALIDATE) {
+      if (graph.getPopulation().getStrategy() != PopulationStrategy.LAZY) {
+        errors.add(
+            "graph "
+                + graphId
+                + ": rebuildExecution STALE_WHILE_REVALIDATE requires LAZY strategy");
+      } else if (graph.getScope() == null || graph.getScope().getMode() != ScopeMode.PARTIAL) {
+        errors.add(
+            "graph "
+                + graphId
+                + ": rebuildExecution STALE_WHILE_REVALIDATE requires PARTIAL scope");
+      }
+    }
+
+    if (graph.getInvalidation() != null
+        && graph.getInvalidation().getMarginSeconds() != null
+        && graph.getInvalidation().getMarginSeconds() < 0) {
+      errors.add("graph " + graphId + ": invalidation.marginSeconds must be >= 0");
+    }
+    if (graph.getInvalidation() != null
+        && graph.getInvalidation().getMaxWalkSeconds() != null
+        && graph.getInvalidation().getMaxWalkSeconds() <= 0) {
+      errors.add("graph " + graphId + ": invalidation.maxWalkSeconds must be > 0");
+    }
+
     if (hasLineage) {
       LineageEdgeConfig lineage = graph.getLineage();
       if (lineage.getEntityTypes() != null) {

@@ -5,10 +5,13 @@ from datahub.ingestion.source.sql.sql_types import (
     NEO4J_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
     TRINO_SQL_TYPES_MAP,
+    VERTICA_SQL_TYPES_MAP,
     resolve_athena_modified_type,
+    resolve_postgres_modified_type,
     resolve_snowflake_modified_type,
     resolve_sql_type,
     resolve_trino_modified_type,
+    resolve_vertica_modified_type,
 )
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -228,3 +231,52 @@ def test_type_conflicts_across_platforms():
         f"New conflicts: {actual_conflicts - expected_conflicts}\n"
         f"Resolved conflicts: {expected_conflicts - actual_conflicts}"
     )
+
+
+@pytest.mark.parametrize(
+    "data_type, expected",
+    [
+        ("numeric(10,2)", NumberTypeClass),
+        ("character varying(255)", StringTypeClass),
+        ("timestamp without time zone(3)", TimeTypeClass),
+        ("integer[]", ArrayTypeClass),
+        ("text[]", ArrayTypeClass),
+    ],
+)
+def test_resolve_postgres_modified_type(data_type: str, expected: type) -> None:
+    assert resolve_postgres_modified_type(data_type) is expected
+
+
+def test_resolve_postgres_modified_type_leaves_unknown_types_unmapped() -> None:
+    assert resolve_postgres_modified_type("geometry(Point)") is None
+
+
+@pytest.mark.parametrize(
+    "data_type, expected_data_type",
+    [("timestamp(3)", "timestamp"), ("long varchar(100)", "long varchar")],
+)
+def test_resolve_vertica_modified_type(data_type: str, expected_data_type: str) -> None:
+    assert (
+        resolve_vertica_modified_type(data_type)
+        == VERTICA_SQL_TYPES_MAP[expected_data_type]
+    )
+
+
+@pytest.mark.parametrize(
+    "platform, column_type, expected",
+    [
+        ("trino", "decimal(38,2)", NumberTypeClass),
+        ("athena", "array<string>", ArrayTypeClass),
+        ("postgres", "numeric(10,2)", NumberTypeClass),
+        ("redshift", "character varying(10)", StringTypeClass),
+        ("vertica", "timestamp(6)", TimeTypeClass),
+        ("snowflake", "number(38,0)", NumberTypeClass),
+    ],
+)
+def test_resolve_sql_type_falls_back_to_the_platforms_modified_type_parser(
+    platform: str, column_type: str, expected: type
+) -> None:
+    # Parameterised types are not in the plain mapping; each platform has its
+    # own way of spelling them.
+    assert isinstance(resolve_sql_type(column_type, platform), expected)
+    assert resolve_sql_type(column_type, platform="unknown_platform") is None

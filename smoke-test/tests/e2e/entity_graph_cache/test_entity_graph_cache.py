@@ -56,6 +56,7 @@ from tests.e2e.entity_graph_cache.helpers import (
     wait_for_hierarchy_writes,
     wait_for_session_group_membership_labels,
 )
+from tests.e2e.utils import with_test_retry
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
@@ -301,11 +302,17 @@ class TestGlossary:
 
             update_parent_node(auth_session, leaf_urn, new_parent_urn)
 
-            after = query_parent_node_urns_on_term(auth_session, term_urn)
-            assert after[0] == leaf_urn
-            assert new_parent_urn in after
-            assert middle_urn not in after
-            assert root_urn not in after
+            # The graph index shows the new edge only after its bulk flush and refresh interval.
+            # The cache serves the old chain until then and must not keep it afterwards.
+            @with_test_retry()
+            def assert_new_chain() -> None:
+                after = query_parent_node_urns_on_term(auth_session, term_urn)
+                assert after[0] == leaf_urn
+                assert new_parent_urn in after
+                assert middle_urn not in after
+                assert root_urn not in after
+
+            assert_new_chain()
         finally:
             cleanup_glossary_entities(graph_client, created)
 

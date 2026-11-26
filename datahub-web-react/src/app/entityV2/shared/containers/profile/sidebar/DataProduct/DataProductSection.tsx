@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData, useMutationUrn, useRootEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData, useMutationUrn, useRootEntityData } from '@app/entityV2/shared/EntityContext';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
@@ -199,6 +199,7 @@ export default function DataProductSection({ readOnly }: Props) {
                             event.stopPropagation();
                         }}
                         actionPrivilege={canEditDataProducts}
+                        dataTestId="set-data-product-button"
                     />
                 }
             />

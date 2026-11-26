@@ -94,7 +94,12 @@ public final class SearchTemplateMustache {
         json(List.of("qualifiedName.text^10.0")));
     context.put(SearchTemplateContextVariables.ID_FIELDS, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.ID_FIELDS_JSON, json(List.of("id.text^10.0")));
+    context.put(SearchTemplateContextVariables.EMAIL_FIELDS, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.EMAIL_FIELDS_JSON, json(List.of("email.text^10.0")));
     context.put(SearchTemplateContextVariables.LIGHT_FIELDS_JSON, json(fields));
+    context.put(SearchTemplateContextVariables.HAS_DEFAULT_QUERY_FIELDS, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.HAS_DEFAULT_FIELDS_WITHOUT_IDENTITY, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.HAS_LIGHT_FIELDS, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.LIGHT_OPERATOR, "OR");
     context.put(
         SearchTemplateContextVariables.ENTITY_TYPES, List.of("dataset", "dashboard", "chart"));
@@ -132,6 +137,9 @@ public final class SearchTemplateMustache {
     context.put(SearchTemplateContextVariables.FUZZY_MAX_EXPANSIONS, 10);
     context.put(SearchTemplateContextVariables.PREFIX_MAX_EXPANSIONS, 50);
     context.put(SearchTemplateContextVariables.PREFIX_FIELD, "name.text");
+    context.put(
+        SearchTemplateContextVariables.PREFIX_KEYWORD,
+        SearchTemplateFields.lowercaseKeywordPath("name"));
     context.put(SearchTemplateContextVariables.STRUCTURED_QUERY, "{\"match_all\":{}}");
     context.put(SearchTemplateContextVariables.BROAD_QUERY, "orders");
     context.put(SearchTemplateContextVariables.LIGHT_QUERY_TEXT, "orders");
@@ -154,6 +162,9 @@ public final class SearchTemplateMustache {
         SearchTemplateContextVariables.DESCRIPTION_TEXT,
         SearchTemplateFields.textPath("description"));
     context.put(SearchTemplateContextVariables.ID_KEYWORD, SearchTemplateFields.keywordPath("id"));
+    context.put(
+        SearchTemplateContextVariables.EMAIL_KEYWORD, SearchTemplateFields.keywordPath("email"));
+    context.put(SearchTemplateContextVariables.EMAIL_TEXT, "email.text");
     context.put(SearchTemplateContextVariables.URN_KEYWORD, "urn");
     context.put(SearchTemplateContextVariables.NORMALIZED_KEYWORD, "orders");
     context.put(SearchTemplateContextVariables.LETTER_DIGIT_QUERY, "orders 2017");

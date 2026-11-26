@@ -218,6 +218,18 @@ def test_dataproduct_set_parent_data_product():
     ]
 
 
+def test_dataproduct_remove_parent_data_product():
+    patcher = DataProductPatchBuilder(
+        "urn:li:dataProduct:portfolio_analytics"
+    ).remove_parent_data_product()
+
+    mcps = patcher.build()
+    assert len(mcps) == 1
+    assert mcps[0].aspectName == "dataProductProperties"
+    payload = json.loads(mcps[0].aspect.value)  # type: ignore[union-attr]
+    assert payload == [{"op": "remove", "path": "/parentDataProduct", "value": {}}]
+
+
 def test_basic_chart_patch_builder():
     patcher = ChartPatchBuilder(
         make_chart_urn(platform="hive", name="fct_users_created")
@@ -253,6 +265,21 @@ def test_basic_dashboard_patch_builder():
                 contentType="application/json-patch+json",
             ),
         ),
+    ]
+
+
+def test_dashboard_patch_builder_removes_a_dashboard():
+    sheet = make_dashboard_urn(platform="qlik-sense", name="sheet/1")
+    [mcp] = (
+        DashboardPatchBuilder(make_dashboard_urn(platform="qlik-sense", name="app"))
+        .remove_dashboard(sheet)
+        .build()
+    )
+
+    assert mcp.aspectName == "dashboardInfo"
+    assert mcp.aspect is not None
+    assert json.loads(mcp.aspect.value) == [
+        {"op": "remove", "path": f"/dashboards/{sheet.replace('/', '~1')}", "value": {}}
     ]
 
 

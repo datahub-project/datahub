@@ -86,9 +86,15 @@ Create a recipe file (e.g., `export_mcps.yaml`) with this configuration:
 source:
   type: datahub
   config:
-    # Add your DataHub connection configuration here
-    server: "http://localhost:8080"
-    token: "your-access-token" # If authentication is required
+    # The datahub source reads from your DataHub instance's database
+    database_connection:
+      scheme: "mysql+pymysql" # or "postgresql+psycopg2" for Postgres
+      host_port: "<database_host>:<database_port>"
+      username: "<username>"
+      password: "<password>"
+      database: "<database>"
+    stateful_ingestion:
+      enabled: false
 
 sink:
   type: "file"

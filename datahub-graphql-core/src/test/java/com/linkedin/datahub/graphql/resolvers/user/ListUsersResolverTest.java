@@ -12,6 +12,9 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListUsersInput;
+import com.linkedin.datahub.graphql.generated.SearchSortInput;
+import com.linkedin.datahub.graphql.generated.SortCriterion;
+import com.linkedin.datahub.graphql.generated.SortOrder;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -20,6 +23,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.CorpUserKey;
+import com.linkedin.metadata.query.filter.SortCriterionArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -27,8 +31,10 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -57,11 +63,11 @@ public class ListUsersResolverTest {
             mockClient.search(
                 any(),
                 eq(CORP_USER_ENTITY_NAME),
-                anyString(),
+                eq(""),
                 any(), // Filter object
                 any(), // Sort criteria list
-                anyInt(),
-                anyInt()))
+                eq(0),
+                eq(20)))
         .thenReturn(searchResult);
 
     // Mock batchGetV2 result
@@ -115,11 +121,11 @@ public class ListUsersResolverTest {
             mockClient.search(
                 any(),
                 eq(CORP_USER_ENTITY_NAME),
-                anyString(),
+                eq("test query"),
                 any(), // Filter object
                 any(), // Sort criteria list
-                anyInt(),
-                anyInt()))
+                eq(10),
+                eq(5)))
         .thenReturn(searchResult);
 
     // Mock batchGetV2 result (empty)
@@ -143,6 +149,57 @@ public class ListUsersResolverTest {
     assertEquals((int) result.getTotal(), 0);
     assertNotNull(result.getUsers());
     assertEquals(result.getUsers().size(), 0);
+  }
+
+  @Test
+  public void testGetPassesSortInputToSearch() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.search(
+                any(), eq(CORP_USER_ENTITY_NAME), anyString(), any(), any(), anyInt(), anyInt()))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(0)
+                .setNumEntities(0)
+                .setEntities(new SearchEntityArray()));
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(), Mockito.eq(CORP_USER_ENTITY_NAME), any(), Mockito.isNull()))
+        .thenReturn(Collections.emptyMap());
+
+    SortCriterion sortCriterion = new SortCriterion();
+    sortCriterion.setField("fullName");
+    sortCriterion.setSortOrder(SortOrder.ASCENDING);
+    SearchSortInput sortInput = new SearchSortInput();
+    sortInput.setSortCriteria(List.of(sortCriterion));
+    ListUsersInput sortedInput = new ListUsersInput();
+    sortedInput.setSortInput(sortInput);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(sortedInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    new ListUsersResolver(mockClient).get(mockEnv).get();
+
+    ArgumentCaptor<List<com.linkedin.metadata.query.filter.SortCriterion>> sortCaptor =
+        ArgumentCaptor.forClass(List.class);
+    Mockito.verify(mockClient)
+        .search(
+            any(),
+            eq(CORP_USER_ENTITY_NAME),
+            anyString(),
+            any(),
+            sortCaptor.capture(),
+            anyInt(),
+            anyInt());
+    assertEquals(
+        new SortCriterionArray(sortCaptor.getValue()),
+        new SortCriterionArray(
+            new com.linkedin.metadata.query.filter.SortCriterion()
+                .setField("fullName")
+                .setOrder(com.linkedin.metadata.query.filter.SortOrder.ASCENDING)));
   }
 
   @Test

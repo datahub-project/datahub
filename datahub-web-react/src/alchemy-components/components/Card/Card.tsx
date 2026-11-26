@@ -10,6 +10,7 @@ import {
     CollapsibleBody,
     ExpandButton,
     Header,
+    HeaderAction,
     SubTitle,
     SubTitleContainer,
     Title,
@@ -173,7 +174,7 @@ export const Card = ({
                                 {!collapsible && subtitleBlock}
                             </TitleContainer>
 
-                            {button}
+                            {button ? <HeaderAction>{button}</HeaderAction> : null}
                             {collapsible && (
                                 <ExpandButton
                                     type="button"

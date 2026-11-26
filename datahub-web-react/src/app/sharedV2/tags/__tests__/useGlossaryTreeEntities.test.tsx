@@ -1,6 +1,7 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 
 import { useGlossaryTreeEntities } from '@app/sharedV2/tags/useGlossaryTreeEntities';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

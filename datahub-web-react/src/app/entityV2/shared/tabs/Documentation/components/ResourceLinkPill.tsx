@@ -10,9 +10,9 @@ import { formatDateString } from '@app/entityV2/shared/containers/profile/utils'
 import { ResourcePillMeta } from '@app/entityV2/shared/tabs/Documentation/components/ResourcePillMeta';
 import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
 import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
-import { safeUrl } from '@app/sharedV2/urlUtils';
 import { Pill, Popover } from '@src/alchemy-components';
 import { PillRightIcon } from '@src/alchemy-components/components/Pills/types';
+import { safeUrl } from '@utils/urlUtils';
 
 import { InstitutionalMemoryMetadata } from '@types';
 

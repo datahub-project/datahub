@@ -9,9 +9,8 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 
 /**
- * Tier 1: focused clauses for identity lookups (URNs and S3/GCS/HDFS paths) on the urn,
- * qualifiedName, name and id fields. SearchQueryBuilder ORs them with the all-terms query, which
- * matches URNs that differ in case or are cut short.
+ * Tier 1: Focused query for identity lookups (URN, S3/GCS/HDFS paths) and FQN navigation. Targets
+ * only urn, qualifiedName, name, and id fields — 4 fields instead of ~47. Expected latency: ~5ms.
  */
 public class IdentityQueryStrategy implements QueryStrategy {
 
@@ -46,8 +45,7 @@ public class IdentityQueryStrategy implements QueryStrategy {
     // Exact URN match — term query on keyword field (highest priority)
     boolQuery.should(QueryBuilders.termQuery("urn", trimmed).boost(URN_EXACT_BOOST));
 
-    // Phrase match on urn. The V3 urn field is a keyword, so this only matches the whole URN and
-    // adds to the term match's score
+    // Phrase match on urn (analyzed) — catches partial URN / path prefix matches
     boolQuery.should(QueryBuilders.matchPhraseQuery("urn", trimmed).boost(URN_PHRASE_BOOST));
 
     // Whole qualifiedName match — for FQN and S3 path queries. The V3 root keeps the stored casing.
@@ -56,8 +54,7 @@ public class IdentityQueryStrategy implements QueryStrategy {
             .caseInsensitive(true)
             .boost(QUALIFIED_NAME_BOOST));
 
-    // Exact name match on the last dotted segment, e.g. "orders" for a URN cut off after
-    // "my_db.orders". FQN queries take the general query instead
+    // Exact name match — for FQN last segment (e.g., "plan" in "dwh_core.billing.plan")
     String lastSegment =
         trimmed.contains(".") ? trimmed.substring(trimmed.lastIndexOf('.') + 1) : trimmed;
     if (!lastSegment.isEmpty() && !lastSegment.equals(trimmed)) {

@@ -4,12 +4,11 @@ import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/schemaField/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import {
     EntityProfile,
@@ -18,6 +17,7 @@ import {
     SidebarEntityHeader,
     SidebarNotesSection,
 } from '@app/entityV2/shared/profileChunks';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
 import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import { FetchedEntity } from '@app/lineageV3/types';
@@ -91,6 +91,7 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.LINEAGE,
             name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
             description: i18next.t('entity.types:sidebar.lineageDescription'),

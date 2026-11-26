@@ -203,7 +203,7 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
         yield from gen_containers(
             container_key=region_key,
             name=region,
-            sub_types=[GenericContainerSubTypes.KINESIS_REGION.value],
+            sub_types=[GenericContainerSubTypes.AWS_REGION.value],
             description=f"AWS region {region}",
             external_url=f"https://console.aws.amazon.com/kinesis/home?region={region}",
         )

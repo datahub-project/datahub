@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.UsageAggregationConfiguration;
 import com.linkedin.metadata.config.UsageConfiguration;
 import com.linkedin.metadata.usage.instrumentation.UsageMetricsSessionEnricher;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.wiring.WiringCoverage;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -61,6 +62,7 @@ public class UsageAggregationFactoryConditionalTest {
 
     contextRunner =
         new ApplicationContextRunner()
+            .withInitializer(WiringCoverage.initializer())
             .withUserConfiguration(
                 UsageYamlConfigFactory.class,
                 GraphqlUsageClassificationFactory.class,

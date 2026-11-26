@@ -34,12 +34,17 @@ def is_glob_pattern(path: str) -> bool:
     return has_glob_characters(path)
 
 
-def redact_url_query(path: str) -> str:
-    """Drop an HTTP(S) URL's query string, where a presigned URL carries its signature."""
+def redact_url_credentials(path: str) -> str:
+    """An HTTP(S) URL without its embedded `user:password@` and without its query
+    string, where a presigned URL carries its signature. Other paths are returned
+    unchanged."""
     if not is_http_uri(path):
         return path
     parsed = urlparse(path)
-    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+    # The text after the last "@" is the host and port exactly as written, so an
+    # IPv6 host keeps its brackets and an unparseable port is passed through.
+    host_and_port = parsed.netloc.rpartition("@")[2]
+    return f"{parsed.scheme}://{host_and_port}{parsed.path}"
 
 
 def sibling_artifact_path(manifest_path: str, filename: str) -> str:
@@ -144,7 +149,7 @@ def expand_glob_path(
         report.warning(
             title="Glob patterns not supported for HTTP(S) URIs",
             message="Glob patterns are not supported for HTTP(S) URIs, please provide explicit file paths",
-            context=redact_url_query(path),
+            context=redact_url_credentials(path),
         )
         return []
     else:

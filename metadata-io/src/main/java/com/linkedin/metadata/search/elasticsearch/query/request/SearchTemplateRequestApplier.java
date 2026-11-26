@@ -6,11 +6,13 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.HighlightCarry;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchEvidence;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchedFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchHighlightSelection;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchHighlightSelection.FieldSources;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.StageMatchedFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateJson;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMatchReport;
@@ -60,7 +62,8 @@ public final class SearchTemplateRequestApplier {
     this.v3SearchQueryBuilder = v3SearchQueryBuilder;
   }
 
-  public void apply(
+  /** Returns whether the template's own sort orders the request. */
+  public boolean apply(
       @Nonnull OperationContext opContext,
       @Nonnull SearchSourceBuilder searchSourceBuilder,
       @Nonnull SearchFlags searchFlags,
@@ -88,6 +91,7 @@ public final class SearchTemplateRequestApplier {
       aggregations(opContext, searchFlags, facets, template)
           .forEach(searchSourceBuilder::aggregation);
     }
+    boolean templateSort = false;
     if (template != null
         && template.rescore() != null
         && relevanceSort(sortCriteria)
@@ -98,11 +102,12 @@ public final class SearchTemplateRequestApplier {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
       searchSourceBuilder.sort(new FieldSortBuilder("urn").order(SortOrder.ASC));
     } else {
-      sort(opContext, searchSourceBuilder, sortCriteria, template);
+      templateSort = sort(opContext, searchSourceBuilder, sortCriteria, template);
     }
     if (!countOnly && !scroll && Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input, "name");
     }
+    return templateSort;
   }
 
   @Nonnull
@@ -151,7 +156,8 @@ public final class SearchTemplateRequestApplier {
     return new ArrayList<>(byName.values());
   }
 
-  private void sort(
+  /** Returns whether the template's own sort was applied. A section that renders empty is not. */
+  private boolean sort(
       @Nonnull OperationContext opContext,
       @Nonnull SearchSourceBuilder searchSourceBuilder,
       @Nullable List<SortCriterion> sortCriteria,
@@ -170,7 +176,7 @@ public final class SearchTemplateRequestApplier {
       if (!namesUrn) {
         searchSourceBuilder.sort(new FieldSortBuilder("urn").order(SortOrder.ASC));
       }
-      return;
+      return true;
     }
     ESUtils.buildSortOrder(
         searchSourceBuilder,
@@ -179,6 +185,7 @@ public final class SearchTemplateRequestApplier {
         v3SearchFieldResolver,
         opContext,
         opContext.getAspectRetriever());
+    return false;
   }
 
   /**
@@ -206,6 +213,8 @@ public final class SearchTemplateRequestApplier {
             : opContext.getSearchContext().getCallerOptionalFilterFields();
     boolean explain = explains(opContext);
     boolean deferred = HighlightCarry.isDeferred();
+    Map<String, String> labels =
+        deferred ? V3SearchFieldModel.of(entitySpecs).storedParsedNameLabels() : Map.of();
     return hit -> {
       if (!deferred) {
         return matchFields(
@@ -220,14 +229,15 @@ public final class SearchTemplateRequestApplier {
       }
       Map<String, Object> source = hit.getSourceAsMap();
       Object urn = source == null ? null : source.get("urn");
-      if (urn != null) {
+      if (source != null && urn != null) {
+        Map<String, Object> fetched = source;
         String[] matchedQueries =
             hit.getMatchedQueries() != null ? hit.getMatchedQueries() : new String[0];
         HighlightCarry.stash(
             urn.toString(),
             requested ->
                 matchFields(
-                    source,
+                    fetched,
                     matchedQueries,
                     template,
                     query,
@@ -236,6 +246,7 @@ public final class SearchTemplateRequestApplier {
                     highlightFields,
                     callerOptionalFilterFields,
                     requested));
+        StageMatchedFields.stash(urn.toString(), fetched, matcher, labels);
       }
       return SearchHitMatches.EMPTY;
     };

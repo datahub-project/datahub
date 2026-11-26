@@ -142,7 +142,6 @@
     "searchBar.noResults.clearFilters": "清除筛选条件",
     "searchBar.noResults.clearFiltersAndView": "清除筛选条件和所选视图",
     "searchBar.noResults.clearView": "清除所选视图",
-    "searchBar.noResults.defaultMessage": "请尝试调整搜索内容，以找到你需要的结果",
     "searchBar.noResults.orClearSuggestion": "，或<clickable>{{clearText}}</clickable>。",
     "searchBar.placeholder": "查找表、仪表板、人员等",
     "searchBar.placeholderWithShortcut": "{{message}}（{{shortcut}}）",

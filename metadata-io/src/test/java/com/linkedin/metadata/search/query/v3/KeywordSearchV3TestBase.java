@@ -26,6 +26,7 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.agentskill.AgentSkillInfo;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePathEntry;
@@ -78,6 +79,8 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -93,6 +96,7 @@ import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -101,9 +105,12 @@ import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateBootstrap;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
@@ -113,6 +120,7 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
@@ -123,6 +131,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.search.template.HighlightFieldOverrides;
+import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
@@ -154,6 +163,8 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.explain.ExplainResponse;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
@@ -186,7 +197,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   // no aspect labels a field entityName
   private static final Urn NIGHTLY_JOB =
       UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,nightly,PROD),refresh)");
-  private static final List<String> EXTRA_ENTITY_TYPES = List.of(DATA_JOB_ENTITY_NAME, "service");
+  private static final List<String> EXTRA_ENTITY_TYPES =
+      List.of(DATA_JOB_ENTITY_NAME, "service", "agentSkill");
   private static final String BROWSE_DELIMITER = "␟";
   private static final String SEARCH_TEMPLATE = "urn:li:searchTemplate:search";
   private static final String LIST_BY_URN_TEMPLATE = "urn:li:searchTemplate:listUrn";
@@ -322,17 +334,19 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             null,
             new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH),
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
             new ConfiguredIndexPrefixResolver(isV2Enabled() ? "keywordv3dual" : "keywordv3"),
             entityIndex);
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
-    mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
+    mappingsBuilder = createDelegatingMappingsBuilder(entityIndex, getSearchClient());
     // Built as MappingsBuilderFactory builds it, with the engine's own mapping details
     engineV3MappingsBuilder =
-        new MultiEntityMappingsBuilder(entityIndex, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
+        new MultiEntityMappingsBuilder(
+            entityIndex, getSearchClient(), ESUtils.KEYWORD_MAXLENGTH, List.of());
     // Both the document transformer and the filter resolver look the definition up
     DataHubSearchConfig searched = new DataHubSearchConfig().setQueryByDefault(true);
     StructuredPropertyDefinition retentionPolicy =
@@ -409,7 +423,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             config,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+            new GitVersion("0.0.0-test", "123456", Optional.empty()),
+            getSearchClient());
     indexConfiguration = config.getIndex();
     settingsBuilder =
         createDelegatingSettingsBuilder(entityIndex, indexConfiguration, indexConvention);
@@ -1072,6 +1087,64 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertTrue(explain.isMatch());
   }
 
+  /**
+   * Keyword-surface parity on the engine. With hybrid read off, the shipped fulltext template
+   * returns exactly what the same template without its keywordRerank sections returns for the same
+   * query, filter, and viewer: the ordered URNs, the scores, the total, and the facets.
+   */
+  @Test
+  public void testShippedFulltextServesItsKeywordOnlyResult() {
+    String keywordOnlyUrn = "urn:li:searchTemplate:fulltextKeywordOnly";
+    Map<String, SearchTemplateProperties> catalog = new HashMap<>();
+    for (String urn : SearchTemplateBootstrap.urns()) {
+      catalog.put(urn, SearchTemplateBootstrap.get(urn));
+    }
+    SearchTemplateProperties keywordOnly = SearchTemplateBootstrap.get(FULLTEXT_TEMPLATE);
+    assertTrue(keywordOnly.hasRetrieval());
+    keywordOnly.removeRetrieval();
+    keywordOnly.removeKnn();
+    keywordOnly.setApiVersion(SearchTemplateCapabilities.API_VERSION);
+    catalog.put(keywordOnlyUrn, keywordOnly);
+    OperationContext searching =
+        opContext.withSearchTemplateRuntime(
+            new SearchTemplateCoordinator(
+                config,
+                null,
+                new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH, catalog),
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
+    List<String> facets = List.of("platform", "_entityType", "typeNames");
+    for (Filter filter : Arrays.asList(null, QueryUtils.newFilter("platform", HIVE.toString()))) {
+      List<SearchResult> served = new ArrayList<>();
+      for (String template : List.of(FULLTEXT_TEMPLATE, keywordOnlyUrn)) {
+        served.add(
+            searchService.search(
+                searching.withSearchFlags(
+                    flags -> flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(template))),
+                ENTITY_TYPES,
+                "orders",
+                filter,
+                null,
+                0,
+                10,
+                facets));
+      }
+      SearchResult shipped = served.get(0);
+      SearchResult expected = served.get(1);
+      assertFalse(shipped.getEntities().isEmpty(), String.valueOf(filter));
+      assertEquals(
+          shipped.getEntities().stream().map(SearchEntity::getEntity).toList(),
+          expected.getEntities().stream().map(SearchEntity::getEntity).toList());
+      assertEquals(
+          shipped.getEntities().stream().map(SearchEntity::getScore).toList(),
+          expected.getEntities().stream().map(SearchEntity::getScore).toList());
+      assertEquals(shipped.getNumEntities(), expected.getNumEntities());
+      assertEquals(
+          shipped.getMetadata().getAggregations(), expected.getMetadata().getAggregations());
+    }
+  }
+
   @Test
   public void testSearch() {
     OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
@@ -1549,6 +1622,54 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10)
             .getEntities(),
         ORDERS_CHART);
+  }
+
+  /**
+   * The ingest poll is a star query plus one equality on {@code urn}. Both a dataset URN, with
+   * commas and parentheses, and a chart URN are returned, and each stored document has that same
+   * urn.
+   */
+  @Test
+  public void testStarQueryUrnEqualMatchesIndexedDocument() throws IOException {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    CriterionUtils.buildConjunctiveCriterion(
+                        CriterionUtils.buildCriterion(
+                            "urn", Condition.EQUAL, ORDERS.toString(), ORDERS_CHART.toString()))));
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+                ENTITY_TYPES,
+                "*",
+                filter,
+                null,
+                0,
+                10)
+            .getEntities(),
+        ORDERS,
+        ORDERS_CHART);
+
+    Sha256UrnEntityDocumentIdHasher hasher = new Sha256UrnEntityDocumentIdHasher();
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    for (Urn urn : List.of(ORDERS, ORDERS_CHART)) {
+      String index =
+          indexConvention.getEntityIndexNameV3(
+              opContext,
+              V3IndexKeys.resolve(
+                  opContext.getEntityRegistry().getEntitySpec(urn.getEntityType())));
+      GetResponse stored =
+          getSearchClient()
+              .getDocument(
+                  opContext,
+                  new GetRequest(index, hasher.documentId(opContext, urn)),
+                  RequestOptions.DEFAULT);
+      assertTrue(stored.isExists(), urn.toString());
+      assertEquals(stored.getSourceAsMap().get("urn"), urn.toString());
+      assertFalse(Boolean.TRUE.equals(stored.getSourceAsMap().get("removed")), urn.toString());
+    }
   }
 
   /**
@@ -2033,6 +2154,55 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   @Test
   public void testEntityNamesAreStemmed() {
     assertEquals(searchDashboards("markets"), List.of(STEMMED_NAME));
+  }
+
+  /**
+   * A SKILL.md body over the 32,766-byte keyword limit is indexed whole: words past the old cutoff
+   * and the required tool ID both find the skill through the shared other field.
+   */
+  @Test
+  public void testSkillBodyOverTheKeywordLimitIsSearchable() throws Exception {
+    Urn skill = UrnUtils.getUrn("urn:li:agentSkill:oversized_body_skill");
+    Urn tool = UrnUtils.getUrn("urn:li:api:lookuptool");
+    // Two-byte characters put the body over the byte limit, so the last words sit past the cutoff.
+    String body = "é".repeat(20_000) + " zzfarwordzz zzlastwordzz";
+    UpdateIndicesV3Strategy indexer = longQueryIndexer();
+    try {
+      indexer.processBatch(
+          opContext,
+          Map.of(
+              skill,
+              events(
+                  skill,
+                  new AgentSkillInfo()
+                      .setName("oversized body skill")
+                      .setInstructions(body)
+                      .setRequiredTools(new UrnArray(List.of(tool))))),
+          false);
+      syncAfterWrite(getBulkProcessor());
+
+      assertEquals(searchSkills("zzfarwordzz zzlastwordzz"), List.of(skill));
+      assertEquals(searchSkills("lookuptool"), List.of(skill));
+    } finally {
+      indexer.processBatch(opContext, Map.of(skill, keyDeletion(skill)), false);
+      syncAfterWrite(getBulkProcessor());
+    }
+  }
+
+  private List<Urn> searchSkills(String query) {
+    return searchService
+        .search(
+            opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+            List.of("agentSkill"),
+            query,
+            null,
+            null,
+            0,
+            10)
+        .getEntities()
+        .stream()
+        .map(SearchEntity::getEntity)
+        .collect(Collectors.toList());
   }
 
   private List<Urn> searchDashboards(String query) {

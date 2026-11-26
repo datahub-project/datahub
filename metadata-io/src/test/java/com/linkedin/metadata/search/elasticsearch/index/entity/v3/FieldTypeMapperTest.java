@@ -19,6 +19,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
@@ -155,7 +156,8 @@ public class FieldTypeMapperTest {
         (Map<String, Object>)
             new V2MappingsBuilder(
                     EntityIndexConfiguration.builder().build(),
-                    FieldTypeMapper.DEFAULT_PARTIAL_NGRAM_CONFIG)
+                    FieldTypeMapper.DEFAULT_PARTIAL_NGRAM_CONFIG,
+                    ESUtils.KEYWORD_MAXLENGTH)
                 .getIndexMappings(registry, registry.getEntitySpec("dataset"))
                 .get("properties");
 

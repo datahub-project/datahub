@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.cache.service.freshness;
 
+import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.PopulationStrategy;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.RebuildExecution;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
 import com.linkedin.metadata.graph.cache.CacheStatus;
@@ -9,6 +10,7 @@ import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphDefi
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
 import com.linkedin.metadata.graph.cache.snapshot.TraversalCoverage;
 import com.linkedin.metadata.graph.cache.store.EntityGraphDistributedStore;
+import com.linkedin.metadata.graph.cache.store.EntityGraphOperationalStatus;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -47,7 +49,7 @@ public final class SnapshotFreshnessEvaluator {
     if (isFreshSnapshot(definition, snapshot, direction)) {
       return SnapshotFreshness.FRESH;
     }
-    if (isStale(snapshot, definition)) {
+    if (isStaleOrSuperseded(snapshot, definition)) {
       return usesBackgroundRebuild(definition)
           ? SnapshotFreshness.STALE_BLOCKED
           : SnapshotFreshness.STALE_SERVABLE;
@@ -70,14 +72,25 @@ public final class SnapshotFreshnessEvaluator {
       return true;
     }
     CacheStatus status = distributedStore.getStatus(cacheKey);
-    if (status != CacheStatus.ACTIVE) {
+    if (status != CacheStatus.ACTIVE && status != CacheStatus.BUILDING) {
       return false;
     }
     EntityGraphSnapshot snapshot = distributedStore.getSnapshot(cacheKey);
     if (snapshot == null) {
-      return true;
+      return status == CacheStatus.ACTIVE;
     }
-    return isStale(snapshot, definition) && !isFresh(definition, cacheKey, direction);
+    if (servesPreviousSnapshot(definition)) {
+      // A failure tombstone is not a previous snapshot. While a rebuild holds BUILDING, fail closed
+      // instead of serving the empty blob.
+      if (distributedStore.hasServableSnapshot(cacheKey)) {
+        return false;
+      }
+      return status == CacheStatus.BUILDING;
+    }
+    if (status != CacheStatus.ACTIVE) {
+      return false;
+    }
+    return isStaleOrSuperseded(snapshot, definition) && !isFresh(definition, cacheKey, direction);
   }
 
   public boolean shouldSkipRebuild(
@@ -92,7 +105,40 @@ public final class SnapshotFreshnessEvaluator {
     if (GraphBuildFailure.suppressesAutomaticRebuild(status)) {
       return true;
     }
-    return status == CacheStatus.COOLDOWN && !isCooldownExpired(cacheKey, definition);
+    if (status == CacheStatus.COOLDOWN && !isCooldownExpired(cacheKey, definition)) {
+      return true;
+    }
+    return isRebuildSuppressed(cacheKey, definition);
+  }
+
+  /**
+   * A failed refresh of a graph that keeps serving its previous snapshot records suppression beside
+   * the snapshot key. That must block another rebuild without hiding the snapshot from reads.
+   */
+  private boolean isRebuildSuppressed(
+      @Nonnull String cacheKey, @Nonnull EntityGraphDefinition definition) {
+    EntityGraphOperationalStatus suppression = distributedStore.getRebuildSuppression(cacheKey);
+    if (suppression == null) {
+      return false;
+    }
+    CacheStatus suppressed;
+    try {
+      suppressed = suppression.cacheStatus();
+    } catch (IllegalArgumentException e) {
+      return false;
+    }
+    if (GraphBuildFailure.suppressesAutomaticRebuild(suppressed)) {
+      return true;
+    }
+    if (suppressed != CacheStatus.COOLDOWN) {
+      return false;
+    }
+    Long recordedAt = suppression.getRecordedAtMillis();
+    if (recordedAt == null) {
+      return false;
+    }
+    return System.currentTimeMillis() - recordedAt
+        <= definition.getPopulationIntervalSeconds() * 1000L;
   }
 
   public static boolean usesBackgroundRebuild(@Nonnull EntityGraphDefinition definition) {
@@ -100,10 +146,73 @@ public final class SnapshotFreshnessEvaluator {
         && definition.getRebuildExecution() == RebuildExecution.BACKGROUND;
   }
 
+  /** PARTIAL + LAZY only. Serves the stored component and rebuilds that component off-request. */
+  public static boolean usesStaleWhileRevalidate(@Nonnull EntityGraphDefinition definition) {
+    return definition.getScope().getMode() == ScopeMode.PARTIAL
+        && definition.getRebuildExecution() == RebuildExecution.STALE_WHILE_REVALIDATE;
+  }
+
+  /**
+   * Cached reads may return the stored snapshot after {@code intervalSeconds}, including before a
+   * rebuild lease is claimed. {@code BACKGROUND} stays fail-closed.
+   */
+  public static boolean servesPreviousSnapshot(@Nonnull EntityGraphDefinition definition) {
+    if (usesBackgroundRebuild(definition)) {
+      return false;
+    }
+    if (usesStaleWhileRevalidate(definition)) {
+      return true;
+    }
+    return definition.getPopulationStrategy() == PopulationStrategy.SCHEDULED
+        && definition.getScope().getMode() == ScopeMode.FULL;
+  }
+
   public static boolean isStale(
       @Nonnull EntityGraphSnapshot snapshot, @Nonnull EntityGraphDefinition definition) {
     return System.currentTimeMillis() - snapshot.getBuiltAtMillis()
         > definition.getPopulationIntervalSeconds() * 1000L;
+  }
+
+  /**
+   * True once the first write recorded after the snapshot's source read began is searchable in the
+   * source index. Together with the time-to-live this makes the effective expiry the earlier of
+   * {@code builtAt + intervalSeconds} and that write's visibility time.
+   *
+   * @param watermarks ascending times at which recorded writes become searchable; null or empty
+   *     when none was recorded
+   */
+  public static boolean isSuperseded(
+      @Nonnull EntityGraphSnapshot snapshot, @Nullable long[] watermarks) {
+    if (watermarks == null) {
+      return false;
+    }
+    for (long watermark : watermarks) {
+      if (watermark > snapshot.getBuiltAtMillis()) {
+        return System.currentTimeMillis() >= watermark;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Time-to-live expiry, or a visibility watermark that has passed for graphs that defer
+   * invalidation. The watermark is only read for such graphs.
+   */
+  public boolean isStaleOrSuperseded(
+      @Nonnull EntityGraphSnapshot snapshot, @Nonnull EntityGraphDefinition definition) {
+    return isStaleOrSuperseded(distributedStore, snapshot, definition);
+  }
+
+  public static boolean isStaleOrSuperseded(
+      @Nonnull EntityGraphDistributedStore distributedStore,
+      @Nonnull EntityGraphSnapshot snapshot,
+      @Nonnull EntityGraphDefinition definition) {
+    if (isStale(snapshot, definition)) {
+      return true;
+    }
+    return definition.usesInvalidationVisibility()
+        && isSuperseded(
+            snapshot, distributedStore.getVisibilityWatermarks(definition.getGraphId()));
   }
 
   public static long staleBuildingMillis(@Nonnull EntityGraphDefinition definition) {
@@ -127,7 +236,7 @@ public final class SnapshotFreshnessEvaluator {
       @Nonnull EntityGraphDefinition definition,
       @Nonnull EntityGraphSnapshot snapshot,
       @Nonnull TraversalDirection direction) {
-    return !isStale(snapshot, definition)
+    return !isStaleOrSuperseded(snapshot, definition)
         && coverageSatisfies(definition, snapshot.getTraversalCoverage(), direction);
   }
 

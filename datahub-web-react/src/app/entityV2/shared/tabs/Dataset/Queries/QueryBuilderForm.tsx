@@ -4,10 +4,9 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { Editor as MarkdownEditor } from '@components/components/Editor';
-
 import { QueryBuilderState } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import { SQL_LANGUAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
+import { Editor as MarkdownEditor } from '@app/sharedV2/editor/Editor';
 import { useMonacoTheme } from '@app/theme/useMonacoTheme';
 
 const EditorWrapper = styled.div`

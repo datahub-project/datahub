@@ -53,6 +53,7 @@
                 "fuzzy_max_expansions" : 50,
                 "fuzzy_prefix_length" : 0,
                 "fuzzy_transpositions" : true,
+                "minimum_should_match" : "2<50%",
                 "query" : "customer~2 orders~1"
               }
             }, {
@@ -66,6 +67,7 @@
                 "fuzzy_max_expansions" : 50,
                 "fuzzy_prefix_length" : 0,
                 "fuzzy_transpositions" : true,
+                "minimum_should_match" : "2<50%",
                 "query" : "customer~2 orders~1"
               }
             }, {
@@ -79,6 +81,7 @@
                 "fuzzy_max_expansions" : 50,
                 "fuzzy_prefix_length" : 0,
                 "fuzzy_transpositions" : true,
+                "minimum_should_match" : "2<50%",
                 "query" : "customer~2 orders~1"
               }
             }, {
@@ -143,6 +146,15 @@
               "term" : {
                 "id" : {
                   "_name" : "matchedField:id",
+                  "boost" : 100.0,
+                  "case_insensitive" : true,
+                  "value" : "customer orders"
+                }
+              }
+            }, {
+              "term" : {
+                "email" : {
+                  "_name" : "matchedField:email",
                   "boost" : 100.0,
                   "case_insensitive" : true,
                   "value" : "customer orders"

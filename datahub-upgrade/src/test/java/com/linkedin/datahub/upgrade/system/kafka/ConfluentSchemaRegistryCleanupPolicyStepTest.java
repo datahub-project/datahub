@@ -50,6 +50,9 @@ public class ConfluentSchemaRegistryCleanupPolicyStepTest {
     // Create real KafkaProperties with test data
     kafkaProperties = new KafkaProperties();
     kafkaProperties.setBootstrapServers(Arrays.asList("localhost:9092"));
+    // This step builds a real AdminClient; short timeouts stop its network thread from retrying
+    // the absent broker (see KafkaTestTimeouts).
+    KafkaTestTimeouts.applyShort(kafkaProperties);
 
     step =
         new ConfluentSchemaRegistryCleanupPolicyStep(

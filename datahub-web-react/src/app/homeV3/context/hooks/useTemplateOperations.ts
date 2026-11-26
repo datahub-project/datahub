@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { insertModuleIntoRows } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 import { filterNonExistentStructuredProperties } from '@app/homeV3/context/hooks/utils/utils';
 import { DEFAULT_TEMPLATE_URN } from '@app/homeV3/modules/constants';

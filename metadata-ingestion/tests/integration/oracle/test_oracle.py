@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -33,6 +34,12 @@ VOLATILE_STAGING_TABLES = {
     "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD)",
 }
 
+# In these recipes a DML query entity can only come from V$SQL: view and
+# materialized view definitions are SELECTs.
+_DML_STATEMENT_PATTERN = re.compile(
+    r"^\s*(INSERT|UPDATE|DELETE|MERGE)\b", re.IGNORECASE
+)
+
 
 def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
     """
@@ -43,20 +50,25 @@ def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
     - Oracle cache flush timing
     - Memory pressure
     - Query execution timing
+    - The max_queries_to_extract cut: the connector keeps the newest
+      statements by FIRST_LOAD_TIME, which has one-second resolution, and
+      setup loads about that many, so runner speed decides which make it in
 
-    This function removes entities related to staging tables that are populated
-    by volatile INSERT queries, making tests deterministic regardless of cache state.
+    This function removes every DML query (for example the UPDATE inside
+    sales_schema.process_order, which setup calls), its lineage, and the
+    staging tables that only exist to receive setup INSERTs, making tests
+    deterministic regardless of cache state.
     """
     filtered = []
     volatile_query_urns = set()
 
-    # First pass: collect query URNs that reference volatile staging tables
+    # First pass: collect URNs of DML queries and of queries on staging tables
     for entity in metadata_json:
         if entity.get("entityType") == "query":
-            # Check if query references any volatile staging tables
             aspect_json = entity.get("aspect", {}).get("json", {})
             query_subjects = aspect_json.get("subjects", [])
-            if any(
+            statement = aspect_json.get("statement", {}).get("value", "")
+            if _DML_STATEMENT_PATTERN.match(statement) or any(
                 subject.get("entity") in VOLATILE_STAGING_TABLES
                 for subject in query_subjects
             ):
@@ -102,10 +114,16 @@ ORACLE_PORT = 2484
 
 
 def _wait_for_ready_file(ready_file: Path, timeout: float = 600) -> None:
+    # The startup script writes this after its last attempt fails.
+    failed_file = ready_file.parent / "failed"
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if ready_file.is_file():
             return
+        if failed_file.is_file():
+            raise RuntimeError(
+                f"Oracle TCPS setup failed\n{_setup_failure_detail(ready_file)}"
+            )
         time.sleep(0.5)
     detail = _setup_failure_detail(ready_file)
     raise TimeoutError(
@@ -164,6 +182,7 @@ def oracle_runner(docker_compose_runner, pytestconfig, request):
     wallet_dir.chmod(0o777)
     ready_file = tls_dir / "ready"
     ready_file.unlink(missing_ok=True)
+    (tls_dir / "failed").unlink(missing_ok=True)
     mp = pytest.MonkeyPatch()
     mp.setenv("ORACLE_TLS_DIR", str(tls_dir))
     mp.setenv("ORACLE_WALLET", str(wallet_dir))
@@ -203,7 +222,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
     output_path = tmp_path / "oracle_mces.json"
     golden_path = (
         test_resources_dir
-        / f"golden_files/golden_mces_{config_file.replace('.yml', '.json')}"
+        / f"golden_files/golden_{config_file.replace('.yml', '.json')}"
     )
 
     # auditStamp.time comes from V$SQL LAST_ACTIVE_TIME, not Python's clock
@@ -220,7 +239,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
         output_filtered = filter_volatile_vsql_queries(output_data)
         golden_filtered = filter_volatile_vsql_queries(golden_data)
 
-        filtered_output_path = tmp_path / "oracle_mces_filtered.json"
+        filtered_output_path = tmp_path / "oracle_filtered.json"
         with open(filtered_output_path, "w") as f:
             json.dump(output_filtered, f, indent=4)
 
@@ -230,6 +249,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
 
         mce_helpers.check_golden_file(
             pytestconfig,
+            fail_on_output_mces=True,
             output_path=filtered_output_path,
             golden_path=filtered_golden_path,
             ignore_paths=ignore_paths,
@@ -237,6 +257,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
     else:
         mce_helpers.check_golden_file(
             pytestconfig,
+            fail_on_output_mces=True,
             output_path=output_path,
             golden_path=golden_path,
             ignore_paths=ignore_paths,
