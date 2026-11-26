@@ -20,7 +20,7 @@ import pytest
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
-from datahub.configuration.common import TransformerSemantics
+from datahub.configuration.common import ConfigurationError, TransformerSemantics
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api import workunit
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
@@ -3583,7 +3583,7 @@ def test_dataproduct_mapping_based_on_tags_with_no_matching_tags(
     assert isinstance(outputs[1].record, EndOfStream)
 
 
-def test_dataproduct_mapping_based_on_tags_first_matching_tag_wins(
+def test_dataproduct_mapping_based_on_tags_first_mapped_tag_in_config_wins(
     mock_datahub_graph_instance,
 ):
     dataset_urn = builder.make_dataset_urn("bigquery", "example1")
@@ -3627,10 +3627,23 @@ def test_dataproduct_mapping_based_on_tags_first_matching_tag_wins(
         )
     )
 
+    # The dataset's first tag maps to finance, but the config lists customer_360 first.
     assert len(outputs) == 3
-    assert outputs[1].record.entityUrn == finance_dataproduct
+    assert outputs[1].record.entityUrn == customer_dataproduct
     assets = json.loads(outputs[1].record.aspect.value.decode("utf-8"))
     assert [item["value"]["destinationUrn"] for item in assets] == [dataset_urn]
+
+
+def test_dataproduct_mapping_based_on_tags_requires_a_graph():
+    with pytest.raises(ConfigurationError):
+        DatasetTagDataProductMapper.create(
+            {
+                "dataproduct_mapping": {
+                    "finance_certified": "urn:li:dataProduct:finance"
+                }
+            },
+            PipelineContext(run_id="dataproduct_tags_no_graph"),
+        )
 
 
 def test_dataproduct_mapping_based_on_tags_with_empty_tags(

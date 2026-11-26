@@ -1590,10 +1590,6 @@ Let's suppose we'd like to add datasets to data products based on tags they alre
 
 The config, which we'd append to our ingestion recipe YAML, would look like this:
 
-When specifying tags within the data product mapping, use the tag's simple name rather than the full tag URN.
-
-For example, instead of using the tag URN `urn:li:tag:finance_certified`, you should specify just the simple tag name `finance_certified` in the mapping configuration.
-
 ```yaml
 transformers:
   - type: "dataproduct_mapping_based_on_tags"
@@ -1603,9 +1599,18 @@ transformers:
         "customer_360": "urn:li:dataProduct:customer-360"
 ```
 
-Tags are read from DataHub GMS, so the recipe needs a sink or graph connection (for example `datahub-rest`) and the tags must already be present on the datasets.
+When specifying tags within the data product mapping, use the tag's simple name rather than the full tag URN.
 
-If a dataset has more than one mapped tag, it is added to the data product of the first matching tag on the dataset. Assets are added with a patch, so datasets already in a data product stay in it.
+For example, instead of using the tag URN `urn:li:tag:finance_certified`, you should specify just the simple tag name `finance_certified` in the mapping configuration.
+
+Tags are read from DataHub GMS, so the recipe needs a sink or graph connection (for example `datahub-rest`). The tags must already be on the datasets in DataHub before the run starts. Tags that the source emits in the same run, such as tags extracted from the source platform, are not seen until the next run.
+
+If a dataset has more than one mapped tag, it is added to the data product of the tag listed first in `dataproduct_mapping`.
+
+The transformer only adds datasets to data products:
+
+- Removing a tag from a dataset does not remove the dataset from the data product.
+- Assets are added with a patch. When the DataHub instance allows an asset to belong to more than one data product (the default), datasets already in another data product stay in it as well.
 
 ## Relationship Between replace_existing and semantics
 
