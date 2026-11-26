@@ -106,6 +106,12 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_DOMAINS_PRIVILEGE =
       Privilege.of("MANAGE_DOMAINS", "Manage Domains", "Create and remove Asset Domains.");
 
+  public static final Privilege MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ALL_DATA_PRODUCTS",
+          "Manage All Data Products",
+          "Create, edit, and remove Data Products in any Domain.");
+
   public static final Privilege MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE =
       Privilege.of(
           "MANAGE_GLOBAL_ANNOUNCEMENTS",
@@ -287,6 +293,7 @@ public class PoliciesConfig {
           VIEW_ANALYTICS_PRIVILEGE,
           GET_ANALYTICS_PRIVILEGE,
           MANAGE_DOMAINS_PRIVILEGE,
+          MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE,
           MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
           MANAGE_INGESTION_PRIVILEGE,
           MANAGE_SECRETS_PRIVILEGE,
@@ -491,6 +498,12 @@ public class PoliciesConfig {
           "EDIT_DATASET_COL_GLOSSARY_TERMS",
           "Edit Dataset Column Glossary Terms",
           "The ability to edit the column (field) glossary terms associated with a dataset schema.");
+
+  public static final Privilege EDIT_DATASET_COL_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "EDIT_DATASET_COL_PROPERTIES",
+          "Edit Dataset Column Properties",
+          "The ability to edit the column (field) structured properties associated with a dataset schema.");
 
   public static final Privilege EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE =
       Privilege.of(
@@ -706,6 +719,7 @@ public class PoliciesConfig {
                       VIEW_DATASET_PROFILE_PRIVILEGE,
                       VIEW_DATASET_OPERATIONS_PRIVILEGE,
                       EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
+                      EDIT_DATASET_COL_PROPERTIES_PRIVILEGE,
                       EDIT_DATASET_COL_TAGS_PRIVILEGE,
                       EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
                       EDIT_ENTITY_ASSERTIONS_PRIVILEGE,

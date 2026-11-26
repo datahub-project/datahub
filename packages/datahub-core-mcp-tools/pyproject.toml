@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=78.1.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datahub-core-mcp-tools"
+dynamic = ["version"]
+description = "DataHub's MCP tools, shared by the datahub-ai-service and DataHub Cloud"
+requires-python = ">=3.11"
+readme = "README.md"
+license = "Apache-2.0"
+dependencies = [
+    # A floor, not a pin: hosts install the SDK that matches their DataHub.
+    "acryl-datahub[datahub-rest]>=1.7.0",
+    "fastmcp>=4.0.0,<5",
+    "graphql-core>=3.2.0,<4",
+    "mcp>=2.0.0,<3",
+    "anyio>=4.10.0,<5",
+    "loguru>=0.7.0,<1",
+    "pydantic>=2.10.0,<3",
+    "requests>=2.28.0,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy==1.17.1",
+    "pytest>=8.3.4,<10",
+    "pytest-asyncio>=1.0.0,<2",
+    "pytest-cov>=6.0.0,<8",
+    "ruff==0.15.22",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "datahub_core_mcp_tools._version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"datahub_core_mcp_tools" = ["py.typed"]
+"datahub_core_mcp_tools.gql" = ["*.gql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["integration: needs a running DataHub"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+exclude = ["venv", "build", "dist"]
+
+[tool.ruff.lint]
+extend-select = ["B", "E", "F", "I", "RUF100"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["datahub_core_mcp_tools"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "silent"
+check_untyped_defs = true
+exclude = ["venv", "build", "dist"]

@@ -6,6 +6,7 @@
     "addDataProductError": "No se pudieron añadir los activos al producto de datos. Se produjo un error desconocido.",
     "addDataProductModalTitle": "Añadir activos al producto de datos",
     "addDataProductTooltip": "Añadir activos al producto de datos",
+    "addDataProductUnauthorized": "No tiene permiso para añadir activos a este producto de datos",
     "addDomainError": "No se pudieron añadir los activos al dominio: {{error}}",
     "addDomainModalTitle": "Añadir activos al dominio",
     "addDomainTooltip": "Añadir activos al dominio",

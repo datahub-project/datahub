@@ -226,6 +226,18 @@ class RestServiceConfig:
         return server_env != "core"
 
     @property
+    def auth_enabled(self) -> Optional[bool]:
+        """Whether GMS requires requests to authenticate (METADATA_SERVICE_AUTH_ENABLED).
+
+        None when this GMS predates the ``authentication`` field in /config.
+        """
+        authentication = self.raw_config.get("authentication")
+        if not isinstance(authentication, dict):
+            return None
+        enabled = authentication.get("enabled")
+        return enabled if isinstance(enabled, bool) else None
+
+    @property
     def embedding_service_path(self) -> Optional[str]:
         # /config advertises {"embeddingService": {"enabled": true, "path":
         # "/openapi/v1/llm/v1/embeddings", "model": "<optional served model id>"}}.

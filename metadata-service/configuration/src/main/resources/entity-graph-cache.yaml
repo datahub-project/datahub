@@ -19,6 +19,13 @@
 #   population.intervalSeconds — LAZY staleness + COOLDOWN retry; SCHEDULED rebuild period (default 300)
 #   population.rebuildExecution — SYNC (default) | BACKGROUND (LAZY + FULL, fail-closed)
 #       | STALE_WHILE_REVALIDATE (LAZY + PARTIAL: serve the previous snapshot, rebuild that component in the background)
+#   invalidation.visibility — NONE (default: drop the cached graph at write time)
+#       | SUBMIT_BOUND (keep it, and treat it as stale once the bulk flush + the source index refresh_interval have passed)
+#       | FLUSH_AWAIT (flush pending writes first, then wait out only the refresh_interval)
+#   invalidation.marginSeconds — added to the visibility bound (default 0)
+#       (half of it is also the local cache lifetime of the recorded write times; 0 disables that cache)
+#   invalidation.maxWalkSeconds — longest a full-walk write-back may take; a write-back without a start time
+#       is rejected when a write became searchable within this window (default: the rebuild lease)
 #   bounds.maxVertices, bounds.maxEdges — build-time caps
 #   bindings.filterFields | policyFieldTypes — optional call-site wiring
 #   scroll.batchSize — build scroll page size (default 500)
@@ -70,6 +77,12 @@ graphs:
     population:
       strategy: LAZY
       intervalSeconds: 1200
+    invalidation:
+      # The graph index shows a write only after its bulk flush and refresh_interval. Keep the cached
+      # component until then instead of dropping it, so a rebuild cannot republish the pre-write chain.
+      visibility: SUBMIT_BOUND
+      marginSeconds: 1
+      maxWalkSeconds: 120
     bounds:
       # Per-WCC build cap; raise via ENTITY_GRAPH_CACHE_CONFIG_JSON if a single component exceeds this
       maxVertices: 30000
@@ -89,6 +102,10 @@ graphs:
       intervalSeconds: 1200
       # Serve the previous component while a partial rebuild runs. Overlay SYNC to compare cost.
       rebuildExecution: STALE_WHILE_REVALIDATE
+    invalidation:
+      visibility: SUBMIT_BOUND
+      marginSeconds: 1
+      maxWalkSeconds: 120
     bounds:
       # Container nesting only (no asset vertices); raise via ENTITY_GRAPH_CACHE_CONFIG_JSON if needed
       maxVertices: 5000

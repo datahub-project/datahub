@@ -23,6 +23,10 @@ packages = [
         directory="datahub-agent-context", main_module_name="datahub_agent_context"
     ),
     Package(
+        directory="packages/datahub-core-mcp-tools", main_module_name="datahub_core_mcp_tools"
+    ),
+    Package(directory="packages/datahub-ai-service", main_module_name="datahub_ai_service"),
+    Package(
         directory="metadata-ingestion-modules/airflow-plugin",
         main_module_name="datahub_airflow_plugin",
     ),

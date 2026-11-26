@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.concurrent.CompletionException;
 import org.mockito.ArgumentCaptor;
@@ -242,10 +243,12 @@ public class ScrollAcrossEntitiesResolverTest {
 
     assertNotNull(result);
 
+    ArgumentCaptor<OperationContext> contextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
     ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
     verify(_entityClient)
         .scrollAcrossEntities(
-            any(),
+            contextCaptor.capture(),
             eq(Collections.singletonList(Constants.DOCUMENT_ENTITY_NAME)),
             eq("*"),
             filterCaptor.capture(),
@@ -257,6 +260,9 @@ public class ScrollAcrossEntitiesResolverTest {
     // unpublished clauses and replaced by a lifecycleStage EXISTS + lifecycleStage != DRAFT clause.
     assertTrue(filterContainsField(filterCaptor.getValue(), "lifecycleStage"));
     assertTrue(filterContainsField(filterCaptor.getValue(), "showInGlobalContext"));
+    // A similarity anchor is held to the same defaults
+    assertEquals(
+        contextCaptor.getValue().getSearchContext().getAnchorFilter(), filterCaptor.getValue());
   }
 
   @Test

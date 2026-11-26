@@ -8,12 +8,14 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateRolloutConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -90,6 +92,107 @@ public class SearchTemplateRolloutTest {
     expectThrows(
         IllegalArgumentException.class,
         () -> effect(true, rollout("sideways", 100), SearchTemplateSurfaces.SEARCH_ENTITIES, key));
+  }
+
+  @Test
+  public void testSemanticSearchIsOffUnlessItsOwnSettingIsSet() throws Exception {
+    String semantic = SearchTemplateSurfaces.SEMANTIC_SEARCH;
+    String key = SearchTemplateRollout.bucketKey("urn:li:corpuser:ada", semantic);
+    // No rollout, a bare one, and the shipped active mode for every other surface all keep it off
+    assertEquals(effect(true, null, semantic, key), off());
+    assertEquals(effect(true, new SearchTemplateRolloutConfiguration(), semantic, key), off());
+    SearchTemplateRolloutConfiguration rollout = rollout("active", 100);
+    assertEquals(effect(true, rollout, semantic, key), off());
+    assertEquals(effect(true, rollout, SearchTemplateSurfaces.SEARCH_ENTITIES, key), active());
+    assertTrue(
+        Files.readString(applicationYaml())
+            .contains("semanticSearch: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEMANTIC_SEARCH:}"),
+        "the shipped setting is blank");
+
+    // Its own setting turns it on. An unset semanticSearchPercent serves every actor, whatever
+    // percent says.
+    rollout.setPercent(0);
+    rollout.setSemanticSearch("active");
+    assertEquals(effect(true, rollout, semantic, key), active());
+    rollout.setSemanticSearchPercent(0);
+    assertEquals(effect(true, rollout, semantic, key), off());
+    // shadow does not execute, so semantic search keeps its legacy path
+    rollout.setSemanticSearch("shadow");
+    assertEquals(effect(true, rollout, semantic, key), shadow());
+    rollout.setSemanticSearch("active");
+    rollout.setSemanticSearchPercent(-1);
+    assertEquals(effect(false, rollout, semantic, key), off());
+  }
+
+  @Test
+  public void testAMalformedSemanticSearchSettingKeepsItOff() {
+    String key =
+        SearchTemplateRollout.bucketKey(
+            "urn:li:corpuser:ada", SearchTemplateSurfaces.SEMANTIC_SEARCH);
+    SearchTemplateRolloutConfiguration rollout = rollout("active", 100);
+    rollout.setSemanticSearch("on");
+    rollout.setSearchEntities("on");
+
+    // Every semantic search reads it, so a typo keeps semantic search on its own kNN search
+    // instead of failing it ...
+    assertEquals(effect(true, rollout, SearchTemplateSurfaces.SEMANTIC_SEARCH, key), off());
+    // ... while the other surfaces still reject one
+    expectThrows(
+        IllegalArgumentException.class,
+        () -> effect(true, rollout, SearchTemplateSurfaces.SEARCH_ENTITIES, key));
+
+    // So does a percent outside 0 to 100 with the mode active
+    rollout.setSemanticSearch("active");
+    rollout.setSemanticSearchPercent(150);
+    rollout.setSearchEntities("active");
+    rollout.setSearchEntitiesPercent(150);
+    assertEquals(effect(true, rollout, SearchTemplateSurfaces.SEMANTIC_SEARCH, key), off());
+    expectThrows(
+        IllegalArgumentException.class,
+        () -> effect(true, rollout, SearchTemplateSurfaces.SEARCH_ENTITIES, key));
+
+    // And a percent below -1, since only -1 leaves it unset, while another surface's still falls
+    // back to percent
+    rollout.setSemanticSearchPercent(-2);
+    rollout.setSearchEntitiesPercent(-2);
+    assertEquals(effect(true, rollout, SearchTemplateSurfaces.SEMANTIC_SEARCH, key), off());
+    assertEquals(effect(true, rollout, SearchTemplateSurfaces.SEARCH_ENTITIES, key), active());
+  }
+
+  @Test
+  public void testTheShippedSemanticSearchSlotBindsTheShippedSemanticTemplate() throws Exception {
+    open();
+    String shippedSlot =
+        new YAMLMapper()
+            .readTree(applicationYaml().toFile())
+            .at("/elasticsearch/search/v3/templates/surfaces/semanticSearch/fulltext/default")
+            .asText();
+    harness
+        .templates
+        .getSurfaces()
+        .put(SearchTemplateSurfaces.SEMANTIC_SEARCH, Map.of("fulltext", slot(shippedSlot)));
+    harness.templates.getRollout().setSemanticSearch("active");
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
+
+    ResolvedSearchTemplate resolved =
+        coordinator
+            .bind(
+                harness.opContext.withSearchSurface(SearchTemplateSurfaces.SEMANTIC_SEARCH),
+                "quarterly revenue",
+                false,
+                List.of("document"))
+            .getSearchContext()
+            .getResolvedSearchTemplate();
+
+    assertEquals(resolved.getUrn(), "urn:li:searchTemplate:semantic");
+    assertTrue(resolved.isVectorReachable());
   }
 
   @Test

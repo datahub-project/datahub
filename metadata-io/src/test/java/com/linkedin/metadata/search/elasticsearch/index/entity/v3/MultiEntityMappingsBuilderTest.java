@@ -602,6 +602,30 @@ public class MultiEntityMappingsBuilderTest {
         List.of("hasDescription"));
   }
 
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testRichTextBodyCopiesToOtherFromAnUnindexedRoot() throws IOException {
+    when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    IndexMapping mapping =
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext)
+            .iterator()
+            .next();
+    Map<String, Object> properties = getProperties(mapping.getMappings());
+
+    Map<String, Object> instructions = (Map<String, Object>) properties.get("instructions");
+    assertEquals(instructions.get("type"), "keyword");
+    assertEquals(instructions.get("index"), Boolean.FALSE);
+    assertEquals(instructions.get("doc_values"), Boolean.FALSE);
+    assertTrue(((Collection<?>) instructions.get("copy_to")).contains("other"));
+    assertTrue(
+        ((Map<String, Object>) ((Map<String, Object>) properties.get("other")).get("fields"))
+            .containsKey("text"),
+        "other is analyzed, so the copied body is searchable");
+  }
+
   private static String aspectOf(String aspectPath) {
     return aspectPath.split("\\.", 3)[1];
   }

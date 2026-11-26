@@ -185,6 +185,21 @@ def get_smoke_plan_smart_mode() -> str:
     return os.getenv("SMOKE_PLAN_SMART_MODE", "").strip()
 
 
+def get_plan_target_batch_seconds(default: float) -> float:
+    """Per-batch pytest target for sizing a smart-selected matrix.
+
+    SMOKE_PLAN_TARGET_BATCH_SECONDS lets CI trade runners for wall clock on
+    pull requests without changing the planner's default. Unset, blank or not
+    a positive number means ``default``.
+    """
+    raw = os.getenv("SMOKE_PLAN_TARGET_BATCH_SECONDS", "").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 def get_pytest_xdist_workers() -> int:
     """pytest-xdist worker count used for a batch's parallel phase.
 

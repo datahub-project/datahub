@@ -1,6 +1,6 @@
 import posixpath
 import re
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, TypeVar
 
 from pydantic import BaseModel
 
@@ -9,11 +9,14 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ParsedScript,
     PrecedingLoad,
     QvdReference,
+    QvdStore,
     ScriptTableLineage,
 )
 
 # A $(variable) reference, as left in a name when the app doesn't have it.
 VARIABLE_IN_NAME_RE = re.compile(r"\$\([^)]*\)")
+
+T = TypeVar("T")
 
 # QVDs the Engine writes for BUFFER loads, which no app stores or owns.
 _BUFFERS_FOLDER = "/engine/buffers/"
@@ -39,6 +42,7 @@ class QvdPathResolver:
         ignored_connections: Iterable[str],
         folder_aliases: Dict[str, str],
         variables_known: bool = True,
+        storage_urns: Optional[Dict[str, Callable[[str], str]]] = None,
     ):
         # Whether the app's variables were read, so one it doesn't have is
         # unset rather than unread.
@@ -47,6 +51,10 @@ class QvdPathResolver:
         # connection names without regard to case.
         self.folders = {name.lower(): folder for name, folder in folders.items()}
         self.ignored_connections = {name.lower() for name in ignored_connections}
+        # Storage data connection name -> the dataset URN of a path in it.
+        self.storage_urns = {
+            name.lower(): urn for name, urn in (storage_urns or {}).items()
+        }
         # Longest first, so a nested alias wins over its parent.
         self.folder_aliases = sorted(
             (
@@ -58,22 +66,34 @@ class QvdPathResolver:
         )
         self.unresolved: List[str] = []
 
+    def _by_connection(self, mapping: Dict[str, T], connection: str) -> Optional[T]:
+        value = mapping.get(connection.lower())
+        if value is None and "$(" in connection and self.variables_known:
+            # A variable the app doesn't have expanded to nothing when it
+            # reloaded, such as an empty connection prefix. Taken only when
+            # what is left names a known connection.
+            value = mapping.get(VARIABLE_IN_NAME_RE.sub("", connection).lower())
+        return value
+
+    def storage_urn(self, file: QvdReference) -> Optional[str]:
+        """The file dataset of a QVD on a storage connection, named as Qlik
+        Cloud names the files it loads there, so lineage joins across both."""
+        if file.connection is None or file.connection.lower() in (
+            self.ignored_connections
+        ):
+            return None
+        urn = self._by_connection(self.storage_urns, file.connection)
+        return urn(file.path) if urn else None
+
     def resolve(self, file: QvdReference) -> Optional[str]:
         if file.connection is None:
             path = canonical_path(file.path)
         elif file.connection.lower() in self.ignored_connections:
             return None
         else:
-            folder = self.folders.get(file.connection.lower())
-            if folder is None and "$(" in file.connection and self.variables_known:
-                # A variable the app doesn't have expanded to nothing when it
-                # reloaded, such as an empty connection prefix. Taken only when
-                # what is left names a folder connection.
-                folder = self.folders.get(
-                    VARIABLE_IN_NAME_RE.sub("", file.connection).lower()
-                )
+            folder = self._by_connection(self.folders, file.connection)
             if folder is None:
-                self.unresolved.append(f"lib://{file.connection}/{file.path}")
+                self.unresolved.append(file.as_written)
                 return None
             path = canonical_path(f"{folder}/{file.path}")
         for alias, target in self.folder_aliases:
@@ -116,6 +136,8 @@ class AppQvdLineage(BaseModel):
     qvds: AppQvds = AppQvds()
     # Canonical path of each QVD the app touches, by URN.
     paths: Dict[str, str] = {}
+    # QVDs the app touches on connections mapped to storage, by URN.
+    storage_urns: List[str] = []
     # A STORE names a data connection the resolver doesn't know.
     has_unresolved_store: bool = False
 
@@ -126,6 +148,22 @@ def _loaded_fields(load: PrecedingLoad) -> Optional[Dict[str, List[str]]]:
     if load.keeps_all or load.unreadable:
         return None
     return {field.name: field.sources for field in load.fields if field.named}
+
+
+def stored_fields(store: QvdStore, known: List[str]) -> Optional[List[QvdField]]:
+    """The fields a STORE writes, given the stored table's `known` fields, or
+    None when they can't be told."""
+    if store.fields is not None:
+        selected = _loaded_fields(store.fields)
+        return (
+            None
+            if selected is None
+            else [
+                QvdField(name=name, source=sources[0] if len(sources) == 1 else None)
+                for name, sources in selected.items()
+            ]
+        )
+    return [QvdField(name=name, source=name) for name in known] or None
 
 
 def app_qvd_lineage(
@@ -140,6 +178,12 @@ def app_qvd_lineage(
     lineage = AppQvdLineage()
 
     def qvd_urn(file: QvdReference) -> Optional[str]:
+        # Not this connector's dataset, so only its lineage is written.
+        storage_urn = resolver.storage_urn(file)
+        if storage_urn is not None:
+            if storage_urn not in lineage.storage_urns:
+                lineage.storage_urns.append(storage_urn)
+            return storage_urn
         path = resolver.resolve(file)
         if path is None:
             return None
@@ -172,6 +216,9 @@ def app_qvd_lineage(
             for source in sources:
                 if source not in read:
                     read.append(source)
+                # A storage file has no schema in DataHub for these fields.
+                if urn in lineage.storage_urns:
+                    continue
                 upstream = make_schema_field_urn(urn, source)
                 if upstream not in upstreams:
                     upstreams.append(upstream)
@@ -200,24 +247,10 @@ def app_qvd_lineage(
                 ]
             )
         )
-        if store.fields is not None:
-            selected = _loaded_fields(store.fields)
-            stored_fields: Optional[List[QvdField]] = (
-                None
-                if selected is None
-                else [
-                    QvdField(
-                        name=name,
-                        source=sources[0] if len(sources) == 1 else None,
-                    )
-                    for name, sources in selected.items()
-                ]
-            )
-        elif known:
-            stored_fields = [QvdField(name=name, source=name) for name in known]
-        else:
-            stored_fields = None
         lineage.qvds.writes.setdefault(urn, []).append(
-            QvdWrite(table_urn=make_urn(stored.identifier), fields=stored_fields)
+            QvdWrite(
+                table_urn=make_urn(stored.identifier),
+                fields=stored_fields(store, known),
+            )
         )
     return lineage

@@ -49,6 +49,29 @@ public class SearchContextTest {
   }
 
   @Test
+  public void theCallerFloorAndTheKeywordFallbackFlagSplitTheCacheKey() {
+    IndexConvention convention =
+        IndexConventionImpl.noPrefix("MD5", createDefaultEntityIndexConfiguration());
+    SearchContext plain =
+        SearchContext.builder()
+            .indexConvention(convention)
+            .searchFlags(new SearchFlags().setFulltext(true))
+            .build();
+    SearchContext floored =
+        plain.toBuilder()
+            .searchFlags(new SearchFlags().setFulltext(true).setMinSimilarity(0.8f))
+            .build();
+    SearchContext fallback =
+        plain.toBuilder()
+            .searchFlags(
+                new SearchFlags().setFulltext(true).setKeywordFallbackOnEmbeddingFailure(true))
+            .build();
+
+    assertNotEquals(plain.getCacheKeyComponent(), floored.getCacheKeyComponent());
+    assertNotEquals(plain.getCacheKeyComponent(), fallback.getCacheKeyComponent());
+  }
+
+  @Test
   public void searchContextId() {
     EntityIndexConfiguration entityIndexConfig = createDefaultEntityIndexConfiguration();
 

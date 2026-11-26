@@ -118,9 +118,11 @@ query appConfig {
             structuredPropertiesInPoliciesEnabled
             multipleDataProductsPerAsset
             showTestsInHealthIcon
+            mcpServerEnabled
             i18nEnabled
             browserTracingEnabled
             browserWebVitalsEnabled
+            showGithubStarPrompt
         }
         chromeExtensionConfig {
             enabled

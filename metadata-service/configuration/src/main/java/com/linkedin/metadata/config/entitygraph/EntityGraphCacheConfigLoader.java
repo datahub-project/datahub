@@ -368,6 +368,17 @@ public class EntityGraphCacheConfigLoader {
       }
     }
 
+    if (graph.getInvalidation() != null
+        && graph.getInvalidation().getMarginSeconds() != null
+        && graph.getInvalidation().getMarginSeconds() < 0) {
+      errors.add("graph " + graphId + ": invalidation.marginSeconds must be >= 0");
+    }
+    if (graph.getInvalidation() != null
+        && graph.getInvalidation().getMaxWalkSeconds() != null
+        && graph.getInvalidation().getMaxWalkSeconds() <= 0) {
+      errors.add("graph " + graphId + ": invalidation.maxWalkSeconds must be > 0");
+    }
+
     if (hasLineage) {
       LineageEdgeConfig lineage = graph.getLineage();
       if (lineage.getEntityTypes() != null) {

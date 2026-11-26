@@ -6,6 +6,7 @@
     "addDataProductError": "Kunne ikke legge til Asset i dataproduktet. En ukjent feil oppsto.",
     "addDataProductModalTitle": "Legg til Asset i dataproduktet",
     "addDataProductTooltip": "Legg til Asset i dataproduktet",
+    "addDataProductUnauthorized": "Du har ikke tillatelse til å legge til ressurser i dette dataproduktet",
     "addDomainError": "Kunne ikke legge til Asset i domenet: {{error}}",
     "addDomainModalTitle": "Legg til Asset i domenet",
     "addDomainTooltip": "Legg til Asset i domenet",

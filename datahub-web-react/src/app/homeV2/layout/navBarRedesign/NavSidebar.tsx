@@ -25,6 +25,7 @@ import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContex
 import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import NavSkeleton from '@app/homeV2/layout/navBarRedesign/NavBarSkeleton';
+import { getHelpMenuItems } from '@app/homeV2/layout/navBarRedesign/NavSidebar.utils';
 import {
     NavBarMenuDropdownItem,
     NavBarMenuDropdownItemElement,
@@ -180,14 +181,10 @@ export const NavSidebar = () => {
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
     const logoComponent = hasCustomLogo ? <CustomLogo alt={t('navBar.logoAlt')} src={customLogoUrl} /> : <AcrylIcon />;
 
-    const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
-        title: value.label,
-        description: value.description || '',
-        link: value.path,
-        isHidden: false,
-        isExternalLink: true,
-        key: `helpMenu${value.label}`,
-    })) as NavBarMenuDropdownItemElement[];
+    const HelpContentMenuItems = getHelpMenuItems(
+        themeConfig.content.menu.items,
+        config.featureFlags.showGithubStarPrompt,
+    );
 
     // --- MFE YAML CONFIG ---
     const mfeConfig: any = useMFEConfigFromBackend();
