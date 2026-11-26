@@ -435,13 +435,21 @@ def test_file_read_as_a_qvd_on_a_mapped_share_takes_the_on_prem_dataset(
         script="Orders: LOAD * FROM [lib://Sales Space:Share/Orders/Orders.dat] (qvd);\n",
     )
 
-    # The format, not the extension, makes it a QVD, as on-prem reads it.
-    assert source._file_source_resolution(
-        "app-1", _file_qri("local", SHARE, "Orders/Orders.dat")
-    ).urn == (
+    urn = (
         "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,"
         "qlik_onprem.//files.example.com/qlik/qvd/orders/orders.dat,PROD)"
     )
+    # The format, not the extension, makes it a QVD, as on-prem reads it.
+    assert (
+        source._file_source_resolution(
+            "app-1", _file_qri("local", SHARE, "Orders/Orders.dat")
+        ).urn
+        == urn
+    )
+    [subtypes] = list(source._gen_storage_qvd_types())
+    assert subtypes.get_urn() == urn
+    aspect = subtypes.get_aspect_of_type(SubTypesClass)
+    assert aspect is not None and aspect.typeNames == ["QVD"]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")

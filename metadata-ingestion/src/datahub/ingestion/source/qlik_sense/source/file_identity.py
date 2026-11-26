@@ -5,7 +5,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.qlik_sense.config import Constant, FileStorageDetail
-from datahub.ingestion.source.qlik_sense.constants import QVD_EXTENSION
 from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FILE_QRI_RE,
@@ -42,7 +41,6 @@ from datahub.ingestion.source.qlik_sense.source_utils import (
     qlik_dataset_identifier,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
-from datahub.metadata.urns import DatasetUrn
 
 
 class FileIdentityMixin(DashboardMixin):
@@ -339,6 +337,8 @@ class FileIdentityMixin(DashboardMixin):
         likely: Set[str] = set()
         # Files on connections of unknown storage, named by connection and path.
         unmapped: Set[str] = set()
+        # Files the script reads as QVDs, by format or else extension.
+        qvd_urns: Set[str] = set()
         unknown = False
         for reference in candidates.references:
             match = self._file_storage(reference.connection, space_id, reference.qvd)
@@ -382,6 +382,8 @@ class FileIdentityMixin(DashboardMixin):
             ):
                 continue
             urn = self._file_urn(storage, detail, reference.path)
+            if reference.qvd:
+                qvd_urns.add(urn)
             (confirmed if storage.qri_connection_id else unconfirmed).add(urn)
             if storage.likely_qri_connection_id == candidates.connection_id:
                 likely.add(urn)
@@ -408,13 +410,13 @@ class FileIdentityMixin(DashboardMixin):
         if urn in unmapped:
             self._link_unmapped_file(app_id, urn)
         else:
-            self._note_storage_qvd(urn)
+            self._note_storage_qvd(urn, urn in qvd_urns)
         return FileSourceResolution(
             urn=urn, on_known_storage=unresolved.on_known_storage
         )
 
-    def _note_storage_qvd(self, urn: str) -> None:
-        if DatasetUrn.from_string(urn).name.lower().endswith(QVD_EXTENSION):
+    def _note_storage_qvd(self, urn: str, qvd: bool) -> None:
+        if qvd:
             self._linked_storage_qvds.add(urn)
 
     def _gen_storage_qvd_types(self) -> Iterable[MetadataWorkUnit]:

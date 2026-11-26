@@ -75,7 +75,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
         self.reporter.qvds_found += len(lineage.paths)
         self.reporter.storage_qvds_resolved += len(lineage.storage_urns)
         for storage_urn in lineage.storage_urns:
-            self._note_storage_qvd(storage_urn)
+            self._note_storage_qvd(storage_urn, True)
         if app.script is None or app.script_read_failed:
             # QVDs the script writes can't be known, so their lineage is kept.
             self._apps_qvds_unknown[app.id] = QvdsUnknownReason.SCRIPT_UNREAD
