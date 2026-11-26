@@ -37,6 +37,9 @@ node {
   Wrappers around Yarn Tasks.
  */
 task yarnInstall(type: YarnTask) {
+  // Shares the yarn cache with the other yarn installs; the lock keeps Yarn 1 from corrupting it
+  // ("the file appears to be corrupt ... ENOENT"). See yarnInstallLock in the root build.gradle.
+  usesService(rootProject.ext.yarnInstallLock)
   def argsList = ['install', '--network-timeout', '300000']
   if (System.getenv("CI") == "true") {
     argsList += ['--frozen-lockfile']

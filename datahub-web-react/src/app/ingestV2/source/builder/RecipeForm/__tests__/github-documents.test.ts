@@ -9,14 +9,25 @@ import {
     GITHUB_DOCUMENTS_REPOSITORY,
     GITHUB_DOCUMENTS_TOKEN,
 } from '@app/ingestV2/source/builder/RecipeForm/github-documents';
+import {
+    REPOSITORY_DOCUMENTS_BRANCH,
+    REPOSITORY_DOCUMENTS_FILE_EXTENSIONS,
+    REPOSITORY_DOCUMENTS_PATH_PREFIX,
+} from '@app/ingestV2/source/builder/RecipeForm/repository-documents';
 
 describe('github-documents recipe fields', () => {
+    it('keeps the deprecated field names as aliases of the shared fields', () => {
+        expect(GITHUB_DOCUMENTS_BRANCH).toBe(REPOSITORY_DOCUMENTS_BRANCH);
+        expect(GITHUB_DOCUMENTS_PATH_PREFIX).toBe(REPOSITORY_DOCUMENTS_PATH_PREFIX);
+        expect(GITHUB_DOCUMENTS_FILE_EXTENSIONS).toBe(REPOSITORY_DOCUMENTS_FILE_EXTENSIONS);
+    });
+
     it('exports recipe field metadata for github-documents source', () => {
         expect(GITHUB_DOCUMENTS_TOKEN.fieldPath).toBe('source.config.github_token');
         expect(GITHUB_DOCUMENTS_REPOSITORY.required).toBe(true);
-        expect(GITHUB_DOCUMENTS_BRANCH.placeholder).toBe('main');
-        expect(GITHUB_DOCUMENTS_PATH_PREFIX.name).toBe('path_prefix');
-        expect(GITHUB_DOCUMENTS_FILE_EXTENSIONS.type).toBe(FieldType.LIST);
+        expect(REPOSITORY_DOCUMENTS_BRANCH.placeholder).toBe('main');
+        expect(REPOSITORY_DOCUMENTS_PATH_PREFIX.name).toBe('path_prefix');
+        expect(REPOSITORY_DOCUMENTS_FILE_EXTENSIONS.type).toBe(FieldType.LIST);
         expect(GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT.type).toBe(FieldType.BOOLEAN);
         expect(GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT.tooltip).toContain('folder document');
     });

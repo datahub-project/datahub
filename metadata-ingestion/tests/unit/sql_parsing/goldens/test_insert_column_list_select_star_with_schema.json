@@ -1,0 +1,62 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "ec220eb5518d99361b66eed49e6a8e82a6beead1e237d050d99b0e41df7a3472",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt,PROD)",
+                "column": "a",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)",
+                    "column": "x"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"SRC\".\"X\" AS \"A\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt,PROD)",
+                "column": "b",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(38, 0)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)",
+                    "column": "y"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"SRC\".\"Y\" AS \"B\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "INSERT INTO my_db.my_schema.tgt (a, b) SELECT * FROM my_db.my_schema.src"
+    }
+}

@@ -1,7 +1,9 @@
+from io import StringIO
 from types import SimpleNamespace
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 from unittest import mock
 from unittest.mock import MagicMock, patch
+from urllib.parse import quote
 
 import pytest
 from pydantic import ValidationError
@@ -41,6 +43,7 @@ from datahub.ingestion.source.sql.postgres.source import (
 )
 from datahub.ingestion.source.sql.sql_common import get_column_type
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.masking.constants import REDACTED_PREFIX
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BytesTypeClass,
@@ -53,6 +56,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.sqlalchemy_type_converter import (
     get_native_data_type_for_sqlalchemy_type,
 )
+from tests.test_helpers.masking_state_helpers import capture_masked_log
 from tests.unit.conftest import as_mock, log_contexts, single_aspect
 from tests.unit.sql_test_helpers import FakeConnection, FakeResult
 
@@ -973,3 +977,96 @@ def test_add_profile_metadata_survives_permission_errors():
     source.add_profile_metadata(inspector)
 
     assert source.profile_metadata_info.dataset_name_to_storage_bytes == {}
+
+
+_SOURCE_LOGGER = "datahub.ingestion.source.sql.postgres.source"
+
+
+@pytest.fixture
+def masked_source_log() -> Iterator[StringIO]:
+    with capture_masked_log(_SOURCE_LOGGER) as stream:
+        yield stream
+
+
+def _log_connection_url(config_dict: Dict[str, Any]) -> None:
+    config = PostgresConfig.model_validate(config_dict)
+    with patch(
+        "datahub.ingestion.source.sql.postgres.source.create_engine"
+    ) as create_engine_mock:
+        execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
+        execute_mock.return_value = []
+        source = PostgresSource(config, PipelineContext(run_id="test"))
+        list(source.get_inspectors())
+
+
+def _assert_passwords_masked(output: str, *passwords: str) -> None:
+    assert "sql_alchemy_url=" in output, output
+    # Masked by the registry, not left out of the line some other way.
+    assert REDACTED_PREFIX in output, output
+    for password in passwords:
+        assert password not in output, output
+        assert quote(password, safe=" +") not in output, output
+
+
+@pytest.mark.parametrize(
+    "password",
+    [
+        pytest.param("alphanumericpassword123", id="alphanumeric"),
+        pytest.param("Str0ng!Pass#2024", id="special_characters"),
+    ],
+)
+def test_debug_connection_url_log_hides_password(
+    masked_source_log: StringIO, password: str
+) -> None:
+    _log_connection_url(
+        {
+            "username": "my_user",
+            "password": password,
+            "host_port": "my-host:5432",
+            "database": "my_db",
+        }
+    )
+    _assert_passwords_masked(masked_source_log.getvalue(), password)
+
+
+@pytest.mark.parametrize(
+    "sqlalchemy_uri, passwords",
+    [
+        pytest.param(
+            "postgresql+psycopg2://my_user:placeholder-uri-secret-42@my-host:5432/my_db",
+            ["placeholder-uri-secret-42"],
+            id="userinfo",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://my_user:Str0ng%21Uri%23Secret@my-host:5432/my_db",
+            ["Str0ng!Uri#Secret"],
+            id="userinfo_percent_encoded",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://my_user:Str0ng%21Uri#Secret@my-host:5432/my_db",
+            ["Str0ng%21Uri#Secret"],
+            id="userinfo_mixed_encoding",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://my_user:pa%2fss%3Aword@my-host:5432/my_db",
+            ["pa%2fss%3Aword"],
+            id="userinfo_mixed_hex_case",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://my_user@my-host:5432/my_db?password=placeholder-query-secret-42",
+            ["placeholder-query-secret-42"],
+            id="query_parameter",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://my_user:placeholder-uri-secret-42@my-host:5432/my_db"
+            "?password=placeholder-query-secret-42",
+            ["placeholder-uri-secret-42", "placeholder-query-secret-42"],
+            id="userinfo_and_query_parameter",
+        ),
+    ],
+)
+def test_debug_connection_url_log_hides_password_in_sqlalchemy_uri(
+    masked_source_log: StringIO, sqlalchemy_uri: str, passwords: List[str]
+) -> None:
+    _log_connection_url({"sqlalchemy_uri": sqlalchemy_uri, "host_port": "my-host:5432"})
+    _assert_passwords_masked(masked_source_log.getvalue(), *passwords)

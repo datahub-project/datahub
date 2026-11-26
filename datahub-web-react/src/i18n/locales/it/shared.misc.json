@@ -3,6 +3,8 @@
     "confirmationModal.areYouSure": "Confermare?",
     "copyUrn.tooltip": "Copia URN. Una URN identifica in modo univoco un'entità su DataHub.",
     "customIcon.alt": "Icona",
+    "githubStar.ariaLabel": "Assegna una stella a DataHub su GitHub",
+    "githubStar.label": "Stella",
     "entityCountCard.viewCountTooltip": "Visualizza {{formattedCount}} {{tooltipDescriptor}}",
     "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
     "multiStepForm.disabledNextTooltip": "Completare tutti i campi obbligatori prima di passare al passaggio successivo",

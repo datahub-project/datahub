@@ -4,7 +4,6 @@ import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass'
 import { Spin } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePrevious } from 'react-js-cron/dist/cjs/utils';
 import { useDebounce } from 'react-use';
 import styled, { keyframes } from 'styled-components';
 
@@ -13,6 +12,7 @@ import computeOrFilters from '@app/lineageV3/LineageFilterNode/computeOrFilters'
 import { LineageFilter, LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
 import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
+import usePrevious from '@app/sharedV2/usePrevious';
 
 import { useSearchAcrossLineageNamesQuery } from '@graphql/lineage.generated';
 import { EntityType } from '@types';
@@ -69,7 +69,7 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches, z
     useDebounce(() => setSearchQuery(inputValue), 300, [inputValue]);
     useEffect(() => {
         const filters = nodes.get(parent)?.filters[direction];
-        if (filters && searchQuery.length < 3 && oldSearchQuery?.length >= 3) {
+        if (filters && searchQuery.length < 3 && (oldSearchQuery?.length ?? 0) >= 3) {
             filters.searchUrns = undefined;
             setNumMatches(0);
             setDisplayVersion(([prev, n]) => [prev + 1, zoomToNode ? [id] : n]);

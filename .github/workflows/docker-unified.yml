@@ -178,8 +178,8 @@ jobs:
       # variable is 'true'; post-merge pushes -- and the default with the
       # variable unset -- always run the full suite. smoke.sh reads it as
       # SMOKE_TIER. Repository variables don't reach pull requests from forks,
-      # so those always run the full suite (smoke_test_matrix gives them 3
-      # batches).
+      # so those always run the full suite (smoke_test_matrix gives them
+      # FORK_BATCH_COUNT batches).
       #
       # The `run-all-tests` label (both suites) or `run-all-tests:pytest` (pytest
       # only) opts a single PR back into the whole suite, for
@@ -653,10 +653,16 @@ jobs:
               await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
 
-  smoke_test_matrix:
+  # Classifies the PR into taxonomy tags (smart testing) once, for both suites:
+  # smoke_test_matrix plans pytest batches from them and playwright_plan the
+  # Playwright tier. Every step is continue-on-error because pytest_tests gates on
+  # !failure(), which counts every ancestor job: a failure here must never turn
+  # into skipped tests. No smart_tags output means each suite's fail-safe.
+  classify_pr:
+    name: Classify PR for smart testing
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: [setup]
-    if: ${{ always() && needs.setup.result == 'success' }}
+    if: ${{ always() && needs.setup.result == 'success' && github.event_name == 'pull_request' }}
     # Job-level permissions replace the workflow's, so restate them and add
     # pull-requests: read for classify_pr.py's compare API call.
     permissions:
@@ -664,6 +670,140 @@ jobs:
       id-token: write
       actions: read
       pull-requests: read
+    outputs:
+      # The Playwright tier's smart testing mode: off, or the
+      # PLAYWRIGHT_SMART_TESTING_MODE repo var when the PR is eligible.
+      # smoke_test_matrix resolves the pytest mode (SMART_TESTING_MODE) itself.
+      playwright_mode: ${{ steps.resolve-mode.outputs.playwright_mode || 'off' }}
+      smart_tags: ${{ steps.smart-testing.outputs.smart_tags }}
+      confidence: ${{ steps.smart-testing.outputs.confidence }}
+      failsafe_reason: ${{ steps.smart-testing.outputs.failsafe_reason }}
+      reasoning: ${{ steps.smart-testing.outputs.reasoning }}
+      changed_files: ${{ steps.smart-testing.outputs.changed_files }}
+      proposed_tags: ${{ steps.smart-testing.outputs.proposed_tags }}
+      model: ${{ steps.smart-testing.outputs.model }}
+      classifier_duration_s: ${{ steps.smart-testing.outputs.classifier_duration_s }}
+    steps:
+      - name: Resolve smart testing mode
+        id: resolve-mode
+        continue-on-error: true
+        # Each suite has its own mode. pytest's is off | shadow | active from the
+        # SMART_TESTING_MODE repo var and Playwright's from
+        # PLAYWRIGHT_SMART_TESTING_MODE, both shadow when unset. Forks get
+        # no OIDC token or secrets for Claude auth, and the run-all-tests label opts
+        # the PR out entirely. Each
+        # suite's own label (run-all-tests:pytest, run-all-tests:playwright) opts
+        # out only that suite, and a PR is classified only when some suite's mode
+        # is on. The pytest condition is a superset of smoke_test_matrix's
+        # run_pytest, so a PR whose pytest batches use tags always has them.
+        env:
+          PYTEST_OPT_OUT: ${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests:pytest') }}
+          PLAYWRIGHT_OPT_OUT: ${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests:playwright') }}
+          PLAYWRIGHT_MATRIX: ${{ needs.setup.outputs.playwright_matrix }}
+        run: |
+          eligible=false
+          if [[ "${{ env.IS_FORK }}" != 'true' \
+                && "${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}" != 'true' ]]; then
+            eligible=true
+          fi
+
+          pytest_mode=off
+          if [[ "$eligible" == 'true' && "$PYTEST_OPT_OUT" != 'true' ]] && [[ "${{ needs.setup.outputs.backend_change }}" == 'true' \
+                || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' \
+                || "${{ needs.setup.outputs.ingestion_only }}" == 'true' \
+                || "${{ needs.setup.outputs.pytest_workflow_change }}" == 'true' ]]; then
+            pytest_mode="${{ vars.SMART_TESTING_MODE || 'shadow' }}"
+          fi
+          playwright_mode=off
+          if [[ "$eligible" == 'true' && "$PLAYWRIGHT_OPT_OUT" != 'true' && -n "$PLAYWRIGHT_MATRIX" && "$PLAYWRIGHT_MATRIX" != '{"include":[]}' ]]; then
+            playwright_mode="${{ vars.PLAYWRIGHT_SMART_TESTING_MODE || 'shadow' }}"
+          fi
+          # Classify when either suite uses the tags (shadow or active).
+          run_classifier=false
+          if [[ "$pytest_mode" != 'off' || "$playwright_mode" != 'off' ]]; then
+            run_classifier=true
+          fi
+
+          echo "Smart testing: run_classifier=$run_classifier pytest=$pytest_mode playwright=$playwright_mode"
+          {
+            echo "run_classifier=$run_classifier"
+            echo "pytest_mode=$pytest_mode"
+            echo "playwright_mode=$playwright_mode"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check out the repo
+        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
+        continue-on-error: true
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-toolchain
+        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
+        continue-on-error: true
+        with:
+          java: false
+          gradle: false
+
+      # Claude Workload Identity Federation: the SDK exchanges this GitHub OIDC
+      # JWT for a short-lived token, so no static API key is stored. The JWT
+      # expires ~5 minutes after issuance, so fetch it right before the
+      # classifier runs.
+      - name: Fetch Claude identity token
+        id: claude-identity
+        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
+        continue-on-error: true
+        uses: ./.github/actions/claude-identity-token
+
+      - name: Smart Testing Selection
+        id: smart-testing
+        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
+        # No smart_tags output means each suite's fail-safe (active) or no
+        # shadow comparison (shadow).
+        continue-on-error: true
+        env:
+          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
+          # SDK's credential resolution and would silently shadow WIF.
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity.outputs.token_file }}
+          # The classifier reads the PR's own changes (merge-base diff) from
+          # the compare API, not ci-optimize's changed-files-path: that is a
+          # two-dot diff against the base tip and grows as the base moves on.
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          pip install --quiet -r .github/smart-testing/requirements.txt
+          python .github/smart-testing/classify_pr.py 2>&1 | tee /tmp/smart-testing-log.txt
+          {
+            echo "## Smart Testing Selection (pytest: ${{ steps.resolve-mode.outputs.pytest_mode }}, Playwright: ${{ steps.resolve-mode.outputs.playwright_mode }})"
+            echo ""
+            echo '```'
+            grep '^\[smart-testing\]' /tmp/smart-testing-log.txt || echo "No output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload smart testing selection artifact
+        # Upload on failure too: that is when the log matters most.
+        if: ${{ steps.smart-testing.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        continue-on-error: true
+        with:
+          name: smart-testing-selection
+          path: /tmp/smart-testing-log.txt
+          retention-days: 7
+
+  # Owns pytest smoke selection end to end from classify_pr's tags (smart
+  # testing): the final tier and the batch matrix. Under active smart testing it also
+  # plans which scopes each batch runs (pytest-smoke-plan artifact), sized so
+  # the selected set needs only as many batches as it fills.
+  smoke_test_matrix:
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: [setup, classify_pr]
+    if: ${{ always() && needs.setup.result == 'success' }}
     outputs:
       pytest_matrix: ${{ steps.set-matrix.outputs.pytest_matrix }}
       smoke_tier: ${{ steps.set-matrix.outputs.smoke_tier }}
@@ -673,7 +813,7 @@ jobs:
       # The plan step writes selection before smoke.sh runs, so a failed plan
       # still sets it; the outcome check is what drops it.
       smart_selection: ${{ steps.plan.outcome == 'success' && steps.plan.outputs.selection || '' }}
-      smart_confidence: ${{ steps.smart-testing.outputs.confidence }}
+      smart_confidence: ${{ needs.classify_pr.outputs.confidence }}
       # 'true' when pytest_tests must download pytest-smoke-plan and run only
       # the scopes planned for its batch.
       batch_plan: ${{ steps.set-matrix.outputs.batch_plan }}
@@ -705,7 +845,7 @@ jobs:
           fi
           # Workflow wiring has no feature tags, so active mode plans a canary
           # (always-run modules plus this PR's changed tests). Shadow and off
-          # would start the fixed 4- or 9-batch matrix, so the gate stays
+          # would start the fixed p0 or full matrix, so the gate stays
           # closed unless the mode is already active.
           if [[ "${{ needs.setup.outputs.pytest_workflow_change }}" == 'true' && "$mode" == 'active' ]]; then
             run_pytest=true
@@ -726,58 +866,6 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
-
-      # Claude Workload Identity Federation: the SDK exchanges this GitHub OIDC
-      # JWT for a short-lived token, so no static API key is stored. The JWT
-      # expires ~5 minutes after issuance, so fetch it right before the
-      # classifier runs.
-      - name: Fetch Claude identity token
-        id: claude-identity
-        if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
-        continue-on-error: true
-        uses: ./.github/actions/claude-identity-token
-
-      - name: Smart Testing Selection
-        id: smart-testing
-        if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
-        # Never block the workflow: no smart_tags output means the p0 fail-safe
-        # (active) or no shadow comparison (shadow).
-        continue-on-error: true
-        env:
-          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
-          # SDK's credential resolution and would silently shadow WIF.
-          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
-          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
-          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
-          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
-          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity.outputs.token_file }}
-          # The classifier reads the PR's own changes (merge-base diff) from
-          # the compare API, not ci-optimize's changed-files-path: that is a
-          # two-dot diff against the base tip and grows as the base moves on.
-          GH_TOKEN: ${{ github.token }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
-        run: |
-          pip install --quiet -r .github/smart-testing/requirements.txt
-          python .github/smart-testing/classify_pr.py 2>&1 | tee /tmp/smart-testing-log.txt
-          {
-            echo "## Smart Testing Selection (mode: ${{ steps.resolve-mode.outputs.mode }})"
-            echo ""
-            echo '```'
-            grep '^\[smart-testing\]' /tmp/smart-testing-log.txt || echo "No output"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload smart testing selection artifact
-        # Upload on failure too: that is when the log matters most.
-        if: ${{ steps.smart-testing.outcome != 'skipped' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        continue-on-error: true
-        with:
-          name: smart-testing-selection
-          path: /tmp/smart-testing-log.txt
-          retention-days: 7
 
       # The plan collects the suite with smoke.sh (codegen + venv), which needs
       # the same toolchain and package credentials as a pytest batch job.
@@ -821,7 +909,7 @@ jobs:
         env:
           RUN_QUICKSTART: "false"
           TEST_STRATEGY: plan
-          SMOKE_SMART_TAGS: ${{ steps.smart-testing.outputs.smart_tags }}
+          SMOKE_SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
           SMOKE_CHANGED_TESTS: ${{ needs.setup.outputs.smoke_changed_tests }}
           SMOKE_DUMP_BATCH_PLAN: ${{ github.workspace }}/pytest-smoke-plan/pytest-smoke-plan.json
           # Recorded in the plan so a later reader can tell an applied plan
@@ -853,8 +941,27 @@ jobs:
           PLAN_TIER: ${{ steps.plan.outputs.smoke_tier }}
           PLAN_SELECTION: ${{ steps.plan.outputs.selection }}
           PLAN_FILE: pytest-smoke-plan/pytest-smoke-plan.json
-          SMART_TAGS: ${{ steps.smart-testing.outputs.smart_tags }}
+          SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
           DEFAULT_TIER: ${{ needs.setup.outputs.smoke_tier }}
+          # Fixed matrices for runs the planner does not size. Sized the way the
+          # planner sizes (shard_pack.size_batches): the fewest batches whose
+          # pytest time stays under its 8 min target, measured on CI runs from
+          # 2026-11-18. The full suite is ~27 min of pytest time and packs into
+          # 5 batches of ~5.4 min. Each batch also pays ~5 min of fixed cost
+          # (setup, image pull, quickstart), so extra batches add runner time
+          # faster than they cut wall clock. That trade suits pushes, where
+          # compute matters more than wall clock. p0 only runs on pull requests,
+          # so it gets 3 batches of ~2.8 min predicted instead of the 2 of ~4.2
+          # that would fit: the slowest PR batch took ~8.5-9 min at 2. Re-check both
+          # counts when test times change a lot (smoke-test/README.md,
+          # "Simulate batch packing").
+          P0_BATCH_COUNT: "3"
+          FULL_BATCH_COUNT: "5"
+          # Pull requests from forks run the full suite (repository variables
+          # don't reach them) on GitHub-hosted runners that build the images in
+          # every batch (~12 min). Matching the push count keeps pytest itself
+          # at ~5.5 min a batch instead of ~8.5 at 3.
+          FORK_BATCH_COUNT: "5"
         run: |
           emit_matrix() {
             local count=$1 items=""
@@ -887,20 +994,13 @@ jobs:
             tier=p0
             selection=p0
             tags=''
-            emit_matrix 4
+            emit_matrix "$P0_BATCH_COUNT"
           elif [[ "${{ env.IS_FORK }}" == 'true' ]]; then
-            emit_matrix 3
+            emit_matrix "$FORK_BATCH_COUNT"
           elif [[ "$tier" == 'p0' ]]; then
-            # The p0 tier is 357 of 1209 collected tests, so 4 batches carry a
-            # lighter per-batch load than the full suite's 9 while cutting the
-            # per-batch fixed cost (caches, image pull, quickstart) that dominates
-            # a short run. Revisit once p0 batch durations have been measured.
-            emit_matrix 4
+            emit_matrix "$P0_BATCH_COUNT"
           else
-            # Tests are split simply to ensure the configured number of batches for
-            # parallelization. This may need some increase as new tests added
-            # increase the duration where an additional parallel batch helps.
-            emit_matrix 9
+            emit_matrix "$FULL_BATCH_COUNT"
           fi
 
           {
@@ -920,11 +1020,11 @@ jobs:
         continue-on-error: true
         env:
           SMART_MODE: ${{ steps.resolve-mode.outputs.mode }}
-          SMART_CONFIDENCE: ${{ steps.smart-testing.outputs.confidence }}
-          FAILSAFE_REASON: ${{ steps.smart-testing.outputs.failsafe_reason }}
-          SMART_TAGS: ${{ steps.smart-testing.outputs.smart_tags }}
-          SMART_REASONING: ${{ steps.smart-testing.outputs.reasoning }}
-          CHANGED_FILES: ${{ steps.smart-testing.outputs.changed_files }}
+          SMART_CONFIDENCE: ${{ needs.classify_pr.outputs.confidence }}
+          FAILSAFE_REASON: ${{ needs.classify_pr.outputs.failsafe_reason }}
+          SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
+          SMART_REASONING: ${{ needs.classify_pr.outputs.reasoning }}
+          CHANGED_FILES: ${{ needs.classify_pr.outputs.changed_files }}
           SMART_SELECTION: ${{ steps.plan.outcome == 'success' && steps.plan.outputs.selection || '' }}
           SELECTION_APPLIED: ${{ steps.set-matrix.outputs.selection }}
           PLAN_OUTCOME: ${{ steps.plan.outcome }}
@@ -959,12 +1059,12 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           SMART_MODE: ${{ steps.resolve-mode.outputs.mode }}
-          SMART_CONFIDENCE: ${{ steps.smart-testing.outputs.confidence }}
-          FAILSAFE_REASON: ${{ steps.smart-testing.outputs.failsafe_reason }}
-          SMART_TAGS: ${{ steps.smart-testing.outputs.smart_tags }}
-          PROPOSED_TAGS: ${{ steps.smart-testing.outputs.proposed_tags }}
-          SMART_MODEL: ${{ steps.smart-testing.outputs.model }}
-          CLASSIFIER_DURATION_S: ${{ steps.smart-testing.outputs.classifier_duration_s }}
+          SMART_CONFIDENCE: ${{ needs.classify_pr.outputs.confidence }}
+          FAILSAFE_REASON: ${{ needs.classify_pr.outputs.failsafe_reason }}
+          SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
+          PROPOSED_TAGS: ${{ needs.classify_pr.outputs.proposed_tags }}
+          SMART_MODEL: ${{ needs.classify_pr.outputs.model }}
+          CLASSIFIER_DURATION_S: ${{ needs.classify_pr.outputs.classifier_duration_s }}
           SMART_SELECTION: ${{ steps.plan.outcome == 'success' && steps.plan.outputs.selection || '' }}
           SELECTION_APPLIED: ${{ steps.set-matrix.outputs.selection }}
           PLAN_OUTCOME: ${{ steps.plan.outcome }}
@@ -976,12 +1076,13 @@ jobs:
   comment_smart_testing:
     name: Comment smart test selection
     runs-on: ubuntu-24.04
-    needs: [setup, smoke_test_matrix]
+    needs: [setup, smoke_test_matrix, playwright_plan]
     # Fork PRs get a read-only token, so there is nothing to post with.
     if: |
       always() && github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      needs.smoke_test_matrix.outputs.smart_testing_mode != '' && needs.smoke_test_matrix.outputs.smart_testing_mode != 'off'
+      ((needs.smoke_test_matrix.outputs.smart_testing_mode != '' && needs.smoke_test_matrix.outputs.smart_testing_mode != 'off') ||
+       needs.playwright_plan.result == 'success')
     permissions:
       contents: read
       pull-requests: write
@@ -999,6 +1100,13 @@ jobs:
           name: smart-testing-comment
           path: smart-testing-comment
 
+      - name: Download Playwright tier plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        continue-on-error: true
+        with:
+          name: playwright-tier-plan
+          path: playwright-tier-plan
+
       - name: Compose comment
         id: compose
         continue-on-error: true
@@ -1008,7 +1116,8 @@ jobs:
           COMMENT_FILE: smart-testing-comment/comment.md
         run: |
           python3 .github/smart-testing/render_comment.py compose \
-            --pytest-section smart-testing-comment/pytest-section.md
+            --pytest-section smart-testing-comment/pytest-section.md \
+            --playwright-plan playwright-tier-plan/playwright-tier-plan.json
           cat "$COMMENT_FILE" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upsert smart testing PR comment
@@ -1687,7 +1796,7 @@ jobs:
 
       # The classical provider is lexical hashing, not semantic search; GMS refuses
       # it without the explicit opt-in. system-update reads the same env file,
-      # which is what adds the hash_v1_2048 field to the semantic index before
+      # which is what adds the hash_v1_2048 field to the V3 document index before
       # GMS starts.
       - name: Write GMS AI env file (classical)
         if: matrix.provider == 'classical'
@@ -1726,7 +1835,7 @@ jobs:
           DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${SIGNING_KEY} \
           DATAHUB_TOKEN_SERVICE_SALT=${SIGNING_SALT} \
           DATAHUB_SEARCH_IMAGE=opensearchproject/opensearch \
-          DATAHUB_SEARCH_TAG=2.19.3 \
+          DATAHUB_SEARCH_TAG=3.7.0 \
           XPACK_SECURITY_ENABLED=plugins.security.disabled=true \
           ELASTICSEARCH_USE_SSL=false \
           USE_AWS_ELASTICSEARCH=true \
@@ -1871,17 +1980,22 @@ jobs:
   # Playwright P0 tier on PRs: works out which tests the PR needs (every @p0 test,
   # plus the tests Playwright's --only-changed says the change affects, plus the specs
   # seeding from changed fixture data) with plan_playwright_tier.py, and falls back
-  # to the full suite when a change can't be mapped. The tier is used when the
-  # PLAYWRIGHT_P0_SMOKE repo variable is "true" and the PR has neither run-all-tests
-  # nor run-all-tests:playwright; otherwise the full suite runs and the plan is only reported (shadow mode; the report job checks it for
-  # escapes). If this job fails, playwright_test runs the full suite.
+  # to the full suite when a change can't be mapped. With smart testing active
+  # (see classify_pr), the specs tagged with the PR's features replace the @p0
+  # tests; in shadow the plan only records them, without running them. The tier
+  # is used when the PLAYWRIGHT_P0_SMOKE repo variable is "true"
+  # and the PR has neither run-all-tests nor run-all-tests:playwright; otherwise
+  # the full suite runs and the plan is only reported (shadow mode; the report
+  # job checks it for escapes). If this job fails, playwright_test runs the full
+  # suite.
   playwright_plan:
     name: Plan Playwright P0 tier
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-24.04' }}
-    needs: [setup]
+    needs: [setup, classify_pr]
     # always(): setup's own needs are often skipped, and a bare condition implies
-    # success() over every ancestor.
-    if: ${{ always() && !failure() && !cancelled() && github.event_name == 'pull_request' && needs.setup.outputs.playwright_matrix != '' && needs.setup.outputs.playwright_matrix != '{"include":[]}' }}
+    # success() over every ancestor. Not !failure(): without classify_pr's tags
+    # the plan still runs the P0 tier.
+    if: ${{ always() && !cancelled() && needs.setup.result == 'success' && github.event_name == 'pull_request' && needs.setup.outputs.playwright_matrix != '' && needs.setup.outputs.playwright_matrix != '{"include":[]}' }}
     timeout-minutes: 15
     outputs:
       run_mode: ${{ steps.plan.outputs.run_mode }}
@@ -1898,13 +2012,17 @@ jobs:
           key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
           restore-keys: |
             playwright-${{ runner.os }}-yarn-
-      - name: Set up toolchain
+      - name: Set up Node.js and Python
         uses: ./.github/actions/setup-toolchain
         with:
           java: false
-          python: false
           gradle: false
           node: true
+      # The smart testing tag map is YAML. Without PyYAML the planner warns and
+      # plans the P0 tier, so this is not fatal either.
+      - name: Install PyYAML
+        continue-on-error: true
+        run: pip install --quiet pyyaml==6.0.3
       # --list needs node_modules but no browsers or backend. A failed install isn't
       # fatal: the planner then can't list tests, so it plans the full suite and
       # emits a warning, rather than failing the job.
@@ -1918,6 +2036,10 @@ jobs:
         id: plan
         env:
           SUITE_MATRIX: ${{ needs.setup.outputs.playwright_matrix }}
+          # off | shadow | active, from classify_pr, which turns it off for forks and the
+          # run-all-tests and run-all-tests:playwright labels.
+          SMART_MODE: ${{ needs.classify_pr.outputs.playwright_mode || 'off' }}
+          SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
           # The tier is on via the PLAYWRIGHT_P0_SMOKE repo variable; run-all-tests (both
           # suites) or run-all-tests:playwright turns it off for a single PR.
           TIER_REQUESTED: >-
@@ -1936,6 +2058,8 @@ jobs:
             --base "$base" \
             --suite-shards "$(jq '.include | length' <<< "$SUITE_MATRIX")" \
             --tier-requested "$TIER_REQUESTED" \
+            --smart-mode "$SMART_MODE" \
+            --smart-tags "$SMART_TAGS" \
             --plan-out "$RUNNER_TEMP/playwright-tier-plan.json"
       - name: Upload Playwright P0 tier plan
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -1943,11 +2067,38 @@ jobs:
           name: playwright-tier-plan
           path: ${{ runner.temp }}/playwright-tier-plan.json
           retention-days: 5
+      - name: Send smart selection telemetry to PostHog
+        # One ci_smart_selection event per attempt for Playwright, as
+        # smoke_test_matrix sends for pytest. Telemetry only: never fails the job.
+        if: ${{ always() && needs.classify_pr.outputs.playwright_mode != '' && needs.classify_pr.outputs.playwright_mode != 'off' }}
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          TEST_FRAMEWORK: playwright
+          HEAD_BRANCH: ${{ github.head_ref }}
+          BASE_BRANCH: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SMART_MODE: ${{ needs.classify_pr.outputs.playwright_mode }}
+          SMART_CONFIDENCE: ${{ needs.classify_pr.outputs.confidence }}
+          FAILSAFE_REASON: ${{ needs.classify_pr.outputs.failsafe_reason }}
+          SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
+          PROPOSED_TAGS: ${{ needs.classify_pr.outputs.proposed_tags }}
+          SMART_MODEL: ${{ needs.classify_pr.outputs.model }}
+          CLASSIFIER_DURATION_S: ${{ needs.classify_pr.outputs.classifier_duration_s }}
+          # What smart testing chose (the shadow selection in shadow mode) and what ran.
+          SMART_SELECTION: ${{ steps.plan.outputs.smart_selection }}
+          SELECTION_APPLIED: ${{ steps.plan.outputs.run_mode }}
+          PLAN_OUTCOME: ${{ steps.plan.outcome }}
+          PLAN_FILE: ${{ runner.temp }}/playwright-tier-plan.json
+        run: python3 .github/scripts/send_smart_selection_to_posthog.py
       - name: Build P0 tier shard matrix
         id: tier-matrix
-        if: ${{ steps.plan.outputs.run_mode == 'p0' }}
+        if: ${{ steps.plan.outputs.run_mode == 'p0' || steps.plan.outputs.run_mode == 'smart' }}
         env:
           SHARD_COUNT: ${{ steps.plan.outputs.total_shards }}
+          RUN_MODE: ${{ steps.plan.outputs.run_mode }}
         run: |
           matrix=$(jq -cn --argjson n "$SHARD_COUNT" \
             '{include: [range(1; $n + 1) | {shard: (. | tostring), shard_count: ($n | tostring)}]}')
@@ -1957,7 +2108,7 @@ jobs:
             echo ""
             echo "| Strategy | Total Shards |"
             echo "|----------|--------------|"
-            echo "| playwright (P0 tier) | $SHARD_COUNT |"
+            echo "| playwright ($RUN_MODE tier) | $SHARD_COUNT |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   playwright_test:
@@ -1992,8 +2143,8 @@ jobs:
       send_posthog_metrics: true
       # Opt in to 2 workers on first attempt; fall back to 1 on re-runs for stability.
       workers_per_shard: ${{ github.run_attempt > 1 && '1' || '2' }}
-      # P0 tier: each shard packs the plan's tests into a --test-list; empty runs every spec.
-      tier_plan_artifact: ${{ needs.playwright_plan.outputs.run_mode == 'p0' && 'playwright-tier-plan' || '' }}
+      # P0 or smart tier: each shard packs the plan's tests into a --test-list; empty runs every spec.
+      tier_plan_artifact: ${{ (needs.playwright_plan.outputs.run_mode == 'p0' || needs.playwright_plan.outputs.run_mode == 'smart') && 'playwright-tier-plan' || '' }}
     secrets: inherit
 
   playwright_report:

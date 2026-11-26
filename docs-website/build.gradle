@@ -95,6 +95,9 @@ task generateJsonSchema(type: Exec, dependsOn: [':metadata-ingestion:docGen']) {
  */
 task yarnInstall(type: YarnTask) {
   logger.info('CI = "{}"', System.env.CI)
+  // Shares the yarn cache with the other yarn installs; the lock keeps Yarn 1 from corrupting it
+  // ("the file appears to be corrupt ... ENOENT"). See yarnInstallLock in the root build.gradle.
+  usesService(rootProject.ext.yarnInstallLock)
   if (System.env.CI != null && System.env.CI == "true") {
     args = ['install', '--frozen-lockfile', '--network-timeout', '300000']
   } else {

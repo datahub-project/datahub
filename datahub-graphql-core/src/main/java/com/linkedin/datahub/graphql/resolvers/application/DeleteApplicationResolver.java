@@ -37,23 +37,28 @@ public class DeleteApplicationResolver implements DataFetcher<CompletableFuture<
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          // The privilege below is checked against the application type, so a URN of any other type
+          // would be deleted under a policy that never covered it.
+          final DisjunctivePrivilegeGroup orPrivilegeGroup =
+              new DisjunctivePrivilegeGroup(ImmutableList.of(ALL_PRIVILEGES_GROUP));
+          if (!APPLICATION_ENTITY_NAME.equals(applicationUrn.getEntityType())
+              || !AuthorizationUtils.isAuthorized(
+                  context, APPLICATION_ENTITY_NAME, applicationUrn.toString(), orPrivilegeGroup)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+
+          // Checked after authorization so the response does not reveal whether the urn exists.
           if (!applicationService.verifyEntityExists(
               context.getOperationContext(), applicationUrn)) {
             throw new IllegalArgumentException("The Application provided does not exist");
-          }
-
-          final DisjunctivePrivilegeGroup orPrivilegeGroup =
-              new DisjunctivePrivilegeGroup(ImmutableList.of(ALL_PRIVILEGES_GROUP));
-          if (!AuthorizationUtils.isAuthorized(
-              context, APPLICATION_ENTITY_NAME, applicationUrn.toString(), orPrivilegeGroup)) {
-            throw new AuthorizationException(
-                "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
 
           try {
             final var references =
                 applicationService.deleteApplicationThenReferences(
                     context.getOperationContext(), applicationUrn);
+            // The entity is already gone. This removes the remaining references.
             CompletableFuture.runAsync(
                 () -> {
                   try {

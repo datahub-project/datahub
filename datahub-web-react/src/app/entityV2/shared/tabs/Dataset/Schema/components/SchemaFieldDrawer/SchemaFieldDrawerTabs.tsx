@@ -108,13 +108,6 @@ const UnborderedTabs = styled(Tabs).attrs({ className: 'schema-field-drawer-tabs
     }
 `;
 
-const Tab = styled(Tabs.TabPane)`
-    font-size: 14px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-`;
-
 const TabIconContainer = styled.div<{ $isSelected?: boolean }>`
     display: flex;
     flex-direction: column;
@@ -272,34 +265,31 @@ export const SchemaFieldDrawerTabs = ({ tabs, selectedTab, onSelectTab }: Props)
                 tabPosition="right"
                 activeKey={selectedTab?.key || ''}
                 onTabClick={(key: string) => onSelectTab(key)}
-            >
-                {tabs.map((tab) => {
+                items={tabs.map((tab) => {
                     const TabIcon = tab.icon;
                     const SelectedTabIcon = tab.selectedIcon || tab.icon;
                     const isSelected = selectedTab?.key === tab.key;
 
-                    return (
-                        <Tab
-                            tab={
-                                <TabIconContainer $isSelected={isSelected}>
-                                    <IconWrapper
-                                        $isSelected={isSelected}
-                                        data-testid={`${tab.key}-field-drawer-tab-header`}
-                                    >
-                                        {isSelected ? (
-                                            <SelectedTabIcon size={20} weight="fill" />
-                                        ) : (
-                                            <TabIcon size={20} weight="regular" />
-                                        )}
-                                    </IconWrapper>
-                                    <TabTextWithTooltip text={tab.name} isSelected={isSelected} />
-                                </TabIconContainer>
-                            }
-                            key={tab.key}
-                        />
-                    );
+                    return {
+                        key: tab.key,
+                        label: (
+                            <TabIconContainer $isSelected={isSelected}>
+                                <IconWrapper
+                                    $isSelected={isSelected}
+                                    data-testid={`${tab.key}-field-drawer-tab-header`}
+                                >
+                                    {isSelected ? (
+                                        <SelectedTabIcon size={20} weight="fill" />
+                                    ) : (
+                                        <TabIcon size={20} weight="regular" />
+                                    )}
+                                </IconWrapper>
+                                <TabTextWithTooltip text={tab.name} isSelected={isSelected} />
+                            </TabIconContainer>
+                        ),
+                    };
                 })}
-            </UnborderedTabs>
+            />
         </TabsWrapper>
     );
 };

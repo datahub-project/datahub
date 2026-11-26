@@ -21,7 +21,7 @@ The below table shows transformer which can transform aspects of entity [Dataset
 | `schemaMetadata`    | - [Pattern Add Dataset Schema Field glossaryTerms](#pattern-add-dataset-schema-field-glossaryterms)<br/> - [Pattern Add Dataset Schema Field globalTags](#pattern-add-dataset-schema-field-globaltags)                                                                                                                                                                |
 | `datasetProperties` | - [Simple Add Dataset datasetProperties](#simple-add-dataset-datasetproperties)<br/> - [Add Dataset datasetProperties](#add-dataset-datasetproperties)                                                                                                                                                                                                                |
 | `domains`           | - [Simple Add Dataset domains](#simple-add-dataset-domains)<br/> - [Pattern Add Dataset domains](#pattern-add-dataset-domains)<br/> - [Domain Mapping Based on Tags](#domain-mapping-based-on-tags)                                                                                                                                                                   |
-| `dataProduct`       | - [Simple Add Dataset dataProduct ](#simple-add-dataset-dataproduct)<br/> - [Pattern Add Dataset dataProduct](#pattern-add-dataset-dataproduct)<br/> - [Add Dataset dataProduct](#add-dataset-dataproduct)                                                                                                                                                            |
+| `dataProduct`       | - [Simple Add Dataset dataProduct ](#simple-add-dataset-dataproduct)<br/> - [Pattern Add Dataset dataProduct](#pattern-add-dataset-dataproduct)<br/> - [Add Dataset dataProduct](#add-dataset-dataproduct)<br/> - [Data Product Mapping Based on Tags](#data-product-mapping-based-on-tags)                                                                           |
 
 ## Extract Ownership from Tags
 
@@ -1577,6 +1577,40 @@ def custom_dataproducts(entity_urn: str) -> Optional[str]:
 ```
 
 Finally, you can install and use your custom transformer as [shown here](#installing-the-package).
+
+## Data Product Mapping Based on Tags
+
+### Config Details
+
+| Field                 | Required | Type           | Default | Description                                                                                                                  |
+| --------------------- | -------- | -------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `dataproduct_mapping` | ✅       | Dict[str, str] |         | Dataset tag name as key and data product urn as value. Datasets carrying the tag are added to that data product as an asset. |
+
+Let's suppose we'd like to add datasets to data products based on tags they already have in DataHub. To do so, we can use the `dataproduct_mapping_based_on_tags` transformer.
+
+The config, which we'd append to our ingestion recipe YAML, would look like this:
+
+```yaml
+transformers:
+  - type: "dataproduct_mapping_based_on_tags"
+    config:
+      dataproduct_mapping:
+        "finance_certified": "urn:li:dataProduct:finance-reporting"
+        "customer_360": "urn:li:dataProduct:customer-360"
+```
+
+When specifying tags within the data product mapping, use the tag's simple name rather than the full tag URN.
+
+For example, instead of using the tag URN `urn:li:tag:finance_certified`, you should specify just the simple tag name `finance_certified` in the mapping configuration.
+
+Tags are read from DataHub GMS, so the recipe needs a sink or graph connection (for example `datahub-rest`). The tags must already be on the datasets in DataHub before the run starts. Tags that the source emits in the same run, such as tags extracted from the source platform, are not seen until the next run.
+
+If a dataset has more than one mapped tag, it is added to the data product of the tag listed first in `dataproduct_mapping`.
+
+The transformer only adds datasets to data products:
+
+- Removing a tag from a dataset does not remove the dataset from the data product.
+- Assets are added with a patch. When the DataHub instance allows an asset to belong to more than one data product (the default), datasets already in another data product stay in it as well.
 
 ## Relationship Between replace_existing and semantics
 

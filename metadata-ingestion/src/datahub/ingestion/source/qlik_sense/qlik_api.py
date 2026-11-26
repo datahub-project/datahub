@@ -8,13 +8,18 @@ from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
+    DATABASE_QRI_PREFIX,
     PERSONAL_SPACE_DICT,
     App,
     Item,
+    LineageGraph,
+    LineageGraphLevel,
     LineageTable,
+    LineageUpstreams,
     ListedDataset,
     QlikDataset,
     QlikTable,
+    ReloadStatement,
     Space,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import (
@@ -23,6 +28,7 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     UNREAD_DATA_CONNECTIONS,
+    UNREAD_SPACES,
     IsUnchanged,
     QlikBaseAPI,
     ReadErrors,
@@ -31,6 +37,9 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import (
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     SPACE_SEPARATOR,
     DataConnectionInfo,
+    IncludeRead,
+    inline_includes,
+    merged_variables,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import (
     EngineError,
@@ -39,6 +48,14 @@ from datahub.ingestion.source.qlik_sense.websocket_connection import (
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+def _database_labels(graph: LineageGraph) -> Dict[str, str]:
+    return {
+        qri: node.label
+        for qri, node in graph.nodes.items()
+        if qri.startswith(DATABASE_QRI_PREFIX) and node.label
+    }
 
 
 class QlikAPI(QlikBaseAPI):
@@ -56,12 +73,13 @@ class QlikAPI(QlikBaseAPI):
             }
         )
         # Qlik Cloud rate-limits the tenant, and parallel app reads make 429s
-        # likely. The lineage overview call is a POST but only reads. Only 429s
-        # are retried, so an unreachable tenant still fails fast.
+        # likely. It also drops connections mid-pagination now and then. Every
+        # call only reads, including the lineage overview POST. Connection
+        # errors are not retried, so an unreachable tenant still fails fast.
         retry = Retry(
             total=5,
             connect=0,
-            read=0,
+            read=2,
             other=0,
             status=5,
             backoff_factor=1,
@@ -76,6 +94,11 @@ class QlikAPI(QlikBaseAPI):
             HTTPAdapter(max_retries=retry, pool_maxsize=pool_size),
         )
         self.rest_api_url = f"https://{self.tenant_hostname}/api/v1"
+        # Included scripts by the space (or personal app) reading them and the
+        # path, None when unreadable. Many apps include the same file, so each
+        # is read once a run per space, as a path without a space resolves in
+        # the reading app's space.
+        self._include_contents: Dict[str, IncludeRead] = {}
         # Test connection by fetching list of api keys
         logger.info(f"Trying to connect to {self.rest_api_url}")
         self.session.get(f"{self.rest_api_url}/api-keys").raise_for_status()
@@ -102,7 +125,9 @@ class QlikAPI(QlikBaseAPI):
             spaces.append(Space.model_validate(PERSONAL_SPACE_DICT))
             self.spaces[Constant.PERSONAL_SPACE_ID] = Constant.PERSONAL_SPACE_NAME
         except Exception as e:
-            self._record_unread("spaces", f"Unable to fetch spaces. Exception: {e}", e)
+            self._record_unread(
+                UNREAD_SPACES, f"Unable to fetch spaces. Exception: {e}", e
+            )
         return spaces
 
     def _get_dataset(self, dataset_id: str, item_id: str) -> QlikDataset:
@@ -140,27 +165,24 @@ class QlikAPI(QlikBaseAPI):
         encoded_qri = quote(qri, safe="")
         response = self.session.get(
             f"{self.rest_api_url}/lineage-graphs/nodes/{encoded_qri}/actions/expand"
-            f"?node={encoded_qri}&level=TABLE"
+            f"?node={encoded_qri}&level={LineageGraphLevel.TABLE}"
         )
         # Qlik has no lineage for a resource it has not loaded or stored yet, or
         # has not computed it since.
         if response.status_code == 404:
             return None
-        response.raise_for_status()
-        graph = response.json().get(Constant.GRAPH)
-        if graph is None:
-            raise ValueError(f"Lineage graph response for {qri} has no graph")
+        graph = self._graph_of(response, f"Lineage graph of {qri}")
         # Only the resource's own tables: neighbouring nodes would otherwise be
         # read as its tables, and their sources as its sources.
         tables = {
-            table_qri: LineageTable(qri=table_qri, label=node.get(Constant.LABEL) or "")
-            for table_qri, node in (graph.get(Constant.NODES) or {}).items()
+            table_qri: LineageTable(qri=table_qri, label=node.label or "")
+            for table_qri, node in graph.nodes.items()
             if table_qri.startswith(f"{qri}#")
         }
-        for edge in graph.get(Constant.EDGES) or []:
-            table = tables.get(edge.get(Constant.TARGET))
-            if table and edge.get(Constant.SOURCE):
-                table.source_qris.append(edge[Constant.SOURCE])
+        for edge in graph.edges:
+            table = tables.get(edge.target or "")
+            if table and edge.source:
+                table.source_qris.append(edge.source)
         if self.config.include_column_lineage:
             for table in tables.values():
                 # The table graph is complete without its field level, which
@@ -175,29 +197,66 @@ class QlikAPI(QlikBaseAPI):
                     self.field_lineage_failures.append(f"{table.qri}: {e}")
         return list(tables.values())
 
+    @staticmethod
+    def _graph_of(response: requests.Response, what: str) -> LineageGraph:
+        response.raise_for_status()
+        graph = response.json().get(Constant.GRAPH)
+        if graph is None:
+            raise ValueError(f"{what} response has no graph")
+        return LineageGraph.model_validate(graph)
+
+    def _upstream_graph(
+        self, qri: str, level: LineageGraphLevel, up: int
+    ) -> LineageGraph:
+        return self._graph_of(
+            self.session.get(
+                f"{self.rest_api_url}/lineage-graphs/nodes/{quote(qri, safe='')}"
+                f"?level={level}&up={up}"
+            ),
+            f"Upstream lineage of {qri}",
+        )
+
+    def get_lineage_upstreams(self, qri: str) -> LineageUpstreams:
+        """Labels of the resources upstream of the app, and the app tables two
+        levels up that store into its source tables."""
+        resources = self._upstream_graph(qri, LineageGraphLevel.RESOURCE, 1)
+        upstreams = LineageUpstreams(
+            resource_labels={
+                resource_qri: node.label
+                for resource_qri, node in resources.nodes.items()
+                if node.label
+            }
+        )
+        tables = self._upstream_graph(qri, LineageGraphLevel.TABLE, 2)
+        upstreams.database_labels = _database_labels(tables)
+        for edge in tables.edges:
+            if (
+                edge.source
+                and edge.target
+                and (edge.relation or "").lower() == Constant.STORE
+            ):
+                upstreams.stored_from.setdefault(edge.target, []).append(edge.source)
+        return upstreams
+
     def _add_field_lineage(self, qri: str, table: LineageTable) -> None:
         """Expanding a table node at field level gives its field nodes, named,
         and the field nodes each is loaded or stored from."""
         response = self.session.get(
             f"{self.rest_api_url}/lineage-graphs/nodes/{quote(qri, safe='')}"
-            f"/actions/expand?node={quote(table.qri, safe='')}&level=FIELD"
+            f"/actions/expand?node={quote(table.qri, safe='')}"
+            f"&level={LineageGraphLevel.FIELD}"
         )
-        response.raise_for_status()
-        graph = response.json().get(Constant.GRAPH)
-        if graph is None:
-            raise ValueError(f"Field lineage response for {table.qri} has no graph")
+        graph = self._graph_of(response, f"Field lineage of {table.qri}")
         names = {
-            field_qri: node.get(Constant.LABEL)
-            for field_qri, node in (graph.get(Constant.NODES) or {}).items()
-            if field_qri.startswith(f"{table.qri}#") and node.get(Constant.LABEL)
+            field_qri: node.label
+            for field_qri, node in graph.nodes.items()
+            if field_qri.startswith(f"{table.qri}#") and node.label
         }
         table.fields = list(names.values())
-        for edge in graph.get(Constant.EDGES) or []:
-            name = names.get(edge.get(Constant.TARGET))
-            if name and edge.get(Constant.SOURCE):
-                table.field_source_qris.setdefault(name, []).append(
-                    edge[Constant.SOURCE]
-                )
+        for edge in graph.edges:
+            name = names.get(edge.target or "")
+            if name and edge.source:
+                table.field_source_qris.setdefault(name, []).append(edge.source)
 
     def list_datasets(self) -> Optional[List[ListedDataset]]:
         datasets: List[ListedDataset] = []
@@ -252,6 +311,26 @@ class QlikAPI(QlikBaseAPI):
         # A sheet without an owner is a private sheet.
         return meta if Constant.OWNERID in meta else None
 
+    @staticmethod
+    def _table_label_key(label: str) -> str:
+        return label.replace('"', "").split(".")[-1]
+
+    @classmethod
+    def _own_table_nodes_by_label(
+        cls, table_nodes: Dict[str, Dict], app_id: str
+    ) -> Dict[str, str]:
+        """The app's own table nodes by label, leaving out labels more than one
+        node has, as those can't be told apart."""
+        by_label: Dict[str, List[str]] = {}
+        for qri, node in table_nodes.items():
+            if qri.startswith(f"qri:app:sense://{app_id}#") and node.get(
+                Constant.LABEL
+            ):
+                by_label.setdefault(
+                    cls._table_label_key(node[Constant.LABEL]), []
+                ).append(qri)
+        return {label: qris[0] for label, qris in by_label.items() if len(qris) == 1}
+
     def _add_qri_of_tables(
         self, tables: List[QlikTable], app_id: str, errors: ReadErrors
     ) -> None:
@@ -261,8 +340,14 @@ class QlikAPI(QlikBaseAPI):
             response = self.session.get(
                 f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/actions/expand?node={app_qri}&level=TABLE"
             )
+            if response.status_code == 404:
+                logger.debug(f"App {app_id} has no lineage graph")
+                errors.lineage_graph_missing = True
+                return
             response.raise_for_status()
-            for table_node_qri in response.json()[Constant.GRAPH][Constant.NODES]:
+            table_nodes = response.json()[Constant.GRAPH][Constant.NODES]
+            graph_qris = self._own_table_nodes_by_label(table_nodes, app_id)
+            for table_node_qri in table_nodes:
                 table_node_qri = quote(table_node_qri, safe="")
                 response = self.session.get(
                     f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/actions/expand?node={table_node_qri}&level=FIELD"
@@ -282,16 +367,24 @@ class QlikAPI(QlikBaseAPI):
                         for each_lineage in response.json()[Constant.RESOURCES][0][
                             Constant.LINEAGE
                         ]:
-                            table_name = (
+                            table_name = self._table_label_key(
                                 each_lineage[Constant.TABLELABEL]
-                                .replace('"', "")
-                                .split(".")[-1]
                             )
                             table_qri_dict[table_name] = each_lineage[Constant.TABLEQRI]
                         break
             for table in tables:
                 if table.tableName in table_qri_dict:
                     table.tableQri = table_qri_dict[table.tableName]
+                table.graphQri = graph_qris.get(table.tableName)
+            matched = {table.graphQri for table in tables if table.tableQri}
+            errors.unmatched_graph_tables = sorted(
+                {
+                    node.get(Constant.LABEL) or qri.rpartition("#")[2]
+                    for qri, node in table_nodes.items()
+                    if qri.startswith(f"qri:app:sense://{app_id}#")
+                    and qri not in matched
+                }
+            )
         except Exception as e:
             errors.record(
                 f"Unable to add QRI for tables of app {app_id}. Exception: {e}"
@@ -375,6 +468,108 @@ class QlikAPI(QlikBaseAPI):
         logger.debug(f"Qlik Cloud data connections: {connections}")
         return connections
 
+    def _read_include(
+        self,
+        websocket_connection: WebsocketConnection,
+        reader: str,
+        path: str,
+        transient: Dict[str, IncludeRead],
+    ) -> IncludeRead:
+        """The script of a file an app includes, read by the Engine as a reload
+        reads it. `transient` holds failures outside the Engine for the app
+        being read, so a hung file is not waited on again for that app."""
+        key = f"{reader}|{path}"
+        if key in self._include_contents:
+            return self._include_contents[key]
+        if path in transient:
+            return transient[path]
+        try:
+            content = websocket_connection.websocket_send_request(
+                method="GetIncludeFileContent", params={"qPath": path}
+            ).get("qContent")
+        except EngineError as e:
+            result = IncludeRead(error=str(e))
+        except Exception as e:
+            # Not cached for the run, as a dropped websocket may read it for
+            # the next app.
+            transient[path] = IncludeRead(error=str(e))
+            return transient[path]
+        else:
+            result = (
+                IncludeRead(content=content)
+                if isinstance(content, str)
+                else IncludeRead(error="no script text returned")
+            )
+        self._include_contents[key] = result
+        return result
+
+    def _inline_includes(
+        self,
+        websocket_connection: WebsocketConnection,
+        app_id: str,
+        app: App,
+        script: str,
+    ) -> str:
+        # A personal app's unqualified paths resolve in its owner's personal
+        # space, so its includes are cached apart.
+        personal = app.spaceId == Constant.PERSONAL_SPACE_ID
+        reader = app_id if personal else app.spaceId
+        space = (
+            Constant.PERSONAL_SPACE_NAME
+            if personal
+            else self.spaces.get(app.spaceId, app.spaceId)
+        )
+        unread: List[str] = []
+        transient: Dict[str, IncludeRead] = {}
+
+        def report(path: str, reason: str) -> None:
+            unread.append(f"{path} (app {app_id} in space {space}): {reason}")
+
+        try:
+            inlined = inline_includes(
+                script,
+                merged_variables(self.config.script_variables, app.variables),
+                lambda path: self._read_include(
+                    websocket_connection, reader, path, transient
+                ),
+                report,
+            )
+        except Exception as e:
+            # The app's own script still holds its includes, so it still
+            # counts as including scripts that are not read.
+            report("included scripts", f"Unable to inline. Exception: {e}")
+            inlined = script
+        self.include_read_failures.extend(unread)
+        return inlined
+
+    def get_reload_statements(self, app_id: str) -> List[ReloadStatement]:
+        response = self.session.get(f"{self.rest_api_url}/apps/{app_id}/data/lineage")
+        response.raise_for_status()
+        return [ReloadStatement.model_validate(entry) for entry in response.json()]
+
+    def _read_reload_statements(self, app: App) -> None:
+        """The statements of the app's last reload, which may name the database
+        tables its lineage graph tables load from."""
+        if not any(
+            qri.startswith(DATABASE_QRI_PREFIX)
+            for table in app.lineage_tables
+            for qri in table.source_qris
+        ):
+            return
+        try:
+            app.reload_statements = self.get_reload_statements(app.id)
+        except Exception as e:
+            log_read_error(
+                f"Unable to fetch reload statements of app {app.id}. Exception: {e}"
+            )
+            app.reload_statements_read_failed = True
+            self.reload_statement_read_failures.append(f"{app.id}: {e}")
+
+    def get_database_labels(self, qri: str) -> Dict[str, str]:
+        """Labels of the database tables the app's lineage graph tables load
+        from, which only the upstream graph gives."""
+        return _database_labels(self._upstream_graph(qri, LineageGraphLevel.TABLE, 1))
+
     def _get_app(self, app_id: str, script_app: bool = False) -> App:
         errors = ReadErrors()
         websocket_connection = self._open_engine(app_id)
@@ -406,10 +601,13 @@ class QlikAPI(QlikBaseAPI):
                     errors.record(
                         f"Unable to fetch table lineage of app {app_id}. Exception: {e}"
                     )
+                self._read_reload_statements(app)
+            app.lineage_graph_missing |= errors.lineage_graph_missing
+            app.unmatched_graph_tables = errors.unmatched_graph_tables
             app.tables_read_failed = len(errors.messages) > read_errors
             if not app.tables or not all(table.tableQri for table in app.tables):
                 try:
-                    app.script = websocket_connection.get_script()
+                    script = websocket_connection.get_script()
                 except Exception as e:
                     if isinstance(e, EngineError) and e.access_denied:
                         # Cloud only lets Owner, Can manage and Can operate read
@@ -425,6 +623,10 @@ class QlikAPI(QlikBaseAPI):
                         errors.record(
                             f"Unable to fetch load script of app {app_id}. Exception: {e}"
                         )
+                else:
+                    app.script = self._inline_includes(
+                        websocket_connection, app_id, app, script
+                    )
             if not app.tables or not all(table.tableQri for table in app.tables):
                 # Graph and script tables carry no fields of their own; the
                 # data model has them as the last reload left them.

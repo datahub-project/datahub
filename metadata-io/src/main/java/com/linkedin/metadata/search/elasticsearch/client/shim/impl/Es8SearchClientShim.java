@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
 import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.ExpandWildcard;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.Result;
@@ -193,6 +194,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.action.update.UpdateRequest;
@@ -1038,7 +1040,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       @Nonnull CreateIndexRequest createIndexRequest,
       @Nonnull RequestOptions options)
       throws IOException {
-    co.elastic.clients.elasticsearch.indices.CreateIndexRequest esCreateIndexRequest =
+    co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder esCreateIndex =
         new co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder()
             .index(createIndexRequest.index())
             .mappings(
@@ -1049,8 +1051,17 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                 createIndexRequest.settings() != null
                         && !Settings.EMPTY.equals(createIndexRequest.settings())
                     ? convertIndexSettings(createIndexRequest.settings())
-                    : null)
-            .build();
+                    : null);
+    if (createIndexRequest.aliases() != null && !createIndexRequest.aliases().isEmpty()) {
+      Map<String, co.elastic.clients.elasticsearch.indices.Alias> aliases = new LinkedHashMap<>();
+      for (org.opensearch.action.admin.indices.alias.Alias alias : createIndexRequest.aliases()) {
+        aliases.put(
+            alias.name(), co.elastic.clients.elasticsearch.indices.Alias.of(builder -> builder));
+      }
+      esCreateIndex.aliases(aliases);
+    }
+    co.elastic.clients.elasticsearch.indices.CreateIndexRequest esCreateIndexRequest =
+        esCreateIndex.build();
     co.elastic.clients.elasticsearch.indices.CreateIndexResponse esCreateResponse =
         withTransportOptions(options).indices().create(esCreateIndexRequest);
     return new CreateIndexResponse(
@@ -1066,11 +1077,12 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       GetIndexRequest getIndexRequest,
       RequestOptions options)
       throws IOException {
-    co.elastic.clients.elasticsearch.indices.GetIndexRequest esGetIndexRequest =
+    co.elastic.clients.elasticsearch.indices.GetIndexRequest.Builder esGetIndex =
         new co.elastic.clients.elasticsearch.indices.GetIndexRequest.Builder()
             .index(Arrays.asList(getIndexRequest.indices()))
-            .includeDefaults(getIndexRequest.includeDefaults())
-            .build();
+            .includeDefaults(getIndexRequest.includeDefaults());
+    applyIndexOptions(esGetIndex, getIndexRequest.indicesOptions());
+    co.elastic.clients.elasticsearch.indices.GetIndexRequest esGetIndexRequest = esGetIndex.build();
     co.elastic.clients.elasticsearch.indices.GetIndexResponse esGetIndexResponse =
         withTransportOptions(options).indices().get(esGetIndexRequest);
     Map<String, IndexState> result = esGetIndexResponse.result();
@@ -1099,6 +1111,32 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     entry ->
                         Optional.ofNullable(entry.getValue().dataStream())
                             .orElse(StringUtils.EMPTY))));
+  }
+
+  /**
+   * Copies wildcard options from the shared request. The Elasticsearch client otherwise uses its
+   * own defaults, and a pattern that matches nothing fails the call.
+   */
+  private static void applyIndexOptions(
+      co.elastic.clients.elasticsearch.indices.GetIndexRequest.Builder builder,
+      @Nullable IndicesOptions indicesOptions) {
+    if (indicesOptions == null) {
+      return;
+    }
+    List<ExpandWildcard> wildcards = new ArrayList<>();
+    if (indicesOptions.expandWildcardsOpen()) {
+      wildcards.add(ExpandWildcard.Open);
+    }
+    if (indicesOptions.expandWildcardsClosed()) {
+      wildcards.add(ExpandWildcard.Closed);
+    }
+    if (indicesOptions.expandWildcardsHidden()) {
+      wildcards.add(ExpandWildcard.Hidden);
+    }
+    builder
+        .allowNoIndices(indicesOptions.allowNoIndices())
+        .ignoreUnavailable(indicesOptions.ignoreUnavailable())
+        .expandWildcards(wildcards.isEmpty() ? List.of(ExpandWildcard.None) : wildcards);
   }
 
   private List<AliasMetadata> convertMetadata(IndexState state) {
@@ -1972,7 +2010,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   private ElasticsearchClient withTransportOptions(RequestOptions requestOptions) {
-    if (RequestOptions.DEFAULT.equals(requestOptions)) {
+    // RequestOptions#equals ignores the request config, so per-request timeouts must be checked
+    // separately or they would be dropped.
+    if (RequestOptions.DEFAULT.equals(requestOptions)
+        && requestOptions.getRequestConfig() == null) {
       return client;
     }
     TransportOptions transportOptions =

@@ -5292,7 +5292,8 @@ public class UpdateIndicesV3StrategyTest {
             invocation -> {
               ReindexConfig indexState = invocation.getArgument(1);
               if (failingIndex.equals(indexState.name())) {
-                throw new IOException("index rejected");
+                throw new OpenSearchStatusException(
+                    "mapper_parsing_exception", RestStatus.BAD_REQUEST);
               }
               return null;
             })
@@ -5407,15 +5408,48 @@ public class UpdateIndicesV3StrategyTest {
         .when(searchClient)
         .putIndexMapping(any(), any(), any());
 
-    strategy.processBatch(operationContext, definitionBatch("scale_smoke.prop_00"), true);
+    expectThrows(
+        RetryableIndexingException.class,
+        () ->
+            strategy.processBatch(operationContext, definitionBatch("scale_smoke.prop_00"), true));
 
     verify(searchClient, times(2)).putIndexMapping(eq(operationContext), any(), any());
     verify(mockIndexBuilder, never())
         .applyMappings(any(OperationContext.class), any(ReindexConfig.class), anyBoolean());
 
-    strategy.processBatch(operationContext, definitionBatch("scale_smoke.prop_00"), true);
+    // The failed put recorded nothing, so the redelivered batch sends every index again.
+    expectThrows(
+        RetryableIndexingException.class,
+        () ->
+            strategy.processBatch(operationContext, definitionBatch("scale_smoke.prop_00"), true));
 
     verify(searchClient, times(4)).putIndexMapping(eq(operationContext), any(), any());
+  }
+
+  @Test
+  public void testRetryablePerIndexMappingFailureWithholdsAck() throws Exception {
+    stubStructuredPropertyDefinitions();
+    SearchClientShim<?> searchClient = stubMappingClient();
+    doThrow(new OpenSearchStatusException("mapper_parsing_exception", RestStatus.BAD_REQUEST))
+        .when(searchClient)
+        .putIndexMapping(any(), any(), any());
+    doThrow(new IOException(new TimeoutException("timed out")))
+        .when(mockIndexBuilder)
+        .applyMappings(any(OperationContext.class), any(ReindexConfig.class), eq(false));
+
+    expectThrows(
+        RetryableIndexingException.class,
+        () ->
+            strategy.processBatch(operationContext, definitionBatch("scale_smoke.prop_00"), true));
+
+    // Successful indices are recorded before the throw. Here every index failed, so the
+    // redelivered batch still sends the combined put.
+    expectThrows(
+        RetryableIndexingException.class,
+        () ->
+            strategy.processBatch(operationContext, definitionBatch("scale_smoke.prop_00"), true));
+
+    verify(searchClient, times(2)).putIndexMapping(eq(operationContext), any(), any());
   }
 
   @Test

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.cache.service;
 
+import com.linkedin.metadata.cache.visibility.IndexVisibilityEstimator;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.graph.cache.AncestorWalkResult;
 import com.linkedin.metadata.graph.cache.EntityGraphBinding;
@@ -23,6 +24,7 @@ import com.linkedin.metadata.graph.cache.service.rebuild.GraphCacheRebuilder;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotBuilder;
 import com.linkedin.metadata.graph.cache.store.EntityGraphDistributedStore;
 import com.linkedin.metadata.graph.cache.store.EntityGraphLocalViewCache;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Locale;
@@ -57,7 +59,8 @@ public class EntityGraphCacheService implements EntityGraphCache {
       @Nonnull EntityGraphLocalViewCache localViews,
       @Nonnull EntityGraphSnapshotBuilder snapshotBuilder,
       @Nonnull OperationContext systemOperationContext,
-      @Nonnull ExecutorService rebuildExecutor) {
+      @Nonnull ExecutorService rebuildExecutor,
+      @Nonnull IndexVisibilityEstimator visibilityEstimator) {
     this.properties = properties;
     this.registry = registry;
     this.distributedStore = distributedStore;
@@ -82,7 +85,8 @@ public class EntityGraphCacheService implements EntityGraphCache {
             freshnessEvaluator,
             rebuilder);
     this.invalidator =
-        new GraphCacheInvalidator(registry, distributedStore, localViews, systemOperationContext);
+        new GraphCacheInvalidator(
+            registry, distributedStore, localViews, systemOperationContext, visibilityEstimator);
   }
 
   @Override
@@ -247,6 +251,14 @@ public class EntityGraphCacheService implements EntityGraphCache {
     invalidator.invalidateOnSyncBatch(batch);
   }
 
+  @Override
+  public void invalidateImmediately(@Nonnull SyncGraphInvalidationBatch batch) {
+    if (!properties.isEnabled()) {
+      return;
+    }
+    invalidator.invalidateImmediately(batch);
+  }
+
   public void onSnapshotUpdated(@Nonnull String cacheKey) {
     distributedStore.refreshPartialSeedIndex(cacheKey);
     localViews.evict(cacheKey);
@@ -254,5 +266,30 @@ public class EntityGraphCacheService implements EntityGraphCache {
 
   public EntityGraphLocalViewCache getLocalViews() {
     return localViews;
+  }
+
+  /**
+   * Samples Hazelcast snapshot map sizes. Called from the memory-pressure loop, not each scrape.
+   */
+  public void recordSnapshotEntryGauges() {
+    if (systemOperationContext == null) {
+      return;
+    }
+    Optional<MetricUtils> metrics = systemOperationContext.getMetricUtils();
+    if (metrics == null) {
+      return;
+    }
+    metrics.ifPresent(
+        utils -> {
+          int fullEntries = distributedStore.fullSnapshotCount();
+          if (fullEntries >= 0) {
+            utils.setMicrometerGauge("entity.graph.cache.entries", fullEntries, "graphId", "full");
+          }
+          int containerEntries = distributedStore.partialSnapshotCount("container");
+          if (containerEntries >= 0) {
+            utils.setMicrometerGauge(
+                "entity.graph.cache.entries", containerEntries, "graphId", "container");
+          }
+        });
   }
 }

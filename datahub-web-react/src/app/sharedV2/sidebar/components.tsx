@@ -18,7 +18,6 @@ export function RotatingTriangle({
         <RotatingButton
             ghost
             size="small"
-            type="ghost"
             deg={isOpen ? 90 : 0}
             icon={<CaretRight size={24} style={{ color: theme.colors.icon }} />}
             onClick={onClick}
