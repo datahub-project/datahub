@@ -260,7 +260,7 @@ and file-vs-directory differences. CLL `schemaField` URNs can then reference a n
 match the emitted dataset entity (CLL looks broken in the UI). Upstream trimmers avoid this because
 they run inside `ColumnLevelLineageBuilder` (`DatasetReducerUtils.trimDatasetIdentifier`). The
 strategic fix is to apply PathSpec at the trimmer layer (a DataHub `DatasetNameTrimmer`) so CLL
-consistency comes for free and the `PlanUtils` patch can eventually be dropped. See ING-2959 for
+consistency comes for free and the `PlanUtils` patch can eventually be dropped. See the tracker for
 the phased plan.
 
 ### Upgrade Process (3-way merge — the reliable path)

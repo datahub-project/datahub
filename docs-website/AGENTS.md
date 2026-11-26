@@ -80,11 +80,11 @@ If `sidebars.js` is missing the entry, the build will warn about an unaccounted 
 
 ## Adding a DataHub Cloud release note
 
-Release notes live in `docs/managed-datahub/release-notes/` and follow the naming convention `v_0_3_<N>.md`.
+Release notes live in `docs/managed-datahub/release-notes/` and are named `v_<major>_<minor>_<patch>.md` (for example `v_2_4_0.md`).
 
 Adding the markdown file alone is not enough — also add it to `sidebars.js`:
 
-1. Create `docs/managed-datahub/release-notes/v_0_3_<N>.md`
-2. Add `"docs/managed-datahub/release-notes/v_0_3_<N>"` as the **first entry** under `"DataHub Cloud Release History"` in `docs-website/sidebars.js` (newer releases go at the top)
+1. Create `docs/managed-datahub/release-notes/v_<major>_<minor>_<patch>.md`
+2. Add `"docs/managed-datahub/release-notes/v_<major>_<minor>_<patch>"` as the **first entry** under `"DataHub Cloud Release History"` in `docs-website/sidebars.js` (newer releases go at the top)
 
 Forgetting step 2 means the release note is published but never appears in the sidebar navigation.

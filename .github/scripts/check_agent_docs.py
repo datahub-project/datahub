@@ -9,12 +9,14 @@ Formatters already cover these files. This checks what they cannot:
 - a per-file line budget for ``BUGBOT.md``, which a review bot loads separately;
 - that every ``AGENTS.md`` has a sibling ``CLAUDE.md`` that is exactly ``@AGENTS.md``,
   and no ``CLAUDE.md`` carries content of its own;
-- that every repo path written in backticks or as a relative Markdown link exists.
+- that every repo path written in backticks or as a relative Markdown link exists,
+  and that no code fence is left open (it would hide every reference after it).
 
 Findings recorded in the baseline file are tolerated so existing files can be
-cleaned up incrementally. The baseline only shrinks: ``--update-baseline`` drops
-entries that no longer trigger and lowers ceilings, but refuses to add entries
-or raise a ceiling unless ``--allow-growth`` is given explicitly.
+cleaned up incrementally. The baseline only shrinks: a ceiling that is no longer
+reached is reported until lowered, and ``--update-baseline`` refuses to add
+entries or raise a ceiling unless ``--allow-growth`` is given. A hand edit to the
+baseline shows in the PR diff; review catches it.
 """
 
 from __future__ import annotations
@@ -24,9 +26,8 @@ import fnmatch
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
 from urllib.parse import unquote
 
 GUIDE_FILE_NAMES = {"AGENTS.md", "CLAUDE.md"}
@@ -62,16 +63,18 @@ LINE_SUFFIX_RE = re.compile(r":\d+(-\d+)?$")
 GLOB_CHARS = set("*?[")
 
 CEILING_KINDS = {"stack", "budget"}
-EXACT_KINDS = {"ref", "shim"}
+EXACT_KINDS = {"ref", "shim", "fence"}
 
 
 @dataclass(frozen=True)
 class Finding:
     path: Path
     line: int
-    kind: str  # "stack", "budget", "shim" or "ref"
-    key: str  # chars or lines for the size kinds, the dead token for ref, "" for shim
+    kind: str  # "stack", "budget", "shim", "fence" or "ref"
+    key: str  # chars or lines for the size kinds, the dead token for ref, else ""
     message: str
+    # Other files that share responsibility (the guide chain for a stack finding).
+    related: tuple[Path, ...] = field(default=(), compare=False)
 
     def __str__(self) -> str:
         return f"{self.path.as_posix()}:{self.line}: {self.message}"
@@ -83,14 +86,17 @@ class Finding:
 # --------------------------------------------------------------------------- git
 
 
-def tracked_files(root: Path) -> list[str]:
-    result = subprocess.run(
-        ["git", "ls-files"],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
+def git(
+    args: list[str], root: Path, stdin: str = ""
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args], cwd=root, input=stdin, capture_output=True, text=True
     )
+
+
+def tracked_files(root: Path) -> list[str]:
+    result = git(["ls-files"], root)
+    result.check_returncode()
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
@@ -110,17 +116,14 @@ def tracked_agent_files(root: Path, tracked: list[str]) -> list[Path]:
 def gitignored(paths: list[str], root: Path) -> dict[str, tuple[str, str]]:
     """Map each ignored path in ``paths`` to ``(gitignore source, pattern)``.
 
-    One subprocess call. A directory pattern such as ``foo/`` only matches a path
-    with a trailing slash, so callers pass both forms when they mean a directory.
+    One subprocess call. Negated patterns (``!foo``) are not matches. A directory
+    pattern such as ``foo/`` only matches a path with a trailing slash, so callers
+    pass both forms when they mean a directory.
     """
     if not paths:
         return {}
-    result = subprocess.run(
-        ["git", "check-ignore", "-v", "--no-index", "--stdin"],
-        cwd=root,
-        input="\n".join(paths) + "\n",
-        capture_output=True,
-        text=True,
+    result = git(
+        ["check-ignore", "-v", "--no-index", "--stdin"], root, "\n".join(paths) + "\n"
     )
     # Exit code 1 means "nothing ignored"; 128 means "not a git repo".
     matches: dict[str, tuple[str, str]] = {}
@@ -128,23 +131,30 @@ def gitignored(paths: list[str], root: Path) -> dict[str, tuple[str, str]]:
         head, _, path = line.rpartition("\t")
         source_and_line, _, pattern = head.rpartition(":")
         source, _, _ = source_and_line.rpartition(":")
-        if path:
+        if path and not pattern.startswith("!"):
             matches[path] = (source, pattern)
     return matches
 
 
-def pattern_covers_file(file_rel: Path, source: str, pattern: str) -> bool:
-    """Whether an ignore pattern is a blanket rule over the linted file's own
-    directory (``.claude/*`` for a file under ``.claude/``). The file is tracked
-    only thanks to a negation, so such a match says nothing about the probe."""
-    base = Path(source).parent
-    stem = pattern.lstrip("!/")
-    while stem.endswith(("/*", "/**", "/")):
-        stem = stem.rsplit("/", 1)[0]
-    if not stem or GLOB_CHARS.intersection(stem):
+def ignore_match_is_generated(file_rel: Path, source: str, pattern: str) -> bool:
+    """Whether an ignore match says "this path is build output" rather than
+    "this folder is ignored wholesale and tracked files are re-included".
+
+    Rejected: negations, blanket rules (``.claude/*``, ``foo/**``), which exist to
+    pair with negations, and any rule whose directory contains the linted file.
+    """
+    if pattern.startswith("!"):
         return False
-    covered = base / stem
-    return covered == file_rel.parent or covered in file_rel.parent.parents
+    bare = pattern.rstrip("/")
+    if bare.endswith(("/*", "/**")):
+        return False
+    base = Path(source).parent
+    stem = bare.lstrip("/")
+    if stem and not GLOB_CHARS.intersection(stem):
+        covered = base / stem
+        if covered == file_rel.parent or covered in file_rel.parent.parents:
+            return False
+    return True
 
 
 # ------------------------------------------------------------------- guides/shims
@@ -223,6 +233,7 @@ def lint_stacks(root: Path, tracked: list[str]) -> list[Finding]:
                 str(total),
                 f"guide chain for {directory.as_posix() or '.'} is {total:,} chars, "
                 f"over the {STACK_CHAR_BUDGET:,} budget an agent loads here: {detail}",
+                related=tuple(chain),
             )
         )
     return findings
@@ -257,27 +268,31 @@ def is_path_candidate(token: str) -> bool:
     return "." in segments[-1] or token.endswith("/") or len(segments) >= 3
 
 
-def _collapse(posix: str) -> str:
-    """Resolve ``..`` and ``.`` segments without touching the file system."""
+def collapse(posix: str) -> str | None:
+    """Resolve ``..`` and ``.`` without the file system; None when it climbs above root."""
     parts: list[str] = []
     for part in posix.split("/"):
         if part in ("", "."):
             continue
         if part == "..":
-            if parts:
-                parts.pop()
+            if not parts:
+                return None
+            parts.pop()
             continue
         parts.append(part)
     return "/".join(parts)
 
 
-def _parent_candidates(token: str, file_rel: Path) -> list[Path]:
-    """The token resolved against the file's directory and every parent up to root,
-    with ``..`` segments collapsed so the result can be looked up in git ls-files."""
-    return [
-        Path(_collapse(f"{parent.as_posix()}/{token}"))
-        for parent in [file_rel.parent, *file_rel.parent.parents]
-    ]
+def _candidates(token: str, file_rel: Path, is_link: bool) -> list[Path]:
+    """Where a reference may point. A link resolves against the file's directory
+    (or the repo root when it starts with ``/``); a backticked path may be written
+    from the file's directory or any parent up to the repo root."""
+    if is_link:
+        bases = ["" if token.startswith("/") else file_rel.parent.as_posix()]
+    else:
+        bases = [p.as_posix() for p in [file_rel.parent, *file_rel.parent.parents]]
+    resolved = [collapse(f"{b}/{token}") for b in bases]
+    return [Path(r) for r in resolved if r is not None]
 
 
 def tracked_path_exists(candidate: Path, tracked_set: set[str]) -> bool:
@@ -304,19 +319,21 @@ def tracked_tail_match(token: str, tracked: list[str]) -> bool:
     return False
 
 
-def referenced_tokens(lines: list[str]) -> Iterable[tuple[int, str, bool]]:
-    """Yield ``(line, token, is_link)``. A Markdown link target resolves only
-    against the file's own directory (or the repo root when it starts with ``/``),
-    as GitHub renders it; a backticked path may be written from the repo root or
-    any parent, as these docs do."""
+def referenced_tokens(
+    lines: list[str],
+) -> tuple[list[tuple[int, str, bool]], int | None]:
+    """Return ``(tokens, open_fence_line)``: each token as ``(line, token, is_link)``,
+    and the line of a code fence still open at end of file, if any."""
+    tokens: list[tuple[int, str, bool]] = []
     in_fence = False
     fence_marker = ""
+    fence_line = 0
     for index, line in enumerate(lines, start=1):
         fence_match = FENCE_RE.match(line)
         if fence_match:
             marker = fence_match.group(1)
             if not in_fence:
-                in_fence, fence_marker = True, marker
+                in_fence, fence_marker, fence_line = True, marker, index
             elif marker[0] == fence_marker[0] and len(marker) >= len(fence_marker):
                 in_fence, fence_marker = False, ""
             continue
@@ -325,7 +342,7 @@ def referenced_tokens(lines: list[str]) -> Iterable[tuple[int, str, bool]]:
         for match in BACKTICK_RE.finditer(line):
             token = match.group(1).strip()
             if is_path_candidate(token):
-                yield index, token, False
+                tokens.append((index, token, False))
         targets = [m.group(1) for m in MARKDOWN_LINK_RE.finditer(line)]
         ref_def = REFERENCE_DEF_RE.match(line)
         if ref_def:
@@ -333,7 +350,8 @@ def referenced_tokens(lines: list[str]) -> Iterable[tuple[int, str, bool]]:
         for target in targets:
             if target.startswith(("#", "mailto:")) or "://" in target:
                 continue
-            yield index, target, True
+            tokens.append((index, target, True))
+    return tokens, (fence_line if in_fence else None)
 
 
 def lint_file(path: Path, root: Path, tracked: list[str]) -> list[Finding]:
@@ -358,36 +376,44 @@ def lint_file(path: Path, root: Path, tracked: list[str]) -> list[Finding]:
             )
         )
 
+    tokens, open_fence = referenced_tokens(lines)
+    if open_fence is not None:
+        findings.append(
+            Finding(
+                rel,
+                open_fence,
+                "fence",
+                "",
+                "code fence opened here is never closed, so nothing after it is checked",
+            )
+        )
+
     # First pass: everything resolvable from the tracked file list. Second pass:
     # one batched git check-ignore for what is left, so generated (gitignored)
-    # paths count, unless the match is a blanket rule over the file's own folder.
-    unresolved: dict[str, tuple[int, str, list[Path]]] = {}
-    for line_no, token, is_link in referenced_tokens(lines):
+    # paths count, unless the match is a blanket rule rather than build output.
+    unresolved: dict[str, tuple[int, str, bool, list[Path]]] = {}
+    for line_no, token, is_link in tokens:
         normalized = normalize_token(token)
         if not normalized or normalized in unresolved:
             continue
-        if is_link:
-            base = "" if normalized.startswith("/") else rel.parent.as_posix()
-            candidates = [Path(_collapse(f"{base}/{normalized}"))]
-        else:
-            candidates = _parent_candidates(normalized, rel)
+        candidates = _candidates(normalized, rel, is_link)
         if any(tracked_path_exists(c, tracked_set) for c in candidates):
             continue
         if not is_link and tracked_tail_match(normalized, tracked):
             continue
-        unresolved[normalized] = (line_no, token, candidates)
+        unresolved[normalized] = (line_no, token, is_link, candidates)
 
     probes = [
         form
-        for _, _, candidates in unresolved.values()
+        for _, _, _, candidates in unresolved.values()
         for c in candidates
         for form in (c.as_posix(), c.as_posix() + "/")
     ]
     ignored = gitignored(probes, root)
 
-    for normalized, (line_no, token, candidates) in unresolved.items():
+    for normalized, (line_no, token, is_link, candidates) in unresolved.items():
         generated = any(
-            form in ignored and not pattern_covers_file(rel, *ignored[form])
+            form in ignored and ignore_match_is_generated(rel, *ignored[form])
             for c in candidates
             for form in (c.as_posix(), c.as_posix() + "/")
         )
@@ -395,7 +421,7 @@ def lint_file(path: Path, root: Path, tracked: list[str]) -> list[Finding]:
             continue
         where = (
             "relative to this file (Markdown links resolve against the file's directory)"
-            if len(candidates) == 1
+            if is_link
             else "relative to this file, its parents, or the repo root"
         )
         findings.append(
@@ -438,9 +464,10 @@ def parse_baseline(baseline: set[str]) -> tuple[dict[tuple[str, str], int], set[
 def apply_baseline(
     findings: list[Finding], baseline: set[str]
 ) -> tuple[list[Finding], list[str]]:
-    """Split findings into those not covered by the baseline, plus stale baseline entries.
+    """Split findings into those not covered by the baseline, plus stale entries.
 
-    A stack or budget entry records a ceiling: the size may shrink but not grow.
+    A stack or budget entry records a ceiling. It is stale when the size no longer
+    reaches it, so a ceiling can only ever move down.
     """
     ceilings, exact = parse_baseline(baseline)
     unexpected: list[Finding] = []
@@ -449,9 +476,11 @@ def apply_baseline(
         posix = finding.path.as_posix()
         if finding.kind in CEILING_KINDS and (posix, finding.kind) in ceilings:
             ceiling = ceilings[(posix, finding.kind)]
-            used.add(f"{posix}\t{finding.kind}\t{ceiling}")
+            if int(finding.key) >= ceiling:
+                used.add(f"{posix}\t{finding.kind}\t{ceiling}")
             if int(finding.key) > ceiling:
                 unexpected.append(finding)
+            # below the ceiling: the entry is stale until lowered
             continue
         entry = finding.baseline_entry()
         if entry in exact:
@@ -490,14 +519,14 @@ def shrink_baseline(
 # ------------------------------------------------------------------------- main
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "paths",
         nargs="*",
         help="Files to lint. Defaults to every tracked agent-instruction file. "
-        "With explicit paths, stale baseline entries are not reported and only "
-        "shim and chain findings attributed to a given file are checked.",
+        "With explicit paths, stale baseline entries are not reported; shim and "
+        "chain findings are reported when a given file is involved.",
     )
     parser.add_argument(
         "--update-baseline",
@@ -511,31 +540,36 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="With --update-baseline: also admit new findings and raised ceilings.",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None, root: Path | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
     if args.update_baseline and args.paths:
         parser.error("--update-baseline lints every tracked file; do not pass paths")
     if args.allow_growth and not args.update_baseline:
         parser.error("--allow-growth only applies with --update-baseline")
 
-    root = Path(__file__).resolve().parents[2]
+    root = (root or Path(__file__).resolve().parents[2]).resolve()
     baseline_path = root / BASELINE_FILE
     tracked = tracked_files(root)
-    paths = (
-        [Path(p) if Path(p).is_absolute() else root / p for p in args.paths]
-        if args.paths
-        else tracked_agent_files(root, tracked)
-    )
+    if args.paths:
+        paths = [Path(p) if Path(p).is_absolute() else root / p for p in args.paths]
+        missing = [p for p in paths if not p.exists()]
+        if missing:
+            parser.error("no such file: " + ", ".join(str(p) for p in missing))
+    else:
+        paths = tracked_agent_files(root, tracked)
 
     findings: list[Finding] = []
     for path in sorted(set(paths)):
-        if path.exists():
-            findings.extend(lint_file(path, root, tracked))
-    wanted = {p.resolve().relative_to(root) for p in paths if p.exists()}
-    findings.extend(
-        f
-        for f in [*lint_shims(root, tracked), *lint_stacks(root, tracked)]
-        if not args.paths or f.path in wanted
-    )
+        findings.extend(lint_file(path, root, tracked))
+    wanted = {p.resolve().relative_to(root) for p in paths}
+    for finding in [*lint_shims(root, tracked), *lint_stacks(root, tracked)]:
+        involved = {finding.path, *finding.related}
+        if not args.paths or involved & wanted:
+            findings.append(finding)
 
     baseline = load_baseline(baseline_path)
     if args.update_baseline:
@@ -545,7 +579,7 @@ def main(argv: list[str] | None = None) -> int:
             body, refused = shrink_baseline(findings, baseline)
         header = [
             "# Known findings tolerated by .github/scripts/check_agent_docs.py.",
-            "# Format: <path>\\t<stack|budget|shim|ref>\\t<chars or lines ceiling | dead token | empty>.",
+            "# Format: <path>\\t<stack|budget|shim|fence|ref>\\t<chars or lines ceiling | dead token | empty>.",
             "# Fix the finding and remove its line; never add new entries by hand.",
         ]
         baseline_path.write_text(
@@ -571,8 +605,8 @@ def main(argv: list[str] | None = None) -> int:
             print(finding, file=sys.stderr)
         for entry in stale:
             print(
-                f"{BASELINE_FILE.as_posix()}: entry no longer triggers; delete this line: "
-                f"{entry.replace(chr(9), ' ')}",
+                f"{BASELINE_FILE.as_posix()}: entry no longer matches (fixed, or size now "
+                f"below its ceiling); run --update-baseline: {entry.replace(chr(9), ' ')}",
                 file=sys.stderr,
             )
         return 1

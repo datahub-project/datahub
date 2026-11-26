@@ -89,7 +89,7 @@ jobs:
     needs: setup
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - name: Check agent-instruction files for line budgets and dead paths
+      - name: Check agent-instruction files (chain budget, shims, dead paths)
         run: python3 .github/scripts/check_agent_docs.py
 
   github-actions-format:

@@ -137,7 +137,7 @@ This reverts to the old single-instance behaviour: one `datahub` Docker project,
 same container names, existing volumes fully accessible. The env var
 `COMPOSE_PROJECT_NAME=datahub` has the same effect without touching the config file.
 
-**Runner interface** — a runner is any executable that speaks four verbs:
+**Runner interface** — a runner is any executable that speaks these verbs:
 
 ```bash
 runner init                        # one-time environment bootstrap
@@ -166,7 +166,7 @@ A reference Kubernetes runner is at `scripts/dev/runners/k8s.sh`.
 Set `AGENT_MODE=1` to get machine-readable JSON test reports at `smoke-test/build/test-report.json`:
 
 ```bash
-AGENT_MODE=1 scripts/dev/datahub-dev.sh test tests/test_system_info.py
+AGENT_MODE=1 scripts/dev/datahub-dev.sh test tests/e2e/test_system_info.py
 ```
 
 For pytest smoke tests, see [`smoke-test/AGENTS.md`](../../smoke-test/AGENTS.md)

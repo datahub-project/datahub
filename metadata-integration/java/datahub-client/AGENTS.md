@@ -71,10 +71,12 @@ export ADMIN_USERNAME=datahub
 export ADMIN_PASSWORD=datahub
 ```
 
-**Connection issues:** Check services:
+**Connection issues:** the tests default to `http://localhost:8080`; a per-worktree stack
+started by `scripts/dev/datahub-dev.sh` uses its own port, so export `DATAHUB_SERVER` from the
+`DATAHUB_GMS_URL` that `scripts/dev/datahub-dev.sh shell-env` prints. Then:
 
 ```bash
-docker ps | grep datahub
-curl http://localhost:8080/health
-docker logs datahub-gms  # View GMS logs
+scripts/dev/datahub-dev.sh status                 # ports, containers, health
+curl "$DATAHUB_SERVER/health"
+scripts/dev/datahub-dev.sh logs gms               # local mode; Docker: docker logs <container from status>
 ```

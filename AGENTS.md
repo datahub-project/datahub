@@ -47,7 +47,6 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 - `./gradlew :metadata-ingestion:lint` validates: `ruff check`, `ruff format --check` and mypy, as CI runs them. Run it before calling a change done; `lintFix` alone catches neither type errors nor what ruff cannot fix.
 - Not `python3 -m py_compile`: it misses style issues and type errors.
 - Not `ruff` or `mypy` directly: the Gradle tasks use the project's venv and config.
-- For smoke-test changes, the lintFix command will also check those files
 
 ## Code Formatting and Linting
 
@@ -262,7 +261,7 @@ must also be registered in `docs-website/sidebars.js` (the build only warns). St
 
 - **Java**: Use Spotless formatting, Spring Boot patterns, TestNG/JUnit Jupiter for tests
 - **Python**: Use ruff for linting/formatting, pytest for testing, pydantic for configs
-  - **Type Safety**: Everything must have type annotations, avoid `Any` type, use specific types (`Dict[str, int]`, `TypedDict`)
+  - **Type Safety**: Everything must have type annotations, avoid `Any` type, use specific types (`Dict[str, int]`, `TypedDict`). Narrow with `isinstance` checks, not `hasattr`; prefer `assert isinstance(...)` over `cast`
   - **Data Structures**: Prefer dataclasses/pydantic for internal data, return dataclasses over tuples
   - **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`, refactor repetitive code
   - **Error Handling**: Robust error handling with layers of protection for known failure points

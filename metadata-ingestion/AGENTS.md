@@ -55,9 +55,10 @@ markers and coverage. Connector conventions: `src/datahub/ingestion/source/AGENT
 ## Dependencies and Entry Points
 
 `setup.py` is the source of truth for dependencies, extras and source entry points
-(`entry_points["datahub.ingestion.source.plugins"]`). The dependency block of
-`pyproject.toml`, plus `uv.lock` and `constraints.txt`, are generated from it; never edit
-those by hand. The `[tool.*]` sections of `pyproject.toml` (ruff, isort) are hand-maintained.
+(`entry_points["datahub.ingestion.source.plugins"]`). Everything in `pyproject.toml` above
+the `# ===== TOOL CONFIGURATION` marker, plus `uv.lock` and `constraints.txt`, is generated
+from it and overwritten by `updateLockFile`; only the `[tool.*]` sections below the marker
+(ruff, isort) are hand-maintained.
 
 ```bash
 ../gradlew :metadata-ingestion:updateLockFile   # after any setup.py change
