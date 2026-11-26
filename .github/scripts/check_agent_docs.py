@@ -3,7 +3,10 @@
 
 Formatters already cover these files. This checks what they cannot:
 
-- a per-file line budget, so instruction files stay small enough to be followed;
+- the size of the guide chain a coding agent loads for a directory: root
+  ``AGENTS.md`` plus every nested ``AGENTS.md`` (or non-shim ``CLAUDE.md``) above
+  it, capped in characters because that is what the agent pays, not file count;
+- a per-file line budget for ``BUGBOT.md``, which a review bot loads separately;
 - that every repo path written in backticks or as a relative Markdown link exists.
 
 Findings recorded in the baseline file are tolerated so existing files can be
@@ -22,9 +25,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-AGENT_FILE_NAMES = {"AGENTS.md", "CLAUDE.md", "BUGBOT.md", "SKILL.md"}
+GUIDE_FILE_NAMES = {"AGENTS.md", "CLAUDE.md"}
+AGENT_FILE_NAMES = GUIDE_FILE_NAMES | {"BUGBOT.md", "SKILL.md"}
 # Auto-loaded instruction files. Skill reference material is read on demand and
-# is not budgeted.
+# is not checked.
 AGENT_PATH_GLOBS = (
     ".claude/agents/*.md",
     ".claude/commands/*.md",
@@ -34,8 +38,11 @@ AGENT_PATH_GLOBS = (
 )
 SKIPPED_PARTS = {"node_modules", "venv", ".venv", "build", "dist"}
 
+# What a coding agent loads for one directory: the guide chain from the repo
+# root down to that directory. ~1,200 lines at this corpus's density.
+STACK_CHAR_BUDGET = 48_000
+# A review bot loads BUGBOT.md on its own, next to the diff.
 LINE_BUDGETS = {"BUGBOT.md": 120}
-DEFAULT_LINE_BUDGET = 200
 
 BASELINE_FILE = Path(".github/scripts/check_agent_docs_baseline.txt")
 
@@ -50,8 +57,8 @@ LINE_SUFFIX_RE = re.compile(r":\d+(-\d+)?$")
 class Finding:
     path: Path
     line: int
-    kind: str  # "budget" or "ref"
-    key: str  # line count for budget, the dead token for ref
+    kind: str  # "stack", "budget" or "ref"
+    key: str  # chars or lines for the size kinds, the dead token for ref
     message: str
 
     def __str__(self) -> str:
@@ -59,6 +66,9 @@ class Finding:
 
     def baseline_entry(self) -> str:
         return f"{self.path.as_posix()}\t{self.kind}\t{self.key}"
+
+
+CEILING_KINDS = {"stack", "budget"}
 
 
 def tracked_files(root: Path) -> list[str]:
@@ -85,6 +95,56 @@ def tracked_agent_files(root: Path, tracked: list[str]) -> list[Path]:
     return files
 
 
+def is_shim(text: str) -> bool:
+    """A CLAUDE.md that only imports AGENTS.md (headings and blank lines aside)."""
+    body = [line.strip() for line in text.splitlines()]
+    body = [line for line in body if line and not line.startswith("#")]
+    return body == ["@AGENTS.md"]
+
+
+def guide_chains(root: Path, tracked: list[str]) -> dict[Path, list[Path]]:
+    """Map each directory that holds a guide to the guides an agent loads there:
+    every AGENTS.md (or non-shim CLAUDE.md) from the repo root down to it."""
+    guides_by_dir: dict[Path, list[Path]] = {}
+    for posix in tracked:
+        rel = Path(posix)
+        if rel.name not in GUIDE_FILE_NAMES or SKIPPED_PARTS.intersection(rel.parts):
+            continue
+        if rel.name == "CLAUDE.md" and is_shim((root / rel).read_text("utf-8")):
+            continue
+        guides_by_dir.setdefault(rel.parent, []).append(rel)
+
+    chains: dict[Path, list[Path]] = {}
+    for directory in guides_by_dir:
+        chain: list[Path] = []
+        for ancestor in [*reversed(directory.parents), directory]:
+            chain.extend(sorted(guides_by_dir.get(ancestor, [])))
+        chains[directory] = chain
+    return chains
+
+
+def lint_stacks(root: Path, tracked: list[str]) -> list[Finding]:
+    findings: list[Finding] = []
+    for directory, chain in sorted(guide_chains(root, tracked).items()):
+        sizes = {g: len((root / g).read_text("utf-8")) for g in chain}
+        total = sum(sizes.values())
+        if total <= STACK_CHAR_BUDGET:
+            continue
+        leaf = chain[-1]
+        detail = " + ".join(f"{g.as_posix()} ({n:,})" for g, n in sizes.items())
+        findings.append(
+            Finding(
+                leaf,
+                1,
+                "stack",
+                str(total),
+                f"guide chain for {directory.as_posix() or '.'} is {total:,} chars, "
+                f"over the {STACK_CHAR_BUDGET:,} budget an agent loads here: {detail}",
+            )
+        )
+    return findings
+
+
 def gitignored(paths: list[str], root: Path) -> set[str]:
     """Return the subset of ``paths`` that git would ignore (one subprocess call).
 
@@ -102,10 +162,6 @@ def gitignored(paths: list[str], root: Path) -> set[str]:
     )
     # Exit code 1 means "nothing ignored"; 128 means "not a git repo".
     return {line for line in result.stdout.splitlines() if line}
-
-
-def line_budget_for(path: Path) -> int:
-    return LINE_BUDGETS.get(path.name, DEFAULT_LINE_BUDGET)
 
 
 def normalize_token(token: str) -> str:
@@ -198,8 +254,8 @@ def lint_file(
         return [Finding(rel, 1, "ref", "", "Unable to decode file as UTF-8")]
 
     findings: list[Finding] = []
-    budget = line_budget_for(path)
-    if len(lines) > budget:
+    budget = LINE_BUDGETS.get(path.name)
+    if budget is not None and len(lines) > budget:
         findings.append(
             Finding(
                 rel,
@@ -270,17 +326,17 @@ def apply_baseline(
 ) -> tuple[list[Finding], list[str]]:
     """Split findings into those not covered by the baseline, plus stale baseline entries.
 
-    A budget entry records a ceiling: the file may shrink below it but not grow.
+    A stack or budget entry records a ceiling: the size may shrink but not grow.
     """
-    budget_ceilings: dict[str, int] = {}
+    ceilings: dict[tuple[str, str], int] = {}
     ref_entries: set[str] = set()
     for entry in baseline:
         parts = entry.split("\t")
         if len(parts) != 3:
             continue
         path, kind, key = parts
-        if kind == "budget" and key.isdigit():
-            budget_ceilings[path] = int(key)
+        if kind in CEILING_KINDS and key.isdigit():
+            ceilings[(path, kind)] = int(key)
         elif kind == "ref":
             ref_entries.add(entry)
 
@@ -288,9 +344,9 @@ def apply_baseline(
     used: set[str] = set()
     for finding in findings:
         posix = finding.path.as_posix()
-        if finding.kind == "budget" and posix in budget_ceilings:
-            ceiling = budget_ceilings[posix]
-            used.add(f"{posix}\tbudget\t{ceiling}")
+        if finding.kind in CEILING_KINDS and (posix, finding.kind) in ceilings:
+            ceiling = ceilings[(posix, finding.kind)]
+            used.add(f"{posix}\t{finding.kind}\t{ceiling}")
             if int(finding.key) > ceiling:
                 unexpected.append(finding)
             continue
@@ -310,7 +366,8 @@ def main(argv: list[str] | None = None) -> int:
         "paths",
         nargs="*",
         help="Files to lint. Defaults to every tracked agent-instruction file. "
-        "With explicit paths, stale baseline entries are not reported.",
+        "With explicit paths, stale baseline entries are not reported and only "
+        "guide chains ending in a given file are checked.",
     )
     parser.add_argument(
         "--update-baseline",
@@ -335,11 +392,15 @@ def main(argv: list[str] | None = None) -> int:
     for path in sorted(set(paths)):
         if path.exists():
             findings.extend(lint_file(path, root, tracked))
+    wanted = {p.resolve().relative_to(root) for p in paths if p.exists()}
+    findings.extend(
+        f for f in lint_stacks(root, tracked) if not args.paths or f.path in wanted
+    )
 
     if args.update_baseline:
         header = [
             "# Known findings tolerated by .github/scripts/check_agent_docs.py.",
-            "# Format: <path>\\t<budget|ref>\\t<line count ceiling | dead token>.",
+            "# Format: <path>\\t<stack|budget|ref>\\t<chars or lines ceiling | dead token>.",
             "# Fix the finding and remove its line; never add new entries by hand.",
         ]
         body = sorted({f.baseline_entry() for f in findings})

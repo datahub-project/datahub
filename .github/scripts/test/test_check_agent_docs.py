@@ -30,8 +30,10 @@ def test_existing_paths_resolve_from_file_parents_and_root(tmp_path: Path) -> No
     assert linter.lint_file(path, tmp_path) == []
 
 
-def test_dead_path_and_budget_are_reported(tmp_path: Path) -> None:
-    body = "\n".join(f"- line {i}" for i in range(201))
+def test_dead_path_is_reported_and_agents_md_has_no_per_file_budget(
+    tmp_path: Path,
+) -> None:
+    body = "\n".join(f"- line {i}" for i in range(400))
     path = _write(
         tmp_path,
         "mod/AGENTS.md",
@@ -40,9 +42,7 @@ def test_dead_path_and_budget_are_reported(tmp_path: Path) -> None:
 
     findings = linter.lint_file(path, tmp_path)
 
-    kinds = {(f.kind, f.key) for f in findings}
-    assert ("ref", "src/does/not/exist.py") in kinds
-    assert any(f.kind == "budget" for f in findings)
+    assert [(f.kind, f.key) for f in findings] == [("ref", "src/does/not/exist.py")]
 
 
 def test_dead_path_with_line_suffix_is_reported_once(tmp_path: Path) -> None:
@@ -67,12 +67,12 @@ def test_fenced_code_is_ignored(tmp_path: Path) -> None:
     assert linter.lint_file(path, tmp_path) == []
 
 
-def test_bugbot_budget_is_tighter(tmp_path: Path) -> None:
+def test_bugbot_keeps_a_per_file_line_budget(tmp_path: Path) -> None:
     path = _write(tmp_path, ".cursor/BUGBOT.md", "\n".join(["x"] * 121) + "\n")
 
     findings = linter.lint_file(path, tmp_path)
 
-    assert [f.kind for f in findings] == ["budget"]
+    assert [(f.kind, f.key) for f in findings] == [("budget", "121")]
 
 
 def test_generic_tokens_are_not_findings(tmp_path: Path) -> None:
@@ -120,36 +120,70 @@ def test_agent_file_discovery_skips_build_dirs() -> None:
     }
 
 
+def test_guide_chain_sums_root_and_nested_guides_and_skips_shims(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(linter, "STACK_CHAR_BUDGET", 1_000)
+    _write(tmp_path, "AGENTS.md", "r" * 600)
+    _write(tmp_path, "CLAUDE.md", "# CLAUDE.md\n\n@AGENTS.md\n")  # shim, not counted
+    _write(tmp_path, "mod/AGENTS.md", "m" * 300)
+    _write(tmp_path, "mod/CLAUDE.md", "@AGENTS.md\n")
+    _write(tmp_path, "mod/deep/AGENTS.md", "d" * 200)  # 600 + 300 + 200 > 1,000
+    _write(tmp_path, "java/CLAUDE.md", "j" * 500)  # real guide: 600 + 500 > 1,000
+    tracked = [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "mod/AGENTS.md",
+        "mod/CLAUDE.md",
+        "mod/deep/AGENTS.md",
+        "java/CLAUDE.md",
+    ]
+
+    chains = linter.guide_chains(tmp_path, tracked)
+    findings = linter.lint_stacks(tmp_path, tracked)
+
+    assert [p.as_posix() for p in chains[Path("mod/deep")]] == [
+        "AGENTS.md",
+        "mod/AGENTS.md",
+        "mod/deep/AGENTS.md",
+    ]
+    assert {(f.path.as_posix(), f.kind, f.key) for f in findings} == {
+        ("mod/deep/AGENTS.md", "stack", "1100"),
+        ("java/CLAUDE.md", "stack", "1100"),
+    }
+
+
 def test_baseline_tolerates_known_findings_and_flags_stale_entries(
     tmp_path: Path,
 ) -> None:
     path = _write(
         tmp_path,
-        "other/AGENTS.md",
-        "- `gone/file.py`\n" + "\n".join(["x"] * 250) + "\n",
+        ".cursor/BUGBOT.md",
+        "- `gone/file.py`\n" + "\n".join(["x"] * 150) + "\n",
     )
     findings = linter.lint_file(path, tmp_path)
     baseline = {
-        "other/AGENTS.md\tref\tgone/file.py",
-        "other/AGENTS.md\tbudget\t260",
-        "other/AGENTS.md\tref\tfixed/already.py",
+        ".cursor/BUGBOT.md\tref\tgone/file.py",
+        ".cursor/BUGBOT.md\tbudget\t160",
+        ".cursor/BUGBOT.md\tref\tfixed/already.py",
     }
 
     unexpected, stale = linter.apply_baseline(findings, baseline)
 
     assert unexpected == []
-    assert stale == ["other/AGENTS.md\tref\tfixed/already.py"]
+    assert stale == [".cursor/BUGBOT.md\tref\tfixed/already.py"]
 
 
-def test_baseline_budget_is_a_ceiling(tmp_path: Path) -> None:
-    path = _write(tmp_path, "other/AGENTS.md", "\n".join(["x"] * 250) + "\n")
-    findings = linter.lint_file(path, tmp_path)
+def test_baseline_ceiling_applies_to_stack_and_budget_kinds() -> None:
+    stack = linter.Finding(Path("mod/AGENTS.md"), 1, "stack", "50000", "")
+    budget = linter.Finding(Path(".cursor/BUGBOT.md"), 150, "budget", "150", "")
 
     unexpected, stale = linter.apply_baseline(
-        findings, {"other/AGENTS.md\tbudget\t240"}
+        [stack, budget],
+        {"mod/AGENTS.md\tstack\t49000", ".cursor/BUGBOT.md\tbudget\t160"},
     )
 
-    assert [f.kind for f in unexpected] == ["budget"]
+    assert unexpected == [stack]
     assert stale == []
 
 

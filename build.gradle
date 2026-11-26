@@ -1217,7 +1217,7 @@ tasks.register('formatChanged') {
 // formatted by mdPrettierCheck; this checks their line budgets and dead paths.
 tasks.register('agentDocsLint', Exec) {
   group = 'verification'
-  description = 'Check agent-instruction files for line budgets and paths that no longer exist'
+  description = 'Check agent-instruction files for guide-chain size, BUGBOT.md size and paths that no longer exist'
   workingDir = projectDir
   inputs.files(fileTree(projectDir) {
     include '**/AGENTS.md', '**/CLAUDE.md', '**/BUGBOT.md', '**/SKILL.md'

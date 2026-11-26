@@ -601,12 +601,15 @@ Root holds cross-project rules; module-specific rules live in the nearest `AGENT
 - Remove a bullet when tooling now enforces it, or the code it points at is gone. A style
   opinion the code does not agree on is not written down until the team decides.
 - One owner per fact: signpost root `AGENTS.md`, a module `developing.md` or a dev guide;
-  never copy. Budgets: 200 lines per `AGENTS.md`, 120 per `BUGBOT.md`. To add, cut.
+  never copy.
+- Budget what an agent loads, not file size: for any directory, this file plus every nested
+  `AGENTS.md` above it stays under 48,000 characters (about 1,200 lines). Nesting buys
+  locality, not room; to add, cut. `BUGBOT.md` is a separate consumer: 120 lines each.
 - Rules a reviewer should enforce get a mirrored "If ... then" entry in the module's
   `.cursor/BUGBOT.md`.
-- `./gradlew agentDocsLint` (part of `lintCheck`) fails on an exceeded budget or a
-  backticked path or relative link that no longer exists. Known findings are tolerated via
-  `.github/scripts/check_agent_docs_baseline.txt`, which only shrinks.
+- `./gradlew agentDocsLint` (part of `lintCheck`) fails on an exceeded chain or `BUGBOT.md`
+  budget or a backticked path or relative link that no longer exists. Known findings are
+  tolerated via `.github/scripts/check_agent_docs_baseline.txt`, which only shrinks.
 
 ## Important Notes
 
