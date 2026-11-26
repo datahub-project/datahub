@@ -799,21 +799,40 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if not notebook.upstreams:
             return None
 
-        upstreams = []
+        upstreams: List[UpstreamClass] = []
         for upstream_ref in notebook.upstreams:
             timestamp = make_ts_millis(upstream_ref.last_updated)
-            upstreams.append(
+            upstreams.extend(
                 self._create_upstream_class(
-                    self.gen_dataset_urn(upstream_ref),
-                    DatasetLineageTypeClass.COPY,
-                    timestamp,
+                    upstream_urn, DatasetLineageTypeClass.COPY, timestamp
                 )
+                for upstream_urn in self._notebook_upstream_urns(upstream_ref)
             )
 
         return MetadataChangeProposalWrapper(
             entityUrn=self.gen_notebook_urn(notebook),
             aspect=UpstreamLineageClass(upstreams=upstreams),
         ).as_workunit()
+
+    def _notebook_upstream_urns(self, upstream_ref: TableReference) -> List[str]:
+        # A metric view emitted as a semantic model has no dataset of its own;
+        # point the notebook at its logical datasets, as Genie does.
+        if self._metric_view_semantic_model_mapper is not None:
+            logical_urns = self._metric_view_semantic_model_mapper.logical_dataset_urns(
+                upstream_ref
+            )
+            if logical_urns:
+                return logical_urns
+        return [self.gen_dataset_urn(upstream_ref)]
+
+    def _add_notebook_upstreams(self, table: Table) -> None:
+        if not self.config.include_notebooks:
+            return
+        for notebook_id in table.downstream_notebooks:
+            if str(notebook_id) in self.notebooks:
+                self.notebooks[str(notebook_id)] = Notebook.add_upstream(
+                    table.ref, self.notebooks[str(notebook_id)]
+                )
 
     def _preserve_genie_agent_urn(self, urn: str) -> None:
         # A warned space is not emitted, so stale removal would soft-delete it.
@@ -964,6 +983,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     yield from self._process_metric_view_as_semantic_model(
                         table, schema, metric_view_spec
                     )
+                    self._add_notebook_upstreams(table)
                     self.report.tables.processed(
                         table.id, f"table ({table.table_type})"
                     )
@@ -1069,12 +1089,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             lineage, dataset_urn, table, schema_metadata
         )
 
-        if self.config.include_notebooks:
-            for notebook_id in table.downstream_notebooks:
-                if str(notebook_id) in self.notebooks:
-                    self.notebooks[str(notebook_id)] = Notebook.add_upstream(
-                        table.ref, self.notebooks[str(notebook_id)]
-                    )
+        self._add_notebook_upstreams(table)
 
         # Register every processed table's schema so that UC usage and
         # hive-metastore view lineage can resolve unqualified / partial table

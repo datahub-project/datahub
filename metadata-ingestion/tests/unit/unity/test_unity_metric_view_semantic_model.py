@@ -13,6 +13,8 @@ from datahub.ingestion.source.unity.genie_client import GenieSpace, GenieSpaceCl
 from datahub.ingestion.source.unity.proxy_types import (
     Catalog,
     Column,
+    Notebook,
+    NotebookReference,
     Schema,
     Table,
     TableReference,
@@ -373,3 +375,26 @@ def test_genie_points_metric_views_at_logical_datasets(
         assert upstreams == [
             f"urn:li:dataset:(urn:li:dataPlatform:databricks,{VIEW},PROD)"
         ]
+
+
+def test_notebook_reading_a_metric_view_points_at_logical_datasets() -> None:
+    for instance in _source(emit_semantic_model_entities=True, include_notebooks=True):
+        notebook = Notebook(
+            id=7, path="/a/nb", language=None, created_at=None, modified_at=None
+        )
+        instance.notebooks[str(notebook.id)] = notebook
+        table, schema = _metric_view(STAR_SCHEMA, columns=("order_date", "region"))
+        table.downstream_notebooks = {
+            notebook.id: NotebookReference(id=notebook.id, last_updated=None)
+        }
+        instance.unity_catalog_api_proxy = Mock(tables=Mock(return_value=[table]))
+        list(instance.process_tables(schema))
+
+        wu = instance._gen_notebook_lineage(instance.notebooks[str(notebook.id)])
+        assert wu is not None
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        lineage = wu.metadata.aspect
+        assert isinstance(lineage, UpstreamLineageClass)
+        assert sorted(u.dataset for u in lineage.upstreams) == sorted(
+            [_dataset("source"), _dataset("customer"), _dataset("nation")]
+        )
