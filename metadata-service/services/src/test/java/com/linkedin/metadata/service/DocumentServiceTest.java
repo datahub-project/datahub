@@ -853,6 +853,34 @@ public class DocumentServiceTest {
   }
 
   @Test
+  public void testSearchDocumentsKeepsTheVectorFlags() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    final DocumentService service = new DocumentService(mockClient);
+    final SearchFlags requested =
+        new SearchFlags()
+            .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:semantic"))
+            .setMinSimilarity(0.7f)
+            .setKeywordFallbackOnEmbeddingFailure(true);
+
+    service.searchDocuments(opContext, "tutorial", null, null, 0, 10, null, requested);
+
+    final ArgumentCaptor<OperationContext> captured =
+        ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient)
+        .search(
+            captured.capture(),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            eq("tutorial"),
+            any(),
+            any(List.class),
+            eq(0),
+            eq(10));
+    final SearchFlags applied = captured.getValue().getSearchContext().getSearchFlags();
+    Assert.assertEquals(applied.getMinSimilarity(), Float.valueOf(0.7f));
+    Assert.assertTrue(applied.isKeywordFallbackOnEmbeddingFailure());
+  }
+
+  @Test
   public void testSearchDocumentsWithoutATemplateStaysFulltext() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
     final DocumentService service = new DocumentService(mockClient);

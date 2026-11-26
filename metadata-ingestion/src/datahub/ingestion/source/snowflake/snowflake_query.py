@@ -5,6 +5,7 @@ from typing import AbstractSet, List, Optional
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import (
+    INTERACTIVE_TABLE_ACCESS_HISTORY_DOMAIN,
     SNOWFLAKE_INFORMATION_SCHEMA,
     SnowflakeObjectDomain,
     SnowflakeShowKind,
@@ -305,6 +306,7 @@ class SnowflakeQuery:
         SnowflakeObjectDomain.ICEBERG_TABLE.capitalize(),
         SnowflakeObjectDomain.STREAM.capitalize(),
         SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
+        INTERACTIVE_TABLE_ACCESS_HISTORY_DOMAIN,
     }
 
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(
@@ -315,6 +317,7 @@ class SnowflakeQuery:
     DOWNSTREAM_TABLE_DOMAINS = {
         SnowflakeObjectDomain.TABLE.capitalize(),
         SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
+        INTERACTIVE_TABLE_ACCESS_HISTORY_DOMAIN,
     }
 
     DOWNSTREAM_TABLE_DOMAINS_FILTER = "({})".format(
@@ -412,9 +415,12 @@ class SnowflakeQuery:
         type_list = ", ".join(f"'{t}'" for t in sorted(table_types))
         conditions.append(f"table_type in ({type_list})")
 
-        # Filter out dynamic tables if excluded
+        # Interactive tables with a target lag also report IS_DYNAMIC='YES', but they are emitted
+        # as interactive tables and opted out through table_types, so this flag leaves them in.
         if exclude_dynamic_tables:
-            conditions.append("COALESCE(is_dynamic, 'NO') = 'NO'")
+            conditions.append(
+                "(COALESCE(is_dynamic, 'NO') = 'NO' OR table_type = 'INTERACTIVE TABLE')"
+            )
 
         return conditions
 
@@ -726,7 +732,24 @@ WHERE SCHEMA = '{schema_name}'
         Note: Inputs are expected to be pre-validated Snowflake identifiers from
         INFORMATION_SCHEMA queries. Double-quote escaping is used for identifiers.
         """
-        return f"""SELECT GET_DDL('SEMANTIC_VIEW', '"{db_name}"."{schema_name}"."{semantic_view_name}"') AS "DDL";"""
+        qualified = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            db_name, schema_name, semantic_view_name
+        )
+        literal = _escape_sql_string_literal(qualified)
+        return f"""SELECT GET_DDL('SEMANTIC_VIEW', '{literal}') AS "DDL";"""
+
+    @staticmethod
+    def get_table_ddl(db_name: str, schema_name: str, table_name: str) -> str:
+        """Generate query to get the DDL definition of a table.
+
+        Note: Inputs are expected to be pre-validated Snowflake identifiers from
+        INFORMATION_SCHEMA queries. Double-quote escaping is used for identifiers.
+        """
+        qualified = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            db_name, schema_name, table_name
+        )
+        literal = _escape_sql_string_literal(qualified)
+        return f"""SELECT GET_DDL('TABLE', '{literal}') AS "DDL";"""
 
     @staticmethod
     def get_semantic_tables_for_database(db_name: str) -> str:

@@ -4,7 +4,6 @@ on:
     branches:
       - master
       - releases/**
-      - hotfixes/**
     paths:
       - ".github/workflows/datahub-ai-service.yml"
       - "gradle/python/datahub-python-package.gradle"

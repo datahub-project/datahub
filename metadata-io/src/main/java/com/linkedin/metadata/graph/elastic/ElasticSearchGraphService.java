@@ -165,6 +165,16 @@ public class ElasticSearchGraphService implements GraphService, MigratableIndexe
     return indexBuilder;
   }
 
+  /**
+   * Flushes pending edge writes and waits until the cluster acknowledged them. Acknowledged edges
+   * are still not searchable until the graph index refreshes.
+   *
+   * @return true when every pending write was acknowledged without failures
+   */
+  public boolean flushAndAwaitWrites() {
+    return !esBulkProcessor.flushAndAwait().hasFailures();
+  }
+
   @Override
   public LineageRegistry getLineageRegistry() {
     return lineageRegistry;
