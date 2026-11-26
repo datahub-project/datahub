@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from typing import (
     Annotated,
     Dict,
@@ -55,6 +56,16 @@ class CatalogBusinessMetadataAttribute(CatalogModel):
 class CatalogEntity(CatalogModel):
     name: str
     qualified_name: Optional[str] = Field(default=None, alias="qualifiedName")
+    # Curated in Confluent alongside the tags and business metadata. `owner` is a
+    # display name and `ownerEmail` the addressable identity, so only the latter
+    # can form a corpuser urn.
+    owner: Optional[str] = None
+    owner_email: Optional[str] = Field(default=None, alias="ownerEmail")
+    description: Optional[str] = None
+    # Source-platform timestamps, which is what DatasetProperties.created and
+    # .lastModified document - "created in the source Data Platform, not on DataHub".
+    create_time: Optional[datetime] = Field(default=None, alias="createTime")
+    update_time: Optional[datetime] = Field(default=None, alias="updateTime")
     tags: NullAsEmptyList[str] = Field(default_factory=list)
     business_metadata: NullAsEmptyList[CatalogBusinessMetadataAttribute] = Field(
         default_factory=list

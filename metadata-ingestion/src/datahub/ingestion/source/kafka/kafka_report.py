@@ -24,6 +24,10 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
     catalog_topics_indexed: int = 0
     catalog_tagged_topics: int = 0
     catalog_topics_with_business_metadata: int = 0
+    catalog_topics_with_owners: int = 0
+    catalog_topics_with_descriptions: int = 0
+    catalog_owners_without_email: int = 0
+    catalog_topics_with_timestamps: int = 0
     catalog_mirror_lineage_edges: int = 0
     catalog_mirror_lineage_skipped: LossyList[str] = field(default_factory=LossyList)
 

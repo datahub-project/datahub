@@ -270,6 +270,23 @@ class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
         "none); without a mapping no edge is emitted. The upstream URN uses this "
         "recipe's `env`, so both recipes must use the same `env`.",
     )
+    include_owners: bool = Field(
+        default=True,
+        description="Emit the Stream Catalog topic owner as a DataHub owner. Requires the "
+        "topic's `ownerEmail` to be set in Confluent, since the owner display name alone "
+        "cannot identify a user. Honours `strip_user_ids_from_email`.",
+    )
+    include_descriptions: bool = Field(
+        default=True,
+        description="Use the Stream Catalog topic description as the dataset description "
+        "for topics whose schema does not supply one. A description parsed from the Avro "
+        "schema's `doc` field takes precedence, so enabling this only fills gaps.",
+    )
+    include_timestamps: bool = Field(
+        default=True,
+        description="Emit the Stream Catalog topic's creation and last-modified times as "
+        "the dataset's source-platform timestamps.",
+    )
 
     @model_validator(mode="after")
     def validate_mirror_lineage(self) -> "KafkaConfluentCatalogConfig":
