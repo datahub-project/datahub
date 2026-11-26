@@ -15,7 +15,7 @@ from datahub.metadata.schema_classes import (
     GenericAspectClass,
     _Aspect,
 )
-from datahub.utilities.deprecation import warn_deprecated
+from datahub.utilities.deprecation import called_from_datahub, warn_deprecated
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,11 @@ _MCE_WORKUNIT_DEPRECATION_MESSAGE = (
     "Building a MetadataWorkUnit from a MetadataChangeEvent (MetadataWorkUnit(mce=...), "
     "MetadataWorkUnit.from_metadata or auto_workunit) is deprecated and will be removed "
     "in a future release. Use MetadataChangeProposalWrapper(...).as_workunit() instead."
+)
+
+_GENERATE_WORKUNIT_ID_MCE_DEPRECATION_MESSAGE = (
+    "Passing a MetadataChangeEvent to MetadataWorkUnit.generate_workunit_id is deprecated "
+    "and will be removed in a future release. Use MetadataChangeProposalWrapper instead."
 )
 
 T_Aspect = TypeVar("T_Aspect", bound=_Aspect)
@@ -117,6 +122,8 @@ class MetadataWorkUnit(WorkUnit):
         ],
     ) -> str:
         if isinstance(item, MetadataChangeEvent):
+            if not called_from_datahub():
+                warn_deprecated(_GENERATE_WORKUNIT_ID_MCE_DEPRECATION_MESSAGE)
             return f"{item.proposedSnapshot.urn}/mce"
         elif isinstance(item, (MetadataChangeProposalWrapper, MetadataChangeProposal)):
             if item.aspect and item.aspectName in TIMESERIES_ASPECT_MAP:

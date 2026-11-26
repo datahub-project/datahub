@@ -46,6 +46,11 @@ _CHECK_GOLDENS_STREAM_MCE_DEPRECATION_MESSAGE = (
     "Passing MetadataChangeEvents to check_goldens_stream is deprecated and will be removed "
     "in a future release. Use MetadataChangeProposalWrapper instead."
 )
+_READ_MCE_URNS_DEPRECATION_MESSAGE = (
+    "Reading MetadataChangeEvents with get_entity_urns, assert_for_each_entity, "
+    "assert_entity_urn_like or assert_entity_urn_not_like is deprecated and will be removed "
+    "in a future release. Use a file of MCPs instead."
+)
 _ASSERT_ENTITY_MCE_ASPECT_DEPRECATION_MESSAGE = (
     "assert_entity_mce_aspect is deprecated and will be removed in a future release. "
     "Use assert_entity_mcp_aspect instead."
@@ -211,14 +216,20 @@ def get_entity_urns(events_file: str) -> Set[str]:
     return _get_entity_urns(events)
 
 
-def _get_entity_urns(events_list: List[Dict]) -> Set[str]:
-    entity_type = "dataset"
-    # mce urns
-    mce_urns = {
+def _mce_urns(events: List[Dict], entity_type: str) -> Set[str]:
+    urns = {
         _get_element(x, _get_mce_urn_path_spec(entity_type))
-        for x in events_list
+        for x in events
         if _get_filter(mce=True, entity_type=entity_type)(x)
     }
+    if urns:
+        warn_deprecated(_READ_MCE_URNS_DEPRECATION_MESSAGE)
+    return urns
+
+
+def _get_entity_urns(events_list: List[Dict]) -> Set[str]:
+    entity_type = "dataset"
+    mce_urns = _mce_urns(events_list, entity_type)
     mcp_urns = {
         _get_element(x, _get_mcp_urn_path_spec())
         for x in events_list
@@ -309,12 +320,7 @@ def assert_for_each_entity(
         exception_urns = []
     test_output = load_json_file(file)
     assert isinstance(test_output, list)
-    # mce urns
-    mce_urns = {
-        _get_element(x, _get_mce_urn_path_spec(entity_type))
-        for x in test_output
-        if _get_filter(mce=True, entity_type=entity_type)(x)
-    }
+    mce_urns = _mce_urns(test_output, entity_type)
     mcp_urns = {
         _get_element(x, _get_mcp_urn_path_spec())
         for x in test_output
@@ -418,12 +424,7 @@ def assert_entity_urn_not_like(entity_type: str, regex_pattern: str, file: str) 
     # TODO: Refactor common code with assert_entity_urn_like.
     test_output = load_json_file(file)
     assert isinstance(test_output, list)
-    # mce urns
-    mce_urns = {
-        _get_element(x, _get_mce_urn_path_spec(entity_type))
-        for x in test_output
-        if _get_filter(mce=True, entity_type=entity_type)(x)
-    }
+    mce_urns = _mce_urns(test_output, entity_type)
     mcp_urns = {
         _get_element(x, _get_mcp_urn_path_spec())
         for x in test_output
@@ -442,12 +443,7 @@ def assert_entity_urn_like(entity_type: str, regex_pattern: str, file: str) -> i
 
     test_output = load_json_file(file)
     assert isinstance(test_output, list)
-    # mce urns
-    mce_urns = {
-        _get_element(x, _get_mce_urn_path_spec(entity_type))
-        for x in test_output
-        if _get_filter(mce=True, entity_type=entity_type)(x)
-    }
+    mce_urns = _mce_urns(test_output, entity_type)
     mcp_urns = {
         _get_element(x, _get_mcp_urn_path_spec())
         for x in test_output

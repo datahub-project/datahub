@@ -17,9 +17,15 @@ from datahub.emitter.kafka_emitter import (
     MCP_KEY,
 )
 from datahub.pgqueue.sql import validate_pg_identifier
+from datahub.utilities.deprecation import warn_deprecated
 from datahub.utilities.str_enum import StrEnum
 
 PayloadRouteKind = Literal["mcp", "mce", "mcl", "pe"]
+
+_MCE_PAYLOAD_KIND_DEPRECATION_MESSAGE = (
+    'The "mce" payload kind in PgQueueConsumerConfig.payload_kind_by_route_key is deprecated '
+    'and will be removed in a future release. Use the "mcp" payload kind instead.'
+)
 
 
 def _default_payload_kinds() -> Dict[str, PayloadRouteKind]:
@@ -323,6 +329,16 @@ class PgQueueConsumerConfig(ConfigModel):
             "(DATAHUB_PGQUEUE_ERROR_RECOVERY_SLEEP_MS on GMS). Does not grow empty-poll backoff."
         ),
     )
+
+    # Runs only on a value the user sets; the default's "mce" route goes away with MCE support.
+    @field_validator("payload_kind_by_route_key", mode="after")
+    @classmethod
+    def warn_on_mce_payload_kind(
+        cls, v: Dict[str, PayloadRouteKind]
+    ) -> Dict[str, PayloadRouteKind]:
+        if "mce" in v.values():
+            warn_deprecated(_MCE_PAYLOAD_KIND_DEPRECATION_MESSAGE)
+        return v
 
     @model_validator(mode="after")
     def clamp_empty_poll_sleep(self) -> "PgQueueConsumerConfig":

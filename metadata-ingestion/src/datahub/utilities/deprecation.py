@@ -28,8 +28,9 @@ def _in_datahub(frame: FrameType) -> bool:
 
 
 # ABCMeta.__new__ and typing.Generic.__init_subclass__ run between a class statement and a
-# datahub __init_subclass__.
-_SKIPPED_MODULES = frozenset({"abc", "typing"})
+# datahub __init_subclass__; BaseModel.__init__ and model_validate run between a config's
+# construction and a datahub validator.
+_SKIPPED_MODULES = frozenset({"abc", "typing", "pydantic.main"})
 
 
 def _skipped(frame: FrameType) -> bool:

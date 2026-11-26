@@ -83,6 +83,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     StatusClass,
 )
+from datahub.pgqueue.config import PgQueueConnectionConfig, PgQueueConsumerConfig
 from datahub.pgqueue.consumer import DatahubPgQueueConsumer, poll_mce_messages
 from datahub.testing import mce_helpers
 from datahub.utilities.deprecation import log_deprecation_once
@@ -327,6 +328,35 @@ def _check_unpack_mces(tmp_path: pathlib.Path) -> str:
     )
 
 
+def _pg_consumer_config(payload_kind: str) -> PgQueueConsumerConfig:
+    queue = PgQueueConnectionConfig(
+        host_port="localhost:5432", database="db", username="u", password="p"
+    )
+    return PgQueueConsumerConfig(
+        queue=queue, payload_kind_by_route_key={"route": payload_kind}
+    )
+
+
+# The urn helpers that also count MCE records; each takes (path) and reads the file.
+URN_HELPERS: List[Any] = [
+    ("get_entity_urns", lambda f: mce_helpers.get_entity_urns(f)),
+    (
+        "assert_for_each_entity",
+        lambda f: mce_helpers.assert_for_each_entity(
+            "dataset", "status", {}, f, exception_urns=[URN]
+        ),
+    ),
+    (
+        "assert_entity_urn_like",
+        lambda f: mce_helpers.assert_entity_urn_like("dataset", ".*", f),
+    ),
+    (
+        "assert_entity_urn_not_like",
+        lambda f: mce_helpers.assert_entity_urn_not_like("dataset", "^$", f),
+    ),
+]
+
+
 MCE_CALLS: List[Any] = [
     pytest.param(lambda p: MetadataWorkUnit("id", mce=_mce()), id="workunit-mce"),
     pytest.param(lambda p: MetadataWorkUnit.from_metadata(_mce()), id="from_metadata"),
@@ -488,6 +518,15 @@ MCE_CALLS: List[Any] = [
         lambda p: _pg_consumer("mce")._deserialize("route", "topic", b"\x00"),
         id="pgqueue-mce-payload",
     ),
+    pytest.param(lambda p: _pg_consumer_config("mce"), id="pgqueue-mce-payload-kind"),
+    pytest.param(
+        lambda p: MetadataWorkUnit.generate_workunit_id(_mce()),
+        id="generate_workunit_id",
+    ),
+    *[
+        pytest.param(lambda p, call=call: call(str(_mce_file(p))), id=name)
+        for name, call in URN_HELPERS
+    ],
 ]
 
 
@@ -586,6 +625,15 @@ MCP_CALLS: List[Any] = [
         lambda p: _pg_consumer("mcp")._deserialize("route", "topic", b"\x00"),
         id="pgqueue-mcp-payload",
     ),
+    pytest.param(lambda p: _pg_consumer_config("mcp"), id="pgqueue-mcp-payload-kind"),
+    pytest.param(
+        lambda p: MetadataWorkUnit.generate_workunit_id(_mcp()),
+        id="generate_workunit_id",
+    ),
+    *[
+        pytest.param(lambda p, call=call: call(str(_mcp_file(p))), id=name)
+        for name, call in URN_HELPERS
+    ],
 ]
 
 
