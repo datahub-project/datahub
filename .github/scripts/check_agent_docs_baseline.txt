@@ -1,5 +1,5 @@
 # Known findings tolerated by .github/scripts/check_agent_docs.py.
-# Format: <path>\t<stack|budget|ref>\t<chars or lines ceiling | dead token>.
+# Format: <path>\t<stack|budget|shim|ref>\t<chars or lines ceiling | dead token | empty>.
 # Fix the finding and remove its line; never add new entries by hand.
 .cursor/BUGBOT.md	budget	319
 datahub-web-react/AGENTS.md	ref	folderName/folderName.types.ts
@@ -8,6 +8,6 @@ datahub-web-react/AGENTS.md	ref	parent/NewComponent.tsx
 datahub-web-react/AGENTS.md	ref	parent/NewComponent/NewComponent.tsx
 datahub-web-react/AGENTS.md	ref	parent/SourceFile.components.tsx
 docs/.cursor/BUGBOT.md	ref	docs/wip
-metadata-integration/java/acryl-spark-lineage/CLAUDE.md	ref	yyyy/MM/dd
-metadata-integration/java/acryl-spark-lineage/CLAUDE.md	stack	67285
+metadata-integration/java/acryl-spark-lineage/AGENTS.md	ref	yyyy/MM/dd
+metadata-integration/java/acryl-spark-lineage/AGENTS.md	stack	67374
 smoke-test/.cursor/BUGBOT.md	ref	smoke-test/tests/read_only

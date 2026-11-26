@@ -120,7 +120,7 @@ npm run format                          # WRONG - bypasses Gradle
 
 **Java SDK v2 integration tests:**
 
-See [metadata-integration/java/datahub-client/CLAUDE.md](metadata-integration/java/datahub-client/CLAUDE.md) for detailed integration test documentation.
+See [metadata-integration/java/datahub-client/AGENTS.md](metadata-integration/java/datahub-client/AGENTS.md) for detailed integration test documentation.
 
 ## Architecture Overview
 
@@ -590,7 +590,8 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 ## Maintaining AGENTS.md files
 
 Root holds cross-project rules; module-specific rules live in the nearest `AGENTS.md`
-(nearest file wins). Where an `AGENTS.md` exists, its `CLAUDE.md` is a one-line `@AGENTS.md` shim.
+(nearest file wins). Every guide is an `AGENTS.md`; the `CLAUDE.md` beside it is the one-line
+`@AGENTS.md` shim and never carries content of its own.
 
 - While developing or reviewing a PR, when you make or receive an architectural or
   strategic decision that is not derivable from the code (a pattern to follow, a trap, a
@@ -608,8 +609,9 @@ Root holds cross-project rules; module-specific rules live in the nearest `AGENT
 - Rules a reviewer should enforce get a mirrored "If ... then" entry in the module's
   `.cursor/BUGBOT.md`.
 - `./gradlew agentDocsLint` (part of `lintCheck`) fails on an exceeded chain or `BUGBOT.md`
-  budget or a backticked path or relative link that no longer exists. Known findings are
-  tolerated via `.github/scripts/check_agent_docs_baseline.txt`, which only shrinks.
+  budget, a missing or non-shim `CLAUDE.md`, or a backticked path or relative link that no
+  longer exists. Known findings are tolerated via `.github/scripts/check_agent_docs_baseline.txt`,
+  which only shrinks.
 
 ## Important Notes
 

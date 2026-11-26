@@ -120,23 +120,27 @@ def test_agent_file_discovery_skips_build_dirs() -> None:
     }
 
 
-def test_guide_chain_sums_root_and_nested_guides_and_skips_shims(
+def test_guide_chain_sums_root_and_nested_agents_md_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(linter, "STACK_CHAR_BUDGET", 1_000)
     _write(tmp_path, "AGENTS.md", "r" * 600)
-    _write(tmp_path, "CLAUDE.md", "# CLAUDE.md\n\n@AGENTS.md\n")  # shim, not counted
+    _write(tmp_path, "CLAUDE.md", "@AGENTS.md\n")  # shim, never counted
     _write(tmp_path, "mod/AGENTS.md", "m" * 300)
     _write(tmp_path, "mod/CLAUDE.md", "@AGENTS.md\n")
     _write(tmp_path, "mod/deep/AGENTS.md", "d" * 200)  # 600 + 300 + 200 > 1,000
-    _write(tmp_path, "java/CLAUDE.md", "j" * 500)  # real guide: 600 + 500 > 1,000
+    _write(tmp_path, "mod/deep/CLAUDE.md", "@AGENTS.md\n")
+    _write(tmp_path, "other/AGENTS.md", "o" * 100)  # 600 + 100, fine
+    _write(tmp_path, "other/CLAUDE.md", "@AGENTS.md\n")
     tracked = [
         "AGENTS.md",
         "CLAUDE.md",
         "mod/AGENTS.md",
         "mod/CLAUDE.md",
         "mod/deep/AGENTS.md",
-        "java/CLAUDE.md",
+        "mod/deep/CLAUDE.md",
+        "other/AGENTS.md",
+        "other/CLAUDE.md",
     ]
 
     chains = linter.guide_chains(tmp_path, tracked)
@@ -147,10 +151,35 @@ def test_guide_chain_sums_root_and_nested_guides_and_skips_shims(
         "mod/AGENTS.md",
         "mod/deep/AGENTS.md",
     ]
-    assert {(f.path.as_posix(), f.kind, f.key) for f in findings} == {
-        ("mod/deep/AGENTS.md", "stack", "1100"),
-        ("java/CLAUDE.md", "stack", "1100"),
-    }
+    assert [(f.path.as_posix(), f.kind, f.key) for f in findings] == [
+        ("mod/deep/AGENTS.md", "stack", "1100")
+    ]
+    assert linter.lint_shims(tmp_path, tracked) == []
+
+
+def test_shim_pairing_is_enforced_both_ways(tmp_path: Path) -> None:
+    _write(tmp_path, "AGENTS.md", "root")
+    _write(tmp_path, "CLAUDE.md", "# CLAUDE.md\n\n@AGENTS.md\n")  # heading: not exact
+    _write(tmp_path, "a/AGENTS.md", "no companion")
+    _write(tmp_path, "b/CLAUDE.md", "real content, no AGENTS.md")
+    _write(tmp_path, "c/AGENTS.md", "ok")
+    _write(tmp_path, "c/CLAUDE.md", "@AGENTS.md\n")
+    tracked = [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "a/AGENTS.md",
+        "b/CLAUDE.md",
+        "c/AGENTS.md",
+        "c/CLAUDE.md",
+    ]
+
+    findings = linter.lint_shims(tmp_path, tracked)
+
+    assert [(f.path.as_posix(), f.kind) for f in findings] == [
+        ("AGENTS.md", "shim"),
+        ("a/AGENTS.md", "shim"),
+        ("b/CLAUDE.md", "shim"),
+    ]
 
 
 def test_baseline_tolerates_known_findings_and_flags_stale_entries(
@@ -172,6 +201,14 @@ def test_baseline_tolerates_known_findings_and_flags_stale_entries(
 
     assert unexpected == []
     assert stale == [".cursor/BUGBOT.md\tref\tfixed/already.py"]
+
+
+def test_baseline_tolerates_a_shim_finding_by_exact_entry() -> None:
+    shim = linter.Finding(Path("x/CLAUDE.md"), 1, "shim", "", "")
+
+    unexpected, stale = linter.apply_baseline([shim], {"x/CLAUDE.md\tshim\t"})
+
+    assert unexpected == [] and stale == []
 
 
 def test_baseline_ceiling_applies_to_stack_and_budget_kinds() -> None:

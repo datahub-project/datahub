@@ -4,9 +4,11 @@
 Formatters already cover these files. This checks what they cannot:
 
 - the size of the guide chain a coding agent loads for a directory: root
-  ``AGENTS.md`` plus every nested ``AGENTS.md`` (or non-shim ``CLAUDE.md``) above
-  it, capped in characters because that is what the agent pays, not file count;
+  ``AGENTS.md`` plus every nested ``AGENTS.md`` above it, capped in characters
+  because that is what the agent pays, not file count;
 - a per-file line budget for ``BUGBOT.md``, which a review bot loads separately;
+- that every ``AGENTS.md`` has a sibling ``CLAUDE.md`` that is exactly ``@AGENTS.md``,
+  and no ``CLAUDE.md`` carries content of its own;
 - that every repo path written in backticks or as a relative Markdown link exists.
 
 Findings recorded in the baseline file are tolerated so existing files can be
@@ -57,8 +59,8 @@ LINE_SUFFIX_RE = re.compile(r":\d+(-\d+)?$")
 class Finding:
     path: Path
     line: int
-    kind: str  # "stack", "budget" or "ref"
-    key: str  # chars or lines for the size kinds, the dead token for ref
+    kind: str  # "stack", "budget", "shim" or "ref"
+    key: str  # chars or lines for the size kinds, the dead token for ref, "" for shim
     message: str
 
     def __str__(self) -> str:
@@ -69,6 +71,7 @@ class Finding:
 
 
 CEILING_KINDS = {"stack", "budget"}
+EXACT_KINDS = {"ref", "shim"}
 
 
 def tracked_files(root: Path) -> list[str]:
@@ -95,22 +98,46 @@ def tracked_agent_files(root: Path, tracked: list[str]) -> list[Path]:
     return files
 
 
+SHIM_CONTENT = "@AGENTS.md"
+
+
 def is_shim(text: str) -> bool:
-    """A CLAUDE.md that only imports AGENTS.md (headings and blank lines aside)."""
-    body = [line.strip() for line in text.splitlines()]
-    body = [line for line in body if line and not line.startswith("#")]
-    return body == ["@AGENTS.md"]
+    """A CLAUDE.md whose whole content is the import line."""
+    return text.strip() == SHIM_CONTENT
+
+
+def lint_shims(root: Path, tracked: list[str]) -> list[Finding]:
+    """Every AGENTS.md has a sibling CLAUDE.md that is exactly the shim, and no
+    CLAUDE.md exists on its own or carries content of its own."""
+    guides = {Path(p) for p in tracked if Path(p).name in GUIDE_FILE_NAMES}
+    guides = {g for g in guides if not SKIPPED_PARTS.intersection(g.parts)}
+    findings: list[Finding] = []
+    for guide in sorted(guides):
+        sibling = guide.with_name(
+            "CLAUDE.md" if guide.name == "AGENTS.md" else "AGENTS.md"
+        )
+        if guide.name == "AGENTS.md":
+            if sibling not in guides:
+                msg = f"no {sibling.name} beside it; add one containing exactly `{SHIM_CONTENT}`"
+            elif not is_shim((root / sibling).read_text("utf-8")):
+                msg = f"{sibling.name} must contain exactly `{SHIM_CONTENT}`; move its content here"
+            else:
+                continue
+        elif sibling not in guides:
+            msg = "guides live in AGENTS.md; rename this file and leave a shim"
+        else:
+            continue
+        findings.append(Finding(guide, 1, "shim", "", msg))
+    return findings
 
 
 def guide_chains(root: Path, tracked: list[str]) -> dict[Path, list[Path]]:
     """Map each directory that holds a guide to the guides an agent loads there:
-    every AGENTS.md (or non-shim CLAUDE.md) from the repo root down to it."""
+    every AGENTS.md from the repo root down to it."""
     guides_by_dir: dict[Path, list[Path]] = {}
     for posix in tracked:
         rel = Path(posix)
-        if rel.name not in GUIDE_FILE_NAMES or SKIPPED_PARTS.intersection(rel.parts):
-            continue
-        if rel.name == "CLAUDE.md" and is_shim((root / rel).read_text("utf-8")):
+        if rel.name != "AGENTS.md" or SKIPPED_PARTS.intersection(rel.parts):
             continue
         guides_by_dir.setdefault(rel.parent, []).append(rel)
 
@@ -337,7 +364,7 @@ def apply_baseline(
         path, kind, key = parts
         if kind in CEILING_KINDS and key.isdigit():
             ceilings[(path, kind)] = int(key)
-        elif kind == "ref":
+        elif kind in EXACT_KINDS:
             ref_entries.add(entry)
 
     unexpected: list[Finding] = []
@@ -394,13 +421,15 @@ def main(argv: list[str] | None = None) -> int:
             findings.extend(lint_file(path, root, tracked))
     wanted = {p.resolve().relative_to(root) for p in paths if p.exists()}
     findings.extend(
-        f for f in lint_stacks(root, tracked) if not args.paths or f.path in wanted
+        f
+        for f in [*lint_shims(root, tracked), *lint_stacks(root, tracked)]
+        if not args.paths or f.path in wanted
     )
 
     if args.update_baseline:
         header = [
             "# Known findings tolerated by .github/scripts/check_agent_docs.py.",
-            "# Format: <path>\\t<stack|budget|ref>\\t<chars or lines ceiling | dead token>.",
+            "# Format: <path>\\t<stack|budget|shim|ref>\\t<chars or lines ceiling | dead token | empty>.",
             "# Fix the finding and remove its line; never add new entries by hand.",
         ]
         body = sorted({f.baseline_entry() for f in findings})

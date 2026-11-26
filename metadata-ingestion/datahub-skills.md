@@ -109,7 +109,7 @@ Reply `approved` to proceed, or describe changes and the skill will revise the d
 
 ### 3. Build
 
-This is your implementation step. Use the plan in `_PLANNING.md` as the guide and refer to `CLAUDE.md` for build, lint, and test commands.
+This is your implementation step. Use the plan in `_PLANNING.md` as the guide and refer to `AGENTS.md` for build, lint, and test commands.
 
 Key commands during development:
 
