@@ -18,6 +18,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Literal, Optional, Set
 
+import requests
+
 from datahub.emitter.mce_builder import (
     make_chart_urn,
     make_dataset_urn,
@@ -42,7 +44,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.omni.omni_api import OmniClient
+from datahub.ingestion.source.omni.omni_api import OmniClient, ScimUser
 from datahub.ingestion.source.omni.omni_config import OmniSourceConfig
 from datahub.ingestion.source.omni.omni_lineage_parser import (
     FieldRef,
@@ -79,20 +81,19 @@ logger = logging.getLogger(__name__)
 FieldConfidence = Literal["unresolved", "exact", "derived"]
 
 
-def _scim_user_email(user: Dict[str, Any]) -> Optional[str]:
-    # SCIM userName is the login email in Omni; emails[] covers payloads
-    # where userName is missing.
-    email = user.get("userName")
-    if not email:
-        emails = user.get("emails") or []
-        primary = next(
-            (e for e in emails if isinstance(e, dict) and e.get("primary")), None
-        )
-        chosen = primary or (emails[0] if emails else None)
-        email = chosen.get("value") if isinstance(chosen, dict) else None
-    if not isinstance(email, str) or "@" not in email:
-        return None
-    return email.strip()
+def _scim_user_email(user: ScimUser) -> Optional[str]:
+    # userName is the login email in Omni, but SCIM allows a plain handle there,
+    # so fall back to emails[]: the primary entry first, then any address.
+    user_name = user.get("userName")
+    if isinstance(user_name, str) and "@" in user_name:
+        return user_name.strip()
+    emails = user.get("emails") or []
+    candidates = [e for e in emails if e.get("primary")] + list(emails)
+    for entry in candidates:
+        value = entry.get("value")
+        if isinstance(value, str) and "@" in value:
+            return value.strip()
+    return None
 
 
 @dataclass(frozen=True)
@@ -1140,6 +1141,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
     def _load_owner_emails(self) -> None:
+        # Fill a local map and publish it only once every page has loaded, so a
+        # failure part-way leaves no owner resolved instead of an arbitrary subset.
+        email_by_id: Dict[str, str] = {}
         try:
             for user in self.client.list_users():
                 self.report.increment_counter("users_scanned")
@@ -1148,24 +1152,44 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 if user_id and email:
                     if self.config.lowercase_owner_emails:
                         email = email.lower()
-                    self._owner_email_by_id[str(user_id)] = email
-            self._owner_lookup_succeeded = True
+                    email_by_id[str(user_id)] = email
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code in (401, 403):
+                # Expected with a personal access token, which Omni rejects on
+                # SCIM endpoints; the rest of ingestion is unaffected.
+                self.report.info(
+                    title="Owner emails not resolved",
+                    message=(
+                        "The API key cannot read the Omni SCIM users API, so owners "
+                        "are emitted as Omni user IDs. Use an Organization API key "
+                        "for email-based owners. Other metadata is unaffected."
+                    ),
+                    exc=exc,
+                )
+            else:
+                self._report_owner_lookup_failure(exc)
+            return
         except Exception as exc:
-            self.report.warning(
-                title="Owner email lookup failed",
-                message=(
-                    "Could not list users from the Omni SCIM API, so owners fall "
-                    "back to Omni user IDs. The API key must be an Organization "
-                    "API key; personal access tokens are rejected by this endpoint."
-                ),
-                exc=exc,
-            )
+            self._report_owner_lookup_failure(exc)
+            return
+        self._owner_email_by_id = email_by_id
+        self._owner_lookup_succeeded = True
+
+    def _report_owner_lookup_failure(self, exc: Exception) -> None:
+        self.report.warning(
+            title="Owner email lookup failed",
+            message=(
+                "Could not list users from the Omni SCIM users API, so all owners "
+                "are emitted as Omni user IDs. Other metadata is unaffected."
+            ),
+            exc=exc,
+        )
 
     def _resolve_owner_urn(self, *, owner_id: str, owner_name: str) -> Optional[str]:
         if owner_id:
             email = self._owner_email_by_id.get(owner_id)
             if email:
-                self.report.increment_counter("owners_resolved_to_email")
+                self.report.report_owner_resolved(owner_id)
                 return make_user_urn(email)
             # Only flag individual misses when the lookup ran; otherwise the
             # single lookup-failure warning already explains every fallback.

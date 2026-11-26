@@ -11,6 +11,8 @@ The fake client covers:
 
 from typing import Any, Dict, Iterator, List
 
+from datahub.ingestion.source.omni.omni_api import ScimUser
+
 # ---- Connections ----------------------------------------------------------
 
 CONNECTIONS = [
@@ -125,13 +127,11 @@ ADMIN_USER_ID = "3f9a2c1e-7b4d-4e8a-9c61-0d2b5e8f1a47"
 # Deliberately absent from USERS to exercise the unresolved-owner fallback.
 ANALYST_USER_ID = "b81e4d27-5c3a-4f19-a6e2-9d07c3f8b512"
 
-USERS = [
+USERS: List[ScimUser] = [
     {
         "id": ADMIN_USER_ID,
         "userName": "Admin.User@example.com",
-        "displayName": "Admin User",
         "emails": [{"primary": True, "value": "Admin.User@example.com"}],
-        "active": True,
     },
 ]
 
@@ -249,7 +249,7 @@ class FakeOmniClientFull:
     def list_folders(self, page_size: int = 50) -> Iterator[Dict[str, Any]]:
         yield from FOLDERS
 
-    def list_users(self, page_size: int = 100) -> Iterator[Dict[str, Any]]:
+    def list_users(self, page_size: int = 100) -> Iterator[ScimUser]:
         yield from USERS
 
     def list_documents(
