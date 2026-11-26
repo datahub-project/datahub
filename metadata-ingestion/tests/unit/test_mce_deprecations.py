@@ -1,12 +1,14 @@
 """Every public way to build, emit, write, read or accept a MetadataChangeEvent warns.
 
-Exceptions, listed in breaking-changes: the MCE constants and type hints.
+Exceptions, listed in breaking-changes: the MCE constants, the type hints and the snapshot classes.
 """
 
 import contextlib
+import copy
 import json
 import logging
 import pathlib
+import pickle
 import threading
 import warnings
 from typing import (
@@ -94,13 +96,17 @@ Call = Callable[[pathlib.Path], object]
 Record = Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]
 
 
-def _mce() -> MetadataChangeEventClass:
-    return MetadataChangeEventClass(
-        proposedSnapshot=DatasetSnapshotClass(
-            urn=URN,
-            aspects=[StatusClass(removed=False), DatasetPropertiesClass(name="t")],
+def _quiet_mce(aspects: List[Any]) -> MetadataChangeEventClass:
+    # Built without its own warning so each test sees only the warning of the API it calls.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DataHubDeprecationWarning)
+        return MetadataChangeEventClass(
+            proposedSnapshot=DatasetSnapshotClass(urn=URN, aspects=aspects)
         )
-    )
+
+
+def _mce() -> MetadataChangeEventClass:
+    return _quiet_mce([StatusClass(removed=False), DatasetPropertiesClass(name="t")])
 
 
 def _mcp() -> MetadataChangeProposalWrapper:
@@ -358,6 +364,12 @@ URN_HELPERS: List[Any] = [
 
 
 MCE_CALLS: List[Any] = [
+    pytest.param(
+        lambda p: MetadataChangeEventClass(
+            proposedSnapshot=DatasetSnapshotClass(urn=URN, aspects=[])
+        ),
+        id="MetadataChangeEventClass",
+    ),
     pytest.param(lambda p: MetadataWorkUnit("id", mce=_mce()), id="workunit-mce"),
     pytest.param(lambda p: MetadataWorkUnit.from_metadata(_mce()), id="from_metadata"),
     pytest.param(lambda p: list(auto_workunit([_mce()])), id="auto_workunit"),
@@ -566,6 +578,27 @@ def test_mce_api_warns_once_at_the_caller(
     assert [r.getMessage() for r in caplog.records].count(messages.pop()) == 1
 
 
+@pytest.mark.parametrize(
+    "rebuild",
+    [
+        pytest.param(
+            lambda m: MetadataChangeEventClass.from_obj(m.to_obj()), id="from_obj"
+        ),
+        pytest.param(copy.deepcopy, id="deepcopy"),
+        pytest.param(lambda m: pickle.loads(pickle.dumps(m)), id="pickle"),
+    ],
+)
+def test_reading_an_mce_does_not_warn(
+    rebuild: Callable[[MetadataChangeEventClass], MetadataChangeEventClass],
+) -> None:
+    mce = _mce()
+    # Any DeprecationWarning, so a runtime class marker (which warns in __new__) also fails.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        rebuild(mce)
+    assert [w for w in caught if issubclass(w.category, DeprecationWarning)] == []
+
+
 MCP_CALLS: List[Any] = [
     pytest.param(lambda p: MetadataWorkUnit("id", mcp=_mcp()), id="workunit-mcp"),
     pytest.param(lambda p: list(auto_workunit([_mcp()])), id="auto_workunit"),
@@ -749,9 +782,7 @@ def test_converting_paths_write_the_mcps_of_the_mce(tmp_path: pathlib.Path) -> N
 
 
 def test_converting_paths_keep_an_mce_without_aspects(tmp_path: pathlib.Path) -> None:
-    empty = MetadataChangeEventClass(
-        proposedSnapshot=DatasetSnapshotClass(urn=URN, aspects=[])
-    )
+    empty = _quiet_mce([])
     path = tmp_path / "empty.json"
     path.write_text(json.dumps([empty.to_obj()]))
     with pytest.warns(DataHubDeprecationWarning):

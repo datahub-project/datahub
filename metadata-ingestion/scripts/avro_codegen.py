@@ -362,6 +362,39 @@ EntityTypeName = Literal[
     schema_class_file.write_text("\n".join(schema_classes_lines))
 
 
+_MCE_CLASS_DEPRECATION_MESSAGE = (
+    "MetadataChangeEventClass is deprecated and will be removed in a future release. "
+    "Use MetadataChangeProposalWrapper instead."
+)
+
+
+def deprecate_mce_class(schema_class_file: Path) -> None:
+    schema_classes_lines = schema_class_file.read_text().splitlines()
+    class_def_line = schema_classes_lines.index(
+        "class MetadataChangeEventClass(DictWrapper):"
+    )
+    super_init_line = schema_classes_lines.index(
+        "        super().__init__()", class_def_line
+    )
+
+    # category=None marks the class for type checkers only. A runtime @deprecated would wrap
+    # __new__, which avrogen's _construct, from_obj, copy and pickle call on every MCE read.
+    # The import is deferred because datahub.utilities.deprecation loads pydantic.
+    schema_classes_lines[super_init_line] += f"""
+        from datahub.utilities.deprecation import called_from_datahub, warn_deprecated
+        if not called_from_datahub():
+            warn_deprecated({_MCE_CLASS_DEPRECATION_MESSAGE!r})"""
+    schema_classes_lines[class_def_line] = (
+        f"@typing_extensions.deprecated({_MCE_CLASS_DEPRECATION_MESSAGE!r}, category=None)\n"
+        + schema_classes_lines[class_def_line]
+    )
+    schema_classes_lines[
+        schema_classes_lines.index("__SCHEMAS: Dict[str, RecordSchema] = {}")
+    ] += "\n\nimport typing_extensions\n"
+
+    schema_class_file.write_text("\n".join(schema_classes_lines))
+
+
 def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
     urn_dir.mkdir()
 
@@ -860,6 +893,7 @@ def generate(
         list(aspects.values()),
         Path(outdir) / "schema_classes.py",
     )
+    deprecate_mce_class(Path(outdir) / "schema_classes.py")
 
     if enable_custom_loader:
         # Move schema_classes.py -> _internal_schema_classes.py
