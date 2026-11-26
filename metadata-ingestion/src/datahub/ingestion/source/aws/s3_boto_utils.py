@@ -101,7 +101,14 @@ def get_s3_tags(
             )
 
     if use_s3_object_tags and key_name is not None:
-        tag_set = get_object_tag_set(bucket_name, key_name, aws_config)
+        try:
+            tag_set = get_object_tag_set(bucket_name, key_name, aws_config)
+        # S3-compatible stores may not implement GetObjectTagging.
+        except ClientError as e:
+            logger.warning(
+                f"No tags found for bucket={bucket_name} key={key_name} ({aws_error_code(e)})"
+            )
+            tag_set = []
         if tag_set:
             tags_to_add.extend(
                 [make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""") for tag in tag_set]

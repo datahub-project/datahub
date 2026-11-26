@@ -20,6 +20,7 @@ from typing import (
     Optional,
     Tuple,
 )
+from urllib.parse import urlparse
 
 import smart_open.compression as so_compression
 from botocore.exceptions import BotoCoreError, ClientError
@@ -532,8 +533,22 @@ class S3Source(StatefulIngestionSourceBase):
         Returns:
             An external URL or None if not applicable
         """
+        if self._has_non_aws_s3_endpoint():
+            return None
         # The adapter handles all the URL generation with proper region handling
         return self.object_store_adapter.get_external_url(table_data)
+
+    def _has_non_aws_s3_endpoint(self) -> bool:
+        """True when aws_endpoint_url points at an S3-compatible store with no AWS console."""
+        aws_config = self.source_config.aws_config
+        if not aws_config or not aws_config.aws_endpoint_url:
+            return False
+        host = (urlparse(aws_config.aws_endpoint_url).hostname or "").lower()
+        return not (
+            host.endswith(".amazonaws.com")
+            or host.endswith("storage.googleapis.com")
+            or host in ("localhost", "127.0.0.1", "localstack")
+        )
 
     def ingest_table(
         self, table_data: TableData, path_spec: PathSpec

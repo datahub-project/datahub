@@ -145,4 +145,9 @@ source:
       - include: "s3://my-bucket/{table}/*.parquet"
 ```
 
-The IAM policy steps above are AWS-specific. On other providers, grant the equivalent read and list access with that provider's own credential mechanism.
+Things that differ from Amazon S3:
+
+- `externalUrl` is not set for datasets on a non-AWS endpoint, since there is no AWS console page to link to.
+- `aws_role` is AWS-only. Role assumption calls AWS STS directly, so use the provider's access key and secret instead.
+- `use_s3_bucket_tags` and `use_s3_object_tags` work where the provider implements the tagging APIs. If it does not, ingestion logs a warning and continues without tags.
+- The IAM policy steps above are AWS-specific. On other providers, grant the equivalent read and list access with that provider's own credential mechanism.
