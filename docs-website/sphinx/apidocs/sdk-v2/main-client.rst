@@ -1,5 +1,5 @@
 Main Client
-=======
+===========
 
 The DataHub Main Client provides a client for interacting with DataHub.
 
