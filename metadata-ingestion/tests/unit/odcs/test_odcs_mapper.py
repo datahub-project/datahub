@@ -2887,3 +2887,32 @@ def test_off_spec_sla_support_roles_and_business_name_are_dropped() -> None:
     assert contract.roles is None
     props = _first_schema(contract).properties
     assert props is not None and props[0].businessName is None
+
+
+def test_field_classification_tags_can_be_turned_off() -> None:
+    fields = _fields_by_path(
+        [
+            {
+                "name": "email",
+                "classification": "confidential",
+                "criticalDataElement": True,
+                "tags": ["pii"],
+            }
+        ],
+        emit_field_classification_tags=False,
+    )
+    assert _tag_urns(fields["email"]) == ["urn:li:tag:pii"]
+
+
+def test_business_name_can_be_turned_off() -> None:
+    fields = _fields_by_path(
+        [
+            {
+                "name": "cust_ref",
+                "description": "Customer key.",
+                "businessName": "Customer Reference Number",
+            }
+        ],
+        emit_business_name=False,
+    )
+    assert fields["cust_ref"].description == "Customer key."

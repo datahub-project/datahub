@@ -275,6 +275,11 @@ contract clears it on the next run. An unresolved value leaves the current domai
   `odcs.sla.element` property. SLA properties other than `latency` (retention, frequency,
   availability, …) have no native counterpart and are recorded as `odcs.sla.*` properties
   only.
+- **Field tags and business names are written with the schema.** The `classification:<value>`
+  and `critical_data_element` tags (`emit_field_classification_tags`) and the
+  `**Business name:**` description section (`emit_business_name`) are part of the logical
+  dataset's `schemaMetadata`, which the source rewrites each run: turning a switch off
+  removes them on the next run.
 - **Lossy mappings are reported.** Besides the info above: off-spec values that were
   dropped, `${VAR}` references in quality `query` text, `{object}` placeholders on a table
   that is not bound or not found in DataHub, and `physical_urn_overrides` values that are not

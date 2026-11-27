@@ -1204,6 +1204,8 @@ class ODCSSource(StatefulIngestionSourceBase):
             strip_owner_email_domain=self.config.strip_owner_email_domain,
             owner_email_domain=self.config.owner_email_domain,
             classification_tag_prefix=self.config.classification_tag_prefix,
+            emit_field_classification_tags=self.config.emit_field_classification_tags,
+            emit_business_name=self.config.emit_business_name,
         )
         self._check_owner_resolution(logical_mcps, source_uri)
         for mcp in logical_mcps:

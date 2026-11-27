@@ -195,6 +195,19 @@ class ODCSSourceConfig(
         "(`confidential` becomes the tag `classification:confidential`). `tag_prefix`, when set, "
         "is prepended as for other tags. Use an empty string for the bare classification value.",
     )
+    emit_field_classification_tags: bool = Field(
+        default=True,
+        description="Whether to tag schema fields from a property's `classification` (see "
+        "`classification_tag_prefix`) and `criticalDataElement: true` (the tag "
+        "`critical_data_element`). Set False if your fields are tagged by another source, such "
+        "as a classifier, and you do not want the contract's values as tags too.",
+    )
+    emit_business_name: bool = Field(
+        default=True,
+        description="Whether to add a property's `businessName` to its field description, as a "
+        "`**Business name:**` section. A business name that only re-cases the column name "
+        "(`OrderId` for `order_id`) is always skipped.",
+    )
     strip_owner_email_domain: bool = Field(
         default=False,
         description="ODCS team usernames may be emails. When true, the domain is stripped "

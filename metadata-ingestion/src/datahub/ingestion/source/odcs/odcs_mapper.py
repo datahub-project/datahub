@@ -801,7 +801,7 @@ def _backtick_fence(text: str, minimum: int) -> str:
     return "`" * max(minimum, longest + 1)
 
 
-def _field_description(prop: ODCSProperty) -> Optional[str]:
+def _field_description(prop: ODCSProperty, emit_business_name: bool) -> Optional[str]:
     """The property description followed by how the column is derived.
 
     The source rewrites the whole schema aspect every run, so appended sections
@@ -811,7 +811,11 @@ def _field_description(prop: ODCSProperty) -> Optional[str]:
     business_name = _one_line(prop.businessName)
     # A business name that only re-cases the column name (`OrderId` for
     # `order_id`) adds nothing.
-    if business_name and _alphanumeric(business_name) != _alphanumeric(prop.name):
+    if (
+        emit_business_name
+        and business_name
+        and _alphanumeric(business_name) != _alphanumeric(prop.name)
+    ):
         parts.append(f"**Business name:** {business_name}")
     transform_description = _description_to_str(prop.transformDescription)
     transform_logic = _description_to_str(prop.transformLogic)
@@ -873,6 +877,8 @@ def build_schema_metadata(
     schema_entry: ODCSSchemaObject,
     tag_prefix: Optional[str] = None,
     classification_tag_prefix: str = DEFAULT_CLASSIFICATION_TAG_PREFIX,
+    emit_field_classification_tags: bool = True,
+    emit_business_name: bool = True,
 ) -> SchemaBuildResult:
     """Build canonical `schemaMetadata` from an ODCS `schema[].properties[]` tree.
 
@@ -893,11 +899,12 @@ def build_schema_metadata(
                 f"{field_path}:{prop.logicalType or prop.physicalType}"
             )
         field_tags = list(prop.tags or [])
-        classification = (prop.classification or "").strip()
-        if classification:
-            field_tags.append(f"{classification_tag_prefix}{classification}")
-        if prop.criticalDataElement:
-            field_tags.append(TAG_CRITICAL_DATA_ELEMENT)
+        if emit_field_classification_tags:
+            classification = (prop.classification or "").strip()
+            if classification:
+                field_tags.append(f"{classification_tag_prefix}{classification}")
+            if prop.criticalDataElement:
+                field_tags.append(TAG_CRITICAL_DATA_ELEMENT)
         tag_assoc = _make_tag_associations(field_tags, tag_prefix)
         term_urns = list(
             dict.fromkeys(
@@ -911,7 +918,7 @@ def build_schema_metadata(
                 fieldPath=field_path,
                 type=data_type,
                 nativeDataType=_native_data_type(prop),
-                description=_field_description(prop),
+                description=_field_description(prop, emit_business_name),
                 nullable=not bool(prop.required),
                 isPartOfKey=bool(prop.primaryKey),
                 globalTags=GlobalTagsClass(tags=tag_assoc) if tag_assoc else None,
@@ -1245,6 +1252,8 @@ def odcs_to_logical_dataset_mcps(
     strip_owner_email_domain: bool = False,
     owner_email_domain: Optional[str] = None,
     classification_tag_prefix: str = DEFAULT_CLASSIFICATION_TAG_PREFIX,
+    emit_field_classification_tags: bool = True,
+    emit_business_name: bool = True,
 ) -> Tuple[List[MetadataChangeProposalWrapper], List[str]]:
     """Emit the aspects ODCS owns on the logical `odcs` dataset.
 
@@ -1291,7 +1300,11 @@ def odcs_to_logical_dataset_mcps(
     )
 
     schema_result = build_schema_metadata(
-        schema_entry, tag_prefix, classification_tag_prefix=classification_tag_prefix
+        schema_entry,
+        tag_prefix,
+        classification_tag_prefix=classification_tag_prefix,
+        emit_field_classification_tags=emit_field_classification_tags,
+        emit_business_name=emit_business_name,
     )
     if schema_result.schema_metadata is not None:
         mcps.append(

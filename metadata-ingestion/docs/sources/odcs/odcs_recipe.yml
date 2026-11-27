@@ -65,6 +65,8 @@ source:
     # emit_logical_parent: true          # the physical->logical PhysicalInstanceOf link
     # tag_prefix: "odcs."                # prepend to every emitted tag
     # classification_tag_prefix: "classification:"   # field tag from a property's classification
+    # emit_field_classification_tags: true   # field tags from classification / criticalDataElement
+    # emit_business_name: true           # add a property's businessName to its field description
     # strict_validation: false           # set true to reject contracts that fail JSON Schema validation
     #
     # Owner identity normalization: ODCS `team[].username` is a username OR an

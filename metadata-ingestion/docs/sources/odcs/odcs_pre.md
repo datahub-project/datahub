@@ -49,6 +49,11 @@ how to disable replication.
   the bound physical table. The physical write is always non-primary because the contract URN
   matches the hand-authored SDK convention exactly — enabling it makes ODCS the owner of that
   table's contract — and it requires `emit_logical_parent`.
+- **Field classification tags and business names are on by default.** A property's
+  `classification` and `criticalDataElement: true` become field tags, and its
+  `businessName` is added to the field description. Set `emit_field_classification_tags:
+false` if another source (e.g. a classifier) already tags these fields, and
+  `emit_business_name: false` to keep field descriptions to the contract's `description`.
 - **Physical binding is derived from the contract itself.** The spec requires
   `servers[].type`; the source maps supported types (postgres, mysql, snowflake, bigquery,
   redshift, databricks, sqlserver, trino, glue, iceberg) to DataHub platforms and composes fully-qualified
