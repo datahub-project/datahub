@@ -33,7 +33,6 @@ public class SearchTemplateSynonymTest {
     assertEquals(SearchTemplateSynonyms.expansions(""), List.of());
   }
 
-  /** A word's synonym is not a synonym of a longer query, so the whole-query list leaves it out. */
   /** A term on several lines takes the members of all of them; other terms keep their own line. */
   @Test
   public void testATermOnSeveralLinesTakesEveryLinesMembers() {
@@ -50,6 +49,7 @@ public class SearchTemplateSynonymTest {
     assertNull(catalog.get("cac"));
   }
 
+  /** A word's synonym is not a synonym of a longer query, so the whole-query list leaves it out. */
   @Test
   public void testWholeQuerySynonymsLeaveOutWordSynonyms() {
     assertEquals(
