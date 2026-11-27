@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.restorebackup;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableBiMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -14,6 +15,7 @@ import com.linkedin.datahub.upgrade.restorebackup.backupreader.EbeanAspectBackup
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.LocalParquetReader;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.ReaderWrapper;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
@@ -28,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -38,6 +41,7 @@ import java.util.stream.Collectors;
 public class RestoreStorageStep implements UpgradeStep {
 
   private static final int REPORT_BATCH_SIZE = 1000;
+  private static final int NEWER_VERSION_EXAMPLES = 5;
   private static final int DEFAULT_THREAD_POOL = 4;
 
   private final EntityService<?> _entityService;
@@ -180,10 +184,13 @@ public class RestoreStorageStep implements UpgradeStep {
     }
   }
 
-  private void readerExecutable(ReaderWrapper reader, UpgradeContext context) {
+  @VisibleForTesting
+  void readerExecutable(ReaderWrapper reader, UpgradeContext context) {
     EbeanAspectV2 aspect;
     int numRows = 0;
     final ArrayList<Future<RecordTemplate>> futureList = new ArrayList<>();
+    final Map<String, Integer> fromNewerVersion = new TreeMap<>();
+    final List<String> fromNewerVersionExamples = new ArrayList<>();
     while ((aspect = reader.next()) != null) {
       numRows++;
 
@@ -218,14 +225,16 @@ public class RestoreStorageStep implements UpgradeStep {
 
       // 3. Create record from json aspect
       final RecordTemplate aspectRecord;
+      final boolean isFromNewerVersion;
       try {
-        aspectRecord =
+        final SystemAspect systemAspect =
             EntityUtils.toSystemAspect(
                     context.opContext(),
                     context.opContext().getRetrieverContext(),
                     aspect.toEntityAspect())
-                .get()
-                .getRecordTemplate();
+                .get();
+        aspectRecord = systemAspect.getRecordTemplate();
+        isFromNewerVersion = systemAspect.isFromNewerVersion();
       } catch (Exception e) {
         context
             .report()
@@ -250,6 +259,15 @@ public class RestoreStorageStep implements UpgradeStep {
                     aspectName, entityName),
                 e);
         continue;
+      }
+
+      if (isFromNewerVersion) {
+        // Read for this version (after a rollback), the row drops what only the newer version
+        // knows, and the table was cleared before the restore, so nothing keeps it.
+        fromNewerVersion.merge(aspectName, 1, Integer::sum);
+        if (fromNewerVersionExamples.size() < NEWER_VERSION_EXAMPLES) {
+          fromNewerVersionExamples.add(aspectName + " of " + urn);
+        }
       }
 
       // 5. Write the row back using the EntityService
@@ -279,6 +297,16 @@ public class RestoreStorageStep implements UpgradeStep {
         futureList.clear();
         context.report().addLine(String.format("Successfully inserted %d rows", numRows));
       }
+    }
+    if (!fromNewerVersion.isEmpty()) {
+      context
+          .report()
+          .addLine(
+              String.format(
+                  "%s: rows written by a newer version, restored as this version reads them, so"
+                      + " values only that version knows (references to entity types, fields), if"
+                      + " any, may not be restored. Rows per aspect: %s; for example %s",
+                  reader.getFileName(), fromNewerVersion, fromNewerVersionExamples));
     }
   }
 
