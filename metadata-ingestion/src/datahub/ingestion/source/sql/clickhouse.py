@@ -33,7 +33,7 @@ from sqlalchemy.engine import RowMapping, reflection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER, TypeEngine
+from sqlalchemy.types import BOOLEAN, DATE, INTEGER, TypeEngine
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import HiddenFromDocs, LaxStr
@@ -137,16 +137,11 @@ _CLICKHOUSE_DICT_SOURCE_TABLE_RE = re.compile(
 )
 
 # adding extra types not handled by clickhouse-sqlalchemy 0.1.8
-base.ischema_names["DateTime64(0)"] = DATETIME
-base.ischema_names["DateTime64(1)"] = DATETIME
-base.ischema_names["DateTime64(2)"] = DATETIME
-base.ischema_names["DateTime64(3)"] = DATETIME
-base.ischema_names["DateTime64(4)"] = DATETIME
-base.ischema_names["DateTime64(5)"] = DATETIME
-base.ischema_names["DateTime64(6)"] = DATETIME
-base.ischema_names["DateTime64(7)"] = DATETIME
-base.ischema_names["DateTime64(8)"] = DATETIME
-base.ischema_names["DateTime64(9)"] = DATETIME
+# DateTime and DateTime64 are deliberately not overridden. The dialect passes their
+# arguments on to the type, as in DateTime64(3, 'UTC'), and sqlalchemy's DATETIME
+# rejects the timezone argument, which turned such columns into NullType. The
+# clickhouse-sqlalchemy types subclass sqlalchemy.types.DateTime, so they map to
+# TimeTypeClass without help.
 base.ischema_names["Date32"] = DATE
 base.ischema_names["Bool"] = BOOLEAN
 base.ischema_names["Nothing"] = sqltypes.NullType
@@ -154,9 +149,6 @@ base.ischema_names["Int128"] = INTEGER
 base.ischema_names["Int256"] = INTEGER
 base.ischema_names["UInt128"] = INTEGER
 base.ischema_names["UInt256"] = INTEGER
-# This is needed for clickhouse-sqlalchemy 0.2.3
-base.ischema_names["DateTime"] = DATETIME
-base.ischema_names["DateTime64"] = DATETIME
 
 register_custom_type(custom_types.common.Array, ArrayTypeClass)
 register_custom_type(custom_types.ip.IPv4, NumberTypeClass)
