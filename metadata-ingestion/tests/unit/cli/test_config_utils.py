@@ -240,6 +240,7 @@ class TestConfigUtils:
                     "retry_status_codes": None,
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
+                    "server_config_retry_max_times": None,
                     "tcp_keepalive": False,
                     "default_emit_mode": None,
                 }
@@ -295,6 +296,7 @@ class TestConfigUtils:
                     "retry_status_codes": None,
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
+                    "server_config_retry_max_times": None,
                     "tcp_keepalive": False,
                     "default_emit_mode": None,
                 },
@@ -330,6 +332,7 @@ class TestConfigUtils:
                     "retry_status_codes": None,
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
+                    "server_config_retry_max_times": None,
                     "tcp_keepalive": False,
                     "default_emit_mode": None,
                 }
