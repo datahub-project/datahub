@@ -60,9 +60,11 @@ Two things to know when ingestion runs on the DataHub executor rather than your 
   system client credentials, any `DATAHUB_AUTH_*` variable, or the proxy variables. The executor
   rejects the run rather than ignoring the override, so a recipe cannot redirect its own run to
   a different DataHub or escalate its own access. Set those on the executor itself.
-- Secret masking is on by default. `DATAHUB_DISABLE_SECRET_MASKING` and the executor's
-  `DATAHUB_ENABLE_SECRET_MASKING` turn it off, which puts credentials into run logs — and those
-  logs are visible to anyone who can see the ingestion run in the UI.
+- Secret masking is on by default. `DATAHUB_DISABLE_SECRET_MASKING` turns it off in the SDK,
+  which puts credentials into run logs — and those logs are visible to anyone who can see the
+  ingestion run in the UI. The executor's `DATAHUB_ENABLE_SECRET_MASKING` is **not** a usable
+  off switch: the executor overwrites it with `true` for every task it starts, so a recipe
+  cannot disable masking for its own run.
 
 ## Reading the tables
 

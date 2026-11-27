@@ -31,7 +31,12 @@ DEFAULT_SINK_KAFKA = "datahub-kafka"
     type=str,
     group=EnvVarGroup.CONNECTION,
     tier=EnvVarTier.BASIC,
-    description="Complete GMS URL (takes precedence over separate host/port).",
+    description=(
+        "Full URL of the GMS instance, including scheme and any port. `DATAHUB_GMS_PORT` wins "
+        "over this: when it is set, the URL is rebuilt from `DATAHUB_GMS_HOST`, "
+        "`DATAHUB_GMS_PORT` and `DATAHUB_GMS_PROTOCOL` and this value is ignored. Leave those "
+        "unset when using this one."
+    ),
 )
 def get_gms_url() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_URL")
@@ -60,7 +65,10 @@ def get_gms_host() -> Optional[str]:
     tier=EnvVarTier.BASIC,
     deprecated=True,
     replaced_by="DATAHUB_GMS_URL",
-    description="Port of the GMS instance, used with DATAHUB_GMS_HOST.",
+    description=(
+        "Port of the GMS instance, used with DATAHUB_GMS_HOST. Setting it overrides "
+        "DATAHUB_GMS_URL entirely, which is rarely what you want."
+    ),
 )
 def get_gms_port() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_PORT")
@@ -161,9 +169,10 @@ def get_skip_config() -> bool:
     group=EnvVarGroup.CONNECTION,
     default="",
     description=(
-        "Path prefix inserted when deriving the Kafka schema registry URL from the GMS "
-        "address, for deployments served from a sub-path. It does not prefix GMS API calls "
-        "themselves -- set `DATAHUB_GMS_URL` to the full path for those."
+        "Path prefix inserted into the derived Kafka schema registry URL, for deployments "
+        "served from a sub-path. Its one consumer builds that URL against localhost:8080, not "
+        "the configured GMS address, and it does not prefix GMS API calls at all -- set "
+        "DATAHUB_GMS_URL to the full path for those."
     ),
 )
 def get_gms_base_path() -> str:
@@ -308,7 +317,7 @@ def get_kafka_sink_max_message_bytes() -> int:
     description=(
         "Per-check timeout (seconds) for the Kafka ingestion sink's init reachability "
         "probe. The probe runs whenever the Kafka default sink is selected "
-        "(DATAHUB_INGESTION_DEFAULT_SINK=kafka) -- no separate on/off flag. Bounds "
+        "(DATAHUB_INGESTION_DEFAULT_SINK=datahub-kafka) -- no separate on/off flag. Bounds "
         "both the broker metadata fetch and the schema-registry request so a "
         "misconfigured endpoint dies in seconds at startup. Default 10s."
     ),
@@ -522,8 +531,10 @@ def get_rest_emitter_batch_max_payload_length() -> int:
     choices=["SYNC_PRIMARY", "SYNC_WAIT", "ASYNC", "ASYNC_WAIT"],
     description=(
         "How the emitter waits for a write to be durable. Unset means SYNC_PRIMARY, which "
-        "returns once the primary store has the change. The ASYNC modes return earlier, so a "
-        "read straight afterwards may not see the write yet."
+        "returns once the primary store has the change but updates search asynchronously. "
+        "SYNC_WAIT also waits for search. ASYNC queues the change and returns immediately, so "
+        "a read straight afterwards may not see it; ASYNC_WAIT queues it but still blocks "
+        "until it is persisted."
     ),
 )
 def get_emit_mode() -> Optional[str]:
@@ -535,7 +546,11 @@ def get_emit_mode() -> Optional[str]:
     type=str,
     group=EnvVarGroup.EMITTER,
     choices=["RESTLI", "OPENAPI"],
-    description=("Which REST API the emitter targets. Unset means RESTLI."),
+    description=(
+        "Which REST API the emitter targets. Unset does not simply mean RESTLI: an SDK client "
+        "negotiates, using OpenAPI when the server advertises support for it and RESTLI "
+        "otherwise. Setting this pins the choice and disables that negotiation."
+    ),
 )
 def get_rest_emitter_default_endpoint() -> Optional[str]:
     return os.getenv("DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT")
@@ -743,7 +758,9 @@ def get_suppress_logging_manager() -> Optional[str]:
     tier=EnvVarTier.BASIC,
     choices=["true"],
     description=(
-        "Disable ANSI colour in CLI output. Follows the no-color.org convention."
+        "Disable ANSI colour in CLI output. DataHub reads it as a strict boolean and accepts "
+        "only `true`, unlike the no-color.org convention where any non-empty value disables "
+        "colour."
     ),
 )
 def get_no_color() -> bool:
@@ -802,20 +819,13 @@ def get_disable_secret_masking() -> bool:
     default=False,
     choices=["true", "1"],
     description=(
-        "Refuse the recipe probe's raw passthrough commands (`sql`, `api`). For an "
-        "operator who does not want an agent issuing its own queries or API calls "
-        "against a source at all. It withholds only the commands that take a "
-        "caller-supplied query or path. On most connectors the typed listings keep "
-        "working, so recipe diagnosis still functions -- this said so unconditionally "
-        "and was wrong about the two that matter most. Snowflake exposes `sql` as its "
-        "ONLY probe command, so setting this withholds its probe entirely. BigQuery "
-        "also declares `projects`, which takes no caller-supplied query or path, so "
-        "its probe is narrowed rather than withheld: `projects` still authenticates "
-        "and lists what the recipe would consider. The refusal message names what is "
-        "left for the connector in hand rather than promising something in general. "
-        "An environment variable rather than a recipe field because the agent authors "
-        "the recipe: a field there would let it grant itself the access. Set it where "
-        "the probe runs (the ingestion executor)."
+        "Refuse the probe's raw passthrough commands, `sql` and `api`, so an agent cannot run "
+        "its own queries or API calls against a source. Typed listings keep working on most "
+        "connectors, so recipe diagnosis still functions -- but not everywhere: Snowflake "
+        "exposes `sql` as its only probe command, so this withholds its probe entirely, while "
+        "BigQuery keeps `projects` and is merely narrowed. Set it on the ingestion executor, "
+        "not in the recipe: an agent writes the recipe, so a field there would let it grant "
+        "itself the access."
     ),
 )
 def get_disable_agent_probe_raw_access() -> bool:
@@ -829,31 +839,16 @@ def get_disable_agent_probe_raw_access() -> bool:
     default=False,
     choices=["true", "1"],
     description=(
-        "Whether the probe may open a connection to the source at all. The wider "
-        "switch. DATAHUB_PROBE_DISABLE_RAW_ACCESS withholds the caller-supplied `sql` "
-        "and `api` passthroughs and leaves every typed listing live -- which is the "
-        'right granularity for "no arbitrary queries" and the wrong one for "this '
-        'agent does not touch my source". Those listings still authenticate and '
-        "still return metadata. This refuses every `probe run <command>`, typed "
-        "listing as much as passthrough. Enforced in run_probe_method, the one "
-        "function every probe command funnels through, so it covers commands that do "
-        "not exist yet. SCOPE, stated precisely because a security control that "
-        "promises more than it delivers is worse than none: `recipe test-connection` "
-        "is NOT gated. It opens a connection and authenticates, but it is not a probe "
-        "command -- it predates the probe group and verifying that a recipe's "
-        "credentials work is a different act from reading the source's metadata. An "
-        "earlier version of this docstring listed it as covered, which was left "
-        'behind when the gate on it was removed. If the requirement is "this process '
-        'must not reach the source at all", this switch alone does not give you '
-        "that. Deliberately not everything. `recipe describe`, `recipe scaffold`, "
-        "`recipe validate`, `probe methods` and `probe filter` need no connection -- "
-        "they read the connector's own declarations and judge names the caller "
-        "already has. Disabling those too would stop an agent learning what a recipe "
-        "needs or checking one it has written, which is work that never reaches the "
-        "source. The line is the connection, not the feature. An environment variable "
-        "rather than a recipe field, for the same reason as the switch above: the "
-        "agent authors the recipe, so a field there would let it grant itself the "
-        "access. Set it where the probe runs (the ingestion executor)."
+        "Refuse every `datahub probe run` command, so the probe never opens a connection to "
+        "the source. Wider than `DATAHUB_PROBE_DISABLE_RAW_ACCESS`, which blocks only the "
+        "caller-supplied `sql` and `api` passthroughs and leaves the typed listings live. "
+        "Scope, stated precisely because a control that promises more than it delivers is "
+        "worse than none: `recipe test-connection` is NOT gated -- it opens a connection and "
+        "authenticates, but it verifies credentials rather than reading metadata. Commands "
+        "that need no connection (`recipe describe`, `scaffold`, `validate`, `probe methods`, "
+        "`probe filter`) keep working. Set it where the probe runs, the ingestion executor, "
+        "not in the recipe: an agent writes the recipe, so a field there would let it grant "
+        "itself the access."
     ),
 )
 def get_probe_disabled() -> bool:
@@ -867,14 +862,12 @@ def get_probe_disabled() -> bool:
     default=False,
     choices=["true", "1"],
     description=(
-        "The local-debugging switch for probes: reused code's logs as logged, and the "
-        "withheld text of its errors. Off by default: during a probe, every log "
-        "record the framework did not write is scrubbed and loses its traceback, and "
-        "a provider's silenced loggers are dropped (see agent.log_guard); an error "
-        "the framework does not trust is named by class and code only (see "
-        "agent.error_policy), because both quote connection strings and request URLs. "
-        "When on, logs pass through and each withheld error text is appended to its "
-        "label, still scrubbed. For a person debugging a connector, not for an agent."
+        "Pass through logs and error text that a probe normally withholds, for debugging a "
+        "connector locally. By default a probe scrubs log records the framework did not write "
+        "and names untrusted errors by class and code only, because both can quote connection "
+        "strings and request URLs. With this on, those logs pass through and each withheld "
+        "error text is appended to its label, still scrubbed. For a person debugging, not for "
+        "an agent."
     ),
 )
 def get_probe_verbose_logs() -> bool:

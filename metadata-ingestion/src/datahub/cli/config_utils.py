@@ -171,8 +171,9 @@ def available_profile_message() -> str:
     tier=EnvVarTier.BASIC,
     description=(
         "Selects a named connection profile for this shell or session, instead of the saved "
-        "machine default. An explicit --profile takes precedence over it, and it cannot be "
-        "combined with DATAHUB_SKIP_CONFIG."
+        "machine default. An explicit --profile takes precedence over it. With "
+        "DATAHUB_SKIP_CONFIG set this is ignored rather than rejected -- only an explicit "
+        "--profile is an error in that combination."
     ),
 )
 def env_profile() -> Optional[str]:

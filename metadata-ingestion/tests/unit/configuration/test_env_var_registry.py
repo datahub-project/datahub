@@ -1,3 +1,4 @@
+import importlib
 import os
 import pathlib
 import subprocess
@@ -20,8 +21,29 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "scripts"))
 from env_var_scan import default_source_root, scan_tree
 
 # Importing the package root is not enough: declarations live next to the reads they describe,
-# so the modules holding them have to be imported before the registry is complete.
+# so every module holding one must be imported before the registry is complete. Importing only
+# env_vars left 31 of 130 variables out, and which of them were present depended on what an
+# unrelated test had imported first -- so --random-order changed what was actually checked.
 import datahub.configuration.env_vars  # noqa: F401  isort:skip
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _load_all_declarations(scan):
+    """Import every declaring module, and prove the registry then covers all of them."""
+    failed = {}
+    for module in sorted(scan.declaring_modules):
+        try:
+            importlib.import_module(module)
+        except Exception as exc:  # pragma: no cover - a declaring module must import
+            failed[module] = repr(exc)
+    assert not failed, f"Declaring modules failed to import: {failed}"
+
+    present = {spec.name for spec in get_registry(include_undocumented=True)}
+    missing = sorted(set(scan.declared) - present)
+    assert not missing, (
+        "Declared in the source but absent from the registry, so every test in this file "
+        f"would have silently skipped them: {missing}"
+    )
 
 
 # Variables the SDK reads but does not own. Each entry is a deliberate exemption, not a gap --
@@ -94,12 +116,11 @@ def test_allowlist_has_no_stale_entries(scan):
 def test_declared_defaults_match_the_code(monkeypatch):
     """The declared default must be what the accessor actually falls back to.
 
-    Scope: this covers the variables declared with @env_var, which have an accessor to call.
-    The ~26 declared with declare_env_var have no function to invoke, so their defaults are
-    NOT checked here -- for nine of those the declared default is a second copy of a literal
-    at the read site and could drift unnoticed. Narrowing a default-checking test to the
-    declaration style that happens to be testable is a gap, not a design; see the registry
-    module's TODO.
+    Scope: this covers the 104 declared with @env_var, which have an accessor to call. The 26
+    declared with declare_env_var have no function to invoke, so their defaults are NOT checked
+    here -- for nine of those the declared default is a second copy of a literal at the read
+    site and could drift unnoticed. Narrowing a default-checking test to the declaration style
+    that happens to be testable is a known gap, not a design.
     """
     mismatches = []
     for spec in get_registry(include_undocumented=True):

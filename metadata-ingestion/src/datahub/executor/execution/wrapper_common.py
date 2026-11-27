@@ -33,9 +33,11 @@ declare_env_var(
     default=True,
     choices=["true", "false"],
     description=(
-        "Whether the executor masks secrets in subprocess output. The executor sets this for the "
-        "ingestion subprocess; it is the positive counterpart of DATAHUB_DISABLE_SECRET_MASKING, "
-        "which the SDK reads. Turning masking off exposes credentials in run logs."
+        "Whether secrets are masked in subprocess output, read by the wrapper the executor "
+        "launches. Setting it yourself has no effect on ingestion runs: the executor "
+        "overwrites it with true for every task it starts, so a recipe cannot turn masking "
+        "off. It is the positive counterpart of DATAHUB_DISABLE_SECRET_MASKING, which the SDK "
+        "reads and which is not forced."
     ),
 )
 declare_env_var(
