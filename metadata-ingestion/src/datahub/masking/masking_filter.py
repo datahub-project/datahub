@@ -16,7 +16,6 @@ import builtins
 import logging
 import re
 import sys
-import traceback
 import weakref
 from typing import (
     Any,
@@ -111,11 +110,33 @@ def _linked_exceptions(exc: BaseException) -> List[BaseException]:
     return list(found.values())
 
 
+def _summary(exc: BaseException) -> str:
+    """Return the last line traceback prints for exc, and its notes, without
+    rendering its cause or context."""
+    exc_type = type(exc)
+    name = exc_type.__qualname__
+    if exc_type.__module__ not in ("__main__", "builtins"):
+        name = f"{exc_type.__module__}.{name}"
+    try:
+        text = str(exc)
+    except Exception:
+        text = "<exception str() failed>"
+    lines = [f"{name}: {text}" if text else name]
+    notes = getattr(exc, "__notes__", None)
+    if notes is not None:
+        for note in notes if isinstance(notes, (list, tuple)) else [notes]:
+            try:
+                lines.append(str(note))
+            except Exception:
+                lines.append("<note str() failed>")
+    return "\n".join(lines)
+
+
 def _linked_exception_texts(exc: BaseException) -> Iterator[str]:
     """Yield what formatters and Sentry print for exc and its linked exceptions."""
     for current in _linked_exceptions(exc):
         for render in (
-            lambda e: "".join(traceback.format_exception_only(type(e), e)),
+            _summary,
             repr,
             lambda e: getattr(e, "message", ""),
             lambda e: getattr(e, "detail", ""),

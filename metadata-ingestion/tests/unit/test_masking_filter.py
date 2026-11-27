@@ -565,6 +565,24 @@ class TestExceptionMasking:
         assert record.exc_info is replaced
         assert record.exc_text == text
 
+    def test_long_chain_is_filtered_quickly(self, registry, masking_filter):
+        registry.register_secret("DB_PASSWORD", SECRET)
+        errors = [ValueError(f"attempt {i}") for i in range(3000)]
+        errors[0] = ValueError(f"attempt 0 with {SECRET}")
+        for i in range(1, len(errors)):
+            errors[i].__context__ = errors[i - 1]
+        record = _record((ValueError, errors[-1], None))
+
+        start = time.perf_counter()
+        masking_filter.filter(record)
+        masking_filter.filter(record)
+        elapsed = time.perf_counter() - start
+
+        assert record.exc_info is not None
+        assert type(record.exc_info[1]).__name__ == "ValueError"
+        assert isinstance(record.exc_info[1], MaskedException)
+        assert elapsed < 1
+
     def test_deferred_handler_renders_the_exception_as_logged(
         self, registry, masking_filter
     ):
