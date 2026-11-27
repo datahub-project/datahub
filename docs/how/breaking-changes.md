@@ -17,7 +17,7 @@ the one you are on and the one you are moving to, not just the target.
 
 ### Search template `clauses` no longer widen a should-only body ([PR #21665](https://github.com/datahub-project/datahub/pull/21665))
 
-A search template's `clauses` are merged into the bool its `query` renders. When that bool had `should` clauses but no `must`, `filter` or `minimum_should_match`, a `must` or `filter` added through `clauses` made those `should` clauses optional, so the search returned everything the clause allowed instead of the body's matches. Such a body now keeps `minimum_should_match: 1`, so a result has to match one of its `should` clauses, or a `should` added through `clauses`.
+A search template's `clauses` are merged into the bool its `query` renders. When that bool had `should` clauses but no `must`, `filter` or `minimum_should_match`, and no structured-property clause applied, a `must` or `filter` added through `clauses` made those `should` clauses optional, so the search returned everything the clause allowed instead of the body's matches. A ladder rung that always met its `minHits` stop can now fall through to its `next` rung. Such a body now keeps `minimum_should_match: 1`, so a result has to match one of its `should` clauses, or a `should` added through `clauses`.
 
 The body or the clauses can come from a parent template. No shipped template has this shape, and a child that keeps a shipped body is unaffected. A custom template that relied on the wider result can set `"minimum_should_match": 0` on its body's bool to keep it. An explicit `minimum_should_match` is applied as written.
 
