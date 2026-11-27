@@ -135,7 +135,7 @@ export const isListSubset = (l1, l2): boolean => {
     return l1.every((result) => l2.indexOf(result) >= 0);
 };
 
-function getGraphqlErrorCode(e) {
+export function getGraphqlErrorCode(e) {
     if (e.graphQLErrors && e.graphQLErrors.length) {
         const firstError = e.graphQLErrors[0];
         const { extensions } = firstError;

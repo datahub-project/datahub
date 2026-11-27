@@ -19,7 +19,9 @@ vi.mock('@app/analytics', () => ({
     },
 }));
 
-vi.mock('@app/permissions/policy/policyUtils', () => ({
+vi.mock('@app/permissions/policy/policyUtils', async (importOriginal) => ({
+    getPrivilegeOptions: (await importOriginal<typeof import('@app/permissions/policy/policyUtils')>())
+        .getPrivilegeOptions,
     DEFAULT_PAGE_SIZE: 20,
     removeFromListPoliciesCache: vi.fn(),
     updateListPoliciesCache: vi.fn(),

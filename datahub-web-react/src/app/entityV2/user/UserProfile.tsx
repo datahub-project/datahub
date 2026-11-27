@@ -20,6 +20,8 @@ import { UserAssets } from '@app/entityV2/user/UserAssets';
 import UserGroups from '@app/entityV2/user/UserGroups';
 import UserSideBar from '@app/entityV2/user/UserSidebar';
 import useGetUserGroupUrns from '@app/entityV2/user/useGetUserGroupUrns';
+import { ActorPoliciesTab } from '@app/permissions/actorPolicies/ActorPoliciesTab';
+import { useShowActorPoliciesTab } from '@app/permissions/actorPolicies/useShowActorPoliciesTab';
 import { AlchemyRoutedTabs } from '@app/sharedV2/AlchemyRoutedTabs';
 import CompactContext from '@app/sharedV2/CompactContext';
 import { EntityHead } from '@app/sharedV2/EntityHead';
@@ -41,9 +43,11 @@ enum TabType {
     Assets = 'Owner Of',
     /* untranslated-text -- enum doubles as route path + identity key */
     Groups = 'Groups',
+    /* untranslated-text -- enum doubles as route path + identity key */
+    Policies = 'Policies',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups, TabType.Policies];
 
 const GROUP_PAGE_SIZE = 20;
 
@@ -115,6 +119,7 @@ export default function UserProfile({ urn }: Props) {
     const { groupUrns } = useGetUserGroupUrns(urn);
 
     const { data: userOwnedAsset } = useGetUserOwnedAssetsQuery({ variables: { urns: [urn, ...groupUrns] } });
+    const showPoliciesTab = useShowActorPoliciesTab({ profileUrn: urn, isGroup: false });
     // Routed Tabs Constants
     const getTabs = () => {
         return [
@@ -139,6 +144,14 @@ export default function UserProfile({ urn }: Props) {
                 ),
                 display: {
                     enabled: () => userGroups?.length > 0,
+                },
+            },
+            {
+                name: t('user.tab.policies'),
+                path: TabType.Policies.toLocaleLowerCase(),
+                content: <ActorPoliciesTab urn={urn} entityType={EntityType.CorpUser} />,
+                display: {
+                    enabled: () => showPoliciesTab,
                 },
             },
         ].filter((tab) => ENABLED_TAB_TYPES.some((tabType) => tabType.toLocaleLowerCase() === tab.path));
