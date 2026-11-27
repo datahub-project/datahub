@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Import;
       CassandraAutoConfiguration.class
     })
 @Import({CommonApplicationConfig.class, ServletConfig.class})
+// Temporary CI marker: exercises the e2e suites; revert before merge.
 public class GMSApplication extends SpringBootServletInitializer {
 
   @Override
