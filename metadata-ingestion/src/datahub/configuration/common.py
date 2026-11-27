@@ -525,9 +525,9 @@ class AllowDenyPattern(ConfigModel):
     def with_deny(self, *rules: str) -> Self:
         """A new pattern with `rules` added to the deny list, each listed once:
         duplicates already in the deny list are collapsed too."""
-        return self._rebuilt(deny=deduplicate_list([*self.deny, *rules]))
+        return self.with_fields(deny=deduplicate_list([*self.deny, *rules]))
 
-    def _rebuilt(self, **overrides: Union[List[str], bool]) -> Self:
+    def with_fields(self, **overrides: Union[List[str], bool]) -> Self:
         """A fresh pattern with this one's fields, `overrides` replacing some.
 
         Use this to derive a pattern; never edit `allow`/`deny` in place,

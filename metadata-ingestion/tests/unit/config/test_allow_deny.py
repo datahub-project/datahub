@@ -115,19 +115,19 @@ def test_with_deny_preserves_subclass() -> None:
     assert type(Sub().with_deny("x")) is Sub
 
 
-def test_rebuilt_matches_the_new_lists_not_the_cached_ones() -> None:
+def test_with_fields_matches_the_new_lists_not_the_cached_ones() -> None:
     p = AllowDenyPattern(allow=["old"], ignoreCase=False)
     assert p.allowed("old")  # warms _compiled_allow
-    p2 = p._rebuilt(allow=["new"])
+    p2 = p.with_fields(allow=["new"])
     assert p2.allowed("new")
     assert not p2.allowed("old")
     assert p2.ignoreCase is False
     assert p.allow == ["old"]
 
 
-def test_rebuilt_without_overrides_is_an_independent_equal_copy() -> None:
+def test_with_fields_without_overrides_is_an_independent_equal_copy() -> None:
     p = AllowDenyPattern(allow=["a"], deny=["b"])
-    p2 = p._rebuilt()
+    p2 = p.with_fields()
     assert p2 is not p
     assert p2 == p
     assert p2.allow is not p.allow

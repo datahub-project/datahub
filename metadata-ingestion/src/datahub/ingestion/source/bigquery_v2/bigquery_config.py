@@ -434,7 +434,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
     def backward_compatibility_configs_set(self) -> Any:
         # Patterns are replaced, never edited in place: a pattern that was
         # already used caches its compiled regexes, and would keep matching
-        # the old entries. See AllowDenyPattern._rebuilt.
+        # the old entries. See AllowDenyPattern.with_fields.
         if (
             self.dataset_pattern.is_allow_all()
             and not self.schema_pattern.is_allow_all()
@@ -443,7 +443,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
                 "dataset_pattern is not set but schema_pattern is set, using schema_pattern as dataset_pattern. "
                 "schema_pattern will be deprecated, please use dataset_pattern instead."
             )
-            self.dataset_pattern = self.schema_pattern._rebuilt()
+            self.dataset_pattern = self.schema_pattern.with_fields()
         elif (
             not self.dataset_pattern.is_allow_all()
             and not self.schema_pattern.is_allow_all()
@@ -471,7 +471,9 @@ class BigQueryFilterConfig(SQLFilterConfig):
             allow = [_qualify_dataset_regex(p) for p in dataset_pattern.allow]
             deny = [_qualify_dataset_regex(p) for p in dataset_pattern.deny]
             if allow != dataset_pattern.allow or deny != dataset_pattern.deny:
-                self.dataset_pattern = dataset_pattern._rebuilt(allow=allow, deny=deny)
+                self.dataset_pattern = dataset_pattern.with_fields(
+                    allow=allow, deny=deny
+                )
                 logger.warning(
                     "`dataset_pattern` was adjusted to match against fully qualified schema names,"
                     " of the form `<project_id>.<dataset_name>`."

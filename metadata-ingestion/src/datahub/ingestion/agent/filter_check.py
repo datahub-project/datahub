@@ -321,7 +321,7 @@ def _trial_pattern(
     """The recipe's pattern with each --try-* flag replacing only its own
     half, every other field (`ignoreCase`) kept.
 
-    Rebuilt (see `AllowDenyPattern._rebuilt`), not model_copy'd.
+    Built with `AllowDenyPattern.with_fields`, not model_copy'd.
     """
     # Compiled here, before any hook runs: AllowDenyPattern compiles lazily,
     # so a malformed regex would otherwise surface inside a connector's hook
@@ -339,7 +339,7 @@ def _trial_pattern(
         overrides["allow"] = list(try_allow)
     if try_deny:
         overrides["deny"] = list(try_deny)
-    return recipe_pattern._rebuilt(**overrides)
+    return recipe_pattern.with_fields(**overrides)
 
 
 def _with_trial_pattern(
