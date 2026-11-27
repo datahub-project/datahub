@@ -3189,7 +3189,7 @@ def test_parse_failure_without_query_hash_has_no_query_id() -> None:
         generate_operations=False,
     )
 
-    # A lone surrogate cannot be hashed as UTF-8; the failure must still be recorded.
+    # A hash of the raw text would raise on this lone surrogate.
     aggregator.add_observed_query(
         ObservedQuery(
             query="select 'a\ud800' from (((", default_db="dev", default_schema="public"

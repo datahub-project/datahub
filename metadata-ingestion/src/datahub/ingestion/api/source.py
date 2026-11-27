@@ -167,8 +167,8 @@ class StructuredLogs(Report):
                     exc_info=exc,
                 )
 
-            # Add the simple exception details to the context. The message is capped
-            # because it can quote source data (e.g. sqlglot errors quote the SQL).
+            # Add the simple exception details to the context, capped like the context.
+            # The cap limits size only: the message can still quote source data.
             exc_str = str(exc)
             if len(exc_str) > _MAX_CONTEXT_STRING_LENGTH:
                 exc_str = f"{exc_str[:_MAX_CONTEXT_STRING_LENGTH]} ..."

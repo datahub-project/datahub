@@ -1,3 +1,4 @@
+import logging
 import re
 import textwrap
 from enum import Enum
@@ -652,3 +653,22 @@ def test_query_shape_is_none_when_text_does_not_tokenize(
     sql: str, platform: str
 ) -> None:
     assert get_query_shape(sql, platform) is None
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        # Falls back to a Command.
+        "CALL my_dataset.proc('jane.doe@example.com')",
+        # Invalid JSON path.
+        "select json_extract(c, '$.[jane.doe@example.com') from t",
+    ],
+)
+def test_sqlglot_warnings_do_not_quote_sql(
+    sql: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="sqlglot"):
+        parse_statement(sql, get_dialect("bigquery"))
+
+    assert "sqlglot message hidden" in caplog.text
+    assert "jane.doe@example.com" not in caplog.text

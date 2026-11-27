@@ -21,6 +21,19 @@ DialectOrStr = Union[sqlglot.Dialect, str]
 SQL_PARSE_CACHE_SIZE = get_sql_parse_cache_size()
 FORMAT_QUERY_CACHE_SIZE = get_sql_parse_cache_size()
 
+
+class _HideSqlglotMessages(logging.Filter):
+    # sqlglot messages can quote the query, and the run's log, library warnings included,
+    # is uploaded to DataHub with the report. The level and the source line stay.
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno >= logging.WARNING:
+            record.msg = "sqlglot message hidden: it can quote the query"
+            record.args = ()
+        return True
+
+
+logging.getLogger("sqlglot").addFilter(_HideSqlglotMessages())
+
 # No-op delimiter node types that sqlglot emits inside Block/multi-statement
 # results but carry no semantic content. Semicolon appears when a trailing ";"
 # has an attached comment; EndStatement appears for T-SQL BEGIN/END wrappers.
