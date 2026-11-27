@@ -2950,8 +2950,7 @@ class _LazyProjectLineage:
         self._table_context_resolver: Optional[TableContextResolver] = None
         self._table_context_resolver_resolved = False
         self._datasource_contexts: Dict[str, Optional[WarehouseLineageContext]] = {}
-        # Keyed by object identity: the cached model_tables list is shared by
-        # the lineage index and the semantic model, which both resolve each row.
+        # Object identity: the cached table list is shared by both passes.
         self._counted_tables: Set[int] = set()
 
     def _resolve(self, part: str, fetch: Callable[[], _T]) -> Optional[_T]:

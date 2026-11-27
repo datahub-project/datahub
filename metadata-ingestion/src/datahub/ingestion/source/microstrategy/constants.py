@@ -530,6 +530,5 @@ MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] =
 )
 
 MSTR_MODEL_TABLE_FIELDS = "information,physicalTable,attributes,facts"
-# Requested only for projects with several source warehouses, where it is the
-# one link from a logical table to the datasource it reads from.
+# Requested only for a project with several warehouses.
 MSTR_MODEL_TABLE_DATASOURCE_FIELD = "primaryDataSource"

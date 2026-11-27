@@ -715,8 +715,7 @@ class MicroStrategyClient:
         chapter_key: str,
         visualization_key: str,
     ) -> Dict[str, object]:
-        # The instance executes the visualization, and without a limit the
-        # response carries up to 1000 result rows that lineage never reads.
+        # Without a limit the response carries result rows lineage never reads.
         return self._get_json(
             (
                 f"/api/v2/dossiers/{dossier_id}/instances/{instance_id}"
