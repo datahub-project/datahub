@@ -3088,8 +3088,7 @@ def test_dataset_urn_is_dashboard_scoped_by_default_and_report_scoped_per_report
     )
 
     per_report = _mapper(dataset_identity="per_report").lineage
-    # The parent plays no part: the same report under any dashboard, or
-    # under none, is the one URN.
+    # The parent plays no part in the URN.
     assert per_report.dataset_urn("project-1", "dash-1", dataset) == (
         "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.ds-1,PROD)"
     )
@@ -3120,8 +3119,7 @@ def test_report_dataset_without_dashboards_links_cube_to_project() -> None:
     )
 
     properties = _aspect(workunits, DatasetPropertiesClass)
-    # Library has no cube viewer and no dashboard embeds it, so the link
-    # lands on the project rather than on a non-existent parent.
+    # Nothing embeds it, so the link lands on the project.
     assert properties.externalUrl == (
         "https://mstr.example.com/MicroStrategyLibrary/app/project-1"
     )

@@ -1381,8 +1381,7 @@ class MicroStrategyMapper:
             DatasetUsageStatisticsClass,
         ]
         if entity_kind == USAGE_TARGET_DATASET:
-            # A report dataset (dataset_identity=per_report): the Platform
-            # Analytics execution count is the closest thing to a query count.
+            # per_report has no query log; the execution count is the closest query count.
             aspect = DatasetUsageStatisticsClass(
                 timestampMillis=bucket.bucket_start_ms,
                 eventGranularity=granularity,

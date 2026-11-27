@@ -4179,8 +4179,6 @@ def _per_report_source(
 ) -> MicroStrategySource:
     config: Dict[str, Any] = {
         "dataset_identity": "per_report",
-        # The fake clients serve no predefined folders; folder labels are
-        # covered by their own tests.
         "use_predefined_folder_names": False,
         "extract_warehouse_lineage": False,
         "extract_visualization_details": False,
@@ -4229,7 +4227,6 @@ def test_per_report_shared_report_is_one_dataset_linked_from_both_dashboards() -
     assert shared.externalUrl == (
         "https://mstr.example.com/MicroStrategyLibrary/app/project-1/ds-shared"
     )
-    # The dossier's visualization and the document both link to that one entity.
     charts = _aspects_by_urn(workunits, ChartInfoClass)
     assert [chart.inputs for chart in charts.values()] == [[_SHARED_URN]]
     dashboards = _aspects_by_urn(workunits, DashboardInfoClass)
@@ -4238,7 +4235,6 @@ def test_per_report_shared_report_is_one_dataset_linked_from_both_dashboards() -
     assert [edge.destinationUrn for edge in document.datasetEdges] == [_SHARED_URN]
     dossier = dashboards[source.mapper.dashboard_urn("project-1", "dash-1")]
     assert dossier.datasetEdges is None
-    # Filed under the report's own folder, owned by the report's owner.
     own_folder = source.mapper.folder_key(
         "project-1", "Shared Reports/Salon Retail Sales"
     ).as_urn()
@@ -4248,7 +4244,7 @@ def test_per_report_shared_report_is_one_dataset_linked_from_both_dashboards() -
     assert source.report.reports_deduplicated == 1
     assert source.report.report_datasets_emitted == 1
     assert source.report.datasets_scanned == 1
-    # One object lookup serves both dashboards and the emission.
+    # One object lookup serves both dashboards.
     assert source.report.dataset_object_lookups == 1
 
 
@@ -4291,8 +4287,7 @@ def test_per_report_report_pass_upgrades_schema_and_emits_no_chart() -> None:
     )
     properties = _aspects_by_urn(workunits, DatasetPropertiesClass)
     assert sorted(properties) == [_SHARED_URN, solo_urn]
-    # The shared report keeps its one entity; its schema and description now
-    # come from the report's own definition rather than the dossier's copy.
+    # The report's own definition replaces the dossier's copy of the schema.
     schemas = _aspects_by_urn(workunits, SchemaMetadataClass)
     assert [f.fieldPath for f in schemas[_SHARED_URN].fields] == [
         "Gross Sales Amt",
@@ -4304,7 +4299,6 @@ def test_per_report_report_pass_upgrades_schema_and_emits_no_chart() -> None:
     assert shared.customProperties["microstrategyReportPromptCount"] == "1"
     assert shared.customProperties["microstrategyReportSourceId"] == "cube-1"
     assert shared.customProperties["microstrategyReportSourceName"] == "Sales Cube"
-    # The independent report is the same kind of entity, under its own folder.
     solo = properties[solo_urn]
     assert solo.customProperties["microstrategyDashboardCount"] == "0"
     assert "microstrategyDashboardIds" not in solo.customProperties
@@ -4315,8 +4309,7 @@ def test_per_report_report_pass_upgrades_schema_and_emits_no_chart() -> None:
         _dataset_container_parents(workunits)[solo_urn]
         == source.mapper.folder_key("project-1", "Shared Reports/Ad Hoc").as_urn()
     )
-    # No `Report` chart, and no report-scoped source dataset: the only chart
-    # is the dossier's visualization.
+    # The Report chart was a second copy of the report.
     assert list(_aspects_by_urn(workunits, ChartInfoClass)) == [
         source.mapper.chart_urn("project-1", "dash-1", "viz-dash-1")
     ]
@@ -4342,8 +4335,7 @@ def test_per_report_extract_cubes_off_still_emits_report_pass_datasets() -> None
 
     workunits = list(source._process_project(_PROJECT))
 
-    # Both reports were seen by the report pass, so both are emitted; the
-    # visualization still points at the shared one.
+    # The report pass emits both, including the one no dashboard embeds.
     assert len(_aspects_by_urn(workunits, DatasetPropertiesClass)) == 2
     source = _per_report_source({"extract_cubes": False})
     source.client = _SharedReportClient()  # type: ignore[assignment]
@@ -4365,8 +4357,7 @@ def test_per_report_parses_a_shared_report_sql_view_once() -> None:
     ) as parse:
         workunits = list(source._process_project(_PROJECT))
 
-    # Each dossier execution still yields its SQL view, but the shared
-    # report's SQL is parsed for the first dossier only.
+    # The shared report's SQL is parsed for the first dossier only.
     assert client.sql_view_reads == ["dash-1", "dash-2"]
     assert parse.call_count == 1
     lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
@@ -4397,8 +4388,7 @@ def test_per_report_report_pass_does_not_execute_a_report_a_dossier_settled() ->
     ) as parse:
         workunits = list(source._process_project(_PROJECT))
 
-    # The dossier's SQL view settled ds-shared, so the report pass opens an
-    # instance (an execution) only for the report no dashboard embeds.
+    # The report pass executes only the report no dashboard already settled.
     assert client.report_instances == ["report-solo"]
     assert parse.call_count == 2
     lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
