@@ -43,6 +43,12 @@ public class MCLItemImpl implements MCLItem {
   private final AspectSpec aspectSpec;
 
   /**
+   * How many references to entity types this registry doesn't know (written by a newer version)
+   * were removed from the new aspect, which is indexed without them.
+   */
+  private final int referencesLeftOut;
+
+  /**
    * This item with {@code previousRecordTemplate} as its previous value. Used when the previous
    * value was left out of the build because it can't be validated here (a newer version wrote it),
    * so readers of the item can still diff against it.
@@ -50,7 +56,12 @@ public class MCLItemImpl implements MCLItem {
   public MCLItemImpl withPreviousRecordTemplate(
       @Nullable final RecordTemplate previousRecordTemplate) {
     return new MCLItemImpl(
-        metadataChangeLog, recordTemplate, previousRecordTemplate, entitySpec, aspectSpec);
+        metadataChangeLog,
+        recordTemplate,
+        previousRecordTemplate,
+        entitySpec,
+        aspectSpec,
+        referencesLeftOut);
   }
 
   public static class MCLItemImplBuilder {
@@ -116,8 +127,9 @@ public class MCLItemImpl implements MCLItem {
           convertToRecordTemplate(this.metadataChangeLog, aspectSpec);
 
       // validate new
-      ValidationApiUtils.validateRecordTemplate(
-          this.entitySpec, urn, aspects.getFirst(), aspectRetriever);
+      final int referencesLeftOut =
+          ValidationApiUtils.validateRecordTemplate(
+              this.entitySpec, urn, aspects.getFirst(), aspectRetriever);
       // Validating the new aspect removed its references to entity types this registry doesn't
       // know (written by a newer version). Remove them from the previous aspect too, so the index
       // diff doesn't read them as removed and delete the newer version's edges and values. A
@@ -131,7 +143,8 @@ public class MCLItemImpl implements MCLItem {
           aspects.getFirst(),
           aspects.getSecond(),
           this.entitySpec,
-          this.aspectSpec);
+          this.aspectSpec,
+          referencesLeftOut);
     }
 
     private MCLItemImplBuilder entitySpec(EntitySpec entitySpec) {

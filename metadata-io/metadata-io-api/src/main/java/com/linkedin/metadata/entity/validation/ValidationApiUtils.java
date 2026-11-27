@@ -286,8 +286,10 @@ public class ValidationApiUtils {
   /**
    * Validates an aspect being indexed (an MCL). References to entity types this registry doesn't
    * know are dropped first, so they are neither indexed nor rejected.
+   *
+   * @return how many such references were dropped
    */
-  public static void validateRecordTemplate(
+  public static int validateRecordTemplate(
       EntitySpec entitySpec,
       Urn urn,
       @Nullable RecordTemplate aspect,
@@ -307,12 +309,16 @@ public class ValidationApiUtils {
     RecordTemplateValidator.validate(
         EntityApiUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
 
-    if (aspect != null) {
-      // References to entity types this registry doesn't know (written by a newer version before
-      // a rollback) are dropped rather than indexed, and don't fail the aspect.
-      reportStripped(handling().stripUnknownReferences(aspect, entityRegistry), aspect, urn);
-      RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
+    if (aspect == null) {
+      return 0;
     }
+    // References to entity types this registry doesn't know (written by a newer version before a
+    // rollback) are dropped rather than indexed, and don't fail the aspect. Logged here for every
+    // caller; counted by the caller that has the metrics.
+    final int removed = handling().stripUnknownReferences(aspect, entityRegistry);
+    reportStripped(removed, aspect, urn);
+    RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
+    return removed;
   }
 
   private static void reportStripped(
