@@ -182,6 +182,10 @@ public class DataHubAuthorizer
             request.getActorGroupMembership(),
             request.getActorDirectRoles(),
             opContext);
+    if (isRequestScoped(resourceSpecCache, opContext)) {
+      sharedEvaluationContext.setResourceOwnersByUrn(
+          opContext.getAuthorizationContext().getSessionResourceOwnersCache());
+    }
 
     // 2. Evaluate each policy.
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
@@ -237,12 +241,17 @@ public class DataHubAuthorizer
   private static Map<EntitySpec, Map<EntityFieldType, FieldResolver>> requestFieldOverrides(
       @Nullable final Map<EntitySpec, ResolvedEntitySpec> resourceSpecCache,
       @Nonnull final OperationContext opContext) {
-    final AuthorizationContext authorizationContext = opContext.getAuthorizationContext();
-    if (resourceSpecCache == null
-        || resourceSpecCache != authorizationContext.getSessionResourceSpecCache()) {
+    if (!isRequestScoped(resourceSpecCache, opContext)) {
       return Map.of();
     }
-    return authorizationContext.getSessionResourceFieldOverrides();
+    return opContext.getAuthorizationContext().getSessionResourceFieldOverrides();
+  }
+
+  private static boolean isRequestScoped(
+      @Nullable final Map<EntitySpec, ResolvedEntitySpec> resourceSpecCache,
+      @Nonnull final OperationContext opContext) {
+    return resourceSpecCache != null
+        && resourceSpecCache == opContext.getAuthorizationContext().getSessionResourceSpecCache();
   }
 
   public PolicyEngine.PolicyGrantedPrivileges getGrantedPrivileges(
