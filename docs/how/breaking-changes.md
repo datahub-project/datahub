@@ -15,7 +15,7 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
-### References left on delete during a zero-downtime rollback
+### References left on delete during a zero-downtime rollback ([#21661](https://github.com/datahub-project/datahub/pull/21661))
 
 This only applies with entity and aspect tolerance on (`UNKNOWN_DATA_TOLERANCE_ENABLED` or
 `UNKNOWN_ENTITY_ASPECT_TOLERANCE_ENABLED`, off by default; see
