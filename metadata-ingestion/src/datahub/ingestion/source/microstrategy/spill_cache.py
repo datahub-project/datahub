@@ -18,8 +18,6 @@ _MISSING = _Missing()
 
 
 class CacheLookup(BaseModel, Generic[_V]):
-    """A lookup that tells a cached None apart from a key never cached."""
-
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     found: bool
@@ -31,15 +29,7 @@ def object_cache_key(project_id: str, object_id: str) -> str:
 
 
 class SpillCache(Generic[_V]):
-    """A per-project cache keeping ``memory_entries`` values in memory (LRU)
-    and spilling the rest to a temporary SQLite file, so nothing is evicted
-    and memory stays bounded. The file is only created on the first write.
-
-    FileBackedDict's in-memory OrderedDict and SQLite connection are not safe
-    for concurrent use, so every access holds one lock. Its __len__ binds one
-    SQL variable per in-memory key and fails past SQLite's variable limit, so
-    entries are counted on insert and len()/bool() is never called on it."""
-
+    # __len__ binds one SQL variable per key, and the dict is not thread-safe.
     def __init__(self, memory_entries: int, compress: bool = False) -> None:
         self._memory_entries = max(1, memory_entries)
         self._compress = compress
@@ -86,9 +76,7 @@ class SpillCache(Generic[_V]):
             return True
 
     def get_or_load(self, key: str, loader: Callable[[], _V]) -> _V:
-        """The cached value, or ``loader()`` run once per key while concurrent
-        callers for the same key wait for its result. A loader that raises
-        caches nothing; a waiter then runs its own load."""
+        # A loader that raises caches nothing, so a waiter runs its own load.
         while True:
             with self._lock:
                 value = self._lookup(key)

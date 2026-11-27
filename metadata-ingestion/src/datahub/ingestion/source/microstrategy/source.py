@@ -199,9 +199,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             # and the run would report SUCCESS with zero warehouse lineage.
             ensure_sql_lineage_dependencies()
         memory_entries = self.config.cache_memory_entries
-        # "project id:METRIC ID" -> metric model, or None once its fetch
-        # failed. Shared by dashboard enrichment, report derived metrics and
-        # the semantic model, which reuses every model fetched before it.
+        # A failed fetch is cached as None and reused, except by the semantic model.
         self._metric_model_cache: SpillCache[Optional[Dict[str, object]]] = SpillCache(
             memory_entries, compress=True
         )
@@ -213,27 +211,18 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._model_document_value: Optional[Dict[str, object]] = None
         self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
         self._personal_folder_cache: Dict[str, PersonalFolderResolution] = {}
-        # "project id:OBJECT ID" -> type-3 object info (report or cube), or
-        # None once a lookup failed so it is never re-fetched. Shared by
-        # dataset lookups, dashboard chart lists, the linked-report pass and
-        # report search results.
+        # A failed lookup is cached as None, so it is not fetched again.
         self._report_object_cache: SpillCache[Optional[MicroStrategyObject]] = (
             SpillCache(memory_entries)
         )
-        # "project id:report id" -> the SQL _report_sql_statement returned
-        # (None once a read failed), so a grid report shared by many documents
-        # is executed once per project and a failed one is not retried.
+        # A failed read is cached, so a shared report is not executed again.
         self._report_sql_cache: SpillCache[Optional[str]] = SpillCache(
             memory_entries, compress=True
         )
-        # "project id:report id" -> GET /api/v2/reports/{id} payloads that
-        # succeeded, read by report derived metrics and then the report pass.
         self._report_v2_payload_cache: SpillCache[Dict[str, object]] = SpillCache(
             memory_entries, compress=True
         )
-        # True once this project's dashboard/report caches, and then all of
-        # its caches, were released, so a repeated release is a no-op and
-        # each project counts as one reset.
+        # Released twice per project; both must count as one reset.
         self._report_caches_released = False
         self._project_caches_released = False
         # "project id:report id" -> derived metric definitions, or None once
@@ -575,11 +564,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project: Project,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
-        # The semantic model reads one metric model per catalog metric (tens
-        # of thousands in a large project) and no other dashboard or report
-        # cache, so those are released first. The metric model cache is kept
-        # so every model the dashboards fetched is reused rather than fetched
-        # again; it is released at the project boundary.
+        # The metric model cache is kept so the semantic model reuses what the dashboards fetched.
         self._release_report_caches()
         model_tables = lineage_context.model_tables_retrying_failure()
         if model_tables is None:
@@ -1458,8 +1443,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     self.report.report_report_definition_without_expressions()
                 elif not definitions:
                     self.report.report_report_model_definition_empty()
-            # Static Modeling definitions can omit derived metrics that v2
-            # names, so an empty answer still falls back to v2.
+            # An empty Modeling answer can still have derived metrics in v2.
             if not definitions:
                 try:
                     v2_payload = self._report_v2_payload(project_id, report_id)
@@ -1988,8 +1972,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if not self.config.extract_report_definitions:
             return ReportDefinition.from_search_result(report_object)
 
-        # The report pass is the payload's last reader, so a miss is fetched
-        # without being cached.
+        # Last reader, so a miss is fetched without being cached.
         response = self._report_v2_payload_cache.get(
             object_cache_key(project_id, report_object.id)
         )

@@ -168,8 +168,7 @@ class MicroStrategySemanticModelMapper:
         self.report = report
         self.client = client
         self.lineage = lineage
-        # Models the dashboard pass already fetched (None for a failed fetch,
-        # which is retried here so it is reported against the metric).
+        # A cached None is retried here, so the failure is reported against the metric.
         self.metric_model_cache = metric_model_cache
 
     def emit(
@@ -755,8 +754,7 @@ class MicroStrategySemanticModelMapper:
         progress.log()
 
     def _metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
-        # Read-only: this is the last pass to need a metric model, so models
-        # fetched here are not written back to the cache.
+        # Last pass to need a model, so a fetch here is not written back.
         if self.metric_model_cache is not None:
             cached = self.metric_model_cache.get(
                 object_cache_key(project_id, metric_id)
