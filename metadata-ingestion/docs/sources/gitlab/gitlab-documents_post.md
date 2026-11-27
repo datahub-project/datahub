@@ -8,7 +8,8 @@ source:
   config:
     gitlab_token: "${GITLAB_TOKEN}"
     base_url: https://gitlab.example.com
-    repository: data-platform/analytics/handbook
+    repositories:
+      - data-platform/analytics/handbook
     branch: main
     path_prefix: docs
     parent_document_urn: "urn:li:document:context-handbook"
@@ -29,7 +30,8 @@ source:
   type: gitlab-documents
   config:
     gitlab_token: "${GITLAB_TOKEN}"
-    repository: https://gitlab.com/example-group/analytics
+    repositories:
+      - https://gitlab.com/example-group/analytics
     document_import_mode: EXTERNAL
     stateful_ingestion:
       enabled: true
@@ -39,7 +41,7 @@ Documents link back to the file in GitLab (`<project URL>/-/blob/<branch>/<path>
 
 #### Several projects from one source
 
-Set `group` to ingest every project in a group, `repositories` to name projects, or both. `repository` still works for a single project.
+Set `repositories` to name projects, `group` to ingest every project in a group, or both. `repository`, which names a single project, is deprecated and still works. Move it into `repositories`.
 
 ```yaml
 source:
@@ -60,7 +62,7 @@ source:
 ```
 
 - Each project gets its own root document, named after the project and nested under `parent_document_urn` when one is set. Every other option, such as `path_prefix`, `file_extensions` and `max_files`, applies to each project separately.
-- `project_pattern` matches the full path of projects found through `group`. Projects listed in `repository` or `repositories` are always ingested.
+- `project_pattern` matches the full path of projects found through `group`. Projects listed in `repositories` are always ingested.
 - Archived projects, and projects shared into the group from elsewhere, are not ingested. Set `include_archived: true` to include archived ones.
 - `branch` is each project's default branch unless you set it. If you set it, every project is read from that branch, and a project without it is skipped.
 - A group is read up to `max_projects` projects (default 100) per run. Only projects that `project_pattern` allows count toward it. `include_subgroups`, `include_archived`, `project_pattern` and `max_projects` only apply with `group`, and setting them without it is a config error.
@@ -87,7 +89,8 @@ source:
   config:
     gitlab_token: "${GITLAB_TOKEN}"
     base_url: https://gitlab.example.com
-    repository: data/platform.docs
+    repositories:
+      - data/platform.docs
     platform_instance: self-managed
 ```
 
@@ -110,7 +113,7 @@ The source resolves the branch head once and reads the tree and files at that co
 - **401 / 403 from GitLab**: Verify the token has not expired and has the `read_api` scope. Project and group tokens need at least the Reporter role.
 - **`Repository skipped` warning**: The warning names the project and the reason. `No default branch` means the project is empty, or the token's role is below Reporter and cannot read its repository. Exclude empty projects with `project_pattern`, or raise the token's role.
 - **No projects found in the group**: Check the group path and that the token can list the group's projects. A project access token only sees its own project; use a group access token.
-- **Wrong instance**: When `repository` is a URL and `base_url` is also set, the URL must be on that instance.
+- **Wrong instance**: When a project in `repositories` is a URL and `base_url` is also set, the URL must be on that instance.
 - **No files imported**: Check `path_prefix` and `file_extensions` filters.
 - **`Repository file not read` warnings**: The file could not be downloaded, was too large, or was not text. A file that failed to download keeps its previous import, so a temporary GitLab error does not remove the document.
 - **`Repository tree truncated` warning**: GitLab returned a full page of the project tree without pagination headers, and a follow-up request showed more entries exist. This usually means a proxy stripped the headers. If the follow-up request failed, the warning's context includes the API error. The run imports what it listed and skips stale document removal, so nothing is deleted. Let the executor reach the GitLab API directly.

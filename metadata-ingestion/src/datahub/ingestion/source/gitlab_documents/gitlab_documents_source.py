@@ -123,7 +123,7 @@ class GitLabDocumentsSource(RepositoryDocumentsSourceBase[GitLabDocumentsSourceC
                 title="Group projects not listed",
                 message=(
                     "The group's projects could not be listed, so only the projects "
-                    "named in repository or repositories were imported, and "
+                    "named in repositories were imported, and "
                     "documents imported by earlier runs are kept."
                 ),
                 context=f"group={group}",

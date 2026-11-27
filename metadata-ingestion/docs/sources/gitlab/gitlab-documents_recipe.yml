@@ -4,11 +4,9 @@ source:
     gitlab_token: "${GITLAB_TOKEN}"
     # Omit base_url for GitLab.com.
     base_url: https://gitlab.example.com
-    repository: acme/handbook
-    # To ingest several projects instead, use repositories or group:
-    # repositories:
-    #   - acme/handbook
-    #   - acme/runbooks
+    repositories:
+      - acme/handbook
+    # To ingest every project in a group as well, set group:
     # group: acme/data
     branch: main
     path_prefix: docs

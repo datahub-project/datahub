@@ -3,6 +3,7 @@ from typing import List, Optional
 from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.source.gitlab_documents.gitlab_api import (
     DEFAULT_GITLAB_URL,
     parse_project_path,
@@ -31,23 +32,31 @@ class GitLabDocumentsSourceConfig(RepositoryDocumentsSourceConfigBase):
         default=DEFAULT_GITLAB_URL,
         description=(
             "GitLab instance URL. Set this for self-managed GitLab, for example "
-            "'https://gitlab.example.com'. Inferred from repository when that is a URL."
-        ),
-    )
-    repository: Optional[str] = Field(  # type: ignore[assignment]
-        default=None,
-        description=(
-            "Project to ingest, as its full path ('group/subgroup/project') or URL "
-            "('https://gitlab.com/group/project'). Use repositories or group to "
-            "ingest several projects from one source."
+            "'https://gitlab.example.com'. Inferred from the first project URL in repositories."
         ),
     )
     repositories: List[str] = Field(
         default_factory=list,
         description=(
-            "Projects to ingest, each as a full path or URL on the same GitLab "
-            "instance. Can be combined with group. Each project gets its own root "
-            "document, nested under parent_document_urn when one is set."
+            "Projects to ingest, each as a full path ('group/subgroup/project') or "
+            "URL ('https://gitlab.com/group/project') on the same GitLab instance. "
+            "Each project is read from its default branch unless branch is set, gets "
+            "its own root document, nested under parent_document_urn when one is "
+            "set, and is skipped with a warning if it cannot be read. Can be "
+            "combined with group."
+        ),
+    )
+    repository: Optional[str] = Field(  # type: ignore[assignment]
+        default=None,
+        json_schema_extra={"hidden_from_docs": True},
+        description="Deprecated: use repositories.",
+    )
+    _repository_deprecated = pydantic_field_deprecated(
+        "repository",
+        message=(
+            "repository is deprecated and will be removed in a future release. "
+            "Use repositories, a list of project paths, instead. Each project in "
+            "repositories is read from its default branch unless branch is set."
         ),
     )
     group: Optional[str] = Field(
@@ -71,7 +80,7 @@ class GitLabDocumentsSourceConfig(RepositoryDocumentsSourceConfigBase):
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns for the full paths of projects found through group, for "
-            "example 'acme/data/.*'. Projects named in repository or repositories are "
+            "example 'acme/data/.*'. Projects named in repositories are "
             "always ingested."
         ),
     )
@@ -109,7 +118,7 @@ class GitLabDocumentsSourceConfig(RepositoryDocumentsSourceConfigBase):
             if entry is not None
         ]
         if not entries and not self.group:
-            raise ValueError("Set repository, repositories or group.")
+            raise ValueError("Set repositories or group.")
 
         # A project URL sets base_url unless a self-managed URL was configured.
         # Recipes always carry the gitlab.com default, so that counts as unset.

@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 import requests_mock
 
+from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.gitlab_documents.gitlab_documents_config import (
@@ -57,9 +58,27 @@ def _infos(source: GitLabDocumentsSource) -> List[DocumentInfoClass]:
     ]
 
 
-def test_config_needs_a_repository_or_a_group() -> None:
+def test_config_needs_repositories_or_a_group() -> None:
     with pytest.raises(ValueError):
         _source()
+
+
+def test_repository_is_deprecated_and_hidden_from_the_docs() -> None:
+    properties = GitLabDocumentsSourceConfig.model_json_schema()["properties"]
+    assert "repository" not in properties
+    assert "repositories" in properties
+
+    with pytest.warns(ConfigurationWarning, match="repository is deprecated"):
+        legacy = GitLabDocumentsSourceConfig.model_validate(
+            {"gitlab_token": "glpat-test", "repository": "acme/data/docs"}
+        )
+    assert legacy.repository == "acme/data/docs"
+    assert not legacy.multi_repository
+
+    current = GitLabDocumentsSourceConfig.model_validate(
+        {"gitlab_token": "glpat-test", "repositories": ["acme/data/docs"]}
+    )
+    assert current.multi_repository
 
 
 def test_group_options_need_a_group() -> None:
