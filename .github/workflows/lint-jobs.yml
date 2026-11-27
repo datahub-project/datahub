@@ -81,6 +81,17 @@ jobs:
       - name: run markdown checks
         run: ./gradlew :datahub-web-react:mdPrettierCheck :datahub-web-react:docusaurusMarkdownLint
 
+  # Unconditional: a dead path in an AGENTS.md can be caused by deleting or
+  # renaming any file, so no path filter can scope this. It takes seconds.
+  agent-docs-lint:
+    name: agent_docs_lint
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Check agent-instruction files (chain budget, shims, dead paths)
+        run: python3 .github/scripts/check_agent_docs.py
+
   github-actions-format:
     name: github_actions_format_check
     runs-on: ${{ needs.setup.outputs.default-gh-runner }}

@@ -52,7 +52,7 @@ Put new tests in `tests/e2e/<feature>/`, not `test_e2e.py`. Connector tests are 
   API. `TestSessionWrapper` already waits on POST/PUT — do not extra-sync unless
   you are asserting search/index.
 - **Auth:** `auth_session` / `graph_client`. Extra users:
-  `make_step_actor_user()`. Config: `utilities/env_vars.py`, not `os.getenv` or
+  `make_step_actor_user()` (`utilities/multi_user.py`). Config: `utilities/env_vars.py`, not `os.getenv` or
   `localhost:8080`. The same goes for other service URLs and index names
   (executor, OpenSearch, `INDEX_PREFIX`): read them through `env_vars` with the
   Docker value as the default, so the tests also run on the Docker-free stack.
@@ -62,10 +62,6 @@ Put new tests in `tests/e2e/<feature>/`, not `test_e2e.py`. Connector tests are 
 - **Reuse helpers.** Do not copy-paste `addTag` or roll a local `uuid` when  
   `unique_suffix()` exists. Tags/terms/descriptions:  
   `utilities/metadata_operations.py`.
-- Extra users: `make_step_actor_user()` in `utilities/multi_user.py`,  
-  not a one-off signup.
-- `execute_graphql()` already asserts a non-empty body, `data` is not `None`,
-  and no `errors` key, only assert the data that the test requires
 
 ## Markers
 
@@ -211,11 +207,11 @@ finally:
 
 ## Other helpers
 
-- `tests/utils.py`: `execute_graphql`, `ingest_file_via_rest`,
+- `tests/e2e/utils.py`: `execute_graphql`, `ingest_file_via_rest`,
   `delete_urn` / `delete_urns` / `delete_urns_from_file`, `with_test_retry`,
   `wait_for_writes_to_sync`.
-- `tests/utilities/concurrent_test_runner.py`: thread-safe
+- `utilities/concurrent_test_runner.py`: thread-safe
   `run_concurrent_tests` / `run_concurrent_tests_with_args`.
-- `tests/utilities/concurrent_openapi.py`: `run_tests(auth_session, fixture_globs=...)`.
+- `utilities/concurrent_openapi.py`: `run_tests(auth_session, fixture_globs=...)`.
   JSON fixtures: `{request, response}` with DeepDiff `exclude_regex_paths`. Do
   not add OpenAPI fixtures that only re-check a GraphQL path already covered.

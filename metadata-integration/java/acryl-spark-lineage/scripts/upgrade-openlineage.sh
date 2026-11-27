@@ -34,7 +34,7 @@ echo ""
 echo "NOTE: This is a best-effort first pass. It copies the new upstream over the vendored"
 echo "      files and tries to re-apply the v$OLD_VERSION patches to each vendored target, which FAILS"
 echo "      whenever upstream changed a patched file. For those, finish with the 3-way merge"
-echo "      documented in CLAUDE.md ('Upgrade Process'). Always run the test suite afterward"
+echo "      documented in AGENTS.md ('Upgrade Process'). Always run the test suite afterward"
 echo "      (test, checkShadowJar, sparkRealSmokeTest, sparkSmoke4Test)."
 echo ""
 
@@ -195,7 +195,7 @@ else
       echo "  - $file"
     done
     echo ""
-    echo "Manual merge required. See upgrade guide in CLAUDE.md"
+    echo "Manual merge required. See upgrade guide in AGENTS.md"
     echo "Backup files available in: $BACKUP_DIR"
   fi
 fi
@@ -236,7 +236,7 @@ if [ ${#PATCH_CONFLICTS[@]} -eq 0 ]; then
   echo "  1. Review changes: git diff"
   echo "  2. Build: ./gradlew :metadata-integration:java:acryl-spark-lineage:build"
   echo "  3. Test: ./gradlew :metadata-integration:java:acryl-spark-lineage:test"
-  echo "  4. Update CLAUDE.md if needed"
+  echo "  4. Update AGENTS.md if needed"
 else
   echo "⚠️  Upgrade completed with conflicts - manual review required"
   echo ""

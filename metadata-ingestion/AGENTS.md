@@ -1,206 +1,86 @@
 # DataHub Metadata Ingestion Development Guide
 
+Module guide for `metadata-ingestion/`: the `acryl-datahub` CLI and ingestion framework.
+Root `AGENTS.md` owns cross-project rules (Python standards, testing principles,
+confidentiality, commits, PRs). Nested guides own the detail:
+
+| Working on                                        | Read                                     |
+| ------------------------------------------------- | ---------------------------------------- |
+| A connector under `src/datahub/ingestion/source/` | `src/datahub/ingestion/source/AGENTS.md` |
+| Tests under `tests/`                              | `tests/AGENTS.md`                        |
+| Connector docs under `docs/sources/`              | `docs/sources/AGENTS.md`                 |
+| Review-time rules (Cursor Bugbot)                 | `.cursor/BUGBOT.md`                      |
+
 ## Build and Test Commands
 
-**Using Gradle (slow but reliable):**
+Agents go through Gradle: do not run `pytest`, `ruff` or `mypy` directly or activate the
+venv by hand (root `AGENTS.md`, "Python Virtual Environments"). `developing.md` shows the
+equivalent direct commands for a human working in an activated venv.
 
 ```bash
-# Development setup from metadata-ingestion/
-../gradlew :metadata-ingestion:installDev   # Setup Python environment
-source venv/bin/activate                    # Activate virtual environment
-
-# Linting and formatting
-../gradlew :metadata-ingestion:lint         # Run ruff + mypy
-../gradlew :metadata-ingestion:lintFix      # Auto-fix linting issues
-
-# Testing
-../gradlew :metadata-ingestion:testQuick                           # Fast unit tests
-../gradlew :metadata-ingestion:testFull                            # All tests
-../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_file.py  # Single test
+# From metadata-ingestion/
+../gradlew :metadata-ingestion:installDev   # Set up the Python environment (once)
+../gradlew :metadata-ingestion:lintFix      # Auto-fix (ruff check --fix + format); not validation
+../gradlew :metadata-ingestion:lint         # Validate: ruff + mypy, as CI runs them; run before you are done
+../gradlew :metadata-ingestion:testQuick    # Unit tests (tests/unit, no Docker)
+../gradlew :metadata-ingestion:testFull     # Every testpath: unit, integration, performance
+../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_file.py            # One file or directory
+../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_file.py::test_name # One test
 ```
 
-**Direct Python commands (when venv is activated):**
-
-```bash
-# Testing
-pytest -vv                                 # Run all tests
-pytest -m 'not integration'                # Unit tests only
-pytest -m 'integration'                    # Integration tests
-pytest tests/path/to/file.py               # Single test file
-pytest tests/path/to/file.py::TestClass    # Single test class
-pytest tests/path/to/file.py::TestClass::test_method  # Single test
-```
-
-## Environment Variables
-
-**Build configuration:**
-
-- `DATAHUB_VENV_USE_COPIES`: Set to `true` to use `--copies` flag when creating Python virtual environments. This copies the Python binary instead of creating a symlink. Useful for Nix environments, immutable filesystems, Windows, or container environments where symlinks don't work correctly. Increases disk usage and setup time, so only enable if needed.
-
-  ```bash
-  export DATAHUB_VENV_USE_COPIES=true
-  ../gradlew :metadata-ingestion:installDev
-  ```
+`DATAHUB_VENV_USE_COPIES=true` makes `installDev` copy the Python binary instead of
+symlinking it (Nix, immutable filesystems, Windows, some containers).
 
 ## Directory Structure
 
-- `src/datahub/`: Source code for the DataHub CLI and ingestion framework
-- `tests/`: All tests (NOT in `src/` directory)
-- `tests/unit/`: Unit tests
-- `tests/integration/`: Integration tests
-- `scripts/`: Build and development scripts
-- `examples/`: Example ingestion configurations
-- `developing.md`: Detailed development environment information
+- `src/datahub/`: CLI (`cli/`, `entrypoints.py`), framework (`ingestion/api/`), sources
+  (`ingestion/source/`) and sinks (`ingestion/sink/`), SDK (`sdk/`), SQL parsing
+  (`sql_parsing/`), shared utilities (`utilities/`), test helpers shipped with the package
+  (`testing/`)
+- `src/datahub/metadata/`: generated model classes, not checked in
+- `tests/unit/`, `tests/integration/`, `tests/performance/`: all tests; never under `src/`
+- `docs/sources/`: hand-authored connector docs; `docs/dev_guides/`: stateful ingestion,
+  profiling, classification, reporting and telemetry, URN casing, probes
+- `developing.md`: published developer guide (code layout, style, dependency policy,
+  config guidelines, testing, golden files). It is the canonical owner of those topics.
+- `scripts/`: build and docgen scripts; `examples/`: recipes and library examples
 
-## Code Style Guidelines
+## Code Style and Configs
 
-- **Formatting**: Uses ruff, 88 character line length
-- **Imports**: Sorted with ruff.lint.isort, no relative imports, Imports are always put at the top of the file, just after any module comments and docstrings, and before module globals and constants.
-- **Types**: Always use type annotations, prefer Protocol for interfaces
-  - Avoid `Any` type - use specific types (`Dict[str, int]`, `TypedDict`, or typevars)
-  - Use `isinstance` checks instead of `hasattr`
-  - Prefer `assert isinstance(...)` over `cast`
-- **Data Structures**: Use dataclasses/pydantic for internal data representation
-  - Return dataclasses instead of tuples from methods
-  - Centralize utility functions to avoid code duplication
-- **Naming**: Descriptive names, match source system terminology in configs
-- **Error Handling**: Validators throw only ValueError/TypeError/AssertionError
-  - Add robust error handling with layers of protection for known failure points
-- **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`
-- **Documentation**: All configs need descriptions
-- **Dependencies**: Avoid version pinning, use ranges with comments
-- **Architecture**: Avoid tall inheritance hierarchies, prefer mixins
-
-## Testing Conventions
-
-- **Location**: Tests go in `tests/` directory alongside `src/`, NOT in `src/`
-- **Structure**: Test files should mirror the source directory structure
-- **Framework**: Use pytest, not unittest
-- **Assertions**: Use `assert` statements, not `self.assertEqual()` or `self.assertIsNone()`
-  - Boolean: `assert func()` or `assert not func()`, not `assert func() is True/False`
-  - None: `assert result is None` (correct), not `assert result == None`
-  - Keep tests concise, avoid verbose repetitive patterns
-- **Classes**: Use regular classes, not `unittest.TestCase`
-- **Imports**: Import `pytest` in test files
-- **Naming**: Test files should be named `test_*.py`
-- **Categories**:
-  - Unit tests: `tests/unit/` - fast, no external dependencies
-  - Integration tests: `tests/integration/` - may use Docker/external services
-
-## Configuration Guidelines (Pydantic)
-
-- **Naming**: Match terminology of the source system (e.g., `account_id` for Snowflake, not `host_port`)
-- **Descriptions**: All configs must have descriptions
-- **Patterns**: Use AllowDenyPatterns for filtering, named `*_pattern`
-- **Defaults**: Set reasonable defaults, avoid config-driven filtering that should be automatic
-- **Validation**: Single pydantic validator per validation concern
-- **Security**: Use `SecretStr` for passwords, auth tokens, etc.
-- **Deprecation**: Use `pydantic_removed_field` helper for field deprecations
-
-### Keeping credentials out of reports and logs
-
-A credential embedded in a plain `str` config field — a URL with `user:pass@`, a presigned query,
-a connection string — is invisible to `_register_secret_fields`, so `SecretStr` alone does not
-cover it.
-
-- **Strategic: register the secret.** Register it by hand from a `model_validator(mode="after")`, as
-  `SQLAlchemyConnectionConfig.register_sqlalchemy_uri_secrets` does (`source/sql/sql_config.py`) and
-  `DBTCoreConfig.register_artifact_url_secrets` does (`source/dbt/dbt_core.py`). Use the canonical
-  helpers to extract the values: `sqlalchemy_uri_secrets` (`source/sql/sqlalchemy_uri.py`) for
-  SQLAlchemy URLs and `http_url_secrets` (`source/common/object_store_files.py`) for http(s) URL
-  fields. Registration masks the value wherever it surfaces, including in strings built by code we
-  do not own. Register the whole query string rather than individual parameters — enumerating every
-  presigning scheme's signature parameter does not scale, and a presigned signature is a bearer
-  credential in its own right.
-- **Tactical: redact at the call site.** A `redact_*` helper on a specific `report.*` call is a
-  deterministic floor for the strings we build, and the only thing that keeps the _in-memory_
-  report clean, since `mask_structure()` runs at serialization and `source.get_report()` is never
-  masked. Use it in addition to registration, never instead of it.
-- **`exc=` defeats a redacted `context=`.** `StructuredLogs.report_log` appends
-  `f"{context} {type(exc)}: {exc}"` after the `context` argument is built, so sanitizing `context`
-  alone does nothing for the exception text. `requests` keeps userinfo in `PreparedRequest.url`, so
-  `raise_for_status()` names the password verbatim. Only registration covers this.
-- **Don't hand-roll substring redaction of a secret.** Replacing a secret value in text with
-  `str.replace` re-implements the masking filter without the registry's guards: it refuses values
-  shorter than `MIN_SECRET_LENGTH` and common literals (`true`, `no`, ...), because blind
-  replacement corrupts unrelated text (a one-character password mangles the host name). Register the
-  value and keep `exc=e`.
-- **Scope: CLI ingestion.** `initialize_secret_masking()` is installed by the CLI
-  (`datahub ingest`, `datahub recipe`) and the executor, so registration covers logs, stdout and
-  the report there. A programmatic `Pipeline` that never calls it logs raw — that is the caller's
-  choice to install the masking bootstrap or their own, and is not a reason to hand-roll redaction
-  in a source.
-- **Test with a realistic exception.** A test asserting "no password in the report" while mocking a
-  credential-free `ValueError` passes against a broken fix.
-
-## Connector Conventions
-
-- **Structure**: Split connector code by duty: `constants.py`, `models.py`, `config.py`, `client.py`, `source.py`, plus `lineage.py`, `mapper.py`, and `usage.py` as needed. Match the quality and structure of existing connectors like Power BI, Airbyte, Redshift, BigID, and Grafana.
-- **Constants**: Avoid double-quoted string literals in connector code. Hoist magic strings into module-level constants, and keep regex patterns pre-compiled in the constants file.
-- **Comments**: No top-of-file docstrings in connector modules. Keep comments and docstrings only where they add real context.
-- **Imports**: Do not use `TYPE_CHECKING` in connector code. Lazy imports are fine only for opt-in features the connector does not always depend on.
-- **Syntax**: Do not use the walrus operator in connector code.
-- **Types**: Prefer `Dict` and `List` from `typing` over builtin `dict` and `list` in connector type annotations.
-- **Reporting**: Prefer `self.report.warning(...)` and report counters over bare `logger` warnings for skips, inaccessible objects, and other operator-visible edge cases.
-- **SQL lineage**: Use `SqlParsingAggregator` via `create_lineage_from_sql_statements` with a platform map instead of setting sqlglot dialects per connector. Mirror existing connectors for known-URN mapping, platform instance / env handling, casing, multi-part names, and temp-table handling.
-- **Column lineage**: Resolve upstream and downstream schemas from the DataHub graph when available, load known URNs from the platform / platform instance / env mapping, and match columns case-insensitively.
-- **Progress**: Surface ingestion progress and use explicit ingestion stages, following connectors like Dremio and Snowflake.
-- **New connectors**: A connector usually needs more than Python code: source logo, integrations-page logo, UI form pieces, a `datahub.json` update, entry-point registration in `setup.py`, `../gradlew :metadata-ingestion:updateLockFile`, and shared subtypes instead of connector-local subtype definitions.
-- **XML**: Avoid Python's stdlib `xml` parser. Use a safe XML library, following the HANA-related code path.
-- **Validation workflow**: Before committing a new connector, run ingestion locally in debug mode to a local file and inspect the full logs. When testing against customer environments, keep secrets only in temporary paths such as `/tmp/*.env`.
-- **PR scope**: Keep each connector in its own PR. Split shared framework changes such as sqlglot helpers into a separate PR, and keep the PR title and description focused on that connector only.
+Cross-module Python rules live in root `AGENTS.md`; the ingestion-specific ones in
+`developing.md` ("Code style", "Guidelines for Ingestion Configs"). Ruff, including isort,
+is configured in `pyproject.toml` under `[tool.ruff]`; `setup.cfg` holds only mypy, pytest
+markers and coverage. Connector conventions: `src/datahub/ingestion/source/AGENTS.md`.
 
 ## Dependencies and Entry Points
 
-`setup.py` is the **source of truth** for all dependencies, extras, and entry points. `pyproject.toml`, `uv.lock`, and `constraints.txt` are **generated from it** and must never be edited manually.
-
-**After any change to `setup.py`** (new dependency, new entry point, version bump), run:
+`setup.py` is the source of truth for dependencies, extras and source entry points
+(`entry_points["datahub.ingestion.source.plugins"]`). Everything in `pyproject.toml` above
+the `# ===== TOOL CONFIGURATION` marker, plus `uv.lock` and `constraints.txt`, is generated
+from it and overwritten by `updateLockFile`; only the `[tool.*]` sections below the marker
+(ruff, isort) are hand-maintained.
 
 ```bash
-../gradlew :metadata-ingestion:updateLockFile
+../gradlew :metadata-ingestion:updateLockFile   # after any setup.py change
+../gradlew :metadata-ingestion:checkLockFile    # what CI runs
 ```
 
-This regenerates the full chain: `setup.py` → `pyproject.toml` → `uv.lock` → `constraints.txt`.
+Version-range policy and the manual steps: `developing.md`, "Dependency Management".
 
-CI runs `checkLockFile` which calls `scripts/verify_pyproject_equivalence.py` to verify these files are in sync. If you edit `setup.py` without running `updateLockFile`, CI will fail.
+## Secrets, Confidentiality, Reporting
 
-**Adding a new ingestion source entry point:**
-
-1. Add the entry to `setup.py` under `entry_points["datahub.ingestion.source.plugins"]`
-2. Run `../gradlew :metadata-ingestion:updateLockFile`
-3. Verify with `../gradlew :metadata-ingestion:checkLockFile`
-
-## Key Files
-
-- `src/datahub/emitter/mcp_builder.py`: Examples of defining various aspect types
-- `setup.py`: Source of truth for dependencies, extras, and entry points
-- `pyproject.toml`: Generated from `setup.py` — do not edit manually
-- `setup.cfg`: Code style configuration
-- `scripts/generate_pyproject_deps.py`: Generates `pyproject.toml` from `setup.py`
-- `scripts/verify_pyproject_equivalence.py`: Validates `setup.py` and `pyproject.toml` are in sync
-- `.github/workflows/metadata-ingestion.yml`: CI workflow configuration
+- Credential masking in logs and reports (registration helpers, `redact_*`, `exc=`):
+  `src/datahub/ingestion/source/AGENTS.md`; the runtime lives in `src/datahub/masking/`.
+- This is a public repo: generic placeholder names only, no customer identifiers or ticket
+  IDs anywhere (root `AGENTS.md`, "Confidentiality in Committed Code").
+- Structured reporting and telemetry: `docs/dev_guides/reporting_telemetry.md`.
 
 ## Connector Documentation
 
-Connector documentation follows a structured format with specific file types and heading conventions.
-
-**Authoring guidelines**: See `docs/sources/AGENTS.md` in this directory for:
-
-- File structure (`_pre.md`, `_post.md`, `_recipe.yml`)
-- Heading level rules (H3 baseline, H2 reserved for module headings)
-- Section ordering (Overview → Concept Mapping → Prerequisites)
-- Content placement guidelines
-- Style conventions and formatting requirements
-
-**Quick reference:**
+Authoring rules (file split, heading contract, terminology): `docs/sources/AGENTS.md`.
 
 ```bash
-# Regenerate documentation after changes
-../gradlew :metadata-ingestion:docGen
-
-# Preview locally
-../gradlew :docs-website:yarnStart  # Opens localhost:3001
-
-# Format markdown before committing
-../gradlew :datahub-web-react:mdPrettierWrite
+../gradlew :metadata-ingestion:docGen               # regenerate after doc changes
+../gradlew :docs-website:yarnStart                  # preview on localhost:3001
+../gradlew :datahub-web-react:mdPrettierWrite       # format markdown before committing
 ```

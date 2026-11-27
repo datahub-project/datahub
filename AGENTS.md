@@ -41,17 +41,16 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 ./gradlew :datahub-web-react:githubActionsPrettierWrite # Format GitHub Actions
 ```
 
-**IMPORTANT: Verifying Python code changes:**
+**Verifying Python code changes:**
 
-- **ALWAYS use `./gradlew :metadata-ingestion:lintFix`** to verify Python code changes
-- **NEVER use `python3 -m py_compile`** - it doesn't catch style issues or type errors
-- **NEVER use `ruff` or `mypy` commands directly** - use the Gradle task instead
-- lintFix runs ruff formatting and fixing automatically, ensuring code quality
-- For smoke-test changes, the lintFix command will also check those files
+- `./gradlew :metadata-ingestion:lintFix` auto-fixes what ruff can (`check --fix` + `format`). It is not validation.
+- `./gradlew :metadata-ingestion:lint` validates: `ruff check`, `ruff format --check` and mypy, as CI runs them. Run it before calling a change done; `lintFix` alone catches neither type errors nor what ruff cannot fix.
+- Not `python3 -m py_compile`: it misses style issues and type errors.
+- Not `ruff` or `mypy` directly: the Gradle tasks use the project's venv and config.
 
 ## Code Formatting and Linting
 
-**CRITICAL: Always use Gradle tasks for formatting and linting. Never use npm/yarn/npx commands directly.**
+Format and lint through the Gradle tasks below, not by calling prettier or eslint via npm, yarn or npx: the tasks carry the project's config and match CI.
 
 ### Available Formatting Tasks
 
@@ -83,8 +82,8 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 ./gradlew spotlessApply       # Format Java code
 
 # Python code
-./gradlew :metadata-ingestion:lintFix      # Format and fix Python code
-./gradlew :metadata-ingestion:lint         # Check Python formatting
+./gradlew :metadata-ingestion:lintFix      # Auto-fix Python (ruff)
+./gradlew :metadata-ingestion:lint         # Validate Python (ruff + mypy)
 ```
 
 ### When CI Formatting Checks Fail
@@ -94,7 +93,7 @@ If you see CI failures like:
 - `markdown_format / markdown_format_check (pull_request)` - Use `./gradlew :datahub-web-react:mdPrettierWrite`
 - `graphql_prettier_check` - Use `./gradlew :datahub-web-react:graphqlPrettierWrite`
 - `spotless-check` - Use `./gradlew spotlessApply`
-- Python linting failures - Use `./gradlew :metadata-ingestion:lintFix`
+- Python linting failures - Use `./gradlew :metadata-ingestion:lintFix`, then `./gradlew :metadata-ingestion:lint` to confirm (mypy errors need a manual fix)
 
 **Never do this:**
 
@@ -120,7 +119,7 @@ npm run format                          # WRONG - bypasses Gradle
 
 **Java SDK v2 integration tests:**
 
-See [metadata-integration/java/datahub-client/CLAUDE.md](metadata-integration/java/datahub-client/CLAUDE.md) for detailed integration test documentation.
+See [metadata-integration/java/datahub-client/AGENTS.md](metadata-integration/java/datahub-client/AGENTS.md) for detailed integration test documentation.
 
 ## Architecture Overview
 
@@ -162,7 +161,7 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 
 ### Validation Architecture
 
-**IMPORTANT**: Validation must work across all APIs (GraphQL, OpenAPI, RestLI).
+Validation must work across all APIs (GraphQL, OpenAPI, RestLI).
 
 - **Never add validation in API-specific layers** (GraphQL resolvers, REST controllers) - this only protects one API
 - **Always implement AspectPayloadValidators** in `metadata-io/src/main/java/com/linkedin/metadata/aspect/validation/`
@@ -245,24 +244,9 @@ see `docs-website/AGENTS.md` for the full pipeline.
 | `docs/generated/`                              | **Never edit** — auto-generated                 |                                             |
 | `docs-website/genDocs/`                        | **Never edit** — assembled output               |                                             |
 
-### Adding or editing a hand-authored doc
-
-1. Create/edit the markdown file in `docs/`
-2. Add an entry in `docs-website/sidebars.js` (the doc ID is the file path minus `.md`)
-3. Run `scripts/dev/datahub-dev.sh docs` to preview
-
-If `sidebars.js` is missing the entry, the build will warn about an unaccounted file.
-
-### Adding a DataHub Cloud release note
-
-Release notes live in `docs/managed-datahub/release-notes/` and follow the naming convention `v_0_3_<N>.md`.
-
-**CRITICAL**: Adding the markdown file alone is not enough — you must also add it to `sidebars.js`:
-
-1. Create `docs/managed-datahub/release-notes/v_0_3_<N>.md`
-2. Add `"docs/managed-datahub/release-notes/v_0_3_<N>"` as the **first entry** under `"DataHub Cloud Release History"` in `docs-website/sidebars.js` (newer releases go at the top)
-
-Forgetting step 2 means the release note is published but never appears in the sidebar navigation.
+Adding a hand-authored doc or a DataHub Cloud release note: the file alone is not enough, it
+must also be registered in `docs-website/sidebars.js` (the build only warns). Steps:
+`docs-website/AGENTS.md`.
 
 ## Code Standards
 
@@ -277,12 +261,12 @@ Forgetting step 2 means the release note is published but never appears in the s
 
 - **Java**: Use Spotless formatting, Spring Boot patterns, TestNG/JUnit Jupiter for tests
 - **Python**: Use ruff for linting/formatting, pytest for testing, pydantic for configs
-  - **Type Safety**: Everything must have type annotations, avoid `Any` type, use specific types (`Dict[str, int]`, `TypedDict`)
+  - **Type Safety**: Everything must have type annotations, avoid `Any` type, use specific types (`Dict[str, int]`, `TypedDict`). Narrow with `isinstance` checks, not `hasattr`; prefer `assert isinstance(...)` over `cast`
   - **Data Structures**: Prefer dataclasses/pydantic for internal data, return dataclasses over tuples
   - **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`, refactor repetitive code
   - **Error Handling**: Robust error handling with layers of protection for known failure points
-  - **Security**: Never pass credentials to third-party SDKs via `os.environ`. Use the SDK's programmatic injection mechanism (a settings object, client constructor argument, or credential provider). Writing secrets to the process environment exposes them via `/proc/<pid>/environ` and to any code in the same process. See [`looker_lib_wrapper.py`](metadata-ingestion/src/datahub/ingestion/source/looker/looker_lib_wrapper.py) (`_DataHubLookerApiSettings`) for the canonical pattern.
-  - **Connectors**: File layout, lineage, reporting, and PR-scope conventions for ingestion connectors live in `metadata-ingestion/AGENTS.md`
+  - **Security**: Never write secrets into the process environment to feed a third-party SDK; inject them programmatically. Rationale and the canonical pattern: `metadata-ingestion/src/datahub/ingestion/source/AGENTS.md`
+  - **Ingestion**: Module guide `metadata-ingestion/AGENTS.md`; connector conventions (layout, config, reporting, lineage, stale-entity safety, PR scope) in `metadata-ingestion/src/datahub/ingestion/source/AGENTS.md`
   - **Smoke tests**: Authoring conventions live in [`smoke-test/AGENTS.md`](smoke-test/AGENTS.md)
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
   - **Frontend**: Component conventions, theming/color tokens, file layout, and the frontend CI checklist live in `datahub-web-react/AGENTS.md`
@@ -322,14 +306,14 @@ connection_timeout = 30
 
 ### Testing Strategy
 
-- Python: Tests go in the `tests/` directory alongside `src/`, use `assert` statements
+- Python: Tests go in the `tests/` directory alongside `src/`, use `assert` statements. Ingestion test conventions: `metadata-ingestion/tests/AGENTS.md`
 - Java: Tests alongside source in `src/test/`
 - Frontend: Tests in `__tests__/` or `.test.tsx` files
 - Smoke tests go in the `smoke-test/` directory. How to write them: [`smoke-test/AGENTS.md`](smoke-test/AGENTS.md). How to run them: [`smoke-test/README.md`](smoke-test/README.md)
 
 #### Testing Principles: Focus on Value Over Coverage
 
-**IMPORTANT**: Quality over quantity. Avoid AI-generated test anti-patterns that create maintenance burden without providing real value.
+Quality over quantity. Avoid AI-generated test anti-patterns that create maintenance burden without providing real value.
 
 **Focus on behavior, not implementation**:
 
@@ -497,62 +481,10 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 `setup`, `frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`,
 `sync-flags`, `reset`, `nuke`, `instances list/clean/repair`, `indices list/drop/prune`, `shell-env`).
 
-### Docker-free stack
+### Local mode, remote runners, recovery
 
-Run `scripts/dev/datahub-dev.sh start --local` with JDK 25 to launch GMS on H2,
-in-memory queues and a shared OpenSearch node. Select `--opensearch 2|3`; new stacks
-use `EMBEDDED_OPENSEARCH_VERSION` or `embeddedOpenSearchDefault` in root `gradle.properties`
-(currently 3). Restarts retain the recorded major; changing it requires `--fresh`.
-Unmarked legacy stacks retain 3. Each major uses `~/.datahub/local/opensearch-<major>/`;
-never use the unversioned `~/.datahub/local/opensearch/` directory. Status shows the
-major, and cleanup follows it. Use `--processes N` for isolated
-GMS instances, `--fresh` to reset this stack's data, `--auth` / `--no-auth` to enable
-or disable auth (omitting both keeps the recorded setting), and `--skip-build`
-to require existing artifacts (built jars are reused automatically).
-Vite serves the React UI with hot reload on `9002 + slot * 1000`, using lite mode
-without a Play server. Log in with `datahub` / `datahub`. `--no-frontend` skips Vite;
-restarts retain this choice. Status includes Vite, and stop/nuke stop its recorded process
-only after checking its command line. Data lives in `~/.datahub/local/stacks/<worktree-id>/`.
-
-`status`, `wait`, `stop`, `reset`, `rebuild`, `env set/list/restart`, `instances list/clean`, `nuke`
-and `shell-env` recognize local stacks. Local `nuke` removes this stack's data,
-indices, profiles and registry entry without restarting; `nuke --keep-data` only
-stops it and clears stale H2 locks. The shared search node survives both commands.
-Unmarked local registry entries are read-only and keep their slots reserved.
-Service env values come from the layered files under `env/` (see [env/README.md](env/README.md)).
-`start --local --job smoke-test` adds the smoke job layer `smoke-test/env/`, as in CI; restarts keep it.
-`smoke-test/check_env_parity.py` compares the smoke values with the Docker quickstart's.
-`start --local --timeout 600 --verbose` streams the launcher log; `status` reports boot timings.
-
-```bash
-# Smoke-test / Playwright env from this stack's stack.json (URLs, index prefix, admin login).
-# `test <path>` applies it automatically on a local stack; use this for pytest or Playwright run by hand.
-eval "$(scripts/dev/datahub-dev.sh shell-env --tests)"
-
-# Logs: no argument lists them; services are gms, gms-N, system-update, restore-indices,
-# frontend, launcher, opensearch (gms-N/<service> for other instances)
-scripts/dev/datahub-dev.sh logs
-scripts/dev/datahub-dev.sh logs gms -n 50
-scripts/dev/datahub-dev.sh logs frontend -f
-```
-
-`frontend --local --preview --detach` serves the built `dist/` bundle in the background. It returns once the frontend's `/health` answers, logs to `frontend.log`, and shows in `status`; `stop` and `nuke` end it. Stop the HMR server first (`stop`, or `start --local --no-frontend`), since both use the same port.
-
-**Removing a worktree:** run `nuke` before `git worktree remove`, so the shared OpenSearch drops
-this stack's indices. `instances clean` and `indices list|drop|prune` are dry runs without `--yes`
-and act only on stacks with matching ownership records.
-
-**Capacity:** `max_docker_instances` and `max_docker_free_instances` in `~/.datahub/dev/config.json`
-each limit how many stacks of that kind run at once (default 4 each). Stopped stacks keep their
-slots and ports reserved but don't count. The older `max_local_instances` key is a deprecated
-fallback, used only when the new keys are absent.
-
-Start refreshes CLI profiles `local-<worktree-id>` and `local-<worktree-id>-gms-N`
-without changing the machine default. Select the default instance for this shell
-with `eval "$(scripts/dev/datahub-dev.sh shell-env)"`. Stop retains the profiles.
-See [scripts/dev/README.md](scripts/dev/README.md) for details and offline tests.
-
-**CI:** `.github/workflows/docker-free-e2e.yml` runs the pytest smoke suite on this stack (label `docker-free:pytests` on a PR). See [`smoke-test/README.md`](smoke-test/README.md#the-docker-free-pytest-lane-in-ci).
+Docker-free `start --local`, remote runners, recovery escalation and `AGENT_MODE=1` test
+output: `scripts/dev/AGENTS.md`.
 
 ### End-to-End Workflow
 
@@ -619,140 +551,10 @@ or after a fresh clone.
 When starting, `datahub-dev start` automatically detects and stops conflicting DataHub instances
 from other worktrees/compose projects that occupy the same ports.
 
-### Remote Runners
+## DataHub CLI against any instance
 
-`datahub-dev.sh` supports a **runner plugin** that proxies operations to a remote machine
-(EC2, Kubernetes pod, or any SSH-accessible host) instead of running Docker locally.
-
-**Configure a runner** in `~/.datahub/dev/config.json`:
-
-```json
-{
-  "max_docker_instances": 4,
-  "max_docker_free_instances": 4,
-  "max_remote_instances": 10,
-  "runner": "/path/to/your-runner.sh"
-}
-```
-
-Or export `DATAHUB_RUNNER=/path/to/runner.sh` in your shell for a one-off session.
-
-**Remote lifecycle** (all commands work identically to local once a runner is set):
-
-```bash
-# One-time bootstrap — provisions the remote environment
-scripts/dev/datahub-dev.sh setup --remote
-
-# Start — syncs changed local files, runs quickstartDebug on the remote,
-#          then sets up port tunnels so local ports reach the remote instance
-scripts/dev/datahub-dev.sh start
-
-# Stop containers only (remote compute keeps running)
-scripts/dev/datahub-dev.sh stop
-
-# Stop containers AND halt the remote compute (no billing while suspended).
-# 'start' will automatically resume the instance when needed.
-scripts/dev/datahub-dev.sh suspend
-
-# All other commands (status, wait, rebuild, test, flag, env, nuke, …)
-# proxy through the runner transparently — use them exactly as you would locally.
-scripts/dev/datahub-dev.sh status
-```
-
-**Multi-instance management** — each git worktree gets its own isolated instance
-(separate Docker project, volumes, and port assignment):
-
-```bash
-# List all registered instances (local and remote) with their ports and status
-scripts/dev/datahub-dev.sh instances list
-
-# Remove stale entries for worktrees that no longer exist
-scripts/dev/datahub-dev.sh instances clean
-
-# Print export statements for the current instance's CLI environment
-eval $(scripts/dev/datahub-dev.sh shell-env)
-# → sets DATAHUB_GMS_URL to the correct local port (tunnel or direct)
-```
-
-**Port assignment** — each instance gets a slot; ports = base + slot × 1000:
-
-| Slot | GMS   | Frontend | Notes                     |
-| ---- | ----- | -------- | ------------------------- |
-| 0    | 8080  | 9002     | First local instance      |
-| 1    | 9080  | 10002    | Second local instance     |
-| 2    | 10080 | 11002    | First remote instance     |
-| …    | …     | …        | Each worktree is isolated |
-
-**Backwards compatibility / opting out of isolation** — if the new per-worktree
-project names cause problems (lost data in old volumes, tooling that expects
-`datahub-*` container names, CI environments that don't need isolation), set
-`compose_project` in `~/.datahub/dev/config.json`:
-
-```json
-{ "compose_project": "datahub" }
-```
-
-This reverts to the old single-instance behaviour: one `datahub` Docker project,
-same container names, existing volumes fully accessible. The env var
-`COMPOSE_PROJECT_NAME=datahub` has the same effect without touching the config file.
-
-**Runner interface** — a runner is any executable that speaks four verbs:
-
-```bash
-runner init                        # one-time environment bootstrap
-runner sync                        # push changed local files to the remote
-runner exec -- <cmd> [args...]     # execute a command in the remote workspace
-runner tunnel <local:remote> ...   # set up port forwarding
-runner resume                      # start compute if stopped (no-op if running)
-runner suspend                     # stop containers + halt compute
-```
-
-A reference Kubernetes runner is at `scripts/dev/runners/k8s.sh`.
-
-### Recovery Escalation
-
-**When to use each:**
-
-- `stop`: Just shut down DataHub — no restart, no data loss
-- `reset`: GMS returns 503 and doesn't recover, frontend shows "Unable to connect", tests fail
-  with connection errors
-- `nuke --keep-data`: Containers in restart loops, port conflicts, `reset` didn't fix it
-- `nuke`: ES index corruption, MySQL schema issues after model changes, PDL model changes needing
-  clean slate, `nuke --keep-data` didn't fix it
-
-### Structured Test Output
-
-Set `AGENT_MODE=1` to get machine-readable JSON test reports at `smoke-test/build/test-report.json`:
-
-```bash
-AGENT_MODE=1 scripts/dev/datahub-dev.sh test tests/test_system_info.py
-```
-
-For pytest smoke tests, see [`smoke-test/AGENTS.md`](smoke-test/AGENTS.md)
-(authoring) and [`smoke-test/README.md`](smoke-test/README.md) (how to run).
-
-## Common Operations
-
-These commands work against **any** DataHub instance — local dev, staging, or production.
-Provide connection details via environment variables:
-
-```bash
-export DATAHUB_GMS_URL=http://localhost:8080  # or your instance URL
-export DATAHUB_GMS_TOKEN=<your-token>         # omit if auth is not required
-```
-
-### Init (setup authentication)
-
-`datahub init --profile local` writes the local connection to
-`~/.datahub/profiles/local/.datahubenv`. Pass `--profile local` on subsequent commands.
-
-```bash
-# Quickstart: local instance with default credentials
-datahub init --profile local --username datahub --password datahub
-
-# Full agent best-practices guide (defaults, env vars, all scenarios)
-datahub init --agent-context
-```
+Init, connection profiles, GraphQL discovery and recipes: `.claude/skills/datahub-cli/SKILL.md`,
+or `datahub init --agent-context` and `datahub graphql --agent-context` from the CLI itself.
 
 ### DataHub CLI connection profiles
 
@@ -761,31 +563,6 @@ datahub init --agent-context
 - Pass `--profile <name>` on every command, unless the session already sets `DATAHUB_PROFILE`.
 - Before any write (`put`, `delete`, `ingest`, upserts), run `datahub profile current --format json` and confirm the server is the one the user asked for.
 - If a token has expired, re-run `datahub init --profile <same name>` with the same host. Do not create a new profile.
-
-### GraphQL
-
-`datahub graphql` executes queries and mutations against the DataHub GraphQL API and can
-introspect the live schema to discover available operations.
-
-```bash
-# Discover what's available
-datahub graphql --list-operations --format json
-
-# Inspect a specific operation's arguments
-datahub graphql --describe dataset --format json
-
-# Preview a query before executing
-datahub graphql --query "{ me { corpUser { urn } } }" --dry-run
-
-# Execute a query
-datahub graphql --query "{ me { corpUser { urn username } } }" --format json
-```
-
-For full agent best practices (discovery, dry-run, error codes, common recipes):
-
-```bash
-datahub graphql --agent-context
-```
 
 ## Key Documentation
 
@@ -808,6 +585,32 @@ including test-data seeding via `test.use({ featureName: ... })`.
 ## Python Virtual Environments
 
 Gradle tasks manage all venvs automatically. Never create, activate, or pip-install into them manually. When running smoke tests outside Gradle: `smoke-test/venv/bin/python -m pytest ...`
+
+## Maintaining AGENTS.md files
+
+Root holds cross-project rules; module-specific rules live in the nearest `AGENTS.md`
+(nearest file wins). Every guide is an `AGENTS.md`; the `CLAUDE.md` beside it is the one-line
+`@AGENTS.md` shim and never carries content of its own.
+
+- While developing or reviewing a PR, when you make or receive an architectural or
+  strategic decision that is not derivable from the code (a pattern to follow, a trap, a
+  framework-over-connector call), ask the author or reviewer whether to persist it.
+  Persist it as a check (ruff rule, unit test, lint script) when possible; otherwise as
+  one bullet of at most two lines in the nearest `AGENTS.md`, linking the canonical code
+  example.
+- Remove a bullet when tooling now enforces it, or the code it points at is gone. A style
+  opinion the code does not agree on is not written down until the team decides.
+- One owner per fact: signpost root `AGENTS.md`, a module `developing.md` or a dev guide;
+  never copy.
+- Budget what an agent loads, not file size: for any directory, this file plus every nested
+  `AGENTS.md` above it stays under 48,000 characters (about 1,200 lines). Nesting buys
+  locality, not room; to add, cut. `BUGBOT.md` is a separate consumer: 120 lines each.
+- Rules a reviewer should enforce get a mirrored "If ... then" entry in the module's
+  `.cursor/BUGBOT.md`.
+- `./gradlew agentDocsLint` (part of `lintCheck`) fails on an exceeded chain or `BUGBOT.md`
+  budget, a missing or non-shim `CLAUDE.md`, or a backticked path or relative link that no
+  longer exists. Known findings are tolerated via `.github/scripts/check_agent_docs_baseline.txt`,
+  which only shrinks.
 
 ## Important Notes
 

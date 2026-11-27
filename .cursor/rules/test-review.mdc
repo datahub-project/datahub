@@ -19,5 +19,5 @@ follow the skill instructions in `.agent-skills/test-review/SKILL.md`.
 
 ## Scope
 
-- **In scope:** `smoke-test/` Python pytest smoke tests (excluding `tests/cypress/`)
+- **In scope:** `smoke-test/` Python pytest smoke tests
 - **Out of scope:** Cypress, Playwright, `metadata-ingestion/tests/unit/`, connector-specific integration tests

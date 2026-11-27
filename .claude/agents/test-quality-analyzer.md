@@ -1,16 +1,9 @@
 ---
 name: test-quality-analyzer
 description: |
-  Analyze DataHub pytest smoke test files for quality, standards compliance, and anti-patterns. Reports findings with severity levels and file:line references.
-
-  <example>
-  Context: A PR adds new smoke tests for the incidents feature.
-  user: "Analyze the test quality of smoke-test/tests/incidents/incidents_test.py"
-  assistant: "I'll use the test-quality-analyzer agent to check fixture usage, data lifecycle, assertions, and anti-patterns."
-  <commentary>
-  Test quality analysis is a read-only inspection task that triggers this agent.
-  </commentary>
-  </example>
+  Read-only analysis of DataHub pytest smoke-test files for standards compliance and
+  anti-patterns; reports findings by severity with file:line references. Use when asked
+  to review or assess smoke-test quality.
 model: sonnet
 color: blue
 tools:
@@ -47,8 +40,8 @@ You receive:
 
 For each test file, determine:
 
-- **Smoke test** (Python pytest): Located under `smoke-test/` excluding `tests/cypress/`
-- **Out of scope**: `smoke-test/tests/cypress/`, `e2e-test/ui/playwright/`, `metadata-ingestion/tests/`
+- **Smoke test** (Python pytest): Located under `smoke-test/`
+- **Out of scope**: `e2e-test/ui/playwright/`, `metadata-ingestion/tests/`
 
 Skip out-of-scope files.
 
@@ -66,7 +59,7 @@ For each smoke test file, check:
 8. **Cleanup** -- Fixture `yield` or `try/finally` for mid-test entities?
 9. **Test Isolation** -- No global mutable state? No cross-test module-level variables?
 10. **Logging** -- `logger.info()`, not `print()`?
-11. **Placement** -- New tests in `tests/<feature>/`, not `test_e2e.py`?
+11. **Placement** -- New tests in `tests/e2e/<feature>/`, not `test_e2e.py`?
 12. **Confidentiality** -- No customer identifiers or ticket IDs?
 
 ### Phase 3: Anti-Pattern Detection
