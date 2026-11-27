@@ -610,13 +610,19 @@ retrieval. By default, DataHub includes a built-in scheduled embedding job, the 
 ingestion source, that runs every 15 minutes to index new and updated documents. To stop the
 schedule, set `DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES='{"enabled": false}'` on the system-update job; setting
 it back to `{"enabled": true}` turns it back on at the next system update. The standard `datahub-upgrade`
-image defaults to `{"enabled": true}`, so removing your override there has the same effect. If
-you don't want to wait for the next scheduled run, you can trigger it on demand as shown below.
+image defaults to `{"enabled": true}`, so removing your override there has the same effect. The source runs
+only while the values set `"enabled": true`: values without `enabled`, such as `{"ingestion": {"version": "1.7.0.20"}}`,
+turn it off, so new and updated documents get no vectors. For Helm, use chart version 1.1.12 or later, which sets
+`enabled: true` in `datahubSystemUpdate.bootstrapMCPs.datahubDocuments.values`. On an earlier chart, add `enabled: true`
+there before you upgrade. If you don't want to wait for the next scheduled run, you can trigger it on demand as shown
+below.
 
 The bootstrap step owns the `datahub-documents` source definition. Whenever `DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES`
 changes, the next system update writes the whole source again, so edits made to the source in the UI or API (schedule,
 recipe, executor, extra environment variables) are replaced. To customize the source, put the change in the values
 instead: `schedule.timezone`, `schedule.interval`, `ingestion.name`, `ingestion.version` and `ingestion.extra_env_vars`.
+Keep `"enabled": true` in any values you set yourself, for example
+`DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES='{"enabled": true, "schedule": {"interval": "0 * * * *"}}'`.
 To apply the current values again without changing them, set `DATAHUB_DOCUMENTS_REVISION='{"force": true}'` on the
 system-update job.
 
