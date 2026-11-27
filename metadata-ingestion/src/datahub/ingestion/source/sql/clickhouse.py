@@ -1304,6 +1304,28 @@ ORDER BY event_time ASC
         if self._should_extract_query_log():
             yield from self._extract_query_log()
 
+    def add_profile_metadata(self, inspector: Inspector) -> None:
+        # total_bytes is the stored size as the server reports it: the compressed
+        # bytes of the active parts for MergeTree tables, NULL for views and other
+        # engines without storage of their own. A Distributed table reports only the
+        # inserts still queued for its shards, which would read as the table's size.
+        database = self.get_db_name(inspector)
+        with inspector.engine.connect() as conn:
+            for row in conn.execute(
+                text(
+                    "SELECT name, total_bytes FROM system.tables "
+                    "WHERE database = :database AND total_bytes IS NOT NULL "
+                    "AND engine != 'Distributed'"
+                ),
+                {"database": database},
+            ):
+                dataset_name = self.get_identifier(
+                    schema=database, entity=row.name, inspector=inspector
+                )
+                self.profile_metadata_info.dataset_name_to_storage_bytes[
+                    dataset_name
+                ] = int(row.total_bytes)
+
     def _process_table(
         self,
         dataset_name: str,
