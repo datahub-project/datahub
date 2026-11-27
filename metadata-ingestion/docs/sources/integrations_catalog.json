@@ -201,6 +201,18 @@
     "img_path": "img/logos/platforms/hudi.png",
     "doc_path_override": "https://hudi.apache.org/docs/syncing_datahub/"
   },
+  "hop": {
+    "external": true,
+    "platform_type": [
+      "Orchestrator",
+      "ETL/ELT"
+    ],
+    "connection_type": "Push",
+    "title": "Apache Hop",
+    "description": "Apache Hop is an open-source data orchestration and data engineering platform. Its DataHub plugin (from Apache Hop 2.21) pushes pipelines, workflows, runs, table and file lineage, column lineage, operations and unit test results to DataHub, and reads DataHub metadata back into Hop.",
+    "img_path": "img/logos/platforms/hop.svg",
+    "doc_path_override": "https://hop.apache.org/manual/next/technology/datahub/index.html"
+  },
   "iceberg": {
     "platform_type": [
       "Database",

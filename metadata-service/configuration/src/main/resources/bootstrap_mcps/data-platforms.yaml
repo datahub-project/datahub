@@ -1386,3 +1386,13 @@
     displayName: StarRocks
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/starrockslogo.svg"
+- entityUrn: urn:li:dataPlatform:hop
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "/"
+    name: hop
+    displayName: Apache Hop
+    type: OTHERS
+    logoUrl: "assets/platforms/hoplogo.svg"
