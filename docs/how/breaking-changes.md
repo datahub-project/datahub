@@ -15,7 +15,7 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
-### Restore from backup during a zero-downtime rollback
+### Restore from backup during a zero-downtime rollback ([#21670](https://github.com/datahub-project/datahub/pull/21670))
 
 This only applies with unknown-data tolerance on (`UNKNOWN_DATA_TOLERANCE_ENABLED`,
 `UNKNOWN_ENTITY_ASPECT_TOLERANCE_ENABLED` or `UNKNOWN_ENUM_TOLERANCE_ENABLED`, off by default; see
