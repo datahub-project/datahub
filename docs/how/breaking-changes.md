@@ -15,7 +15,7 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
-### More GraphQL types show enum values from a newer version during a rollback
+### More GraphQL types show enum values from a newer version during a rollback ([#21671](https://github.com/datahub-project/datahub/pull/21671))
 
 This only applies with enum tolerance on (`UNKNOWN_DATA_TOLERANCE_ENABLED` or
 `UNKNOWN_ENUM_TOLERANCE_ENABLED`, off by default; see
