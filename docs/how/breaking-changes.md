@@ -15,6 +15,19 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### References left on delete during a zero-downtime rollback
+
+This only applies with entity and aspect tolerance on (`UNKNOWN_DATA_TOLERANCE_ENABLED` or
+`UNKNOWN_ENTITY_ASPECT_TOLERANCE_ENABLED`, off by default; see
+[#20280](https://github.com/datahub-project/datahub/pull/20280)). With it off nothing changes.
+
+When an entity is hard-deleted while the older version is running, an entity of a type only the
+newer version knows keeps its reference to it, as before. Each such delete now logs one warning
+naming the deleted urn and the counts by entity type, and every reference left is counted in
+`datahub.cascade.outcomes` (`outcome=unknown_referrer_left`). After rolling forward, restore the
+indices of those entity types, then remove the references with
+`datahub delete references --urn <urn>`.
+
 ### `tags_to_term` transformer matches full tag names and maps column tags to columns
 
 The `tags_to_term` ingestion transformer has changed in four ways ([PR #21479](https://github.com/datahub-project/datahub/pull/21479)):
