@@ -54,6 +54,8 @@ task yarnInstall(type: YarnTask) {
     file('yarn.lock'),
     file('package.json'),
   )
+  // postinstall applies these with patch-package
+  inputs.dir('patches')
   outputs.dir('node_modules')
 }
 

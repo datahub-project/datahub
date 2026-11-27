@@ -14,7 +14,8 @@ interface TabTitleWithCountProps {
 
 // Type guard to check if a React element has TabTitleWithCount props
 function isTabTitleWithCount(element: React.ReactElement): element is React.ReactElement<TabTitleWithCountProps> {
-    return element.props && typeof element.props.name === 'string' && typeof element.props.count === 'number';
+    const props = element.props as Partial<TabTitleWithCountProps> | undefined;
+    return !!props && typeof props.name === 'string' && typeof props.count === 'number';
 }
 
 interface AlchemyRoutedTabsProps {

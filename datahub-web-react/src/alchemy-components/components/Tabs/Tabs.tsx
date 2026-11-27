@@ -1,6 +1,6 @@
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Tabs as AntTabs, TabsProps } from 'antd';
-import React, { ComponentType, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import React, { ComponentType, JSX, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';

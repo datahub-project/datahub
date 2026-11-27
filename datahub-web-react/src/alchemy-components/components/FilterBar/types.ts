@@ -29,7 +29,7 @@ export type FilterValueEditorProps = {
     field: FilterField;
     rule: FilterRule;
     onChange: (rule: FilterRule) => void;
-    trigger: React.ReactElement;
+    trigger: React.ReactElement<{ onClick?: () => void }>;
     /**
      * Linear-style Add Filter: render the value picker inline (no nested popover).
      * Multi-select drafts via onChange; single-select should call onCommit immediately.

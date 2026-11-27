@@ -1,6 +1,5 @@
 import { Button, Carousel, LoadedImage, Modal } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { unstable_batchedUpdates } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
@@ -278,10 +277,6 @@ export const WelcomeToDataHubModal = () => {
     }, [shouldShow]);
 
     const handleSlideChange = (current: number) => {
-        // react-slick calls this from a timer after the animation. React 17 does not
-        // batch those updates, so clearing the prefetch index on its own drops the
-        // next clip's URL while the carousel is still on the old slide and the
-        // buffered <video> unmounts.
         if (current >= 0 && current < TOTAL_CAROUSEL_SLIDES) {
             analytics.event({
                 type: EventType.WelcomeToDataHubModalInteractEvent,
@@ -289,11 +284,9 @@ export const WelcomeToDataHubModal = () => {
                 totalSlides: TOTAL_CAROUSEL_SLIDES,
             });
 
-            unstable_batchedUpdates(() => {
-                setCurrentSlide(current);
-                setClipStarted(false);
-                clearPrefetch();
-            });
+            setCurrentSlide(current);
+            setClipStarted(false);
+            clearPrefetch();
         }
     };
 

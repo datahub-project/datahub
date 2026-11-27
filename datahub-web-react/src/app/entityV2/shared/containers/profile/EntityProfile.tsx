@@ -1,7 +1,7 @@
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import { Loader } from '@components';
 import { Alert } from 'antd';
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, { JSX, useCallback, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import { matchPath } from 'react-router-dom';

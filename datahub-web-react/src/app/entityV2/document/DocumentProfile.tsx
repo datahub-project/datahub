@@ -1,5 +1,5 @@
 import { Loader } from '@components';
-import React, { useEffect } from 'react';
+import React, { JSX, useEffect } from 'react';
 import styled from 'styled-components';
 
 import { useContextLayout } from '@app/context/ContextLayoutContext';

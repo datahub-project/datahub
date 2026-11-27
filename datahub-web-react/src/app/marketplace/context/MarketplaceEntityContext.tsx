@@ -70,7 +70,7 @@ export function MarketplaceEntityContextProvider({ children }: Props) {
     const [entityData, setEntityData] = useState<MarketplaceEntityData | null>(null);
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
     const [optimisticDataProducts, setOptimisticDataProducts] = useState<DataProductEntity[]>([]);
-    const delayedRefetchRef = useRef<ReturnType<typeof setTimeout>>();
+    const delayedRefetchRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     const selectedUrn = useMemo(() => {
         const match = matchPath<{ urn: string }>(location.pathname, {

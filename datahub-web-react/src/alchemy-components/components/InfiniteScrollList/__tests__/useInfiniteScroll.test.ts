@@ -1,4 +1,5 @@
 import { act, waitFor } from '@testing-library/react';
+import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useInfiniteScroll } from '@components/components/InfiniteScrollList/useInfiniteScroll';
@@ -282,5 +283,16 @@ describe('useInfiniteScroll hook', () => {
         // Stale rows must be dropped — list stays cleared and not re-toggled.
         expect(result.current.items).toEqual([]);
         expect(result.current.loading).toBe(false);
+    });
+
+    it('loads the first page under StrictMode', async () => {
+        const fetchData = createFetchDataMock([[1, 2, 3]]);
+
+        const { result } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }), {
+            wrapper: React.StrictMode,
+        });
+
+        await waitFor(() => expect(result.current.items).toEqual([1, 2, 3]));
+        expect(fetchData).toHaveBeenCalledTimes(1);
     });
 });

@@ -1,5 +1,5 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
-import React from 'react';
+import React, { JSX } from 'react';
 import styled from 'styled-components';
 
 import { EntityMenuActions } from '@app/entityV2/Entity';

@@ -18,7 +18,7 @@ type Props = {
      */
     edge?: 'left' | 'right';
     /** The element whose width is dragged. Defaults to the handle's parent. */
-    targetRef?: RefObject<HTMLElement>;
+    targetRef?: RefObject<HTMLElement | null>;
 };
 
 /**

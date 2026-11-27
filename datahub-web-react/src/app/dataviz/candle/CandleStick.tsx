@@ -1,15 +1,11 @@
-import { GlyphCircle, GlyphDiamond } from '@visx/glyph';
-import { GlyphCircleProps } from '@visx/glyph/lib/glyphs/GlyphCircle';
-import { GlyphDiamondProps } from '@visx/glyph/lib/glyphs/GlyphDiamond';
+import { GlyphCircle, GlyphCircleProps, GlyphDiamond, GlyphDiamondProps } from '@visx/glyph';
 import { Group } from '@visx/group';
 import { Bar } from '@visx/shape';
-import { BarProps } from '@visx/shape/lib/shapes/Bar';
-import { AddSVGProps } from '@visx/shape/lib/types';
-import React from 'react';
+import React, { ComponentProps, JSX } from 'react';
 
 type DiamondProps = GlyphDiamondProps<any> & Omit<React.SVGProps<SVGPathElement>, keyof GlyphDiamondProps<any>>;
 type CircleProps = GlyphCircleProps<any> & Omit<React.SVGProps<SVGPathElement>, keyof GlyphCircleProps<any>>;
-type CandleBarProps = AddSVGProps<BarProps, SVGRectElement>;
+type CandleBarProps = ComponentProps<typeof Bar>;
 
 type Props = {
     parentChartHeight: number;

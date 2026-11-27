@@ -1,4 +1,4 @@
-import { TextProps } from '@visx/text/lib/Text';
+import { TextProps } from '@visx/text';
 import { TFunction } from 'i18next';
 import { DefaultTheme } from 'styled-components';
 

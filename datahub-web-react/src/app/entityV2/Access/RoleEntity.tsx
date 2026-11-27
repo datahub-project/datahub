@@ -1,5 +1,6 @@
 import { IdentificationBadge } from '@phosphor-icons/react/dist/csr/IdentificationBadge';
 import i18next from 'i18next';
+import type { JSX } from 'react';
 import * as React from 'react';
 import styled from 'styled-components';
 

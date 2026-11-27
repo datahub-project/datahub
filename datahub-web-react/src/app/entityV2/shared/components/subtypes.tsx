@@ -4,7 +4,7 @@ import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
 import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import { Table as TableIcon } from '@phosphor-icons/react/dist/csr/Table';
-import React from 'react';
+import React, { JSX } from 'react';
 
 import TableauEmbeddedDataSourceLogo from '@images/tableau-embedded-data-source.svg?react';
 import TableauPublishedDataSourceLogo from '@images/tableau-published-data-source.svg?react';

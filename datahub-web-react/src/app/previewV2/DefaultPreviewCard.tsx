@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { JSX, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 

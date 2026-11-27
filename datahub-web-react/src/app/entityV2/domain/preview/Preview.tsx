@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { JSX } from 'react';
 
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import DomainEntitiesSnippet from '@app/entityV2/domain/preview/DomainEntitiesSnippet';

@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
  * commit their staged selection at that point. Viewport intersection alone is not enough: a menu
  * scrolled off-screen would count as closed. The observer is only the trigger; layout decides.
  */
-export function useIsRendered(ref: React.RefObject<Element>) {
+export function useIsRendered(ref: React.RefObject<Element | null>) {
     const [isRendered, setIsRendered] = useState(false);
 
     useEffect(() => {

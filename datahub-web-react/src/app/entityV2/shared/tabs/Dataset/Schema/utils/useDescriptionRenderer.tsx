@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { JSX, useCallback, useState } from 'react';
 
 import { sanitizeRichText } from '@components/components/Editor/utils';
 

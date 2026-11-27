@@ -1,5 +1,5 @@
-import { ChildRenderProps } from '@visx/stats/lib/types';
-import { UseTooltipParams } from '@visx/tooltip/lib/hooks/useTooltip';
+import { BoxPlotProps } from '@visx/stats';
+import { UseTooltipParams } from '@visx/tooltip';
 import React from 'react';
 
 export interface TooltipRendererProps {
@@ -53,6 +53,9 @@ export type InternalWhiskerChartProps = WhiskerChartProps & {
     height: number;
     tooltip: UseTooltipParams<WhiskerTooltipDatum>;
 };
+
+// visx 4 doesn't export this type
+type ChildRenderProps = Parameters<NonNullable<BoxPlotProps['children']>>[0];
 
 export type WhiskerRenderProps = ChildRenderProps & {
     datum: WhiskerDatum;

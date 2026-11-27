@@ -25,7 +25,7 @@ interface LoadedVideoProps {
     onVideoEnded?: () => void;
     onVideoTimeUpdate?: (currentTime: number, duration: number) => void;
     onVideoCanPlay?: () => void;
-    videoRef?: React.RefObject<HTMLVideoElement>;
+    videoRef?: React.RefObject<HTMLVideoElement | null>;
 }
 
 export const LoadedVideo: React.FC<LoadedVideoProps> = ({

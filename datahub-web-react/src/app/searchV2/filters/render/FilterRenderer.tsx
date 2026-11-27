@@ -1,3 +1,5 @@
+import type { JSX } from 'react';
+
 import { FilterRenderProps } from '@app/searchV2/filters/render/types';
 import { AppConfigWithoutPolicyPrivileges } from '@src/appConfigContext';
 
