@@ -337,11 +337,14 @@ stack with the `.github/actions/docker-free-stack` action and runs `smoke.sh` wi
 classifies the PR once for smart testing and calls each lane as a reusable workflow, so lane jobs
 show as `docker / …` and `docker-free / …`.
 
-- **When it runs:** on every push to `master`, full suite in 9 batches, and on dispatch. It does not
-  run on pull requests yet: it will, once it has a record of stable runs on `master`. The PR path is
-  already wired as in the Docker lane: the same `run_pytest` condition, smart testing with batches
-  planned on `pytest_test_weights_docker_free.json` (at most 9; 3 for the fixed `p0` matrix), and
-  its own sticky comment, "Smart test selection (docker-free lane)".
+- **When it runs:** on every push to `master`, full suite in 9 batches, and on dispatch. On a pull
+  request it runs only with the `docker-free:pytests` label. Adding the label restarts the PR's
+  `E2E Tests` run with both lanes; other labels start nothing. A labelled PR runs the lane as the
+  Docker lane runs pytest: the same tier and smart-testing tags, with batches planned on
+  `pytest_test_weights_docker_free.json` (at most 9; 3 for the fixed `p0` matrix), and its own
+  sticky comment, "Smart test selection (docker-free lane)". Fork PRs run it on GitHub-hosted
+  runners with no Depot cache, smart testing off and no sticky comment. It will run on every PR
+  once it has a record of stable runs on `master`.
 - **Run a lane alone:** dispatch `docker-free-e2e.yml` (full tier, 9 batches, smart testing off) or
   `docker-unified.yml` from the Actions tab.
 - **Results:** each batch uploads `Test Results (docker-free smoke tests) pytests <N>` and, on failure,
