@@ -15,6 +15,13 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Lineage search leaves out hits GraphQL can't return
+
+`searchAcrossLineage` and `scrollAcrossLineage` now leave out a hit whose entity type GraphQL doesn't
+model, such as `dataProcess`, and log it, as regular search already does. Before, such a hit made
+the whole page fail with an error. `total` is still the backend's count, so it can be larger than
+the number of results returned. **Action:** none.
+
 ### `tags_to_term` transformer matches full tag names and maps column tags to columns
 
 The `tags_to_term` ingestion transformer has changed in four ways ([PR #21479](https://github.com/datahub-project/datahub/pull/21479)):
