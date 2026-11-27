@@ -43,6 +43,7 @@ from datahub.ingestion.source.odcs.odcs_constants import VARIABLE_MARKER
 from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
     RefusalKind,
+    duplicate_latency_slas,
     has_object_placeholder,
     has_object_reference,
     iter_schema_rules,
@@ -58,10 +59,12 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_schema_assertion_mcps,
     odcs_to_sla_freshness_assertion_mcps,
     substitute_object_placeholder,
+    unconvertible_latency_slas,
     unlinked_support_channels,
     unmapped_owner_roles,
     unmapped_sla_properties,
     unplaced_sla_entries,
+    unresolved_term_references,
     unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
@@ -1175,7 +1178,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                     contract, binding, source_uri, physical_usable
                 )
                 freshness_urns = yield from self._emit_freshness_assertions(
-                    contract, binding, source_uri
+                    contract, binding
                 )
             if self.config.emit_schema_assertion:
                 schema_assertion_urn = yield from self._emit_schema_assertion(
@@ -1284,15 +1287,18 @@ class ODCSSource(StatefulIngestionSourceBase):
                 ),
                 context=f"{source_uri}: {', '.join(unmapped_slas)}",
             )
-        unplaced = unplaced_sla_entries(contract)
-        if unplaced:
+        if self.config.emit_assertions:
+            self._report_latency_slas(contract, source_uri)
+        unresolved_terms = unresolved_term_references(contract)
+        if unresolved_terms:
             self.report.warning(
-                title="ODCS latency SLA matches no table",
+                title="ODCS glossary term references skipped",
                 message=(
-                    "The SLA's element names no table or column of the contract, "
-                    "so no freshness assertion was created for it."
+                    "A term reference may hold only letters, digits, whitespace, "
+                    "`_`, `-`, `.` and `:` (with text on both sides of each `:`), "
+                    "so these were not mapped to glossary terms."
                 ),
-                context=f"{source_uri}: {'; '.join(unplaced)}",
+                context=f"{source_uri}: {', '.join(unresolved_terms)}",
             )
         unlinked = unlinked_support_channels(contract)
         if unlinked:
@@ -1303,6 +1309,39 @@ class ODCSSource(StatefulIngestionSourceBase):
                     "can store, so they were not added."
                 ),
                 context=f"{source_uri}: {', '.join(unlinked)}",
+            )
+
+    def _report_latency_slas(self, contract: ODCSContract, source_uri: str) -> None:
+        # Once per contract: a contract-wide SLA applies to every table.
+        unconvertible = unconvertible_latency_slas(contract)
+        if unconvertible:
+            self.report.warning(
+                title="ODCS latency SLA not converted to a freshness assertion",
+                message=(
+                    "A freshness assertion needs a whole, positive `value` and a "
+                    "`unit` of min, h, d, w, mo or y (or their spelled-out forms)."
+                ),
+                context=f"{source_uri}: {'; '.join(unconvertible)}",
+            )
+        duplicates = duplicate_latency_slas(contract)
+        if duplicates:
+            self.report.warning(
+                title="Duplicate ODCS latency SLA skipped",
+                message=(
+                    "These latency SLAs share an `id`, or an element and driver, "
+                    "with an earlier one; only the first became an assertion."
+                ),
+                context=f"{source_uri}: {'; '.join(duplicates)}",
+            )
+        unplaced = unplaced_sla_entries(contract)
+        if unplaced:
+            self.report.warning(
+                title="ODCS latency SLA matches no table",
+                message=(
+                    "The SLA's element names no table or column of the contract, "
+                    "so no freshness assertion was created for it."
+                ),
+                context=f"{source_uri}: {'; '.join(unplaced)}",
             )
 
     def _report_lossy_mappings(
@@ -1526,30 +1565,11 @@ class ODCSSource(StatefulIngestionSourceBase):
         return assertion_urns
 
     def _emit_freshness_assertions(
-        self, contract: ODCSContract, binding: PhysicalBinding, source_uri: str
+        self, contract: ODCSContract, binding: PhysicalBinding
     ) -> Generator[MetadataWorkUnit, None, List[str]]:
         result = odcs_to_sla_freshness_assertion_mcps(
             contract, binding.schema_entry, binding.logical_urn
         )
-        context = f"file={source_uri} schema={binding.schema_entry.name}"
-        if result.unconvertible:
-            self.report.warning(
-                title="ODCS latency SLA not converted to a freshness assertion",
-                message=(
-                    "A freshness assertion needs a whole, positive `value` and a "
-                    "`unit` of min, h, d, w, mo or y (or their spelled-out forms)."
-                ),
-                context=f"{context}: {'; '.join(result.unconvertible)}",
-            )
-        if result.duplicates:
-            self.report.warning(
-                title="Duplicate ODCS latency SLA skipped",
-                message=(
-                    "These latency SLAs share an `id`, or an element and driver, "
-                    "with an earlier one; only the first became an assertion."
-                ),
-                context=f"{context}: {'; '.join(result.duplicates)}",
-            )
         self.report.assertions_emitted += len(result.assertion_urns)
         for mcp in result.mcps:
             yield mcp.as_workunit()

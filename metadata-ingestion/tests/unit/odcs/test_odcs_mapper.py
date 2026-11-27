@@ -18,6 +18,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     _operator_and_params_from_threshold,
     build_schema_metadata,
     business_term_urn,
+    duplicate_latency_slas,
     odcs_to_assertion_mcps,
     odcs_to_data_contract_mcps,
     odcs_to_data_product_urn,
@@ -28,10 +29,12 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_schema_assertion_mcps,
     odcs_to_sla_freshness_assertion_mcps,
     substitute_object_placeholder,
+    unconvertible_latency_slas,
     unlinked_support_channels,
     unmapped_owner_roles,
     unmapped_sla_properties,
     unplaced_sla_entries,
+    unresolved_term_references,
     unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
@@ -2560,7 +2563,13 @@ def _sla_contract(*slas: Dict[str, Any], **extra: Any) -> ODCSContract:
                     {"name": "loaded_at", "physicalName": "load_ts"},
                 ],
             },
-            {"name": "customers", "properties": [{"name": "id"}]},
+            {
+                "name": "customers",
+                "properties": [
+                    {"name": "id"},
+                    {"name": "address", "properties": [{"name": "street"}]},
+                ],
+            },
         ],
         "slaProperties": list(slas),
     }
@@ -2606,6 +2615,10 @@ def _tables_with_assertion(contract: ODCSContract) -> List[str]:
         ("tab1.id", ["customers"]),
         ("customers.id, orders.updated_at", ["orders", "customers"]),
         ("staging.col_a", []),
+        # The table alone.
+        ("orders", ["orders"]),
+        # A nested column's dotted path.
+        ("address.street", ["customers"]),
     ],
 )
 def test_latency_sla_applies_to_the_tables_its_element_names(
@@ -2672,34 +2685,47 @@ def test_sla_assertion_urn_follows_the_sla_id_not_its_element() -> None:
 
 
 def test_latency_slas_differing_by_driver_get_their_own_assertions() -> None:
-    result = _freshness(
-        _sla_contract(
-            _latency(element="updated_at", driver="regulatory"),
-            _latency(element="updated_at", driver="analytics", value=1),
-        )
+    contract = _sla_contract(
+        _latency(element="updated_at", driver="regulatory"),
+        _latency(element="updated_at", driver="analytics", value=1),
     )
-    assert len(set(result.assertion_urns)) == 2
-    assert result.duplicates == []
+    assert len(set(_freshness(contract).assertion_urns)) == 2
+    assert duplicate_latency_slas(contract) == []
 
 
 def test_identical_latency_slas_are_reported_as_duplicates() -> None:
-    result = _freshness(_sla_contract(_latency(), _latency(value=2)))
-    assert len(result.assertion_urns) == 1
-    assert result.duplicates == ["latency: 2 d"]
+    contract = _sla_contract(_latency(), _latency(value=2))
+    assert len(_freshness(contract).assertion_urns) == 1
+    assert duplicate_latency_slas(contract) == ["latency: 2 d"]
 
 
 @pytest.mark.parametrize(
     "value,unit",
-    [(30, "s"), (1.5, "h"), ("PT1H", None), (4, "m"), (0, "d"), (True, "d")],
+    [
+        (30, "s"),
+        (1.5, "h"),
+        ("PT1H", None),
+        (4, "m"),
+        (0, "d"),
+        (True, "d"),
+        # isdigit() but not a number int() reads.
+        ("²", "d"),
+        # Too large for the assertion's interval (and for float()).
+        ("1" + "0" * 400, "d"),
+        (10**12, "d"),
+    ],
 )
 def test_latency_without_a_clear_interval_is_reported(
     value: Any, unit: Optional[str]
 ) -> None:
-    result = _freshness(
-        _sla_contract({"property": "latency", "value": value, "unit": unit})
-    )
-    assert result.assertion_urns == []
-    assert len(result.unconvertible) == 1
+    contract = _sla_contract({"property": "latency", "value": value, "unit": unit})
+    assert _freshness(contract).assertion_urns == []
+    assert len(unconvertible_latency_slas(contract)) == 1
+
+
+def test_sla_label_omits_a_missing_value() -> None:
+    contract = _sla_contract({"property": "latency", "unit": "h"})
+    assert unconvertible_latency_slas(contract) == ["latency: h"]
 
 
 def test_data_contract_references_freshness_assertions() -> None:
@@ -2825,12 +2851,23 @@ def test_business_name_added_to_field_description_unless_redundant() -> None:
         ("term:order_line", "urn:li:glossaryTerm:term-order_line"),
         ("External Glossary Term", "urn:li:glossaryTerm:external_glossary_term"),
         (
+            "classification: confidential",
+            "urn:li:glossaryTerm:classification-confidential",
+        ),
+        ("classification:機密", "urn:li:glossaryTerm:classification-機密"),
+        ("term:受注", "urn:li:glossaryTerm:term-受注"),
+        ("a.b", "urn:li:glossaryTerm:a.b"),
+        ("  ns:Sub Term ", "urn:li:glossaryTerm:ns-sub_term"),
+        (
             "urn:li:glossaryTerm:Finance.Revenue",
             "urn:li:glossaryTerm:Finance.Revenue",
         ),
-        ("  --Net Revenue (EUR)--  ", "urn:li:glossaryTerm:net_revenue_eur"),
-        ("ns:Sub:Term", "urn:li:glossaryTerm:ns-sub-term"),
-        ("***", None),
+        # Characters outside letters, digits, `_`, `-` and `.` are not guessed at.
+        ("A+", None),
+        ("classification:A+", None),
+        ("Net Revenue (EUR)", None),
+        # Nothing after the prefix.
+        ("term:", None),
         ("", None),
         ("urn:li:glossaryTerm:", None),
     ],
@@ -2859,7 +2896,10 @@ def test_business_definitions_on_properties_become_field_terms() -> None:
                                 "url": "https://wiki.example.com/order-line",
                             },
                             # A path is a (relative) link, not a term.
-                            {"type": "businessDefinition", "url": "../docs/order_line.md"},
+                            {
+                                "type": "businessDefinition",
+                                "url": "../docs/order_line.md",
+                            },
                             # Only business definitions name terms.
                             {"type": "implementation", "url": "term:other"},
                         ],
@@ -2886,6 +2926,33 @@ def test_business_definitions_on_properties_become_field_terms() -> None:
         "../docs/order_line.md",
         "term:other",
     ]
+
+
+def test_term_references_that_resolve_to_no_term_are_reported() -> None:
+    contract = _make_contract(
+        schema=[
+            {
+                "name": "t",
+                "properties": [
+                    {
+                        "name": "grade",
+                        "classification": "A+",
+                        "authoritativeDefinitions": [
+                            {"type": "businessDefinition", "url": "Profit & Loss"}
+                        ],
+                    }
+                ],
+            }
+        ]
+    )
+    schema = build_schema_metadata(_first_schema(contract)).schema_metadata
+    assert schema is not None and schema.fields[0].glossaryTerms is None
+    assert unresolved_term_references(contract) == [
+        "Profit & Loss",
+        "classification:A+",
+    ]
+    # Reported as a term reference, not as a link.
+    assert unstorable_authoritative_definition_urls(contract) == []
 
 
 def test_term_references_outside_properties_are_still_reported() -> None:

@@ -862,10 +862,15 @@ def business_term_urn(reference: str) -> Optional[str]:
 
     A `urn:li:glossaryTerm:` urn is used as is. Anything else (an external
     reference such as `term:order_line`, or a plain name) becomes a term id:
-    lowercased, `:` turned into `-`, every other run of characters outside
-    `[a-z0-9_-]` turned into `_`, and leading/trailing `_`/`-` trimmed. So
-    `term:order_line` names `term-order_line` and `External Glossary Term` names
-    `external_glossary_term`. The term is referenced, never created.
+    trimmed and lowercased, each `:` turned into `-` (with the whitespace
+    around it dropped), and other runs of whitespace into `_`. Letters and
+    digits in any script, `_`, `-` and `.` are kept as they are. A reference
+    with any other character (`+`, `&`, parentheses, ...), or with nothing on
+    one side of a `:`, names no term: distinct references must never collapse
+    onto one term. So `term:order_line` names `term-order_line`,
+    `External Glossary Term` names `external_glossary_term` and
+    `classification:機密` names `classification-機密`. The term is referenced,
+    never created.
     """
     if reference.startswith("urn:li:glossaryTerm:"):
         try:
@@ -873,17 +878,21 @@ def business_term_urn(reference: str) -> Optional[str]:
         except InvalidUrnError:
             return None
         return reference
-    term_id = re.sub(r"[^a-z0-9_-]+", "_", reference.lower().replace(":", "-"))
-    term_id = term_id.strip("_-")
-    return make_term_urn(term_id) if term_id else None
+    segments = ["_".join(seg.split()) for seg in reference.strip().lower().split(":")]
+    term_id = "-".join(segments)
+    if not all(segments) or not all(c.isalnum() or c in "_-." for c in term_id):
+        return None
+    return make_term_urn(term_id)
 
 
 def _is_business_definition(definition: ODCSAuthoritativeDefinition) -> bool:
     return (definition.type or "").strip() == AUTHDEF_TYPE_BUSINESS_DEFINITION
 
 
-def _definition_term_urn(definition: ODCSAuthoritativeDefinition) -> Optional[str]:
-    """The term a property's business definition names.
+def _definition_term_reference(
+    definition: ODCSAuthoritativeDefinition,
+) -> Optional[str]:
+    """The term reference a property's business definition holds, if any.
 
     A web page stays a link, and a path (anything with `/`, such as the
     relative `../docs/orders.md` ODCS allows) is a link GMS cannot store, not
@@ -894,17 +903,39 @@ def _definition_term_urn(definition: ODCSAuthoritativeDefinition) -> Optional[st
         return None
     if _is_storable_link_url(url) or "/" in url:
         return None
-    return business_term_urn(url)
+    return url
+
+
+def _field_term_references(prop: ODCSProperty) -> List[str]:
+    references = [
+        ref
+        for d in prop.authoritativeDefinitions or []
+        if (ref := _definition_term_reference(d))
+    ]
+    classification = (prop.classification or "").strip()
+    if classification:
+        references.append(f"{CLASSIFICATION_TERM_PREFIX}{classification}")
+    return references
 
 
 def _field_term_urns(prop: ODCSProperty) -> List[str]:
-    references = [_definition_term_urn(d) for d in prop.authoritativeDefinitions or []]
-    classification = (prop.classification or "").strip()
-    if classification:
-        references.append(
-            business_term_urn(f"{CLASSIFICATION_TERM_PREFIX}{classification}")
-        )
-    return list(dict.fromkeys(urn for urn in references if urn))
+    urns = (business_term_urn(ref) for ref in _field_term_references(prop))
+    return list(dict.fromkeys(urn for urn in urns if urn))
+
+
+def unresolved_term_references(contract: ODCSContract) -> List[str]:
+    """Distinct property term references (business definitions and
+    `classification:<value>`) that name no glossary term, so the source can
+    report them."""
+    return sorted(
+        {
+            ref
+            for entry in contract.schema_ or []
+            for _, prop in _walk_properties(entry.properties)
+            for ref in _field_term_references(prop)
+            if business_term_urn(ref) is None
+        }
+    )
 
 
 def build_schema_metadata(
@@ -1004,8 +1035,9 @@ def unstorable_authoritative_definition_urls(contract: ODCSContract) -> List[str
     """Distinct contract/schema/property authoritativeDefinitions URLs that GMS
     would reject as links (relative paths, other schemes), so the source can
     report them; `_institutional_memory_mcp` skips them. A property's business
-    definition that names a glossary term is mapped to a field term instead,
-    so it is not reported; the same reference at contract or schema level is."""
+    definition that holds a term reference is a field term instead (or reported
+    by `unresolved_term_references`); the same reference at contract or schema
+    level is reported here."""
     urls: Set[str] = set()
     for d in contract.authoritativeDefinitions or []:
         urls.add(d.url or "")
@@ -1014,7 +1046,7 @@ def unstorable_authoritative_definition_urls(contract: ODCSContract) -> List[str
             urls.add(d.url or "")
         for _, prop in _walk_properties(entry.properties):
             for d in prop.authoritativeDefinitions or []:
-                if _definition_term_urn(d) is None:
+                if _definition_term_reference(d) is None:
                     urls.add(d.url or "")
     return sorted(url for url in urls if url and not _is_storable_link_url(url))
 
@@ -1188,7 +1220,13 @@ def _context_section(contexts: List[Optional[ODCSContext]]) -> Optional[str]:
 
 
 def _sla_label(sla: ODCSSlaProperty, element: Optional[str]) -> str:
-    value = sla.value if isinstance(sla.value, str) else json.dumps(sla.value)
+    value = (
+        None
+        if sla.value is None
+        else sla.value
+        if isinstance(sla.value, str)
+        else json.dumps(sla.value)
+    )
     label = f"{sla.property}: " + " ".join(p for p in (value, sla.unit) if p)
     details = ", ".join(
         f"{key}: {text}"
@@ -1204,9 +1242,10 @@ def _sla_applies(
     """Whether an SLA with `element` applies to `schema_entry`.
 
     An SLA without an element is contract-wide. Otherwise one of its
-    comma-separated elements must name the table (`table.column`) or, when it
-    names no table of the contract (`tables`), a column of it by name or
-    physical name (`column`, or `<unknown table>.column`).
+    comma-separated elements must name the table (`table` or `table.column`),
+    a column of it by dotted path or physical name (`address.street`), or,
+    when it names no table of the contract (`tables`), a column of it under
+    another table name (`<unknown table>.column`).
     """
     if not element:
         return True
@@ -1219,12 +1258,12 @@ def _sla_applies(
     }
     for part in element.split(","):
         part = part.strip().lower()
-        table, _, column = part.partition(".")
-        if column and table in names:
+        if part in columns:
             return True
-        if column and table in tables:
-            continue
-        if (column or table) in columns:
+        table, _, column = part.partition(".")
+        if table in names:
+            return True
+        if column and table not in tables and column in columns:
             return True
     return False
 
@@ -1256,6 +1295,30 @@ def unplaced_sla_entries(contract: ODCSContract) -> List[str]:
         for sla, element in _latency_slas(contract)
         if entries and not any(_sla_applies(element, e, tables) for e in entries)
     ]
+
+
+def unconvertible_latency_slas(contract: ODCSContract) -> List[str]:
+    """Latency SLAs that cannot become a freshness assertion's interval."""
+    return [
+        _sla_label(sla, element)
+        for sla, element in _latency_slas(contract)
+        if _sla_interval(sla) is None
+    ]
+
+
+def duplicate_latency_slas(contract: ODCSContract) -> List[str]:
+    """Latency SLAs that repeat an earlier one (same `id`, or with no id the
+    same element and driver), so they share its assertion and are skipped."""
+    seen: Set[Tuple[str, ...]] = set()
+    duplicates: List[str] = []
+    for sla, element in _latency_slas(contract):
+        if _sla_interval(sla) is None:
+            continue
+        key = ("id", sla.id) if sla.id else ("element", element or "", sla.driver or "")
+        if key in seen:
+            duplicates.append(_sla_label(sla, element))
+        seen.add(key)
+    return duplicates
 
 
 def unmapped_sla_properties(contract: ODCSContract) -> List[str]:
@@ -2159,16 +2222,23 @@ def odcs_to_schema_assertion_mcps(
     ]
 
 
+# The interval's `multiple` is an Avro int.
+_MAX_INTERVAL_MULTIPLE = 2**31 - 1
+
+
 def _sla_interval(sla: ODCSSlaProperty) -> Optional[FixedIntervalScheduleClass]:
     unit = SLA_UNIT_TO_CALENDAR_INTERVAL.get((sla.unit or "").strip().lower())
     value = sla.value
-    if isinstance(value, str) and value.strip().isdigit():
-        value = int(value)
+    if isinstance(value, str) and value.strip().isdecimal():
+        try:
+            value = int(value)
+        except ValueError:  # beyond Python's digit limit for int()
+            return None
     if (
         unit is None
         or isinstance(value, bool)
         or not isinstance(value, (int, float))
-        or value <= 0
+        or not 0 < value <= _MAX_INTERVAL_MULTIPLE
         or not float(value).is_integer()
     ):
         return None
@@ -2177,13 +2247,10 @@ def _sla_interval(sla: ODCSSlaProperty) -> Optional[FixedIntervalScheduleClass]:
 
 @dataclass
 class SlaFreshnessResult:
-    """Freshness assertions for one schema entry, and the latency SLAs that
-    produced none (labels, for the report)."""
+    """Freshness assertions for one schema entry."""
 
     assertion_urns: List[str] = field(default_factory=list)
     mcps: List[MetadataChangeProposalWrapper] = field(default_factory=list)
-    unconvertible: List[str] = field(default_factory=list)
-    duplicates: List[str] = field(default_factory=list)
 
 
 def _sla_assertion_urn(
@@ -2214,8 +2281,8 @@ def odcs_to_sla_freshness_assertion_mcps(
 
     Like the quality-rule assertions, it records the contract's promise on the
     logical dataset. A latency without a whole positive value and an
-    unambiguous unit, or one repeating an earlier entry, produces none and is
-    returned for reporting.
+    unambiguous unit, or one repeating an earlier entry, produces none; see
+    `unconvertible_latency_slas` and `duplicate_latency_slas`.
     """
     result = SlaFreshnessResult()
     tables = _table_names(contract)
@@ -2224,11 +2291,9 @@ def odcs_to_sla_freshness_assertion_mcps(
             continue
         interval = _sla_interval(sla)
         if interval is None:
-            result.unconvertible.append(_sla_label(sla, element))
             continue
         urn = _sla_assertion_urn(contract, sla, element, logical_urn)
         if urn in result.assertion_urns:
-            result.duplicates.append(_sla_label(sla, element))
             continue
         props = {
             PROP_ID: contract.id,

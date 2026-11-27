@@ -240,16 +240,22 @@ contract clears it on the next run. An unresolved value leaves the current domai
 A property's `classification`, and each of its `authoritativeDefinitions` with
 `type: businessDefinition` whose `url` is not a web link or a path, become glossary terms on
 the field. A reference becomes a term urn by one fixed rule: a `urn:li:glossaryTerm:` urn is
-used as is; anything else is lowercased, `:` becomes `-`, every other run of characters
-outside `a-z`, `0-9`, `_` and `-` becomes `_`, and leading and trailing `_` / `-` are
-trimmed. A classification is resolved as `classification:<value>`.
+used as is; anything else is trimmed and lowercased, each `:` becomes `-` (whitespace around
+it is dropped), and other runs of whitespace become `_`. Letters and digits in any script,
+`_`, `-` and `.` are kept as they are. A reference containing any other character (such as
+`+`, `&` or parentheses), or with nothing on one side of a `:`, names no term: it is
+reported as a skipped term reference rather than mapped, so distinct references never
+collapse onto one term. A classification is resolved as `classification:<value>`.
 
 | Contract value                   | Glossary term                                     |
 | -------------------------------- | ------------------------------------------------- |
 | `url: "term:order_line"`         | `urn:li:glossaryTerm:term-order_line`             |
 | `url: "External Glossary Term"`  | `urn:li:glossaryTerm:external_glossary_term`      |
+| `url: "a.b"`                     | `urn:li:glossaryTerm:a.b`                         |
 | `url: "urn:li:glossaryTerm:a.b"` | `urn:li:glossaryTerm:a.b`                         |
 | `classification: confidential`   | `urn:li:glossaryTerm:classification-confidential` |
+| `classification: 機密`           | `urn:li:glossaryTerm:classification-機密`         |
+| `classification: A+`             | none: reported as skipped                         |
 
 Create the terms with these ids (for example with a business glossary file) for the
 references to resolve. The source never creates terms: it does not emit the key aspect
@@ -310,10 +316,12 @@ without a link, are now reported.
   freshness assertion from a `latency` SLA records the contract's promise on the logical
   dataset; the SLA's `element` and `driver` are kept in the assertion's `odcs.sla.element`
   and `odcs.sla.driver` properties. It is placed on a table when its element names the
-  table (`table.column`), or names no table of the contract but a column of that table (by
-  name or `physicalName`); an SLA without an element applies to every table. A latency SLA
+  table (`table` or `table.column`), a column of it (by dotted path such as
+  `address.street`, or `physicalName`), or names no table of the contract but a column of
+  that table (`<unknown table>.column`); an SLA without an element applies to every table. A latency SLA
   that matches no table, cannot be read as a whole interval (`30 s`, `1.5 h`, `PT1H`, bare
-  `m`), or repeats an earlier one is reported as a warning. The assertion's urn follows the
+  `m`, values too large for an interval), or repeats an earlier one is reported as a warning,
+  once per contract. The assertion's urn follows the
   SLA's `id` when it has one. Other SLA properties (retention, frequency, availability, …)
   are not recorded yet.
 - **Lossy mappings are reported.** Besides the info above: off-spec values that were

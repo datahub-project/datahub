@@ -3034,3 +3034,54 @@ def test_referenced_glossary_terms_are_never_created(tmp_path: pathlib.Path) -> 
     # The framework materializes a key aspect for every referenced term, which
     # would create it; the source only references terms.
     assert not _aspects_of(workunits, GlossaryTermKeyClass)
+
+
+_FRESHNESS_ONLY_BODY = """\
+apiVersion: v3.1.0
+kind: DataContract
+id: fresh
+version: 1.0.0
+status: active
+schema:
+  - name: orders
+    properties:
+      - name: col_a
+        classification: A+
+  - name: customers
+    properties:
+      - name: col_b
+slaProperties:
+  - property: latency
+    value: 4
+    unit: d
+    element: orders.col_a
+  - property: latency
+    value: 2
+    unit: d
+    element: orders.col_a
+  - property: latency
+    value: 30
+    unit: s
+"""
+
+
+def test_latency_sla_emits_freshness_only_contract(tmp_path: pathlib.Path) -> None:
+    contract_file = _write(tmp_path / "c.odcs.yaml", _FRESHNESS_ONLY_BODY)
+    src = _make_source(tmp_path, path=str(contract_file), emit_schema_assertion=False)
+    workunits = list(src.get_workunits_internal())
+    infos = _aspects_of(workunits, AssertionInfoClass)
+    assert [i.type for i in infos] == ["FRESHNESS"]
+    freshness = infos[0].freshnessAssertion
+    assert freshness is not None and "orders" in freshness.entity
+    contracts = _aspects_of(workunits, DataContractPropertiesClass)
+    # Only the orders table has an assertion, so only it gets a contract.
+    assert len(contracts) == 1
+    assert contracts[0].freshness is not None
+    assert contracts[0].schema is None and contracts[0].dataQuality is None
+    warnings = [w for w in src.report.warnings if w.title]
+    titles = [w.title for w in warnings]
+    assert titles.count("Duplicate ODCS latency SLA skipped") == 1
+    # Contract-wide, so it applies to both tables, but it is reported once.
+    assert titles.count("ODCS latency SLA not converted to a freshness assertion") == 1
+    assert "latency: 2 d (element: orders.col_a)" in _messages(warnings)
+    assert "classification:A+" in _messages(warnings)
