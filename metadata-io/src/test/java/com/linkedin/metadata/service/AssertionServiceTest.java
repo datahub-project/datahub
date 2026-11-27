@@ -484,7 +484,7 @@ public class AssertionServiceTest {
 
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(mockClient).ingestProposal(eq(opContext), proposalCaptor.capture(), eq(false));
+    verify(mockClient).ingestProposal(eq(opContext), proposalCaptor.capture(), eq(true));
     Assert.assertEquals(proposalCaptor.getValue().getEntityUrn(), TEST_ASSERTION_URN);
     Assert.assertEquals(
         proposalCaptor.getValue().getAspectName(), ASSERTION_RUN_SUMMARY_ASPECT_NAME);

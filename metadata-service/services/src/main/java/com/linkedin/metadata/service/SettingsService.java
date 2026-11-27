@@ -76,6 +76,14 @@ public class SettingsService extends BaseService {
       @Nonnull OperationContext opContext,
       @Nonnull final Urn user,
       @Nonnull final CorpUserSettings newSettings) {
+    updateCorpUserSettings(opContext, user, newSettings, false);
+  }
+
+  public void updateCorpUserSettings(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn user,
+      @Nonnull final CorpUserSettings newSettings,
+      final boolean async) {
     Objects.requireNonNull(user, "user must not be null");
     Objects.requireNonNull(newSettings, "newSettings must not be null");
     Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
@@ -83,7 +91,7 @@ public class SettingsService extends BaseService {
       MetadataChangeProposal proposal =
           AspectUtils.buildMetadataChangeProposal(
               user, CORP_USER_SETTINGS_ASPECT_NAME, newSettings);
-      this.entityClient.ingestProposal(opContext, proposal, false);
+      this.entityClient.ingestProposal(opContext, proposal, async);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update Corp User settings for user with urn %s", user), e);
