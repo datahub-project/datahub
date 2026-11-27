@@ -15,6 +15,36 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### `gitlab-documents` takes its projects from `repositories`; `repository` is deprecated
+
+The `gitlab-documents` source now reads a list of projects from `repositories` ([PR #21683](https://github.com/datahub-project/datahub/pull/21683)), and can read every project in a `group`. The single-project `repository` option still works and logs a deprecation warning, but it is no longer documented and will be removed.
+
+To update a recipe, replace `repository: group/project` with a list:
+
+```yaml
+repositories:
+  - group/project
+```
+
+`repositories` differs from `repository` in three ways:
+
+- Each project is read from its own default branch unless `branch` is set. `repository` used `main` unless `branch` was set.
+- Each project gets a root document, even when `parent_document_urn` is set. With `repository` and `parent_document_urn`, files sat directly under the parent. After the move they sit under the project's root document, which sits under the parent.
+- A project that cannot be read is skipped with a warning and the others are still imported. The run fails only when no project could be imported.
+
+Sources created in the UI used to save `repository` and `branch: main`. Editing one in the ingestion form now saves its project to `repositories` and keeps `branch: main`, so it is read as before. If you then add more projects or a group, clear **Branch** so each project is read from its own default branch; otherwise every project must have a `main` branch.
+
+### `tags_to_term` transformer matches full tag names and maps column tags to columns
+
+The `tags_to_term` ingestion transformer has changed in four ways ([PR #21479](https://github.com/datahub-project/datahub/pull/21479)):
+
+- **Tags must be configured by their full name.** Before, the transformer matched only part of a tag's name: the text after the last `.` and before the first `:`. A tag such as `pii.email` matched a configured `email`, and `sensitivity:high` matched `sensitivity`. Now `tags` must list the name exactly as it appears after `urn:li:tag:`, for example `pii.email` or `sensitivity:high`.
+- **Terms take the full tag name.** The tag `pii.email` now becomes the term `pii.email`, not `email`. Terms added under the old short names are not removed automatically.
+- **Column tags become column terms.** Before, a tag on a column added the term to the whole dataset and left the tag on the column. Now the term is added to that column and the tag is removed from it. Terms already set in the same ingestion run, for example by dbt `meta_mapping`, are no longer dropped.
+- **Column tags are mapped only when the source emits the schema.** Column tags are now read from the `schemaMetadata` the source sends in the same run, not from DataHub. A run that does not emit a table's schema no longer maps that table's column tags.
+
+To update a recipe, replace each short name in `tags` with the tag's full name. For example, for the Snowflake tag `urn:li:tag:snowflakedb.snowflakeschema.tag_name:tag_value`, change `tag_name` to `snowflakedb.snowflakeschema.tag_name:tag_value`.
+
 ### Domain and glossary child listings are paged, and totals no longer hide restricted children
 
 The GraphQL `relationships` field for `IsPartOf` (the children of a domain, glossary term group or glossary term) now pages its results and limits the work it does per request, whether or not search access controls are enabled:
@@ -515,6 +545,10 @@ Requirements:
 - Helm Chart: (TBD)
 
 ### Breaking Changes
+
+- [#21608](https://github.com/datahub-project/datahub/pull/21608) **(Ingestion / Qlik Sense)** The `type` property of Qlik space and stream containers now holds the space type, such as `managed`, `shared` or `stream`, instead of the Python enum name, such as `SpaceType.MANAGED`. URNs and other metadata are unchanged. **Action:** after the next Qlik Sense run, update any saved search or filter that matches the old `SpaceType.<TYPE>` values.
+
+- [#21608](https://github.com/datahub-project/datahub/pull/21608) **(Ingestion / Qlik Sense)** The user in the created and last-modified details of Qlik apps and sheets is now the same user the owner of the app or sheet is, taken from the Qlik user's name, instead of a user built from the raw Qlik user id. When the name can't be read it is the unknown user. **Action:** none, unless you filter or report on the old id-based users.
 
 - [#21570](https://github.com/datahub-project/datahub/pull/21570) **(Ingestion / Qlik Sense)** On Qlik Cloud, a Qlik dataset that only an app's upstream lineage graph names, such as a QVD in a space the API key's user can't see, is now ingested only when the last reloads of the apps that load or store it give exactly one `lib://` path for it. It then gets that path, a browse path and containers under its space, connection and folders; its URN is unchanged. A dataset with no single path, for example a file name read through two connections, is no longer ingested: with stale metadata removal on, the first run after upgrading soft-deletes it, along with any tags, terms, owners or documentation added to it, and the tables that load it link to its URN without a dataset behind it. The run lists these under `graph_named_datasets_without_path`. **Action:** give the API key's user access to the spaces named in the "Qlik spaces the API key can't see" warning so these datasets are listed with their usual URNs, and move anything you attached to the soft-deleted datasets.
 

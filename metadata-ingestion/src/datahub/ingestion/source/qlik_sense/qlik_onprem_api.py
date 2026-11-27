@@ -29,6 +29,7 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     ReadErrors,
     log_read_error,
 )
+from datahub.ingestion.source.qlik_sense.report_text import describe_error
 from datahub.ingestion.source.qlik_sense.script_lineage import DataConnectionInfo
 from datahub.ingestion.source.qlik_sense.websocket_connection import (
     EngineError,
@@ -71,7 +72,7 @@ _OBJECT_FINGERPRINT_FIELDS = (
 )
 
 
-class _QrsAdapter(HTTPAdapter):
+class QrsAdapter(HTTPAdapter):
     def __init__(
         self,
         assert_hostname: Union[str, Literal[False], None],
@@ -150,7 +151,7 @@ class QlikOnPremAPI(QlikBaseAPI):
         # Every worker can hold a connection at once.
         self.session.mount(
             self.qrs_url,
-            _QrsAdapter(
+            QrsAdapter(
                 on_prem.tls_assert_hostname(),
                 self.key_password,
                 pool_maxsize=max(DEFAULT_POOLSIZE, config.resolved_max_workers()),
@@ -341,9 +342,8 @@ class QlikOnPremAPI(QlikBaseAPI):
             errors.record(
                 f"Unable to connect to the Engine for app {app.id}. Exception: {e}"
             )
-            app.read_errors = errors.messages
-            app.sheets_complete = False
-            return app
+            errors.sheets_unread = True
+            return self._finish_read(app, errors)
         with_data = self.on_prem.read_data_model
         try:
             try:
@@ -359,7 +359,7 @@ class QlikOnPremAPI(QlikBaseAPI):
                 self._open_doc(websocket_connection, app.id, with_data=False)
                 with_data = False
                 app.data_load_failed = True
-                self.opened_without_data.append(f"{app.id}: {e}")
+                self.opened_without_data.append(f"{app.id}: {describe_error(e)}")
             app.sheets = self._get_app_sheets(
                 websocket_connection,
                 app.id,
@@ -393,10 +393,7 @@ class QlikOnPremAPI(QlikBaseAPI):
             errors.sheets_unread = True
         finally:
             self._close_engine(websocket_connection, app.id)
-        app.read_errors = errors.messages
-        app.sheets_complete = not errors.sheets_unread
-        app.read_fallbacks = errors.fallbacks
-        return app
+        return self._finish_read(app, errors)
 
     @staticmethod
     def _open_doc(
@@ -429,7 +426,9 @@ class QlikOnPremAPI(QlikBaseAPI):
                     f"Unable to check whether app {app_dict.get(Constant.ID)} "
                     f"changed, reading it instead. Exception: {e}"
                 )
-                self.change_check_failures.append(f"{app_dict.get(Constant.ID)}: {e}")
+                self.change_check_failures.append(
+                    f"{app_dict.get(Constant.ID)}: {describe_error(e)}"
+                )
         return self._read_app(app_dict, fingerprint)
 
     def _app_fingerprint(self, app_dict: Dict) -> Optional[str]:
@@ -445,7 +444,8 @@ class QlikOnPremAPI(QlikBaseAPI):
                 f"Unable to fetch objects of app {app_dict.get(Constant.ID)}. Exception: {e}"
             )
             self.change_check_failures.append(
-                f"{app_dict.get(Constant.ID)}: unable to fetch app objects: {e}"
+                f"{app_dict.get(Constant.ID)}: unable to fetch app objects: "
+                f"{describe_error(e)}"
             )
             return None
         owner = app_dict.get("owner") or {}

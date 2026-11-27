@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import posixpath
 import re
 from typing import Dict, List, Optional
 
@@ -26,6 +27,9 @@ class FilePlatform(StrEnum):
     ABS = "abs"
     S3 = "s3"
     GCS = "gcs"
+    # Files on a Windows share, which Qlik Sense Enterprise ingests as Qlik
+    # Sense datasets named by their path.
+    WINDOWS_SHARE = "qlik-sense"
 
 
 class FileConnector(BaseModel):
@@ -66,6 +70,13 @@ FILE_CONNECTORS: Dict[str, FileConnector] = {
         connection_properties=["bucketName"],
         location_property="bucketName",
     ),
+    # A Data Gateway file connection, which reads a Windows share.
+    "DG_File_local": FileConnector(
+        platform=FilePlatform.WINDOWS_SHARE,
+        qri_scheme="local",
+        connection_properties=["path"],
+        location_property="path",
+    ),
 }
 
 
@@ -78,6 +89,7 @@ PLATFORM_BY_QRI_SCHEME = {
 class FileReference(BaseModel):
     connection: str
     path: str
+    qvd: bool = False
 
 
 class FileCandidates(BaseModel):
@@ -104,6 +116,12 @@ class FileStorage(BaseModel):
     likely_qri_connection_id: Optional[str] = None
 
 
+def canonical_path(path: str) -> str:
+    """One spelling per file: forward slashes, no `.` or `..`, lower case, as
+    Windows paths are case-insensitive. `//server/share` keeps its UNC prefix."""
+    return posixpath.normpath(path.strip().replace("\\", "/")).lower()
+
+
 def qri_part_id(text: str) -> str:
     digest = hashlib.sha256(text.encode("utf-8")).digest()
     return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
@@ -118,7 +136,8 @@ def connect_properties(connect_statement: str) -> Dict[str, str]:
 
 def file_connector_platform(connect_statement: str) -> Optional[FilePlatform]:
     """The DataHub platform of the files a data connection reads, or None
-    when it is not an Azure Storage, Amazon S3 or Google Cloud Storage one."""
+    when it is not an Azure Storage, Amazon S3, Google Cloud Storage or Data
+    Gateway file one."""
     connector = FILE_CONNECTORS.get(
         connect_properties(connect_statement).get("sourceType", "")
     )
@@ -137,6 +156,12 @@ def file_storage_of_connection(connect_statement: str) -> Optional[FileStorage]:
     location = properties.get(connector.location_property, "").strip("/")
     if not all(values) or not location:
         return None
+    if connector.platform == FilePlatform.WINDOWS_SHARE:
+        storage = file_storage_of_uri(properties[connector.location_property])
+        if storage is None:
+            return None
+        storage.qri_connection_id = qri_part_id("/".join(values))
+        return storage
     # Qlik Cloud saves an Azure container as an HTTPS URL, but DataHub names
     # files on storage from the container or bucket on.
     if "://" in location:
@@ -153,8 +178,22 @@ def file_storage_of_connection(connect_statement: str) -> Optional[FileStorage]:
 
 def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
     """The storage an Azure (`abfss://`, `abfs://` or Azure HTTPS), `s3://` or
-    `gs://` URI names."""
+    `gs://` URI, or a `\\\\server\\share` path, names."""
     uri = uri.strip()
+    if uri.startswith(("\\\\", "//")) and "://" not in uri:
+        parts = [part for part in uri.replace("\\", "/").split("/") if part]
+        # A server and a share, with no `.` or `..` segments, which would move
+        # the path, and no `\\?\` or `\\.\` device prefix, which Qlik Sense
+        # Enterprise never names a share by.
+        if len(parts) < 2 or parts[0] == "?" or {".", ".."} & set(parts):
+            return None
+        location = canonical_path(uri)
+        return FileStorage(
+            platform=FilePlatform.WINDOWS_SHARE,
+            location=location,
+            # A Data Gateway connection's QRI part is its path as written.
+            likely_qri_connection_id=qri_part_id(uri),
+        )
     scheme, separator, rest = uri.partition("://")
     if separator:
         # Schemes are case-insensitive; the helpers below expect lower case.
@@ -174,7 +213,11 @@ def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
         return FileStorage(
             platform=FilePlatform.ABS,
             location=location,
-            likely_qri_connection_id=qri_part_id(location),
+            # Qlik Cloud saves an Azure connection's container as its blob
+            # HTTPS URL, which its files' QRIs are built from.
+            likely_qri_connection_id=qri_part_id(
+                f"https://{azure.account_name}.blob.core.windows.net/{location}"
+            ),
         )
     for platform, store in (
         (FilePlatform.S3, S3ObjectStore),
@@ -216,7 +259,9 @@ class FileSourceResolver:
             path = normalized_file_path(reference.path)
             if path:
                 self._by_path_id.setdefault(qri_part_id(path), []).append(
-                    FileReference(connection=reference.connection, path=path)
+                    FileReference(
+                        connection=reference.connection, path=path, qvd=reference.qvd
+                    )
                 )
 
     def references(self) -> List[FileReference]:
@@ -228,7 +273,7 @@ class FileSourceResolver:
             return FileCandidates()
         references = self._by_path_id.get(match.group("path"), [])
         # Several reads of the same file are one reference.
-        unique = {(ref.connection, ref.path): ref for ref in references}
+        unique = {(ref.connection, ref.path, ref.qvd): ref for ref in references}
         return FileCandidates(
             references=list(unique.values()),
             platform=PLATFORM_BY_QRI_SCHEME.get(match.group("scheme")),
@@ -243,6 +288,14 @@ def file_dataset_urn(
     env: str,
     lowercase: bool = False,
 ) -> str:
+    if storage.platform == FilePlatform.WINDOWS_SHARE:
+        # As Qlik Sense Enterprise names a file on a share, so both join.
+        return make_dataset_urn_with_platform_instance(
+            platform=storage.platform,
+            name=canonical_path(f"{storage.location}/{path}"),
+            platform_instance=platform_instance,
+            env=env,
+        )
     name = f"{storage.location}/{path}"
     return make_dataset_urn_with_platform_instance(
         platform=storage.platform,

@@ -1,7 +1,7 @@
 import threading
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation
 
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
@@ -20,6 +20,8 @@ class UnmappedFileStore(BaseModel):
     # The file's `lib://` path, as reported when no app reads it.
     path: str
     table_urns: List[str]
+    # Stored as a QVD; None in older state, where the extension tells.
+    qvd: Optional[bool] = None
 
 
 class AppCheckpoint(BaseModel):
@@ -66,6 +68,14 @@ class AppCheckpoint(BaseModel):
 
 class QlikAppCheckpointState(CheckpointStateBase):
     apps: Dict[str, AppCheckpoint] = Field(default_factory=dict)
+
+
+class _LastCheckpoints(BaseModel):
+    # Checkpoints are dataclasses, kept as they are rather than copied.
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
+
+    last: SkipValidation[Optional[Checkpoint[QlikAppCheckpointState]]]
+    stale: SkipValidation[Optional[Checkpoint[GenericCheckpointState]]]
 
 
 class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointState]):
@@ -146,7 +156,8 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
         state but no trusted app checkpoints, so apps may be missing."""
         if not self.is_checkpointing_enabled():
             return {}
-        last, stale = self._last_checkpoints()
+        checkpoints = self._last_checkpoints()
+        last, stale = checkpoints.last, checkpoints.stale
         if last is None and stale is None:
             # No earlier run kept state, so there is no app to miss.
             return {}
@@ -170,14 +181,10 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
     def _trusted_last_apps(self) -> Optional[Dict[str, AppCheckpoint]]:
         if not self.is_checkpointing_enabled():
             return None
-        return self._trusted(*self._last_checkpoints())
+        checkpoints = self._last_checkpoints()
+        return self._trusted(checkpoints.last, checkpoints.stale)
 
-    def _last_checkpoints(
-        self,
-    ) -> Tuple[
-        Optional[Checkpoint[QlikAppCheckpointState]],
-        Optional[Checkpoint[GenericCheckpointState]],
-    ]:
+    def _last_checkpoints(self) -> _LastCheckpoints:
         with self._load_lock:
             last = self.state_provider.get_last_checkpoint(
                 self.job_id, QlikAppCheckpointState
@@ -189,7 +196,7 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
                 if self.stale_job_id
                 else None
             )
-        return last, stale
+        return _LastCheckpoints(last=last, stale=stale)
 
     def _trusted(
         self,

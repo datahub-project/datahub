@@ -1,6 +1,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { HomePage } from '../../pages/home.page';
 import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag } from '../../utils/test-tags';
 
 test.describe('Homepage Basic Visibility', () => {
   let homePage: HomePage;
@@ -12,12 +13,12 @@ test.describe('Homepage Basic Visibility', () => {
   });
 
   // Verify core homepage elements are rendered after navigation
-  test('page title is visible on homepage', async () => {
+  test('page title is visible on homepage', { tag: [DomainTag.Catalog] }, async () => {
     const isVisible = await homePage.isPageTitleVisible();
     expect(isVisible).toBe(true);
   });
 
-  test('search bar is visible on homepage', async () => {
+  test('search bar is visible on homepage', { tag: [DomainTag.Catalog] }, async () => {
     const isVisible = await homePage.isSearchBarVisible();
     expect(isVisible).toBe(true);
   });

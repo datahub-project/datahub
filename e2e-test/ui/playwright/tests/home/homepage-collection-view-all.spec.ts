@@ -17,6 +17,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { users } from '../../data/users';
 import { DATAHUB_GRAPHQL_PATH } from '../../utils/constants';
 import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag } from '../../utils/test-tags';
 
 const FRONTEND_URL = process.env.BASE_URL || 'http://localhost:9002';
 
@@ -150,30 +151,38 @@ test.describe('Homepage Collection View All', () => {
     }
   });
 
-  test('view all appears only on dynamic-filter collections', async ({ page, loginPage }) => {
-    await loginUi(page, loginPage);
+  test(
+    'view all appears only on dynamic-filter collections',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, loginPage }) => {
+      await loginUi(page, loginPage);
 
-    const dynamicTile = page.getByTestId('asset-collection-module').filter({ hasText: DYNAMIC_MODULE_NAME });
-    const manualTile = page.getByTestId('asset-collection-module').filter({ hasText: MANUAL_MODULE_NAME });
+      const dynamicTile = page.getByTestId('asset-collection-module').filter({ hasText: DYNAMIC_MODULE_NAME });
+      const manualTile = page.getByTestId('asset-collection-module').filter({ hasText: MANUAL_MODULE_NAME });
 
-    await expect(dynamicTile).toBeVisible();
-    await expect(manualTile).toBeVisible();
-    await expect(dynamicTile.getByTestId('view-all')).toBeVisible();
-    await expect(manualTile.getByTestId('view-all')).toHaveCount(0);
-  });
+      await expect(dynamicTile).toBeVisible();
+      await expect(manualTile).toBeVisible();
+      await expect(dynamicTile.getByTestId('view-all')).toBeVisible();
+      await expect(manualTile.getByTestId('view-all')).toHaveCount(0);
+    },
+  );
 
-  test('view all navigates to search with the collection filter applied', async ({ page, loginPage }) => {
-    await loginUi(page, loginPage);
+  test(
+    'view all navigates to search with the collection filter applied',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, loginPage }) => {
+      await loginUi(page, loginPage);
 
-    const dynamicTile = page.getByTestId('asset-collection-module').filter({ hasText: DYNAMIC_MODULE_NAME });
-    await dynamicTile.getByTestId('view-all').click();
+      const dynamicTile = page.getByTestId('asset-collection-module').filter({ hasText: DYNAMIC_MODULE_NAME });
+      await dynamicTile.getByTestId('view-all').click();
 
-    await expect(page).toHaveURL(/\/search\?/);
-    // The predicate `Type equals Data Product` must land as the native combined
-    // type filter (field `_entityType␞typeNames`, %E2%90%9E-encoded) under AND.
-    expect(page.url()).toContain('filter__entityType%E2%90%9EtypeNames___false___EQUAL___0=DATA_PRODUCT');
-    expect(page.url()).toContain('unionType=0');
-    // And the search page must parse it back into its active Type filter chip.
-    await expect(page.getByTestId('active-filter-_entityType␞typeNames')).toBeVisible();
-  });
+      await expect(page).toHaveURL(/\/search\?/);
+      // The predicate `Type equals Data Product` must land as the native combined
+      // type filter (field `_entityType␞typeNames`, %E2%90%9E-encoded) under AND.
+      expect(page.url()).toContain('filter__entityType%E2%90%9EtypeNames___false___EQUAL___0=DATA_PRODUCT');
+      expect(page.url()).toContain('unionType=0');
+      // And the search page must parse it back into its active Type filter chip.
+      await expect(page.getByTestId('active-filter-_entityType␞typeNames')).toBeVisible();
+    },
+  );
 });

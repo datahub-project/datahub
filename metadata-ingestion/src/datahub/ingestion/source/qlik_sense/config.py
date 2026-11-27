@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional, Union
 
@@ -13,8 +12,11 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.source.qlik_sense.file_lineage import file_storage_of_uri
-from datahub.ingestion.source.qlik_sense.qvd_lineage import canonical_path
+from datahub.ingestion.source.qlik_sense.file_lineage import (
+    FilePlatform,
+    canonical_path,
+    file_storage_of_uri,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -23,8 +25,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities.lossy_collections import LossyList
-
-logger = logging.getLogger(__name__)
 
 QLIK_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -179,6 +179,9 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # known: add them to file_connection_to_storage. Kept whole, since there are
     # only as many as the tenant has connections and each needs mapping.
     unresolved_file_connections: List[str] = field(default_factory=list)
+    # Data Gateway connections whose share path comes from the connection, not
+    # a storage_uri, so a share the on-prem recipe aliases would not join.
+    shares_named_from_connections: List[str] = field(default_factory=list)
     # Files on connections of unknown storage that apps store into but no
     # app's lineage graph reads, so they may not exist and are left out.
     unread_stored_files: LossyList[str] = field(default_factory=LossyList)
@@ -219,8 +222,12 @@ class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         description="Where the connection's files are, as an `abfss://<container>@<account>"
         ".dfs.core.windows.net/<folder>`, `s3://<bucket>/<folder>` or "
         "`gs://<bucket>/<folder>` URI, or Azure HTTPS. An Azure URI must name the "
-        "container; `wasb://` and `wasbs://` are not accepted. Read from the data "
-        "connection when not set, which needs the API key's user to see the "
+        "container; `wasb://` and `wasbs://` are not accepted. On Qlik Cloud, a "
+        "Data Gateway connection's Windows share is its `\\\\<server>\\<share>\\<folder>` "
+        "path: its QVDs take the Qlik Sense datasets the Qlik Sense Enterprise "
+        "recipe whose `platform_instance` and `env` the entry sets gives them, "
+        "so such a connection is only linked when it has an entry. Read from the "
+        "data connection when not set, which needs the API key's user to see the "
         "connection.",
     )
 
@@ -236,7 +243,8 @@ class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         if value is not None and file_storage_of_uri(value) is None:
             raise ValueError(
                 f"Unsupported storage_uri {value!r}: use an abfss:// or Azure HTTPS "
-                "URI that names the container, or an s3:// or gs:// URI"
+                "URI that names the container, an s3:// or gs:// URI, or a "
+                "\\\\server\\share path"
             )
         return value
 
@@ -377,24 +385,6 @@ class QlikOnPremConfig(ConfigModel):
             apps[canonical] = app_id
         return apps
 
-    @model_validator(mode="after")
-    def warn_unused_binary_file_to_app(self) -> "QlikOnPremConfig":
-        if self.binary_file_to_app and not self.read_data_model:
-            logger.warning(
-                "binary_file_to_app needs read_data_model: the tables a BINARY "
-                "load brings in are only known from the app's data model."
-            )
-        return self
-
-    @model_validator(mode="after")
-    def warn_unused_server_cert_hostname(self) -> "QlikOnPremConfig":
-        if self.server_cert_hostname and not self.verify_server_hostname:
-            logger.warning(
-                "server_cert_hostname is ignored for TLS hostname verification because "
-                "verify_server_hostname is false. It is still used for Qlik UI URLs."
-            )
-        return self
-
     def ui_hostname(self) -> str:
         return self.server_cert_hostname or self.server
 
@@ -498,8 +488,8 @@ class QlikSourceConfig(
     )
     file_connection_to_storage: Dict[str, FileStorageDetail] = Field(
         default={},
-        description="Where the files of Azure Storage, Amazon S3 and Google Cloud "
-        "Storage data connections are in DataHub, for lineage from the files apps "
+        description="Where the files of Azure Storage, Amazon S3, Google Cloud "
+        "Storage and, on Qlik Cloud, Data Gateway file data connections are in DataHub, for lineage from the files apps "
         "load and the QVDs they store. Use the data connection name as key, as load "
         "scripts write it (`<space>:<connection>` or `<connection>`), in any case. Set "
         "`storage_uri` when the API key's user cannot see the connection, and "
@@ -538,6 +528,19 @@ class QlikSourceConfig(
                 raise ValueError(
                     "On-prem, file_connection_to_storage entries need a storage_uri: "
                     + ", ".join(missing)
+                )
+            shares = [
+                name
+                for name, detail in self.file_connection_to_storage.items()
+                if detail.storage_uri
+                and (storage := file_storage_of_uri(detail.storage_uri)) is not None
+                and storage.platform == FilePlatform.WINDOWS_SHARE
+            ]
+            if shares:
+                # Its folder connections already name their files by path.
+                raise ValueError(
+                    "On-prem, file_connection_to_storage can't map to a Windows "
+                    "share: " + ", ".join(shares)
                 )
             return self
         if not self.tenant_hostname or self.api_key is None:

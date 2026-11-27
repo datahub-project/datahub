@@ -130,7 +130,7 @@ jobs:
         run: |
           set -euo pipefail
           runs_json=$(bash .github/scripts/resolve_workflow_runs.sh \
-            --workflow docker-unified.yml \
+            --workflow e2e-tests.yml \
             --repository "${{ github.repository }}" \
             --branch master \
             --event push \
@@ -183,7 +183,7 @@ jobs:
             echo "### Images under test"
             echo
             echo "- Commit: \`${short_sha}\`"
-            echo "- Built: ${created_at} ([docker-unified run](${html_url}))"
+            echo "- Built: ${created_at} ([E2E Tests run](${html_url}))"
           } >> "$GITHUB_STEP_SUMMARY"
           echo "Resolved ${short_sha} from run ${run_id}"
           echo "${images}"

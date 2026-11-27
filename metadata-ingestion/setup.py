@@ -35,6 +35,8 @@ base_requirements = {
     # vulnerability), but Airflow 2.x constraints pin jaraco.context to older versions (e.g., 5.3.0).
     # This constraint is NOT included here to maintain Airflow compatibility.
     # Security is enforced for Docker image builds via docker/snippets/ingestion/constraints.txt.
+    # sentry-sdk 3.0 rejects include_local_variables, which telemetry relies on to keep
+    # frame locals out of events. Find its replacement before raising the ceiling.
     "sentry-sdk>=1.33.1,<3.0.0",
     # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
     "python-json-logger>=2.0.0,<5.0.0",
@@ -1427,6 +1429,7 @@ entry_points = {
         "add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:AddDatasetDataProduct",
         "simple_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:SimpleAddDatasetDataProduct",
         "pattern_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:PatternAddDatasetDataProduct",
+        "dataproduct_mapping_based_on_tags = datahub.ingestion.transformer.dataset_dataproduct_based_on_tags:DatasetTagDataProductMapper",
         "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrlDataset",
         "replace_external_url_container = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrlContainer",
         "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",

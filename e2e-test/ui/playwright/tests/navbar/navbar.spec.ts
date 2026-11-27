@@ -24,22 +24,22 @@ test.describe('navbar redesign', () => {
     navbarPage = new NavbarPage(page, logger, logDir);
   });
 
-  test('navbar sidebar is visible', async () => {
+  test('navbar sidebar is visible', { tag: [DomainTag.Catalog] }, async () => {
     await navbarPage.navigateToHome();
     await navbarPage.verifyNavbarSidebarVisible();
   });
 
-  test('navbar logo is visible', async () => {
+  test('navbar logo is visible', { tag: [DomainTag.Catalog] }, async () => {
     await navbarPage.navigateToHome();
     await navbarPage.verifyNavbarLogoVisible();
   });
 
-  test('navbar toggler is visible', async () => {
+  test('navbar toggler is visible', { tag: [DomainTag.Catalog] }, async () => {
     await navbarPage.navigateToHome();
     await navbarPage.verifyNavbarTogglerVisible();
   });
 
-  test('navbar menus are present', async () => {
+  test('navbar menus are present', { tag: [DomainTag.Catalog] }, async () => {
     await navbarPage.navigateToHome();
     await navbarPage.verifyNavbarMenusExist();
   });

@@ -333,6 +333,19 @@ def get_smart_testing_tags() -> str:
     return os.getenv("SMOKE_SMART_TAGS", "").strip()
 
 
+def get_smoke_backend() -> str:
+    """Stack the smoke tests run against (SMOKE_BACKEND): docker (default) or local.
+
+    See utilities/backends.py.
+    """
+    return os.getenv("SMOKE_BACKEND", "").strip() or "docker"
+
+
+def get_smoke_backend_mode() -> str:
+    """Which tests to run on SMOKE_BACKEND (SMOKE_BACKEND_MODE): select (default) or canary."""
+    return os.getenv("SMOKE_BACKEND_MODE", "").strip() or "select"
+
+
 def get_smoke_policy_phase() -> Optional[str]:
     """Smoke-test policy phase: ``1`` (non-mutators), ``2`` (mutators), or unset (all)."""
     raw = os.getenv("SMOKE_POLICY_PHASE", "").strip()
@@ -372,6 +385,16 @@ def get_elasticsearch_url() -> str:
 def get_elasticsearch_index() -> str:
     """Elasticsearch index name for usage events."""
     return os.getenv("ELASTICSEARCH_INDEX", "datahub_usage_event")
+
+
+def get_index_prefix() -> str:
+    """Search index prefix (INDEX_PREFIX). Empty on Docker; local stacks set one."""
+    return os.getenv("INDEX_PREFIX", "")
+
+
+def get_executor_url() -> str:
+    """Executor base URL (DATAHUB_EXECUTOR_URL)."""
+    return os.getenv("DATAHUB_EXECUTOR_URL", "http://localhost:9004")
 
 
 # ============================================================================

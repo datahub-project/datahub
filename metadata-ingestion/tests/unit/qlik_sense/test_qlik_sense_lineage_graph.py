@@ -28,6 +28,10 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     UnchangedApp,
     UnreadItem,
 )
+from datahub.ingestion.source.qlik_sense.field_lineage import (
+    refs_of_field_sources,
+    schema_field_parent,
+)
 from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
@@ -35,11 +39,13 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     UNREAD_SPACES,
     ReadErrors,
 )
-from datahub.ingestion.source.qlik_sense.qlik_sense import (
-    QlikSenseSource,
-    _refs_of_field_sources,
-)
+from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
+from datahub.ingestion.source.qlik_sense.source_models import (
+    ResolvedSource,
+    UntypedTable,
+)
+from datahub.ingestion.source.qlik_sense.table_matching import name_unknown_tables
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DatasetPropertiesClass,
@@ -414,8 +420,8 @@ def test_app_table_lineage_is_only_added_to_when_the_app_it_loads_may_be_unread(
         if w.title == "Lineage of Qlik app tables only added to"
     ]
     assert context == [
-        "app=report-app, reason=the tables of source app other-app are not known "
-        "this run, tables=Curves, Prices"
+        "app=report-app, reason=the tables of a source app are not known "
+        "this run (other-app), tables=Curves, Prices"
     ]
 
 
@@ -1779,9 +1785,12 @@ def test_kept_app_carries_whether_its_graph_tables_are_unresolved(
 
     source._keep_unchanged_app(UnchangedApp(id="dm-app", fingerprint="f"))
 
-    assert source._resolve_source(f"{DATA_MODEL_APP}#Ord", "x", None) == (orders, None)
+    assert source._resolve_source(f"{DATA_MODEL_APP}#Ord", "x", None) == ResolvedSource(
+        urn=orders, unknown_reason=None
+    )
     # A graph table its last read had no URN for may still be one of its tables.
-    urn, unknown = source._resolve_source(f"{DATA_MODEL_APP}#Cust", "x", None)
+    resolved = source._resolve_source(f"{DATA_MODEL_APP}#Cust", "x", None)
+    urn, unknown = resolved.urn, resolved.unknown_reason
     assert urn is None
     assert (unknown is not None) is graph_tables_unresolved
     recorded = source.app_state.record.call_args.args[1]
@@ -1984,7 +1993,7 @@ def test_unnamed_script_table_takes_its_data_model_name() -> None:
         column_upstreams={"sku": [], "price": []},
     )
 
-    QlikSenseSource._name_unknown_tables(app, [unnamed, unknown_columns, named])
+    name_unknown_tables(app, [unnamed, unknown_columns, named])
 
     assert (unnamed.label, unnamed.identifier) == ("Orders", "etl-app.orders")
     assert (unknown_columns.label, unknown_columns.identifier) == (
@@ -2249,9 +2258,9 @@ def test_untyped_graph_table_takes_types_from_the_dataset_it_stores(
     curve, curve_table = _urn("etl-app.curve"), f"{ETL_APP}#Curve"
     source._app_table_urns_by_qri = {curve_table: curve}
     source._untyped_tables = {
-        curve: (
-            "etl-app.curve",
-            [
+        curve: UntypedTable(
+            identifier="etl-app.curve",
+            schema_fields=[
                 SchemaField(name="Day"),
                 SchemaField(name="Year"),
                 SchemaField(name="Id"),
@@ -4144,8 +4153,8 @@ def test_field_source_never_picks_between_columns_differing_in_case() -> None:
     ]
     field_id = _field_qri("t", "ORDER_ID").rpartition("#")[2]
 
-    assert _refs_of_field_sources(refs, "ORDER_ID", {field_id}) == []
-    assert _refs_of_field_sources(refs[:1], "ORDER_ID", {field_id}) == refs[:1]
+    assert refs_of_field_sources(refs, "ORDER_ID", {field_id}) == []
+    assert refs_of_field_sources(refs[:1], "ORDER_ID", {field_id}) == refs[:1]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -4172,7 +4181,7 @@ def test_kept_reader_of_a_graph_named_dataset_counts_toward_its_path(
 
     assert apps_by_urn[prices].apps == {"report-app", "kept-app"}
     # The kept app may load another file of that name, so no path is certain.
-    path, _ = source._graph_named_path("prices.qvd", apps_by_urn[prices])
+    path = source._graph_named_path("prices.qvd", apps_by_urn[prices]).path
     assert path is None
 
 
@@ -4219,8 +4228,30 @@ def test_kept_reader_of_a_left_out_graph_named_dataset_counts_toward_its_path(
     apps_by_urn = source._read_graph_named_reloads()
 
     assert apps_by_urn[prices].apps == {"report-app", "kept-app"}
-    path, _ = source._graph_named_path("prices.qvd", apps_by_urn[prices])
+    path = source._graph_named_path("prices.qvd", apps_by_urn[prices]).path
     assert path is None
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_reader_whose_checkpoint_fails_to_load_is_reported(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(mock_api_cls, DATASETS)
+    prices = _urn(UNLISTED_QVD)
+    source._graph_named_resources = {prices: "prices.qvd"}
+    source._graph_resource_readers = {prices: {"report-app"}}
+    source._kept_app_ids = {"kept-app"}
+    source.app_state = MagicMock()
+    source.app_state.previous.side_effect = RuntimeError("checkpoint unavailable")
+    mock_api_cls.return_value.get_reload_statements.side_effect = lambda app_id: [
+        _load("lib://hidden:datafiles/prices.qvd")
+    ]
+
+    apps_by_urn = source._read_graph_named_reloads()
+
+    assert apps_by_urn[prices].apps == {"report-app"}
+    assert len(source._checkpoint_load_failures) == 1
+    assert source._checkpoint_load_failures[0].startswith("kept-app: ")
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -4264,3 +4295,10 @@ def test_lib_path_spellings_follow_a_replaced_spelling(
     assert source._script_spelling("lib://finance:lake/orders.qvd").startswith(
         "lib://Finance:Lake/"
     )
+
+
+def test_schema_field_parent_returns_none_for_a_malformed_urn() -> None:
+    # Lineage another tool wrote may hold a URN DataHub cannot parse.
+    dataset = make_dataset_urn("qlik-sense", "orders", "PROD")
+    assert schema_field_parent(make_schema_field_urn(dataset, "id")) == dataset
+    assert schema_field_parent("urn:li:schemaField:(not-a-dataset") is None

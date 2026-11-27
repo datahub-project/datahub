@@ -8,6 +8,7 @@ import { test } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
 import { verifyCSVContent } from '../../utils/file-utils';
+import { DomainTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'lineage-v3' });
 
@@ -71,31 +72,39 @@ test.describe('CSV Export - Lineage Results', () => {
     });
   });
 
-  test('download and verify lineage results for 1st, 2nd and 3+ degree of dependencies', async ({ page, context }) => {
-    await lineagePage.goToLineageGraph('dataset', DATASET_URN);
-    await lineagePage.clickText(UI_STRINGS.IMPACT_ANALYSIS);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+  test(
+    'download and verify lineage results for 1st, 2nd and 3+ degree of dependencies',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, context }) => {
+      await lineagePage.goToLineageGraph('dataset', DATASET_URN);
+      await lineagePage.clickText(UI_STRINGS.IMPACT_ANALYSIS);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    // ─── 1st Degree Download ────────────────────────────────────────────────
-    let downloadPath = await lineagePage.downloadCSV(context, CSV_FILES.FIRST_DEGREE);
-    await verifyCSVContent(downloadPath, FIRST_DEGREE_URNS, [...SECOND_DEGREE_URNS, ...THIRD_DEGREE_PLUS_URNS]);
+      // ─── 1st Degree Download ────────────────────────────────────────────────
+      let downloadPath = await lineagePage.downloadCSV(context, CSV_FILES.FIRST_DEGREE);
+      await verifyCSVContent(downloadPath, FIRST_DEGREE_URNS, [...SECOND_DEGREE_URNS, ...THIRD_DEGREE_PLUS_URNS]);
 
-    // ─── 2nd Degree Download ────────────────────────────────────────────────
-    await lineagePage.degree2Filter.click();
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // Verify result count is between 8-9 (flexible range as displayed in the UI)
-    await lineagePage.expectResultTextVisible(RESULT_PATTERNS.RESULTS_8_TO_9, TIMEOUTS.MEDIUM);
+      // ─── 2nd Degree Download ────────────────────────────────────────────────
+      await lineagePage.degree2Filter.click();
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      // Verify result count is between 8-9 (flexible range as displayed in the UI)
+      await lineagePage.expectResultTextVisible(RESULT_PATTERNS.RESULTS_8_TO_9, TIMEOUTS.MEDIUM);
 
-    downloadPath = await lineagePage.downloadCSV(context, CSV_FILES.SECOND_DEGREE);
-    await verifyCSVContent(downloadPath, [...FIRST_DEGREE_URNS, ...SECOND_DEGREE_URNS], THIRD_DEGREE_PLUS_URNS);
+      downloadPath = await lineagePage.downloadCSV(context, CSV_FILES.SECOND_DEGREE);
+      await verifyCSVContent(downloadPath, [...FIRST_DEGREE_URNS, ...SECOND_DEGREE_URNS], THIRD_DEGREE_PLUS_URNS);
 
-    // ─── 3+ Degree Download ─────────────────────────────────────────────────
-    await lineagePage.degree3PlusFilter.click();
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // Verify result count shows all 10 items
-    await lineagePage.expectResultTextVisible(RESULT_PATTERNS.RESULTS_10, TIMEOUTS.MEDIUM);
+      // ─── 3+ Degree Download ─────────────────────────────────────────────────
+      await lineagePage.degree3PlusFilter.click();
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      // Verify result count shows all 10 items
+      await lineagePage.expectResultTextVisible(RESULT_PATTERNS.RESULTS_10, TIMEOUTS.MEDIUM);
 
-    downloadPath = await lineagePage.downloadCSV(context, CSV_FILES.THIRD_PLUS_DEGREE);
-    await verifyCSVContent(downloadPath, [...FIRST_DEGREE_URNS, ...SECOND_DEGREE_URNS, ...THIRD_DEGREE_PLUS_URNS], []);
-  });
+      downloadPath = await lineagePage.downloadCSV(context, CSV_FILES.THIRD_PLUS_DEGREE);
+      await verifyCSVContent(
+        downloadPath,
+        [...FIRST_DEGREE_URNS, ...SECOND_DEGREE_URNS, ...THIRD_DEGREE_PLUS_URNS],
+        [],
+      );
+    },
+  );
 });

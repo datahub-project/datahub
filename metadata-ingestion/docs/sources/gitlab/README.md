@@ -2,7 +2,7 @@
 
 GitLab hosts source files, documentation, and knowledge bases in git repositories. Learn more in the [official GitLab documentation](https://docs.gitlab.com/).
 
-The DataHub `gitlab-documents` integration ingests markdown and text files from a GitLab project on GitLab.com or self-managed GitLab as Document entities. Folder structure in the project is preserved as parent-child document relationships in DataHub.
+The DataHub `gitlab-documents` integration ingests markdown and text files from GitLab projects on GitLab.com or self-managed GitLab as Document entities. It can read one project, a list of projects, or every project in a group. Folder structure in each project is preserved as parent-child document relationships in DataHub.
 
 ## Concept Mapping
 

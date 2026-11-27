@@ -38,14 +38,14 @@ test.describe('Semantic Model details', () => {
     },
   );
 
-  test('definition tab shows native definition', async () => {
+  test('definition tab shows native definition', { tag: [DomainTag.Catalog] }, async () => {
     await metricsPage.openDefinitionTab();
     await expect(metricsPage.definitionCode).toBeVisible({ timeout: TIMEOUTS.LONG });
     await expect(metricsPage.definitionCode).toContainText('pw_orders_model');
     await expect(metricsPage.definitionCopy).toBeVisible();
   });
 
-  test('navigates from metrics module to metric detail', async ({ page }) => {
+  test('navigates from metrics module to metric detail', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await metricsPage.openSummaryTab();
     await metricsPage.expectModuleContains(metricsPage.metricsModule, NAMES.TOTAL_REVENUE);
     await metricsPage.clickModuleItem(metricsPage.metricsModule, NAMES.TOTAL_REVENUE);
@@ -53,14 +53,14 @@ test.describe('Semantic Model details', () => {
     await metricsPage.expectEntityNamed(NAMES.TOTAL_REVENUE);
   });
 
-  test('exposes Properties and Lineage tabs', async () => {
+  test('exposes Properties and Lineage tabs', { tag: [DomainTag.Catalog] }, async () => {
     await expect(metricsPage.propertiesTab).toBeVisible();
     await expect(metricsPage.lineageTab).toBeVisible();
     await metricsPage.openPropertiesTab();
     await metricsPage.openLineageTab();
   });
 
-  test('datasets module links to member dataset', async ({ page }) => {
+  test('datasets module links to member dataset', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await metricsPage.openSummaryTab();
     await metricsPage.expectModuleContains(metricsPage.datasetsModule, NAMES.ORDERS_ALIAS);
     await metricsPage.clickModuleItem(metricsPage.datasetsModule, NAMES.ORDERS_ALIAS);

@@ -33,7 +33,9 @@ from utilities.multi_user import cleanup_step_actor_user, make_step_actor_user
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [
+    pytest.mark.domain(Domain.PLATFORM),
+]
 
 
 def _require_prometheus_url() -> str:
