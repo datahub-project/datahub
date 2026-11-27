@@ -233,7 +233,7 @@ class AppTablesMixin(ColumnLineageMixin):
                 "or datasets have from them is only added to.",
                 context=f"{app.id}: {bounded_list(app.unmatched_graph_tables)}",
             )
-        previous = self._usable_checkpoint(app.id, [])
+        previous = self._usable_checkpoint(app.id, self._checkpoint_load_failures)
         if previous is not None and previous.table_urns_by_qri:
             self._previous_app_table_urns.update(previous.table_urns_by_qri.values())
 

@@ -143,7 +143,7 @@ class GraphNamedMixin(FileEntitiesMixin):
         # last run is in no app's `urns`, so its recorded reads count too.
         kept_readers: Dict[str, Set[str]] = defaultdict(set)
         for app_id in self._kept_app_ids:
-            previous = self.app_state.previous(app_id)
+            previous = self._load_checkpoint(app_id, self._checkpoint_load_failures)
             if previous is None:
                 continue
             read = {*previous.urns, *previous.read_graph_named_urns}

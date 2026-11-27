@@ -186,7 +186,7 @@ class FileEntitiesMixin(StoreLineageMixin):
         # writer's entities hold the file too, so only recorded reads count.
         unread = set(self._unmapped_file_stores) - self._linked_unmapped_files
         for app_id in sorted(self._kept_app_ids) if unread else []:
-            previous = self.app_state.previous(app_id)
+            previous = self._load_checkpoint(app_id, self._checkpoint_load_failures)
             if previous is not None:
                 self._linked_unmapped_files.update(
                     unread.intersection(previous.read_unmapped_file_urns)

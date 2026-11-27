@@ -162,7 +162,7 @@ class StoreLineageMixin(OnPremQvdMixin):
                 writes[file_urn].append(write)
                 self.reporter.file_stores_linked += 1
                 self._note_storage_qvd(file_urn, file_urn in qvd_file_urns)
-        previous = self._usable_checkpoint(app.id, [])
+        previous = self._usable_checkpoint(app.id, self._checkpoint_load_failures)
         previous_files = previous.stored_file_urns if previous else []
         currents = {
             file_urn: self._current_upstreams(file_urn) if complete else None

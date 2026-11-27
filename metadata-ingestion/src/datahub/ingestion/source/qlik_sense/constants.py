@@ -25,6 +25,7 @@ UNQUALIFIED_TABLES_SKIPPED: Final = (
 )
 
 CHECKPOINT_LOAD_FAILED_TITLE: Final = "Unable to load the last checkpoint of a Qlik app"
+CHECKPOINT_LOAD_WARNING_TITLE: Final = "Unable to load the last checkpoint of Qlik apps"
 DATAHUB_LINEAGE_READ_FAILED_TITLE: Final = (
     "Unable to read Qlik dataset lineage from DataHub"
 )

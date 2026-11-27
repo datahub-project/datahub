@@ -664,6 +664,26 @@ def test_unchanged_app_whose_checkpoint_fails_to_reload_keeps_its_last_read(
     assert qlik.engine_opens == 1
 
 
+def test_checkpoint_load_failure_while_reading_is_reported(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    with patch.object(
+        QlikAppStateHandler,
+        "previous",
+        side_effect=RuntimeError("checkpoint unavailable"),
+    ):
+        second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert "Unable to load the last checkpoint of Qlik apps" in [
+        warning.title for warning in second.reporter.warnings
+    ]
+
+
 def test_partial_read_without_last_read_is_not_recorded(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:

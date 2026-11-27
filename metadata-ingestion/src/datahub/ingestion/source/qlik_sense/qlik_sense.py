@@ -184,6 +184,7 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
         )
         self._fingerprint_salt = None
         self._change_check_failures = []
+        self._checkpoint_load_failures = []
         if config.skips_unchanged_apps() and not self._skips_unchanged_apps():
             self.reporter.warning(
                 title="skip_unchanged_apps is ignored",

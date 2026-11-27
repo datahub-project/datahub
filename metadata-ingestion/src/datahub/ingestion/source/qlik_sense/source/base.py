@@ -189,6 +189,7 @@ class QlikSourceBase:
     _fingerprint_salt: Optional[str]
     # Filled from worker threads, so only copied to the report at the end.
     _change_check_failures: List[str]
+    _checkpoint_load_failures: List[str]
 
     @property
     def _on_cloud(self) -> bool:

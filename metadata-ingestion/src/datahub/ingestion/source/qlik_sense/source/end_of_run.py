@@ -1,6 +1,7 @@
 from datahub.ingestion.source.qlik_sense.constants import (
     APPS_READ_WITHOUT_DATA_TITLE,
     CHANGE_CHECK_FAILED_TITLE,
+    CHECKPOINT_LOAD_WARNING_TITLE,
     COLUMN_LINEAGE_READ_FAILED_TITLE,
     DATASET_LINEAGE_READ_FAILED_TITLE,
     ENGINE_REFUSED_CONNECTIONS_TITLE,
@@ -28,6 +29,16 @@ class EndOfRunMixin(ItemsMixin):
             self.app_state.add_read_unmapped_files(app_id, urns)
         for app_id, urns in self._app_read_graph_named.items():
             self.app_state.add_read_graph_named(app_id, urns)
+
+    def _report_checkpoint_load_failures(self) -> None:
+        if not self._checkpoint_load_failures:
+            return
+        self.reporter.warning(
+            title=CHECKPOINT_LOAD_WARNING_TITLE,
+            message="Lineage recorded by these apps' last reads may be "
+            "missing from this run.",
+            context=bounded_list(self._checkpoint_load_failures),
+        )
 
     def _report_end_of_run(self) -> None:
         if self.qlik_api.opened_without_data:
@@ -149,6 +160,7 @@ class EndOfRunMixin(ItemsMixin):
                 context=f"{len(change_check_failures)} apps, for example "
                 f"{change_check_failures[0]}",
             )
+        self._report_checkpoint_load_failures()
         failed_users = self.qlik_api.failed_user_lookups
         if failed_users:
             self.reporter.warning(
