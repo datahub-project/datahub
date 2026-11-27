@@ -19,7 +19,7 @@ the one you are on and the one you are moving to, not just the target.
 
 A search template's `clauses` are merged into the bool its `query` renders. When that bool had `should` clauses but no `must`, `filter` or `minimum_should_match`, a `must` or `filter` added through `clauses` made those `should` clauses optional, so the search returned everything the clause allowed instead of the body's matches. Such a body now keeps `minimum_should_match: 1`, so a result has to match one of its `should` clauses, or a `should` added through `clauses`.
 
-No shipped template has this shape. A custom template that relied on the wider result can set `"minimum_should_match": 0` on its body's bool to keep it. An explicit `minimum_should_match` is applied as written.
+The body or the clauses can come from a parent template. No shipped template has this shape, and a child that keeps a shipped body is unaffected. A custom template that relied on the wider result can set `"minimum_should_match": 0` on its body's bool to keep it. An explicit `minimum_should_match` is applied as written.
 
 ### `gitlab-documents` takes its projects from `repositories`; `repository` is deprecated
 

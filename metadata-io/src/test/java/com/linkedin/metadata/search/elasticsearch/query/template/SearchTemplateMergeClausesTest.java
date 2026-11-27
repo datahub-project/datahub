@@ -9,7 +9,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.testng.annotations.Test;
 
-/** Template clauses add to the body's matches without changing which documents it matches. */
+/** A must or filter from template clauses narrows the body; it never makes the body optional. */
 public class SearchTemplateMergeClausesTest {
   private static final String SCORE_ONLY =
       "{ \"must\": [ { \"bool\": { \"should\": [ { \"match_all\": { \"boost\": 0.0 } } ] } } ] }";
