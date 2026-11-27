@@ -699,7 +699,7 @@ def test_consolidated_metric_resolves_upstream_through_consolidation_attributes(
     assert client.consolidation_calls == ["CONSOL1"]
 
 
-def test_metric_model_fetch_failure_warns_and_skips_that_metric() -> None:
+def test_metric_model_fetch_failure_fails_run_and_skips_that_metric() -> None:
     client = FakeSemanticModelClient(
         metrics=[_metric_object("BROKEN", "Broken Metric")],
         metric_models={},  # no fixture -> get_metric_model raises via override below
@@ -728,6 +728,10 @@ def test_metric_model_fetch_failure_warns_and_skips_that_metric() -> None:
     assert metric_urn not in aspects
     assert mapper.report.metric_expression_api_failures == 1
     assert list(mapper.report.failed_metric_model_ids) == ["BROKEN"]
+    # A failure, so stale-entity removal keeps the previous run's copy of the metric.
+    assert [f.title for f in mapper.report.failures] == [
+        "MicroStrategy Metric Model Unavailable"
+    ]
 
 
 def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:

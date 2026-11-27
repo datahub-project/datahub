@@ -700,10 +700,16 @@ class MicroStrategyLineageExtractor:
             with self.report.phase(PHASE_WAREHOUSE_FIELD_LOOKUP):
                 schema = graph.get_schema_metadata(upstream_dataset_urn)
         except Exception as error:
-            logger.debug(
-                "Failed to fetch schema for %s from graph: %s",
-                upstream_dataset_urn,
-                error,
+            # Falls back to the casing heuristic for this run; the warning keeps
+            # that visible instead of silently changing field URNs.
+            self.report.warning(
+                title="Failed to fetch warehouse schema from DataHub",
+                message=(
+                    "Column lineage for this upstream table uses the casing "
+                    "heuristic for the rest of the run."
+                ),
+                context=upstream_dataset_urn,
+                exc=error,
             )
             schema = None
         if schema is not None:

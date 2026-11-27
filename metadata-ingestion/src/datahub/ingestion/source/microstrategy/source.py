@@ -1758,16 +1758,18 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
             tables = response.tables
             if tables is None:
-                if offset == 0:
-                    self.report.warning(
-                        title="Unrecognized model tables response shape",
-                        message=(
-                            "The model tables API returned a payload without a "
-                            "'tables' list; model lineage may be missing."
-                        ),
-                        context=f"project_id={project_id}",
-                    )
-                break
+                # A failed fetch, not an empty project: returning [] here would let
+                # stale-entity removal soft-delete the project's semantic model.
+                self.report.warning(
+                    title="Unrecognized model tables response shape",
+                    message=(
+                        "The model tables API returned a payload without a "
+                        "'tables' list; model lineage and the semantic model are "
+                        "skipped for this project."
+                    ),
+                    context=f"project_id={project_id}, offset={offset}",
+                )
+                return None
             model_tables.extend(table for table in tables if isinstance(table, dict))
             total = response.total
             offset += len(tables)

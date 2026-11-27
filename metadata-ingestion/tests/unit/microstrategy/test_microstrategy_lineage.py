@@ -861,6 +861,22 @@ def test_convert_urns_to_lowercase_false_preserves_warehouse_case() -> None:
     ]
 
 
+def test_warehouse_schema_lookup_failure_is_reported_and_falls_back() -> None:
+    extractor = _extractor()
+    graph = mock.Mock()
+    graph.get_schema_metadata.side_effect = RuntimeError("gms unavailable")
+
+    assert (
+        extractor._warehouse_field_map(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.tbl,PROD)", graph
+        )
+        is None
+    )
+    assert [w.title for w in extractor.report.warnings] == [
+        "Failed to fetch warehouse schema from DataHub"
+    ]
+
+
 def test_model_lineage_anchors_columns_to_graph_field_casing() -> None:
     # When the warehouse dataset's schema is in the graph, column urns must adopt
     # its actual casing regardless of what MicroStrategy reports, so edges anchor

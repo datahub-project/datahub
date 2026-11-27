@@ -1183,6 +1183,23 @@ def test_fetch_project_model_tables_requests_logical_table_information() -> None
     assert all("information" in fields for fields in fake_client.fields_requested)
 
 
+def test_fetch_project_model_tables_unrecognized_payload_is_a_failed_fetch() -> None:
+    # An empty list would read as a project with no logical tables and let
+    # stale-entity removal soft-delete the semantic model.
+    source = _source({"extract_model_lineage": True})
+
+    class FakeClient:
+        def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
+            return ModelTablesResponse(tables=None, total=None)
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._fetch_project_model_tables("project-1") is None
+    assert [w.title for w in source.report.warnings] == [
+        "Unrecognized model tables response shape"
+    ]
+
+
 def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:
     source = _source(
         {

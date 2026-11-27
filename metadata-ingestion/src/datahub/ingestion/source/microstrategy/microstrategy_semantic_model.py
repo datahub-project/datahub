@@ -669,11 +669,14 @@ class MicroStrategySemanticModelMapper:
                 progress.failed += 1
                 self.report.report_metric_expression_api_failure()
                 self.report.report_failed_metric_model(metric_object.id)
-                self.report.warning(
+                # A failure, not a warning: a skipped metric is soft-deleted by
+                # stale-entity removal unless the run is marked failed.
+                self.report.failure(
                     title="MicroStrategy Metric Model Unavailable",
                     message=(
                         "Skipping this metric for the semantic model; its "
-                        "expression could not be fetched."
+                        "expression could not be fetched. Stale-entity removal "
+                        "is skipped for this run so the previous metric is kept."
                     ),
                     context=f"project_id={project_id}, metric_id={metric_object.id}",
                     exc=error,
