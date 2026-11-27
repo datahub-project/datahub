@@ -37,6 +37,10 @@ are now filtered or ingested.
 
 **Unchanged:** an entry that contains a `.` is still matched as written against
 `<project_id>.<dataset_name>`. `^staging_.*` still matches nothing; write `.*\.staging_.*` instead.
+This includes an entry with `|` where any alternative has a `.`, such as `a|proj\.b`: it is kept
+as written, so its `a` alternative is still matched against the start of
+`<project_id>.<dataset_name>`, that is, against project IDs. Write each alternative in full
+(`.*\.a|proj\.b`) or split the entry into one per dataset.
 
 ### Snowflake: schemas whose names end in `INFORMATION_SCHEMA` ([#21430](https://github.com/datahub-project/datahub/pull/21430))
 

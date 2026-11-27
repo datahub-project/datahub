@@ -527,7 +527,7 @@ class AllowDenyPattern(ConfigModel):
         duplicates already in the deny list are collapsed too."""
         return self._rebuilt(deny=deduplicate_list([*self.deny, *rules]))
 
-    def _rebuilt(self, **overrides: Any) -> Self:
+    def _rebuilt(self, **overrides: Union[List[str], bool]) -> Self:
         """A fresh pattern with this one's fields, `overrides` replacing some.
 
         Use this to derive a pattern; never edit `allow`/`deny` in place,

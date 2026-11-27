@@ -353,16 +353,18 @@ class GcsDatasetLineageProviderConfigBase(ConfigModel):
 
 def _qualify_dataset_regex(regex: str) -> str:
     r"""A `dataset_pattern` entry with no `.` names the dataset alone, so it is
-    made to match `<project_id>.<dataset_name>`: `a|b` becomes `.*\.(?:a|b)`.
-    The group keeps every alternative behind the prefix. An entry with a `.` is
-    taken to name the project already and is kept as written, including a
-    dataset-name regex such as `staging_.*`: write `.*\.staging_.*` instead.
+    made to match `<project_id>.<dataset_name>`: `a` becomes `.*\.a`. An entry
+    with a `|` is also wrapped in a group, `a|b` becomes `.*\.(?:a|b)`, so every
+    alternative stays behind the prefix. An entry with a `.` is taken to name
+    the project already and is kept as written, including a dataset-name regex
+    such as `staging_.*`: write `.*\.staging_.*` instead.
     """
     if "." in regex:
         return regex
-    if regex.startswith("^"):
-        return r"^.*\.(?:" + regex[1:] + ")"
-    return r".*\.(?:" + regex + ")"
+    anchor, body = ("^", regex[1:]) if regex.startswith("^") else ("", regex)
+    if "|" in body:
+        body = "(?:" + body + ")"
+    return anchor + r".*\." + body
 
 
 class BigQueryFilterConfig(SQLFilterConfig):

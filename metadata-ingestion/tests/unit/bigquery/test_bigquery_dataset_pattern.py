@@ -1,9 +1,10 @@
 """`dataset_pattern` qualification under `match_fully_qualified_names`.
 
 With the flag on (the default) the connector matches `dataset_pattern` against
-`<project_id>.<dataset_name>`. An entry with no `.` is wrapped as
-`.*\\.(?:<entry>)`; an entry with a `.` is matched as written. These tests go
-through `BigQueryFilter`, the filter the source actually uses.
+`<project_id>.<dataset_name>`. An entry with no `.` gets the `.*\\.` prefix,
+grouped as `.*\\.(?:<entry>)` when it has a `|`; an entry with a `.` is
+matched as written. These tests go through `BigQueryFilter`, the filter the
+source actually uses.
 """
 
 from typing import Any, Dict, Iterable, List
@@ -42,7 +43,7 @@ def _filter(dataset_pattern: Dict[str, List[str]]) -> BigQueryFilter:
 
 def test_dataset_name_is_qualified_and_still_matches() -> None:
     filters = _filter({"allow": ["staging_events"]})
-    assert filters.filter_config.dataset_pattern.allow == [r".*\.(?:staging_events)"]
+    assert filters.filter_config.dataset_pattern.allow == [r".*\.staging_events"]
     assert filters.is_dataset_allowed("staging_events", PROJECT)
     assert not filters.is_dataset_allowed("prod_events", PROJECT)
 
@@ -95,7 +96,7 @@ def test_qualification_is_idempotent() -> None:
     qualified = config.dataset_pattern
     validate_pattern_at(config, "dataset_pattern", qualified)
     assert config.dataset_pattern.allow == [r".*\.(?:a|b)"]
-    assert config.dataset_pattern.deny == [r"^.*\.(?:tmp$)"]
+    assert config.dataset_pattern.deny == [r"^.*\.tmp$"]
 
 
 def test_qualification_ignores_a_warm_regex_cache() -> None:
