@@ -7,7 +7,6 @@ from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
-    AllowDenyPattern,
     HiddenFromDocs,
     Qualifier,
 )
@@ -261,7 +260,7 @@ class RedshiftConfig(
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":
         if (
             self.schema_pattern is not None
-            and self.schema_pattern != AllowDenyPattern.allow_all()
+            and not self.schema_pattern.is_allow_all()
             and self.match_fully_qualified_names is not None
             and not self.match_fully_qualified_names
         ):

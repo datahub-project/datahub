@@ -321,8 +321,7 @@ def _trial_pattern(
     """The recipe's pattern with each --try-* flag replacing only its own
     half, every other field (`ignoreCase`) kept.
 
-    Rebuilt rather than model_copy'd: the copy carries the compiled regexes
-    the recipe's pattern cached on first use, and would match those.
+    Built with `AllowDenyPattern.with_fields`, not model_copy'd.
     """
     # Compiled here, before any hook runs: AllowDenyPattern compiles lazily,
     # so a malformed regex would otherwise surface inside a connector's hook
@@ -335,12 +334,12 @@ def _trial_pattern(
                 raise ProbeArgumentError(
                     f"{flag} {regex!r} is not a valid regular expression ({exc.msg})"
                 ) from None
-    fields = recipe_pattern.model_dump()
+    overrides: Dict[str, List[str]] = {}
     if try_allow:
-        fields["allow"] = list(try_allow)
+        overrides["allow"] = list(try_allow)
     if try_deny:
-        fields["deny"] = list(try_deny)
-    return type(recipe_pattern).model_validate(fields)
+        overrides["deny"] = list(try_deny)
+    return recipe_pattern.with_fields(**overrides)
 
 
 def _with_trial_pattern(

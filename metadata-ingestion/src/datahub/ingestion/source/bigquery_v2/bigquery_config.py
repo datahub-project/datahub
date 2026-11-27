@@ -351,6 +351,22 @@ class GcsDatasetLineageProviderConfigBase(ConfigModel):
     )
 
 
+def _qualify_dataset_regex(regex: str) -> str:
+    r"""A `dataset_pattern` entry with no `.` names the dataset alone, so it is
+    made to match `<project_id>.<dataset_name>`: `a` becomes `.*\.a`. An entry
+    with a `|` is also wrapped in a group, `a|b` becomes `.*\.(?:a|b)`, so every
+    alternative stays behind the prefix. An entry with a `.` is taken to name
+    the project already and is kept as written, including a dataset-name regex
+    such as `staging_.*`: write `.*\.staging_.*` instead.
+    """
+    if "." in regex:
+        return regex
+    anchor, body = ("^", regex[1:]) if regex.startswith("^") else ("", regex)
+    if "|" in body:
+        body = "(?:" + body + ")"
+    return anchor + r".*\." + body
+
+
 class BigQueryFilterConfig(SQLFilterConfig):
     project_ids: Annotated[List[str], Qualifier()] = Field(
         default_factory=list,
@@ -416,33 +432,32 @@ class BigQueryFilterConfig(SQLFilterConfig):
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> Any:
-        dataset_pattern = self.dataset_pattern
-        schema_pattern = self.schema_pattern
-
+        # Patterns are replaced, never edited in place: a pattern that was
+        # already used caches its compiled regexes, and would keep matching
+        # the old entries. See AllowDenyPattern.with_fields.
         if (
-            dataset_pattern == AllowDenyPattern.allow_all()
-            and schema_pattern != AllowDenyPattern.allow_all()
+            self.dataset_pattern.is_allow_all()
+            and not self.schema_pattern.is_allow_all()
         ):
             logging.warning(
                 "dataset_pattern is not set but schema_pattern is set, using schema_pattern as dataset_pattern. "
                 "schema_pattern will be deprecated, please use dataset_pattern instead."
             )
-            self.dataset_pattern = schema_pattern
-            dataset_pattern = schema_pattern
+            self.dataset_pattern = self.schema_pattern.with_fields()
         elif (
-            dataset_pattern != AllowDenyPattern.allow_all()
-            and schema_pattern != AllowDenyPattern.allow_all()
+            not self.dataset_pattern.is_allow_all()
+            and not self.schema_pattern.is_allow_all()
         ):
             logging.warning(
                 "schema_pattern will be ignored in favour of dataset_pattern. schema_pattern will be deprecated,"
                 " please use dataset_pattern only."
             )
 
+        dataset_pattern = self.dataset_pattern
         match_fully_qualified_names = self.match_fully_qualified_names
 
         if (
-            dataset_pattern is not None
-            and dataset_pattern != AllowDenyPattern.allow_all()
+            not dataset_pattern.is_allow_all()
             and match_fully_qualified_names is not None
             and not match_fully_qualified_names
         ):
@@ -452,17 +467,13 @@ class BigQueryFilterConfig(SQLFilterConfig):
                 "The config option `match_fully_qualified_names` is deprecated and will be "
                 "removed in a future release."
             )
-        elif match_fully_qualified_names and dataset_pattern is not None:
-            adjusted = False
-            for lst in [dataset_pattern.allow, dataset_pattern.deny]:
-                for i, pattern in enumerate(lst):
-                    if "." not in pattern:
-                        if pattern.startswith("^"):
-                            lst[i] = r"^.*\." + pattern[1:]
-                        else:
-                            lst[i] = r".*\." + pattern
-                        adjusted = True
-            if adjusted:
+        elif match_fully_qualified_names:
+            allow = [_qualify_dataset_regex(p) for p in dataset_pattern.allow]
+            deny = [_qualify_dataset_regex(p) for p in dataset_pattern.deny]
+            if allow != dataset_pattern.allow or deny != dataset_pattern.deny:
+                self.dataset_pattern = dataset_pattern.with_fields(
+                    allow=allow, deny=deny
+                )
                 logger.warning(
                     "`dataset_pattern` was adjusted to match against fully qualified schema names,"
                     " of the form `<project_id>.<dataset_name>`."

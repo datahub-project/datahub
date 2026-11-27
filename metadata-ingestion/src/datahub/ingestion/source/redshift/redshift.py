@@ -7,7 +7,6 @@ import humanfriendly
 # These imports verify that the dependencies are available.
 import redshift_connector
 
-from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import (
@@ -364,7 +363,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             self.config.match_fully_qualified_names is not None
             and not self.config.match_fully_qualified_names
             and self.config.schema_pattern is not None
-            and self.config.schema_pattern != AllowDenyPattern.allow_all()
+            and not self.config.schema_pattern.is_allow_all()
         ):
             self.report.warning(
                 message="Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."

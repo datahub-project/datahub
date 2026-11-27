@@ -524,16 +524,22 @@ class AllowDenyPattern(ConfigModel):
 
     def with_deny(self, *rules: str) -> Self:
         """A new pattern with `rules` added to the deny list, each listed once:
-        duplicates already in the deny list are collapsed too. Rebuilt rather
-        than mutated or model_copy'd: the copy would carry this instance's
-        compiled-regex caches.
+        duplicates already in the deny list are collapsed too."""
+        return self.with_fields(deny=deduplicate_list([*self.deny, *rules]))
+
+    def with_fields(self, **overrides: Union[List[str], bool]) -> Self:
+        """A fresh pattern with this one's fields, `overrides` replacing some.
+
+        Use this to derive a pattern; never edit `allow`/`deny` in place,
+        and never `model_copy` (or `copy.deepcopy`). The compiled regexes are
+        cached on first `allowed()`/`denied()` call, and those keep `__dict__`,
+        so the result would go on matching the old lists.
 
         The rebuild round-trips through `model_dump()`, so a subclass is only
         preserved faithfully if its fields survive that: no excluded or
         aliased fields.
         """
-        deny = deduplicate_list([*self.deny, *rules])
-        return type(self).model_validate({**self.model_dump(), "deny": deny})
+        return type(self).model_validate({**self.model_dump(), **overrides})
 
     def allowed(self, string: str) -> bool:
         if self.denied(string):
