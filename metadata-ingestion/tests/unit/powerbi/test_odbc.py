@@ -1,9 +1,24 @@
+import pytest
+
+from datahub.ingestion.source.powerbi.config import DATAHUB_PLATFORM_TO_POWERBI_TYPES
 from datahub.ingestion.source.powerbi.m_query.odbc import (
+    ODBC_ONLY_MODELED_PLATFORMS,
     extract_driver,
     extract_dsn,
     extract_platform,
     extract_server,
     normalize_platform_name,
+    platform_patterns,
+)
+from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
+    ATHENA_PLATFORM,
+    DATABRICKS_PLATFORM,
+    DB2_PLATFORM,
+    HIVE_PLATFORM,
+    ODBC_DATABASE_TABLE_PLATFORMS,
+    ODBC_THREE_TIER_PLATFORMS,
+    ODBC_TWO_TIER_PLATFORMS,
+    ORACLE_PLATFORM,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect
 
@@ -119,6 +134,24 @@ def test_dsn_mapping():
         assert mapped_platform == expected
 
 
+@pytest.mark.parametrize(
+    "connection_string, expected",
+    [
+        pytest.param(
+            "driver={Oracle in OraClient19Home1};dsn={Oracle Prod}",
+            "Oracle Prod",
+            id="braced",
+        ),
+        pytest.param("driver={X};dsn=Oracle Prod", "Oracle Prod", id="bare"),
+    ],
+)
+def test_extract_dsn_strips_braces_like_extract_server(
+    connection_string: str, expected: str
+) -> None:
+    assert extract_dsn(connection_string) == expected
+    assert extract_server(connection_string) == expected
+
+
 def test_hive_resolves_distinctly_from_hadoop():
     """Hive and Hadoop must resolve to separate DataHub platforms.
 
@@ -142,3 +175,36 @@ def test_hive_platform_has_valid_sqlglot_dialect():
     assert platform is not None
     # Must not raise "Unknown dialect '<platform>'".
     get_dialect(platform)
+
+
+def test_odbc_tier_platforms_match_odbc_platform_names():
+    """The URN-shape tier sets are built from SupportedDataPlatform, but ODBC
+    lineage compares them against the platform names odbc.py returns. Renaming a
+    key on either side would silently move that platform to the generic fallback,
+    so pin them together."""
+    tier_platforms = {
+        *ODBC_TWO_TIER_PLATFORMS,
+        *ODBC_THREE_TIER_PLATFORMS,
+        *ODBC_DATABASE_TABLE_PLATFORMS,
+        ATHENA_PLATFORM,
+        DATABRICKS_PLATFORM,
+        DB2_PLATFORM,
+        HIVE_PLATFORM,
+        ORACLE_PLATFORM,
+    }
+    assert tier_platforms - platform_patterns.keys() == set()
+
+
+def test_odbc_only_modeled_platforms_match_the_modeled_tiers() -> None:
+    """The Odbc dataset_type_mapping fallback must cover exactly the modeled
+    platforms that have no key of their own, so a platform added to a tier set
+    is not silently filtered out (or one left out of them let through)."""
+    modeled = (
+        ODBC_TWO_TIER_PLATFORMS
+        | ODBC_THREE_TIER_PLATFORMS
+        | ODBC_DATABASE_TABLE_PLATFORMS
+        | {ATHENA_PLATFORM}
+    )
+    assert (
+        modeled - DATAHUB_PLATFORM_TO_POWERBI_TYPES.keys()
+    ) == ODBC_ONLY_MODELED_PLATFORMS
