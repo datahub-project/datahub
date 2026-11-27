@@ -1870,11 +1870,11 @@ def test_model_definition_failure_is_counted_per_report_and_warned_once() -> Non
         )
     )
 
-    assert client.model_calls == ["ds-dash-1", "ds-dash-2"]
-    assert client.v2_calls == ["ds-dash-1", "ds-dash-2"]
+    assert sorted(client.model_calls) == ["ds-dash-1", "ds-dash-2"]
+    assert sorted(client.v2_calls) == ["ds-dash-1", "ds-dash-2"]
     assert source.report.report_model_definition_failures == 2
     samples = list(source.report.report_model_definition_failure_samples)
-    assert [s.split(":")[0] for s in samples] == ["ds-dash-1", "ds-dash-2"]
+    assert sorted(s.split(":")[0] for s in samples) == ["ds-dash-1", "ds-dash-2"]
     # The HTTP status the client recorded is what tells 403 (privilege) from
     # 404 (server without the Modeling service) apart in the report.
     assert all("HTTP 403" in s for s in samples)
@@ -1882,7 +1882,10 @@ def test_model_definition_failure_is_counted_per_report_and_warned_once() -> Non
         w for w in source.report.warnings if w.title == _MODEL_UNAVAILABLE_TITLE
     ]
     assert len(warnings) == 1
-    assert "first_report_id=ds-dash-1" in (warnings[0].context or [""])[0]
+    assert any(
+        f"first_report_id={report_id}" in (warnings[0].context or [""])[0]
+        for report_id in ("ds-dash-1", "ds-dash-2")
+    )
 
 
 class _ModelWithoutExpressionClient(_ReportDerivedClient):
@@ -2591,7 +2594,7 @@ def test_include_personal_folders_keeps_everything_and_skips_resolution() -> Non
     workunits = _run_dashboards(source)
 
     assert [19, 20] not in client.predefined_calls
-    assert client.definition_calls == ["dash-personal", "dash-shared"]
+    assert sorted(client.definition_calls) == ["dash-personal", "dash-shared"]
     assert source.report.personal_folder_objects_skipped == 0
     urns = {workunit.get_urn() for workunit in workunits}
     assert source.mapper.dashboard_urn("project-1", "dash-personal") in urns
@@ -2831,7 +2834,11 @@ def test_folder_path_pattern_default_ingests_everything() -> None:
 
     # Default allow-all: no behaviour change, and the unfiled dossier is let
     # through rather than silently dropped, with the gap recorded.
-    assert client.definition_calls == ["dash-company", "dash-other", "dash-unknown"]
+    assert sorted(client.definition_calls) == [
+        "dash-company",
+        "dash-other",
+        "dash-unknown",
+    ]
     assert source.report.dashboards_filtered_by_folder_path == 0
     assert source.report.folder_paths_unresolved == 1
     assert [w.title for w in source.report.warnings] == [_UNRESOLVED_TITLE]
@@ -2848,7 +2855,7 @@ def test_folder_path_unresolved_is_skipped_once_a_pattern_is_set() -> None:
 
     # Both filed dossiers match; the unfiled one cannot be shown to, so it
     # is skipped and counted rather than widening the scope.
-    assert client.definition_calls == ["dash-company", "dash-other"]
+    assert sorted(client.definition_calls) == ["dash-company", "dash-other"]
     assert source.report.folder_paths_unresolved == 1
     assert source.report.dashboards_filtered_by_folder_path == 1
     assert list(source.report.folder_path_filtered_samples) == ["Unfiled (unresolved)"]
@@ -4323,7 +4330,7 @@ def test_per_report_report_pass_upgrades_schema_and_emits_no_chart() -> None:
     assert source.mapper.report_urn("project-1", "report-solo") not in {
         workunit.get_urn() for workunit in workunits
     }
-    assert client.report_definitions == ["ds-shared", "report-solo"]
+    assert sorted(client.report_definitions) == ["ds-shared", "report-solo"]
     assert source.report.reports_scanned == 2
     assert source.report.charts_scanned == 1
     assert source.report.report_datasets_emitted == 2
@@ -4367,7 +4374,7 @@ def test_per_report_parses_a_shared_report_sql_view_once() -> None:
 
     # Each dossier execution still yields its SQL view, but the shared
     # report's SQL is parsed for the first dossier only.
-    assert client.sql_view_reads == ["dash-1", "dash-2"]
+    assert sorted(client.sql_view_reads) == ["dash-1", "dash-2"]
     assert parse.call_count == 1
     lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
     assert [upstream.dataset for upstream in lineage[_SHARED_URN].upstreams] == [

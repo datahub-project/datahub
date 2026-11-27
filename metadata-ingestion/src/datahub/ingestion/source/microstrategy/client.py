@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from typing import (
     Any,
@@ -16,6 +17,8 @@ from typing import (
 import requests
 import urllib3
 from pydantic import BaseModel, ValidationError
+from requests.adapters import HTTPAdapter
+from requests.structures import CaseInsensitiveDict
 
 from datahub.ingestion.source.microstrategy.config import (
     MicroStrategyConfig,
@@ -108,14 +111,23 @@ class MicroStrategyAuthError(RuntimeError):
     to the project loop and abort the run."""
 
 
+def ensure_session_pool_size(session: requests.Session, min_size: int) -> None:
+    pool_size = max(1, min_size)
+    adapter = HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
+
 class MicroStrategyClient:
     def __init__(self, config: MicroStrategyConfig, report: MicroStrategyReport):
         self.config = config
         self.report = report
         self.base_url = config.base_url
+        self._auth_lock = threading.RLock()
         self._auth_dead = False
         self.session = requests.Session()
-        self.session.headers.update(
+        ensure_session_pool_size(self.session, max(16, config.max_workers * 2))
+        self.session.headers = CaseInsensitiveDict(
             {
                 "Accept": "application/json",
                 "Content-Type": "application/json",
@@ -151,10 +163,19 @@ class MicroStrategyClient:
         token = response.headers.get("X-MSTR-AuthToken")
         if not token:
             raise MicroStrategyAPIError("MicroStrategy login did not return auth token")
-        self.session.headers.update({"X-MSTR-AuthToken": token})
+        with self._auth_lock:
+            # Copy-on-write avoids mutating session.headers while another
+            # worker thread merges headers inside requests.Session.request.
+            updated_headers = CaseInsensitiveDict(self.session.headers)
+            updated_headers["X-MSTR-AuthToken"] = token
+            self.session.headers = updated_headers
 
     def close(self) -> None:
-        if self._auth_dead or "X-MSTR-AuthToken" not in self.session.headers:
+        with self._auth_lock:
+            no_live_session = (
+                self._auth_dead or "X-MSTR-AuthToken" not in self.session.headers
+            )
+        if no_live_session:
             # No live session to close: never logged in, or auth was lost.
             self.session.close()
             return
@@ -987,7 +1008,9 @@ class MicroStrategyClient:
         expected_statuses: Optional[Set[int]] = None,
         **kwargs: Any,
     ) -> requests.Response:
-        if self._auth_dead:
+        with self._auth_lock:
+            auth_dead = self._auth_dead
+        if auth_dead:
             # A failed re-login means every further call would 401; refusing
             # immediately lets the source abort the run instead of failing
             # every remaining project one API call at a time.
@@ -996,9 +1019,9 @@ class MicroStrategyClient:
                 f"re-established; refusing request: {method} {path}"
             )
         url = f"{self.base_url}{path}"
-        headers = kwargs.pop("headers", {})
+        base_headers: Dict[str, str] = dict(kwargs.pop("headers", None) or {})
         if project_id:
-            headers["X-MSTR-ProjectID"] = project_id
+            base_headers["X-MSTR-ProjectID"] = project_id
         timeout_seconds = kwargs.pop("timeout_seconds", None)
         max_attempts = kwargs.pop("max_attempts", None)
         retry_statuses = kwargs.pop("retry_statuses", None)
@@ -1010,12 +1033,31 @@ class MicroStrategyClient:
         reauth_attempted = False
         attempt = 0
         while attempt < attempts:
+            with self._auth_lock:
+                if self._auth_dead:
+                    raise MicroStrategyAuthError(
+                        "MicroStrategy authentication was lost and could not be "
+                        f"re-established; refusing request: {method} {path}"
+                    )
+                raw_token = self.session.headers.get("X-MSTR-AuthToken")
+                sent_token = (
+                    raw_token.decode("utf-8")
+                    if isinstance(raw_token, bytes)
+                    else raw_token
+                )
+            request_headers = dict(base_headers)
+            if (
+                sent_token is not None
+                and "X-MSTR-AuthToken" not in request_headers
+                and not path.startswith(MSTR_API_AUTH_PREFIX)
+            ):
+                request_headers["X-MSTR-AuthToken"] = sent_token
             started = time.perf_counter()
             try:
                 response = self.session.request(
                     method=method,
                     url=url,
-                    headers=headers,
+                    headers=request_headers,
                     timeout=timeout_seconds or self.config.timeout_seconds,
                     verify=self.config.verify_ssl,
                     **kwargs,
@@ -1053,7 +1095,9 @@ class MicroStrategyClient:
                 # not consume a retry attempt: this is auth recovery, not a
                 # retry of a failing endpoint, and must work even for
                 # max_attempts=1 calls.
-                self._reauthenticate_or_die(method, path, reauth_attempted)
+                self._reauthenticate_or_die(
+                    method, path, reauth_attempted, sent_token=sent_token
+                )
                 reauth_attempted = True
                 continue
             if response.status_code in retry_statuses and attempt < attempts - 1:
@@ -1082,31 +1126,47 @@ class MicroStrategyClient:
         method: str,
         path: str,
         reauth_attempted: bool,
+        sent_token: Optional[str] = None,
     ) -> None:
         """Re-login after a mid-run 401; a second 401 means auth is dead, so give up."""
-        if reauth_attempted:
-            self._auth_dead = True
-            self.report.report_api_error()
-            raise MicroStrategyAuthError(
-                "MicroStrategy rejected the request again immediately after "
-                f"a successful re-login; aborting: {method} {path}"
+        with self._auth_lock:
+            if self._auth_dead:
+                raise MicroStrategyAuthError(
+                    "MicroStrategy authentication was lost and could not be "
+                    f"re-established; refusing request: {method} {path}"
+                )
+            if reauth_attempted:
+                self._auth_dead = True
+                self.report.report_api_error()
+                raise MicroStrategyAuthError(
+                    "MicroStrategy rejected the request again immediately after "
+                    f"a successful re-login; aborting: {method} {path}"
+                )
+            raw_current = self.session.headers.get("X-MSTR-AuthToken")
+            current_token = (
+                raw_current.decode("utf-8")
+                if isinstance(raw_current, bytes)
+                else raw_current
             )
-        logger.info(
-            "MicroStrategy session was rejected (401) on %s %s; "
-            "re-authenticating and replaying the request",
-            method,
-            path,
-        )
-        try:
-            self.login()
-        except Exception as error:
-            self._auth_dead = True
-            self.report.report_api_error()
-            raise MicroStrategyAuthError(
-                "MicroStrategy session was invalidated and re-login failed: "
-                f"{method} {path}: {error}"
-            ) from error
-        self.report.report_session_reauthenticated()
+            if current_token and current_token != sent_token:
+                # Another worker already refreshed the token while we waited.
+                return
+            logger.info(
+                "MicroStrategy session was rejected (401) on %s %s; "
+                "re-authenticating and replaying the request",
+                method,
+                path,
+            )
+            try:
+                self.login()
+            except Exception as error:
+                self._auth_dead = True
+                self.report.report_api_error()
+                raise MicroStrategyAuthError(
+                    "MicroStrategy session was invalidated and re-login failed: "
+                    f"{method} {path}: {error}"
+                ) from error
+            self.report.report_session_reauthenticated()
 
     @staticmethod
     def _retry_delay(response: requests.Response, attempt: int) -> float:

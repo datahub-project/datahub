@@ -102,6 +102,18 @@ class MicroStrategyConfig(
         gt=0,
         description="Number of objects requested per paginated metadata search call.",
     )
+    max_workers: int = Field(
+        default=4,
+        ge=1,
+        description=(
+            "Number of worker threads used for concurrent MicroStrategy HTTP "
+            "requests across candidate checks, dashboard/visualization/report "
+            "metadata fetches, SQL-view reads, and semantic-model metric "
+            "models. SQL lineage parsing and MetadataWorkUnit emission remain "
+            "single-threaded with bounded in-flight queues and deterministic "
+            "output order. Set to 1 for serial execution."
+        ),
+    )
     cache_memory_entries: int = Field(
         default=2000,
         gt=0,

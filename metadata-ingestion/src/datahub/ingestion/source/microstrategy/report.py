@@ -1,7 +1,8 @@
+import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from datahub.ingestion.source.microstrategy.telemetry import (
     dashboard_seconds_bucket,
@@ -238,365 +239,522 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         default_factory=lambda: _int_top_k(10)
     )
     peak_rss_mb: Optional[float] = None
-    _phase_stack: List[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self._phase_local = threading.local()
+        self._telemetry_lock = threading.RLock()
+        super().__post_init__()
+
+    def _current_phase_stack(self) -> List[str]:
+        stack: Optional[List[str]] = getattr(self._phase_local, "stack", None)
+        if stack is None:
+            stack = []
+            self._phase_local.stack = stack
+        return stack
+
+    @property
+    def _phase_stack(self) -> List[str]:
+        return self._current_phase_stack()
+
+    def thread_api_totals(self) -> Tuple[int, float]:
+        calls: int = getattr(self._phase_local, "api_calls", 0)
+        seconds: float = getattr(self._phase_local, "api_seconds", 0.0)
+        return calls, seconds
+
+    def warning(self, *args: Any, **kwargs: Any) -> None:
+        with self._telemetry_lock:
+            super().warning(*args, **kwargs)
+
+    def failure(self, *args: Any, **kwargs: Any) -> None:
+        with self._telemetry_lock:
+            super().failure(*args, **kwargs)
+
+    def info(self, *args: Any, **kwargs: Any) -> None:
+        with self._telemetry_lock:
+            super().info(*args, **kwargs)
 
     def report_project_scanned(self) -> None:
-        self.projects_scanned += 1
+        with self._telemetry_lock:
+            self.projects_scanned += 1
 
     def report_folder_scanned(self) -> None:
-        self.folders_scanned += 1
+        with self._telemetry_lock:
+            self.folders_scanned += 1
 
     def report_dashboard_scanned(self) -> None:
-        self.dashboards_scanned += 1
+        with self._telemetry_lock:
+            self.dashboards_scanned += 1
 
     def report_report_scanned(self) -> None:
-        self.reports_scanned += 1
+        with self._telemetry_lock:
+            self.reports_scanned += 1
 
     def report_chart_scanned(self) -> None:
-        self.charts_scanned += 1
+        with self._telemetry_lock:
+            self.charts_scanned += 1
 
     def report_dataset_scanned(self) -> None:
-        self.datasets_scanned += 1
+        with self._telemetry_lock:
+            self.datasets_scanned += 1
 
     def report_source_warehouses_scanned(self, count: int) -> None:
-        self.source_warehouses_scanned += count
+        with self._telemetry_lock:
+            self.source_warehouses_scanned += count
 
     def report_source_warehouse_api_failure(self) -> None:
-        self.source_warehouse_api_failures += 1
+        with self._telemetry_lock:
+            self.source_warehouse_api_failures += 1
 
     def report_dashboard_dependencies_scanned(self, count: int) -> None:
-        self.dashboard_dependencies_scanned += count
+        with self._telemetry_lock:
+            self.dashboard_dependencies_scanned += count
 
     def report_report_definition_api_failure(self) -> None:
-        self.report_definition_api_failures += 1
+        with self._telemetry_lock:
+            self.report_definition_api_failures += 1
 
     def report_report_sql_view_api_failure(self) -> None:
-        self.report_sql_view_api_failures += 1
+        with self._telemetry_lock:
+            self.report_sql_view_api_failures += 1
 
     def report_metric_expression_scanned(self) -> None:
-        self.metric_expressions_scanned += 1
+        with self._telemetry_lock:
+            self.metric_expressions_scanned += 1
 
     def report_metric_expression_api_failure(self) -> None:
-        self.metric_expression_api_failures += 1
+        with self._telemetry_lock:
+            self.metric_expression_api_failures += 1
 
     def report_model_tables_scanned(self, count: int) -> None:
-        self.model_tables_scanned += count
+        with self._telemetry_lock:
+            self.model_tables_scanned += count
 
     def report_model_lineage_api_failure(self) -> None:
-        self.model_lineage_api_failures += 1
+        with self._telemetry_lock:
+            self.model_lineage_api_failures += 1
 
     def report_model_lineage_edges(self, count: int) -> None:
-        self.model_lineage_edges += count
+        with self._telemetry_lock:
+            self.model_lineage_edges += count
 
     def report_warehouse_lineage_sql_views_scanned(self, count: int) -> None:
-        self.warehouse_lineage_sql_views_scanned += count
+        with self._telemetry_lock:
+            self.warehouse_lineage_sql_views_scanned += count
 
     def report_warehouse_lineage_edges(self, count: int) -> None:
-        self.warehouse_lineage_edges += count
+        with self._telemetry_lock:
+            self.warehouse_lineage_edges += count
 
     def report_warehouse_lineage_api_failure(self) -> None:
-        self.warehouse_lineage_api_failures += 1
+        with self._telemetry_lock:
+            self.warehouse_lineage_api_failures += 1
 
     def report_metric_field(self) -> None:
-        self.metric_fields_scanned += 1
+        with self._telemetry_lock:
+            self.metric_fields_scanned += 1
 
     def report_attribute_field(self, temporal: bool = False) -> None:
-        self.attribute_fields_scanned += 1
-        if temporal:
-            self.temporal_fields_scanned += 1
+        with self._telemetry_lock:
+            self.attribute_fields_scanned += 1
+            if temporal:
+                self.temporal_fields_scanned += 1
 
     def report_chart_lineage_edges(self, count: int) -> None:
-        self.chart_lineage_edges += count
+        with self._telemetry_lock:
+            self.chart_lineage_edges += count
 
     def report_dashboard_dataset_edges(self, count: int) -> None:
-        self.dashboard_dataset_edges += count
+        with self._telemetry_lock:
+            self.dashboard_dataset_edges += count
 
     def report_document_dataset_edges(self, count: int) -> None:
-        self.document_dataset_edges += count
+        with self._telemetry_lock:
+            self.document_dataset_edges += count
 
     def report_chapter_page_structured_property_definition_emitted(self) -> None:
-        self.chapter_page_structured_property_definitions_emitted += 1
+        with self._telemetry_lock:
+            self.chapter_page_structured_property_definitions_emitted += 1
 
     def report_chart_with_chapter_page_structured_properties(self) -> None:
-        self.charts_with_chapter_page_structured_properties += 1
+        with self._telemetry_lock:
+            self.charts_with_chapter_page_structured_properties += 1
 
     def report_unresolved_visualization(self) -> None:
-        self.unresolved_visualizations += 1
+        with self._telemetry_lock:
+            self.unresolved_visualizations += 1
 
     def report_visualizations_bound_by_derived_objects(self, count: int) -> None:
-        self.visualizations_bound_by_derived_objects += count
+        with self._telemetry_lock:
+            self.visualizations_bound_by_derived_objects += count
 
     def report_visualization_bound_by_column_sets(self) -> None:
-        self.visualizations_bound_by_column_sets += 1
+        with self._telemetry_lock:
+            self.visualizations_bound_by_column_sets += 1
 
     def report_column_sets_unbound(self, count: int) -> None:
-        self.column_sets_unbound += count
+        with self._telemetry_lock:
+            self.column_sets_unbound += count
 
     def report_derived_metric_field(self) -> None:
-        self.derived_metric_fields_scanned += 1
+        with self._telemetry_lock:
+            self.derived_metric_fields_scanned += 1
 
     def report_derived_metric_unattached(self) -> None:
-        self.derived_metrics_unattached += 1
+        with self._telemetry_lock:
+            self.derived_metrics_unattached += 1
 
     def report_report_derived_metrics_extracted(self, count: int) -> None:
-        self.report_derived_metrics_extracted += count
+        with self._telemetry_lock:
+            self.report_derived_metrics_extracted += count
 
     def report_report_definition_failure(self) -> None:
-        self.report_definition_failures += 1
+        with self._telemetry_lock:
+            self.report_definition_failures += 1
 
     def report_report_model_definition_failure(self, context: str) -> None:
-        self.report_model_definition_failures += 1
-        self.report_model_definition_failure_samples.append(context)
+        with self._telemetry_lock:
+            self.report_model_definition_failures += 1
+            self.report_model_definition_failure_samples.append(context)
 
     def report_report_definition_without_expressions(self) -> None:
-        self.report_definitions_without_expressions += 1
+        with self._telemetry_lock:
+            self.report_definitions_without_expressions += 1
 
     def report_report_model_definition_empty(self) -> None:
-        self.report_model_definitions_empty += 1
+        with self._telemetry_lock:
+            self.report_model_definitions_empty += 1
 
     def report_report_derived_metric_model_resolved(self) -> None:
-        self.report_derived_metric_models_resolved += 1
+        with self._telemetry_lock:
+            self.report_derived_metric_models_resolved += 1
 
     def report_report_model_instance_created(self) -> None:
-        self.report_model_instances_created += 1
+        with self._telemetry_lock:
+            self.report_model_instances_created += 1
 
     def report_dashboard_instance_reused(self) -> None:
-        self.dashboard_instances_reused += 1
+        with self._telemetry_lock:
+            self.dashboard_instances_reused += 1
 
     def report_execution_timeout(self) -> None:
-        self.execution_timeouts += 1
+        with self._telemetry_lock:
+            self.execution_timeouts += 1
 
     def report_execution_skipped_after_timeouts(self) -> None:
-        self.executions_skipped_after_timeouts += 1
+        with self._telemetry_lock:
+            self.executions_skipped_after_timeouts += 1
 
     def report_execution_timeout_limit_reached(self, project_id: str) -> None:
-        self.execution_timeout_limit_projects.append(project_id)
+        with self._telemetry_lock:
+            self.execution_timeout_limit_projects.append(project_id)
 
     def report_report_model_instance_failure(self, context: str) -> None:
-        self.report_model_instance_failures += 1
-        self.report_model_instance_failure_samples.append(context)
+        with self._telemetry_lock:
+            self.report_model_instance_failures += 1
+            self.report_model_instance_failure_samples.append(context)
 
     def report_document_model_definition_failure(self) -> None:
-        self.document_model_definition_failures += 1
+        with self._telemetry_lock:
+            self.document_model_definition_failures += 1
 
     def report_instance_cleanup_failure(self) -> None:
-        self.instance_cleanup_failures += 1
+        with self._telemetry_lock:
+            self.instance_cleanup_failures += 1
 
     def report_document_definition_without_visualizations(self) -> None:
-        self.document_definitions_without_visualizations += 1
+        with self._telemetry_lock:
+            self.document_definitions_without_visualizations += 1
 
     def report_document_derived_metric_definitions(
         self, found: int, with_expression: int
     ) -> None:
-        self.document_derived_metric_definitions += found
-        self.document_derived_metric_expressions += with_expression
+        with self._telemetry_lock:
+            self.document_derived_metric_definitions += found
+            self.document_derived_metric_expressions += with_expression
 
     def report_metric_formula_lineage_edges(self, count: int) -> None:
-        self.metric_formula_lineage_edges += count
+        with self._telemetry_lock:
+            self.metric_formula_lineage_edges += count
 
     def report_metric_formula_refs_unresolved(self, count: int) -> None:
-        self.metric_formula_refs_unresolved += count
+        with self._telemetry_lock:
+            self.metric_formula_refs_unresolved += count
 
     def report_metric_formula_unresolved_ref(self, context: str) -> None:
-        self.metric_formula_unresolved_ref_samples.append(context)
+        with self._telemetry_lock:
+            self.metric_formula_unresolved_ref_samples.append(context)
 
     def report_visualization_suppressed_ambiguous(self) -> None:
-        self.visualizations_suppressed_ambiguous += 1
+        with self._telemetry_lock:
+            self.visualizations_suppressed_ambiguous += 1
 
     def report_session_reauthenticated(self) -> None:
-        self.sessions_reauthenticated += 1
+        with self._telemetry_lock:
+            self.sessions_reauthenticated += 1
 
     def report_usage_rows_scanned(self, count: int) -> None:
-        self.usage_rows_scanned += count
+        with self._telemetry_lock:
+            self.usage_rows_scanned += count
 
     def report_usage_bucket_emitted(self) -> None:
-        self.usage_buckets_emitted += 1
+        with self._telemetry_lock:
+            self.usage_buckets_emitted += 1
 
     def report_usage_object_unmatched(self) -> None:
-        self.usage_objects_unmatched += 1
+        with self._telemetry_lock:
+            self.usage_objects_unmatched += 1
 
     def report_usage_date_unparsed(self) -> None:
-        self.usage_dates_unparsed += 1
+        with self._telemetry_lock:
+            self.usage_dates_unparsed += 1
 
     def report_warehouse_upstreams_pruned(self, count: int) -> None:
-        self.warehouse_upstreams_pruned_by_field_evidence += count
+        with self._telemetry_lock:
+            self.warehouse_upstreams_pruned_by_field_evidence += count
 
     def report_predefined_folder_labels_resolved(self, count: int) -> None:
-        self.predefined_folder_labels_resolved += count
+        with self._telemetry_lock:
+            self.predefined_folder_labels_resolved += count
 
     def report_personal_folder_root_resolved(self) -> None:
-        self.personal_folder_roots_resolved += 1
+        with self._telemetry_lock:
+            self.personal_folder_roots_resolved += 1
 
     def report_personal_folder_object_skipped(self, context: str) -> None:
-        self.personal_folder_objects_skipped += 1
-        self.personal_folder_objects_skipped_samples.append(context)
+        with self._telemetry_lock:
+            self.personal_folder_objects_skipped += 1
+            self.personal_folder_objects_skipped_samples.append(context)
 
     def report_dashboard_filtered_by_folder_path(self, context: str) -> None:
-        self.dashboards_filtered_by_folder_path += 1
-        self.folder_path_filtered_samples.append(context)
+        with self._telemetry_lock:
+            self.dashboards_filtered_by_folder_path += 1
+            self.folder_path_filtered_samples.append(context)
 
     def report_report_filtered_by_folder_path(self, context: str) -> None:
-        self.reports_filtered_by_folder_path += 1
-        self.folder_path_filtered_samples.append(context)
+        with self._telemetry_lock:
+            self.reports_filtered_by_folder_path += 1
+            self.folder_path_filtered_samples.append(context)
 
     def report_folder_path_unresolved(self) -> None:
-        self.folder_paths_unresolved += 1
+        with self._telemetry_lock:
+            self.folder_paths_unresolved += 1
 
     def report_dataset_object_lookup(self) -> None:
-        self.dataset_object_lookups += 1
+        with self._telemetry_lock:
+            self.dataset_object_lookups += 1
 
     def report_dataset_object_lookup_failure(self) -> None:
-        self.dataset_object_lookup_failures += 1
+        with self._telemetry_lock:
+            self.dataset_object_lookup_failures += 1
 
     def report_api_error(self) -> None:
-        self.api_errors += 1
+        with self._telemetry_lock:
+            self.api_errors += 1
 
     def report_malformed_object(self, context: str) -> None:
-        self.malformed_objects_skipped.append(context)
+        with self._telemetry_lock:
+            self.malformed_objects_skipped.append(context)
+
+    def report_filtered_project(self, name: str) -> None:
+        with self._telemetry_lock:
+            self.filtered_projects.append(name)
+
+    def report_filtered_dashboard(self, name: str) -> None:
+        with self._telemetry_lock:
+            self.filtered_dashboards.append(name)
+
+    def report_filtered_report(self, name: str) -> None:
+        with self._telemetry_lock:
+            self.filtered_reports.append(name)
 
     def report_sql_parse_failure(self, context: str) -> None:
-        self.sql_parse_failures.append(context)
-        self.sql_parse_failure_count += 1
+        with self._telemetry_lock:
+            self.sql_parse_failures.append(context)
+            self.sql_parse_failure_count += 1
 
     def report_sql_view_parsed(self) -> None:
-        self.sql_views_parsed += 1
+        with self._telemetry_lock:
+            self.sql_views_parsed += 1
 
     def report_sql_view_row_unmatched(self) -> None:
-        self.sql_view_rows_unmatched += 1
+        with self._telemetry_lock:
+            self.sql_view_rows_unmatched += 1
 
     def report_sql_view_row_without_context(self) -> None:
-        self.sql_view_rows_without_context += 1
+        with self._telemetry_lock:
+            self.sql_view_rows_without_context += 1
 
     def report_sql_view_without_statement(self) -> None:
-        self.sql_views_without_statement += 1
+        with self._telemetry_lock:
+            self.sql_views_without_statement += 1
 
     def report_document_dataset_sql_view_scanned(self) -> None:
-        self.document_dataset_sql_views_scanned += 1
+        with self._telemetry_lock:
+            self.document_dataset_sql_views_scanned += 1
 
     def report_document_dataset_sql_view_parsed(self) -> None:
-        self.document_dataset_sql_views_parsed += 1
+        with self._telemetry_lock:
+            self.document_dataset_sql_views_parsed += 1
 
     def report_document_dataset_sql_view_reused(self) -> None:
-        self.document_dataset_sql_views_reused += 1
+        with self._telemetry_lock:
+            self.document_dataset_sql_views_reused += 1
 
     def report_document_dataset_sql_view_failure(self) -> None:
-        self.document_dataset_sql_view_failures += 1
+        with self._telemetry_lock:
+            self.document_dataset_sql_view_failures += 1
 
     def report_document_dataset_skipped_not_grid_report(self) -> None:
-        self.document_datasets_skipped_not_grid_report += 1
+        with self._telemetry_lock:
+            self.document_datasets_skipped_not_grid_report += 1
 
     def report_reports_skipped_not_dashboard_linked(self) -> None:
-        self.reports_skipped_not_dashboard_linked += 1
+        with self._telemetry_lock:
+            self.reports_skipped_not_dashboard_linked += 1
 
     def report_report_deduplicated(self) -> None:
-        self.reports_deduplicated += 1
+        with self._telemetry_lock:
+            self.reports_deduplicated += 1
 
     def report_report_dataset_emitted(self) -> None:
-        self.report_datasets_emitted += 1
+        with self._telemetry_lock:
+            self.report_datasets_emitted += 1
 
     def report_failed_metric_model(self, metric_id: str) -> None:
-        self.failed_metric_model_ids.append(metric_id)
+        with self._telemetry_lock:
+            self.failed_metric_model_ids.append(metric_id)
 
     def report_semantic_model_emitted(self) -> None:
-        self.semantic_models_emitted += 1
+        with self._telemetry_lock:
+            self.semantic_models_emitted += 1
 
     def report_semantic_model_datasets_emitted(self, count: int) -> None:
-        self.semantic_model_datasets_emitted += count
+        with self._telemetry_lock:
+            self.semantic_model_datasets_emitted += count
 
     def report_semantic_model_metrics_emitted(self, count: int) -> None:
-        self.semantic_model_metrics_emitted += count
+        with self._telemetry_lock:
+            self.semantic_model_metrics_emitted += count
 
     def report_semantic_model_relationships_emitted(self, count: int) -> None:
-        self.semantic_model_relationships_emitted += count
+        with self._telemetry_lock:
+            self.semantic_model_relationships_emitted += count
 
     def report_semantic_model_attribute_relationship_api_failure(self) -> None:
-        self.semantic_model_attribute_relationship_api_failures += 1
+        with self._telemetry_lock:
+            self.semantic_model_attribute_relationship_api_failures += 1
 
     def report_semantic_model_consolidation_api_failure(self) -> None:
-        self.semantic_model_consolidation_api_failures += 1
+        with self._telemetry_lock:
+            self.semantic_model_consolidation_api_failures += 1
 
     def report_semantic_model_metric_search_api_failure(self) -> None:
-        self.semantic_model_metric_search_api_failures += 1
+        with self._telemetry_lock:
+            self.semantic_model_metric_search_api_failures += 1
+
+    def report_sqlglot_warning_suppressed(self, message: str) -> None:
+        with self._telemetry_lock:
+            self.sqlglot_warnings_suppressed[message] += 1
+
+    def report_cache_project_reset(self) -> None:
+        with self._telemetry_lock:
+            self.cache_project_resets += 1
 
     @contextmanager
     def phase(self, name: str, count: bool = True) -> Iterator[None]:
         """Charge the enclosed wall time (and API calls) to phase ``name``."""
-        self._phase_stack.append(name)
+        stack = self._current_phase_stack()
+        stack.append(name)
         start = time.perf_counter()
         try:
             yield
         finally:
-            self.phase_seconds[name] += time.perf_counter() - start
-            if count:
-                self.phase_calls[name] += 1
+            elapsed = time.perf_counter() - start
+            with self._telemetry_lock:
+                self.phase_seconds[name] += elapsed
+                if count:
+                    self.phase_calls[name] += 1
             # Remove this phase's own entry even if an inner phase leaked.
-            for index in range(len(self._phase_stack) - 1, -1, -1):
-                if self._phase_stack[index] == name:
-                    del self._phase_stack[index]
+            for index in range(len(stack) - 1, -1, -1):
+                if stack[index] == name:
+                    del stack[index]
                     break
 
     def report_api_call(
         self, method: str, path: str, status: Optional[int], seconds: float
     ) -> None:
         endpoint = endpoint_template(method, path)
-        self.api_calls += 1
-        self.api_call_seconds += seconds
-        self.api_calls_by_endpoint[endpoint] += 1
-        self.api_seconds_by_endpoint[endpoint] += seconds
-        if seconds > self.api_max_seconds_by_endpoint.get(endpoint, 0.0):
-            self.api_max_seconds_by_endpoint[endpoint] = seconds
+        stack = self._current_phase_stack()
+        phase = stack[-1] if stack else "(no phase)"
+        self._phase_local.api_calls = getattr(self._phase_local, "api_calls", 0) + 1
+        self._phase_local.api_seconds = (
+            getattr(self._phase_local, "api_seconds", 0.0) + seconds
+        )
         status_label = str(status) if status is not None else "error"
-        self.api_responses_by_endpoint_status[f"{endpoint} {status_label}"] += 1
-        phase = self._phase_stack[-1] if self._phase_stack else "(no phase)"
-        self.api_seconds_by_phase[phase] += seconds
+        with self._telemetry_lock:
+            self.api_calls += 1
+            self.api_call_seconds += seconds
+            self.api_calls_by_endpoint[endpoint] += 1
+            self.api_seconds_by_endpoint[endpoint] += seconds
+            if seconds > self.api_max_seconds_by_endpoint.get(endpoint, 0.0):
+                self.api_max_seconds_by_endpoint[endpoint] = seconds
+            self.api_responses_by_endpoint_status[f"{endpoint} {status_label}"] += 1
+            self.api_seconds_by_phase[phase] += seconds
 
     def report_api_retry(self, sleep_seconds: float) -> None:
-        self.api_retries += 1
-        self.api_retry_sleep_seconds += sleep_seconds
+        with self._telemetry_lock:
+            self.api_retries += 1
+            self.api_retry_sleep_seconds += sleep_seconds
 
     def report_dashboard_timing(self, key: str, seconds: float, datasets: int) -> None:
-        self.dashboards_timed += 1
-        self.dashboard_seconds_total += seconds
-        bucket = dashboard_seconds_bucket(seconds)
-        self.dashboard_seconds_histogram[bucket] = (
-            self.dashboard_seconds_histogram.get(bucket, 0) + 1
-        )
-        self._keep_slowest(self.slowest_dashboards, key, seconds)
-        if key in self.slowest_dashboards:
-            self.datasets_by_slow_dashboard[key] = datasets
-        for stale in set(self.datasets_by_slow_dashboard) - set(
-            self.slowest_dashboards
-        ):
-            del self.datasets_by_slow_dashboard[stale]
+        with self._telemetry_lock:
+            self.dashboards_timed += 1
+            self.dashboard_seconds_total += seconds
+            bucket = dashboard_seconds_bucket(seconds)
+            self.dashboard_seconds_histogram[bucket] = (
+                self.dashboard_seconds_histogram.get(bucket, 0) + 1
+            )
+            self._keep_slowest(self.slowest_dashboards, key, seconds)
+            if key in self.slowest_dashboards:
+                self.datasets_by_slow_dashboard[key] = datasets
+            for stale in set(self.datasets_by_slow_dashboard) - set(
+                self.slowest_dashboards
+            ):
+                del self.datasets_by_slow_dashboard[stale]
 
     def report_sql_parse_executed(
         self, key: str, seconds: float, statements: int
     ) -> None:
-        self.sql_parses_executed += 1
-        self.sql_parse_seconds += seconds
-        self.sql_statements_parsed += statements
-        self.sql_parse_max_seconds = max(self.sql_parse_max_seconds, seconds)
-        self._keep_slowest(self.slowest_sql_parses, key, seconds)
+        with self._telemetry_lock:
+            self.sql_parses_executed += 1
+            self.sql_parse_seconds += seconds
+            self.sql_statements_parsed += statements
+            self.sql_parse_max_seconds = max(self.sql_parse_max_seconds, seconds)
+            self._keep_slowest(self.slowest_sql_parses, key, seconds)
 
     def report_sql_parse_cache_hit(self, failed: bool) -> None:
-        self.sql_parse_cache_hits += 1
-        if failed:
-            self.sql_parse_failure_cache_hits += 1
+        with self._telemetry_lock:
+            self.sql_parse_cache_hits += 1
+            if failed:
+                self.sql_parse_failure_cache_hits += 1
 
     def report_report_sql_fetched(self, sql: Optional[str]) -> None:
-        self.report_sql_fetched += 1
         size = len(sql.encode("utf-8")) if sql else 0
-        self.report_sql_bytes_total += size
-        self.report_sql_max_bytes = max(self.report_sql_max_bytes, size)
+        with self._telemetry_lock:
+            self.report_sql_fetched += 1
+            self.report_sql_bytes_total += size
+            self.report_sql_max_bytes = max(self.report_sql_max_bytes, size)
 
     def report_schema_resolution(self, seconds: float) -> None:
-        self.schema_resolution_calls += 1
-        self.schema_resolution_seconds += seconds
+        with self._telemetry_lock:
+            self.schema_resolution_calls += 1
+            self.schema_resolution_seconds += seconds
 
     def report_cache_entries(self, name: str, entries: int) -> None:
-        self.cache_entries_peak[name] = max(
-            self.cache_entries_peak.get(name, 0), entries
-        )
+        with self._telemetry_lock:
+            self.cache_entries_peak[name] = max(
+                self.cache_entries_peak.get(name, 0), entries
+            )
 
     @staticmethod
     def _keep_slowest(table: "TopKDict[str, float]", key: str, seconds: float) -> None:
@@ -607,26 +765,27 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
             del table[fastest]
 
     def compute_stats(self) -> None:
-        super().compute_stats()
-        current_rss = peak_rss_mb()
-        if current_rss is not None:
-            self.peak_rss_mb = current_rss
-        for name in (
-            "api_call_seconds",
-            "api_retry_sleep_seconds",
-            "dashboard_seconds_total",
-            "sql_parse_seconds",
-            "sql_parse_max_seconds",
-            "schema_resolution_seconds",
-        ):
-            setattr(self, name, round(getattr(self, name), 3))
-        for table in (
-            self.api_seconds_by_endpoint,
-            self.api_max_seconds_by_endpoint,
-            self.api_seconds_by_phase,
-            self.phase_seconds,
-            self.slowest_dashboards,
-            self.slowest_sql_parses,
-        ):
-            for key in table:
-                table[key] = round(table[key], 3)
+        with self._telemetry_lock:
+            super().compute_stats()
+            current_rss = peak_rss_mb()
+            if current_rss is not None:
+                self.peak_rss_mb = current_rss
+            for name in (
+                "api_call_seconds",
+                "api_retry_sleep_seconds",
+                "dashboard_seconds_total",
+                "sql_parse_seconds",
+                "sql_parse_max_seconds",
+                "schema_resolution_seconds",
+            ):
+                setattr(self, name, round(getattr(self, name), 3))
+            for table in (
+                self.api_seconds_by_endpoint,
+                self.api_max_seconds_by_endpoint,
+                self.api_seconds_by_phase,
+                self.phase_seconds,
+                self.slowest_dashboards,
+                self.slowest_sql_parses,
+            ):
+                for key in table:
+                    table[key] = round(table[key], 3)

@@ -18,6 +18,7 @@ import inspect
 import logging
 import re
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from typing import (
@@ -178,7 +179,7 @@ class SqlglotWarningFilter(logging.Filter):
         message = record.getMessage()
         for prefix in _SQLGLOT_SUPPRESSED_PREFIXES:
             if message.startswith(prefix):
-                self._report.sqlglot_warnings_suppressed[message] += 1
+                self._report.report_sqlglot_warning_suppressed(message)
                 return False
         return True
 
@@ -211,18 +212,20 @@ class RunProgress:
         self._started = time.perf_counter()
         self._last_logged = self._started
         self._since_logged = 0
+        self._lock = threading.RLock()
 
     def snapshot(self) -> TelemetrySnapshot:
         report = self._report
-        return TelemetrySnapshot(
-            seconds=report.phase_seconds.get(PHASE_DASHBOARD, 0.0),
-            api_calls=report.api_calls,
-            api_seconds=report.api_call_seconds,
-            sql_parses=report.sql_parses_executed,
-            sql_parse_seconds=report.sql_parse_seconds,
-            sql_parse_cache_hits=report.sql_parse_cache_hits,
-            datasets=report.datasets_scanned,
-        )
+        with report._telemetry_lock:
+            return TelemetrySnapshot(
+                seconds=report.phase_seconds.get(PHASE_DASHBOARD, 0.0),
+                api_calls=report.api_calls,
+                api_seconds=report.api_call_seconds,
+                sql_parses=report.sql_parses_executed,
+                sql_parse_seconds=report.sql_parse_seconds,
+                sql_parse_cache_hits=report.sql_parse_cache_hits,
+                datasets=report.datasets_scanned,
+            )
 
     def dashboard_done(
         self,
@@ -230,64 +233,97 @@ class RunProgress:
         dashboard_name: str,
         dashboard_id: str,
         before: TelemetrySnapshot,
+        *,
+        override_seconds: Optional[float] = None,
+        override_api_calls: Optional[int] = None,
+        override_api_seconds: Optional[float] = None,
     ) -> None:
-        after = self.snapshot()
-        seconds = after.seconds - before.seconds
-        datasets = after.datasets - before.datasets
-        self._report.report_dashboard_timing(
-            f"{project_name}/{dashboard_name} ({dashboard_id})", seconds, datasets
-        )
-        logger.info(
-            "Dashboard %r (%s) took %.1fs: %d API calls %.1fs, %d SQL parses "
-            "%.1fs, %d parse cache hits, %d datasets",
-            dashboard_name,
-            dashboard_id,
-            seconds,
-            after.api_calls - before.api_calls,
-            after.api_seconds - before.api_seconds,
-            after.sql_parses - before.sql_parses,
-            after.sql_parse_seconds - before.sql_parse_seconds,
-            after.sql_parse_cache_hits - before.sql_parse_cache_hits,
-            datasets,
-        )
-        self._since_logged += 1
-        now = time.perf_counter()
-        if (
-            self._since_logged >= self._every_dashboards
-            or now - self._last_logged >= self._every_seconds
-        ):
-            self.log_progress()
+        with self._lock:
+            after = self.snapshot()
+            seconds = (
+                override_seconds
+                if override_seconds is not None
+                else after.seconds - before.seconds
+            )
+            api_calls = (
+                override_api_calls
+                if override_api_calls is not None
+                else after.api_calls - before.api_calls
+            )
+            api_seconds = (
+                override_api_seconds
+                if override_api_seconds is not None
+                else after.api_seconds - before.api_seconds
+            )
+            datasets = after.datasets - before.datasets
+            self._report.report_dashboard_timing(
+                f"{project_name}/{dashboard_name} ({dashboard_id})", seconds, datasets
+            )
+            logger.info(
+                "Dashboard %r (%s) took %.1fs: %d API calls %.1fs, %d SQL parses "
+                "%.1fs, %d parse cache hits, %d datasets",
+                dashboard_name,
+                dashboard_id,
+                seconds,
+                api_calls,
+                api_seconds,
+                after.sql_parses - before.sql_parses,
+                after.sql_parse_seconds - before.sql_parse_seconds,
+                after.sql_parse_cache_hits - before.sql_parse_cache_hits,
+                datasets,
+            )
+            self._since_logged += 1
+            now = time.perf_counter()
+            if (
+                self._since_logged >= self._every_dashboards
+                or now - self._last_logged >= self._every_seconds
+            ):
+                self.log_progress()
 
     def log_progress(self) -> None:
         report = self._report
-        self._last_logged = time.perf_counter()
-        self._since_logged = 0
-        report.peak_rss_mb = peak_rss_mb()
-        elapsed = self._last_logged - self._started
-        processed = report.dashboards_timed
-        top_phases = ", ".join(
-            f"{name} {seconds:.0f}s"
-            for name, seconds in sorted(
-                report.phase_seconds.items(), key=lambda item: item[1], reverse=True
-            )[:6]
-        )
-        logger.info(
-            "MicroStrategy progress: %d dashboards in %.0fs (%.1fs each, %d "
-            "datasets); API %d calls %.0fs (%d retries, %.0fs backoff); SQL "
-            "parse %d runs %.0fs, %d cache hits; schema lookups %.0fs; peak "
-            "RSS %s MB; phases: %s",
-            processed,
-            elapsed,
-            report.dashboard_seconds_total / processed if processed else 0.0,
-            report.datasets_scanned,
-            report.api_calls,
-            report.api_call_seconds,
-            report.api_retries,
-            report.api_retry_sleep_seconds,
-            report.sql_parses_executed,
-            report.sql_parse_seconds,
-            report.sql_parse_cache_hits,
-            report.schema_resolution_seconds,
-            report.peak_rss_mb,
-            top_phases,
-        )
+        with self._lock:
+            self._last_logged = time.perf_counter()
+            self._since_logged = 0
+            rss = peak_rss_mb()
+            with report._telemetry_lock:
+                report.peak_rss_mb = rss
+                elapsed = self._last_logged - self._started
+                processed = report.dashboards_timed
+                dashboard_seconds_total = report.dashboard_seconds_total
+                datasets_scanned = report.datasets_scanned
+                api_calls = report.api_calls
+                api_call_seconds = report.api_call_seconds
+                api_retries = report.api_retries
+                api_retry_sleep_seconds = report.api_retry_sleep_seconds
+                sql_parses_executed = report.sql_parses_executed
+                sql_parse_seconds = report.sql_parse_seconds
+                sql_parse_cache_hits = report.sql_parse_cache_hits
+                schema_resolution_seconds = report.schema_resolution_seconds
+                phase_items = list(report.phase_seconds.items())
+            top_phases = ", ".join(
+                f"{name} {seconds:.0f}s"
+                for name, seconds in sorted(
+                    phase_items, key=lambda item: item[1], reverse=True
+                )[:6]
+            )
+            logger.info(
+                "MicroStrategy progress: %d dashboards in %.0fs (%.1fs each, %d "
+                "datasets); API %d calls %.0fs (%d retries, %.0fs backoff); SQL "
+                "parse %d runs %.0fs, %d cache hits; schema lookups %.0fs; peak "
+                "RSS %s MB; phases: %s",
+                processed,
+                elapsed,
+                dashboard_seconds_total / processed if processed else 0.0,
+                datasets_scanned,
+                api_calls,
+                api_call_seconds,
+                api_retries,
+                api_retry_sleep_seconds,
+                sql_parses_executed,
+                sql_parse_seconds,
+                sql_parse_cache_hits,
+                schema_resolution_seconds,
+                rss,
+                top_phases,
+            )

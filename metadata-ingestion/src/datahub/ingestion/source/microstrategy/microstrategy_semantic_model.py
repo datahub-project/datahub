@@ -1,7 +1,10 @@
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple
+
+from pydantic import BaseModel, ConfigDict
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -25,7 +28,14 @@ from datahub.ingestion.source.microstrategy.lineage import (
     parse_attribute_relationships,
     physical_table_name,
 )
-from datahub.ingestion.source.microstrategy.models import normalize_object_id
+from datahub.ingestion.source.microstrategy.models import (
+    MicroStrategyObject,
+    normalize_object_id,
+)
+from datahub.ingestion.source.microstrategy.parallel import (
+    SingleFlight,
+    ordered_parallel_map,
+)
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.telemetry import peak_rss_mb
 from datahub.metadata.schema_classes import (
@@ -115,6 +125,13 @@ class _MetricProgress:
             self._report.peak_rss_mb,
             self._project_id,
         )
+
+
+class _FetchedMetricModel(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    model: Dict[str, object]
+    consolidation_attributes: Dict[str, List[str]]
 
 
 @dataclass
@@ -499,42 +516,48 @@ class MicroStrategySemanticModelMapper:
 
         relationships: List[SemanticModelRelationshipInput] = []
         seen_pairs: Set[Tuple[str, str]] = set()
-        for attribute_id in shared_attribute_ids:
-            try:
-                response = self.client.get_attribute_relationships(
-                    project_id, attribute_id
-                )
-            except MicroStrategyAPIError as error:
-                self.report.report_semantic_model_attribute_relationship_api_failure()
-                self.report.warning(
-                    title="MicroStrategy Attribute Relationship Unavailable",
-                    message=(
-                        "Skipping this attribute's hierarchy relationships for "
-                        "the semantic model."
-                    ),
-                    context=f"project_id={project_id}, attribute_id={attribute_id}",
-                    exc=error,
-                )
-                continue
+        with ordered_parallel_map(
+            lambda attr_id: self.client.get_attribute_relationships(
+                project_id, attr_id
+            ),
+            shared_attribute_ids,
+            max_workers=self.config.max_workers,
+        ) as outcomes:
+            for outcome in outcomes:
+                attribute_id = outcome.item
+                try:
+                    response = outcome.unwrap()
+                except MicroStrategyAPIError as error:
+                    self.report.report_semantic_model_attribute_relationship_api_failure()
+                    self.report.warning(
+                        title="MicroStrategy Attribute Relationship Unavailable",
+                        message=(
+                            "Skipping this attribute's hierarchy relationships for "
+                            "the semantic model."
+                        ),
+                        context=f"project_id={project_id}, attribute_id={attribute_id}",
+                        exc=error,
+                    )
+                    continue
 
-            for relationship in parse_attribute_relationships(response):
-                pair = (
-                    relationship.parent_attribute_id,
-                    relationship.child_attribute_id,
-                )
-                if pair in seen_pairs:
-                    continue
-                built = self._relationship_input(
-                    project_id,
-                    relationship,
-                    table_alias_by_logical_id,
-                    attribute_table_aliases,
-                    table_info_by_alias,
-                )
-                if built is None:
-                    continue
-                seen_pairs.add(pair)
-                relationships.append(built)
+                for relationship in parse_attribute_relationships(response):
+                    pair = (
+                        relationship.parent_attribute_id,
+                        relationship.child_attribute_id,
+                    )
+                    if pair in seen_pairs:
+                        continue
+                    built = self._relationship_input(
+                        project_id,
+                        relationship,
+                        table_alias_by_logical_id,
+                        attribute_table_aliases,
+                        table_info_by_alias,
+                    )
+                    if built is None:
+                        continue
+                    seen_pairs.add(pair)
+                    relationships.append(built)
         return relationships
 
     def _relationship_input(
@@ -631,6 +654,8 @@ class MicroStrategySemanticModelMapper:
         alias_to_dataset: Dict[str, SemanticModelDataset],
     ) -> Iterable[Metric]:
         consolidation_cache: Dict[str, List[str]] = {}
+        consolidation_lock = threading.RLock()
+        consolidation_flight: SingleFlight[str, List[str]] = SingleFlight()
         try:
             metric_objects = list(self.client.search_metrics(project_id))
         except MicroStrategyAPIError as error:
@@ -660,92 +685,141 @@ class MicroStrategySemanticModelMapper:
             every_seconds=self.config.progress_log_interval_seconds,
             report=self.report,
         )
-        for metric_object in metric_objects:
-            progress.step()
-            metric_id = normalize_object_id(metric_object.id)
-            try:
-                model = self.client.get_metric_model(project_id, metric_object.id)
-            except MicroStrategyAPIError as error:
-                progress.failed += 1
-                self.report.report_metric_expression_api_failure()
-                self.report.report_failed_metric_model(metric_object.id)
-                # A failure, not a warning: a skipped metric is soft-deleted by
-                # stale-entity removal unless the run is marked failed.
-                self.report.failure(
-                    title="MicroStrategy Metric Model Unavailable",
-                    message=(
-                        "Skipping this metric for the semantic model; its "
-                        "expression could not be fetched. Stale-entity removal "
-                        "is skipped for this run so the previous metric is kept."
-                    ),
-                    context=f"project_id={project_id}, metric_id={metric_object.id}",
-                    exc=error,
+
+        def fetch_metric(metric_object: MicroStrategyObject) -> _FetchedMetricModel:
+            model = self.client.get_metric_model(project_id, metric_object.id)
+            consolidation_attributes = {
+                consolidation_id: self._resolve_consolidation_parallel(
+                    project_id,
+                    consolidation_id,
+                    consolidation_cache,
+                    consolidation_lock,
+                    consolidation_flight,
                 )
-                continue
-
-            upstream_aliases: Set[str] = set()
-            for fact_id in metric_fact_ids_from_model(model):
-                upstream_aliases |= fact_table_aliases.get(fact_id, set())
-            for attribute_id in metric_attribute_ids_from_model(model):
-                upstream_aliases |= attribute_table_aliases.get(attribute_id, set())
-            for consolidation_id in metric_consolidation_ids_from_model(model):
-                for attribute_id in self._resolve_consolidation(
-                    project_id, consolidation_id, consolidation_cache
-                ):
-                    upstream_aliases |= attribute_table_aliases.get(attribute_id, set())
-
-            upstream_dataset_urns = sorted(
-                str(alias_to_dataset[alias].urn)
-                for alias in upstream_aliases
-                if alias in alias_to_dataset
+                for consolidation_id in metric_consolidation_ids_from_model(model)
+            }
+            return _FetchedMetricModel(
+                model=model,
+                consolidation_attributes=consolidation_attributes,
             )
-            derived_from = [
-                str(
-                    MetricUrn(
-                        platform=MICROSTRATEGY_PLATFORM,
-                        path=project_id,
-                        id=referenced_metric_id,
+
+        with ordered_parallel_map(
+            fetch_metric,
+            metric_objects,
+            max_workers=self.config.max_workers,
+        ) as outcomes:
+            for outcome in outcomes:
+                metric_object = outcome.item
+                progress.step()
+                metric_id = normalize_object_id(metric_object.id)
+                try:
+                    fetched = outcome.unwrap()
+                except MicroStrategyAPIError as error:
+                    progress.failed += 1
+                    self.report.report_metric_expression_api_failure()
+                    self.report.report_failed_metric_model(metric_object.id)
+                    # A failure, not a warning: a skipped metric is soft-deleted by
+                    # stale-entity removal unless the run is marked failed.
+                    self.report.failure(
+                        title="MicroStrategy Metric Model Unavailable",
+                        message=(
+                            "Skipping this metric for the semantic model; its "
+                            "expression could not be fetched. Stale-entity removal "
+                            "is skipped for this run so the previous metric is kept."
+                        ),
+                        context=f"project_id={project_id}, metric_id={metric_object.id}",
+                        exc=error,
                     )
-                )
-                for referenced_metric_id in metric_metric_ids_from_model(model)
-            ]
+                    continue
 
-            model_expression = model.get("expression")
-            expression_text = _optional_str(
-                model_expression.get("text")
-                if isinstance(model_expression, dict)
-                else None
-            )
-            expression = (
-                DialectExpressionInput(
-                    expression=expression_text, dialect=DialectClass.OTHER
-                )
-                if expression_text
-                else None
-            )
+                model = fetched.model
+                upstream_aliases: Set[str] = set()
+                for fact_id in metric_fact_ids_from_model(model):
+                    upstream_aliases |= fact_table_aliases.get(fact_id, set())
+                for attribute_id in metric_attribute_ids_from_model(model):
+                    upstream_aliases |= attribute_table_aliases.get(attribute_id, set())
+                for consolidation_id in metric_consolidation_ids_from_model(model):
+                    for attribute_id in fetched.consolidation_attributes.get(
+                        consolidation_id, []
+                    ):
+                        upstream_aliases |= attribute_table_aliases.get(
+                            attribute_id, set()
+                        )
 
-            yield Metric(
-                platform=MICROSTRATEGY_PLATFORM,
-                path=project_id,
-                id=metric_id,
-                semantic_model=model_urn,
-                platform_instance=self.config.platform_instance,
-                name=metric_object.name,
-                description=metric_object.description,
-                expression=expression,
-                upstream_datasets=upstream_dataset_urns,
-                derived_from=derived_from,
-            )
+                upstream_dataset_urns = sorted(
+                    str(alias_to_dataset[alias].urn)
+                    for alias in upstream_aliases
+                    if alias in alias_to_dataset
+                )
+                derived_from = [
+                    str(
+                        MetricUrn(
+                            platform=MICROSTRATEGY_PLATFORM,
+                            path=project_id,
+                            id=referenced_metric_id,
+                        )
+                    )
+                    for referenced_metric_id in metric_metric_ids_from_model(model)
+                ]
+
+                model_expression = model.get("expression")
+                expression_text = _optional_str(
+                    model_expression.get("text")
+                    if isinstance(model_expression, dict)
+                    else None
+                )
+                expression = (
+                    DialectExpressionInput(
+                        expression=expression_text, dialect=DialectClass.OTHER
+                    )
+                    if expression_text
+                    else None
+                )
+
+                yield Metric(
+                    platform=MICROSTRATEGY_PLATFORM,
+                    path=project_id,
+                    id=metric_id,
+                    semantic_model=model_urn,
+                    platform_instance=self.config.platform_instance,
+                    name=metric_object.name,
+                    description=metric_object.description,
+                    expression=expression,
+                    upstream_datasets=upstream_dataset_urns,
+                    derived_from=derived_from,
+                )
         progress.log()
 
-    def _resolve_consolidation(
+    def _resolve_consolidation_parallel(
         self,
         project_id: str,
         consolidation_id: str,
         cache: Dict[str, List[str]],
+        lock: threading.RLock,
+        flight: SingleFlight[str, List[str]],
     ) -> List[str]:
-        if consolidation_id in cache:
-            return cache[consolidation_id]
+        with lock:
+            if consolidation_id in cache:
+                return cache[consolidation_id]
+
+        def fetch() -> List[str]:
+            with lock:
+                if consolidation_id in cache:
+                    return cache[consolidation_id]
+            attributes = self._fetch_consolidation_attributes(
+                project_id, consolidation_id
+            )
+            with lock:
+                cache[consolidation_id] = attributes
+            return attributes
+
+        return flight.do(consolidation_id, fetch)
+
+    def _fetch_consolidation_attributes(
+        self,
+        project_id: str,
+        consolidation_id: str,
+    ) -> List[str]:
         try:
             model = self.client.get_consolidation_model(project_id, consolidation_id)
         except MicroStrategyAPIError as error:
@@ -759,8 +833,17 @@ class MicroStrategySemanticModelMapper:
                 context=f"project_id={project_id}, consolidation_id={consolidation_id}",
                 exc=error,
             )
-            cache[consolidation_id] = []
             return []
-        attribute_ids = consolidation_attribute_ids(model)
-        cache[consolidation_id] = attribute_ids
-        return attribute_ids
+        return consolidation_attribute_ids(model)
+
+    def _resolve_consolidation(
+        self,
+        project_id: str,
+        consolidation_id: str,
+        cache: Dict[str, List[str]],
+    ) -> List[str]:
+        if consolidation_id in cache:
+            return cache[consolidation_id]
+        attributes = self._fetch_consolidation_attributes(project_id, consolidation_id)
+        cache[consolidation_id] = attributes
+        return attributes
