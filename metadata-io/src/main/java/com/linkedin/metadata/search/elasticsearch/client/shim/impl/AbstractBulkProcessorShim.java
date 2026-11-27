@@ -8,7 +8,10 @@ import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -38,6 +41,11 @@ public abstract class AbstractBulkProcessorShim<T> {
   protected int itemRequeueMaxAttempts = 3;
 
   @Nullable protected BulkItemRequeueSupport bulkItemRequeueSupport;
+
+  // Bounds the re-adds waiting for the requeue worker. A full queue declines the requeue, so the
+  // item is recorded as unrecovered instead of building up memory during an outage.
+  private static final int REQUEUE_QUEUE_CAPACITY = 1000;
+  @Nullable private volatile ThreadPoolExecutor requeueExecutor;
 
   private enum Lifecycle {
     OPEN,
@@ -70,6 +78,9 @@ public abstract class AbstractBulkProcessorShim<T> {
     }
     this.bulkProcessors = processors;
     this.completionTrackers = trackers;
+    if (requeueExecutor == null || requeueExecutor.isShutdown()) {
+      requeueExecutor = newRequeueExecutor();
+    }
     lifecycle.set(Lifecycle.OPEN);
   }
 
@@ -213,6 +224,7 @@ public abstract class AbstractBulkProcessorShim<T> {
    */
   public void closeBulkProcessor() {
     lifecycle.set(Lifecycle.CLOSED);
+    shutdownRequeues();
     closeNativeProcessors();
   }
 
@@ -230,6 +242,8 @@ public abstract class AbstractBulkProcessorShim<T> {
       flushAndAwaitWithin(deadlineNanos);
     } finally {
       lifecycle.set(Lifecycle.CLOSED);
+      // Synchronous so queued re-adds are counted before the caller reads the failure count.
+      shutdownRequeues();
       closeNativeWithin(deadlineNanos);
     }
   }
@@ -313,15 +327,21 @@ public abstract class AbstractBulkProcessorShim<T> {
   }
 
   /**
-   * Requeue without {@code recordEnqueued}: the item is already pending from the original add.
-   * Throws when the item cannot be resubmitted; the listener then records it as unrecovered, so it
-   * must not be recorded here as well.
+   * Requeue without {@code recordEnqueued}: the item is already pending from the original add. The
+   * re-add runs on a worker because this is called from a bulk callback. A processor add can wait
+   * on a lock held by a flush that is waiting for this callback's bulk, so blocking here could
+   * deadlock. A re-add that fails on the worker is recorded as unrecovered there. This throws only
+   * when the item is not queued, and then the listener records it.
    */
   protected void requeueFailedRequest(@Nonnull DocWriteRequest<?> writeRequest) {
     if (lifecycle.get() == Lifecycle.CLOSED) {
       throw new IllegalStateException("Cannot requeue bulk item; bulk processors are closed");
     }
-    if (bulkProcessors == null || bulkProcessors.length == 0 || completionTrackers == null) {
+    ThreadPoolExecutor executor = requeueExecutor;
+    if (bulkProcessors == null
+        || bulkProcessors.length == 0
+        || completionTrackers == null
+        || executor == null) {
       throw new IllegalStateException("Cannot requeue bulk item; processors not initialized");
     }
     String routingKey =
@@ -329,7 +349,91 @@ public abstract class AbstractBulkProcessorShim<T> {
             ? writeRequest.id()
             : String.valueOf(writeRequest.index()) + ":" + System.identityHashCode(writeRequest);
     int index = Math.floorMod(routingKey.hashCode(), threadCount);
-    trackAndSubmit(index, writeRequest);
+    try {
+      executor.execute(new RequeueTask(index, writeRequest));
+    } catch (RejectedExecutionException e) {
+      throw new IllegalStateException("Cannot requeue bulk item; requeue queue is full", e);
+    }
+  }
+
+  private static ThreadPoolExecutor newRequeueExecutor() {
+    ThreadPoolExecutor executor =
+        new ThreadPoolExecutor(
+            1,
+            1,
+            1,
+            TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(REQUEUE_QUEUE_CAPACITY),
+            runnable -> {
+              Thread thread = new Thread(runnable, "bulk-processor-requeue");
+              thread.setDaemon(true);
+              return thread;
+            },
+            new ThreadPoolExecutor.AbortPolicy());
+    executor.allowCoreThreadTimeOut(true);
+    return executor;
+  }
+
+  /**
+   * Stops accepting requeues. A re-add still queued is never run, so it is recorded as unrecovered
+   * here. A re-add already running finishes on its own, the same as a bulk already on the wire.
+   */
+  private void shutdownRequeues() {
+    ThreadPoolExecutor executor = requeueExecutor;
+    if (executor == null) {
+      return;
+    }
+    for (Runnable queued : executor.shutdownNow()) {
+      if (queued instanceof RequeueWork) {
+        ((RequeueWork) queued).abandon(new IllegalStateException("bulk processors are closed"));
+      }
+    }
+  }
+
+  /** A queued re-add that can be abandoned. Not generic, so the shim type does not leak into it. */
+  private interface RequeueWork extends Runnable {
+    void abandon(Throwable cause);
+  }
+
+  /** A re-add queued by {@link #requeueFailedRequest}. */
+  private final class RequeueTask implements RequeueWork {
+    private final int index;
+    private final DocWriteRequest<?> writeRequest;
+
+    RequeueTask(int index, @Nonnull DocWriteRequest<?> writeRequest) {
+      this.index = index;
+      this.writeRequest = writeRequest;
+    }
+
+    @Override
+    public void run() {
+      try {
+        if (lifecycle.get() == Lifecycle.CLOSED) {
+          throw new IllegalStateException("bulk processors are closed");
+        }
+        trackAndSubmit(index, writeRequest);
+      } catch (RuntimeException e) {
+        abandon(e);
+      } catch (Error e) {
+        // Account for the item first: nothing else resolves it, so a leaked pending count would
+        // fail every later drain. Then rethrow so a fatal error is not swallowed.
+        abandon(e);
+        throw e;
+      }
+    }
+
+    @Override
+    public void abandon(@Nonnull Throwable cause) {
+      log.warn(
+          "Bulk item requeue failed for index [{}] id [{}]; recorded as unrecovered: {}",
+          writeRequest.index(),
+          writeRequest.id(),
+          cause.toString());
+      bulkWriteResultTracker.recordUnrecoveredTransferFailure(1);
+      if (bulkItemRequeueSupport != null) {
+        bulkItemRequeueSupport.clearAttempts(writeRequest);
+      }
+    }
   }
 
   private void trackAndSubmit(int index, @Nonnull DocWriteRequest<?> writeRequest) {
