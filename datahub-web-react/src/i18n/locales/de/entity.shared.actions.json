@@ -6,6 +6,7 @@
     "addDataProductError": "Assets konnten nicht zum Datenprodukt hinzugefügt werden. Ein unbekannter Fehler ist aufgetreten.",
     "addDataProductModalTitle": "Assets zum Datenprodukt hinzufügen",
     "addDataProductTooltip": "Assets zum Datenprodukt hinzufügen",
+    "addDataProductUnauthorized": "Du hast keine Berechtigung, diesem Datenprodukt Assets hinzuzufügen",
     "addDomainError": "Assets konnten nicht zur Domäne hinzugefügt werden: {{error}}",
     "addDomainModalTitle": "Assets zur Domäne hinzufügen",
     "addDomainTooltip": "Assets zur Domäne hinzufügen",
