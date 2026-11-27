@@ -70,7 +70,6 @@ def test_endpoint_template_replaces_object_and_instance_ids() -> None:
         endpoint_template("POST", "/api/model/x/12345678-1234-1234-1234-123456789abc")
         == "POST /api/model/x/{id}"
     )
-    # Short path segments that merely look hex are left alone.
     assert endpoint_template("GET", "/api/v2/cafe") == "GET /api/v2/cafe"
 
 
@@ -227,8 +226,7 @@ def test_identical_sql_is_parsed_once_and_matched_per_dataset() -> None:
     first = extractor.warehouse_lineage_from_sql(
         _MULTIPASS_SQL, _CONTEXT, ["Region", "Revenue"], label="rep-1"
     )
-    # Another document's dataset over the same report: different field casing
-    # and only one of the columns.
+    # Same report SQL, different field casing, must reuse the parse.
     second = extractor.warehouse_lineage_from_sql(
         _MULTIPASS_SQL, _CONTEXT, ["REVENUE"], label="rep-1"
     )
@@ -244,7 +242,6 @@ def test_identical_sql_is_parsed_once_and_matched_per_dataset() -> None:
     report = extractor.report
     assert report.sql_parses_executed == 1
     assert report.sql_parse_cache_hits == 1
-    # The per-dataset counter keeps its meaning.
     assert report.sql_views_parsed == 2
     assert list(report.slowest_sql_parses) == [
         f"rep-1 (2 statements, {len(_MULTIPASS_SQL)} chars)"
@@ -299,7 +296,7 @@ def test_parse_cache_spills_past_its_memory_size_without_losing_entries() -> Non
     for sql in sqls:
         extractor.warehouse_lineage_from_sql(sql, _CONTEXT, [])
 
-    # Nothing evicted: every second read is a cache hit, served from disk.
+    # Spilled entries are served from disk, not evicted.
     assert extractor.report.sql_parses_executed == 6
     assert extractor.report.sql_parse_cache_hits == 6
 
@@ -316,9 +313,7 @@ def test_project_reset_drops_the_parse_cache_and_records_its_size() -> None:
 
 
 def test_project_reset_counts_a_spilled_cache_without_calling_len() -> None:
-    # FileBackedDict.__len__ binds one SQL variable per in-memory key, which
-    # can exceed SQLite's limit with a large cache_memory_entries; the reset
-    # must report the cache size without it.
+    # Reset must not call FileBackedDict.__len__, which binds one SQL variable per key.
     extractor = _extractor(cache_memory_entries=2)
     for index in range(5):
         extractor.warehouse_lineage_from_sql(
@@ -424,8 +419,7 @@ def test_report_serializes_telemetry_rounded() -> None:
 
 
 def test_endpoint_template_replaces_dossier_chapter_and_visualization_keys() -> None:
-    # Visualization and chapter keys are not 32-hex object ids, and left in
-    # place they made one endpoint row per visualization.
+    # Visualization keys are not object ids and made one row per visualization.
     base = f"/api/v2/dossiers/{_OBJECT_ID}/instances/{_INSTANCE_ID}"
     expected = (
         "GET /api/v2/dossiers/{id}/instances/{id}/chapters/{key}/visualizations/{key}"

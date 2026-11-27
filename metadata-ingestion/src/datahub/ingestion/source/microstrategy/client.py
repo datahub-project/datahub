@@ -66,15 +66,10 @@ _METRIC_MODEL_RETRYABLE_STATUS_CODES = _RETRYABLE_STATUS_CODES - {500}
 # stall ingestion for minutes per request.
 _MAX_RETRY_DELAY_SECONDS = 60
 
-# The first /api/model/tables page normally answers in seconds, but a busy
-# Modeling service has been seen to miss four 30-second timeouts in a row.
-# Everything model-based in the project (model lineage, the semantic model)
-# hangs on that one call, so it gets a longer floor than timeout_seconds.
+# A busy Modeling service has missed four 30s timeouts, and model work hangs on this call.
 _MODEL_TABLES_MIN_TIMEOUT_SECONDS = 120
 
-# A metric search page over a project with tens of thousands of metrics has
-# been seen to miss every 30-second attempt. Losing it drops every metric in
-# the project from the run, so it gets the same longer floor.
+# A large metric search has missed every 30s attempt, and losing it drops every metric.
 _METRIC_SEARCH_MIN_TIMEOUT_SECONDS = 120
 
 
@@ -804,7 +799,6 @@ class MicroStrategyClient:
             if name:
                 payload["name"] = name
 
-            # Only a search with its own floor overrides timeout_seconds.
             timeout_override: Dict[str, Any] = (
                 {"timeout_seconds": timeout_seconds} if timeout_seconds else {}
             )

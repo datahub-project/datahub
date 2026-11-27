@@ -1184,8 +1184,7 @@ def test_fetch_project_model_tables_requests_logical_table_information() -> None
 
 
 def test_fetch_project_model_tables_unrecognized_payload_is_a_failed_fetch() -> None:
-    # An empty list would read as a project with no logical tables and let
-    # stale-entity removal soft-delete the semantic model.
+    # [] would let stale removal soft-delete the semantic model.
     source = _source({"extract_model_lineage": True})
 
     class FakeClient:
@@ -1308,8 +1307,7 @@ class _FlakyModelTablesClient:
 
 
 def test_semantic_model_retries_a_failed_model_tables_fetch() -> None:
-    # The first fetch happens when the first dashboard needs lineage; one
-    # slow answer there used to drop the whole semantic model hours later.
+    # The first fetch is hours earlier; one failure used to drop the semantic model.
     source = _source({"emit_semantic_model_entities": True})
     client = _FlakyModelTablesClient()
     source.client = client  # type: ignore[assignment]
@@ -1321,7 +1319,6 @@ def test_semantic_model_retries_a_failed_model_tables_fetch() -> None:
 
     assert tables is not None and len(tables) == 1
     assert client.model_table_calls == 2
-    # A successful fetch is not repeated.
     assert lineage_context.model_tables_retrying_failure() == tables
     assert client.model_table_calls == 2
 
@@ -1352,7 +1349,6 @@ def test_semantic_model_runs_after_the_project_caches_are_released() -> None:
                 FakeLineageContext(),  # type: ignore[arg-type]
             )
         )
-    # The project boundary releases again; that must not count twice.
     source._reset_project_caches()
 
     assert caches_at_emit == [0]
@@ -1362,11 +1358,8 @@ def test_semantic_model_runs_after_the_project_caches_are_released() -> None:
 @pytest.mark.parametrize(
     "model_tables, expect_failure",
     [
-        # The fetch failed: reported as a failure so stateful ingestion skips
-        # stale-entity removal instead of soft-deleting the previous run's
-        # semantic model, logical datasets and metrics.
+        # A warning here lets stale removal soft-delete the semantic model.
         (None, True),
-        # A project with no logical tables is not an error.
         ([], False),
     ],
 )
@@ -2329,8 +2322,7 @@ def test_every_sql_view_failing_raises_one_loud_warning(
 def test_all_failed_warning_counts_reused_failed_sql_views(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # One report shared by two documents: its SQL fails once and the second
-    # document reuses the cached failure, which must still count as failed.
+    # A cached failure must still count as failed for the second document.
     source = _source()
     _fail_parses(monkeypatch, fail_first_n=2)
     for _ in range(2):
@@ -3629,7 +3621,6 @@ def test_shared_report_sql_is_parsed_once_and_dashboards_are_timed() -> None:
     _run_dashboards(source)
 
     report = source.report
-    # One fetch, one parse; the second document is served from both caches.
     assert report.report_sql_fetched == 1
     assert report.sql_parses_executed == 1
     assert report.sql_parse_cache_hits == 1
@@ -3652,8 +3643,7 @@ def test_project_caches_are_dropped_at_the_project_boundary() -> None:
     source._reset_project_caches()
     _run_dashboards(source)
 
-    # The report is read and parsed again for the next project, not served
-    # from the previous one.
+    # Caches are per project.
     assert client.report_instances_created == ["rep-1", "rep-1"]
     assert source.report.sql_parses_executed == 2
     assert source._metric_model_cache == {}

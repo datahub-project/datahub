@@ -1009,14 +1009,12 @@ def test_caller_supplied_schema_resolver_is_used_and_left_open() -> None:
             ["CREATE TABLE dev.public.dst AS SELECT * FROM dev.public.src"],
             schema_resolver=resolver,
         )
-        # The resolver's schema expanded SELECT * into its columns.
         assert result.column_lineage is not None
         assert sorted(c.downstream.column for c in result.column_lineage) == [
             "id",
             "name",
         ]
 
-    # Still usable: the helper must not close a resolver it did not create.
     assert not resolver.closed
     assert resolver.schema_count() == 1
     resolver.close()

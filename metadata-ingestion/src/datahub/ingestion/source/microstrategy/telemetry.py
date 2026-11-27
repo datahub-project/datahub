@@ -1,18 +1,3 @@
-"""Run telemetry for the MicroStrategy source: where a run's time goes.
-
-A run is a long serial sequence of MicroStrategy REST calls, SQL parses and
-DataHub schema lookups, and the ingestion stage report sees all of it as one
-"Metadata Extraction" stage. This module splits that time into named phases,
-attributes every API call to the phase that made it, and logs per-dashboard
-and periodic progress lines so a run in flight can be diagnosed from its log.
-
-Phases are timed only while the source itself runs. A generator phase is
-timed one step at a time, so the time the pipeline spends writing a yielded
-work unit to the sink is never charged to the phase that yielded it. Phases
-nest and their seconds are inclusive: ``sql_parse`` time is also counted in
-the ``document_warehouse_lineage`` phase that triggered it.
-"""
-
 import functools
 import inspect
 import logging
@@ -47,30 +32,22 @@ P = ParamSpec("P")
 R = TypeVar("R")
 T = TypeVar("T")
 
-# Phase names. Kept here so the report, the progress log and the decorators
-# agree on spelling.
 PHASE_DASHBOARD = "dashboard"
 PHASE_DASHBOARD_SEARCH = "dashboard_search"
 PHASE_SQL_PARSE = "sql_parse"
 PHASE_WAREHOUSE_FIELD_LOOKUP = "warehouse_field_lookup"
 
-# MicroStrategy object ids (32 hex characters) and instance ids are path
-# segments; replacing them gives one row per endpoint instead of one per object.
+# 32-hex object ids and UUIDs, so one endpoint is one row.
 _OBJECT_ID_SEGMENT_RE = re.compile(r"/[0-9A-Fa-f]{32}(?=/|$)")
 _UUID_SEGMENT_RE = re.compile(
     r"/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?=/|$)"
 )
-# Chapter, page and visualization keys are not object ids ("K36",
-# "W305FE...", "K83D..."), so they are replaced by position instead.
+# Not 32-hex object ids, so a literal match would make one row per visualization.
 _DOSSIER_KEY_SEGMENT_RE = re.compile(r"/(chapters|pages|visualizations)/[^/]+")
 
-# Per-dashboard wall-time buckets, upper bounds in seconds.
 _DASHBOARD_SECONDS_BUCKETS = (10, 30, 60, 120, 300, 600, 1800)
 
-# sqlglot warns once per generated statement for every dialect property it
-# cannot render (MicroStrategy multi-pass SQL creates VOLATILE tables, so a
-# single report can log dozens). The warnings change nothing in the lineage
-# and push every useful line out of the executor's bounded log tail.
+# One warning per generated statement; they fill the executor's bounded log.
 _SQLGLOT_SUPPRESSED_PREFIXES = ("Unsupported property",)
 
 
@@ -79,7 +56,6 @@ class _HasReport(Protocol):
 
 
 def endpoint_template(method: str, path: str) -> str:
-    """``GET /api/v2/reports/{id}/instances/{id}/sqlView`` for any report."""
     path = path.split("?", 1)[0]
     path = _OBJECT_ID_SEGMENT_RE.sub("/{id}", path)
     path = _UUID_SEGMENT_RE.sub("/{id}", path)
@@ -88,7 +64,6 @@ def endpoint_template(method: str, path: str) -> str:
 
 
 def peak_rss_mb() -> Optional[float]:
-    """Peak resident set size of this process, or None where unavailable."""
     if resource is None:
         return None
     peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -107,12 +82,6 @@ def dashboard_seconds_bucket(seconds: float) -> str:
 
 
 def timed_phase(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Time a method of an object with a ``report`` as phase ``name``.
-
-    Generator methods must use ``timed_generator_phase`` instead: wrapping a
-    generator here would time only its creation.
-    """
-
     def decorate(method: Callable[P, R]) -> Callable[P, R]:
         if inspect.isgeneratorfunction(method):
             raise TypeError(
@@ -133,8 +102,6 @@ def timed_phase(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
 def timed_generator_phase(
     name: str,
 ) -> Callable[[Callable[P, Iterable[T]]], Callable[P, Iterator[T]]]:
-    """Time a generator method of an object with a ``report``, step by step."""
-
     def decorate(method: Callable[P, Iterable[T]]) -> Callable[P, Iterator[T]]:
         @functools.wraps(method)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[T]:
@@ -149,7 +116,7 @@ def timed_generator_phase(
 def timed_iter(
     report: "MicroStrategyReport", name: str, iterable: Iterable[T]
 ) -> Iterator[T]:
-    """Yield from ``iterable``, charging only the time spent producing items."""
+    # Step by step, so sink writes between yields are not charged to the phase.
     iterator = iter(iterable)
     first = True
     try:
@@ -168,8 +135,6 @@ def timed_iter(
 
 
 class SqlglotWarningFilter(logging.Filter):
-    """Drop sqlglot's per-statement "Unsupported property" warnings, counting them."""
-
     def __init__(self, report: "MicroStrategyReport") -> None:
         super().__init__()
         self._report = report
@@ -185,8 +150,6 @@ class SqlglotWarningFilter(logging.Filter):
 
 @dataclass(frozen=True)
 class TelemetrySnapshot:
-    """Counters read before a dashboard so its own share can be logged after."""
-
     seconds: float
     api_calls: int
     api_seconds: float
@@ -197,8 +160,6 @@ class TelemetrySnapshot:
 
 
 class RunProgress:
-    """Per-dashboard timing lines plus a periodic whole-run progress line."""
-
     def __init__(
         self,
         report: "MicroStrategyReport",

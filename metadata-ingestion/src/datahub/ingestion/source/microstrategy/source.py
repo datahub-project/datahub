@@ -205,22 +205,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._dataset_object_cache: Dict[
             Tuple[str, str], Optional[MicroStrategyObject]
         ] = {}
-        # "project id:report id" -> the SQL _report_sql_statement returned
-        # (None once a read failed), so a grid report shared by many documents
-        # is executed once per project and a failed one is not retried. Report
-        # SQL runs to tens of kilobytes, so the cache keeps
-        # cache_memory_entries in memory and spills the rest, compressed, to
-        # a temporary file; it is dropped when the project finishes.
+        # Report SQL is large and reused across documents; a failed read is not retried.
         self._report_sql_cache: FileBackedDict[Optional[str]] = new_spill_cache(
             self.config.cache_memory_entries, compress=True
         )
-        # Entries added to _report_sql_cache this project. Counted on insert
-        # because FileBackedDict.__len__ binds one SQL variable per in-memory
-        # key and can exceed SQLite's variable limit.
+        # Counted on insert: FileBackedDict.__len__ binds one SQL variable per key.
         self._report_sql_cache_entries = 0
-        # True once this project's caches were released, so the release
-        # ahead of the semantic model and the one at the project boundary
-        # count as one reset.
+        # Released twice per project; both must count as one reset.
         self._project_caches_released = False
         # (project id, report id) -> derived metric definitions, or None once
         # every definition endpoint failed for it.
@@ -295,10 +286,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.client.login()
         auth_lost = False
-        # Keep sqlglot's per-statement "Unsupported property" warnings out of
-        # the log (counted in sqlglot_warnings_suppressed instead): on
-        # multi-pass SQL they drown every progress line in the executor's
-        # bounded log tail.
+        # Per-statement sqlglot warnings fill the executor's bounded log.
         sqlglot_filter = SqlglotWarningFilter(self.report)
         sqlglot_logger = logging.getLogger("sqlglot")
         sqlglot_logger.addFilter(sqlglot_filter)
@@ -367,9 +355,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self.client.close()
 
     def _reset_project_caches(self) -> None:
-        """Drop caches keyed by project once the project is done, so memory and
-        temporary disk track the largest project rather than the whole run.
-        Releasing an already-released project is a no-op."""
+        # Memory and temporary disk track the largest project, not the whole run.
         if self._project_caches_released:
             return
         self._project_caches_released = True
@@ -395,8 +381,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.report.cache_project_resets += 1
 
     def _remember_report_sql(self, cache_key: str, sql: Optional[str]) -> None:
-        """Cache a report's SQL (None for a failed read) under a key not yet
-        in the cache, counting it for the cache telemetry."""
         self._report_sql_cache[cache_key] = sql
         self._report_sql_cache_entries += 1
 
@@ -420,14 +404,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_chapter_page_structured_property_definition_emitted()
 
     def _warn_if_every_sql_view_failed(self) -> None:
-        """SQL-view lineage that fails on every single statement is almost
-        never a per-statement problem (an unsupported dialect, a missing
-        dependency, a broken warehouse context); make that pattern obvious in
-        the report instead of leaving N identical parse warnings to be read."""
         parsed = self.report.sql_views_parsed
-        # sql_views_parsed counts every dataset whose SQL was submitted, cache
-        # hits included, while a distinct failed SQL is counted once in
-        # sql_parse_failure_count and its reuses in the cache-hit counter.
+        # Cache hits count in sql_views_parsed; a failure counts once, plus its reuses.
         failed = (
             self.report.sql_parse_failure_count
             + self.report.sql_parse_failure_cache_hits
@@ -554,17 +532,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project: Project,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
-        # The semantic model reads none of the dashboard and report caches,
-        # and fetches one metric model per catalog metric (tens of thousands
-        # in a large project). Release the caches first so that work does not
-        # stack on top of everything the dashboards left in memory.
+        # The semantic model does not read the dashboard caches, so release them first.
         self._reset_project_caches()
         model_tables = lineage_context.model_tables_retrying_failure()
         if model_tables is None:
-            # The fetch failed (None), as opposed to a project with no logical
-            # tables ([]). Report a failure so stateful ingestion skips
-            # stale-entity removal instead of soft-deleting the semantic model,
-            # its datasets and its metrics from the previous run.
+            # [] would let stale removal soft-delete the semantic model.
             self.report.failure(
                 title="MicroStrategy Semantic Model Unavailable",
                 message=(
@@ -720,7 +692,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
             before = self._progress.snapshot()
             try:
-                # Timed step by step, so sink writes are not charged to it.
                 yield from timed_iter(
                     self.report,
                     PHASE_DASHBOARD,
@@ -1758,8 +1729,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
             tables = response.tables
             if tables is None:
-                # A failed fetch, not an empty project: returning [] here would let
-                # stale-entity removal soft-delete the project's semantic model.
+                # [] would let stale removal soft-delete the semantic model.
                 self.report.warning(
                     title="Unrecognized model tables response shape",
                     message=(
@@ -2658,13 +2628,7 @@ class _LazyProjectLineage:
         return self._model_tables
 
     def model_tables_retrying_failure(self) -> Optional[List[Dict[str, object]]]:
-        """model_tables, fetched once more if the earlier fetch failed.
-
-        The first fetch happens when the first dashboard needs lineage; the
-        semantic model only runs after every dashboard, often hours later.
-        Without this, one slow answer at the start of a run drops the whole
-        semantic model, and the run then trips the stale-entity fail-safe.
-        """
+        # The first fetch is hours earlier; one failure drops the semantic model.
         if self._model_tables_resolved and self._model_tables is None:
             logger.info(
                 "Retrying the model tables fetch for the semantic model "

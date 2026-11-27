@@ -1090,8 +1090,7 @@ def test_close_without_login_does_not_log_out(monkeypatch: MonkeyPatch) -> None:
 def test_model_tables_timeout_has_a_floor_above_the_default(
     monkeypatch: MonkeyPatch, configured: int, expected: int
 ) -> None:
-    # A busy Modeling service missed four 30-second timeouts on the first
-    # model tables page, which dropped the whole semantic model for the run.
+    # Four missed 30s timeouts here dropped the whole semantic model.
     client, _ = _make_client({"timeout_seconds": configured})
     timeouts: list[Optional[int]] = []
 
@@ -1113,8 +1112,7 @@ def test_model_tables_timeout_has_a_floor_above_the_default(
 def test_metric_search_timeout_has_a_floor_above_the_default(
     monkeypatch: MonkeyPatch, configured: int, expected: int
 ) -> None:
-    # A metric search page over a project with tens of thousands of metrics
-    # missed every 30-second attempt, which dropped all of its metrics.
+    # A large project's metric search missed every 30s attempt and dropped every metric.
     client, _ = _make_client({"timeout_seconds": configured})
     timeouts: list[Optional[int]] = []
 

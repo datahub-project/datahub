@@ -15,8 +15,6 @@ from datahub.sql_parsing.schema_resolver import SchemaResolverReport
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict
 
-# Rows shown for each per-endpoint / per-phase / slowest-object table. The
-# dictionaries keep every key; only the printed report is trimmed.
 _TELEMETRY_TOP_K = 40
 _SLOWEST_TOP_K = 25
 
@@ -174,9 +172,6 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     semantic_model_attribute_relationship_api_failures: int = 0
     semantic_model_consolidation_api_failures: int = 0
     semantic_model_metric_search_api_failures: int = 0
-    # --- Telemetry: where the run's time goes (see telemetry.py). ---
-    # Every MicroStrategy HTTP attempt, retries included, with its wall time;
-    # endpoints have object and instance ids replaced by {id}.
     api_calls: int = 0
     api_call_seconds: float = 0.0
     api_retries: int = 0
@@ -186,16 +181,14 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     api_max_seconds_by_endpoint: TopKDict[str, float] = field(
         default_factory=_float_top_k
     )
-    # "<endpoint> <status>", status "error" for network-level failures.
     api_responses_by_endpoint_status: TopKDict[str, int] = field(
         default_factory=_int_top_k
     )
-    # API seconds charged to the innermost phase active when the call was made.
+    # Innermost phase only; nested phases are inclusive of the phases inside them.
     api_seconds_by_phase: TopKDict[str, float] = field(default_factory=_float_top_k)
-    # Inclusive phase wall time (phases nest) and how often each phase ran.
     phase_seconds: TopKDict[str, float] = field(default_factory=_float_top_k)
     phase_calls: TopKDict[str, int] = field(default_factory=_int_top_k)
-    # Per dashboard/document: source time only (sink writes excluded).
+    # Source time only: sink writes between yields are excluded.
     dashboards_timed: int = 0
     dashboard_seconds_total: float = 0.0
     dashboard_seconds_histogram: Dict[str, int] = field(default_factory=dict)
@@ -203,30 +196,22 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         default_factory=lambda: _float_top_k(_SLOWEST_TOP_K)
     )
     datasets_by_slow_dashboard: Dict[str, int] = field(default_factory=dict)
-    # SQL view parsing: parses actually run (cache misses), their time, and
-    # datasets served from the parse cache because the same report SQL was
-    # already parsed this project.
     sql_parses_executed: int = 0
     sql_parse_seconds: float = 0.0
     sql_parse_max_seconds: float = 0.0
     sql_parse_cache_hits: int = 0
-    # Parse failures served from the cache: the failure is reported once per
-    # distinct SQL, not once per document that reuses the report.
+    # Reuses of a failed parse. The failure itself is counted once per distinct SQL.
     sql_parse_failure_cache_hits: int = 0
     slowest_sql_parses: TopKDict[str, float] = field(
         default_factory=lambda: _float_top_k(_SLOWEST_TOP_K)
     )
     sql_statements_parsed: int = 0
-    # Report SQL fetched from MicroStrategy (not cache hits): size in bytes.
     report_sql_fetched: int = 0
     report_sql_bytes_total: int = 0
     report_sql_max_bytes: int = 0
-    # DataHub schema lookups made by the SQL parser (shared resolver).
     schema_resolution_seconds: float = 0.0
     schema_resolution_calls: int = 0
     schema_resolver: SchemaResolverReport = field(default_factory=SchemaResolverReport)
-    # Per-run caches: entries at the end of the largest project, and how many
-    # times project-scoped caches were dropped at a project boundary.
     cache_entries_peak: Dict[str, int] = field(default_factory=dict)
     cache_project_resets: int = 0
     sqlglot_warnings_suppressed: TopKDict[str, int] = field(
@@ -509,7 +494,6 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     @contextmanager
     def phase(self, name: str, count: bool = True) -> Iterator[None]:
-        """Charge the enclosed wall time (and API calls) to phase ``name``."""
         self._phase_stack.append(name)
         start = time.perf_counter()
         try:
@@ -518,7 +502,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
             self.phase_seconds[name] += time.perf_counter() - start
             if count:
                 self.phase_calls[name] += 1
-            # Remove this phase's own entry even if an inner phase leaked.
+            # An inner phase can leak its entry, so scan back to this one.
             for index in range(len(self._phase_stack) - 1, -1, -1):
                 if self._phase_stack[index] == name:
                     del self._phase_stack[index]
@@ -589,7 +573,6 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     @staticmethod
     def _keep_slowest(table: "TopKDict[str, float]", key: str, seconds: float) -> None:
-        """Keep at most top_k rows so a long run does not hold every key."""
         table[key] = max(table.get(key, 0.0), seconds)
         if len(table) > table.top_k:
             fastest = min(table, key=lambda name: table[name])
