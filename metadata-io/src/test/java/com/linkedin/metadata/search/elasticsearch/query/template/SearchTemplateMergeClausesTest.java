@@ -27,6 +27,31 @@ public class SearchTemplateMergeClausesTest {
   }
 
   @Test
+  public void filterClausesAndNegativeBodiesKeepTheShouldRequirement() {
+    BoolQueryBuilder negative =
+        QueryBuilders.boolQuery()
+            .should(QueryBuilders.termQuery("name", "orders"))
+            .mustNot(QueryBuilders.termQuery("removed", true));
+    BoolQueryBuilder filtered =
+        (BoolQueryBuilder)
+            SearchTemplateJson.mergeClauses(
+                negative, "{ \"filter\": [ { \"term\": { \"platform\": \"x\" } } ] }");
+    assertEquals(filtered.minimumShouldMatch(), "1");
+    assertEquals(filtered.filter().size(), 1);
+    assertEquals(filtered.mustNot().size(), 1);
+
+    BoolQueryBuilder body =
+        QueryBuilders.boolQuery().should(QueryBuilders.termQuery("name", "orders"));
+    BoolQueryBuilder boosted =
+        (BoolQueryBuilder)
+            SearchTemplateJson.mergeClauses(
+                body, "{ \"should\": [ { \"term\": { \"id\": \"orders\" } } ] }");
+    // A should from the clauses counts toward the same minimum.
+    assertEquals(boosted.minimumShouldMatch(), "1");
+    assertEquals(boosted.should().size(), 2);
+  }
+
+  @Test
   public void otherBodiesKeepTheirMatching() {
     QueryBuilder disMax = QueryBuilders.disMaxQuery().add(QueryBuilders.termQuery("name", "x"));
     BoolQueryBuilder wrapped =

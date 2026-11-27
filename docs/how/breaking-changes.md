@@ -15,6 +15,12 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Search template `clauses` no longer widen a should-only body ([PR #21665](https://github.com/datahub-project/datahub/pull/21665))
+
+A search template's `clauses` are merged into the bool its `query` renders. When that bool had `should` clauses but no `must`, `filter` or `minimum_should_match`, a `must` or `filter` added through `clauses` made those `should` clauses optional, so the search returned everything the clause allowed instead of the body's matches. Such a body now keeps `minimum_should_match: 1`, so a result has to match one of its `should` clauses, or a `should` added through `clauses`.
+
+No shipped template has this shape. A custom template that relied on the wider result can set `"minimum_should_match": 0` on its body's bool to keep it. An explicit `minimum_should_match` is applied as written.
+
 ### `gitlab-documents` takes its projects from `repositories`; `repository` is deprecated
 
 The `gitlab-documents` source now reads a list of projects from `repositories` ([PR #21683](https://github.com/datahub-project/datahub/pull/21683)), and can read every project in a `group`. The single-project `repository` option still works and logs a deprecation warning, but it is no longer documented and will be removed.
