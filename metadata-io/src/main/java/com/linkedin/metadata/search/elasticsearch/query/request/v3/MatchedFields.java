@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -40,10 +39,11 @@ import org.tartarus.snowball.ext.EnglishStemmer;
  * the query, as the shared fields' {@code stemmed} subfields do, or starts with the last word of
  * the query, as their phrase prefix does; an identifier such as {@code customer_id} also matches by
  * its parts, as the analyzers index them. A one-word synonym of the query or of one of its words,
- * from the equivalence lines of the synonym files, matches like the word, after a typed word. This
- * is best effort: multi-word synonyms and explicit synonym rules are not applied, words are split
- * on what is not a letter, a digit or an underscore even when a main tokenizer is configured, and
- * as on V2 only the first matching value of a field is reported.
+ * from the equivalence lines of the synonym files, matches like the word, but a field reports it
+ * only when no typed word matched that field. This is best effort: multi-word synonyms and explicit
+ * synonym rules are not applied, words are split on what is not a letter, a digit or an underscore
+ * even when a main tokenizer is configured, and as on V2 only the first matching value of a field
+ * is reported.
  *
  * <p>One instance serves one query, for the hits of one response, from one thread.
  */
@@ -119,8 +119,9 @@ public final class MatchedFields {
   }
 
   /**
-   * One pass over the fetched values. Each field stops at its first match. The explanation is
-   * filled only when {@code includeExplain} is set, from that same match.
+   * Each fetched path stops at its first match, reported under {@code names}. A path whose value
+   * holds only a synonym is left out when another path of the same name holds a typed word. The
+   * explanation is filled only when {@code includeExplain} is set, from the same matches.
    */
   @Nonnull
   public SearchHitMatches matches(
@@ -128,70 +129,84 @@ public final class MatchedFields {
       @Nonnull final Collection<String> fields,
       @Nonnull final Map<String, String> names,
       final boolean includeExplain) {
-    final List<List<String>> groups = new ArrayList<>();
+    final List<Map.Entry<String, List<String>>> groups = new ArrayList<>();
     for (String field : fields) {
-      groups.add(List.of(field));
+      groups.add(Map.entry(names.getOrDefault(field, field), List.of(field)));
     }
-    return scan(source, groups, names, includeExplain);
+    return scan(source, groups, includeExplain);
   }
 
   /**
-   * One value per reported name, where several fetched paths report the same name: the first value
-   * that holds a typed word across those paths, else the first that holds only a synonym. Paths
-   * keep their order within a name.
+   * One value per name, from the paths listed for it in order: the first value that holds a typed
+   * word, else the first that holds only a synonym. A path can be listed under more than one name.
    */
   @Nonnull
   public SearchHitMatches firstPerName(
       @Nonnull final Map<String, Object> source,
-      @Nonnull final Collection<String> fields,
-      @Nonnull final Map<String, String> names,
+      @Nonnull final Map<String, List<String>> pathsByName,
       final boolean includeExplain) {
-    final Map<String, List<String>> byName = new LinkedHashMap<>();
-    for (String field : fields) {
-      byName
-          .computeIfAbsent(names.getOrDefault(field, field), ignored -> new ArrayList<>())
-          .add(field);
-    }
-    return scan(source, List.copyOf(byName.values()), names, includeExplain);
+    return scan(source, List.copyOf(pathsByName.entrySet()), includeExplain);
   }
 
+  /**
+   * Typed words first, across every group of a name, then synonyms for the names that no typed word
+   * matched.
+   */
   @Nonnull
   private SearchHitMatches scan(
       @Nonnull final Map<String, Object> source,
-      @Nonnull final List<List<String>> groups,
-      @Nonnull final Map<String, String> names,
+      @Nonnull final List<Map.Entry<String, List<String>>> groups,
       final boolean includeExplain) {
     if (lastQueryForms.isEmpty()) {
       return SearchHitMatches.EMPTY;
     }
+    final List<ValueMatch> found = new ArrayList<>();
+    final Set<String> typed = new HashSet<>();
+    for (Map.Entry<String, List<String>> group : groups) {
+      final ValueMatch match = firstValue(source, group.getValue(), false);
+      found.add(match);
+      if (match != null) {
+        typed.add(group.getKey());
+      }
+    }
     final List<MatchedField> matchedFields = new ArrayList<>();
     final List<MatchEvidence> evidence = new ArrayList<>();
-    for (List<String> group : groups) {
-      // A value that holds a typed word is reported ahead of one that holds only a synonym.
-      scanGroup:
-      for (boolean synonyms : new boolean[] {false, true}) {
-        if (synonyms && synonymStems.isEmpty()) {
-          break;
-        }
-        for (String field : group) {
-          final String reported = names.getOrDefault(field, field);
-          for (Object value : values(at(source, field))) {
-            final String text = String.valueOf(value);
-            final int match = synonyms ? firstSynonymMatch(text) : firstMatch(text);
-            if (match >= 0) {
-              matchedFields.add(
-                  new MatchedField().setName(reported).setValue(fragment(text, match)));
-              if (includeExplain) {
-                evidence.add(evidence(reported, text, match));
-              }
-              break scanGroup;
-            }
-          }
+    for (int i = 0; i < groups.size(); i++) {
+      final String name = groups.get(i).getKey();
+      ValueMatch match = found.get(i);
+      if (match == null && !synonymStems.isEmpty() && !typed.contains(name)) {
+        match = firstValue(source, groups.get(i).getValue(), true);
+      }
+      if (match != null) {
+        matchedFields.add(
+            new MatchedField().setName(name).setValue(fragment(match.text(), match.start())));
+        if (includeExplain) {
+          evidence.add(evidence(name, match.text(), match.start()));
         }
       }
     }
     return new SearchHitMatches(matchedFields, evidence);
   }
+
+  /** The first value along {@code paths} that holds a typed word, or a synonym when asked. */
+  @Nullable
+  private ValueMatch firstValue(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final List<String> paths,
+      final boolean synonyms) {
+    for (String path : paths) {
+      for (Object value : values(at(source, path))) {
+        final String text = String.valueOf(value);
+        final int start = synonyms ? firstSynonymMatch(text) : firstMatch(text);
+        if (start >= 0) {
+          return new ValueMatch(text, start);
+        }
+      }
+    }
+    return null;
+  }
+
+  private record ValueMatch(@Nonnull String text, int start) {}
 
   /**
    * {@code names} reports a fetched path under another name. A nulled URN label is fetched from the

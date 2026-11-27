@@ -6,6 +6,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.search.MatchedField;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.testng.annotations.Test;
@@ -109,6 +110,7 @@ public class MatchedFieldsTest {
 
   /**
    * Across the paths that report one name, a typed match is reported ahead of a synonym-only one.
+   * Typed matches on several paths of a name are all kept.
    */
   @Test
   public void testTypedWordsWinAcrossThePathsOfOneName() {
@@ -118,12 +120,31 @@ public class MatchedFieldsTest {
     List<String> paths = List.of("name", "editedName");
     Map<String, String> names = Map.of("editedName", "name");
     List<MatchedField> perPath = new MatchedFields("staging", 0).find(source, paths, names);
-    assertEquals(perPath.size(), 2);
+    assertEquals(perPath.size(), 1);
+    assertEquals(perPath.get(0).getValue(), "Staging Orders");
     List<MatchedField> perName =
-        new MatchedFields("staging", 0).firstPerName(source, paths, names, false).matched();
+        new MatchedFields("staging", 0)
+            .firstPerName(source, Map.of("name", paths), false)
+            .matched();
     assertEquals(perName.size(), 1);
     assertEquals(perName.get(0).getName(), "name");
     assertEquals(perName.get(0).getValue(), "Staging Orders");
+    source.put("name", "staging_orders");
+    assertEquals(new MatchedFields("staging", 0).find(source, paths, names).size(), 2);
+  }
+
+  /** A path listed under two names reports both. */
+  @Test
+  public void testAPathListedUnderTwoNamesReportsBoth() {
+    Map<String, List<String>> pathsByName = new LinkedHashMap<>();
+    pathsByName.put("name", List.of("name", "alias"));
+    pathsByName.put("alias", List.of("alias"));
+    List<MatchedField> matched =
+        new MatchedFields("orders", 0)
+            .firstPerName(Map.of("name", "unrelated", "alias", "orders_term"), pathsByName, false)
+            .matched();
+    assertEquals(names(matched), List.of("name", "alias"));
+    assertEquals(matched.get(0).getValue(), "orders_term");
   }
 
   /** A value holding a typed word is reported ahead of one that holds only a synonym. */

@@ -327,9 +327,11 @@ public final class SearchTemplateRequestApplier {
   }
 
   /**
-   * Scans label keys first, then stored paths already fetched for labels that are not stored on the
-   * label. {@link #addFirst} keeps one value per field, so a label hit does not hide a different
-   * label's stored source and does not report the same label twice.
+   * Scans each label's key together with the stored paths fetched for it, so a typed match on any
+   * of them is reported ahead of a synonym-only one, then the structured-property paths. A label
+   * key keeps its own name when it is also a stored path of another label. {@link #addFirst} keeps
+   * one value per field, so a label hit does not hide a different label's stored source and does
+   * not report the same label twice.
    */
   private static void scanFields(
       @Nonnull Map<String, Object> source,
@@ -339,16 +341,19 @@ public final class SearchTemplateRequestApplier {
       @Nonnull List<MatchEvidence> ordinary,
       boolean explain) {
     if (!fields.labelKeys().isEmpty() || !fields.fallbackPaths().isEmpty()) {
-      // One scan over a label's key and its fallback paths, so a typed match on any of them is
-      // reported ahead of a synonym-only one.
-      List<String> labelPaths = new ArrayList<>(fields.labelKeys());
-      fields.fallbackPaths().stream()
-          .filter(path -> !labelPaths.contains(path))
-          .forEach(labelPaths::add);
-      addFirst(
-          matched,
-          ordinary,
-          matcher.firstPerName(source, labelPaths, fields.fallbackLabels(), explain));
+      Map<String, List<String>> pathsByName = new LinkedHashMap<>();
+      for (String key : fields.labelKeys()) {
+        pathsByName.putIfAbsent(key, new ArrayList<>(List.of(key)));
+      }
+      for (String path : fields.fallbackPaths()) {
+        List<String> paths =
+            pathsByName.computeIfAbsent(
+                fields.fallbackLabels().getOrDefault(path, path), ignored -> new ArrayList<>());
+        if (!paths.contains(path)) {
+          paths.add(path);
+        }
+      }
+      addFirst(matched, ordinary, matcher.firstPerName(source, pathsByName, explain));
     }
     if (!fields.direct().isEmpty()) {
       addFirst(matched, ordinary, matcher.matches(source, fields.direct(), Map.of(), explain));
