@@ -11,6 +11,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
@@ -203,6 +204,17 @@ public class SiblingGraphService {
     return (entityLineageResult != null && entityLineageResult.getFiltered() != null
         ? entityLineageResult.getFiltered()
         : 0);
+  }
+
+  private static boolean isPartial(@Nullable EntityLineageResult entityLineageResult) {
+    return entityLineageResult != null
+        && Boolean.TRUE.equals(entityLineageResult.isPartial(GetMode.NULL));
+  }
+
+  @Nullable
+  private static LineagePartialReason partialReason(
+      @Nullable EntityLineageResult entityLineageResult) {
+    return entityLineageResult == null ? null : entityLineageResult.getPartialReason(GetMode.NULL);
   }
 
   /**
@@ -591,6 +603,14 @@ public class SiblingGraphService {
     combinedLineageResult.setCount(uniqueFilteredRelationships.size());
     combinedLineageResult.setFiltered(
         numFiltered + getFiltered(existingResult) + getFiltered(entityLineageResult));
+    if (entityLineageResult.hasPartial()
+        || (existingResult != null && existingResult.hasPartial())) {
+      combinedLineageResult.setPartial(isPartial(entityLineageResult) || isPartial(existingResult));
+      combinedLineageResult.setPartialReason(
+          LineagePartialReasons.combine(
+              partialReason(entityLineageResult), partialReason(existingResult)),
+          SetMode.REMOVE_IF_NULL);
+    }
     return ValidationUtils.validateEntityLineageResult(
         opContext, combinedLineageResult, _entityService, includeGhostEntities);
   }

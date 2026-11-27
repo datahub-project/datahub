@@ -93,7 +93,7 @@ test.describe('SageMaker Models', () => {
       mlEntitiesPage = new MLEntitiesPage(page, logger, logDir);
     });
 
-    test('can visit sagemaker model group with description', async ({ logger }) => {
+    test('can visit sagemaker model group with description', { tag: [DomainTag.Catalog] }, async ({ logger }) => {
       logger.step('Navigate to model group page');
       await mlEntitiesPage.navigateToMLModelGroup(TEST_DATA.SAGEMAKER_GROUP_URN);
 

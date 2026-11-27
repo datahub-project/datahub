@@ -4,6 +4,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { TagsPage } from '../../pages/tags.page';
+import { DomainTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'manage-tags' });
 
@@ -18,11 +19,11 @@ test.describe('tags - search / filter', () => {
     await tagsPage.navigate();
   });
 
-  test('should have search bar with correct placeholder', async () => {
+  test('should have search bar with correct placeholder', { tag: [DomainTag.Catalog] }, async () => {
     await tagsPage.expectSearchPlaceholder();
   });
 
-  test('should show empty state when searching for a non-existent tag', async () => {
+  test('should show empty state when searching for a non-existent tag', { tag: [DomainTag.Catalog] }, async () => {
     await tagsPage.expectPageTitle();
     await tagsPage.expectTagNameVisible(TAG_URN, TAG_NAME);
 
@@ -31,7 +32,7 @@ test.describe('tags - search / filter', () => {
     await tagsPage.expectTagsNotFound();
   });
 
-  test('should show page title and filter tags by name', async () => {
+  test('should show page title and filter tags by name', { tag: [DomainTag.Catalog] }, async () => {
     await tagsPage.expectPageTitle();
     await tagsPage.expectTagNameVisible(TAG_URN, TAG_NAME);
 

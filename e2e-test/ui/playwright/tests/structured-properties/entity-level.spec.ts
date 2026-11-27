@@ -48,7 +48,7 @@ test.describe('Entity-level Structured Properties', () => {
     },
   );
 
-  test('Verify removing a structured property from an entity', async ({ cleanup }) => {
+  test('Verify removing a structured property from an entity', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     const propertyName = withRandomSuffix('prop-remove');
     const propertyUrn = await structuredPropertiesPage.createStructuredProperty({
       name: propertyName,
@@ -77,7 +77,7 @@ test.describe('Entity-level Structured Properties', () => {
     cleanup.track(propertyUrn);
   });
 
-  test('Verify editing a structured property on an entity', async ({ cleanup }) => {
+  test('Verify editing a structured property on an entity', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     const propertyName = withRandomSuffix('prop-edit');
     const propertyUrn = await structuredPropertiesPage.createStructuredProperty({
       name: propertyName,
@@ -108,7 +108,7 @@ test.describe('Entity-level Structured Properties', () => {
     cleanup.track(propertyUrn);
   });
 
-  test('Verify the absence of hidden structured property', async ({ cleanup }) => {
+  test('Verify the absence of hidden structured property', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     test.setTimeout(120000);
     const propertyName = withRandomSuffix('prop-hidden');
     const propertyUrn = await structuredPropertiesPage.createStructuredProperty({

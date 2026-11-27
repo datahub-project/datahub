@@ -46,6 +46,9 @@ export interface RecipeField {
     fields?: RecipeField[];
     getValueFromRecipeOverride?: (recipe: any) => any;
     setValueOnRecipeOverride?: (recipe: any, value: any) => any;
+    // Re-run the setter on every recipe change, not only when this field changes,
+    // so a legacy key is rewritten even when the user edits another field.
+    migrateOnEveryChange?: boolean;
     placeholder?: string;
     defaultValue?: string; // Default value to pre-populate the field (distinct from placeholder hint text)
 }

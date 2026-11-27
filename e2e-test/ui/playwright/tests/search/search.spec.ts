@@ -26,7 +26,7 @@ test.describe('Search Functionality', () => {
     await searchPage.expectHasResults();
   });
 
-  test('should search with impossible query and find 0 results', async () => {
+  test('should search with impossible query and find 0 results', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('zzzzzzzzzzzzzqqqqqqqqqqqqqzzzzzzqzqzqzqzq');
     await searchPage.expectNoResults();
   });
@@ -55,7 +55,7 @@ test.describe('Search Functionality', () => {
     },
   );
 
-  test('should filter by glossary term', async () => {
+  test('should filter by glossary term', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Glossary-Term', 'PlaywrightTerm');
     await searchPage.expectUrlContains('filter_glossaryTerms');
@@ -63,14 +63,14 @@ test.describe('Search Functionality', () => {
     await searchPage.expectHasResults();
   });
 
-  test('should search and filter by glossary term', async () => {
+  test('should search and filter by glossary term', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Glossary-Term', 'PlaywrightTerm');
     await searchPage.expectUrlContains('filter_glossaryTerms');
     await searchPage.expectHasResults();
   });
 
-  test('should combine glossary term filter with text search', async () => {
+  test('should combine glossary term filter with text search', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('playwright');
     await searchPage.selectFilterOption('Glossary-Term', 'PlaywrightTerm');
     await searchPage.expectUrlContains('filter_glossaryTerms');
@@ -78,7 +78,7 @@ test.describe('Search Functionality', () => {
     await searchPage.expectActiveFilter('PlaywrightTerm');
   });
 
-  test('should filter by multiple values using glossary terms', async () => {
+  test('should filter by multiple values using glossary terms', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Glossary-Term', 'PlaywrightTerm');
     await searchPage.expectUrlContains('filter_glossaryTerms');

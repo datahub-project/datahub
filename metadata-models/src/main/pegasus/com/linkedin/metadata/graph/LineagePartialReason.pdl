@@ -1,0 +1,18 @@
+namespace com.linkedin.metadata.graph
+
+/**
+ * Why a lineage result is partial
+ */
+enum LineagePartialReason {
+
+  /**
+   * The walk stopped at the maxRelations limit. Walking again returns the same truncation.
+   */
+  MAX_RELATIONS
+
+  /**
+   * Part of the graph was not read because a hop timed out or a batch, slice or shard failed.
+   * Walking again may return more.
+   */
+  INCOMPLETE_FETCH
+}

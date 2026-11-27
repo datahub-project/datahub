@@ -54,7 +54,7 @@
                 {
                     "fieldPath": "txn_ref_dt",
                     "nullable": true,
-                    "description": "Reference date for the transaction. Use this date in reports and aggregation rather than txn_mystical_dt, as it is slightly too mystical.",
+                    "description": "Reference date for the transaction. Use this date in reports and aggregation rather than txn_mystical_dt, as it is slightly too mystical.\n\n**Business name:** Transaction reference date",
                     "type": {
                         "type": {
                             "com.linkedin.schema.DateType": {}
@@ -110,7 +110,7 @@
                         {
                             "fieldPath": "txn_ref_dt",
                             "nullable": true,
-                            "description": "Reference date for the transaction. Use this date in reports and aggregation rather than txn_mystical_dt, as it is slightly too mystical.",
+                            "description": "Reference date for the transaction. Use this date in reports and aggregation rather than txn_mystical_dt, as it is slightly too mystical.\n\n**Business name:** Transaction reference date",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.DateType": {}

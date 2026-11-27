@@ -1,14 +1,20 @@
 import json
 import ssl
 import threading
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from websocket import WebSocketBadStatusException
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.qlik_sense.chart_fields import (
+    app_field_key,
+    get_chart_input_fields,
+    index_app_fields,
+)
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
@@ -22,7 +28,7 @@ from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import (
     UNPUBLISHED_APPS_NAME,
     QlikOnPremAPI,
-    _QrsAdapter,
+    QrsAdapter,
 )
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
@@ -30,7 +36,9 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    REFUSED_RETRY_SECONDS,
     EngineError,
+    RefusedConnectionBudget,
     WebsocketConnection,
 )
 from datahub.metadata.schema_classes import (
@@ -332,9 +340,10 @@ def test_items_of_next_space_are_listed_only_after_first_item_is_taken(
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
     with patch.object(api, "_list_items", side_effect=list_items):
         items = api._items_in_turn(["stream-1", "stream-2"])
-        assert next(items) == ("stream-1", {"id": "stream-1-0"})
+        first = next(items)
+        assert (first.space_id, first.item) == ("stream-1", {"id": "stream-1-0"})
         assert listed == ["stream-1"]
-        assert [item["id"] for _, item in items] == [
+        assert [listed_item.item["id"] for listed_item in items] == [
             "stream-2-0",
             "stream-1-1",
             "stream-2-1",
@@ -354,7 +363,7 @@ def test_onprem_unexpected_app_error_records_app_id(
     with patch.object(api, "_read_app", side_effect=RuntimeError("boom")):
         assert list(api.get_items(["stream-1"])) == []
 
-    assert api.unread_items == [UnreadItem(name=APP["id"], cause="boom")]
+    assert api.unread_items == [UnreadItem(name=APP["id"], cause="RuntimeError: boom")]
 
 
 def test_chart_keeps_dimension_in_error_state() -> None:
@@ -795,7 +804,7 @@ def test_onprem_reads_chart_field_expressions(
 def test_chart_input_fields_match_app_fields() -> None:
     orders = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
     customers = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = index_app_fields(
         {
             orders: [SchemaField(name="order_id"), SchemaField(name="Net Sales")],
             customers: [
@@ -817,7 +826,7 @@ def test_chart_input_fields_match_app_fields() -> None:
 
     assert [
         (field.dataset_urn, field.field.name)
-        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+        for field in get_chart_input_fields(chart, app_fields)
     ] == [
         (orders, "Net Sales"),
         (customers, "Region"),
@@ -966,7 +975,7 @@ def test_chart_inputs_when_fields_are_unknown(
         "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)",
     ]
     # A SQL SELECT * script table has no known columns.
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = index_app_fields(
         {app_tables[0]: [], app_tables[1]: [SchemaField(name="Region")]}
     )
 
@@ -993,7 +1002,7 @@ def test_field_names_match_in_any_case_only_for_script_tables() -> None:
     model_a = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.a,PROD)"
     model_b = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.b,PROD)"
     script = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = index_app_fields(
         {
             model_a: [SchemaField(name="ID")],
             model_b: [SchemaField(name="id")],
@@ -1006,14 +1015,14 @@ def test_field_names_match_in_any_case_only_for_script_tables() -> None:
 
     assert [
         (field.dataset_urn, field.field.name)
-        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+        for field in get_chart_input_fields(chart, app_fields)
     ] == [(model_a, "ID"), (script, "amount")]
 
 
 def test_exact_match_does_not_hide_script_table_in_other_case() -> None:
     model = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.a,PROD)"
     script = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = index_app_fields(
         {model: [SchemaField(name="order_id")], script: [SchemaField(name="ORDER_ID")]},
         script_table_urns={script},
     )
@@ -1022,27 +1031,22 @@ def test_exact_match_does_not_hide_script_table_in_other_case() -> None:
 
     assert [
         (field.dataset_urn, field.field.name)
-        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+        for field in get_chart_input_fields(chart, app_fields)
     ] == [(model, "order_id"), (script, "ORDER_ID")]
 
 
 def test_qualified_field_name_matches_before_derived_field() -> None:
     table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = index_app_fields(
         {table: [SchemaField(name="Orders.Region"), SchemaField(name="Orders")]}
     )
 
-    assert QlikSenseSource._app_field_key("Orders.Region", app_fields) == (
-        "Orders.Region"
-    )
-    assert QlikSenseSource._app_field_key("Orders.autoCalendar.Year", app_fields) == (
-        "Orders"
-    )
-    assert QlikSenseSource._app_field_key("Customers.Region", app_fields) is None
+    assert app_field_key("Orders.Region", app_fields) == ("Orders.Region")
+    assert app_field_key("Orders.autoCalendar.Year", app_fields) == ("Orders")
+    assert app_field_key("Customers.Region", app_fields) is None
     # A field whose own name contains a dot keeps it when a suffix is derived.
     assert (
-        QlikSenseSource._app_field_key("Orders.Region.autoCalendar.Year", app_fields)
-        == "Orders.Region"
+        app_field_key("Orders.Region.autoCalendar.Year", app_fields) == "Orders.Region"
     )
 
 
@@ -1105,9 +1109,7 @@ def test_input_fields_are_kept_when_measures_were_unread(
     chart.fields_complete = False
     chart.fields_unread = fields_unread
     table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
-        {table: [SchemaField(name="Region")]}
-    )
+    app_fields = index_app_fields({table: [SchemaField(name="Region")]})
 
     inputs = source._chart_inputs([chart], {}, app_fields, [table], False)
     workunits = list(source._gen_charts_workunit([chart], inputs, "app-1"))
@@ -1240,6 +1242,21 @@ def test_onprem_source_uses_onprem_client(
 
     mock_onprem.assert_called_once()
     mock_cloud.assert_not_called()
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_source_raises_when_qrs_cannot_be_reached(
+    mock_session_cls: MagicMock,
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = requests.ConnectionError("qrs unreachable")
+
+    with pytest.raises(requests.ConnectionError):
+        QlikSenseSource(
+            QlikSourceConfig.model_validate(ONPREM_CONFIG),
+            PipelineContext(run_id="test-onprem-connect"),
+        )
 
 
 def _script_tables(
@@ -1543,6 +1560,36 @@ def test_onprem_qrs_rejecting_the_connection_check_fails_fast(
         QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
 
 
+def _on_prem_warnings(**on_prem: object) -> List[Optional[str]]:
+    with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI"):
+        source = QlikSenseSource(
+            QlikSourceConfig.model_validate({"on_prem": {**ON_PREM, **on_prem}}),
+            PipelineContext(run_id="test-onprem"),
+        )
+    return [warning.title for warning in source.reporter.warnings]
+
+
+@pytest.mark.parametrize("read_data_model, warned", [(False, True), (True, False)])
+def test_binary_file_to_app_without_read_data_model_warns(
+    read_data_model: bool, warned: bool
+) -> None:
+    titles = _on_prem_warnings(
+        read_data_model=read_data_model,
+        binary_file_to_app={"lib://Apps/Sales.qvf": "app-1"},
+    )
+    assert ("binary_file_to_app is ignored" in titles) is warned
+
+
+@pytest.mark.parametrize("verify, warned", [(False, True), (True, False)])
+def test_server_cert_hostname_without_hostname_check_warns(
+    verify: bool, warned: bool
+) -> None:
+    titles = _on_prem_warnings(
+        server_cert_hostname="qlik.example.com", verify_server_hostname=verify
+    )
+    assert ("server_cert_hostname is not used for TLS" in titles) is warned
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api._presented_certificate")
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_onprem_logs_presented_certificate_when_tls_fails(
@@ -1672,7 +1719,201 @@ def test_cloud_app_read_failure_closes_engine_session(
         is None
     )
     websocket.close_websocket.assert_called_once()
-    assert api.unread_items == [UnreadItem(name="app-1", cause="Access denied")]
+    assert api.unread_items == [
+        UnreadItem(name="app-1", cause="RuntimeError: Access denied")
+    ]
+
+
+def _open_onprem_engine(refusals: RefusedConnectionBudget) -> WebsocketConnection:
+    return WebsocketConnection.for_on_prem(
+        host="qlik.example.com",
+        port=4747,
+        app_id="app-1",
+        user_header="UserDirectory=INTERNAL; UserId=sa_engine",
+        client_cert="/secrets/client.pem",
+        client_key="/secrets/client_key.pem",
+        root_cert="/secrets/root.pem",
+        refusals=refusals,
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_engine_connection_waits_for_the_engine(
+    mock_connect: MagicMock, mock_sleep: MagicMock
+) -> None:
+    # More refusals than transient errors are retried, as an Engine restart takes.
+    mock_connect.side_effect = [ConnectionRefusedError()] * 5 + [MagicMock()]
+    refusals = RefusedConnectionBudget()
+
+    _open_onprem_engine(refusals)
+
+    assert mock_connect.call_count == 6
+    assert {call.args for call in mock_sleep.call_args_list} == {
+        (REFUSED_RETRY_SECONDS,)
+    }
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_engine_connection_fails_at_once_after_the_budget(
+    mock_connect: MagicMock, mock_sleep: MagicMock
+) -> None:
+    mock_connect.side_effect = ConnectionRefusedError()
+    # Other workers have already waited out the budget.
+    spent = RefusedConnectionBudget(seconds=0)
+
+    with pytest.raises(ConnectionRefusedError):
+        _open_onprem_engine(spent)
+
+    assert mock_connect.call_count == 1
+    mock_sleep.assert_not_called()
+
+
+class _FakeClock:
+    """Time that only passes when the code under test sleeps or a test advances it."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds
+
+
+@pytest.fixture
+def engine_clock() -> Iterator[_FakeClock]:
+    clock = _FakeClock()
+    module = "datahub.ingestion.source.qlik_sense.websocket_connection.time"
+    with (
+        patch(f"{module}.monotonic", clock.monotonic),
+        patch(f"{module}.sleep", clock.sleep),
+    ):
+        yield clock
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_engine_connection_resets_the_refusal_budget(
+    mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_connect.side_effect = [
+        ConnectionRefusedError(),
+        ConnectionRefusedError(),
+        MagicMock(),
+        ConnectionRefusedError(),
+        MagicMock(),
+    ]
+    refusals = RefusedConnectionBudget(seconds=300)
+
+    _open_onprem_engine(refusals)
+    # Past the first refusal's budget, had the connection not reset it.
+    engine_clock.now += 400
+    _open_onprem_engine(refusals)
+
+    assert mock_connect.call_count == 5
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_other_engine_failure_starts_a_new_refusal_wait(
+    mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_connect.side_effect = [
+        ConnectionRefusedError(),
+        WebSocketBadStatusException("Handshake status 503", 503),
+        ConnectionRefusedError(),
+        MagicMock(),
+    ]
+    refusals = RefusedConnectionBudget(seconds=300)
+
+    with pytest.raises(WebSocketBadStatusException):
+        _open_onprem_engine(refusals)
+    # Past the first refusal's budget, had the other failure not reset it.
+    engine_clock.now += 2000
+    _open_onprem_engine(refusals)
+
+    assert mock_connect.call_count == 4
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refused_engine_connection_waits_at_most_one_step_past_the_budget(
+    mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_connect.side_effect = ConnectionRefusedError()
+    refusals = RefusedConnectionBudget(seconds=300)
+    engine_clock.now = 1000
+    refusals.record_refusal()
+    # Another worker's refusal started the count just before the budget ran out.
+    engine_clock.now += 299
+
+    with pytest.raises(ConnectionRefusedError):
+        _open_onprem_engine(refusals)
+
+    assert engine_clock.now - 1000 <= 300 + REFUSED_RETRY_SECONDS
+    assert mock_connect.call_count == 2
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_refusal_wait_is_bounded_when_other_reads_reset_the_count(
+    mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    refusals = RefusedConnectionBudget(seconds=300)
+
+    def refuse_after_another_read_timed_out(*args: object, **kwargs: object) -> None:
+        # Stops a read that would otherwise wait forever.
+        assert engine_clock.now < 3600
+        refusals.reset()
+        raise ConnectionRefusedError()
+
+    mock_connect.side_effect = refuse_after_another_read_timed_out
+
+    with pytest.raises(ConnectionRefusedError):
+        _open_onprem_engine(refusals)
+
+    assert engine_clock.now <= 300 + REFUSED_RETRY_SECONDS
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_engine_refusal_wait_is_reported_as_info(
+    mock_onprem: MagicMock, engine_clock: _FakeClock
+) -> None:
+    refusals = RefusedConnectionBudget()
+    refusals.record_refusal()
+    engine_clock.now += 4 * REFUSED_RETRY_SECONDS
+    refusals.reset()
+    mock_onprem.return_value.get_spaces.return_value = []
+    mock_onprem.return_value.unread_items = []
+    mock_onprem.return_value.engine_refusals = refusals
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+
+    list(source.get_workunits_internal())
+
+    assert "Qlik Engine refused connections" in [
+        info.title for info in source.reporter.infos
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_refusal_budget_is_shared_by_all_app_reads(
+    mock_session_cls: MagicMock, mock_connect: MagicMock, engine_clock: _FakeClock
+) -> None:
+    mock_session_cls.return_value.headers = {}
+    mock_connect.side_effect = ConnectionRefusedError()
+    api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+
+    with pytest.raises(ConnectionRefusedError):
+        api._open_engine("app-1")
+    assert mock_connect.call_count > 1
+    mock_connect.reset_mock()
+
+    with pytest.raises(ConnectionRefusedError):
+        api._open_engine("app-2")
+    assert mock_connect.call_count == 1
 
 
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
@@ -2071,7 +2312,7 @@ def test_engine_reply_wait_is_bounded(mock_connect: MagicMock) -> None:
 
 
 def test_qrs_adapter_passes_the_client_key_password() -> None:
-    adapter = _QrsAdapter(assert_hostname=None, key_password="key-password")
+    adapter = QrsAdapter(assert_hostname=None, key_password="key-password")
 
     assert adapter.poolmanager.connection_pool_kw["key_password"] == "key-password"
     assert "assert_hostname" not in adapter.poolmanager.connection_pool_kw

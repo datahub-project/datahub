@@ -6,15 +6,16 @@ import { radius, spacing } from '@components/theme';
 
 import { SizeOptions } from '@src/alchemy-components/theme/config';
 
-export const CheckboxContainer = styled.div<{ justifyContent?: 'center' | 'flex-start' | undefined; gap?: string }>(
-    ({ justifyContent, gap }) => ({
-        display: 'flex',
-        justifyContent: justifyContent ?? 'center',
-        alignItems: 'center',
-        gap,
-        padding: '0 4px',
-    }),
-);
+export const CheckboxContainer = styled.div<{
+    justifyContent?: 'center' | 'flex-start' | 'space-between' | undefined;
+    gap?: string;
+}>(({ justifyContent, gap }) => ({
+    display: 'flex',
+    justifyContent: justifyContent ?? 'center',
+    alignItems: 'center',
+    gap,
+    padding: '0 4px',
+}));
 
 export const Label = styled.div<{ clickable?: boolean }>(({ clickable, theme }) => ({
     ...formLabelTextStyles,

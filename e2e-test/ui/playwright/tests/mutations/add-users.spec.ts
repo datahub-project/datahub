@@ -14,6 +14,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
+import { DomainTag } from '../../utils/test-tags';
 
 // Shared state across serial tests
 let registeredEmail = '';
@@ -22,7 +23,7 @@ test.describe.skip('add_user', () => {
   // Tests share the registered user created in test 1
   test.describe.configure({ mode: 'serial' });
 
-  test('go to user link and invite a user', async ({ page }) => {
+  test('go to user link and invite a user', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const number = Math.floor(Math.random() * 100000);
     const name = `Example Name ${number}`;
     const email = `example${number}@example.com`;
@@ -67,14 +68,18 @@ test.describe.skip('add_user', () => {
     await expect(page.getByText('Failed to log in! An unexpected error occurred.')).toBeVisible({ timeout: 15000 });
   });
 
-  test("Verify you can't generate a reset password link for a non-native user", async ({ page }) => {
-    await page.goto('/settings/identities/users');
-    await expect(page.getByText('Invite Users')).toBeVisible({ timeout: 15000 });
-    await page.getByTestId('userItem-non-native').first().click();
-    await expect(page.getByTestId('reset-menu-item')).toHaveAttribute('aria-disabled', 'true');
-  });
+  test(
+    "Verify you can't generate a reset password link for a non-native user",
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await page.goto('/settings/identities/users');
+      await expect(page.getByText('Invite Users')).toBeVisible({ timeout: 15000 });
+      await page.getByTestId('userItem-non-native').first().click();
+      await expect(page.getByTestId('reset-menu-item')).toHaveAttribute('aria-disabled', 'true');
+    },
+  );
 
-  test('Generate a reset password link for a native user', async ({ page }) => {
+  test('Generate a reset password link for a native user', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await page.goto('/settings/identities/users');
     await expect(page.getByText('Invite Users')).toBeVisible({ timeout: 15000 });
 

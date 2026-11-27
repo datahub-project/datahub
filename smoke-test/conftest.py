@@ -1,1 +1,4 @@
-pytest_plugins = ["utilities.agent_reporter"]
+pytest_plugins = [
+    "utilities.agent_reporter",
+    "utilities.backend_plugin",
+]

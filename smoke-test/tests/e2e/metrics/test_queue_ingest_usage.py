@@ -22,11 +22,15 @@ from tests.e2e.utils import (
     get_kafka_schema_registry,
     get_queue_ingest_prometheus_url,
 )
+from utilities.backends import Capability
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [
+    pytest.mark.domain(Domain.PLATFORM),
+    pytest.mark.requires(Capability.KAFKA),
+]
 
 
 def _fetch_messaging_ingest_total(prom_url: str) -> float:

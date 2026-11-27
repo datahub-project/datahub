@@ -11,10 +11,12 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.DocumentState;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
+import com.linkedin.datahub.graphql.resolvers.search.QueryEmbeddingFailures;
 import com.linkedin.datahub.graphql.types.knowledge.DocumentMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.entity.EntityResponse;
@@ -34,6 +36,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldRes
 import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -48,6 +51,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.function.FailableFunction;
 
 /**
  * Resolver used for searching Documents with hybrid semantic search and advanced filtering support.
@@ -146,8 +150,7 @@ public class SearchDocumentsResolver
                     : mapAuditSortField(context.getOperationContext(), sortCriteria.get(0));
 
             // Mirror AggregateAcrossEntitiesResolver: optional facets + searchFlags (maxAggValues).
-            // Flags are applied inside DocumentService so GraphQL unit tests that mock the
-            // service never need a fully active OperationContext for withSearchFlags.
+            // Flags are applied inside DocumentService, which copies only the ones it supports.
             final List<String> facets =
                 input.getFacets() != null && !input.getFacets().isEmpty()
                     ? input.getFacets()
@@ -157,21 +160,38 @@ public class SearchDocumentsResolver
                     ? mapInputFlags(context, input.getSearchFlags())
                     : null;
 
-            final SearchResult gmsResult;
-            try {
-              gmsResult =
-                  _documentService.searchDocuments(
-                      context.getOperationContext().withAnchorFilter(anchorFilter),
-                      query,
-                      filter,
-                      sortCriterion,
-                      start,
-                      count,
-                      facets,
-                      searchFlags);
-            } catch (Exception e) {
-              throw new RuntimeException("Failed to search documents", e);
-            }
+            // A template the caller names may embed the query, which fails typed or, with the
+            // caller's flag, falls back to the same search without that template. The fallback
+            // reads the flag off the context it is given and drops the template from that
+            // context's flags, so each attempt hands the service its context's flags; the service
+            // runs on the anchored context and applies only the flags it copies.
+            final OperationContext anchored =
+                context.getOperationContext().withAnchorFilter(anchorFilter);
+            final Filter searchFilter = filter;
+            final FailableFunction<OperationContext, SearchResult, RemoteInvocationException>
+                search =
+                    attempt -> {
+                      try {
+                        return _documentService.searchDocuments(
+                            anchored,
+                            query,
+                            searchFilter,
+                            sortCriterion,
+                            start,
+                            count,
+                            facets,
+                            searchFlags == null
+                                ? null
+                                : attempt.getSearchContext().getSearchFlags());
+                      } catch (Exception e) {
+                        throw new RuntimeException("Failed to search documents", e);
+                      }
+                    };
+            final SearchResult gmsResult =
+                QueryEmbeddingFailures.searchWithKeywordFallback(
+                    searchFlags == null ? anchored : anchored.withSearchFlags(flags -> searchFlags),
+                    search,
+                    searchFlags != null && searchFlags.hasSearchTemplate() ? search : null);
 
             final List<Urn> documentUrns =
                 gmsResult.getEntities().stream()
@@ -213,6 +233,9 @@ public class SearchDocumentsResolver
             }
 
             return result;
+          } catch (DataHubGraphQLException e) {
+            // Already typed, as a query embedding failure is
+            throw e;
           } catch (Exception e) {
             log.error("Failed to search documents: {}", e.getMessage());
             throw new RuntimeException("Failed to search documents", e);

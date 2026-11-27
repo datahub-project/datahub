@@ -32,7 +32,7 @@ test.describe('Application Management Page', () => {
     logger?.info('Initialized ApplicationsPage');
   });
 
-  test('should verify search input placeholder and page title', async ({ logger }) => {
+  test('should verify search input placeholder and page title', { tag: [DomainTag.Catalog] }, async ({ logger }) => {
     logger?.info('Test: Verify search input placeholder and page title');
     await applicationsPage.navigateToApplicationsPage();
     await applicationsPage.verifyPageTitle();
@@ -40,16 +40,20 @@ test.describe('Application Management Page', () => {
     logger?.info('✓ Test passed');
   });
 
-  test('should verify search returns no results for non-existent application', async ({ logger }) => {
-    logger?.info('Test: Verify search returns no results');
-    await applicationsPage.navigateToApplicationsPage();
-    await applicationsPage.verifyPageTitle();
-    await applicationsPage.verifyPageLoaded();
-    logger?.info('Searching for non-existent application: testtestnomatch');
-    await applicationsPage.searchApplication('testtestnomatch');
-    await applicationsPage.verifyNoSearchResults();
-    logger?.info('✓ Test passed');
-  });
+  test(
+    'should verify search returns no results for non-existent application',
+    { tag: [DomainTag.Catalog] },
+    async ({ logger }) => {
+      logger?.info('Test: Verify search returns no results');
+      await applicationsPage.navigateToApplicationsPage();
+      await applicationsPage.verifyPageTitle();
+      await applicationsPage.verifyPageLoaded();
+      logger?.info('Searching for non-existent application: testtestnomatch');
+      await applicationsPage.searchApplication('testtestnomatch');
+      await applicationsPage.verifyNoSearchResults();
+      logger?.info('✓ Test passed');
+    },
+  );
 
   test(
     'should create and delete an application',

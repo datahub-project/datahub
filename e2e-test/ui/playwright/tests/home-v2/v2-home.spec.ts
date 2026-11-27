@@ -19,6 +19,7 @@ import { test } from '../../fixtures/base-test';
 import { HomeV2Page } from '../../pages/home-v2.page';
 import { NavbarPage } from '../../pages/navbar.page';
 import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag } from '../../utils/test-tags';
 
 test.describe('home page v2', () => {
   let homePage: HomeV2Page;
@@ -31,7 +32,7 @@ test.describe('home page v2', () => {
     await homePage.skipIntroducePage();
   });
 
-  test('home page shows content container and navbar', async () => {
+  test('home page shows content container and navbar', { tag: [DomainTag.Catalog] }, async () => {
     await homePage.navigateToHome();
 
     await homePage.verifyHomePageContentContainerExists();

@@ -40,12 +40,12 @@ test.describe('manage service accounts', () => {
     await serviceAccountsPage.deleteServiceAccount(name);
   });
 
-  test('cancel creating service account should not create one', async () => {
+  test('cancel creating service account should not create one', { tag: [DomainTag.Catalog] }, async () => {
     const id = getUniqueTestId();
     await serviceAccountsPage.cancelCreateServiceAccount(`Cancel Test ${id}`);
   });
 
-  test('cancel deleting service account should keep it in the list', async () => {
+  test('cancel deleting service account should keep it in the list', { tag: [DomainTag.Catalog] }, async () => {
     const id = getUniqueTestId();
     const name = `Keep Test ${id}`;
 

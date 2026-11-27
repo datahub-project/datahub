@@ -48,6 +48,22 @@ public interface QueryContext {
   int getMaxParentDepth();
 
   /**
+   * Page size for a domain or glossary child listing when the caller omits {@code count}.
+   * Configured by graphQL.query.directChildDefaultCount.
+   */
+  default int getDirectChildDefaultCount() {
+    return 100;
+  }
+
+  /**
+   * Most children one domain or glossary child listing request may return. Configured by
+   * graphQL.query.directChildMaxCount.
+   */
+  default int getDirectChildMaxCount() {
+    return 1000;
+  }
+
+  /**
    * Max datasets one {@code siblingGroups} request may ask for; 0 turns the query off. GMS reads
    * graphQL.query.maxSiblingGroupUrns, which defaults to 0; contexts built without that
    * configuration also leave the query off.

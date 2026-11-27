@@ -49,15 +49,15 @@ const CountSegment = styled(Segment)`
 
 type Props = {
     starCount: number | null;
-    source: GithubStarClickEvent['source'];
+    sourceType: GithubStarClickEvent['sourceType'];
     className?: string;
     dataTestId?: string;
 };
 
-export default function GithubStarLink({ starCount, source, className, dataTestId = 'github-star-button' }: Props) {
+export default function GithubStarLink({ starCount, sourceType, className, dataTestId = 'github-star-button' }: Props) {
     const { t } = useTranslation('shared.misc');
 
-    const handleClick = () => analytics.event({ type: EventType.GithubStarClickEvent, source });
+    const handleClick = () => analytics.event({ type: EventType.GithubStarClickEvent, sourceType });
 
     return (
         <SplitButton

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.withSettings;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.expectThrows;
@@ -22,7 +23,7 @@ import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-/** {@link EntityClient#deleteEntityThenReferences}'s own implementation. */
+/** {@link EntityClient#deleteReferencesThenEntity}'s own implementation. */
 public class EntityClientDeleteAndReferencesTest {
 
   private static final Urn URN = UrnUtils.getUrn("urn:li:tag:deleteAndReferences");
@@ -41,10 +42,11 @@ public class EntityClientDeleteAndReferencesTest {
   @Test
   public void testTheEntityIsDeletedAndTheReferencesWaitForTheCaller() throws Exception {
     EntityClient.ReferencesCleanup references =
-        entityClient.deleteEntityThenReferences(opContext, URN);
+        entityClient.deleteReferencesThenEntity(opContext, URN);
 
     verify(entityClient).deleteEntity(opContext, URN);
     verify(entityClient, never()).deleteEntityReferences(any(), any());
+    assertEquals(references.choice(), EntityClient.ReferencesCleanup.Choice.REFERENCES_THEN_ENTITY);
 
     references.run();
 
@@ -60,7 +62,7 @@ public class EntityClientDeleteAndReferencesTest {
     doThrow(failure).when(entityClient).deleteEntityReferences(opContext, URN);
 
     EntityClient.ReferencesCleanup references =
-        entityClient.deleteEntityThenReferences(opContext, URN);
+        entityClient.deleteReferencesThenEntity(opContext, URN);
 
     assertSame(expectThrows(RemoteInvocationException.class, references::run), failure);
   }
@@ -71,7 +73,7 @@ public class EntityClientDeleteAndReferencesTest {
     doThrow(new IllegalStateException("delete")).when(entityClient).deleteEntity(opContext, URN);
 
     assertThrows(
-        IllegalStateException.class, () -> entityClient.deleteEntityThenReferences(opContext, URN));
+        IllegalStateException.class, () -> entityClient.deleteReferencesThenEntity(opContext, URN));
 
     verify(entityClient, never()).deleteEntityReferences(any(), any());
   }

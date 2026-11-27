@@ -20,6 +20,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      # Maven mirror + Gradle User Home restore. Read-only on the 'basic' provider
+      # so this job reuses the entry ci-cache-warmup.yml warm-metadata-io-gradle-home
+      # writes (same build-file-hash key) and never saves its own under that key,
+      # which a push to master would otherwise do on a miss.
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        with:
+          python: false
+          gradle-cache-provider: basic
+          gradle-cache-read-only: true
+
       - name: Generate quickstart compose file
         run: |
           ./gradlew :docker:generateQuickstartComposeConfig

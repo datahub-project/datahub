@@ -1228,8 +1228,11 @@ class SqlParsingAggregator(Closeable):
     ) -> None:
         """Add a table rename to the aggregator.
 
-        This will make all observed queries that reference the original urn
-        will instead generate lineage for the new urn.
+        This records the rename as a query with lineage from the original urn
+        to the new urn, including identity column-level lineage.
+
+        Other queries that reference the original urn are not redirected to
+        the new urn; they still generate lineage for the original urn.
         """
 
         self.report.num_table_renames += 1

@@ -6,6 +6,7 @@
     "addDataProductError": "Kohteiden lisääminen datatuotteeseen epäonnistui. Tapahtui tuntematon virhe.",
     "addDataProductModalTitle": "Lisää kohteita datatuotteeseen",
     "addDataProductTooltip": "Lisää kohteita datatuotteeseen",
+    "addDataProductUnauthorized": "Sinulla ei ole käyttöoikeutta lisätä kohteita tähän datatuotteeseen",
     "addDomainError": "Kohteiden lisääminen toimialueeseen epäonnistui: {{error}}",
     "addDomainModalTitle": "Lisää kohteita toimialueeseen",
     "addDomainTooltip": "Lisää kohteita toimialueeseen",

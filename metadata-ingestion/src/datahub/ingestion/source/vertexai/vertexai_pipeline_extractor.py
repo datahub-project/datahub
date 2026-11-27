@@ -1,6 +1,7 @@
 import logging
 import types
 from contextlib import AbstractContextManager, nullcontext
+from dataclasses import replace
 from datetime import timedelta
 from functools import partial
 from typing import (
@@ -8,6 +9,8 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Mapping,
+    Sequence,
     Set,
     Union,
 )
@@ -97,6 +100,13 @@ from datahub.utilities.urns.urn import guess_entity_type
 logger = logging.getLogger(__name__)
 
 
+def _as_mapping(value: object) -> Mapping[str, object]:
+    # A malformed spec must still fail the job's guarded build, not read as empty.
+    if not isinstance(value, Mapping):
+        raise TypeError(f"Expected a mapping in the pipeline spec, got {type(value)}")
+    return value
+
+
 class VertexAIPipelineExtractor:
     def __init__(
         self,
@@ -137,19 +147,25 @@ class VertexAIPipelineExtractor:
         self._emitted_pipeline_urns: Set[str] = set()
         self._emitted_task_urns: Set[str] = set()
 
+    @staticmethod
+    def _pipeline_spec(pipeline: PipelineJob) -> Mapping[str, object]:
+        resource = pipeline.gca_resource
+        if isinstance(resource, PipelineJobType):
+            # An absent Struct reads as None.
+            return resource.pipeline_spec or {}
+        return {}
+
     def _get_stable_pipeline_id(self, pipeline: PipelineJob) -> str:
         """
         Prefer pipeline_spec.pipelineInfo.name (set at compile time, unaffected by
         display_name edits) over display_name. Falls back to display_name with the
         Kubeflow timestamp suffix stripped for non-Kubeflow pipelines (e.g. AutoML).
         """
-        resource = pipeline.gca_resource
-        if isinstance(resource, PipelineJobType):
-            pipeline_info_name = resource.pipeline_spec.get("pipelineInfo", {}).get(
-                "name"
-            )
-            if pipeline_info_name:
-                return pipeline_info_name
+        pipeline_info = self._pipeline_spec(pipeline).get("pipelineInfo")
+        if isinstance(pipeline_info, Mapping):
+            name = pipeline_info.get("name")
+            if isinstance(name, str) and name:
+                return name
 
         name = pipeline.display_name or pipeline.name
         return KUBEFLOW_TIMESTAMP_SUFFIX_PATTERN.sub("", name)
@@ -170,6 +186,28 @@ class VertexAIPipelineExtractor:
             return list(pipeline.task_details)
 
         return self._read_detail(DetailCalls.PIPELINE_LOOKUP, read, item=pipeline.name)
+
+    def _keep_pipeline(self, pipeline: PipelineJob) -> None:
+        try:
+            flow_urn = str(self._flow_urn(pipeline))
+            container_urn = self._get_pipeline_container(
+                self._get_stable_pipeline_id(pipeline)
+            ).as_urn()
+        except Exception as e:
+            # Without a stable id the job's flow and folder have no URN, so every
+            # earlier pipeline is kept, as for a lost pipelines read.
+            logger.warning(
+                f"Cannot compute the stable id of pipeline {pipeline.name}",
+                exc_info=True,
+            )
+            lost = replace(
+                self._get_scope(), kind=DetailCalls.PIPELINE_BUILD, item=pipeline.name
+            )
+            self._carry.keep_all_flows(lost, cause=e)
+            self._carry.keep_all_containers(lost, cause=e, experiments=False)
+            return
+        self._carry.keep_flow(flow_urn)
+        self._carry.keep_urn(container_urn)
 
     def _get_pipeline_container(self, pipeline_name: str) -> PipelineContainerKey:
         return PipelineContainerKey(
@@ -228,15 +266,18 @@ class VertexAIPipelineExtractor:
 
             logger.debug(f"Fetching pipeline ({pipeline.name})")
             details = self._read_pipeline_task_details(pipeline)
-            if details.keep_previous:
-                self._carry.keep_flow(str(self._flow_urn(pipeline)))
-                self._carry.keep_urn(
-                    self._get_pipeline_container(
-                        self._get_stable_pipeline_id(pipeline)
-                    ).as_urn()
-                )
+            pipeline_meta = (
+                None
+                if details.keep_previous
+                else self._read_detail(
+                    DetailCalls.PIPELINE_BUILD,
+                    partial(self._get_pipeline_metadata, pipeline, details.value or []),
+                    item=pipeline.name,
+                ).value
+            )
+            if pipeline_meta is None:
+                self._keep_pipeline(pipeline)
                 continue
-            pipeline_meta = self._get_pipeline_metadata(pipeline, details.value or [])
             yield from self._get_pipeline_workunits(
                 pipeline, pipeline_meta, lookup_lost=details.value is None
             )
@@ -591,71 +632,74 @@ class VertexAIPipelineExtractor:
         for task in task_details:
             task_map[task.task_name] = task
 
-        resource = pipeline.gca_resource
-        if isinstance(resource, PipelineJobType):
-            for task_name in resource.pipeline_spec["root"]["dag"]["tasks"]:
-                logger.debug(
-                    f"fetching pipeline task ({task_name}) in pipeline ({pipeline.name})"
-                )
-                task_urn = DataJobUrn.create_from_ids(
-                    data_flow_urn=pipeline_urn.urn(),
-                    job_id=task_name,
-                )
-                task_meta = PipelineTaskMetadata(name=task_name, urn=task_urn)
+        spec_tasks = self._pipeline_spec(pipeline)
+        for key in ("root", "dag", "tasks"):
+            spec_tasks = _as_mapping(spec_tasks.get(key, {}))
+        for task_name in spec_tasks:
+            logger.debug(
+                f"fetching pipeline task ({task_name}) in pipeline ({pipeline.name})"
+            )
+            task_urn = DataJobUrn.create_from_ids(
+                data_flow_urn=pipeline_urn.urn(),
+                job_id=task_name,
+            )
+            task_meta = PipelineTaskMetadata(name=task_name, urn=task_urn)
 
-                dpi_urn = builder.make_data_process_instance_urn(
-                    self.name_formatter.format_pipeline_task_run_id(entity_id=task_name)
-                )
-                if (
-                    "dependentTasks"
-                    in resource.pipeline_spec["root"]["dag"]["tasks"][task_name]
+            dpi_urn = builder.make_data_process_instance_urn(
+                self.name_formatter.format_pipeline_task_run_id(entity_id=task_name)
+            )
+            task_spec = _as_mapping(spec_tasks[task_name])
+            if "dependentTasks" in task_spec:
+                upstream_tasks = task_spec["dependentTasks"]
+                if isinstance(upstream_tasks, (str, bytes)) or not isinstance(
+                    upstream_tasks, Sequence
                 ):
-                    upstream_tasks = resource.pipeline_spec["root"]["dag"]["tasks"][
-                        task_name
-                    ]["dependentTasks"]
-                    upstream_urls = [
-                        DataJobUrn.create_from_ids(
-                            data_flow_urn=pipeline_urn.urn(),
-                            job_id=upstream_task,
-                        )
-                        for upstream_task in upstream_tasks
-                    ]
-                    task_meta.upstreams = upstream_urls
+                    raise TypeError(
+                        f"Expected a list of dependentTasks, got {type(upstream_tasks)}"
+                    )
+                upstream_urls = [
+                    DataJobUrn.create_from_ids(
+                        data_flow_urn=pipeline_urn.urn(),
+                        job_id=str(upstream_task),
+                    )
+                    for upstream_task in upstream_tasks
+                ]
+                task_meta.upstreams = upstream_urls
 
-                task_detail = task_map.get(task_name)
-                if task_detail:
-                    task_meta.id = task_detail.task_id
-                    task_meta.state = task_detail.state
-                    task_meta.start_time = task_detail.start_time
-                    task_meta.create_time = task_detail.create_time
-                    if task_detail.end_time and task_meta.start_time:
-                        task_meta.end_time = task_detail.end_time
-                        if task_meta.start_time and task_meta.end_time:
-                            task_meta.duration = int(
-                                (
-                                    task_meta.end_time.timestamp()
-                                    - task_meta.start_time.timestamp()
-                                )
-                                * 1000
+            task_detail = task_map.get(task_name)
+            if task_detail:
+                task_meta.id = task_detail.task_id
+                task_meta.state = task_detail.state
+                task_meta.start_time = task_detail.start_time
+                task_meta.create_time = task_detail.create_time
+                if task_detail.end_time and task_meta.start_time:
+                    task_meta.end_time = task_detail.end_time
+                    if task_meta.start_time and task_meta.end_time:
+                        task_meta.duration = int(
+                            (
+                                task_meta.end_time.timestamp()
+                                - task_meta.start_time.timestamp()
                             )
+                            * 1000
+                        )
 
-                    read_artifacts = self._read_detail(
-                        DetailCalls.PIPELINE_TASK_ARTIFACTS,
-                        partial(
-                            self._extract_pipeline_task_artifacts,
-                            task_detail,
-                            dpi_urn,
-                        ),
-                        item=f"{pipeline_urn.flow_id}/{pipeline.name}/{task_name}",
-                    )
-                    artifacts = read_artifacts.value or PipelineTaskArtifacts()
-                    task_meta.input_dataset_urns = artifacts.input_dataset_urns
-                    task_meta.output_dataset_urns = artifacts.output_dataset_urns
-                    task_meta.output_model_resource_names = (
-                        artifacts.output_model_resource_names
-                    )
+                read_artifacts = self._read_detail(
+                    DetailCalls.PIPELINE_TASK_ARTIFACTS,
+                    partial(
+                        self._extract_pipeline_task_artifacts,
+                        task_detail,
+                        dpi_urn,
+                    ),
+                    item=f"{pipeline_urn.flow_id}/{pipeline.name}/{task_name}",
+                )
+                artifacts = read_artifacts.value or PipelineTaskArtifacts()
+                task_meta.input_dataset_urns = artifacts.input_dataset_urns
+                task_meta.output_dataset_urns = artifacts.output_dataset_urns
+                task_meta.output_model_resource_names = (
+                    artifacts.output_model_resource_names
+                )
 
-                tasks.append(task_meta)
+            tasks.append(task_meta)
         return tasks
 
     def _get_pipeline_metadata(

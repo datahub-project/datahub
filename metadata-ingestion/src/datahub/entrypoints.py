@@ -38,7 +38,6 @@ from datahub.cli.container_cli import container
 from datahub.cli.datapack.datapack_cli import datapack
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
-from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.cli.exists_cli import exists
 from datahub.cli.get_cli import get
 from datahub.cli.graphql_cli import graphql
@@ -63,7 +62,7 @@ from datahub.cli.specific.user_cli import user
 from datahub.cli.state_cli import state
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
-from datahub.configuration.env_vars import get_password, get_username
+from datahub.configuration.env_vars import get_debug, get_password, get_username
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.utilities._custom_package_loader import model_version_name
@@ -127,7 +126,7 @@ def datahub(
     context_pairs: tuple,
     profile: Optional[str] = None,
 ) -> None:
-    debug = debug or get_boolean_env_variable("DATAHUB_DEBUG", False)
+    debug = debug or get_debug()
 
     # Parse --context key=value pairs and store on Click context for telemetry.
     ctx.ensure_object(dict)

@@ -123,6 +123,18 @@ repos:
         # Also runs in CI via lint-jobs.yml smoke-test-lint, which is the real
         # guard - pre-commit is local convenience and no workflow invokes it.
         stages: [pre-commit]
+      - id: smoke-test-backend-markers
+        name: Smoke tests declare the backend capabilities they use
+        description:
+          A smoke test that uses Kafka, the SQL database or the docker CLI without
+          a requires(...) marker runs on the Docker-free local lane and fails there
+        entry: python3 .github/scripts/check_backend_markers.py
+        language: system
+        files: ^(smoke-test/.*\.py|\.github/scripts/check_backend_markers\.py)$
+        # The script globs smoke-test/tests/e2e itself; it needs the whole tree.
+        pass_filenames: false
+        # Also runs in CI via lint-jobs.yml smoke-test-lint.
+        stages: [pre-commit]
       - id: playwright-p0-tags
         name: Playwright P0 tags must not split serial chains
         description:

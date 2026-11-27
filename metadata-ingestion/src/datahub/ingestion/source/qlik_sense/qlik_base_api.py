@@ -12,27 +12,34 @@ from typing import (
     List,
     Optional,
     Sequence,
-    Tuple,
     Union,
 )
 
 import requests
+from pydantic import BaseModel, ConfigDict, SkipValidation
 
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
+    App,
     DataModelTable,
     Item,
+    LineageUpstreams,
     ListedDataset,
+    ReloadStatement,
     Sheet,
     Space,
     UnchangedApp,
     UnreadItem,
 )
+from datahub.ingestion.source.qlik_sense.report_text import describe_error
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     DataConnectionInfo,
     infer_data_connection,
 )
-from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    RefusedConnectionBudget,
+    WebsocketConnection,
+)
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
@@ -43,6 +50,7 @@ IsUnchanged = Callable[[str, str], bool]
 
 # The unread item a failed data connection listing records.
 UNREAD_DATA_CONNECTIONS = "data connections"
+UNREAD_SPACES = "spaces"
 
 
 def log_read_error(message: str) -> None:
@@ -66,6 +74,9 @@ class ReadErrors:
     sheets_unread: bool = False
     # Qlik Cloud answered 404 for the app's lineage graph.
     lineage_graph_missing: bool = False
+    # Labels of the app's lineage graph table nodes that matched no data model
+    # table.
+    unmatched_graph_tables: List[str] = field(default_factory=list)
 
     def record(self, message: str) -> None:
         log_read_error(message)
@@ -74,6 +85,21 @@ class ReadErrors:
     def record_fallback(self, message: str) -> None:
         logger.info(message)
         self.fallbacks.append(message)
+
+
+class SpaceItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    space_id: str
+    # The item as the API listed it, kept as it is rather than copied.
+    item: SkipValidation[Dict]
+
+
+class _SpaceListing(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    space_id: str
+    items: SkipValidation[Iterator[Dict]]
 
 
 class QlikBaseAPI(ABC):
@@ -93,20 +119,25 @@ class QlikBaseAPI(ABC):
         self.change_check_failures: List[str] = []
         # Datasets whose lineage graph could not be read.
         self.lineage_read_failures: List[str] = []
+        self.reload_statement_read_failures: List[str] = []
         self.field_lineage_failures: List[str] = []
         # Apps opened without their data because opening them with it failed.
         self.opened_without_data: List[str] = []
+        # Scripts apps include that could not be read, as path and reason.
+        self.include_read_failures: List[str] = []
+        # Set where app reads wait for an Engine that refuses connections.
+        self.engine_refusals: Optional[RefusedConnectionBudget] = None
 
     def _record_failed_user_lookup(self, user_id: str, e: Exception) -> None:
         log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
-        self.failed_user_lookups[user_id] = str(e)
+        self.failed_user_lookups[user_id] = describe_error(e)
 
     # Why the datasets of every space could not be listed, if they couldn't.
     dataset_listing_error: Optional[str] = None
 
     def _record_unread(self, name: str, message: str, e: Exception) -> None:
         log_read_error(message)
-        self.unread_items.append(UnreadItem(name=name, cause=str(e)))
+        self.unread_items.append(UnreadItem(name=name, cause=describe_error(e)))
 
     @abstractmethod
     def get_spaces(self) -> List[Space]: ...
@@ -121,6 +152,19 @@ class QlikBaseAPI(ABC):
         """Datasets of every space, or None when they could not be listed."""
         # Enterprise on Windows has no Qlik datasets.
         return []
+
+    def get_reload_statements(self, app_id: str) -> List[ReloadStatement]:
+        """Statements of the app's last reload."""
+        # Enterprise on Windows does not record them.
+        return []
+
+    def get_lineage_upstreams(self, qri: str) -> LineageUpstreams:
+        # Enterprise on Windows has no lineage graph.
+        return LineageUpstreams()
+
+    def get_database_labels(self, qri: str) -> Dict[str, str]:
+        # Enterprise on Windows has no lineage graph.
+        return {}
 
     @abstractmethod
     def _list_items(self, space_id: str) -> Iterable[Dict]:
@@ -150,8 +194,8 @@ class QlikBaseAPI(ABC):
         for future in BackpressureAwareExecutor.map(
             self._load_item_or_record,
             (
-                (space_id, item, is_unchanged)
-                for space_id, item in self._items_in_turn(space_ids)
+                (listed.space_id, listed.item, is_unchanged)
+                for listed in self._items_in_turn(space_ids)
             ),
             max_workers=self.config.resolved_max_workers(),
         ):
@@ -159,22 +203,26 @@ class QlikBaseAPI(ABC):
             if item:
                 yield item
 
-    def _items_in_turn(self, space_ids: Sequence[str]) -> Iterator[Tuple[str, Dict]]:
+    def _items_in_turn(self, space_ids: Sequence[str]) -> Iterator[SpaceItem]:
         # Each space is listed only when its turn first comes, so a slow
         # listing does not hold back the items already listed.
         unlisted = iter(space_ids)
-        listings: Deque[Tuple[str, Iterator[Dict]]] = deque()
+        listings: Deque[_SpaceListing] = deque()
         while True:
             space_id = next(unlisted, None)
             if space_id is not None:
-                listings.appendleft((space_id, iter(self._list_items(space_id))))
+                listings.appendleft(
+                    _SpaceListing(
+                        space_id=space_id, items=iter(self._list_items(space_id))
+                    )
+                )
             elif not listings:
                 return
-            space_id, listing = listings.popleft()
-            item = next(listing, None)
+            listing = listings.popleft()
+            item = next(listing.items, None)
             if item is not None:
-                yield space_id, item
-                listings.append((space_id, listing))
+                yield SpaceItem(space_id=listing.space_id, item=item)
+                listings.append(listing)
 
     def _load_item_or_record(
         self, space_id: str, item: Dict, is_unchanged: Optional[IsUnchanged]
@@ -196,6 +244,13 @@ class QlikBaseAPI(ABC):
     ) -> DataConnectionInfo:
         descriptor = ";".join(str(connection.get(key) or "") for key in descriptor_keys)
         return infer_data_connection(name, descriptor)
+
+    @staticmethod
+    def _finish_read(app: App, errors: ReadErrors) -> App:
+        app.read_errors = errors.messages
+        app.sheets_complete = not errors.sheets_unread
+        app.read_fallbacks = errors.fallbacks
+        return app
 
     @staticmethod
     def _close_engine(websocket_connection: WebsocketConnection, app_id: str) -> None:

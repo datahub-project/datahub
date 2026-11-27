@@ -8,6 +8,15 @@ on:
   pull_request:
     paths:
       - "gradle.properties"
+      - "smoke-test/env/**"
+      - "smoke-test/check_env_parity.py"
+      - "smoke-test/env-parity-allowlist.txt"
+      - "smoke-test/tests/unit/test_check_env_parity.py"
+      - "smoke-test/run-quickstart.sh"
+      - "smoke-test/smoke.*.env"
+      - ".github/workflows/docker-unified.yml"
+      - "docker/profiles/**"
+      - "docker/datahub-gms/env/**"
       - "metadata-service/gms-lite/**"
       - "metadata-service/opensearch-embedded/**"
       - "metadata-service/war/**"
@@ -17,8 +26,11 @@ on:
       - "datahub-upgrade/**"
       - "scripts/dev/datahub-dev.sh"
       - "scripts/dev/datahub_dev.py"
-      - "scripts/dev/datahub_dev_local.py"
-      - "scripts/dev/tests/local_stack_e2e.sh"
+      - "scripts/dev/*.py"
+      - "scripts/dev/extensions/**"
+      - "scripts/dev/local/**"
+      - "env/**"
+      - "scripts/dev/tests/**"
       - "scripts/dev/tests/local_frontend_e2e.sh"
       - "datahub-web-react/devtools/**"
       - "datahub-web-react/vite.config.*"
@@ -40,6 +52,9 @@ on:
       - "metadata-ingestion/src/datahub/cli/config_utils.py"
       - "metadata-ingestion/src/datahub/cli/profile_cli.py"
       - ".github/workflows/gms-lite-local-stack.yml"
+      - "smoke-test/utilities/backends.py"
+      - "smoke-test/utilities/backend_plugin.py"
+      - ".github/scripts/check_local_lane_selection.sh"
   workflow_dispatch:
 
 concurrency:
@@ -57,6 +72,9 @@ jobs:
       matrix:
         opensearch: ["2", "3"]
     env:
+      # Smoke tests below run on the Docker-free stack: deselect what it
+      # cannot run, and stop if GMS turns out not to be the local stack.
+      SMOKE_BACKEND: local
       EMBEDDED_OPENSEARCH_VERSION: ${{ matrix.opensearch }}
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && !github.event.pull_request.head.repo.fork && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
     timeout-minutes: 45
@@ -106,12 +124,64 @@ jobs:
         if: matrix.opensearch == steps.opensearch_default.outputs.major
         run: ./gradlew :smoke-test:installDev :datahub-web-react:yarnInstall
 
+      - name: Check the local lane selection
+        if: matrix.opensearch == steps.opensearch_default.outputs.major
+        working-directory: smoke-test
+        run: ../.github/scripts/check_local_lane_selection.sh
+
       - name: Install Playwright dependencies
         if: matrix.opensearch == steps.opensearch_default.outputs.major
         working-directory: e2e-test/ui/playwright
         run: |
           yarn install --frozen-lockfile
           npx playwright install --with-deps chromium
+
+      - name: Measure a lean local boot
+        env:
+          GMS_LITE_HEAP: "2g"
+          GMS_LITE_OPENSEARCH_READY_TIMEOUT: "240"
+          GMS_LITE_GMS_HEALTH_TIMEOUT: "240"
+          DATAHUB_TELEMETRY_ENABLED: "false"
+        run: scripts/dev/datahub-dev.sh start --local --fresh --skip-build --no-frontend --timeout 600
+
+      - name: Boot timings
+        if: always()
+        run: |
+          python3 - <<'PYEOF'
+          import json
+          import os
+          import pathlib
+          import shutil
+
+          root = pathlib.Path.home() / ".datahub/local/stacks"
+          # Preserve diagnostics before lifecycle tests nuke the stack. Discovery holds secrets.
+          for path in root.glob("*"):
+              destination = pathlib.Path("build/lean-boot") / path.name
+              files = [path / "timings.json", path / "launcher.log", *path.glob("logs/*.log")]
+              for source in files:
+                  if source.is_file():
+                      target = destination / source.relative_to(path)
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      shutil.copyfile(source, target)
+          paths = sorted(root.glob("*/timings.json"), key=lambda p: p.stat().st_mtime)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              if not paths:
+                  summary.write("No timings.json produced.\n")
+                  raise SystemExit(1)
+              for path in paths:
+                  timings = json.loads(path.read_text())
+                  summary.write("### GMS-lite boot timings\n\n| Phase | Seconds |\n| --- | ---: |\n")
+                  for name, seconds in timings.get("phases", {}).items():
+                      summary.write(f"| {name} | {seconds:.1f} |\n")
+                  summary.write(f"| total | {timings['total_s']:.1f} |\n")
+                  for name, seconds in timings.get("datahub_dev", {}).items():
+                      summary.write(f"| datahub-dev: {name.removesuffix('_s')} | {seconds:.1f} |\n")
+                  summary.write(f"\nwarm: {timings['warm']}\n")
+          PYEOF
+
+      - name: Remove the lean stack before lifecycle checks
+        if: always()
+        run: scripts/dev/datahub-dev.sh nuke
 
       - name: Start, use, restart and nuke the local stack
         env:
@@ -122,8 +192,25 @@ jobs:
       - name: Start the local stack with Vite lite mode
         if: matrix.opensearch == steps.opensearch_default.outputs.major
         env:
+          # Smoke tests under xdist evict the entity graph cache at 1 GB.
+          GMS_LITE_HEAP: "2g"
           DATAHUB_TELEMETRY_ENABLED: "false"
-        run: scripts/dev/datahub-dev.sh start --local --fresh --frontend
+        run: scripts/dev/datahub-dev.sh start --local --fresh --frontend --job smoke-test
+
+      - name: Env parity with the Docker quickstart (report only)
+        if: matrix.opensearch == steps.opensearch_default.outputs.major
+        # Report only until the allowlist has held on master; the step summary shows the result.
+        continue-on-error: true
+        run: |
+          status=0
+          python3 smoke-test/check_env_parity.py --report build/env-parity.txt > /dev/null || status=$?
+          {
+            echo "### Smoke env parity (Docker quickstart vs Docker-free)"
+            echo '```'
+            sed '/^Allowed differences:/,$d' build/env-parity.txt 2>/dev/null || echo "The check failed before writing a report."
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
       - name: Run search, lineage and self-service profile smoke tests
         if: matrix.opensearch == steps.opensearch_default.outputs.major
@@ -140,12 +227,16 @@ jobs:
           python3 metadata-service/gms-lite/bin/_opensearch_manager.py \
             stop --dir ~/.datahub/local/opensearch-${{ matrix.opensearch }} || true
 
-      - name: Upload logs on failure
-        if: failure()
+      - name: Upload logs
+        if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: gms-lite-local-stack-logs-os${{ matrix.opensearch }}
           path: |
+            build/lean-boot/
+            build/env-parity.txt
+            ~/.datahub/local/stacks/*/resolved-env.json
+            ~/.datahub/local/stacks/*/timings.json
             ~/.datahub/local/stacks/*/launcher.log
             ~/.datahub/local/stacks/*/frontend.log
             ~/.datahub/local/stacks/*/logs/

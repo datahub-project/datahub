@@ -21,7 +21,7 @@ import stackprinter
 from prometheus_client import start_http_server
 
 import datahub_actions._version as actions_version
-from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.configuration.env_vars import get_debug
 from datahub_actions.cli.actions import actions
 
 logger = logging.getLogger(__name__)
@@ -108,7 +108,7 @@ def datahub_actions(
     # 3. Turn off propagation to the root handler.
     datahub_logger.propagate = False
     # 4. Adjust log-levels.
-    if debug or get_boolean_env_variable("DATAHUB_DEBUG", False):
+    if debug or get_debug():
         logging.getLogger().setLevel(logging.INFO)
         datahub_logger.setLevel(logging.DEBUG)
     else:

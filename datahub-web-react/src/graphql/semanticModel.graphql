@@ -148,6 +148,9 @@ fragment semanticModelFields on SemanticModel {
     domain {
         ...entityDomain
     }
+    applications {
+        ...entityApplication
+    }
     structuredProperties {
         properties {
             ...structuredPropertiesFields
