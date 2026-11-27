@@ -599,8 +599,8 @@ class AvroToMceSchemaConverter:
         tag_prefix: Optional[str] = None,
     ) -> Iterable[SchemaField]:
         """
-        Converts a key or value type AVRO schema string to appropriate MCE SchemaFields.
-        :param avro_schema_string: String representation of the AVRO schema.
+        Converts a key or value type AVRO schema to appropriate MCE SchemaFields.
+        :param avro_schema: The parsed AVRO schema.
         :param is_key_schema: True if it is a key-schema.
         :return: An MCE SchemaField generator.
         """
@@ -634,7 +634,7 @@ def avro_schema_to_mce_fields(
     :param avro_schema: AVRO schema, either as a string or as an avro.schema.Schema object.
     :param is_key_schema: True if it is a key-schema. Default is False (value-schema).
     :param swallow_exceptions: True if the caller wants exceptions to be suppressed
-    :param action_processor: Optional OperationProcessor to be used for meta mappings
+    :param meta_mapping_processor: Optional OperationProcessor to be used for meta mappings
     :param validate_names: If False, allows names that are not valid Avro names (e.g., containing hyphens).
     :return: The list of MCE compatible SchemaFields.
     """

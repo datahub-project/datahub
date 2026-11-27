@@ -170,7 +170,8 @@ def protobuf_schema_to_mce_fields(
 ) -> List[SchemaField]:
     """
     Converts a protobuf schema into a schema compatible with MCE
-    :param protobuf_schema_string: String representation of the protobuf schema
+    :param main_schema: The protobuf schema to convert
+    :param imported_schemas: Protobuf schemas imported by the main schema
     :param is_key_schema: True if it is a key-schema. Default is False (value-schema).
     :return: The list of MCE compatible SchemaFields.
     """
