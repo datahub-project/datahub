@@ -150,6 +150,50 @@ def test_no_description_is_empty():
     assert not empty, f"Declared with an empty description: {empty}"
 
 
+def test_enum_backed_choices_match_the_enum():
+    """A documented value must be one the code actually accepts.
+
+    These variables are looked up in an enum at import time, so a value that is documented but
+    not a member does not degrade -- it raises and takes the run down. Listing `ENABLED` for
+    DATAHUB_SQL_AGG_QUERY_LOG, which only has DISABLED / STORE_ALL / STORE_FAILED, did exactly
+    that: following the docs crashed ingestion.
+    """
+    from datahub.emitter.rest_emitter import EmitMode, RestSinkEndpoint
+    from datahub.ingestion.sink.datahub_rest import RestSinkMode
+    from datahub.sql_parsing.sql_parsing_aggregator import QueryLogSetting
+
+    enum_backed = {
+        "DATAHUB_SQL_AGG_QUERY_LOG": QueryLogSetting,
+        "DATAHUB_EMIT_MODE": EmitMode,
+        "DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": RestSinkEndpoint,
+        "DATAHUB_REST_SINK_DEFAULT_MODE": RestSinkMode,
+    }
+    registry = {spec.name: spec for spec in get_registry(include_undocumented=True)}
+
+    problems = []
+    for name, enum_cls in enum_backed.items():
+        spec = registry.get(name)
+        if spec is None:
+            problems.append(f"{name}: no longer declared")
+            continue
+        if not spec.choices:
+            problems.append(
+                f"{name}: backed by {enum_cls.__name__} but declares no choices, so a wrong "
+                "value in the description would go unnoticed"
+            )
+            continue
+        members = {member.name for member in enum_cls}
+        invented = set(spec.choices) - members
+        undocumented = members - set(spec.choices)
+        if invented:
+            problems.append(
+                f"{name}: documents {sorted(invented)}, which {enum_cls.__name__} rejects"
+            )
+        if undocumented:
+            problems.append(f"{name}: omits {sorted(undocumented)} from choices")
+    assert not problems, "\n".join(problems)
+
+
 def test_specs_are_internally_consistent():
     registry = {spec.name: spec for spec in get_registry(include_undocumented=True)}
     problems = []

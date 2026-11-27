@@ -519,7 +519,11 @@ def get_rest_emitter_batch_max_payload_length() -> int:
     type=str,
     group=EnvVarGroup.EMITTER,
     choices=["SYNC_PRIMARY", "SYNC_WAIT", "ASYNC", "ASYNC_WAIT"],
-    description="Emission mode (SYNC_PRIMARY, SYNC_WAIT, ASYNC, ASYNC_WAIT).",
+    description=(
+        "How the emitter waits for a write to be durable. Unset means SYNC_PRIMARY, which "
+        "returns once the primary store has the change. The ASYNC modes return earlier, so a "
+        "read straight afterwards may not see the write yet."
+    ),
 )
 def get_emit_mode() -> Optional[str]:
     return os.getenv("DATAHUB_EMIT_MODE")
@@ -530,7 +534,7 @@ def get_emit_mode() -> Optional[str]:
     type=str,
     group=EnvVarGroup.EMITTER,
     choices=["RESTLI", "OPENAPI"],
-    description="REST endpoint type (RESTLI or OPENAPI).",
+    description=("Which REST API the emitter targets. Unset means RESTLI."),
 )
 def get_rest_emitter_default_endpoint() -> Optional[str]:
     return os.getenv("DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT")
@@ -574,7 +578,10 @@ def get_rest_sink_default_max_threads() -> int:
     group=EnvVarGroup.REST_SINK,
     choices=["SYNC", "ASYNC", "ASYNC_BATCH"],
     recipe_field="mode",
-    description="Sink mode (SYNC, ASYNC, ASYNC_BATCH).",
+    description=(
+        "How the REST sink submits records. Unset means ASYNC_BATCH. Any recipe `mode` takes "
+        "precedence over this."
+    ),
 )
 def get_rest_sink_default_mode() -> Optional[str]:
     return os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE")
@@ -899,9 +906,11 @@ def get_disable_executor_task_secret_scope() -> bool:
     type=str,
     group=EnvVarGroup.SQL,
     default="DISABLED",
+    choices=["DISABLED", "STORE_ALL", "STORE_FAILED"],
     description=(
-        "Whether the SQL aggregator logs the queries it parses. DISABLED, or ENABLED "
-        "to log every statement."
+        "Whether the SQL aggregator keeps the queries it parses, for debugging lineage. "
+        "STORE_ALL keeps every query, STORE_FAILED only those that failed to parse. The "
+        "value is looked up in QueryLogSetting at import, so anything else fails the run."
     ),
 )
 def get_sql_agg_query_log() -> str:
