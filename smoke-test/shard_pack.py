@@ -37,6 +37,10 @@ SKIPPED_TEST_WEIGHT_SECONDS = 0.01
 # matrix (size_batches). Excludes the ~7 min of stack start-up every batch pays.
 TARGET_BATCH_WALL_SECONDS = 8 * 60
 
+# Weights file stem (<stem>.json + <stem>_meta.json) when a caller names none: the
+# Docker lane's. Each backend's stem is Backend.weights_stem.
+DOCKER_WEIGHTS_STEM = "pytest_test_weights"
+
 
 @dataclass(frozen=True)
 class ModuleShard:
@@ -178,9 +182,11 @@ def lookup_test_weight(
     return default_weight, True
 
 
-def load_pytest_test_weights() -> dict[str, float]:
-    """Load pytest_test_weights.json from the smoke-test directory."""
-    weights_file = _WEIGHTS_DIR / "pytest_test_weights.json"
+def load_pytest_test_weights(
+    weights_stem: str = DOCKER_WEIGHTS_STEM,
+) -> dict[str, float]:
+    """Load ``<weights_stem>.json`` from the smoke-test directory."""
+    weights_file = _WEIGHTS_DIR / f"{weights_stem}.json"
     if not weights_file.exists():
         return {}
     try:
@@ -192,9 +198,11 @@ def load_pytest_test_weights() -> dict[str, float]:
         return {}
 
 
-def load_persisted_default_weight() -> float | None:
+def load_persisted_default_weight(
+    weights_stem: str = DOCKER_WEIGHTS_STEM,
+) -> float | None:
     """Load the fallback weight generated alongside the pytest weights."""
-    meta_file = _WEIGHTS_DIR / "pytest_test_weights_meta.json"
+    meta_file = _WEIGHTS_DIR / f"{weights_stem}_meta.json"
     if not meta_file.exists():
         return None
     try:
@@ -205,9 +213,11 @@ def load_persisted_default_weight() -> float | None:
         return None
 
 
-def compute_default_test_weight(test_weights: dict[str, float]) -> float:
+def compute_default_test_weight(
+    test_weights: dict[str, float], weights_stem: str = DOCKER_WEIGHTS_STEM
+) -> float:
     """Return the weight assigned to tests absent from the weights file."""
-    persisted = load_persisted_default_weight()
+    persisted = load_persisted_default_weight(weights_stem)
     if persisted is not None:
         return persisted
     if not test_weights:
@@ -253,14 +263,16 @@ def plan_collected_items(
     batch_count: int,
     xdist_workers: int,
     test_weights: dict[str, float] | None = None,
+    weights_stem: str = DOCKER_WEIGHTS_STEM,
 ) -> PackedSuite:
     """Weight collected pytest items and pack them into ``batch_count`` batches.
 
     Used by conftest (live CI slice) and the dump plugin (full-plan JSON).
+    ``weights_stem`` picks the weights file (see ``Backend.weights_stem``).
     """
     if test_weights is None:
-        test_weights = load_pytest_test_weights()
-    default_weight = compute_default_test_weight(test_weights)
+        test_weights = load_pytest_test_weights(weights_stem)
+    default_weight = compute_default_test_weight(test_weights, weights_stem)
 
     scopes: dict[str, list[Any]] = defaultdict(list)
     for item in items:
@@ -313,6 +325,7 @@ def size_batches(
     xdist_workers: int,
     target_wall: float = TARGET_BATCH_WALL_SECONDS,
     test_weights: dict[str, float] | None = None,
+    weights_stem: str = DOCKER_WEIGHTS_STEM,
 ) -> PackedSuite:
     """Pack ``items`` into the fewest batches whose long pole is <= the target.
 
@@ -323,7 +336,7 @@ def size_batches(
     nothing meets the target, use the most allowed.
     """
     if test_weights is None:
-        test_weights = load_pytest_test_weights()
+        test_weights = load_pytest_test_weights(weights_stem)
     scope_count = len({loadscope_key(item.nodeid) for item in items})
     limit = min(max_batches, scope_count)
     if limit < 1:
@@ -332,14 +345,16 @@ def size_batches(
             items_by_scope={},
             shards=[],
             missing_weight_ids=[],
-            default_weight=compute_default_test_weight(test_weights),
+            default_weight=compute_default_test_weight(test_weights, weights_stem),
         )
-    packed = plan_collected_items(items, 1, xdist_workers, test_weights)
+    packed = plan_collected_items(items, 1, xdist_workers, test_weights, weights_stem)
     target = max(target_wall, slowest_scope_seconds(packed))
     # ponytail: linear scan re-packs per n; packing is ~ms, n <= 20.
     for n in range(1, limit + 1):
         if n > 1:
-            packed = plan_collected_items(items, n, xdist_workers, test_weights)
+            packed = plan_collected_items(
+                items, n, xdist_workers, test_weights, weights_stem
+            )
         if max_predicted_wall(packed) <= target:
             return packed
     return packed

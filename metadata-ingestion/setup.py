@@ -35,6 +35,8 @@ base_requirements = {
     # vulnerability), but Airflow 2.x constraints pin jaraco.context to older versions (e.g., 5.3.0).
     # This constraint is NOT included here to maintain Airflow compatibility.
     # Security is enforced for Docker image builds via docker/snippets/ingestion/constraints.txt.
+    # sentry-sdk 3.0 rejects include_local_variables, which telemetry relies on to keep
+    # frame locals out of events. Find its replacement before raising the ceiling.
     "sentry-sdk>=1.33.1,<3.0.0",
     # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
     "python-json-logger>=2.0.0,<5.0.0",

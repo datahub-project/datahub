@@ -73,6 +73,27 @@ jobs:
             --workflow docker-unified.yml \
             --artifact-prefix "playwright-junit" \
             --repository ${{ github.repository }}
+
+      - name: Download Docker-free smoke test artifacts
+        id: download-docker-free
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The Docker-free lane (docker-free-e2e.yml) packs its batches on its own weights
+          # file. Soft-skip when master has no recent lane runs: the committed file stays.
+          DOWNLOAD_OUTPUT=$(bash .github/scripts/download_test_artifacts.sh \
+            --output-dir ./test-artifacts-docker-free \
+            --run-count ${{ github.event.inputs.run_count || '3' }} \
+            --workflow docker-free-e2e.yml \
+            --artifact-prefix "Test Results (docker-free smoke tests)" \
+            --repository ${{ github.repository }} \
+            --no-fail-on-empty)
+          echo "$DOWNLOAD_OUTPUT"
+          if grep -q '^NO_DATA=true$' <<<"$DOWNLOAD_OUTPUT"; then
+            echo "no_data=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "no_data=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Download ingestion test artifacts
         id: download-ingestion
         env:
@@ -99,6 +120,8 @@ jobs:
         run: |
           mkdir -p ./weights-backup
           cp smoke-test/pytest_test_weights.json ./weights-backup/pytest_weights.json || echo "No existing Pytest weights"
+          cp smoke-test/pytest_test_weights_docker_free.json \
+            ./weights-backup/pytest_docker_free_weights.json || echo "No existing Docker-free Pytest weights"
           cp metadata-ingestion/tests/integration_test_weights.json \
             ./weights-backup/integration_test_weights.json || echo "No existing integration weights"
           cp .github/backend_test_weights.json ./weights-backup/gradle_weights.json || echo "No existing Gradle weights"
@@ -111,6 +134,13 @@ jobs:
           python .github/scripts/generate_test_weights.py \
             --input-dir ./test-artifacts-smoke \
             --pytest-output smoke-test/pytest_test_weights.json
+
+      - name: Generate Docker-free smoke test weights
+        if: steps.download-docker-free.outputs.no_data == 'false'
+        run: |
+          python .github/scripts/generate_test_weights.py \
+            --input-dir ./test-artifacts-docker-free \
+            --pytest-output smoke-test/pytest_test_weights_docker_free.json
 
       - name: Generate ingestion test weights
         if: steps.download-ingestion.outputs.no_data != 'true'
@@ -151,6 +181,25 @@ jobs:
             --threshold 5.0 \
             --pr-gate threshold \
             --github-output-key create_pr_smoke
+
+      - name: Compare Docker-free smoke weights
+        id: compare-smoke-docker-free
+        if: steps.download-docker-free.outputs.no_data == 'false'
+        run: |
+          mkdir -p ./weight-stats
+          python .github/scripts/compare_test_weights.py \
+            --old ./weights-backup/pytest_docker_free_weights.json \
+            --new smoke-test/pytest_test_weights_docker_free.json \
+            --stats-out ./weight-stats/smoke-docker-free.json \
+            --file smoke-test/pytest_test_weights_docker_free.json \
+            --framework "Smoke pytest (Docker-free)" \
+            --workflow docker-free-e2e.yml \
+            --entry-noun tests \
+            --batch-hint "FULL_BATCH_COUNT in docker-free-e2e.yml (9)" \
+            --test-id-key testId \
+            --threshold 5.0 \
+            --pr-gate threshold \
+            --github-output-key create_pr_smoke_docker_free
 
       - name: Compare ingestion weights
         id: compare-ingestion
@@ -210,7 +259,7 @@ jobs:
       - name: Decide PR creation
         id: decide
         run: |
-          if [ "${{ steps.compare-smoke.outputs.create_pr_smoke }}" == "true" ] || [ "${{ steps.compare-ingestion.outputs.create_pr_ingestion }}" == "true" ] || [ "${{ steps.compare-gradle.outputs.create_pr_gradle }}" == "true" ] || [ "${{ steps.compare-playwright.outputs.create_pr_playwright }}" == "true" ]; then
+          if [ "${{ steps.compare-smoke.outputs.create_pr_smoke }}" == "true" ] || [ "${{ steps.compare-smoke-docker-free.outputs.create_pr_smoke_docker_free }}" == "true" ] || [ "${{ steps.compare-ingestion.outputs.create_pr_ingestion }}" == "true" ] || [ "${{ steps.compare-gradle.outputs.create_pr_gradle }}" == "true" ] || [ "${{ steps.compare-playwright.outputs.create_pr_playwright }}" == "true" ]; then
             echo "create_pr=true" >> "$GITHUB_OUTPUT"
             echo "✓ At least one suite triggered a weight refresh. Will create PR."
           else
@@ -232,6 +281,8 @@ jobs:
           # Add and commit changes for all suites
           git add smoke-test/pytest_test_weights.json
           git add smoke-test/pytest_test_weights_meta.json
+          git add smoke-test/pytest_test_weights_docker_free.json
+          git add smoke-test/pytest_test_weights_docker_free_meta.json
           git add metadata-ingestion/tests/integration_test_weights.json
           git add .github/backend_test_weights.json
           git add e2e-test/ui/playwright/playwright_test_weights.json
@@ -257,7 +308,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ASSEMBLE_ARGS=()
-          for stats in smoke ingestion gradle playwright; do
+          for stats in smoke smoke-docker-free ingestion gradle playwright; do
             if [ -f "./weight-stats/${stats}.json" ]; then
               ASSEMBLE_ARGS+=("./weight-stats/${stats}.json")
             fi
@@ -291,6 +342,9 @@ jobs:
               if [ "${{ steps.compare-smoke.outputs.create_pr_smoke }}" == "true" ]; then
                 echo "- smoke"
               fi
+              if [ "${{ steps.compare-smoke-docker-free.outputs.create_pr_smoke_docker_free }}" == "true" ]; then
+                echo "- smoke (Docker-free)"
+              fi
               if [ "${{ steps.compare-ingestion.outputs.create_pr_ingestion }}" == "true" ]; then
                 echo "- ingestion"
               fi
@@ -309,6 +363,9 @@ jobs:
             echo ""
             if [ "${{ steps.download-ingestion.outputs.no_data }}" == "true" ]; then
               echo "⏭️ ingestion: no harvestable artifacts"
+            fi
+            if [ "${{ steps.download-docker-free.outputs.no_data }}" == "true" ]; then
+              echo "⏭️ smoke (Docker-free): no harvestable artifacts"
             fi
 
             echo ""

@@ -15,6 +15,7 @@ Supports events for:
 import argparse
 import json
 import logging
+import os
 import random
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -507,7 +508,7 @@ class ActivityEventGenerator:
 def send_events_to_elasticsearch(
     events: List[Dict],
     elasticsearch_url: str,
-    index_name: str = "datahub_usage_event",
+    index_name: str = os.getenv("ELASTICSEARCH_INDEX", "datahub_usage_event"),
 ) -> None:
     """
     Send events directly to Elasticsearch.

@@ -14,6 +14,10 @@ inputs:
   batch:
     description: "Current batch number (used for artifact name lookup)"
     required: true
+  artifact_prefix:
+    description: "Name of the test results artifact before '<test_strategy> <batch>'"
+    required: false
+    default: "Test Results (smoke tests)"
   run_id:
     description: "Current workflow run ID — pass github.run_id"
     required: true
@@ -42,6 +46,7 @@ runs:
         RUN_ID: ${{ inputs.run_id }}
         TEST_STRATEGY: ${{ inputs.test_strategy }}
         BATCH: ${{ inputs.batch }}
+        ARTIFACT_PREFIX: ${{ inputs.artifact_prefix }}
         REPOSITORY: ${{ github.repository }}
       run: |
 
@@ -50,7 +55,7 @@ runs:
 
         mkdir -p "${GITHUB_WORKSPACE}/previous-test-results"
 
-        ARTIFACT_NAME="Test Results (smoke tests) ${TEST_STRATEGY} ${BATCH}"
+        ARTIFACT_NAME="${ARTIFACT_PREFIX} ${TEST_STRATEGY} ${BATCH}"
         echo "Looking for artifact: ${ARTIFACT_NAME}"
 
         ARTIFACT_ID=$(gh api --paginate "repos/${REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \

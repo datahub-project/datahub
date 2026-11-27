@@ -19,6 +19,7 @@ on:
       - "DataHub Agent Context"
       - "DataHub AI Service"
       - "Docker Build, Scan, Test"
+      - "Docker-free E2E"
       - "documentation"
       - "Frontend Preview"
       - "GMS-lite Local Stack"

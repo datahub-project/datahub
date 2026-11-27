@@ -101,6 +101,25 @@ def request_json(
         return json.load(response)
 
 
+OPENSEARCH_READY_TIMEOUT_ENV = "GMS_LITE_OPENSEARCH_READY_TIMEOUT"
+
+
+def env_seconds(name: str, default: int) -> int:
+    """Read a non-negative whole number; unset or empty uses the default."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        value = -1
+    if value < 0:
+        raise SystemExit(
+            f"{name} must be a non-negative whole number of seconds, got {raw!r}"
+        )
+    return value
+
+
 def wait_for_ready(
     proc: subprocess.Popen[str], log_file: TextIO, timeout_seconds: float
 ) -> int | None:
@@ -183,11 +202,17 @@ def delete_prefixes(port: int, prefixes: list[str]) -> None:
 
 
 class SharedOpenSearchManager:
-    READY_TIMEOUT_SECONDS: float = 900
+    READY_TIMEOUT_SECONDS: int = 900
 
     def __init__(
-        self, shared_dir: Path, repo_root: Path = REPO_ROOT, *, major: str | None = None
+        self,
+        shared_dir: Path,
+        repo_root: Path = REPO_ROOT,
+        *,
+        major: str | None = None,
+        env: dict[str, str] | None = None,
     ) -> None:
+        self.env = env
         self.shared_dir = check_shared_dir(shared_dir)
         self.major = validate_major(major) if major is not None else selected_major()
         for other in ("2", "3"):
@@ -351,12 +376,26 @@ class SharedOpenSearchManager:
                         f"live shared OpenSearch PID {pid} has no recorded port; node left running; see {self.log_file}"
                     )
                 if self._healthy(port):
+                    if (self.env or os.environ).get("OPENSEARCH_KNN_ENABLED") == "true":
+                        plugins = request_json(
+                            port, "/_cat/plugins?format=json", timeout=5
+                        )
+                        if not isinstance(plugins, list) or not any(
+                            isinstance(plugin, dict)
+                            and plugin.get("component")
+                            in ("opensearch-knn", "org.opensearch.knn.plugin.KNNPlugin")
+                            for plugin in plugins
+                        ):
+                            raise RuntimeError(
+                                "Shared OpenSearch has no k-NN plugin; stop its users and stop the shared node, then build installDist with -Pknn and retry"
+                            )
                     return port
                 self._stop_locked()
             self.port_file.unlink(missing_ok=True)
             return self._start()
 
     def _start(self) -> int:
+        timeout = env_seconds(OPENSEARCH_READY_TIMEOUT_ENV, self.READY_TIMEOUT_SECONDS)
         ensure_data_major(self.shared_dir, self.major)
         script = distribution_script(self.repo_root, self.major)
         if not script.exists():
@@ -368,6 +407,7 @@ class SharedOpenSearchManager:
             process = subprocess.Popen(
                 [str(script), "--port", "0", "--data", str(self.shared_dir)],
                 cwd=self.repo_root,
+                env=self.env,
                 stdin=subprocess.DEVNULL,
                 stdout=output,
                 stderr=subprocess.STDOUT,
@@ -376,7 +416,7 @@ class SharedOpenSearchManager:
             )
         try:
             self.pid_file.write_text(str(process.pid))
-            deadline = time.monotonic() + self.READY_TIMEOUT_SECONDS
+            deadline = time.monotonic() + timeout
             with self.log_file.open() as output:
                 while time.monotonic() < deadline and process.poll() is None:
                     line = output.readline()
