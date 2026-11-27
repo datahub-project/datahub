@@ -295,85 +295,6 @@ def test_every_dataset_points_back_at_the_project_semantic_model():
     }
 
 
-def test_per_semantic_model_granularity_emits_one_semantic_model_each():
-    workunits = _emit(
-        _mapper(emit_semantic_model_entities={"granularity": "semantic_model"}),
-        [_sm_node("orders", _ORDERS), _sm_node("customers", _CUSTOMERS)],
-    )
-
-    infos = _aspects(workunits, SemanticModelInfoClass)
-    assert {urn for urn, _ in infos} == {
-        "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,orders)",
-        "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,customers)",
-    }
-    # Joins cannot span two semanticModel entities.
-    assert all(not info.relationships for _, info in infos)
-
-    props = {
-        aspect.alias: aspect.semanticModel
-        for _, aspect in _aspects(workunits, SemanticModelPropertiesClass)
-    }
-    assert props == {
-        "orders": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,orders)",
-        "customers": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,customers)",
-    }
-
-
-def test_per_semantic_model_granularity_carries_each_semantic_models_description():
-    workunits = _emit(
-        _mapper(emit_semantic_model_entities={"granularity": "semantic_model"}),
-        [
-            _sm_node("orders", _ORDERS, description="One row per order"),
-            _sm_node("customers", _CUSTOMERS),
-        ],
-    )
-
-    descriptions = {
-        urn.rsplit(",", 1)[1].rstrip(")"): info.description
-        for urn, info in _aspects(workunits, SemanticModelInfoClass)
-    }
-    assert descriptions == {"orders": "One row per order", "customers": None}
-
-
-def test_per_semantic_model_granularity_attaches_metrics_to_the_model_they_read():
-    workunits = _emit(
-        _mapper(emit_semantic_model_entities={"granularity": "semantic_model"}),
-        [_sm_node("orders", _ORDERS), _sm_node("customers", _CUSTOMERS)],
-        metrics=_metrics(
-            {
-                "metric.jaffle_shop.ltv_per_order": {
-                    "name": "ltv_per_order",
-                    "type": "ratio",
-                    "type_params": {
-                        "numerator": {"name": "customer_ltv"},
-                        "denominator": {"name": "order_count"},
-                    },
-                },
-                "metric.jaffle_shop.ltv_copy": {
-                    "name": "ltv_copy",
-                    "type": "derived",
-                    "type_params": {
-                        "expr": "ltv_per_order",
-                        "metrics": [{"name": "ltv_per_order"}],
-                    },
-                },
-            }
-        ),
-    )
-
-    parent_by_metric = {
-        urn.rsplit(",", 1)[1].rstrip(")"): info.semanticModel
-        for urn, info in _aspects(workunits, MetricInfoClass)
-    }
-    orders = "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,orders)"
-    customers = "urn:li:semanticModel:(urn:li:dataPlatform:dbt,jaffle_shop,customers)"
-    assert parent_by_metric["order_total"] == orders
-    # Reads measures from both models: the first one wins.
-    assert parent_by_metric["ltv_per_order"] == customers
-    # Reads no dataset itself, so it follows the metric it derives from.
-    assert parent_by_metric["ltv_copy"] == parent_by_metric["ltv_per_order"]
-
-
 def test_platform_instance_is_folded_into_the_semantic_model_path():
     # semanticModelKey has no platform_instance field, so it has to live in
     # the path or two instances of one project would collide.
@@ -1485,11 +1406,6 @@ def test_a_failed_metrics_probe_warns_even_on_the_auto_enable_path():
 # --- project name -----------------------------------------------------------
 
 
-def test_config_pins_the_project_name_over_the_manifest():
-    source = _source(emit_semantic_model_entities={"project_name": "pinned"})
-    assert source._resolve_semantic_model_project_name("from_manifest", []) == "pinned"
-
-
 def test_the_package_name_is_the_fallback_when_there_is_no_manifest_metadata():
     # dbt Cloud has no manifest metadata, but the Discovery API returns
     # packageName for each semantic model.
@@ -1529,12 +1445,11 @@ def test_the_deprecated_top_level_project_name_still_pins_it():
     assert source._resolve_semantic_model_project_name("from_manifest", []) == "pinned"
 
 
-def test_a_boolean_is_shorthand_for_enabled():
+def test_emit_semantic_model_entities_is_a_boolean():
     config = DBTCommonConfig.model_validate(
         {"target_platform": "postgres", "emit_semantic_model_entities": True}
     )
-    assert config.emit_semantic_model_entities.enabled is True
-    assert config.emit_semantic_model_entities.granularity == "project"
+    assert config.emit_semantic_model_entities is True
 
 
 @pytest.mark.parametrize("value", ["", "   ", "a,b", "a(b", "a)b"])
@@ -1545,7 +1460,7 @@ def test_an_unusable_project_name_override_is_rejected_at_config_time(
         DBTCommonConfig.model_validate(
             {
                 "target_platform": "postgres",
-                "emit_semantic_model_entities": {"project_name": value},
+                "semantic_model_project_name": value,
             }
         )
 

@@ -211,10 +211,7 @@ class DBTCoreConfig(DBTCommonConfig):
                 ("catalog_path", self.catalog_path),
                 ("sources_path", self.sources_path),
                 ("platform_instance", self.platform_instance),
-                (
-                    "emit_semantic_model_entities.project_name",
-                    self.emit_semantic_model_entities.project_name,
-                ),
+                ("semantic_model_project_name", self.semantic_model_project_name),
                 ("git_info", self.git_info),
             )
             if value is not None
