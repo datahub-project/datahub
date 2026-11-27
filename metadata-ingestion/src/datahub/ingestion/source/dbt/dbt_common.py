@@ -428,6 +428,11 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     # Non-passing dbt test results skipped because a newer result for the same
     # test was present (only_emit_latest_test_result).
     num_superseded_test_failures_not_emitted: int = 0
+    # dbt Cloud test results not emitted because the Discovery API returned
+    # neither executeStartedAt nor runGeneratedAt for the test.
+    test_results_missing_execution_time: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
     # Details on where column info comes from.
     nodes_with_catalog_columns: int = 0

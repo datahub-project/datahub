@@ -343,6 +343,8 @@ _DBT_FIELDS_BY_TYPE = {
     fail
     warn
     skip
+    executeStartedAt
+    runGeneratedAt
     rawSql
     rawCode
     compiledSql
@@ -1164,25 +1166,41 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             kw_args={},  # TODO: dbt Cloud doesn't expose the args.
         )
 
-        test_result = None
-        if not node["skip"]:
-            test_result = DBTTestResult(
-                invocation_id=f"job{node['jobId']}-run{node['runId']}",
-                execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
-                status=node["status"],
-                native_results={
-                    key: str(node[key])
-                    for key in {
-                        "columnName",
-                        "error",
-                        "fail",
-                        "warn",
-                        "skip",
-                        "state",
-                        "status",
-                    }
-                },
+        if node["skip"]:
+            return test_info, None
+
+        # Like dbt Core, stamp the result with the test's execute start time, or
+        # the run step's generation time. A run event's timestamp is part of its
+        # timeseries document id, so a wall-clock fallback would add a new result
+        # every time the same dbt run is ingested; skip the result instead.
+        timestamp = node.get("executeStartedAt") or node.get("runGeneratedAt")
+        if not timestamp:
+            self.report.test_results_missing_execution_time.append(node["uniqueId"])
+            self.report.warning(
+                title="dbt Cloud test results without an execution time not emitted",
+                message="The dbt Cloud Discovery API returned no execution time for "
+                "these tests, so their results were not emitted.",
+                context=node["uniqueId"],
             )
+            return test_info, None
+
+        test_result = DBTTestResult(
+            invocation_id=f"job{node['jobId']}-run{node['runId']}",
+            execution_time=parse_dbt_timestamp(timestamp),
+            status=node["status"],
+            native_results={
+                key: str(node[key])
+                for key in {
+                    "columnName",
+                    "error",
+                    "fail",
+                    "warn",
+                    "skip",
+                    "state",
+                    "status",
+                }
+            },
+        )
         return test_info, test_result
 
     def report_metric_source_limitations(self) -> None:

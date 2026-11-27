@@ -2105,8 +2105,8 @@ def test_cloud_models_query_requests_timings_only_for_contracts(
     ) as mock_send:
         source._fetch_nodes_and_exposures()
     queries = [call.kwargs["query"] for call in mock_send.call_args_list]
-    assert any("models" in q for q in queries)
-    assert any("executeStartedAt" in q for q in queries) is ingest_contracts
+    (models_query,) = [q for q in queries if "DatahubMetadataQuery_models(" in q]
+    assert ("executeStartedAt" in models_query) is ingest_contracts
 
 
 def test_cloud_model_performance_uses_execute_timings() -> None:

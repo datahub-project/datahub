@@ -5680,3 +5680,180 @@ def test_view_properties_materialized_follows_materialization(
     view_properties = _make_dbt_source()._create_view_properties_aspect(node)
     assert view_properties is not None
     assert view_properties.materialized is materialized
+
+
+_DBT_CLOUD_JOB_ID = 123
+_DBT_CLOUD_RUN_ID = 456
+
+
+def _dbt_cloud_model_node() -> Dict[str, Any]:
+    return {
+        "runId": _DBT_CLOUD_RUN_ID,
+        "accountId": 1,
+        "projectId": 2,
+        "environmentId": 3,
+        "jobId": _DBT_CLOUD_JOB_ID,
+        "resourceType": "model",
+        "uniqueId": "model.my_project.my_table",
+        "name": "my_table",
+        "description": "",
+        "meta": {},
+        "dbtVersion": "1.7.0",
+        "tags": [],
+        "database": "my_db",
+        "schema": "my_schema",
+        "type": "table",
+        "owner": "my_db_user",
+        "comment": None,
+        "columns": [
+            {
+                "name": "col_a",
+                "index": 0,
+                "type": "VARCHAR",
+                "comment": None,
+                "description": "",
+                "tags": [],
+                "meta": {},
+            }
+        ],
+        "packageName": "my_project",
+        "alias": None,
+        "error": None,
+        "status": "success",
+        "skip": False,
+        "rawSql": "select 1 as col_a",
+        "rawCode": "select 1 as col_a",
+        "compiledSql": "select 1 as col_a",
+        "compiledCode": "select 1 as col_a",
+        "dependsOn": [],
+        "materializedType": "table",
+    }
+
+
+def _dbt_cloud_test_node(
+    execute_started_at: Optional[str], run_generated_at: Optional[str]
+) -> Dict[str, Any]:
+    return {
+        "runId": _DBT_CLOUD_RUN_ID,
+        "accountId": 1,
+        "projectId": 2,
+        "environmentId": 3,
+        "jobId": _DBT_CLOUD_JOB_ID,
+        "resourceType": "test",
+        "uniqueId": "test.my_project.not_null_my_table_col_a.aaaaaaaaaa",
+        "name": "not_null_my_table_col_a",
+        "description": "",
+        "meta": {},
+        "dbtVersion": "1.7.0",
+        "tags": [],
+        "state": "active",
+        "columnName": "col_a",
+        "status": "pass",
+        "error": None,
+        "dependsOn": ["macro.dbt.test_not_null", "model.my_project.my_table"],
+        "fail": False,
+        "warn": False,
+        "skip": False,
+        "executeStartedAt": execute_started_at,
+        "runGeneratedAt": run_generated_at,
+        "rawSql": None,
+        "rawCode": None,
+        "compiledSql": "select * from my_db.my_schema.my_table where col_a is null",
+        "compiledCode": "select * from my_db.my_schema.my_table where col_a is null",
+    }
+
+
+def _ingest_dbt_cloud_test_result(
+    test_node: Dict[str, Any], wall_clock: datetime
+) -> Tuple[List[AssertionRunEventClass], DBTSourceReport]:
+    """Ingest a dbt Cloud job run holding one model and one test on that model."""
+    nodes_by_type: Dict[str, List[Dict[str, Any]]] = {
+        "models": [_dbt_cloud_model_node()],
+        "tests": [test_node],
+    }
+
+    def graphql_response(query: str, **kwargs: Any) -> Dict[str, Any]:
+        if "DatahubMetadataQuery_tests(" in query:
+            # The timing fields only reach the source if the query selects them.
+            assert "executeStartedAt" in query and "runGeneratedAt" in query
+        for node_type in dbt_cloud._DBT_FIELDS_BY_TYPE:
+            if f"DatahubMetadataQuery_{node_type}(" in query:
+                return {"job": {node_type: nodes_by_type.get(node_type, [])}}
+        raise AssertionError(f"unexpected dbt Cloud query: {query}")
+
+    class _FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz: Optional[Any] = None) -> datetime:  # type: ignore[override]
+            return wall_clock if tz is None else wall_clock.astimezone(tz)
+
+    config = DBTCloudConfig(
+        access_url="https://cloud.getdbt.com",
+        token="dummy_token",
+        account_id=1,
+        project_id=2,
+        job_id=_DBT_CLOUD_JOB_ID,
+        target_platform="snowflake",
+        # Lets the run go without a DataHub graph.
+        write_semantics="OVERRIDE",
+    )
+    source = DBTCloudSource(config, PipelineContext(run_id="test-run-id"))
+    with (
+        mock.patch.object(
+            DBTCloudSource, "_send_graphql_query", side_effect=graphql_response
+        ),
+        mock.patch.object(dbt_cloud, "datetime", _FrozenDatetime),
+    ):
+        run_events = [
+            wu.metadata.aspect
+            for wu in source.get_workunits()
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, AssertionRunEventClass)
+        ]
+    return run_events, source.report
+
+
+@pytest.mark.parametrize(
+    ("execute_started_at", "run_generated_at", "expected_time"),
+    [
+        pytest.param(
+            "2024-04-30T08:15:00.000Z",
+            "2024-04-30T08:20:00.000Z",
+            datetime(2024, 4, 30, 8, 15, tzinfo=timezone.utc),
+            id="execute-started-at",
+        ),
+        pytest.param(
+            None,
+            "2024-04-30T08:20:00.000Z",
+            datetime(2024, 4, 30, 8, 20, tzinfo=timezone.utc),
+            id="falls-back-to-run-generated-at",
+        ),
+    ],
+)
+def test_dbt_cloud_test_result_is_stamped_with_dbt_execution_time(
+    execute_started_at: Optional[str],
+    run_generated_at: Optional[str],
+    expected_time: datetime,
+) -> None:
+    test_node = _dbt_cloud_test_node(execute_started_at, run_generated_at)
+
+    # The same dbt Cloud run, ingested a day apart.
+    first, _ = _ingest_dbt_cloud_test_result(test_node, datetime(2024, 5, 1, 12))
+    second, _ = _ingest_dbt_cloud_test_result(test_node, datetime(2024, 5, 2, 12))
+
+    # The run event's timestamp is part of its timeseries document id, so
+    # re-ingesting the same run must reproduce it rather than add a new result.
+    expected_millis = int(expected_time.timestamp() * 1000)
+    assert [event.timestampMillis for event in first] == [expected_millis]
+    assert [event.timestampMillis for event in second] == [expected_millis]
+    assert first[0].runId == f"job{_DBT_CLOUD_JOB_ID}-run{_DBT_CLOUD_RUN_ID}"
+
+
+def test_dbt_cloud_test_result_without_execution_time_is_not_emitted() -> None:
+    test_node = _dbt_cloud_test_node(execute_started_at=None, run_generated_at=None)
+
+    run_events, report = _ingest_dbt_cloud_test_result(
+        test_node, datetime(2024, 5, 1, 12)
+    )
+
+    assert run_events == []
+    assert list(report.test_results_missing_execution_time) == [test_node["uniqueId"]]
