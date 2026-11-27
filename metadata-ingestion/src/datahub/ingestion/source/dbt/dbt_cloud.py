@@ -1,4 +1,5 @@
 import logging
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
@@ -442,6 +443,9 @@ query DatahubDiscoverySemanticModels(
 # Documented definition.metrics fields. create_metric measures stay on the
 # semantic model query; this is the metrics: block the job query does not have.
 # https://docs.getdbt.com/docs/dbt-apis/discovery-use-cases-and-examples
+# A plain identifier, such as a measure name.
+_BARE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
 _DBT_DISCOVERY_METRICS_QUERY = """
 query DatahubDiscoveryMetrics(
   $environmentId: BigInt!,
@@ -923,7 +927,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             )
         return chosen
 
-    def _fetch_semantic_model_nodes(self, raw_nodes: List[Dict]) -> List[Dict]:
+    def _fetch_semantic_model_nodes(
+        self, raw_nodes: List[Dict]
+    ) -> Optional[List[Dict]]:
+        """Semantic models from the chosen environment, or None if the fetch failed."""
         environment_id = self._semantic_model_environment_id(raw_nodes)
         if environment_id is None:
             self.report.warning(
@@ -955,7 +962,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 context=f"environment_id={environment_id}",
                 exc=e,
             )
-            return []
+            return None
 
     def _fetch_metric_definitions(self, raw_nodes: List[Dict]) -> DBTMetricsParse:
         """Read the metrics: block from environment.definition.metrics."""
@@ -1088,7 +1095,14 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         if not isinstance(name, str) or not name:
             return None
         raw_filter = node.get("filter")
-        if raw_filter and parse_dbt_metric_filter(raw_filter) is None:
+        has_no_filters = (
+            isinstance(raw_filter, dict) and raw_filter.get("where_filters") == []
+        )
+        if (
+            raw_filter
+            and not has_no_filters
+            and parse_dbt_metric_filter(raw_filter) is None
+        ):
             self.report.warning(
                 title="Could not read a dbt Cloud metric filter",
                 message="The metric's filter is in a shape this connector does not "
@@ -1103,11 +1117,13 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         formula = node.get("formula")
         if type_params is None and isinstance(formula, str):
             # An environment that does not return typeParams still has the
-            # rendered formula. A simple metric's formula is its measure's
-            # name, so pointing at the measure runs the aggregation path; a
-            # ratio or derived formula is already an expression.
+            # rendered formula. A simple metric's formula is normally its
+            # measure's name, so a bare name is pointed at the measure to run
+            # the aggregation path. Anything else is already an expression.
             type_params = (
-                {"measure": {"name": formula}} if is_simple else {"expr": formula}
+                {"measure": {"name": formula}}
+                if is_simple and _BARE_NAME.fullmatch(formula)
+                else {"expr": formula}
             )
             self.report.warning(
                 title="dbt Cloud metric has no typeParams",
@@ -1513,8 +1529,13 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     continue
 
         if self.config.entities_enabled.can_emit_semantic_models:
-            raw_nodes.extend(self._fetch_semantic_model_nodes(raw_nodes))
-            self._cloud_metrics = self._fetch_metric_definitions(raw_nodes)
+            semantic_model_nodes = self._fetch_semantic_model_nodes(raw_nodes)
+            # Metrics link to the semantic models, so without them every metric
+            # would be emitted with no lineage, replacing the lineage an earlier
+            # run wrote. The failure is already reported; emit no metrics.
+            if semantic_model_nodes is not None:
+                raw_nodes.extend(semantic_model_nodes)
+                self._cloud_metrics = self._fetch_metric_definitions(raw_nodes)
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
 

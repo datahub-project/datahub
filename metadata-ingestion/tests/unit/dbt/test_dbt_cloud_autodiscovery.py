@@ -958,6 +958,26 @@ class TestDiscoveryMetrics:
         assert [m.name for m in metric.measures] == ["col_a"]
         assert metric.expr is None
 
+    def test_a_simple_formula_that_is_not_a_name_is_kept_as_the_expression(
+        self,
+    ) -> None:
+        # Only a bare name can be a measure; pointing `sum(col_a)` at a
+        # measure of that name would leave the metric with no expression.
+        (metric,) = self._parse(
+            [
+                {
+                    "name": "metric_a",
+                    "type": "SIMPLE",
+                    "typeParams": None,
+                    "formula": "sum(col_a)",
+                    "parents": [],
+                }
+            ]
+        )
+
+        assert metric.expr == "sum(col_a)"
+        assert metric.measures == []
+
     def test_a_derived_formula_without_type_params_is_kept_as_the_expression(
         self,
     ) -> None:
@@ -1198,7 +1218,7 @@ class TestFetchSemanticModelNodes:
             "_fetch_discovery_semantic_models",
             side_effect=ValueError("boom"),
         ):
-            assert source._fetch_semantic_model_nodes([]) == []
+            assert source._fetch_semantic_model_nodes([]) is None
 
         assert _failure_titles(source) == ["Failed to fetch dbt Cloud semantic models"]
 
@@ -1437,6 +1457,18 @@ class TestFetchMetricDefinitions:
 
         assert _warning_titles(source) == ["dbt Cloud metric has no typeParams"]
 
+    def test_an_empty_where_filters_list_is_no_filter(self) -> None:
+        source = _cloud_source()
+
+        node = source._manifest_metric_node(
+            {"name": "revenue", "type": "SIMPLE", "filter": {"where_filters": []}},
+            semantic_model_ids={},
+            metric_ids={},
+        )
+
+        assert node is not None
+        assert _warning_titles(source) == []
+
     def test_an_unreadable_filter_warns_but_keeps_the_metric(self) -> None:
         source = _cloud_source()
 
@@ -1456,3 +1488,51 @@ class TestFetchMetricDefinitions:
             )
             is None
         )
+
+
+class TestSemanticLayerInNodeFetch:
+    """How _fetch_nodes_and_exposures combines the semantic models and metrics."""
+
+    def test_metrics_are_not_fetched_when_the_semantic_models_failed(self) -> None:
+        # Without the semantic models every metric would be emitted with no
+        # lineage, replacing the lineage an earlier run wrote.
+        source = _cloud_source(environment_id=1)
+
+        with (
+            mock.patch.object(
+                DBTCloudSource, "_send_graphql_query", side_effect=RuntimeError("stop")
+            ),
+            mock.patch.object(
+                DBTCloudSource, "_fetch_semantic_model_nodes", return_value=None
+            ),
+            mock.patch.object(
+                DBTCloudSource, "_fetch_metric_definitions"
+            ) as mock_metrics,
+        ):
+            source._fetch_nodes_and_exposures()
+
+        mock_metrics.assert_not_called()
+        assert source._cloud_metrics.metrics == []
+
+    def test_metrics_are_fetched_after_the_semantic_models(self) -> None:
+        source = _cloud_source(environment_id=1)
+        orders = DBTCloudSource._normalize_semantic_model_node(
+            {"name": "orders", "packageName": "proj"}
+        )
+        assert orders is not None
+
+        with (
+            mock.patch.object(
+                DBTCloudSource, "_send_graphql_query", side_effect=RuntimeError("stop")
+            ),
+            mock.patch.object(
+                DBTCloudSource, "_fetch_semantic_model_nodes", return_value=[orders]
+            ),
+            mock.patch.object(
+                DBTCloudSource, "_fetch_metric_definitions"
+            ) as mock_metrics,
+        ):
+            source._fetch_nodes_and_exposures()
+
+        (raw_nodes,) = mock_metrics.call_args.args
+        assert orders in raw_nodes
