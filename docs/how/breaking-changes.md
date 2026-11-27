@@ -15,6 +15,18 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Restore from backup during a zero-downtime rollback ([#21670](https://github.com/datahub-project/datahub/pull/21670))
+
+This only applies with unknown-data tolerance on (`UNKNOWN_DATA_TOLERANCE_ENABLED`,
+`UNKNOWN_ENTITY_ASPECT_TOLERANCE_ENABLED` or `UNKNOWN_ENUM_TOLERANCE_ENABLED`, off by default; see
+[#20280](https://github.com/datahub-project/datahub/pull/20280)). With it off nothing changes.
+
+The `RestoreBackup` upgrade clears the aspect table, then writes each backup row back as the
+running version reads it. While the older version is running, that read leaves out what only the
+newer version knows, such as references to entity types it doesn't define, so those values are not
+restored. The upgrade report now has one line per backup file naming how many rows of each aspect a
+newer version wrote, with a few examples. Restore such a backup with the newer version instead.
+
 ### `tags_to_term` transformer matches full tag names and maps column tags to columns
 
 The `tags_to_term` ingestion transformer has changed in four ways ([PR #21479](https://github.com/datahub-project/datahub/pull/21479)):
