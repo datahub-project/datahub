@@ -255,12 +255,6 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                         yield MetadataWorkUnit(id, mcp=obj)
                     else:
                         yield MetadataWorkUnit(id, mcp_raw=obj)
-                elif not obj.proposedSnapshot.aspects:
-                    self.report.warning(
-                        title="Skipped empty MetadataChangeEvent",
-                        message="Skipped a MetadataChangeEvent with no aspects",
-                        context=f"{id} {obj.proposedSnapshot.urn}",
-                    )
                 else:
                     if not warned_mce:
                         warned_mce = True
@@ -271,6 +265,13 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                             "Rewrite the file as MCPs.",
                             context=f.path,
                         )
+                    if not obj.proposedSnapshot.aspects:
+                        self.report.warning(
+                            title="Skipped empty MetadataChangeEvent",
+                            message="Skipped a MetadataChangeEvent with no aspects",
+                            context=f"{id} {obj.proposedSnapshot.urn}",
+                        )
+                        continue
                     try:
                         mcps = list(mcps_from_mce(obj))
                     except Exception as e:

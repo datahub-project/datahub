@@ -145,12 +145,15 @@ def test_file_source_skips_mce_without_aspects(tmp_path: pathlib.Path) -> None:
 
     assert list(source.get_workunits_internal()) == []
     assert not source.report.failures
-    # The record, not the file: the per-file deprecation warning would name the file.
     urn = mce_builder.make_dataset_urn("hive", "db.table")
     assert [list(w.context) for w in source.report.warnings] == [
-        [f"{json_path}:0 {urn}"]
+        [str(json_path)],
+        [f"{json_path}:0 {urn}"],
     ]
-    assert "no aspects" in check_mce_file(str(json_path))
+    assert (
+        f"Skipped a MetadataChangeEvent with no aspects: {json_path}:0 {urn}"
+        in check_mce_file(str(json_path))
+    )
 
 
 def test_file_source_aspect_filter_applies_to_mces(tmp_path: pathlib.Path) -> None:

@@ -18,12 +18,12 @@ def check_mce_file(filepath: str) -> str:
             f"Event file check failed with errors. Raising first error found. Full report {mce_source.get_report().as_string()}"
         )
         for failure in mce_source.get_report().failures:
-            raise Exception(f"{failure.message}: {failure.context}")
+            raise Exception(f"{failure.message}: {', '.join(failure.context)}")
         raise Exception(
             f"Failed to process file due to {mce_source.get_report().failures}"
         )
     report = mce_source.get_report()
     summary = f"{report.events_produced} MCPs found - all valid"
     for warning in report.warnings:
-        summary += f"\nWarning: {warning.message}: {warning.context}"
+        summary += f"\nWarning: {warning.message}: {', '.join(warning.context)}"
     return summary
