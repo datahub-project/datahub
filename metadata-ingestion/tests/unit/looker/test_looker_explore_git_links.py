@@ -162,7 +162,6 @@ def test_first_add(looker_source_factory: SourceFactory) -> None:
         looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True)
     )
     patches = link_patches(source)
-    # Both explores of the fake model get the link, each on its own Explore.
     assert sorted(p["entityUrn"] for p in patches) == sorted([ORDERS_URN, INVOICES_URN])
     graph = source.ctx.graph
     assert isinstance(graph, mock.MagicMock)
@@ -488,3 +487,8 @@ def test_explore_without_own_lookml_file_keeps_existing_link(
     graph = source.ctx.graph
     assert isinstance(graph, mock.MagicMock)
     graph.get_aspect.assert_not_called()
+    # Imported projects are documented as linkless; a missing link is not.
+    reported = any(
+        i.title == "Explore has no LookML file link" for i in source.reporter.infos
+    )
+    assert reported == (lookml_link is None)

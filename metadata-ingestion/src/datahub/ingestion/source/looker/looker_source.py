@@ -973,23 +973,29 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             and looker_explore.project_name
             and self._project_git_refs.get(looker_explore.project_name, unset)
             is not None
+        ):
+            file_path = looker_explore.lookml_file_path
+            if file_path is None:
+                self.reporter.info(
+                    title="Explore has no LookML file link",
+                    message="Looker returned no usable LookML file link for this Explore, so it gets no Git link.",
+                    context=f"{model}:{explore}",
+                    log=False,
+                )
             # shortcut: explores defined in an imported project get no link, since their
             # repo is the imported project's; resolve that project if users ask for it.
-            and looker_explore.lookml_file_path
-            and extract_project_from_imported_file_path(looker_explore.lookml_file_path)
-            is None
-        ):
-            # Read here, on the worker thread, so the GMS round trip runs in parallel
-            # with other Explore fetches instead of on the thread that drains them.
-            existing_urls = self._existing_git_link_urls(
-                str(explore_dataset_entity.urn)
-            )
-            if existing_urls is not None:
-                git_link = ExploreGitLink(
-                    project_name=looker_explore.project_name,
-                    file_path=looker_explore.lookml_file_path,
-                    existing_urls=existing_urls,
+            elif extract_project_from_imported_file_path(file_path) is None:
+                # Read here, on the worker thread, so the GMS round trip runs in parallel
+                # with other Explore fetches instead of on the thread that drains them.
+                existing_urls = self._existing_git_link_urls(
+                    str(explore_dataset_entity.urn)
                 )
+                if existing_urls is not None:
+                    git_link = ExploreGitLink(
+                        project_name=looker_explore.project_name,
+                        file_path=file_path,
+                        existing_urls=existing_urls,
+                    )
 
         return ExploreFetchResult(
             dataset=explore_dataset_entity,
@@ -1002,7 +1008,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _make_explore_git_link(
         self, git_link: ExploreGitLink, explore_urn: str
     ) -> List[MetadataWorkUnit]:
-        # Every link with the label is managed here.
         git_ref = self._get_project_git_ref(git_link.project_name)
         if git_ref is None:
             return []
@@ -1037,7 +1042,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         try:
             memory = self.ctx.graph.get_aspect(explore_urn, InstitutionalMemoryClass)
         except Exception as e:
-            # Links are optional, so a failed read skips only this Explore's link.
             self.reporter.warning(
                 title="Could not read an Explore's existing links",
                 message="No Git link is written for this Explore this run; its existing links are left unchanged.",
