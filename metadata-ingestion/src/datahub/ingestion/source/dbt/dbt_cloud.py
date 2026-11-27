@@ -550,7 +550,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         # Production environment from auto-discovery. Explicit mode reads
         # environmentId off the job nodes instead.
         self._auto_discovery_environment_id: Optional[int] = None
-        self._cloud_metrics = DBTMetricsParse()
 
     def _contract_environment_for_node(self, node: Dict) -> Optional[int]:
         """The environment whose applied state holds this node's contract.
@@ -730,6 +729,57 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         return data
 
     @staticmethod
+    def _discovery_nodes(
+        metadata_endpoint: str,
+        token: str,
+        query: str,
+        environment_id: int,
+        page_size: int,
+        connection_path: Tuple[str, ...],
+    ) -> Iterator[Dict]:
+        """Yield every node of a paginated Discovery API connection.
+
+        ``connection_path`` is the path from the response root to the
+        connection, for example ``("environment", "definition", "metrics")``.
+        Raises ``ValueError`` when the response does not have that shape, or
+        when a page says there is a next page but gives no cursor for it.
+        """
+        cursor: Optional[str] = None
+        while True:
+            data = DBTCloudSource._send_graphql_query(
+                metadata_endpoint=metadata_endpoint,
+                token=token,
+                query=query,
+                variables={
+                    "environmentId": environment_id,
+                    "first": page_size,
+                    "after": cursor,
+                },
+            )
+            connection = data
+            try:
+                for key in connection_path:
+                    connection = connection[key]
+                edges = connection.get("edges") or []
+            except (KeyError, TypeError, AttributeError) as e:
+                raise ValueError(
+                    "Unexpected Discovery API response shape: "
+                    f"{e!r}. Expected {'.'.join(connection_path)}."
+                ) from e
+
+            for edge in edges:
+                yield edge.get("node") or {}
+
+            page_info = connection.get("pageInfo") or {}
+            if not page_info.get("hasNextPage"):
+                return
+            cursor = page_info.get("endCursor")
+            if not cursor:
+                raise ValueError(
+                    "Discovery API returned hasNextPage=true with no endCursor"
+                )
+
+    @staticmethod
     def _fetch_discovery_contract_data(
         metadata_endpoint: str,
         token: str,
@@ -742,65 +792,42 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         and has no contract" (key present, ``contract_enforced=False``).
         """
         results: Dict[str, _DiscoveryContractData] = {}
-        cursor: Optional[str] = None
-        while True:
-            data = DBTCloudSource._send_graphql_query(
-                metadata_endpoint=metadata_endpoint,
-                token=token,
-                query=_DBT_DISCOVERY_CONTRACT_QUERY,
-                variables={
-                    "environmentId": environment_id,
-                    "first": _DBT_DISCOVERY_CONTRACT_PAGE_SIZE,
-                    "after": cursor,
-                },
+        for node in DBTCloudSource._discovery_nodes(
+            metadata_endpoint=metadata_endpoint,
+            token=token,
+            query=_DBT_DISCOVERY_CONTRACT_QUERY,
+            environment_id=environment_id,
+            page_size=_DBT_DISCOVERY_CONTRACT_PAGE_SIZE,
+            connection_path=("environment", "applied", "models"),
+        ):
+            unique_id = node.get("uniqueId")
+            if not unique_id:
+                continue
+
+            # The API returns model-level constraints only; column-level
+            # constraints are not exposed, so they are not ingested here.
+            model_constraints = [
+                parse_dbt_constraint(c) for c in (node.get("constraints") or [])
+            ]
+
+            raw_columns = (node.get("catalog") or {}).get("columns") or []
+            contract_columns: List[DBTColumn] = [
+                DBTColumn(
+                    name=col.get("name", ""),
+                    comment="",
+                    description=col.get("description") or "",
+                    index=index,
+                    data_type=col.get("type") or "",
+                    constraints=[],
+                )
+                for index, col in enumerate(raw_columns)
+            ]
+
+            results[unique_id] = _DiscoveryContractData(
+                contract_enforced=bool(node.get("contractEnforced")),
+                model_constraints=model_constraints,
+                contract_columns=contract_columns,
             )
-            try:
-                models_connection = data["environment"]["applied"]["models"]
-            except (KeyError, TypeError) as e:
-                raise ValueError(
-                    f"Unexpected Discovery API response shape: {e}. "
-                    f"Expected environment.applied.models in the payload."
-                ) from e
-
-            for edge in models_connection.get("edges") or []:
-                node = edge.get("node") or {}
-                unique_id = node.get("uniqueId")
-                if not unique_id:
-                    continue
-
-                # The API returns model-level constraints only; column-level
-                # constraints are not exposed, so they are not ingested here.
-                model_constraints = [
-                    parse_dbt_constraint(c) for c in (node.get("constraints") or [])
-                ]
-
-                raw_columns = (node.get("catalog") or {}).get("columns") or []
-                contract_columns: List[DBTColumn] = [
-                    DBTColumn(
-                        name=col.get("name", ""),
-                        comment="",
-                        description=col.get("description") or "",
-                        index=index,
-                        data_type=col.get("type") or "",
-                        constraints=[],
-                    )
-                    for index, col in enumerate(raw_columns)
-                ]
-
-                results[unique_id] = _DiscoveryContractData(
-                    contract_enforced=bool(node.get("contractEnforced")),
-                    model_constraints=model_constraints,
-                    contract_columns=contract_columns,
-                )
-
-            page_info = models_connection.get("pageInfo") or {}
-            if not page_info.get("hasNextPage"):
-                break
-            cursor = page_info.get("endCursor")
-            if not cursor:
-                raise ValueError(
-                    "Discovery API returned hasNextPage=true with no endCursor"
-                )
 
         return results
 
@@ -817,41 +844,17 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         the environment, which is where semantic models are published.
         """
         results: List[Dict] = []
-        cursor: Optional[str] = None
-        while True:
-            data = DBTCloudSource._send_graphql_query(
-                metadata_endpoint=metadata_endpoint,
-                token=token,
-                query=_DBT_DISCOVERY_SEMANTIC_MODELS_QUERY,
-                variables={
-                    "environmentId": environment_id,
-                    "first": _DBT_DISCOVERY_SEMANTIC_MODEL_PAGE_SIZE,
-                    "after": cursor,
-                },
-            )
-            try:
-                connection = data["environment"]["definition"]["semanticModels"]
-            except (KeyError, TypeError) as e:
-                raise ValueError(
-                    "Unexpected Discovery API response shape: "
-                    f"{e}. Expected environment.definition.semanticModels."
-                ) from e
-
-            for edge in connection.get("edges") or []:
-                node = edge.get("node") or {}
-                normalized = DBTCloudSource._normalize_semantic_model_node(node)
-                if normalized is not None:
-                    results.append(normalized)
-
-            page_info = connection.get("pageInfo") or {}
-            if not page_info.get("hasNextPage"):
-                break
-            cursor = page_info.get("endCursor")
-            if not cursor:
-                raise ValueError(
-                    "Discovery API returned hasNextPage=true with no endCursor"
-                )
-
+        for node in DBTCloudSource._discovery_nodes(
+            metadata_endpoint=metadata_endpoint,
+            token=token,
+            query=_DBT_DISCOVERY_SEMANTIC_MODELS_QUERY,
+            environment_id=environment_id,
+            page_size=_DBT_DISCOVERY_SEMANTIC_MODEL_PAGE_SIZE,
+            connection_path=("environment", "definition", "semanticModels"),
+        ):
+            normalized = DBTCloudSource._normalize_semantic_model_node(node)
+            if normalized is not None:
+                results.append(normalized)
         return results
 
     @staticmethod
@@ -1023,41 +1026,18 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         token: str,
         environment_id: int,
     ) -> List[Dict]:
-        results: List[Dict] = []
-        cursor: Optional[str] = None
-        while True:
-            data = DBTCloudSource._send_graphql_query(
+        return [
+            node
+            for node in DBTCloudSource._discovery_nodes(
                 metadata_endpoint=metadata_endpoint,
                 token=token,
                 query=_DBT_DISCOVERY_METRICS_QUERY,
-                variables={
-                    "environmentId": environment_id,
-                    "first": _DBT_DISCOVERY_SEMANTIC_MODEL_PAGE_SIZE,
-                    "after": cursor,
-                },
+                environment_id=environment_id,
+                page_size=_DBT_DISCOVERY_SEMANTIC_MODEL_PAGE_SIZE,
+                connection_path=("environment", "definition", "metrics"),
             )
-            try:
-                connection = data["environment"]["definition"]["metrics"]
-            except (KeyError, TypeError) as e:
-                raise ValueError(
-                    "Unexpected Discovery API response shape: "
-                    f"{e}. Expected environment.definition.metrics."
-                ) from e
-
-            for edge in connection.get("edges") or []:
-                node = edge.get("node") or {}
-                if node.get("name"):
-                    results.append(node)
-
-            page_info = connection.get("pageInfo") or {}
-            if not page_info.get("hasNextPage"):
-                break
-            cursor = page_info.get("endCursor")
-            if not cursor:
-                raise ValueError(
-                    "Discovery API returned hasNextPage=true with no endCursor"
-                )
-        return results
+            if node.get("name")
+        ]
 
     @staticmethod
     def _metric_unique_id(node: Dict) -> str:
@@ -1447,7 +1427,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         )
         return filtered_job_ids
 
-    def _fetch_nodes_and_exposures(self) -> Tuple[List[DBTNode], List[DBTExposure]]:
+    def _fetch_nodes_and_exposures(
+        self,
+    ) -> Tuple[List[DBTNode], List[DBTExposure], DBTMetricsParse]:
         # TODO: In dbt Cloud, commands are scheduled as part of jobs, where
         # each job can have multiple runs. We currently only fully support
         # jobs that do a full / mostly full build of the project, and will
@@ -1463,7 +1445,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             logger.info("Auto-discovery mode: discovering jobs for configured project")
             job_ids_to_ingest = self._auto_discover_projects_and_jobs()
             if not job_ids_to_ingest:
-                return [], []
+                return [], [], DBTMetricsParse()
             run_id = None  # Always use latest run in auto-discovery
         else:
             assert self.config.job_id is not None
@@ -1512,9 +1494,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     )
                     continue
 
+        # Read after the semantic models are added, since metrics link to them.
+        metrics = DBTMetricsParse()
         if self.config.entities_enabled.can_emit_semantic_models:
             raw_nodes.extend(self._fetch_semantic_model_nodes(raw_nodes))
-            self._cloud_metrics = self._fetch_metric_definitions(raw_nodes)
+            metrics = self._fetch_metric_definitions(raw_nodes)
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
 
@@ -1549,14 +1533,14 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 f"Fetched {semantic_model_count} semantic models from dbt Cloud"
             )
 
-        return nodes, exposures
+        return nodes, exposures, metrics
 
     def load_projects(self) -> Iterator[DBTProject]:
-        nodes, exposures = self._fetch_nodes_and_exposures()
+        nodes, exposures, metrics = self._fetch_nodes_and_exposures()
         yield DBTProject(
             nodes=nodes,
             exposures=exposures,
-            metrics=self._cloud_metrics,
+            metrics=metrics,
             platform_instance=self.config.platform_instance,
             # No manifest metadata; the semantic-model path infers the project
             # name from the nodes' packageName.

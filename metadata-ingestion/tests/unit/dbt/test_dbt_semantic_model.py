@@ -897,6 +897,36 @@ def test_dbts_own_copy_of_a_create_metric_measure_is_not_warned_about():
     assert not mapper.report.warnings
 
 
+def test_dbts_copy_without_a_measure_renders_the_measure_aggregation():
+    # Current dbt versions write the copy with `measure: null`, the aggregation
+    # in `metric_aggregation_params` and `expr` set to the bare column.
+    mapper = _mapper()
+    metrics = _metrics(
+        {
+            "metric.jaffle_shop.order_total": {
+                "name": "order_total",
+                "type": "simple",
+                "type_params": {
+                    "measure": None,
+                    "expr": "amount",
+                    "metric_aggregation_params": {
+                        "semantic_model": "orders",
+                        "agg": "sum",
+                        "expr": "amount",
+                    },
+                },
+            }
+        }
+    )
+    workunits = _emit(mapper, [_sm_node("orders", _ORDERS)], metrics)
+
+    (info,) = [aspect for _, aspect in _aspects(workunits, MetricInfoClass)]
+    assert _expression_of(info.expression).expression == "sum(orders.order_total)"
+    assert not mapper.report.warnings
+    assert mapper.report.num_metrics_from_measures == 0
+    assert mapper.report.num_metrics_from_manifest == 1
+
+
 def test_a_genuine_name_collision_with_a_measure_is_warned_about():
     mapper = _mapper()
     metrics = _metrics(

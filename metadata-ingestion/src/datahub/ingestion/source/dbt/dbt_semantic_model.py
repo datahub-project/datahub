@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import make_dataplatform_instance_urn, make_tag_urn
@@ -977,6 +977,7 @@ class DbtSemanticModelMapper:
                 )
                 continue
             if key in measure_metric_keys:
+                metric_definition = self._with_echoed_measure(metric_definition)
                 if not self._is_dbt_generated_measure_metric(metric_definition):
                     self.report.warning(
                         title="dbt metric shadows a create_metric measure",
@@ -1232,6 +1233,32 @@ class DbtSemanticModelMapper:
                 annotation=annotation,
             )
         return None
+
+    @staticmethod
+    def _with_echoed_measure(metric_definition: DBTMetric) -> DBTMetric:
+        """Point dbt's copy of a `create_metric: true` measure at that measure.
+
+        Only called for a metric named like a create_metric measure. Older dbt
+        writes the copy as a simple metric over `type_params.measure`; current
+        versions leave `measure` null and put the aggregation in
+        `metric_aggregation_params`, with `expr` set to the bare column. Without
+        the measure, that copy would publish the column where a computation
+        belongs and be reported as shadowing its own measure. A simple metric
+        with no measure and no metric inputs has nothing else to compute from,
+        so it can only be the copy, and its `expr` is dbt's rather than an
+        author's.
+        """
+        if (
+            metric_definition.type != METRIC_TYPE_SIMPLE
+            or metric_definition.measures
+            or metric_definition.input_metrics
+        ):
+            return metric_definition
+        return replace(
+            metric_definition,
+            measures=[DBTMetricInput(name=metric_definition.name)],
+            expr=None,
+        )
 
     @staticmethod
     def _is_dbt_generated_measure_metric(metric_definition: DBTMetric) -> bool:
