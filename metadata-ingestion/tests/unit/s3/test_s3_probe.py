@@ -242,6 +242,7 @@ def test_unsupported_object_tagging_warns_as_ingestion_carries_on(
             {"bucket": "my-bucket", "key": "raw/a.csv"},
         )
     assert not result.failures
+    assert result.warnings
     assert result.result == {"bucket": [], "object": []}
 
 

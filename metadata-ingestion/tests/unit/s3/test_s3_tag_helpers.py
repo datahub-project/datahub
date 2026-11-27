@@ -8,6 +8,7 @@ from moto import mock_aws
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_boto_utils import (
+    S3TagReadState,
     get_bucket_tag_set,
     get_object_tag_set,
     get_s3_tags,
@@ -86,3 +87,27 @@ def test_a_denied_object_tag_read_still_fails() -> None:
             PipelineContext(run_id="test"),
             use_s3_object_tags=True,
         )
+
+
+def test_unsupported_object_tagging_is_not_retried() -> None:
+    not_implemented = ClientError(
+        {"Error": {"Code": "NotImplemented", "Message": "not supported"}},
+        "GetObjectTagging",
+    )
+    state = S3TagReadState()
+    with patch(
+        "datahub.ingestion.source.aws.s3_boto_utils.get_object_tag_set",
+        side_effect=not_implemented,
+    ) as tag_read:
+        for key in ("raw/a.csv", "raw/b.csv"):
+            get_s3_tags(
+                "my-bucket",
+                key,
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/raw,PROD)",
+                _aws(),
+                PipelineContext(run_id="test"),
+                use_s3_object_tags=True,
+                tag_read_state=state,
+            )
+    assert not state.object_tagging_supported
+    assert tag_read.call_count == 1

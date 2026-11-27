@@ -170,7 +170,7 @@ def test_each_account_is_ingested_under_its_own_role_and_container(
     reads: List[Tuple[str, str]] = []
 
     def record_tags(
-        bucket: str, key_prefix: Any, urn: str, aws_config: Any, *_: Any
+        bucket: str, key_prefix: Any, urn: str, aws_config: Any, *_: Any, **__: Any
     ) -> None:
         reads.append((f"tags:{bucket}", _last_role(aws_config)))
 

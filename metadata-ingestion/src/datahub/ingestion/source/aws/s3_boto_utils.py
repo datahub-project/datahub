@@ -25,6 +25,13 @@ LIST_OBJECTS_PAGE_SIZE = 1000
 OBJECT_TAGGING_NOT_IMPLEMENTED = "NotImplemented"
 
 
+@dataclass
+class S3TagReadState:
+    """Remembers within one run that the store does not implement object tagging."""
+
+    object_tagging_supported: bool = True
+
+
 @dataclass(frozen=True)
 class S3ObjectInfo:
     bucket_name: str
@@ -79,6 +86,7 @@ def get_s3_tags(
     use_s3_bucket_tags: Optional[bool] = False,
     use_s3_object_tags: Optional[bool] = False,
     verify_ssl: Optional[Union[bool, str]] = None,
+    tag_read_state: Optional[S3TagReadState] = None,
 ) -> Optional[GlobalTagsClass]:
     if aws_config is None:
         raise ValueError("aws_config not set. Cannot browse s3")
@@ -101,7 +109,12 @@ def get_s3_tags(
                 f"No tags found for bucket={bucket_name} ({aws_error_code(e)})"
             )
 
-    if use_s3_object_tags and key_name is not None:
+    if (
+        use_s3_object_tags
+        and key_name is not None
+        and (tag_read_state is None or tag_read_state.object_tagging_supported)
+    ):
+        tag_set: Optional[List[Dict[str, str]]]
         try:
             tag_set = get_object_tag_set(bucket_name, key_name, aws_config)
         except ClientError as e:
@@ -109,15 +122,17 @@ def get_s3_tags(
             # other error (e.g. AccessDenied) still fails the run.
             if aws_error_code(e) != OBJECT_TAGGING_NOT_IMPLEMENTED:
                 raise
+            if tag_read_state is not None:
+                tag_read_state.object_tagging_supported = False
             logger.warning(
                 f"Object tagging not supported for bucket={bucket_name} key={key_name}"
             )
-            tag_set = []
+            tag_set = None
         if tag_set:
             tags_to_add.extend(
                 [make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""") for tag in tag_set]
             )
-        else:
+        elif tag_set is not None:
             # Unlike bucket tags, if an object does not have tags, it will just return an empty array
             # as opposed to an exception.
             logger.warning(f"No tags found for bucket={bucket_name} key={key_name}")
