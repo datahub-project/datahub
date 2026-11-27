@@ -159,27 +159,26 @@ class GitLabDocumentsSource(RepositoryDocumentsSourceBase[GitLabDocumentsSourceC
         if not config.multi_repository:
             return super()._connection_target(client, config)
         gitlab = cast(GitLabApiClient, client)
-        explicit = config.explicit_repositories
-        if explicit:
-            repository = explicit[0]
+        # Ingestion skips a project without a readable branch and imports the
+        # rest, so the check uses the first project a run would import.
+        for repository in config.explicit_repositories:
             branch = config.configured_branch or gitlab.get_default_branch(repository)
-        else:
+            if branch:
+                return RepositoryTarget(repository=repository, branch=branch)
+        if config.group:
             listing = gitlab.list_group_projects(
-                config.group or "",
+                config.group,
                 include_subgroups=config.include_subgroups,
                 include_archived=config.include_archived,
-                max_projects=1,
+                max_projects=config.max_projects,
                 allowed=config.project_pattern.allowed,
             )
-            if not listing.projects:
-                raise RuntimeError(
-                    f"No projects in group '{config.group}' match project_pattern."
-                )
-            repository = listing.projects[0].path
-            branch = config.configured_branch or listing.projects[0].default_branch
-        if not branch:
-            raise RuntimeError(
-                f"Could not find a default branch for {repository}. Check the "
-                "token's role (at least Reporter) or set branch."
-            )
-        return RepositoryTarget(repository=repository, branch=branch)
+            for project in listing.projects:
+                branch = config.configured_branch or project.default_branch
+                if branch:
+                    return RepositoryTarget(repository=project.path, branch=branch)
+        raise RuntimeError(
+            "No configured project has a default branch the token can read. Check "
+            "the group path, project_pattern and the token's role (at least "
+            "Reporter), or set branch."
+        )

@@ -390,3 +390,42 @@ def test_test_connection_checks_a_project_the_pattern_allows() -> None:
         report = GitLabDocumentsSource.test_connection(config)
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is True
+
+
+def test_test_connection_skips_projects_without_a_default_branch() -> None:
+    config = {"gitlab_token": "glpat-test", "base_url": BASE, "group": "acme/data"}
+    with requests_mock.Mocker() as m:
+        _mock_group(
+            m,
+            [
+                {"path_with_namespace": "acme/data/empty", "default_branch": None},
+                {"path_with_namespace": "acme/data/b", "default_branch": "main"},
+            ],
+        )
+        m.get(
+            f"{_project_api('acme/data/b')}/repository/branches/main",
+            json={"commit": {"id": "abc123"}},
+        )
+        m.get(f"{_project_api('acme/data/b')}/repository/tree", json=[])
+        report = GitLabDocumentsSource.test_connection(config)
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable is True
+
+
+def test_test_connection_falls_back_from_unreadable_named_projects() -> None:
+    config = {
+        "gitlab_token": "glpat-test",
+        "base_url": BASE,
+        "repositories": ["acme/gone", "acme/one"],
+    }
+    with requests_mock.Mocker() as m:
+        m.get(_project_api("acme/gone"), status_code=404)
+        m.get(_project_api("acme/one"), json={"default_branch": "main"})
+        m.get(
+            f"{_project_api('acme/one')}/repository/branches/main",
+            json={"commit": {"id": "abc123"}},
+        )
+        m.get(f"{_project_api('acme/one')}/repository/tree", json=[])
+        report = GitLabDocumentsSource.test_connection(config)
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable is True
