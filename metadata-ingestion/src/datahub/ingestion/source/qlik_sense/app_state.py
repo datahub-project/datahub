@@ -20,6 +20,8 @@ class UnmappedFileStore(BaseModel):
     # The file's `lib://` path, as reported when no app reads it.
     path: str
     table_urns: List[str]
+    # Stored as a QVD; None in older state, where the extension tells.
+    qvd: Optional[bool] = None
 
 
 class AppCheckpoint(BaseModel):

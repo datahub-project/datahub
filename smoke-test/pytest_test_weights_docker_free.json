@@ -1,211 +1,183 @@
 [
   {
-    "testId": "tests.e2e.actions.doc_propagation.test_propagation::test_col_col_propagation_cycles",
-    "duration": "7.407s"
-  },
-  {
-    "testId": "tests.e2e.actions.doc_propagation.test_propagation::test_col_col_propagation_depth_1",
-    "duration": "6.307s"
-  },
-  {
-    "testId": "tests.e2e.actions.doc_propagation.test_propagation::test_col_col_propagation_depth_6",
-    "duration": "7.348s"
-  },
-  {
-    "testId": "tests.e2e.actions.doc_propagation.test_propagation::test_col_col_propagation_large_fanout",
-    "duration": "72.828s"
-  },
-  {
-    "testId": "tests.e2e.actions.term_propagation.test_term_propagation::test_column_level_term_propagates_to_downstream_dataset",
-    "duration": "4.335s"
-  },
-  {
-    "testId": "tests.e2e.actions.term_propagation.test_term_propagation::test_column_level_term_removal_propagates_to_downstream_dataset",
-    "duration": "5.859s"
-  },
-  {
-    "testId": "tests.e2e.actions.term_propagation.test_term_propagation::test_dataset_level_term_propagates_to_downstream_dataset",
-    "duration": "4.568s"
-  },
-  {
-    "testId": "tests.e2e.actions.term_propagation.test_term_propagation::test_propagated_removal_keeps_user_applied_downstream_term",
-    "duration": "7.570s"
-  },
-  {
-    "testId": "tests.e2e.actions.test_actions_shutdown::test_actions_entrypoint_execs_so_python_is_pid_1",
-    "duration": "0.071s"
-  },
-  {
     "testId": "tests.e2e.analytics.test_analytics::test_analytics_charts_have_data",
-    "duration": "2.020s"
+    "duration": "4.153s"
   },
   {
     "testId": "tests.e2e.analytics.test_analytics::test_tab_views_by_entity_type_chart",
-    "duration": "1.351s"
+    "duration": "3.204s"
   },
   {
     "testId": "tests.e2e.analytics.test_analytics::test_top_searches_chart",
-    "duration": "1.259s"
+    "duration": "4.092s"
   },
   {
     "testId": "tests.e2e.analytics.test_analytics::test_top_viewed_datasets_chart",
-    "duration": "1.232s"
+    "duration": "3.108s"
   },
   {
     "testId": "tests.e2e.analytics.test_analytics::test_weekly_active_users_chart",
-    "duration": "1.098s"
+    "duration": "3.165s"
   },
   {
     "testId": "tests.e2e.analytics.test_highlights::test_entity_highlight_body_shape",
-    "duration": "1.427s"
+    "duration": "3.049s"
   },
   {
     "testId": "tests.e2e.analytics.test_highlights::test_entity_highlight_facets_are_populated",
-    "duration": "1.446s"
+    "duration": "3.036s"
   },
   {
     "testId": "tests.e2e.analytics.test_highlights::test_entity_highlight_percentages_are_within_bounds",
-    "duration": "1.166s"
+    "duration": "4.050s"
   },
   {
     "testId": "tests.e2e.analytics.test_highlights::test_entity_highlights_are_present",
-    "duration": "1.183s"
+    "duration": "3.302s"
   },
   {
     "testId": "tests.e2e.analytics.test_highlights::test_highlights_resolver_completes",
-    "duration": "3.599s"
+    "duration": "9.306s"
   },
   {
     "testId": "tests.e2e.assertions.assertions_test::test_assertion_info_patch_preserves_note",
-    "duration": "4.407s"
+    "duration": "12.650s"
   },
   {
     "testId": "tests.e2e.assertions.assertions_test::test_gms_get_assertion_info",
-    "duration": "0.019s"
+    "duration": "0.006s"
   },
   {
     "testId": "tests.e2e.assertions.assertions_test::test_gms_get_assertions_on_dataset",
-    "duration": "0.071s"
-  },
-  {
-    "testId": "tests.e2e.assertions.assertions_test::test_gms_get_assertions_on_dataset_field",
     "duration": "0.021s"
   },
   {
+    "testId": "tests.e2e.assertions.assertions_test::test_gms_get_assertions_on_dataset_field",
+    "duration": "0.009s"
+  },
+  {
     "testId": "tests.e2e.assertions.assertions_test::test_gms_get_latest_assertions_results_by_partition",
-    "duration": "7.322s"
+    "duration": "7.704s"
   },
   {
     "testId": "tests.e2e.assertions.custom_assertions_test::test_create_update_delete_dataset_custom_assertion",
-    "duration": "4.606s"
+    "duration": "14.240s"
   },
   {
     "testId": "tests.e2e.assertions.dbt_test_results_test::test_dbt_ingestion_emits_only_latest_test_result",
-    "duration": "2.952s"
+    "duration": "8.673s"
   },
   {
     "testId": "tests.e2e.audit_events.audit_events_test::test_audit_token_events",
-    "duration": "16.017s"
+    "duration": "44.385s"
   },
   {
     "testId": "tests.e2e.audit_events.audit_events_test::test_failed_login_events",
-    "duration": "11.970s"
+    "duration": "23.262s"
   },
   {
     "testId": "tests.e2e.audit_events.audit_events_test::test_ingestion_source_events",
-    "duration": "10.339s"
+    "duration": "15.129s"
   },
   {
     "testId": "tests.e2e.audit_events.audit_events_test::test_login_events",
-    "duration": "9.109s"
+    "duration": "21.305s"
   },
   {
     "testId": "tests.e2e.audit_events.audit_events_test::test_policy_create_delete",
-    "duration": "10.078s"
+    "duration": "21.178s"
   },
   {
     "testId": "tests.e2e.audit_events.audit_events_test::test_policy_events",
-    "duration": "10.410s"
+    "duration": "19.159s"
   },
   {
     "testId": "tests.e2e.audit_events.audit_events_test::test_user_events",
-    "duration": "11.621s"
+    "duration": "28.080s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_batch_add_to_data_products_allowed_with_asset_side_privilege_only",
-    "duration": "4.192s"
+    "duration": "12.174s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_batch_remove_from_data_products_allowed_with_asset_side_privilege_only",
-    "duration": "6.309s"
+    "duration": "17.203s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_batch_set_data_product_allowed_cross_domain_with_manage_on_product_domain",
-    "duration": "3.932s"
+    "duration": "12.144s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_batch_set_data_product_allowed_with_manage_data_products_on_domain",
-    "duration": "3.936s"
+    "duration": "12.144s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_batch_set_data_product_denied_with_asset_side_privilege_only",
-    "duration": "3.918s"
+    "duration": "11.135s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_batch_unset_data_product_allowed_with_asset_side_privilege_only",
-    "duration": "5.498s"
+    "duration": "17.216s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_create_data_product_allowed_with_manage_data_products_on_domain",
-    "duration": "7.608s"
+    "duration": "12.192s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_aspect_write_auth::test_create_data_product_in_domain_allowed_with_manage_all_data_products",
+    "duration": "12.211s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_aspect_write_auth::test_data_product_domain_changes_with_manage_all_data_products",
+    "duration": "27.626s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_set_logical_parent_allowed_with_edit_entity_on_target_and_parent",
-    "duration": "7.630s"
+    "duration": "23.239s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_set_logical_parent_denied_without_edit_entity_on_parent",
-    "duration": "3.708s"
+    "duration": "11.137s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_set_logical_parent_denied_without_edit_entity_on_target",
-    "duration": "9.230s"
+    "duration": "27.782s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_set_logical_parent_schema_field_allowed_via_dataset_policies_only",
-    "duration": "7.105s"
+    "duration": "20.239s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_set_logical_parent_schema_field_allowed_with_mixed_dataset_and_field_grants",
-    "duration": "7.049s"
+    "duration": "20.215s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_set_logical_parent_schema_field_denied_without_edit_entity_on_logical_dataset",
-    "duration": "5.014s"
+    "duration": "14.171s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_set_logical_parent_schema_field_denied_without_edit_entity_on_physical_dataset",
-    "duration": "4.986s"
+    "duration": "14.194s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_update_data_product_name_allowed_with_edit_entity_on_data_product",
-    "duration": "3.906s"
+    "duration": "12.132s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_update_data_product_name_allowed_with_manage_data_products_on_domain",
-    "duration": "4.922s"
+    "duration": "12.137s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_update_data_product_name_denied_with_asset_side_privilege_only",
-    "duration": "3.937s"
+    "duration": "11.128s"
   },
   {
     "testId": "tests.e2e.authorization.test_aspect_write_auth::test_update_data_product_name_denied_without_privilege",
-    "duration": "1.126s"
+    "duration": "3.073s"
   },
   {
     "testId": "tests.e2e.authorization.test_container_view_auth::test_container_field_stripped_without_view",
-    "duration": "0.100s"
+    "duration": "0.101s"
   },
   {
     "testId": "tests.e2e.authorization.test_container_view_auth::test_container_visible_with_view",
@@ -217,111 +189,183 @@
   },
   {
     "testId": "tests.e2e.authorization.test_container_view_auth::test_parent_containers_visible_with_view_on_parent",
-    "duration": "0.031s"
+    "duration": "0.009s"
   },
   {
     "testId": "tests.e2e.authorization.test_credential_aspect_read_auth::test_graphql_raw_aspects_hide_credentials_from_regular_user",
-    "duration": "7.790s"
+    "duration": "21.383s"
   },
   {
     "testId": "tests.e2e.authorization.test_credential_aspect_read_auth::test_openapi_credentials_aspect_forbidden_for_regular_user",
-    "duration": "0.025s"
+    "duration": "0.022s"
   },
   {
     "testId": "tests.e2e.authorization.test_credential_aspect_read_auth::test_openapi_credentials_aspect_visible_to_admin",
-    "duration": "2.906s"
+    "duration": "8.159s"
   },
   {
     "testId": "tests.e2e.authorization.test_credential_aspect_read_auth::test_restli_credentials_aspect_forbidden_for_regular_user",
-    "duration": "0.005s"
+    "duration": "0.017s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_entity_only_cannot_overwrite_existing[openapi-async]",
-    "duration": "7.414s"
+    "duration": "17.253s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_entity_only_cannot_overwrite_existing[openapi-sync]",
-    "duration": "6.676s"
+    "duration": "17.200s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_entity_only_cannot_overwrite_existing[restli-sync]",
-    "duration": "11.816s"
+    "duration": "27.831s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_entity_only_succeeds_in_allowed_domain[openapi-async]",
-    "duration": "6.850s"
+    "duration": "12.407s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_entity_only_succeeds_in_allowed_domain[openapi-sync]",
-    "duration": "6.051s"
+    "duration": "12.148s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_entity_only_succeeds_in_allowed_domain[restli-sync]",
-    "duration": "5.488s"
+    "duration": "12.182s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_in_allowed_domain_succeeds[openapi-async]",
-    "duration": "6.071s"
+    "duration": "12.173s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_in_allowed_domain_succeeds[openapi-sync]",
-    "duration": "14.268s"
+    "duration": "33.749s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_in_allowed_domain_succeeds[restli-sync]",
-    "duration": "5.468s"
+    "duration": "12.131s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_in_other_domain_denied[openapi-async]",
-    "duration": "5.049s"
+    "duration": "12.428s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_in_other_domain_denied[openapi-sync]",
-    "duration": "5.569s"
+    "duration": "12.167s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_in_other_domain_denied[restli-sync]",
-    "duration": "5.516s"
+    "duration": "12.130s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_without_domains_denied[openapi-async]",
-    "duration": "5.808s"
+    "duration": "12.156s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_without_domains_denied[openapi-sync]",
-    "duration": "5.572s"
+    "duration": "12.152s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth.TestDomainScopedCreateEntityAuth::test_create_without_domains_denied[restli-sync]",
-    "duration": "5.508s"
+    "duration": "12.132s"
   },
   {
     "testId": "tests.e2e.authorization.test_domain_scoped_create_entity_auth::test_first_domain_on_instance_scoped_container_succeeds",
-    "duration": "16.361s"
+    "duration": "45.776s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_column_properties_on_parent_dataset",
+    "duration": "0.021s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_constrained_user_limited_to_allowed_property[openapi_patch]",
+    "duration": "0.042s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_constrained_user_limited_to_allowed_property[restli]",
+    "duration": "0.026s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_create_entity_new_dataset_with_properties_and_tags[openapi]",
+    "duration": "0.032s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_create_entity_new_dataset_with_properties_and_tags[restli]",
+    "duration": "0.020s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_delete_entity_openapi_delete_aspect",
+    "duration": "0.034s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_edit_entity_properties_allows_any_property",
+    "duration": "0.034s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_form_assignee_without_edit_privilege_can_answer",
+    "duration": "0.043s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_form_prompt_allowed_for_property_editor",
+    "duration": "0.029s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_form_prompt_denied_for_property_the_prompt_does_not_ask_for",
+    "duration": "0.014s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_form_prompt_denied_for_unassigned_user",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_manage_documents_openapi_patch",
+    "duration": "0.072s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_manage_documents_restli_create_document",
+    "duration": "0.034s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_manage_documents_restli_tag_patch",
+    "duration": "0.040s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_manage_documents_restli_upsert",
+    "duration": "29.232s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_manage_groups_openapi_upsert",
+    "duration": "0.026s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_manage_users_restli_tag_patch",
+    "duration": "0.031s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_privilege_constraints_writes::test_tag_list_does_not_allow_property_writes_and_allows_the_tag",
+    "duration": "6.266s"
   },
   {
     "testId": "tests.e2e.authorization.test_privilege_grant_auth::test_admin_can_assign_role_to_self",
-    "duration": "4.442s"
+    "duration": "13.181s"
   },
   {
     "testId": "tests.e2e.authorization.test_privilege_grant_auth::test_group_owner_can_add_another_member",
-    "duration": "0.155s"
+    "duration": "0.069s"
   },
   {
     "testId": "tests.e2e.authorization.test_privilege_grant_auth::test_group_owner_cannot_add_self_to_owned_group",
-    "duration": "3.459s"
+    "duration": "7.158s"
   },
   {
     "testId": "tests.e2e.authorization.test_privilege_grant_auth::test_group_owner_cannot_grant_admin_role_to_owned_group",
-    "duration": "12.804s"
+    "duration": "29.697s"
   },
   {
     "testId": "tests.e2e.authorization.test_privilege_grant_auth::test_invite_accept_still_assigns_role",
-    "duration": "6.245s"
+    "duration": "17.042s"
   },
   {
     "testId": "tests.e2e.authorization.test_privilege_grant_auth::test_user_cannot_grant_admin_role_to_self",
-    "duration": "1.112s"
+    "duration": "3.052s"
   },
   {
     "testId": "tests.e2e.authorization.test_query_entity_read_auth::test_query_entity_hidden_with_only_view_entity_page_on_subject",
@@ -329,239 +373,243 @@
   },
   {
     "testId": "tests.e2e.authorization.test_query_entity_read_auth::test_query_entity_hidden_without_subject_view",
-    "duration": "0.066s"
+    "duration": "0.104s"
   },
   {
     "testId": "tests.e2e.authorization.test_query_entity_read_auth::test_query_entity_visible_with_edit_queries_on_subject",
-    "duration": "0.027s"
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.e2e.authorization.test_query_entity_read_auth::test_query_entity_visible_with_view_entity_queries_on_subject",
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.authorization.test_self_entity_auth::test_user_can_edit_own_profile",
-    "duration": "5.973s"
+    "duration": "16.249s"
   },
   {
     "testId": "tests.e2e.authorization.test_self_entity_auth::test_user_cannot_edit_another_users_profile",
-    "duration": "0.058s"
+    "duration": "0.022s"
   },
   {
     "testId": "tests.e2e.authorization.test_self_entity_auth::test_user_cannot_patch_own_role_membership",
-    "duration": "4.547s"
+    "duration": "12.404s"
   },
   {
     "testId": "tests.e2e.authorization.test_view_entity_queries_privilege::test_no_privilege_hides_queries_and_top_sql",
-    "duration": "9.970s"
+    "duration": "22.685s"
   },
   {
     "testId": "tests.e2e.authorization.test_view_entity_queries_privilege::test_scoped_privilege_follows_compat_contract",
-    "duration": "3.490s"
+    "duration": "8.340s"
   },
   {
     "testId": "tests.e2e.authorization.test_view_entity_queries_privilege::test_view_all_queries_grants_orphan",
-    "duration": "8.027s"
+    "duration": "21.421s"
   },
   {
     "testId": "tests.e2e.browse.browse_test::test_get_browse_paths",
-    "duration": "1.854s"
+    "duration": "5.233s"
   },
   {
     "testId": "tests.e2e.cli.dataset_cmd.test_dataset_command::test_dataset_sync_bidirectional",
-    "duration": "4.641s"
+    "duration": "14.494s"
   },
   {
     "testId": "tests.e2e.cli.dataset_cmd.test_dataset_command::test_dataset_sync_from_datahub",
-    "duration": "2.566s"
+    "duration": "8.165s"
   },
   {
     "testId": "tests.e2e.cli.dataset_cmd.test_dataset_command::test_dataset_sync_to_datahub",
-    "duration": "1.501s"
+    "duration": "5.221s"
   },
   {
     "testId": "tests.e2e.cli.dataset_cmd.test_dataset_command::test_dataset_sync_validation",
-    "duration": "1.346s"
+    "duration": "4.077s"
   },
   {
     "testId": "tests.e2e.cli.delete_cmd.test_timeseries_delete::test_timeseries_delete",
-    "duration": "9.825s"
+    "duration": "28.281s"
   },
   {
     "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_agent_context_flag_exits_zero",
-    "duration": "3.211s"
+    "duration": "0.066s"
   },
   {
     "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_describe_me_returns_operation_details",
-    "duration": "0.336s"
+    "duration": "0.099s"
   },
   {
     "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_dry_run_with_operation_resolves_via_introspection",
-    "duration": "0.667s"
-  },
-  {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_dry_run_with_raw_query_returns_json",
-    "duration": "0.159s"
-  },
-  {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_execute_me_query_returns_current_user",
-    "duration": "0.130s"
-  },
-  {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_list_operations_returns_real_schema",
-    "duration": "0.275s"
-  },
-  {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_no_args_exits_with_usage_code",
-    "duration": "0.020s"
-  },
-  {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_non_tty_help_includes_agent_context",
-    "duration": "0.005s"
-  },
-  {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIFileHandling::test_json_file_detection",
-    "duration": "0.068s"
-  },
-  {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIFileHandling::test_relative_path_resolution",
-    "duration": "0.135s"
-  },
-  {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIIntegration::test_graphql_error_handling",
-    "duration": "0.027s"
-  },
-  {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIIntegration::test_graphql_json_output_format",
-    "duration": "0.096s"
-  },
-  {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIIntegration::test_graphql_list_operations",
     "duration": "0.287s"
   },
   {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIIntegration::test_graphql_query_from_file",
-    "duration": "0.124s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_dry_run_with_raw_query_returns_json",
+    "duration": "0.042s"
   },
   {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIIntegration::test_graphql_schema_introspection",
-    "duration": "0.196s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_execute_me_query_returns_current_user",
+    "duration": "0.050s"
   },
   {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIIntegration::test_graphql_simple_query_execution",
-    "duration": "0.122s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_list_operations_returns_real_schema",
+    "duration": "0.091s"
   },
   {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIStandalone::test_graphql_file_path_handling",
-    "duration": "0.081s"
-  },
-  {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIStandalone::test_graphql_help",
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_no_args_exits_with_usage_code",
     "duration": "0.006s"
   },
   {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIStandalone::test_graphql_relative_path_handling",
-    "duration": "0.124s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestAgentFriendlyFeatures::test_non_tty_help_includes_agent_context",
+    "duration": "0.003s"
   },
   {
-    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIStandalone::test_graphql_schema_discovery",
-    "duration": "0.254s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIFileHandling::test_json_file_detection",
+    "duration": "0.014s"
   },
   {
-    "testId": "tests.e2e.cli.ingest_cmd.test_timeseries_rollback::test_timeseries_rollback",
-    "duration": "4.918s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIFileHandling::test_relative_path_resolution",
+    "duration": "0.051s"
   },
   {
-    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_instance2instance_smoke::test_incoming_references_are_rewritten",
-    "duration": "4.917s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIIntegration::test_graphql_error_handling",
+    "duration": "0.028s"
   },
   {
-    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_instance2instance_smoke::test_instance2instance_rewrites_lineage_and_migrates_aspects",
-    "duration": "5.290s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIIntegration::test_graphql_json_output_format",
+    "duration": "0.050s"
   },
   {
-    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_instance2instance_smoke::test_merge_mode_carries_and_rewrites_fine_grained_lineage",
-    "duration": "9.040s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIIntegration::test_graphql_list_operations",
+    "duration": "0.164s"
   },
   {
-    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_scenarios_smoke::test_assertion_reference_is_rewritten",
-    "duration": "5.962s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIIntegration::test_graphql_query_from_file",
+    "duration": "0.045s"
   },
   {
-    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_scenarios_smoke::test_container_migration_regenerates_instance",
-    "duration": "6.292s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIIntegration::test_graphql_schema_introspection",
+    "duration": "0.343s"
   },
   {
-    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_scenarios_smoke::test_dataplatform2instance_assigns_instance_and_carries_aspects",
-    "duration": "6.025s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIIntegration::test_graphql_simple_query_execution",
+    "duration": "0.048s"
   },
   {
-    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_scenarios_smoke::test_preserve_leaves_existing_target_untouched",
-    "duration": "6.474s"
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIStandalone::test_graphql_file_path_handling",
+    "duration": "0.051s"
   },
   {
-    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_scenarios_smoke::test_urns_mapping_full_scenario",
-    "duration": "13.320s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchBasic::test_facets_only",
-    "duration": "0.292s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchBasic::test_json_result_structure",
-    "duration": "0.503s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchBasic::test_limit_respected",
-    "duration": "1.750s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchBasic::test_table_format",
-    "duration": "0.519s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchBasic::test_urns_only_format",
-    "duration": "0.308s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchBasic::test_wildcard_returns_json",
-    "duration": "2.787s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDiagnose::test_diagnose_json_structure",
-    "duration": "0.254s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDiagnose::test_diagnose_keyword_connected",
-    "duration": "0.231s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDiagnose::test_diagnose_semantic_section_has_expected_keys",
-    "duration": "1.266s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDiagnose::test_diagnose_text_exits_cleanly",
-    "duration": "2.230s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDryRun::test_dry_run_offline",
-    "duration": "2.293s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDryRun::test_dry_run_shows_compiled_filter",
-    "duration": "0.031s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDryRun::test_dry_run_with_projection_shows_query",
-    "duration": "1.127s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchErrorHandling::test_conflicting_filters_exit_code_2",
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIStandalone::test_graphql_help",
     "duration": "0.005s"
   },
   {
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIStandalone::test_graphql_relative_path_handling",
+    "duration": "0.050s"
+  },
+  {
+    "testId": "tests.e2e.cli.graphql_cmd.test_graphql_cli_smoke.TestGraphQLCLIStandalone::test_graphql_schema_discovery",
+    "duration": "0.064s"
+  },
+  {
+    "testId": "tests.e2e.cli.ingest_cmd.test_timeseries_rollback::test_timeseries_rollback",
+    "duration": "13.386s"
+  },
+  {
+    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_instance2instance_smoke::test_incoming_references_are_rewritten",
+    "duration": "13.293s"
+  },
+  {
+    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_instance2instance_smoke::test_instance2instance_rewrites_lineage_and_migrates_aspects",
+    "duration": "13.874s"
+  },
+  {
+    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_instance2instance_smoke::test_merge_mode_carries_and_rewrites_fine_grained_lineage",
+    "duration": "28.272s"
+  },
+  {
+    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_scenarios_smoke::test_assertion_reference_is_rewritten",
+    "duration": "18.439s"
+  },
+  {
+    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_scenarios_smoke::test_container_migration_regenerates_instance",
+    "duration": "18.341s"
+  },
+  {
+    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_scenarios_smoke::test_dataplatform2instance_assigns_instance_and_carries_aspects",
+    "duration": "20.331s"
+  },
+  {
+    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_scenarios_smoke::test_preserve_leaves_existing_target_untouched",
+    "duration": "15.414s"
+  },
+  {
+    "testId": "tests.e2e.cli.migrate_cmd.test_migrate_scenarios_smoke::test_urns_mapping_full_scenario",
+    "duration": "22.289s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchBasic::test_facets_only",
+    "duration": "0.192s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchBasic::test_json_result_structure",
+    "duration": "0.342s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchBasic::test_limit_respected",
+    "duration": "0.497s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchBasic::test_table_format",
+    "duration": "0.398s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchBasic::test_urns_only_format",
+    "duration": "0.321s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchBasic::test_wildcard_returns_json",
+    "duration": "12.152s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDiagnose::test_diagnose_json_structure",
+    "duration": "0.117s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDiagnose::test_diagnose_keyword_connected",
+    "duration": "0.151s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDiagnose::test_diagnose_semantic_section_has_expected_keys",
+    "duration": "3.165s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDiagnose::test_diagnose_text_exits_cleanly",
+    "duration": "5.344s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDryRun::test_dry_run_offline",
+    "duration": "0.077s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDryRun::test_dry_run_shows_compiled_filter",
+    "duration": "0.041s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchDryRun::test_dry_run_with_projection_shows_query",
+    "duration": "3.055s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchErrorHandling::test_conflicting_filters_exit_code_2",
+    "duration": "0.003s"
+  },
+  {
     "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchErrorHandling::test_describe_filter_subcommand",
-    "duration": "1.025s"
+    "duration": "3.017s"
   },
   {
     "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchErrorHandling::test_invalid_limit_exit_code_2",
-    "duration": "2.125s"
+    "duration": "5.203s"
   },
   {
     "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchErrorHandling::test_invalid_offset_exit_code_2",
@@ -573,107 +621,107 @@
   },
   {
     "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchErrorHandling::test_list_filters_subcommand",
-    "duration": "0.003s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFilterCombinations::test_comma_or_logic_returns_union",
-    "duration": "0.852s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFilterCombinations::test_complex_filters_json_and",
-    "duration": "1.485s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFilterCombinations::test_multiple_filters_are_anded",
-    "duration": "2.296s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByEntityType::test_entity_type_filter_narrows_results",
-    "duration": "1.414s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByEntityType::test_filter_chart_returns_only_charts",
-    "duration": "0.197s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByEntityType::test_filter_corpuser_returns_only_corpusers",
-    "duration": "0.205s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByEntityType::test_filter_dashboard_returns_only_dashboards",
-    "duration": "0.357s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByEntityType::test_filter_dataset_returns_only_datasets",
-    "duration": "2.397s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByPlatform::test_filter_bigquery_returns_bigquery_datasets",
-    "duration": "0.315s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByPlatform::test_filter_snowflake_excludes_bigquery",
-    "duration": "0.912s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByPlatform::test_filter_snowflake_returns_snowflake_datasets",
-    "duration": "2.074s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchPagination::test_offset_returns_different_results",
-    "duration": "3.473s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchPagination::test_total_is_consistent_across_pages",
-    "duration": "2.080s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchProjectionLive::test_minimal_projection_urn_only",
-    "duration": "2.338s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchProjectionLive::test_projection_reduces_payload",
-    "duration": "1.467s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchWhereFilter::test_where_and_narrows_results",
-    "duration": "0.482s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchWhereFilter::test_where_in_list",
-    "duration": "2.083s"
-  },
-  {
-    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchWhereFilter::test_where_platform_eq",
-    "duration": "1.350s"
-  },
-  {
-    "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_duplicate_user",
-    "duration": "3.300s"
-  },
-  {
-    "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_id_different_from_email",
-    "duration": "2.970s"
-  },
-  {
-    "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_with_admin_role",
-    "duration": "3.654s"
-  },
-  {
-    "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_with_both_id_and_flag",
     "duration": "0.002s"
   },
   {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFilterCombinations::test_comma_or_logic_returns_union",
+    "duration": "0.546s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFilterCombinations::test_complex_filters_json_and",
+    "duration": "3.414s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFilterCombinations::test_multiple_filters_are_anded",
+    "duration": "5.548s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByEntityType::test_entity_type_filter_narrows_results",
+    "duration": "3.209s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByEntityType::test_filter_chart_returns_only_charts",
+    "duration": "0.121s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByEntityType::test_filter_corpuser_returns_only_corpusers",
+    "duration": "0.317s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByEntityType::test_filter_dashboard_returns_only_dashboards",
+    "duration": "0.151s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByEntityType::test_filter_dataset_returns_only_datasets",
+    "duration": "6.240s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByPlatform::test_filter_bigquery_returns_bigquery_datasets",
+    "duration": "0.322s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByPlatform::test_filter_snowflake_excludes_bigquery",
+    "duration": "3.322s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchFiltersByPlatform::test_filter_snowflake_returns_snowflake_datasets",
+    "duration": "5.839s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchPagination::test_offset_returns_different_results",
+    "duration": "5.739s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchPagination::test_total_is_consistent_across_pages",
+    "duration": "4.352s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchProjectionLive::test_minimal_projection_urn_only",
+    "duration": "5.567s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchProjectionLive::test_projection_reduces_payload",
+    "duration": "3.874s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchWhereFilter::test_where_and_narrows_results",
+    "duration": "0.143s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchWhereFilter::test_where_in_list",
+    "duration": "3.833s"
+  },
+  {
+    "testId": "tests.e2e.cli.search_cmd.test_search_cmd.TestSearchWhereFilter::test_where_platform_eq",
+    "duration": "5.585s"
+  },
+  {
+    "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_duplicate_user",
+    "duration": "9.181s"
+  },
+  {
+    "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_id_different_from_email",
+    "duration": "8.138s"
+  },
+  {
+    "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_with_admin_role",
+    "duration": "10.032s"
+  },
+  {
+    "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_with_both_id_and_flag",
+    "duration": "0.001s"
+  },
+  {
     "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_with_editor_role",
-    "duration": "3.505s"
+    "duration": "12.607s"
   },
   {
     "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_with_explicit_id",
-    "duration": "3.071s"
+    "duration": "8.133s"
   },
   {
     "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_with_reader_role",
-    "duration": "3.597s"
+    "duration": "9.232s"
   },
   {
     "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_without_id_or_flag",
@@ -685,139 +733,143 @@
   },
   {
     "testId": "tests.e2e.cli.user_cmd.test_user_add::test_user_add_without_role",
-    "duration": "7.822s"
+    "duration": "15.693s"
   },
   {
     "testId": "tests.e2e.cli.user_groups_cmd.test_group_cmd::test_group_upsert",
-    "duration": "5.444s"
+    "duration": "6.399s"
   },
   {
     "testId": "tests.e2e.cli.user_groups_cmd.test_group_cmd::test_long_name_group",
-    "duration": "0.130s"
+    "duration": "0.107s"
   },
   {
     "testId": "tests.e2e.cli.user_groups_cmd.test_user_cmd::test_user_upsert",
-    "duration": "3.290s"
+    "duration": "5.839s"
   },
   {
     "testId": "tests.e2e.containers.container_entities_batching_test::test_container_entities_counts_are_batched_and_correct",
-    "duration": "4.001s"
+    "duration": "13.837s"
   },
   {
     "testId": "tests.e2e.containers.container_entities_batching_test::test_container_entities_counts_correct_across_chunk_boundary",
-    "duration": "1.425s"
+    "duration": "4.101s"
   },
   {
     "testId": "tests.e2e.containers.container_entities_batching_test::test_container_entities_direct_path_matches_batched_total",
-    "duration": "1.051s"
+    "duration": "3.053s"
   },
   {
     "testId": "tests.e2e.containers.container_entities_batching_test::test_container_entities_filters_are_applied",
-    "duration": "1.063s"
+    "duration": "4.059s"
   },
   {
     "testId": "tests.e2e.containers.container_entities_batching_test::test_container_entities_survives_large_query_normalization",
-    "duration": "1.230s"
+    "duration": "4.191s"
   },
   {
     "testId": "tests.e2e.containers.containers_test::test_get_full_container",
-    "duration": "2.782s"
+    "duration": "9.679s"
   },
   {
     "testId": "tests.e2e.containers.containers_test::test_get_parent_container",
-    "duration": "1.044s"
+    "duration": "5.107s"
   },
   {
     "testId": "tests.e2e.containers.containers_test::test_update_container",
-    "duration": "2.742s"
+    "duration": "8.270s"
   },
   {
     "testId": "tests.e2e.data_process_instance.test_data_process_instance::test_search_dpi",
-    "duration": "2.982s"
+    "duration": "8.216s"
   },
   {
     "testId": "tests.e2e.database.test_database::test_mysql_deadlock_gap_locking",
-    "duration": "9.271s"
+    "duration": "21.609s"
   },
   {
     "testId": "tests.e2e.datapack.test_datapack_smoke.TestDatapackCLI::test_datapack_info",
-    "duration": "0.010s"
+    "duration": "0.009s"
   },
   {
     "testId": "tests.e2e.datapack.test_datapack_smoke.TestDatapackCLI::test_datapack_list",
-    "duration": "0.030s"
+    "duration": "0.029s"
   },
   {
     "testId": "tests.e2e.datapack.test_datapack_smoke.TestDemoDataBootstrap::test_load_and_unload_isolation_pack",
-    "duration": "7.030s"
+    "duration": "18.515s"
   },
   {
     "testId": "tests.e2e.datapack.test_datapack_smoke.TestShowcaseData::test_showcase_has_dashboards",
-    "duration": "1.527s"
+    "duration": "4.056s"
   },
   {
     "testId": "tests.e2e.datapack.test_datapack_smoke.TestShowcaseData::test_showcase_has_datasets",
-    "duration": "31.022s"
+    "duration": "64.888s"
   },
   {
     "testId": "tests.e2e.datapack.test_datapack_smoke.TestShowcaseData::test_showcase_has_glossary_terms",
-    "duration": "1.555s"
+    "duration": "4.054s"
   },
   {
     "testId": "tests.e2e.datapack.test_datapack_smoke.TestShowcaseData::test_showcase_has_structured_properties",
-    "duration": "16.523s"
+    "duration": "6.916s"
   },
   {
     "testId": "tests.e2e.dataproduct.test_dataproduct::test_batch_add_to_data_products",
-    "duration": "2.413s"
+    "duration": "5.167s"
   },
   {
     "testId": "tests.e2e.dataproduct.test_dataproduct::test_batch_remove_from_data_products",
-    "duration": "3.479s"
+    "duration": "10.207s"
   },
   {
     "testId": "tests.e2e.dataproduct.test_dataproduct::test_create_data_product",
-    "duration": "10.605s"
+    "duration": "57.395s"
   },
   {
     "testId": "tests.e2e.dataproduct.test_dataproduct::test_delete_domain_with_associated_data_product",
-    "duration": "4.891s"
+    "duration": "14.276s"
   },
   {
-    "testId": "tests.e2e.dataproduct.test_dataproduct_hierarchy_delete::test_parent_with_children_cannot_be_deleted",
-    "duration": "8.857s"
+    "testId": "tests.e2e.dataproduct.test_dataproduct_hierarchy_delete::test_parent_delete_is_refused_until_child_is_released",
+    "duration": "21.374s"
   },
   {
     "testId": "tests.e2e.delete.delete_test::test_delete_reference",
-    "duration": "4.800s"
+    "duration": "14.754s"
+  },
+  {
+    "testId": "tests.e2e.delete.delete_test::test_hard_delete_role_detaches_access",
+    "duration": "8.344s"
   },
   {
     "testId": "tests.e2e.delete.entity_exists_batching_test::test_exists_batched_matches_one_per_request",
-    "duration": "10.525s"
+    "duration": "33.582s"
   },
   {
     "testId": "tests.e2e.delete.entity_exists_batching_test::test_exists_batched_mixed_present_and_absent",
-    "duration": "5.272s"
+    "duration": "17.065s"
   },
   {
     "testId": "tests.e2e.delete.entity_exists_batching_test::test_exists_duplicate_urns_in_one_request",
-    "duration": "1.060s"
+    "duration": "3.025s"
   },
   {
     "testId": "tests.e2e.delete.entity_exists_batching_test::test_exists_large_batch_all_present",
-    "duration": "1.047s"
+    "duration": "3.033s"
   },
   {
     "testId": "tests.e2e.delete.entity_exists_batching_test::test_exists_soft_deleted_entity_still_exists",
-    "duration": "1.044s"
+    "duration": "3.022s"
   },
   {
     "testId": "tests.e2e.deprecation.deprecation_test::test_update_deprecation_all_fields",
-    "duration": "5.138s"
+    "duration": "15.391s"
   },
   {
     "testId": "tests.e2e.deprecation.deprecation_test::test_update_deprecation_partial_fields",
-    "duration": "2.950s"
+    "duration": "7.070s"
   },
   {
     "testId": "tests.e2e.dev_tooling.test_dev_tooling::test_dev_feature_flag_single_lookup",
@@ -829,11 +881,11 @@
   },
   {
     "testId": "tests.e2e.dev_tooling.test_dev_tooling::test_dev_feature_flags_accessible_without_auth",
-    "duration": "0.006s"
+    "duration": "0.005s"
   },
   {
     "testId": "tests.e2e.dev_tooling.test_dev_tooling::test_dev_feature_flags_contain_stable_keys",
-    "duration": "0.004s"
+    "duration": "0.005s"
   },
   {
     "testId": "tests.e2e.dev_tooling.test_dev_tooling::test_dev_feature_flags_endpoint_is_active",
@@ -841,27 +893,27 @@
   },
   {
     "testId": "tests.e2e.domains.domain_entities_batching_test::test_domain_entities_counts_are_batched_and_correct",
-    "duration": "2.989s"
+    "duration": "8.377s"
   },
   {
     "testId": "tests.e2e.domains.domains_test::test_create_list_get_domain",
-    "duration": "3.817s"
+    "duration": "12.189s"
   },
   {
     "testId": "tests.e2e.domains.domains_test::test_delete_parent_domain_immediately_after_child_deletion",
-    "duration": "4.060s"
+    "duration": "13.321s"
   },
   {
     "testId": "tests.e2e.domains.domains_test::test_set_unset_domain",
-    "duration": "4.353s"
+    "duration": "13.333s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestContainer::test_container_parent_containers_hierarchy",
-    "duration": "2.638s"
+    "duration": "8.144s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestContainer::test_container_relationships_direct_children",
-    "duration": "1.656s"
+    "duration": "5.120s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestDomain::test_domain_cache_metrics_when_isolated",
@@ -869,111 +921,123 @@
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestDomain::test_domain_parent_domains_hierarchy",
-    "duration": "7.505s"
+    "duration": "21.888s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestDomain::test_domain_sync_move_reflects_in_parent_domains",
-    "duration": "9.758s"
+    "duration": "29.674s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestGlossary::test_glossary_cache_metrics_when_isolated",
-    "duration": "0.004s"
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestGlossary::test_glossary_deep_hierarchy_within_bundled_max_depth",
-    "duration": "3.273s"
+    "duration": "7.968s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestGlossary::test_glossary_parent_nodes_hierarchy",
-    "duration": "3.178s"
+    "duration": "8.135s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestGlossary::test_glossary_sync_reparent_reflects_in_parent_nodes",
-    "duration": "26.207s"
+    "duration": "21.668s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_add_group_members_adds_every_user_in_one_mutation",
-    "duration": "13.409s"
+    "duration": "40.409s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_corp_group_incoming_members_after_native_add",
-    "duration": "6.808s"
+    "duration": "59.674s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_corp_group_incoming_members_immediately_after_add_second_member",
-    "duration": "5.752s"
+    "duration": "16.222s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_membership_relationships_idempotent_for_isolated_user",
-    "duration": "18.818s"
+    "duration": "58.701s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_migration_converts_existing_members_when_group_becomes_native",
-    "duration": "14.900s"
+    "duration": "45.554s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_remove_group_members_revokes_legacy_membership",
-    "duration": "13.345s"
+    "duration": "43.633s"
   },
   {
     "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_session_user_dual_group_types_labeled_correctly",
-    "duration": "17.527s"
+    "duration": "88.592s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_effective_latest_versioning.TestEffectiveLatestVersioning::test_all_versions_hidden_no_effective_latest",
-    "duration": "5.984s"
+    "duration": "18.829s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_effective_latest_versioning.TestEffectiveLatestVersioning::test_all_versions_hidden_then_one_returns",
-    "duration": "7.610s"
+    "duration": "22.652s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_effective_latest_versioning.TestEffectiveLatestVersioning::test_draft_returning_when_newer_version_exists",
-    "duration": "7.876s"
+    "duration": "23.431s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_effective_latest_versioning.TestEffectiveLatestVersioning::test_latest_going_draft_promotes_sibling",
-    "duration": "4.808s"
+    "duration": "14.346s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_effective_latest_versioning.TestEffectiveLatestVersioning::test_new_version_created_while_latest_hidden",
-    "duration": "6.182s"
+    "duration": "19.418s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_effective_latest_versioning.TestEffectiveLatestVersioning::test_returning_from_draft_repromotes_and_demotes_sibling",
-    "duration": "6.226s"
+    "duration": "18.086s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_effective_latest_versioning.TestEffectiveLatestVersioning::test_search_visibility_tracks_effective_latest",
-    "duration": "7.681s"
+    "duration": "18.881s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_effective_latest_versioning.TestEffectiveLatestVersioning::test_single_version_goes_draft_is_demoted",
-    "duration": "7.990s"
+    "duration": "19.146s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_effective_latest_versioning.TestEffectiveLatestVersioning::test_single_version_returns_from_draft_is_repromoted",
-    "duration": "5.436s"
+    "duration": "13.332s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_glossary_term_new_version::test_new_version_inherits_metadata_and_starts_as_draft",
-    "duration": "18.508s"
+    "duration": "53.781s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_glossary_versioning::test_glossary_term_point_in_time_retrieval",
-    "duration": "3.139s"
+    "duration": "10.146s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_glossary_versioning::test_glossary_term_v1_is_initial_latest",
-    "duration": "1.787s"
+    "duration": "5.079s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_glossary_versioning::test_glossary_term_version_history_via_graphql",
-    "duration": "3.564s"
+    "duration": "10.186s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_glossary_versioning::test_glossary_term_version_promotion",
-    "duration": "3.471s"
+    "duration": "10.156s"
+  },
+  {
+    "testId": "tests.e2e.entity_versioning.test_versioning::test_link_unlink_three_versions",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.e2e.entity_versioning.test_versioning::test_link_unlink_three_versions_unlink_all",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.e2e.entity_versioning.test_versioning::test_link_unlink_three_versions_unlink_and_relink",
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_versioning::test_link_unlink_three_versions_unlink_middle_and_latest",
@@ -985,671 +1049,659 @@
   },
   {
     "testId": "tests.e2e.entity_versioning.test_versioning_ingest::test_ingest_many_versions",
-    "duration": "3.117s"
+    "duration": "6.357s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_versioning_ingest::test_ingest_version_properties",
-    "duration": "0.411s"
+    "duration": "0.108s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_versioning_ingest::test_ingest_version_properties_alphanumeric",
-    "duration": "0.312s"
+    "duration": "0.097s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_versioning_ingest::test_ingest_version_properties_version_set_new_latest",
-    "duration": "0.344s"
+    "duration": "0.124s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_versioning_ingest::test_ingest_version_properties_version_set_not_latest",
-    "duration": "0.273s"
+    "duration": "0.094s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_versioning_timeline::test_get_timeline_version_set_superset_of_single_entity",
-    "duration": "0.122s"
+    "duration": "0.109s"
   },
   {
     "testId": "tests.e2e.entity_versioning.test_versioning_timeline::test_get_timeline_with_version_set_returns_all_versions",
-    "duration": "0.040s"
-  },
-  {
-    "testId": "tests.e2e.entity_versioning.test_versioning_timeline::test_get_timeline_without_version_set",
-    "duration": "1.633s"
-  },
-  {
-    "testId": "tests.e2e.forms.forms_test::test_batch_assign_and_remove_form",
-    "duration": "27.015s"
-  },
-  {
-    "testId": "tests.e2e.forms.forms_test::test_batch_assign_form_across_entity_types",
-    "duration": "7.366s"
-  },
-  {
-    "testId": "tests.e2e.forms.forms_test::test_batch_assign_form_is_idempotent",
-    "duration": "6.929s"
-  },
-  {
-    "testId": "tests.e2e.forms.forms_test::test_batch_assign_form_rejects_batch_with_missing_entity",
-    "duration": "4.562s"
-  },
-  {
-    "testId": "tests.e2e.forms.forms_test::test_batch_assign_form_reports_every_missing_entity",
-    "duration": "3.901s"
-  },
-  {
-    "testId": "tests.e2e.forms.forms_test::test_batch_assign_form_tolerates_duplicate_urns",
-    "duration": "5.133s"
-  },
-  {
-    "testId": "tests.e2e.forms.forms_test::test_batch_remove_form_never_assigned_is_noop",
-    "duration": "4.480s"
-  },
-  {
-    "testId": "tests.e2e.forms.forms_test::test_batch_remove_form_only_affects_named_form",
-    "duration": "10.897s"
-  },
-  {
-    "testId": "tests.e2e.frontend.test_static_asset_encodings::test_hashed_js_asset_encodings_prefer_brotli_then_gzip",
-    "duration": "0.141s"
-  },
-  {
-    "testId": "tests.e2e.glossary.glossary_children_count_test::test_children_count_is_correct_for_a_batch_of_sibling_nodes",
-    "duration": "3.242s"
-  },
-  {
-    "testId": "tests.e2e.glossary.parent_nodes_batching_test::test_parent_nodes_batched_chains_stay_with_their_term",
-    "duration": "3.156s"
-  },
-  {
-    "testId": "tests.e2e.glossary.parent_nodes_batching_test::test_parent_nodes_batched_matches_one_per_request",
-    "duration": "10.392s"
-  },
-  {
-    "testId": "tests.e2e.glossary.parent_nodes_batching_test::test_parent_nodes_duplicate_terms_in_one_request",
-    "duration": "1.310s"
-  },
-  {
-    "testId": "tests.e2e.glossary.parent_nodes_batching_test::test_parent_nodes_full_depth_resolved",
-    "duration": "1.591s"
-  },
-  {
-    "testId": "tests.e2e.graph.test_graph_client::test_get_aspect_v2",
-    "duration": "1.815s"
-  },
-  {
-    "testId": "tests.e2e.graph.test_graph_client::test_get_entities_v3",
-    "duration": "0.013s"
-  },
-  {
-    "testId": "tests.e2e.graph.test_graph_client::test_get_entity_aspect_specs",
-    "duration": "0.486s"
-  },
-  {
-    "testId": "tests.e2e.graph.test_graph_client::test_graph_relationships",
-    "duration": "3.450s"
-  },
-  {
-    "testId": "tests.e2e.identity.test_group_membership_lifecycle::test_membership_converges_after_group_delete_and_recreate",
-    "duration": "18.064s"
-  },
-  {
-    "testId": "tests.e2e.incidents.health_batch_test::test_batched_incident_health",
-    "duration": "2.062s"
-  },
-  {
-    "testId": "tests.e2e.incidents.health_batch_test::test_incident_health_survives_soft_deleted_asset",
-    "duration": "8.484s"
-  },
-  {
-    "testId": "tests.e2e.incidents.incidents_test::test_list_dataset_incidents",
-    "duration": "4.976s"
-  },
-  {
-    "testId": "tests.e2e.incidents.incidents_test::test_raise_resolve_incident",
-    "duration": "7.672s"
-  },
-  {
-    "testId": "tests.e2e.institutional_memory.institutional_memory_test::test_add_institutional_memory",
-    "duration": "5.151s"
-  },
-  {
-    "testId": "tests.e2e.institutional_memory.institutional_memory_test::test_get_institutional_memory",
-    "duration": "3.438s"
-  },
-  {
-    "testId": "tests.e2e.institutional_memory.institutional_memory_test::test_remove_institutional_memory",
-    "duration": "4.194s"
-  },
-  {
-    "testId": "tests.e2e.institutional_memory.institutional_memory_test::test_update_institutional_memory",
-    "duration": "4.420s"
-  },
-  {
-    "testId": "tests.e2e.institutional_memory.institutional_memory_test::test_upsert_institutional_memory",
-    "duration": "3.973s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.document_change_history_test::test_document_change_history",
-    "duration": "3.626s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.document_change_history_test::test_document_change_history_empty",
-    "duration": "3.448s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.document_change_history_test::test_document_change_history_with_time_range",
-    "duration": "3.431s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.document_search_filter_test::test_related_documents_shows_context_only_documents",
-    "duration": "4.453s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.document_search_filter_test::test_search_across_entities_filters_documents",
-    "duration": "7.911s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.document_search_filter_test::test_search_documents_filters_hidden_context_documents",
-    "duration": "8.049s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.document_search_filter_test::test_search_documents_shows_owned_unpublished",
-    "duration": "8.926s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_create_document",
-    "duration": "2.985s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_create_document_with_owners",
-    "duration": "3.945s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_get_document",
-    "duration": "4.757s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_move_document",
-    "duration": "7.014s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_search_documents",
-    "duration": "5.088s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_update_document_contents",
-    "duration": "4.063s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_update_document_status",
-    "duration": "9.171s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_update_document_subtype",
-    "duration": "4.101s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_update_related_entities",
-    "duration": "4.008s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_hierarchy_settings.TestDocumentHierarchyAndSettings::test_context_documents_for_dataset",
-    "duration": "9.524s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_hierarchy_settings.TestDocumentHierarchyAndSettings::test_document_settings",
-    "duration": "11.681s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_hierarchy_settings.TestDocumentHierarchyAndSettings::test_parent_documents_hierarchy",
-    "duration": "4.508s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_hierarchy_settings.TestDocumentHierarchyAndSettings::test_search_ownership_filtering",
-    "duration": "9.353s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_search_history.TestDocumentSearchAndHistory::test_change_history",
-    "duration": "5.498s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_document_search_history.TestDocumentSearchAndHistory::test_search_documents_with_filters",
-    "duration": "6.281s"
-  },
-  {
-    "testId": "tests.e2e.knowledge.test_okf_reimport::test_okf_reimport_preserves_datahub_edits",
-    "duration": "0.450s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[application_create.py]",
-    "duration": "3.895s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[application_query_rest_api.py]",
-    "duration": "0.455s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[assertion_create_field_uniqueness.py]",
-    "duration": "0.477s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[assertion_create_freshness.py]",
-    "duration": "0.568s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[assertion_create_schema.py]",
-    "duration": "0.571s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[assertion_create_sql_metric.py]",
-    "duration": "0.569s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[assertion_create_volume_rows.py]",
-    "duration": "0.526s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[business_attribute_create.py]",
-    "duration": "0.502s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[business_attribute_query.py]",
-    "duration": "0.526s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[chart_create_simple.py]",
-    "duration": "0.750s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[chart_read.py]",
-    "duration": "0.599s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[container_create.py]",
-    "duration": "0.639s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[container_create_database.py]",
-    "duration": "0.717s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[container_create_schema.py]",
-    "duration": "0.746s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[corpgroup_create.py]",
-    "duration": "0.637s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[corpgroup_query_rest_api.py]",
-    "duration": "0.590s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[corpuser_create_basic.py]",
-    "duration": "0.565s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dashboard_create_simple.py]",
-    "duration": "0.572s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dashboard_read.py]",
-    "duration": "0.539s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[data_platform_create.py]",
-    "duration": "0.391s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[data_process_instance_create_simple.py]",
-    "duration": "3.125s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[datacontract_create_basic.py]",
-    "duration": "0.528s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dataflow_create.py]",
-    "duration": "0.647s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dataflow_query_rest.py]",
-    "duration": "0.500s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dataflow_read.py]",
-    "duration": "0.538s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[datajob_create_basic.py]",
-    "duration": "0.567s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[datajob_create_full.py]",
-    "duration": "0.547s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[datajob_query_rest.py]",
-    "duration": "0.426s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[datajob_read.py]",
-    "duration": "0.478s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dataproduct_create.py]",
-    "duration": "0.923s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dataproduct_query_rest.py]",
-    "duration": "0.691s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dataset_create_with_structured_properties.py]",
-    "duration": "0.573s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[domain_create.py]",
-    "duration": "0.635s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[domain_create_nested.py]",
-    "duration": "0.508s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[ermodelrelationship_create_basic.py]",
-    "duration": "0.831s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[glossary_node_create.py]",
-    "duration": "0.694s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[glossary_term_create.py]",
-    "duration": "0.610s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[glossary_term_create_simple.py]",
-    "duration": "0.607s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[incident_create.py]",
-    "duration": "0.491s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlfeature_create.py]",
-    "duration": "0.579s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlfeature_read.py]",
-    "duration": "0.520s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlfeature_table_create.py]",
-    "duration": "0.469s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlfeature_table_read.py]",
-    "duration": "0.437s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_create.py]",
-    "duration": "0.776s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_create_full.py]",
-    "duration": "0.568s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_deployment_create.py]",
-    "duration": "0.498s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_group_create.py]",
-    "duration": "0.644s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_group_read.py]",
-    "duration": "0.553s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_query_rest_api.py]",
-    "duration": "0.550s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_read.py]",
-    "duration": "0.515s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlprimarykey_create.py]",
-    "duration": "0.454s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlprimarykey_query_rest.py]",
-    "duration": "0.453s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlprimarykey_read.py]",
-    "duration": "0.392s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[notebook_create.py]",
-    "duration": "0.543s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[ownership_type_create_custom.py]",
-    "duration": "0.538s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[ownership_type_query_rest.py]",
-    "duration": "0.492s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[platform_instance_create.py]",
-    "duration": "0.440s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[query_create.py]",
-    "duration": "0.488s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[role_create.py]",
-    "duration": "0.449s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[role_query.py]",
-    "duration": "0.442s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[search_filter_by_domain.py]",
-    "duration": "0.547s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[structured_property_create_basic.py]",
-    "duration": "0.838s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[tag_create_basic.py]",
-    "duration": "0.517s"
-  },
-  {
-    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[tag_query_rest.py]",
-    "duration": "0.493s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_datajob_lineage_patch::test_procedure_lineage_patch_preserves_manual_edges",
-    "duration": "4.603s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage::test_lineage_via_node[1-LineageStyle.DATASET_JOB_DATASET]",
-    "duration": "4.762s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage::test_lineage_via_node[1-LineageStyle.DATASET_QUERY_DATASET]",
-    "duration": "8.582s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage::test_lineage_via_node[2-LineageStyle.DATASET_JOB_DATASET]",
-    "duration": "4.634s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage::test_lineage_via_node[2-LineageStyle.DATASET_QUERY_DATASET]",
-    "duration": "4.713s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage::test_lineage_via_node[3-LineageStyle.DATASET_JOB_DATASET]",
-    "duration": "5.790s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage::test_lineage_via_node[3-LineageStyle.DATASET_QUERY_DATASET]",
-    "duration": "5.537s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage_counts::test_counts_by_materialization",
-    "duration": "2.152s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage_counts::test_counts_filter_by_parent",
-    "duration": "0.020s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage_counts::test_counts_filter_by_platform",
-    "duration": "0.013s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage_counts::test_counts_ignore_as_hops_for_schema_fields",
-    "duration": "1.755s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage_counts::test_counts_reject_unservable_graph_query",
-    "duration": "0.010s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage_counts::test_counts_with_lineage_time_window",
-    "duration": "0.017s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage_counts::test_include_soft_deleted_is_ignored_off_the_graph",
-    "duration": "0.314s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage_counts::test_validation_drops_columns_whose_parent_has_no_schema",
-    "duration": "0.031s"
-  },
-  {
-    "testId": "tests.e2e.lineage.test_lineage_sdk::test_column_level_lineage",
     "duration": "0.037s"
   },
   {
+    "testId": "tests.e2e.entity_versioning.test_versioning_timeline::test_get_timeline_without_version_set",
+    "duration": "5.287s"
+  },
+  {
+    "testId": "tests.e2e.forms.forms_test::test_batch_assign_and_remove_form",
+    "duration": "47.784s"
+  },
+  {
+    "testId": "tests.e2e.forms.forms_test::test_batch_assign_form_across_entity_types",
+    "duration": "23.490s"
+  },
+  {
+    "testId": "tests.e2e.forms.forms_test::test_batch_assign_form_is_idempotent",
+    "duration": "21.936s"
+  },
+  {
+    "testId": "tests.e2e.forms.forms_test::test_batch_assign_form_rejects_batch_with_missing_entity",
+    "duration": "15.118s"
+  },
+  {
+    "testId": "tests.e2e.forms.forms_test::test_batch_assign_form_reports_every_missing_entity",
+    "duration": "10.069s"
+  },
+  {
+    "testId": "tests.e2e.forms.forms_test::test_batch_assign_form_tolerates_duplicate_urns",
+    "duration": "14.388s"
+  },
+  {
+    "testId": "tests.e2e.forms.forms_test::test_batch_remove_form_never_assigned_is_noop",
+    "duration": "14.912s"
+  },
+  {
+    "testId": "tests.e2e.forms.forms_test::test_batch_remove_form_only_affects_named_form",
+    "duration": "31.306s"
+  },
+  {
+    "testId": "tests.e2e.glossary.glossary_children_count_test::test_children_count_is_correct_for_a_batch_of_sibling_nodes",
+    "duration": "8.465s"
+  },
+  {
+    "testId": "tests.e2e.glossary.parent_nodes_batching_test::test_parent_nodes_batched_chains_stay_with_their_term",
+    "duration": "9.119s"
+  },
+  {
+    "testId": "tests.e2e.glossary.parent_nodes_batching_test::test_parent_nodes_batched_matches_one_per_request",
+    "duration": "37.049s"
+  },
+  {
+    "testId": "tests.e2e.glossary.parent_nodes_batching_test::test_parent_nodes_duplicate_terms_in_one_request",
+    "duration": "4.071s"
+  },
+  {
+    "testId": "tests.e2e.glossary.parent_nodes_batching_test::test_parent_nodes_full_depth_resolved",
+    "duration": "5.050s"
+  },
+  {
+    "testId": "tests.e2e.graph.test_graph_client::test_get_aspect_v2",
+    "duration": "10.898s"
+  },
+  {
+    "testId": "tests.e2e.graph.test_graph_client::test_get_entities_v3",
+    "duration": "0.037s"
+  },
+  {
+    "testId": "tests.e2e.graph.test_graph_client::test_get_entity_aspect_specs",
+    "duration": "0.289s"
+  },
+  {
+    "testId": "tests.e2e.graph.test_graph_client::test_graph_relationships",
+    "duration": "10.800s"
+  },
+  {
+    "testId": "tests.e2e.identity.test_group_membership_lifecycle::test_membership_converges_after_group_delete_and_recreate",
+    "duration": "54.607s"
+  },
+  {
+    "testId": "tests.e2e.incidents.health_batch_test::test_batched_incident_health",
+    "duration": "6.064s"
+  },
+  {
+    "testId": "tests.e2e.incidents.health_batch_test::test_incident_health_survives_soft_deleted_asset",
+    "duration": "25.671s"
+  },
+  {
+    "testId": "tests.e2e.incidents.incidents_test::test_list_dataset_incidents",
+    "duration": "10.222s"
+  },
+  {
+    "testId": "tests.e2e.incidents.incidents_test::test_raise_resolve_incident",
+    "duration": "18.222s"
+  },
+  {
+    "testId": "tests.e2e.institutional_memory.institutional_memory_test::test_add_institutional_memory",
+    "duration": "14.317s"
+  },
+  {
+    "testId": "tests.e2e.institutional_memory.institutional_memory_test::test_get_institutional_memory",
+    "duration": "13.936s"
+  },
+  {
+    "testId": "tests.e2e.institutional_memory.institutional_memory_test::test_remove_institutional_memory",
+    "duration": "12.258s"
+  },
+  {
+    "testId": "tests.e2e.institutional_memory.institutional_memory_test::test_update_institutional_memory",
+    "duration": "13.249s"
+  },
+  {
+    "testId": "tests.e2e.institutional_memory.institutional_memory_test::test_upsert_institutional_memory",
+    "duration": "13.289s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.document_change_history_test::test_document_change_history",
+    "duration": "7.159s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.document_change_history_test::test_document_change_history_empty",
+    "duration": "7.087s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.document_change_history_test::test_document_change_history_with_time_range",
+    "duration": "7.102s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.document_search_filter_test::test_related_documents_shows_context_only_documents",
+    "duration": "13.244s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.document_search_filter_test::test_search_across_entities_filters_documents",
+    "duration": "13.232s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.document_search_filter_test::test_search_documents_filters_hidden_context_documents",
+    "duration": "13.190s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.document_search_filter_test::test_search_documents_shows_owned_unpublished",
+    "duration": "16.143s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_create_document",
+    "duration": "14.600s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_create_document_with_owners",
+    "duration": "13.193s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_get_document",
+    "duration": "12.453s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_move_document",
+    "duration": "22.863s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_search_documents",
+    "duration": "17.425s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_update_document_contents",
+    "duration": "13.478s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_update_document_status",
+    "duration": "24.771s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_update_document_subtype",
+    "duration": "12.157s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_update_related_entities",
+    "duration": "15.071s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_hierarchy_settings.TestDocumentHierarchyAndSettings::test_context_documents_for_dataset",
+    "duration": "28.568s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_hierarchy_settings.TestDocumentHierarchyAndSettings::test_document_settings",
+    "duration": "39.970s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_hierarchy_settings.TestDocumentHierarchyAndSettings::test_parent_documents_hierarchy",
+    "duration": "14.071s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_hierarchy_settings.TestDocumentHierarchyAndSettings::test_search_ownership_filtering",
+    "duration": "28.113s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_search_history.TestDocumentSearchAndHistory::test_change_history",
+    "duration": "18.603s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_document_search_history.TestDocumentSearchAndHistory::test_search_documents_with_filters",
+    "duration": "19.655s"
+  },
+  {
+    "testId": "tests.e2e.knowledge.test_okf_reimport::test_okf_reimport_preserves_datahub_edits",
+    "duration": "0.263s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[application_create.py]",
+    "duration": "5.781s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[application_query_rest_api.py]",
+    "duration": "0.452s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[assertion_create_field_uniqueness.py]",
+    "duration": "0.396s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[assertion_create_freshness.py]",
+    "duration": "0.451s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[assertion_create_schema.py]",
+    "duration": "0.418s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[assertion_create_sql_metric.py]",
+    "duration": "0.340s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[assertion_create_volume_rows.py]",
+    "duration": "0.431s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[business_attribute_create.py]",
+    "duration": "0.336s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[business_attribute_query.py]",
+    "duration": "0.463s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[chart_create_simple.py]",
+    "duration": "0.471s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[chart_read.py]",
+    "duration": "0.445s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[container_create.py]",
+    "duration": "0.494s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[container_create_database.py]",
+    "duration": "0.482s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[container_create_schema.py]",
+    "duration": "0.442s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[corpgroup_create.py]",
+    "duration": "0.371s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[corpgroup_query_rest_api.py]",
+    "duration": "0.390s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[corpuser_create_basic.py]",
+    "duration": "0.408s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dashboard_create_simple.py]",
+    "duration": "0.409s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dashboard_read.py]",
+    "duration": "0.403s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[data_platform_create.py]",
+    "duration": "0.344s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[data_process_instance_create_simple.py]",
+    "duration": "2.587s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[datacontract_create_basic.py]",
+    "duration": "0.350s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dataflow_create.py]",
+    "duration": "0.441s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dataflow_query_rest.py]",
+    "duration": "0.338s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dataflow_read.py]",
+    "duration": "0.406s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[datajob_create_basic.py]",
+    "duration": "0.370s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[datajob_create_full.py]",
+    "duration": "0.454s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[datajob_query_rest.py]",
+    "duration": "0.361s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[datajob_read.py]",
+    "duration": "0.440s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dataproduct_create.py]",
+    "duration": "0.477s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dataproduct_query_rest.py]",
+    "duration": "0.354s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[dataset_create_with_structured_properties.py]",
+    "duration": "0.399s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[domain_create.py]",
+    "duration": "0.320s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[domain_create_nested.py]",
+    "duration": "0.316s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[ermodelrelationship_create_basic.py]",
+    "duration": "0.372s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[glossary_node_create.py]",
+    "duration": "0.425s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[glossary_term_create.py]",
+    "duration": "0.415s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[glossary_term_create_simple.py]",
+    "duration": "0.368s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[incident_create.py]",
+    "duration": "0.344s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlfeature_create.py]",
+    "duration": "0.354s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlfeature_read.py]",
+    "duration": "0.342s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlfeature_table_create.py]",
+    "duration": "0.346s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlfeature_table_read.py]",
+    "duration": "0.321s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_create.py]",
+    "duration": "0.370s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_create_full.py]",
+    "duration": "0.409s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_deployment_create.py]",
+    "duration": "0.330s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_group_create.py]",
+    "duration": "0.398s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_group_read.py]",
+    "duration": "0.384s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_query_rest_api.py]",
+    "duration": "0.359s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlmodel_read.py]",
+    "duration": "0.369s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlprimarykey_create.py]",
+    "duration": "0.313s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlprimarykey_query_rest.py]",
+    "duration": "0.377s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[mlprimarykey_read.py]",
+    "duration": "0.337s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[notebook_create.py]",
+    "duration": "0.360s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[ownership_type_create_custom.py]",
+    "duration": "0.332s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[ownership_type_query_rest.py]",
+    "duration": "0.338s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[platform_instance_create.py]",
+    "duration": "0.319s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[query_create.py]",
+    "duration": "0.362s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[role_create.py]",
+    "duration": "0.336s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[role_query.py]",
+    "duration": "0.348s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[search_filter_by_domain.py]",
+    "duration": "0.362s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[structured_property_create_basic.py]",
+    "duration": "0.787s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[tag_create_basic.py]",
+    "duration": "0.407s"
+  },
+  {
+    "testId": "tests.e2e.library_examples.test_library_examples::test_library_example[tag_query_rest.py]",
+    "duration": "0.338s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_datajob_lineage_patch::test_procedure_lineage_patch_preserves_manual_edges",
+    "duration": "13.166s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage::test_lineage_via_node[1-LineageStyle.DATASET_JOB_DATASET]",
+    "duration": "8.581s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage::test_lineage_via_node[1-LineageStyle.DATASET_QUERY_DATASET]",
+    "duration": "8.857s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage::test_lineage_via_node[2-LineageStyle.DATASET_JOB_DATASET]",
+    "duration": "10.694s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage::test_lineage_via_node[2-LineageStyle.DATASET_QUERY_DATASET]",
+    "duration": "9.414s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage::test_lineage_via_node[3-LineageStyle.DATASET_JOB_DATASET]",
+    "duration": "11.900s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage::test_lineage_via_node[3-LineageStyle.DATASET_QUERY_DATASET]",
+    "duration": "11.504s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage_counts::test_counts_by_materialization",
+    "duration": "5.098s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage_counts::test_counts_filter_by_parent",
+    "duration": "0.023s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage_counts::test_counts_filter_by_platform",
+    "duration": "0.014s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage_counts::test_counts_ignore_as_hops_for_schema_fields",
+    "duration": "4.919s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage_counts::test_counts_reject_unservable_graph_query",
+    "duration": "0.019s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage_counts::test_counts_with_lineage_time_window",
+    "duration": "0.035s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage_counts::test_include_soft_deleted_is_ignored_off_the_graph",
+    "duration": "0.300s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage_counts::test_validation_drops_columns_whose_parent_has_no_schema",
+    "duration": "0.033s"
+  },
+  {
+    "testId": "tests.e2e.lineage.test_lineage_sdk::test_column_level_lineage",
+    "duration": "0.070s"
+  },
+  {
     "testId": "tests.e2e.lineage.test_lineage_sdk::test_column_level_lineage_from_schema_field",
-    "duration": "0.137s"
+    "duration": "0.167s"
   },
   {
     "testId": "tests.e2e.lineage.test_lineage_sdk::test_filtered_column_level_lineage",
-    "duration": "0.039s"
+    "duration": "0.065s"
   },
   {
     "testId": "tests.e2e.lineage.test_lineage_sdk::test_table_level_lineage",
-    "duration": "20.717s"
+    "duration": "11.496s"
   },
   {
     "testId": "tests.e2e.managed_ingestion.managed_ingestion_test::test_create_list_get_ingestion_execution_request",
-    "duration": "52.662s"
+    "duration": "31.749s"
   },
   {
     "testId": "tests.e2e.managed_ingestion.managed_ingestion_test::test_create_list_get_remove_ingestion_source",
-    "duration": "13.448s"
+    "duration": "21.013s"
   },
   {
     "testId": "tests.e2e.managed_ingestion.managed_ingestion_test::test_create_list_get_remove_secret",
-    "duration": "23.208s"
+    "duration": "56.132s"
   },
   {
     "testId": "tests.e2e.managed_ingestion.managed_ingestion_test::test_secret_roundtrip_preserves_json_credentials_with_newlines_and_slashes",
-    "duration": "2.893s"
+    "duration": "10.654s"
   },
   {
     "testId": "tests.e2e.managed_ingestion.managed_ingestion_test::test_secret_roundtrip_preserves_passwords_and_connection_strings_with_special_chars",
-    "duration": "3.075s"
+    "duration": "9.126s"
   },
   {
     "testId": "tests.e2e.metrics.test_metrics::test_usage_aggregation_micrometer_export",
-    "duration": "21.180s"
-  },
-  {
-    "testId": "tests.e2e.metrics.test_queue_ingest_usage::test_queue_ingest_metadata_ingest_metric_on_mce",
-    "duration": "23.201s"
+    "duration": "49.520s"
   },
   {
     "testId": "tests.e2e.metrics.test_usage_aggregation_audit.TestUsageAggregationActiveIdentities::test_usage_aggregation_admin_active_identities",
-    "duration": "1.525s"
+    "duration": "3.870s"
   },
   {
     "testId": "tests.e2e.metrics.test_usage_aggregation_audit.TestUsageAggregationActiveIdentities::test_usage_aggregation_regular_user_active_identities",
-    "duration": "31.803s"
+    "duration": "51.718s"
   },
   {
     "testId": "tests.e2e.metrics.test_usage_aggregation_audit.TestUsageAggregationAdminSessions::test_usage_aggregation_admin_actor_class_and_tags",
-    "duration": "7.496s"
+    "duration": "10.089s"
   },
   {
     "testId": "tests.e2e.metrics.test_usage_aggregation_audit.TestUsageAggregationAdminSessions::test_usage_aggregation_configured_admin_actor_class",
-    "duration": "11.814s"
+    "duration": "10.121s"
   },
   {
     "testId": "tests.e2e.metrics.test_usage_aggregation_audit.TestUsageAggregationAdminSessions::test_usage_aggregation_fresh_admin_session_login",
-    "duration": "9.619s"
+    "duration": "10.350s"
   },
   {
     "testId": "tests.e2e.metrics.test_usage_aggregation_audit.TestUsageAggregationByteMetrics::test_usage_aggregation_graphql_output_bytes",
-    "duration": "6.152s"
+    "duration": "9.067s"
   },
   {
     "testId": "tests.e2e.metrics.test_usage_aggregation_audit.TestUsageAggregationByteMetrics::test_usage_aggregation_openapi_read_and_search",
-    "duration": "21.523s"
+    "duration": "11.178s"
   },
   {
     "testId": "tests.e2e.metrics.test_usage_aggregation_audit.TestUsageAggregationByteMetrics::test_usage_aggregation_openapi_search_output_bytes",
-    "duration": "4.746s"
+    "duration": "10.125s"
   },
   {
     "testId": "tests.e2e.metrics.test_usage_aggregation_audit.TestUsageAggregationGraphqlOutputDedup::test_usage_aggregation_graphql_output_bytes_not_double_counted",
-    "duration": "20.700s"
+    "duration": "55.389s"
   },
   {
     "testId": "tests.e2e.metrics.test_usage_aggregation_audit.TestUsageAggregationPatTraffic::test_usage_aggregation_pat_authenticated_traffic",
-    "duration": "20.274s"
+    "duration": "48.519s"
   },
   {
     "testId": "tests.e2e.ml_models.test_ml_models::test_create_ml_models",
-    "duration": "1.837s"
+    "duration": "5.162s"
   },
   {
     "testId": "tests.e2e.object_storage.test_object_storage::test_documentation_file_upload_gated_without_presigned_urls",
-    "duration": "1.320s"
+    "duration": "4.055s"
   },
   {
     "testId": "tests.e2e.object_storage.test_object_storage::test_get_presigned_upload_url_rejects_local_provider",
-    "duration": "3.693s"
+    "duration": "7.094s"
   },
   {
     "testId": "tests.e2e.object_storage.test_object_storage::test_object_storage_config_exposed_in_system_info",
-    "duration": "0.075s"
+    "duration": "0.100s"
   },
   {
     "testId": "tests.e2e.odcs.test_odcs_ingestion::test_odcs_v32_contract_end_to_end",
-    "duration": "8.801s"
+    "duration": "22.596s"
   },
   {
     "testId": "tests.e2e.openapi.test_openapi::test_openapi",
-    "duration": "33.798s"
+    "duration": "57.479s"
   },
   {
     "testId": "tests.e2e.openapi.v1.test_tracking::test_tracking_api_elasticsearch",
-    "duration": "2.049s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v1.test_tracking::test_tracking_api_kafka",
-    "duration": "3.149s"
+    "duration": "3.032s"
   },
   {
     "testId": "tests.e2e.openapi.v1.test_tracking::test_tracking_api_mixpanel",
@@ -1657,131 +1709,131 @@
   },
   {
     "testId": "tests.e2e.openapi.v1.test_tracking::test_tracking_api_pgqueue",
-    "duration": "0.004s"
+    "duration": "3.844s"
   },
   {
     "testId": "tests.e2e.openapi.v2.test_timeseries_scroll::test_timeseries_scroll_no_scrollid_on_last_page",
-    "duration": "5.709s"
+    "duration": "9.131s"
   },
   {
     "testId": "tests.e2e.openapi.v2.test_timeseries_scroll::test_timeseries_scroll_pagination_no_duplicates",
-    "duration": "5.502s"
+    "duration": "9.143s"
   },
   {
     "testId": "tests.e2e.openapi.v2.test_timeseries_scroll::test_timeseries_scroll_returns_scrollid",
-    "duration": "5.726s"
+    "duration": "9.135s"
   },
   {
     "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_aspects_empty_returns_all_aspects",
-    "duration": "0.142s"
+    "duration": "0.133s"
   },
   {
     "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_aspects_none_returns_urns_only",
-    "duration": "0.032s"
+    "duration": "0.023s"
   },
   {
     "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_aspects_single_returns_only_that_aspect",
-    "duration": "0.030s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_basic",
-    "duration": "9.170s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_by_entity_type",
-    "duration": "0.061s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_by_multiple_entity_types",
-    "duration": "0.047s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_filter_is_applied",
-    "duration": "0.025s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_pagination",
-    "duration": "0.054s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_parallel_slicing",
-    "duration": "0.065s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_with_query",
-    "duration": "0.043s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_with_sort_criteria",
-    "duration": "0.026s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_with_system_metadata",
-    "duration": "0.031s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_all_edges_around_urn",
-    "duration": "2.284s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_datajob_directions",
-    "duration": "0.049s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_downstream_of_upstream_node",
-    "duration": "0.060s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_feature_directions",
-    "duration": "0.057s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_no_urns_returns_lineage_edges",
-    "duration": "0.029s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_pagination",
-    "duration": "0.121s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_produces_source_is_upstream",
-    "duration": "0.056s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_relationship_types_filter",
     "duration": "0.028s"
   },
   {
-    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_basic",
-    "duration": "6.715s"
+    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_basic",
+    "duration": "18.985s"
   },
   {
-    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_by_type_consumes",
+    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_by_entity_type",
+    "duration": "0.045s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_by_multiple_entity_types",
     "duration": "0.031s"
   },
   {
-    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_by_type_derived_from",
-    "duration": "0.031s"
+    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_filter_is_applied",
+    "duration": "0.019s"
   },
   {
-    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_by_type_downstream",
-    "duration": "0.043s"
+    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_pagination",
+    "duration": "0.044s"
   },
   {
-    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_destination_urns_and_filter_equivalent",
-    "duration": "0.042s"
+    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_parallel_slicing",
+    "duration": "0.060s"
   },
   {
-    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_pagination",
+    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_with_query",
+    "duration": "0.051s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_with_sort_criteria",
+    "duration": "0.019s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_entities::test_scroll_entities_with_system_metadata",
+    "duration": "0.024s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_all_edges_around_urn",
+    "duration": "7.044s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_datajob_directions",
+    "duration": "0.080s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_downstream_of_upstream_node",
+    "duration": "0.093s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_feature_directions",
+    "duration": "0.054s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_no_urns_returns_lineage_edges",
+    "duration": "0.033s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_pagination",
+    "duration": "0.128s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_produces_source_is_upstream",
+    "duration": "0.066s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_lineage::test_scroll_lineage_relationship_types_filter",
     "duration": "0.029s"
   },
   {
+    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_basic",
+    "duration": "15.225s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_by_type_consumes",
+    "duration": "0.016s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_by_type_derived_from",
+    "duration": "0.027s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_by_type_downstream",
+    "duration": "0.028s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_destination_urns_and_filter_equivalent",
+    "duration": "0.035s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_pagination",
+    "duration": "0.035s"
+  },
+  {
     "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_source_urns_and_filter_equivalent",
-    "duration": "0.048s"
+    "duration": "0.029s"
   },
   {
     "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_with_destination_types",
-    "duration": "0.021s"
+    "duration": "0.017s"
   },
   {
     "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_with_destination_urns",
@@ -1789,839 +1841,863 @@
   },
   {
     "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_with_direction_incoming",
-    "duration": "0.017s"
+    "duration": "0.014s"
   },
   {
     "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_with_direction_outgoing",
-    "duration": "0.018s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_with_edge_filter",
-    "duration": "0.018s"
-  },
-  {
-    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_with_source_types",
     "duration": "0.017s"
   },
   {
+    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_with_edge_filter",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_with_source_types",
+    "duration": "0.022s"
+  },
+  {
     "testId": "tests.e2e.openapi.v3.test_scroll_relationships::test_scroll_relationships_with_source_urns",
-    "duration": "0.029s"
+    "duration": "0.016s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_custom_properties_patch[graph_client]",
-    "duration": "0.310s"
+    "duration": "0.097s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_custom_properties_patch[openapi_graph_client]",
-    "duration": "0.362s"
+    "duration": "0.098s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_datajob_add_fine_grained_lineage[graph_client]",
-    "duration": "0.110s"
+    "duration": "0.051s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_datajob_add_fine_grained_lineage[openapi_graph_client]",
-    "duration": "0.124s"
+    "duration": "0.048s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_datajob_inputoutput_dataset_patch[graph_client]",
-    "duration": "0.185s"
+    "duration": "0.067s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_datajob_inputoutput_dataset_patch[openapi_graph_client]",
-    "duration": "0.177s"
+    "duration": "0.062s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_datajob_multiple_inputoutput_dataset_patch[graph_client]",
-    "duration": "0.160s"
+    "duration": "0.056s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_datajob_multiple_inputoutput_dataset_patch[openapi_graph_client]",
-    "duration": "0.162s"
+    "duration": "0.062s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_datajob_ownership_patch[graph_client]",
-    "duration": "3.157s"
+    "duration": "5.526s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_datajob_ownership_patch[openapi_graph_client]",
-    "duration": "0.436s"
+    "duration": "0.096s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_datajob_set_fine_grained_lineages[graph_client]",
-    "duration": "0.100s"
+    "duration": "0.044s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_datajob_set_fine_grained_lineages[openapi_graph_client]",
-    "duration": "0.095s"
+    "duration": "0.042s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_datajob_tags_patch[graph_client]",
-    "duration": "0.466s"
+    "duration": "0.119s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_datajob_tags_patch[openapi_graph_client]",
-    "duration": "0.276s"
+    "duration": "0.093s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_dataset_terms_patch[graph_client]",
-    "duration": "0.261s"
+    "duration": "0.071s"
   },
   {
     "testId": "tests.e2e.patch.test_datajob_patches::test_dataset_terms_patch[openapi_graph_client]",
-    "duration": "0.271s"
+    "duration": "0.073s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_add_attributed_tag_is_idempotent[graph_client]",
-    "duration": "0.186s"
+    "duration": "0.067s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_add_attributed_tag_is_idempotent[openapi_graph_client]",
-    "duration": "0.127s"
+    "duration": "0.072s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_attributed_duplicates_survive_unrelated_tag_patch[graph_client]",
-    "duration": "0.218s"
+    "duration": "0.105s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_attributed_duplicates_survive_unrelated_tag_patch[openapi_graph_client]",
-    "duration": "0.191s"
+    "duration": "0.095s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_attribution_based_tag_patch[graph_client]",
-    "duration": "0.176s"
+    "duration": "0.067s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_attribution_based_tag_patch[openapi_graph_client]",
-    "duration": "0.267s"
+    "duration": "0.087s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_custom_properties_patch[graph_client]",
-    "duration": "0.312s"
+    "duration": "0.101s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_custom_properties_patch[openapi_graph_client]",
-    "duration": "0.295s"
+    "duration": "0.108s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_dataset_add_fine_grained_lineage[graph_client]",
-    "duration": "0.172s"
+    "duration": "0.061s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_dataset_add_fine_grained_lineage[openapi_graph_client]",
-    "duration": "0.175s"
+    "duration": "0.062s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_dataset_ownership_patch[graph_client]",
-    "duration": "3.429s"
+    "duration": "5.530s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_dataset_ownership_patch[openapi_graph_client]",
-    "duration": "0.415s"
+    "duration": "0.105s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_dataset_set_fine_grained_lineages[graph_client]",
-    "duration": "0.152s"
+    "duration": "0.051s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_dataset_set_fine_grained_lineages[openapi_graph_client]",
-    "duration": "0.121s"
+    "duration": "0.053s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_dataset_tags_patch[graph_client]",
-    "duration": "0.342s"
+    "duration": "0.098s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_dataset_tags_patch[openapi_graph_client]",
-    "duration": "0.395s"
+    "duration": "0.104s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_dataset_terms_patch[graph_client]",
-    "duration": "0.402s"
+    "duration": "0.086s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_dataset_terms_patch[openapi_graph_client]",
-    "duration": "0.346s"
+    "duration": "0.091s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_dataset_upstream_lineage_patch[graph_client]",
-    "duration": "0.405s"
+    "duration": "0.089s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_dataset_upstream_lineage_patch[openapi_graph_client]",
-    "duration": "0.326s"
+    "duration": "0.076s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_documentation_patch[graph_client]",
-    "duration": "0.126s"
+    "duration": "0.054s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_documentation_patch[openapi_graph_client]",
-    "duration": "0.138s"
+    "duration": "0.054s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_field_patch_multiple_new_fields_merges_with_existing[graph_client]",
-    "duration": "0.232s"
+    "duration": "0.062s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_field_patch_multiple_new_fields_merges_with_existing[openapi_graph_client]",
-    "duration": "0.241s"
+    "duration": "0.066s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_field_tag_patch_on_new_field_preserves_fieldpath[graph_client]",
-    "duration": "0.203s"
+    "duration": "0.039s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_field_tag_patch_on_new_field_preserves_fieldpath[openapi_graph_client]",
-    "duration": "0.140s"
+    "duration": "0.044s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_field_tags_attribution_patch[graph_client]",
-    "duration": "0.002s"
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.e2e.patch.test_dataset_patches::test_field_tags_attribution_patch[openapi_graph_client]",
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_field_tags_patch[graph_client]",
-    "duration": "0.366s"
+    "duration": "0.156s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_field_tags_patch[openapi_graph_client]",
-    "duration": "0.388s"
+    "duration": "0.113s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_field_term_patch_on_new_field_preserves_fieldpath[graph_client]",
-    "duration": "0.145s"
+    "duration": "0.041s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_field_term_patch_on_new_field_preserves_fieldpath[openapi_graph_client]",
-    "duration": "0.138s"
+    "duration": "0.044s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_field_terms_attribution_patch[graph_client]",
     "duration": "0.001s"
   },
   {
+    "testId": "tests.e2e.patch.test_dataset_patches::test_field_terms_attribution_patch[openapi_graph_client]",
+    "duration": "0.001s"
+  },
+  {
     "testId": "tests.e2e.patch.test_dataset_patches::test_field_terms_patch[graph_client]",
-    "duration": "0.417s"
+    "duration": "0.085s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_field_terms_patch[openapi_graph_client]",
-    "duration": "0.392s"
+    "duration": "0.097s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_ownership_multi_type_urn_patch[graph_client]",
-    "duration": "0.186s"
+    "duration": "0.089s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_ownership_multi_type_urn_patch[openapi_graph_client]",
-    "duration": "0.177s"
+    "duration": "0.085s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_remove_all_documentation[graph_client]",
-    "duration": "0.139s"
+    "duration": "0.054s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_remove_all_documentation[openapi_graph_client]",
-    "duration": "0.139s"
+    "duration": "0.058s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_remove_without_attribution_deletes_all_entries[graph_client]",
-    "duration": "0.111s"
+    "duration": "0.058s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_remove_without_attribution_deletes_all_entries[openapi_graph_client]",
-    "duration": "0.128s"
+    "duration": "0.057s"
   },
   {
     "testId": "tests.e2e.patch.test_dataset_patches::test_unattributed_and_attributed_tag_coexist[graph_client]",
-    "duration": "0.144s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_dataset_patches::test_unattributed_and_attributed_tag_coexist[openapi_graph_client]",
-    "duration": "0.210s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_add_remove_via_domain_associations_patch_updates_domains[graph_client]",
-    "duration": "0.540s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_add_remove_via_domain_associations_patch_updates_domains[openapi_graph_client]",
-    "duration": "0.489s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_add_remove_via_domain_associations_upsert_updates_domains[graph_client]",
-    "duration": "0.395s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_add_remove_via_domain_associations_upsert_updates_domains[openapi_graph_client]",
-    "duration": "0.404s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_add_remove_via_domains_updates_domain_associations[graph_client]",
-    "duration": "3.423s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_add_remove_via_domains_updates_domain_associations[openapi_graph_client]",
-    "duration": "0.436s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_propagated_domains_ordered_after_manual[graph_client]",
-    "duration": "0.181s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_propagated_domains_ordered_after_manual[openapi_graph_client]",
-    "duration": "0.159s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_read_modify_write_associations_updates_domains[graph_client]",
-    "duration": "0.307s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_read_modify_write_associations_updates_domains[openapi_graph_client]",
-    "duration": "0.230s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_read_modify_write_domains_updates_associations[graph_client]",
-    "duration": "0.284s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_read_modify_write_domains_updates_associations[openapi_graph_client]",
-    "duration": "0.286s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_updating_both_domains_and_domain_associations_errors[graph_client]",
-    "duration": "0.213s"
-  },
-  {
-    "testId": "tests.e2e.patch.test_domain_patches::test_updating_both_domains_and_domain_associations_errors[openapi_graph_client]",
-    "duration": "0.228s"
-  },
-  {
-    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_consumer_registration_lifecycle",
-    "duration": "0.010s"
-  },
-  {
-    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_list_registered_consumers",
-    "duration": "0.004s"
-  },
-  {
-    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_mcl_timeseries_consumer_lag_detailed",
-    "duration": "0.005s"
-  },
-  {
-    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_mcl_versioned_consumer_lag_detailed",
-    "duration": "0.005s"
-  },
-  {
-    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_mcp_consumer_lag_detailed",
-    "duration": "0.008s"
-  },
-  {
-    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_messaging_transport_reports_pgqueue",
-    "duration": "0.006s"
-  },
-  {
-    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_reset_stuck_ahead_consumer_offsets",
-    "duration": "0.004s"
-  },
-  {
-    "testId": "tests.e2e.platform_resources.test_platform_resource::test_platform_resource_listing_by_resource_type",
-    "duration": "1.792s"
-  },
-  {
-    "testId": "tests.e2e.platform_resources.test_platform_resource::test_platform_resource_listing_complex_queries",
-    "duration": "2.547s"
-  },
-  {
-    "testId": "tests.e2e.platform_resources.test_platform_resource::test_platform_resource_non_existent",
-    "duration": "0.033s"
-  },
-  {
-    "testId": "tests.e2e.platform_resources.test_platform_resource::test_platform_resource_read_write",
-    "duration": "1.475s"
-  },
-  {
-    "testId": "tests.e2e.platform_resources.test_platform_resource::test_platform_resource_search",
-    "duration": "1.682s"
-  },
-  {
-    "testId": "tests.e2e.platform_resources.test_platform_resource::test_platform_resource_urn_secondary_key",
-    "duration": "1.852s"
-  },
-  {
-    "testId": "tests.e2e.policies.test_policies::test_frontend_policy_operations",
-    "duration": "9.021s"
-  },
-  {
-    "testId": "tests.e2e.policies.test_policy_eval_perf::test_domains_page_perf_with_domain_scoped_policies[10-20]",
-    "duration": "23.027s"
-  },
-  {
-    "testId": "tests.e2e.policies.test_policy_eval_perf::test_domains_page_perf_with_domain_scoped_policies[100-50]",
-    "duration": "33.267s"
-  },
-  {
-    "testId": "tests.e2e.privileges.test_privileges::test_privilege_from_group_role_can_create_and_manage_secret",
-    "duration": "40.981s"
-  },
-  {
-    "testId": "tests.e2e.privileges.test_privileges::test_privilege_to_create_and_manage_ingestion_source",
-    "duration": "4.030s"
-  },
-  {
-    "testId": "tests.e2e.privileges.test_privileges::test_privilege_to_create_and_manage_policies",
-    "duration": "6.044s"
-  },
-  {
-    "testId": "tests.e2e.privileges.test_privileges::test_privilege_to_create_and_manage_secrets",
-    "duration": "8.022s"
-  },
-  {
-    "testId": "tests.e2e.privileges.test_privileges::test_privilege_to_create_and_revoke_personal_access_tokens",
-    "duration": "5.541s"
-  },
-  {
-    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_multiple_unknown_fragments_and_fields",
-    "duration": "0.148s"
-  },
-  {
-    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_nonexistent_type_fragment_stripped",
-    "duration": "0.060s"
-  },
-  {
-    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_query_with_variables_and_operation_name",
-    "duration": "0.046s"
-  },
-  {
-    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_schema_cached_across_calls",
-    "duration": "0.022s"
-  },
-  {
-    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_search_query_with_known_entity_types",
-    "duration": "0.059s"
-  },
-  {
-    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_simple_query_passes_through",
-    "duration": "0.627s"
-  },
-  {
-    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_strip_false_still_works",
-    "duration": "0.010s"
-  },
-  {
-    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_strip_false_with_bad_field_fails",
-    "duration": "0.027s"
-  },
-  {
-    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_unknown_field_on_known_type_stripped",
-    "duration": "0.083s"
-  },
-  {
-    "testId": "tests.e2e.read_only.test_analytics::test_analytics_chart_is_accessible",
-    "duration": "1.185s"
-  },
-  {
-    "testId": "tests.e2e.read_only.test_analytics::test_highlights_is_accessible",
-    "duration": "1.124s"
-  },
-  {
-    "testId": "tests.e2e.read_only.test_analytics::test_metadata_analytics_chart_is_accessible",
-    "duration": "1.375s"
-  },
-  {
-    "testId": "tests.e2e.read_only.test_dataproduct::test_dataproduct_search_works",
-    "duration": "1.842s"
-  },
-  {
-    "testId": "tests.e2e.read_only.test_ingestion_list::test_policies_are_accessible",
-    "duration": "1.051s"
-  },
-  {
-    "testId": "tests.e2e.read_only.test_lineage_apis::test_scroll_across_lineage_api",
-    "duration": "2.085s"
-  },
-  {
-    "testId": "tests.e2e.read_only.test_lineage_apis::test_search_across_lineage_api",
-    "duration": "2.629s"
-  },
-  {
-    "testId": "tests.e2e.read_only.test_policies::test_policies_are_accessible",
-    "duration": "1.365s"
-  },
-  {
-    "testId": "tests.e2e.read_only.test_search::test_openapi_v3_entity",
-    "duration": "45.496s"
-  },
-  {
-    "testId": "tests.e2e.read_only.test_search::test_search_works",
-    "duration": "8.032s"
-  },
-  {
-    "testId": "tests.e2e.read_only.test_services_up::test_gms_config_accessible",
-    "duration": "0.043s"
-  },
-  {
-    "testId": "tests.e2e.restli.restli_test::test_gms_delete_mcp",
     "duration": "0.094s"
   },
   {
-    "testId": "tests.e2e.restli.restli_test::test_gms_ignore_unknown_dashboard_info",
-    "duration": "0.031s"
+    "testId": "tests.e2e.patch.test_dataset_patches::test_unattributed_and_attributed_tag_coexist[openapi_graph_client]",
+    "duration": "0.090s"
   },
   {
-    "testId": "tests.e2e.restli.test_restli_batch_ingestion::test_async_ingest_attributes_caller",
-    "duration": "1.609s"
+    "testId": "tests.e2e.patch.test_domain_patches::test_add_remove_via_domain_associations_patch_updates_domains[graph_client]",
+    "duration": "0.185s"
   },
   {
-    "testId": "tests.e2e.restli.test_restli_batch_ingestion::test_restli_batch_ingestion_async",
-    "duration": "1.614s"
+    "testId": "tests.e2e.patch.test_domain_patches::test_add_remove_via_domain_associations_patch_updates_domains[openapi_graph_client]",
+    "duration": "0.180s"
   },
   {
-    "testId": "tests.e2e.restli.test_restli_batch_ingestion::test_restli_batch_ingestion_exception_async",
-    "duration": "0.343s"
+    "testId": "tests.e2e.patch.test_domain_patches::test_add_remove_via_domain_associations_upsert_updates_domains[graph_client]",
+    "duration": "0.109s"
   },
   {
-    "testId": "tests.e2e.restli.test_restli_batch_ingestion::test_restli_batch_ingestion_exception_sync",
-    "duration": "0.015s"
+    "testId": "tests.e2e.patch.test_domain_patches::test_add_remove_via_domain_associations_upsert_updates_domains[openapi_graph_client]",
+    "duration": "0.119s"
   },
   {
-    "testId": "tests.e2e.restli.test_restli_batch_ingestion::test_restli_batch_ingestion_sync",
-    "duration": "0.110s"
+    "testId": "tests.e2e.patch.test_domain_patches::test_add_remove_via_domains_updates_domain_associations[graph_client]",
+    "duration": "5.594s"
   },
   {
-    "testId": "tests.e2e.schema_fields.test_schemafields::test_schema_field_gql_mapper_for_charts",
-    "duration": "1.774s"
+    "testId": "tests.e2e.patch.test_domain_patches::test_add_remove_via_domains_updates_domain_associations[openapi_graph_client]",
+    "duration": "0.177s"
   },
   {
-    "testId": "tests.e2e.search.test_lineage_search_index_fields::test_lineage_search_index_fields_with_lineage",
-    "duration": "2.990s"
+    "testId": "tests.e2e.patch.test_domain_patches::test_propagated_domains_ordered_after_manual[graph_client]",
+    "duration": "0.052s"
   },
   {
-    "testId": "tests.e2e.search.test_lineage_search_index_fields::test_lineage_search_index_fields_without_lineage",
-    "duration": "1.110s"
+    "testId": "tests.e2e.patch.test_domain_patches::test_propagated_domains_ordered_after_manual[openapi_graph_client]",
+    "duration": "0.054s"
   },
   {
-    "testId": "tests.e2e.search.test_lineage_search_index_fields::test_upstream_dataset_search_index_fields",
-    "duration": "1.099s"
+    "testId": "tests.e2e.patch.test_domain_patches::test_read_modify_write_associations_updates_domains[graph_client]",
+    "duration": "0.073s"
   },
   {
-    "testId": "tests.e2e.search.test_search_projection.TestSearchProjection::test_dataset_properties_projection",
-    "duration": "0.292s"
+    "testId": "tests.e2e.patch.test_domain_patches::test_read_modify_write_associations_updates_domains[openapi_graph_client]",
+    "duration": "0.083s"
   },
   {
-    "testId": "tests.e2e.search.test_search_projection.TestSearchProjection::test_default_query_no_projection",
+    "testId": "tests.e2e.patch.test_domain_patches::test_read_modify_write_domains_updates_associations[graph_client]",
+    "duration": "0.083s"
+  },
+  {
+    "testId": "tests.e2e.patch.test_domain_patches::test_read_modify_write_domains_updates_associations[openapi_graph_client]",
+    "duration": "0.085s"
+  },
+  {
+    "testId": "tests.e2e.patch.test_domain_patches::test_updating_both_domains_and_domain_associations_errors[graph_client]",
+    "duration": "0.061s"
+  },
+  {
+    "testId": "tests.e2e.patch.test_domain_patches::test_updating_both_domains_and_domain_associations_errors[openapi_graph_client]",
+    "duration": "0.076s"
+  },
+  {
+    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_consumer_registration_lifecycle",
+    "duration": "4.077s"
+  },
+  {
+    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_list_registered_consumers",
+    "duration": "0.022s"
+  },
+  {
+    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_mcl_timeseries_consumer_lag_detailed",
+    "duration": "0.066s"
+  },
+  {
+    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_mcl_versioned_consumer_lag_detailed",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_mcp_consumer_lag_detailed",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_messaging_transport_reports_pgqueue",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.e2e.pgqueue.test_messaging_operations::test_reset_stuck_ahead_consumer_offsets",
+    "duration": "8.380s"
+  },
+  {
+    "testId": "tests.e2e.platform_resources.test_platform_resource::test_platform_resource_listing_by_resource_type",
+    "duration": "5.208s"
+  },
+  {
+    "testId": "tests.e2e.platform_resources.test_platform_resource::test_platform_resource_listing_complex_queries",
+    "duration": "5.200s"
+  },
+  {
+    "testId": "tests.e2e.platform_resources.test_platform_resource::test_platform_resource_non_existent",
+    "duration": "0.034s"
+  },
+  {
+    "testId": "tests.e2e.platform_resources.test_platform_resource::test_platform_resource_read_write",
+    "duration": "5.181s"
+  },
+  {
+    "testId": "tests.e2e.platform_resources.test_platform_resource::test_platform_resource_search",
+    "duration": "5.196s"
+  },
+  {
+    "testId": "tests.e2e.platform_resources.test_platform_resource::test_platform_resource_urn_secondary_key",
+    "duration": "5.168s"
+  },
+  {
+    "testId": "tests.e2e.policies.test_policies::test_frontend_policy_operations",
+    "duration": "28.290s"
+  },
+  {
+    "testId": "tests.e2e.policies.test_policy_eval_perf::test_domains_page_perf_with_domain_scoped_policies[10-20]",
+    "duration": "40.535s"
+  },
+  {
+    "testId": "tests.e2e.policies.test_policy_eval_perf::test_domains_page_perf_with_domain_scoped_policies[100-50]",
+    "duration": "44.711s"
+  },
+  {
+    "testId": "tests.e2e.privileges.test_privileges::test_privilege_from_group_role_can_create_and_manage_secret",
+    "duration": "44.562s"
+  },
+  {
+    "testId": "tests.e2e.privileges.test_privileges::test_privilege_to_create_and_manage_ingestion_source",
+    "duration": "9.150s"
+  },
+  {
+    "testId": "tests.e2e.privileges.test_privileges::test_privilege_to_create_and_manage_policies",
+    "duration": "9.157s"
+  },
+  {
+    "testId": "tests.e2e.privileges.test_privileges::test_privilege_to_create_and_manage_secrets",
+    "duration": "26.422s"
+  },
+  {
+    "testId": "tests.e2e.privileges.test_privileges::test_privilege_to_create_and_revoke_personal_access_tokens",
+    "duration": "13.171s"
+  },
+  {
+    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_multiple_unknown_fragments_and_fields",
+    "duration": "0.033s"
+  },
+  {
+    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_nonexistent_type_fragment_stripped",
+    "duration": "0.030s"
+  },
+  {
+    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_query_with_variables_and_operation_name",
+    "duration": "0.030s"
+  },
+  {
+    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_schema_cached_across_calls",
+    "duration": "0.026s"
+  },
+  {
+    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_search_query_with_known_entity_types",
+    "duration": "0.082s"
+  },
+  {
+    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_simple_query_passes_through",
+    "duration": "5.993s"
+  },
+  {
+    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_strip_false_still_works",
+    "duration": "0.014s"
+  },
+  {
+    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_strip_false_with_bad_field_fails",
+    "duration": "0.023s"
+  },
+  {
+    "testId": "tests.e2e.query_projection.test_query_projection_smoke::test_unknown_field_on_known_type_stripped",
+    "duration": "0.029s"
+  },
+  {
+    "testId": "tests.e2e.read_only.test_analytics::test_analytics_chart_is_accessible",
+    "duration": "4.974s"
+  },
+  {
+    "testId": "tests.e2e.read_only.test_analytics::test_highlights_is_accessible",
+    "duration": "5.112s"
+  },
+  {
+    "testId": "tests.e2e.read_only.test_analytics::test_metadata_analytics_chart_is_accessible",
+    "duration": "3.303s"
+  },
+  {
+    "testId": "tests.e2e.read_only.test_dataproduct::test_dataproduct_search_works",
+    "duration": "3.035s"
+  },
+  {
+    "testId": "tests.e2e.read_only.test_ingestion_list::test_policies_are_accessible",
+    "duration": "3.042s"
+  },
+  {
+    "testId": "tests.e2e.read_only.test_lineage_apis::test_scroll_across_lineage_api",
+    "duration": "12.837s"
+  },
+  {
+    "testId": "tests.e2e.read_only.test_lineage_apis::test_search_across_lineage_api",
+    "duration": "15.533s"
+  },
+  {
+    "testId": "tests.e2e.read_only.test_policies::test_policies_are_accessible",
+    "duration": "5.114s"
+  },
+  {
+    "testId": "tests.e2e.read_only.test_search::test_openapi_v3_entity",
+    "duration": "148.570s"
+  },
+  {
+    "testId": "tests.e2e.read_only.test_search::test_search_works",
+    "duration": "19.369s"
+  },
+  {
+    "testId": "tests.e2e.read_only.test_services_up::test_gms_config_accessible",
     "duration": "0.012s"
   },
   {
+    "testId": "tests.e2e.restli.restli_test::test_gms_delete_mcp",
+    "duration": "0.080s"
+  },
+  {
+    "testId": "tests.e2e.restli.restli_test::test_gms_ignore_unknown_dashboard_info",
+    "duration": "0.019s"
+  },
+  {
+    "testId": "tests.e2e.restli.test_restli_batch_ingestion::test_async_ingest_attributes_caller",
+    "duration": "4.149s"
+  },
+  {
+    "testId": "tests.e2e.restli.test_restli_batch_ingestion::test_restli_batch_ingestion_async",
+    "duration": "6.221s"
+  },
+  {
+    "testId": "tests.e2e.restli.test_restli_batch_ingestion::test_restli_batch_ingestion_exception_sync",
+    "duration": "0.200s"
+  },
+  {
+    "testId": "tests.e2e.restli.test_restli_batch_ingestion::test_restli_batch_ingestion_sync",
+    "duration": "5.481s"
+  },
+  {
+    "testId": "tests.e2e.schema_fields.test_schemafields::test_schema_field_gql_mapper_for_charts",
+    "duration": "5.160s"
+  },
+  {
+    "testId": "tests.e2e.search.test_lineage_search_index_fields::test_lineage_search_index_fields_with_lineage",
+    "duration": "10.064s"
+  },
+  {
+    "testId": "tests.e2e.search.test_lineage_search_index_fields::test_lineage_search_index_fields_without_lineage",
+    "duration": "4.113s"
+  },
+  {
+    "testId": "tests.e2e.search.test_lineage_search_index_fields::test_upstream_dataset_search_index_fields",
+    "duration": "4.117s"
+  },
+  {
+    "testId": "tests.e2e.search.test_search_projection.TestSearchProjection::test_dataset_properties_projection",
+    "duration": "0.126s"
+  },
+  {
+    "testId": "tests.e2e.search.test_search_projection.TestSearchProjection::test_default_query_no_projection",
+    "duration": "0.006s"
+  },
+  {
     "testId": "tests.e2e.search.test_search_projection.TestSearchProjection::test_facets_always_present",
-    "duration": "0.220s"
+    "duration": "0.115s"
   },
   {
     "testId": "tests.e2e.search.test_search_projection.TestSearchProjection::test_minimal_projection",
-    "duration": "3.610s"
+    "duration": "0.279s"
   },
   {
     "testId": "tests.e2e.search.test_search_projection.TestSearchProjection::test_platform_fields_fragment_projection",
-    "duration": "0.197s"
+    "duration": "0.103s"
   },
   {
     "testId": "tests.e2e.search.test_search_projection.TestSearchProjection::test_projection_reduces_payload",
-    "duration": "2.317s"
+    "duration": "4.193s"
   },
   {
     "testId": "tests.e2e.semantic.test_classical_embedding_provider.TestClassicalEmbeddingProvider::test_classical_embeddings_generated_with_expected_model_key",
-    "duration": "31.849s"
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.semantic.test_classical_embedding_provider.TestClassicalEmbeddingProvider::test_embedding_provider_type_is_classical",
-    "duration": "11.582s"
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.semantic.test_classical_embedding_provider.TestClassicalEmbeddingProvider::test_end_to_end_semantic_search_with_classical_provider",
-    "duration": "50.058s"
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.semantic.test_classical_embedding_provider.TestClassicalEmbeddingProvider::test_semantic_template_serves_document_search",
-    "duration": "49.776s"
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.semantic.test_classical_embedding_provider.TestClassicalEmbeddingProvider::test_similarity_template_finds_documents_similar_to_a_urn",
-    "duration": "60.067s"
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.e2e.semantic.test_config_fingerprint.TestConfigFingerprint::test_chunking_max_characters_change_triggers_reprocessing",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.e2e.semantic.test_config_fingerprint.TestConfigFingerprint::test_chunking_strategy_change_triggers_reprocessing",
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.semantic.test_current_offset_api::test_get_current_offset_no_params",
-    "duration": "1.409s"
+    "duration": "2.010s"
   },
   {
     "testId": "tests.e2e.semantic.test_current_offset_api::test_offset_behavior_without_lookback",
-    "duration": "1.582s"
+    "duration": "2.511s"
   },
   {
     "testId": "tests.e2e.semantic.test_current_offset_api::test_poll_with_retrieved_offset",
-    "duration": "2.411s"
+    "duration": "4.012s"
   },
   {
     "testId": "tests.e2e.semantic.test_event_driven_docs.TestEventDrivenDocumentIngestion::test_event_driven_document_update",
-    "duration": "0.048s"
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.e2e.semantic.test_event_mode_fallback.TestEventModeFallback::test_bootstrap_flow_first_run_captures_offset",
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.semantic.test_event_mode_fallback.TestEventModeFallback::test_fallback_when_no_offsets_first_run",
     "duration": "0.001s"
   },
   {
-    "testId": "tests.e2e.semantic.test_event_mode_fallback.TestEventModeFallback::test_fallback_with_document_urns_specified",
-    "duration": "0.002s"
-  },
-  {
-    "testId": "tests.e2e.semantic.test_local_embedding_provider.TestLocalEmbeddingProvider::test_embedding_provider_type_is_local",
-    "duration": "3.109s"
-  },
-  {
-    "testId": "tests.e2e.semantic.test_local_embedding_provider.TestLocalEmbeddingProvider::test_end_to_end_semantic_search_with_local_provider",
-    "duration": "80.047s"
+    "testId": "tests.e2e.semantic.test_event_mode_fallback.TestEventModeFallback::test_successful_event_mode_with_lookback",
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.semantic.test_local_embedding_provider.TestLocalEmbeddingProvider::test_local_embedding_server_reachable",
-    "duration": "12.175s"
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.semantic.test_local_embedding_provider.TestLocalEmbeddingProvider::test_local_embeddings_generated_with_correct_model_key",
-    "duration": "56.861s"
+    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.semantic.test_semantic_search.TestSemanticSearchWithIngestion::test_end_to_end_ingestion_and_semantic_search",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "tests.e2e.semantic.test_source_type_filtering.TestSourceTypeFiltering::test_empty_platform_filter_explicit",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.e2e.semantic.test_source_type_filtering.TestSourceTypeFiltering::test_wildcard_filter_processes_all",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.e2e.semantic.test_stateful_ingestion.TestStatefulIngestion::test_first_run_processes_all_documents",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.e2e.semantic.test_stateful_ingestion.TestStatefulIngestion::test_force_reprocess_overrides_incremental",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.e2e.semantic.test_stateful_ingestion.TestStatefulIngestion::test_state_persistence_across_runs",
     "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.service_accounts.test_service_accounts::test_create_access_token_for_service_account",
-    "duration": "6.933s"
+    "duration": "19.214s"
   },
   {
     "testId": "tests.e2e.service_accounts.test_service_accounts::test_create_list_get_delete_service_account",
-    "duration": "7.897s"
+    "duration": "24.385s"
   },
   {
     "testId": "tests.e2e.service_accounts.test_service_accounts::test_delete_nonexistent_service_account",
-    "duration": "1.208s"
+    "duration": "3.025s"
   },
   {
     "testId": "tests.e2e.service_accounts.test_service_accounts::test_get_nonexistent_service_account",
-    "duration": "1.325s"
+    "duration": "3.025s"
   },
   {
     "testId": "tests.e2e.service_accounts.test_service_accounts::test_list_service_accounts_with_query",
-    "duration": "5.784s"
+    "duration": "14.150s"
   },
   {
     "testId": "tests.e2e.service_accounts.test_service_accounts::test_service_account_default_view",
-    "duration": "12.062s"
+    "duration": "34.712s"
   },
   {
     "testId": "tests.e2e.siblings.siblings_search_batching_test::test_cursor_from_first_page_continues_on_the_unbatched_path",
-    "duration": "3.438s"
+    "duration": "7.342s"
   },
   {
     "testId": "tests.e2e.siblings.siblings_search_batching_test::test_full_page_returns_a_cursor_and_short_page_does_not",
-    "duration": "3.447s"
+    "duration": "7.326s"
   },
   {
     "testId": "tests.e2e.siblings.siblings_search_batching_test::test_paging_by_cursor_yields_every_sibling_exactly_once",
-    "duration": "8.550s"
+    "duration": "18.432s"
   },
   {
     "testId": "tests.e2e.siblings.siblings_search_batching_test::test_sibling_hit_order_is_stable_across_identical_requests",
-    "duration": "11.857s"
+    "duration": "19.777s"
   },
   {
     "testId": "tests.e2e.siblings.siblings_search_batching_test::test_siblings_search_batched_results_attributed_to_own_dataset",
-    "duration": "11.307s"
+    "duration": "23.597s"
   },
   {
     "testId": "tests.e2e.siblings.siblings_search_batching_test::test_siblings_search_correct_across_chunk_boundary",
-    "duration": "2.486s"
+    "duration": "3.324s"
   },
   {
     "testId": "tests.e2e.siblings.siblings_search_batching_test::test_siblings_search_finds_asymmetric_siblings",
-    "duration": "3.389s"
+    "duration": "3.038s"
   },
   {
     "testId": "tests.e2e.siblings.siblings_search_batching_test::test_siblings_search_reports_zero_for_dataset_without_siblings",
-    "duration": "2.719s"
+    "duration": "3.043s"
   },
   {
     "testId": "tests.e2e.siblings.siblings_search_batching_test::test_siblings_search_same_urn_with_different_input_not_shared",
-    "duration": "2.141s"
+    "duration": "3.046s"
   },
   {
     "testId": "tests.e2e.siblings.siblings_search_batching_test::test_siblings_search_symmetric_pair_resolves_from_both_sides",
-    "duration": "5.702s"
+    "duration": "3.037s"
   },
   {
     "testId": "tests.e2e.siblings.siblings_search_batching_test::test_siblings_search_total_counts_all_siblings_while_results_respect_count",
-    "duration": "6.214s"
+    "duration": "3.036s"
   },
   {
     "testId": "tests.e2e.siblings.siblings_search_batching_test::test_siblings_search_zero_count_returns_total_only",
-    "duration": "3.970s"
+    "duration": "3.297s"
   },
   {
     "testId": "tests.e2e.status.test_glossary_lifecycle_stages.TestGlossaryTermLifecycleStages::test_explicit_stage_filter_bypasses_hidden_exclusion",
-    "duration": "2.869s"
+    "duration": "9.157s"
   },
   {
     "testId": "tests.e2e.status.test_glossary_lifecycle_stages.TestGlossaryTermLifecycleStages::test_full_governance_flow",
-    "duration": "10.541s"
+    "duration": "29.856s"
   },
   {
     "testId": "tests.e2e.status.test_glossary_lifecycle_stages.TestGlossaryTermLifecycleStages::test_rejection_and_resubmit",
-    "duration": "9.085s"
+    "duration": "26.511s"
   },
   {
     "testId": "tests.e2e.status.test_lifecycle_state.TestLifecycleStageAPIs::test_draft_stage_hidden_from_owner_in_doc_search",
-    "duration": "9.040s"
+    "duration": "28.083s"
   },
   {
     "testId": "tests.e2e.status.test_lifecycle_state.TestLifecycleStageAPIs::test_glossary_term_stage_change_respects_transition_rules",
-    "duration": "11.136s"
+    "duration": "36.441s"
   },
   {
     "testId": "tests.e2e.status.test_lifecycle_state.TestLifecycleStageAPIs::test_hidden_stage_excludes_from_cross_entity_search",
-    "duration": "18.732s"
+    "duration": "33.472s"
   },
   {
     "testId": "tests.e2e.status.test_lifecycle_state.TestLifecycleStageAPIs::test_hidden_stage_visible_to_owner_in_doc_search",
-    "duration": "9.785s"
+    "duration": "29.707s"
   },
   {
     "testId": "tests.e2e.status.test_lifecycle_state.TestLifecycleStageAPIs::test_list_lifecycle_stages_includes_ingested",
-    "duration": "6.479s"
+    "duration": "16.033s"
   },
   {
     "testId": "tests.e2e.status.test_lifecycle_state.TestLifecycleStageAPIs::test_set_lifecycle_stage_mutation",
-    "duration": "16.872s"
+    "duration": "31.932s"
   },
   {
     "testId": "tests.e2e.status.test_lifecycle_state.TestLifecycleStageAPIs::test_visible_stage_remains_in_search",
-    "duration": "8.913s"
+    "duration": "30.031s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_dataset_structured_property_delete",
-    "duration": "15.901s"
+    "duration": "32.299s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_dataset_structured_property_patch",
-    "duration": "14.476s"
+    "duration": "27.468s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_dataset_structured_property_soft_delete_read_mutation",
-    "duration": "7.793s"
+    "duration": "16.410s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_dataset_structured_property_soft_delete_search_filter_validation",
-    "duration": "8.226s"
+    "duration": "15.718s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_dataset_structured_property_soft_delete_validation",
-    "duration": "5.379s"
+    "duration": "7.785s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_dataset_yaml_loader",
-    "duration": "16.159s"
+    "duration": "12.393s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_structured_properties_list",
-    "duration": "12.997s"
+    "duration": "23.110s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_structured_properties_yaml_load_with_bad_entity_type",
-    "duration": "0.004s"
+    "duration": "0.003s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_structured_property_definition_evolution",
-    "duration": "8.518s"
+    "duration": "7.794s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_structured_property_double",
-    "duration": "7.907s"
+    "duration": "11.951s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_structured_property_double_multiple",
-    "duration": "9.617s"
+    "duration": "11.928s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_structured_property_schema_field",
-    "duration": "6.625s"
+    "duration": "11.798s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_structured_property_search",
-    "duration": "14.269s"
+    "duration": "23.682s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_structured_property_string",
-    "duration": "16.916s"
+    "duration": "24.940s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_structured_properties::test_structured_property_string_allowed_values",
-    "duration": "9.726s"
+    "duration": "11.845s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_validator_error_messages::test_validator_rejection_message_propagates_cleanly",
-    "duration": "0.026s"
+    "duration": "0.017s"
   },
   {
     "testId": "tests.e2e.structured_properties.test_validator_error_messages::test_validator_rejection_over_graphql_is_400_with_validation_source",
-    "duration": "3.039s"
+    "duration": "8.977s"
   },
   {
     "testId": "tests.e2e.tags_and_terms.tags_and_terms_test::test_add_tag",
-    "duration": "7.638s"
+    "duration": "72.706s"
   },
   {
     "testId": "tests.e2e.tags_and_terms.tags_and_terms_test::test_add_tag_to_chart",
-    "duration": "7.722s"
+    "duration": "57.673s"
   },
   {
     "testId": "tests.e2e.tags_and_terms.tags_and_terms_test::test_add_term",
-    "duration": "7.453s"
+    "duration": "21.060s"
   },
   {
     "testId": "tests.e2e.tags_and_terms.tags_and_terms_test::test_update_schemafield",
-    "duration": "28.422s"
+    "duration": "52.525s"
   },
   {
     "testId": "tests.e2e.telemetry.telemetry_test::test_no_client_id",
-    "duration": "0.006s"
+    "duration": "0.009s"
   },
   {
     "testId": "tests.e2e.telemetry.telemetry_test::test_no_telemetry_client_id",
-    "duration": "0.005s"
+    "duration": "0.007s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_actuator_prometheus_no_auth",
-    "duration": "0.076s"
+    "duration": "0.045s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_admin_endpoints_require_privileges",
-    "duration": "12.748s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_api_token_authentication",
-    "duration": "13.317s"
+    "duration": "15.604s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_authentication_behavior_summary",
-    "duration": "2.958s"
+    "duration": "5.107s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_authentication_priority_and_fallback",
-    "duration": "0.021s"
+    "duration": "0.007s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_config_progressive_disclosure",
-    "duration": "0.088s"
+    "duration": "0.027s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_cross_service_authentication_consistency",
-    "duration": "6.396s"
+    "duration": "7.103s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/config/search/export]",
@@ -2629,295 +2705,123 @@
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/config]",
-    "duration": "0.006s"
+    "duration": "0.005s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/public-iceberg/health]",
-    "duration": "0.019s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/schema-registry/subjects]",
-    "duration": "0.009s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_invalid_token",
-    "duration": "0.014s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_no_auth",
     "duration": "0.015s"
   },
   {
-    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_valid_token",
-    "duration": "1.108s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_via_frontend_uses_gzip",
-    "duration": "1.813s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_health_endpoint_no_auth",
-    "duration": "3.420s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_health_endpoint_with_invalid_token",
+    "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/schema-registry/subjects]",
     "duration": "0.011s"
   },
   {
+    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_invalid_token",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_no_auth",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_valid_token",
+    "duration": "5.113s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_health_endpoint_no_auth",
+    "duration": "5.284s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_health_endpoint_with_invalid_token",
+    "duration": "0.010s"
+  },
+  {
     "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[Basic dXNlcjpwYXNz]",
-    "duration": "0.018s"
+    "duration": "0.004s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[Bearer ]",
-    "duration": "0.017s"
+    "duration": "0.003s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[Bearer]",
-    "duration": "0.024s"
+    "duration": "0.006s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[InvalidPrefix token]",
-    "duration": "0.028s"
+    "duration": "0.004s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[bearer invalid-token]",
-    "duration": "0.019s"
+    "duration": "0.005s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_invalid_token[/aspects?action=getAspect-GET]",
-    "duration": "0.017s"
+    "duration": "0.004s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_invalid_token[/entities?action=search-POST]",
-    "duration": "0.016s"
+    "duration": "0.005s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_invalid_token[/openapi/operations/throttle/requests-GET]",
-    "duration": "0.010s"
+    "duration": "0.004s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_invalid_token[/openapi/v2/entity/dataset-GET]",
-    "duration": "0.010s"
+    "duration": "0.005s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/aspects?action=getAspect-GET]",
-    "duration": "0.014s"
+    "duration": "0.005s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/entities?action=search-POST]",
-    "duration": "0.010s"
+    "duration": "0.005s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/openapi/operations/throttle/requests-GET]",
-    "duration": "0.014s"
+    "duration": "0.004s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/openapi/v1/system-info-GET]",
-    "duration": "0.013s"
+    "duration": "0.005s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/openapi/v2/entity/dataset-GET]",
-    "duration": "0.045s"
+    "duration": "0.006s"
   },
   {
     "testId": "tests.e2e.test_authentication_e2e::test_restli_endpoints_with_valid_auth",
-    "duration": "1.266s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_session_vs_token_authentication",
-    "duration": "12.273s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_add_remove_members_from_group",
-    "duration": "6.474s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_create_group",
-    "duration": "2.650s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_app_config",
-    "duration": "1.095s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_auth",
-    "duration": "0.001s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_browse_datasets",
-    "duration": "1.260s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_datasets[urn:li:dataPlatform:bigquery-bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times-PROD]",
-    "duration": "1.364s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_datasets[urn:li:dataPlatform:kafka-SampleKafkaDataset-PROD]",
-    "duration": "1.358s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_me_query",
-    "duration": "1.381s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_search_across_entities[-1]",
-    "duration": "1.499s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_search_across_entities[covid-1]",
-    "duration": "1.548s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_search_across_entities[sample-3]",
-    "duration": "1.302s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_search_datasets[-1]",
-    "duration": "1.093s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_search_datasets[covid-1]",
-    "duration": "1.158s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_search_datasets[sample-3]",
-    "duration": "1.115s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_user_info",
-    "duration": "1.040s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_generate_personal_access_token",
-    "duration": "1.086s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_batch_get_v2",
-    "duration": "0.014s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_get_dataset[urn:li:dataPlatform:bigquery-bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times-PROD]",
-    "duration": "0.010s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_get_dataset[urn:li:dataPlatform:kafka-SampleKafkaDataset-PROD]",
-    "duration": "0.025s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_get_user",
-    "duration": "19.542s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_search_across_entities[covid-1]",
-    "duration": "1.678s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_search_across_entities[sample-3]",
-    "duration": "1.178s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_search_dataset[covid-1]",
-    "duration": "1.162s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_search_dataset[sample-3]",
-    "duration": "1.065s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_usage_fetch",
-    "duration": "1.104s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_home_page_recommendations",
-    "duration": "1.537s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_home_page_recommendations_with_module_filter",
-    "duration": "2.681s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_ingest_with_blank_system_metadata",
-    "duration": "1.621s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_ingest_with_system_metadata",
-    "duration": "1.577s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_ingest_without_system_metadata",
-    "duration": "1.401s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_list_groups",
-    "duration": "1.060s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_list_users",
-    "duration": "1.663s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_native_user_endpoints",
-    "duration": "0.283s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_remove_group",
-    "duration": "2.984s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_remove_user",
-    "duration": "2.665s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_search_results_recommendations",
-    "duration": "1.209s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_update_corp_group_description",
-    "duration": "4.453s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_update_corp_group_properties",
-    "duration": "3.977s"
-  },
-  {
-    "testId": "tests.e2e.test_kafka_default_sink::test_default_sink_ingests_end_to_end[kafka-datahub-kafka]",
-    "duration": "3.474s"
+    "duration": "5.178s"
   },
   {
     "testId": "tests.e2e.test_kafka_default_sink::test_default_sink_ingests_end_to_end[rest-datahub-rest]",
-    "duration": "3.260s"
-  },
-  {
-    "testId": "tests.e2e.test_kafka_default_sink::test_pgqueue_sink_ingests_end_to_end",
-    "duration": "1.034s"
+    "duration": "9.184s"
   },
   {
     "testId": "tests.e2e.test_rapid::test_ingestion_via_rest_rapid",
-    "duration": "4.607s"
-  },
-  {
-    "testId": "tests.e2e.test_stateful_ingestion::test_stateful_ingestion",
-    "duration": "0.962s"
+    "duration": "13.285s"
   },
   {
     "testId": "tests.e2e.test_system_info::test_system_info_authenticated_non_admin_user_returns_403",
-    "duration": "7.890s"
+    "duration": "14.661s"
   },
   {
     "testId": "tests.e2e.test_system_info::test_system_info_endpoint_separation",
-    "duration": "0.228s"
+    "duration": "0.223s"
   },
   {
     "testId": "tests.e2e.test_system_info::test_system_info_main_endpoint",
-    "duration": "0.169s"
+    "duration": "5.380s"
   },
   {
     "testId": "tests.e2e.test_system_info::test_system_info_properties_endpoint",
-    "duration": "0.137s"
+    "duration": "0.084s"
   },
   {
     "testId": "tests.e2e.test_system_info::test_system_info_properties_structure",
-    "duration": "0.191s"
+    "duration": "0.096s"
   },
   {
     "testId": "tests.e2e.test_system_info::test_system_info_sensitive_data_redaction",
@@ -2925,286 +2829,286 @@
   },
   {
     "testId": "tests.e2e.test_system_info::test_system_info_simple_properties_endpoint",
-    "duration": "0.091s"
+    "duration": "0.084s"
   },
   {
     "testId": "tests.e2e.test_system_info::test_system_info_spring_components_endpoint",
-    "duration": "0.165s"
+    "duration": "0.089s"
   },
   {
     "testId": "tests.e2e.test_system_info::test_system_info_spring_components_structure",
-    "duration": "0.104s"
+    "duration": "0.098s"
   },
   {
     "testId": "tests.e2e.test_system_info::test_system_info_unauthorized_access_returns_403",
-    "duration": "0.024s"
+    "duration": "0.013s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_auth_test::test_get_timeline_authorized_user_succeeds",
-    "duration": "1.031s"
+    "duration": "3.030s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_auth_test::test_get_timeline_rest_v2_unauthorized_user_is_denied",
-    "duration": "3.098s"
+    "duration": "9.256s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_auth_test::test_get_timeline_unauthorized_user_is_denied[Dataset]",
-    "duration": "7.865s"
+    "duration": "18.288s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_auth_test::test_get_timeline_unauthorized_user_is_denied[Domain]",
-    "duration": "0.026s"
+    "duration": "0.015s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDataProductTimeline::test_data_product_all_categories",
-    "duration": "1.069s"
+    "duration": "3.050s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDataProductTimeline::test_data_product_application_changes",
-    "duration": "4.270s"
+    "duration": "11.118s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDataProductTimeline::test_data_product_asset_membership_changes",
-    "duration": "3.999s"
+    "duration": "13.171s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDataProductTimeline::test_data_product_documentation_changes",
-    "duration": "2.456s"
+    "duration": "10.715s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDataProductTimeline::test_data_product_domain_changes",
-    "duration": "3.872s"
+    "duration": "11.118s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDataProductTimeline::test_data_product_glossary_term_changes",
-    "duration": "4.116s"
+    "duration": "11.110s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDataProductTimeline::test_data_product_ownership_changes",
-    "duration": "22.112s"
+    "duration": "35.287s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDataProductTimeline::test_data_product_structured_property_changes",
-    "duration": "4.040s"
+    "duration": "11.123s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDataProductTimeline::test_data_product_tag_changes",
-    "duration": "3.989s"
+    "duration": "11.385s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDataProductTimeline::test_data_product_timeline_structure",
-    "duration": "2.676s"
+    "duration": "7.895s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDatasetTimeline::test_dataset_all_categories",
-    "duration": "1.746s"
+    "duration": "4.242s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDatasetTimeline::test_dataset_application_changes",
-    "duration": "6.976s"
+    "duration": "13.632s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDatasetTimeline::test_dataset_deprecation_toggle",
-    "duration": "4.061s"
+    "duration": "12.635s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDatasetTimeline::test_dataset_documentation_changes",
-    "duration": "5.723s"
+    "duration": "12.399s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDatasetTimeline::test_dataset_domain_changes",
-    "duration": "5.154s"
+    "duration": "12.456s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDatasetTimeline::test_dataset_glossary_term_changes",
-    "duration": "6.444s"
+    "duration": "12.883s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDatasetTimeline::test_dataset_ownership_changes",
-    "duration": "19.755s"
+    "duration": "31.799s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDatasetTimeline::test_dataset_schema_changes",
-    "duration": "9.979s"
+    "duration": "12.120s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDatasetTimeline::test_dataset_structured_property_changes",
-    "duration": "9.697s"
+    "duration": "16.182s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDatasetTimeline::test_dataset_tag_changes",
-    "duration": "6.611s"
+    "duration": "14.200s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDomainTimeline::test_domain_all_categories",
-    "duration": "1.373s"
+    "duration": "3.319s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_test.TestDomainTimeline::test_domain_documentation_changes",
-    "duration": "2.484s"
-  },
-  {
-    "testId": "tests.e2e.timeline.timeline_change_history_test.TestDomainTimeline::test_domain_ownership_changes",
-    "duration": "10.992s"
-  },
-  {
-    "testId": "tests.e2e.timeline.timeline_change_history_test.TestDomainTimeline::test_domain_structured_property_changes",
-    "duration": "4.301s"
-  },
-  {
-    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryNodeTimeline::test_glossary_node_rename_and_move",
-    "duration": "15.722s"
-  },
-  {
-    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_all_categories",
-    "duration": "1.511s"
-  },
-  {
-    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_application_changes",
-    "duration": "3.936s"
-  },
-  {
-    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_documentation_changes",
-    "duration": "2.745s"
-  },
-  {
-    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_domain_changes",
-    "duration": "4.476s"
-  },
-  {
-    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_ownership_changes",
-    "duration": "11.018s"
-  },
-  {
-    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_related_terms_changes",
-    "duration": "4.436s"
-  },
-  {
-    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_structured_property_changes",
-    "duration": "3.923s"
-  },
-  {
-    "testId": "tests.e2e.timeline.timeline_test::test_all",
     "duration": "7.056s"
   },
   {
+    "testId": "tests.e2e.timeline.timeline_change_history_test.TestDomainTimeline::test_domain_ownership_changes",
+    "duration": "23.988s"
+  },
+  {
+    "testId": "tests.e2e.timeline.timeline_change_history_test.TestDomainTimeline::test_domain_structured_property_changes",
+    "duration": "11.080s"
+  },
+  {
+    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryNodeTimeline::test_glossary_node_rename_and_move",
+    "duration": "37.624s"
+  },
+  {
+    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_all_categories",
+    "duration": "3.344s"
+  },
+  {
+    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_application_changes",
+    "duration": "11.373s"
+  },
+  {
+    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_documentation_changes",
+    "duration": "7.074s"
+  },
+  {
+    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_domain_changes",
+    "duration": "11.113s"
+  },
+  {
+    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_ownership_changes",
+    "duration": "24.386s"
+  },
+  {
+    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_related_terms_changes",
+    "duration": "11.114s"
+  },
+  {
+    "testId": "tests.e2e.timeline.timeline_change_history_test.TestGlossaryTermTimeline::test_glossary_term_structured_property_changes",
+    "duration": "11.340s"
+  },
+  {
+    "testId": "tests.e2e.timeline.timeline_test::test_all",
+    "duration": "15.051s"
+  },
+  {
     "testId": "tests.e2e.timeline.timeline_test::test_documentation",
-    "duration": "4.605s"
+    "duration": "13.216s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_test::test_glossary",
-    "duration": "5.359s"
+    "duration": "13.201s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_test::test_ownership",
-    "duration": "4.621s"
+    "duration": "13.177s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_test::test_schema",
-    "duration": "4.431s"
+    "duration": "13.261s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_test::test_tags",
-    "duration": "4.379s"
+    "duration": "13.192s"
   },
   {
     "testId": "tests.e2e.timeseries.test_dashboard_usage_stats_graphql::test_dashboard_usage_stats_batched",
-    "duration": "6.053s"
+    "duration": "11.321s"
   },
   {
     "testId": "tests.e2e.timeseries.test_dashboard_usage_stats_graphql::test_dashboard_usage_stats_single_urn",
-    "duration": "1.121s"
+    "duration": "3.579s"
   },
   {
     "testId": "tests.e2e.timeseries.test_dataset_profiles_graphql::test_dataset_profiles_graphql",
-    "duration": "3.098s"
+    "duration": "8.959s"
   },
   {
     "testId": "tests.e2e.timeseries.test_stats_summary_graphql::test_dashboard_stats_summary",
-    "duration": "9.716s"
+    "duration": "11.372s"
   },
   {
     "testId": "tests.e2e.timeseries.test_stats_summary_graphql::test_dataset_stats_summary",
-    "duration": "1.084s"
+    "duration": "3.306s"
   },
   {
     "testId": "tests.e2e.timeseries.test_stats_summary_graphql::test_dataset_stats_summary_duplicate_urn_in_request",
-    "duration": "1.286s"
+    "duration": "4.085s"
   },
   {
     "testId": "tests.e2e.timeseries.test_stats_summary_graphql::test_dataset_stats_summary_out_of_window_only",
-    "duration": "1.039s"
+    "duration": "4.051s"
   },
   {
     "testId": "tests.e2e.tokens.revokable_access_token_test::test_admin_can_create_and_revoke_tokens_for_other_user",
-    "duration": "10.299s"
+    "duration": "29.746s"
   },
   {
     "testId": "tests.e2e.tokens.revokable_access_token_test::test_admin_can_create_list_and_revoke_tokens",
-    "duration": "20.276s"
+    "duration": "60.655s"
   },
   {
     "testId": "tests.e2e.tokens.revokable_access_token_test::test_admin_can_manage_tokens_generated_by_other_user",
-    "duration": "8.880s"
+    "duration": "25.749s"
   },
   {
     "testId": "tests.e2e.tokens.revokable_access_token_test::test_non_admin_can_create_list_revoke_tokens",
-    "duration": "3.817s"
+    "duration": "11.127s"
   },
   {
     "testId": "tests.e2e.tokens.revokable_access_token_test::test_non_admin_can_not_generate_tokens_for_others",
-    "duration": "10.574s"
+    "duration": "28.229s"
   },
   {
     "testId": "tests.e2e.tokens.session_access_token_test::test_01_soft_delete",
-    "duration": "14.110s"
+    "duration": "43.695s"
   },
   {
     "testId": "tests.e2e.tokens.session_access_token_test::test_02_suspend",
-    "duration": "13.814s"
+    "duration": "46.938s"
   },
   {
     "testId": "tests.e2e.tokens.session_access_token_test::test_03_hard_delete",
-    "duration": "12.400s"
+    "duration": "37.664s"
   },
   {
     "testId": "tests.e2e.trace.test_api_trace::test_mcp_fail_aspect_async_write",
-    "duration": "7.505s"
+    "duration": "10.353s"
   },
   {
     "testId": "tests.e2e.trace.test_api_trace::test_missing_elasticsearch_async_write",
-    "duration": "11.608s"
+    "duration": "24.414s"
   },
   {
     "testId": "tests.e2e.trace.test_api_trace::test_noop_async_write",
-    "duration": "8.604s"
+    "duration": "22.161s"
   },
   {
     "testId": "tests.e2e.trace.test_api_trace::test_noop_with_fmcp_async_write",
-    "duration": "9.157s"
+    "duration": "28.793s"
   },
   {
     "testId": "tests.e2e.trace.test_api_trace::test_overwritten_async_write",
-    "duration": "9.682s"
+    "duration": "25.499s"
   },
   {
     "testId": "tests.e2e.trace.test_api_trace::test_successful_async_write",
-    "duration": "5.210s"
+    "duration": "22.776s"
   },
   {
     "testId": "tests.e2e.trace.test_api_trace::test_timeseries_async_write",
-    "duration": "4.151s"
+    "duration": "10.333s"
   },
   {
     "testId": "tests.e2e.views.views_test::test_create_list_delete_global_view",
-    "duration": "7.297s"
+    "duration": "18.460s"
   },
   {
     "testId": "tests.e2e.views.views_test::test_create_list_delete_personal_view",
-    "duration": "6.432s"
+    "duration": "18.197s"
   },
   {
     "testId": "tests.e2e.views.views_test::test_update_global_view",
-    "duration": "0.114s"
+    "duration": "0.040s"
   }
 ]
