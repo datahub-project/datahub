@@ -42,6 +42,18 @@ describe('gitlab-documents recipe form', () => {
         expect(saved.source.config.branch).toBe('main');
     });
 
+    it('rejects an empty or blank project list, since item rules never run for an empty list', async () => {
+        const [rule] = GITLAB_DOCUMENTS_REPOSITORIES.rules as any[];
+        await expect(rule.validator({}, [])).rejects.toThrow('Projects is required');
+        await expect(rule.validator({}, undefined)).rejects.toThrow('Projects is required');
+        await expect(rule.validator({}, ['  '])).rejects.toThrow('Projects is required');
+        await expect(rule.validator({}, ['acme/docs'])).resolves.toBeUndefined();
+    });
+
+    it('rewrites the legacy repository key on every change, not only when projects change', () => {
+        expect(GITLAB_DOCUMENTS_REPOSITORIES.migrateOnEveryChange).toBe(true);
+    });
+
     it('leaves branch optional so each project uses its default branch', () => {
         expect(GITLAB_DOCUMENTS_BRANCH.required).toBeFalsy();
     });

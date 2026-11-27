@@ -41,8 +41,17 @@ export const GITLAB_DOCUMENTS_REPOSITORIES: RecipeField = {
     buttonLabel: 'Add project',
     fieldPath: repositoriesFieldPath,
     placeholder: 'group/project',
-    rules: null,
+    // Required rules on a list item do not run when the list is empty, so the list validates itself.
+    rules: [
+        {
+            validator(_: unknown, value: string[] | undefined) {
+                if (value?.some((project) => project?.trim())) return Promise.resolve();
+                return Promise.reject(new Error('Projects is required'));
+            },
+        },
+    ],
     required: true,
+    migrateOnEveryChange: true,
     getValueFromRecipeOverride: (recipe: any) => {
         const repositories: string[] = get(recipe, repositoriesFieldPath) || [];
         const legacyRepository: string | undefined = get(recipe, legacyRepositoryFieldPath);
