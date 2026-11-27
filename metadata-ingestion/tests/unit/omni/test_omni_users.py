@@ -6,8 +6,16 @@ import pytest
 import requests
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.omni.omni import OmniSource, _scim_user_email
-from datahub.ingestion.source.omni.omni_api import OmniClient, ScimUser
+from datahub.ingestion.source.omni.omni import (
+    OmniSource,
+    _OwnerLookup,
+    _scim_user_email,
+)
+from datahub.ingestion.source.omni.omni_api import (
+    OmniClient,
+    OmniPaginationError,
+    ScimUser,
+)
 from datahub.ingestion.source.omni.omni_config import OmniSourceConfig
 
 
@@ -62,11 +70,15 @@ def test_list_users_stops_on_short_page_without_total() -> None:
     assert _list_user_ids(_client(), pages, page_size=100) == ["u1"]
 
 
-def test_list_users_stops_when_server_replays_full_page_without_total() -> None:
-    # Full pages and no totalResults defeat the short-page check; a replayed
-    # page must still end paging instead of running to the safety cap.
+def test_list_users_raises_when_server_replays_a_page() -> None:
+    # Full pages and no totalResults defeat the short-page check. A replayed
+    # page must fail the listing: stopping quietly would truncate it and make
+    # every later user look unresolved.
     page = {"Resources": _users(["u1", "u2"])}
-    assert _list_user_ids(_client(), [page, page], page_size=2) == ["u1", "u2"]
+    client = _client()
+    with patch.object(client, "_request", side_effect=[page, page]):
+        with pytest.raises(OmniPaginationError):
+            list(client.list_users(page_size=2))
 
 
 @pytest.mark.parametrize(
@@ -87,7 +99,17 @@ def test_list_users_stops_when_server_replays_full_page_without_total() -> None:
             {"userName": "jdoe", "emails": [{"value": "jdoe"}, {"value": "j@x.io"}]},
             "j@x.io",
         ),
+        (
+            {
+                "userName": "login@example.com",
+                "emails": [{"primary": True, "value": "other@example.com"}],
+            },
+            "login@example.com",
+        ),
         ({"userName": "jdoe", "emails": [{"value": "jdoe"}]}, None),
+        # Malformed payloads are skipped, not raised on.
+        ({"userName": "jdoe", "emails": "j@x.io"}, None),
+        ({"userName": "jdoe", "emails": ["j@x.io", {"value": "k@x.io"}]}, "k@x.io"),
         ({}, None),
     ],
 )
@@ -101,7 +123,7 @@ def test_owners_resolved_counts_distinct_owners() -> None:
     )
     source = OmniSource(config, PipelineContext(run_id="test"))
     source._owner_email_by_id = {"u1": "a@example.com"}
-    source._owner_lookup_succeeded = True
+    source._owner_lookup = _OwnerLookup.SUCCEEDED
 
     for _ in range(3):
         source._resolve_owner_urn(owner_id="u1", owner_name="A")
@@ -109,6 +131,7 @@ def test_owners_resolved_counts_distinct_owners() -> None:
     source._resolve_owner_urn(owner_id="u2", owner_name="B")
 
     assert source.report.owners_resolved_to_email == 1
+    assert source.report.owners_unresolved_count == 1
     assert list(source.report.owners_unresolved) == ["u2"]
 
 
@@ -165,14 +188,13 @@ def test_load_owner_emails(lowercase: bool, expected: str) -> None:
     assert source.report.users_scanned == 2
 
 
-def test_partial_user_listing_resolves_no_owner() -> None:
-    # Users from pages that loaded before the failure must not be used either,
-    # otherwise an arbitrary subset of owners resolves.
+def test_failed_user_listing_emits_no_owner() -> None:
+    # Users from pages that loaded before the failure must not be used, and the
+    # owner must not fall back to the Omni ID either: that would overwrite owners
+    # an earlier run resolved to emails.
     source = _load([_ADMIN], error=_http_error(503))
     assert source._owner_email_by_id == {}
-    assert source._resolve_owner_urn(owner_id="u1", owner_name="A") == (
-        "urn:li:corpuser:u1"
-    )
+    assert source._resolve_owner_urn(owner_id="u1", owner_name="A") is None
     assert not source.report.owners_unresolved
     assert [w.title for w in source.report.warnings] == ["Owner email lookup failed"]
 
@@ -182,16 +204,24 @@ def test_unauthorized_user_listing_is_info(status: int) -> None:
     source = _load([], error=_http_error(status))
     assert not source.report.warnings
     assert [i.title for i in source.report.infos] == ["Owner emails not resolved"]
+    # A denied key fails the same way every run, so the Omni ID is a stable owner.
+    assert str(source._resolve_owner_urn(owner_id="u1", owner_name="A")) == (
+        "urn:li:corpuser:u1"
+    )
 
 
-def test_non_http_user_listing_failure_warns() -> None:
-    source = _load([], error=ConnectionError("reset"))
+@pytest.mark.parametrize(
+    "error", [ConnectionError("reset"), OmniPaginationError("page repeated")]
+)
+def test_other_user_listing_failures_warn(error: Exception) -> None:
+    source = _load([], error=error)
     assert [w.title for w in source.report.warnings] == ["Owner email lookup failed"]
+    assert source._resolve_owner_urn(owner_id="u1", owner_name="A") is None
 
 
 def test_owner_falls_back_to_name_then_none() -> None:
     source = _load([])
-    assert source._resolve_owner_urn(owner_id="", owner_name="Jane") == (
+    assert str(source._resolve_owner_urn(owner_id="", owner_name="Jane")) == (
         "urn:li:corpuser:Jane"
     )
     assert source._resolve_owner_urn(owner_id="", owner_name="") is None
@@ -201,10 +231,15 @@ def test_list_users_stops_on_empty_page() -> None:
     assert _list_user_ids(_client(), [{"Resources": []}], page_size=100) == []
 
 
-def test_list_users_stops_at_safety_cap() -> None:
+def test_list_users_raises_at_safety_cap() -> None:
     pages = [
         {"Resources": _users(["u1"]), "totalResults": 99},
         {"Resources": _users(["u2"]), "totalResults": 99},
     ]
-    with patch("datahub.ingestion.source.omni.omni_api._MAX_PAGINATION_PAGES", 2):
-        assert _list_user_ids(_client(), pages, page_size=1) == ["u1", "u2"]
+    client = _client()
+    with (
+        patch("datahub.ingestion.source.omni.omni_api._MAX_PAGINATION_PAGES", 2),
+        patch.object(client, "_request", side_effect=pages),
+        pytest.raises(OmniPaginationError),
+    ):
+        list(client.list_users(page_size=1))

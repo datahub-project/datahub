@@ -600,15 +600,34 @@ def test_owner_missing_from_user_list_falls_back_to_omni_id() -> None:
 
 
 @time_machine.travel(FROZEN_TIME)
-def test_owner_email_lookup_can_be_disabled() -> None:
-    class _ClientFailingOnUsers(FakeOmniClientFull):
+def test_failed_owner_lookup_leaves_ownership_unemitted() -> None:
+    class _ClientWithFlakyUsers(FakeOmniClientFull):
         def list_users(self, page_size: int = 100) -> Iterator[ScimUser]:
-            raise AssertionError("list_users must not be called when disabled")
+            raise RuntimeError("503 Service Unavailable")
 
-    source = _build_source({"resolve_owner_emails": False})
-    source.client = _ClientFailingOnUsers()  # type: ignore[assignment]
+    source = _build_source()
+    source.client = _ClientWithFlakyUsers()  # type: ignore[assignment]
     events = _collect_workunits(source)
 
+    # No ownership aspect at all, so owners from earlier runs stay in place.
+    assert not [e for e in events if e["aspectName"] == "ownership"]
+    assert any(e["entityUrn"] == ADMIN_DASHBOARD_URN for e in events)
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_owner_email_lookup_can_be_disabled() -> None:
+    users_calls: List[int] = []
+
+    class _ClientCountingUsers(FakeOmniClientFull):
+        def list_users(self, page_size: int = 100) -> Iterator[ScimUser]:
+            users_calls.append(page_size)
+            yield from super().list_users(page_size)
+
+    source = _build_source({"resolve_owner_emails": False})
+    source.client = _ClientCountingUsers()  # type: ignore[assignment]
+    events = _collect_workunits(source)
+
+    assert users_calls == []
     assert _owner_urns(events, ADMIN_DASHBOARD_URN) == [
         f"urn:li:corpuser:{ADMIN_USER_ID}"
     ]

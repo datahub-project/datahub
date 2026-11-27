@@ -18,7 +18,7 @@ Folder → Dashboard → Chart (tile) → Topic → Semantic View → Physical T
 
 Before running ingestion, ensure you have the following:
 
-1. **An Omni Organization API key** with read access to models, documents, and connections. Generate API keys in Omni Admin → API Keys. Ingestion also runs with a personal access token, but owners then stay as Omni user IDs: email-based owners need the Omni SCIM users API (`/api/scim/v2/users`), which accepts only Organization API keys.
+1. **An Omni Organization API key** with read access to models, documents, and connections. Generate API keys in Omni Admin → API Keys. A personal access token also works, but it has its creator's permissions: ingestion only covers the models and documents that user can see, without reporting what it missed, and owners stay as Omni user IDs because the Omni SCIM users API (`/api/scim/v2/users`) accepts only Organization API keys.
 
 2. **Connection mapping configuration** if you want physical table lineage to stitch with existing warehouse entities in DataHub. You will need to map each Omni connection ID to the corresponding DataHub platform name, platform instance, and database name:
 
@@ -41,4 +41,4 @@ If the Omni API key does not have permission to list connections (`403 Forbidden
 
 Omni identifies document owners by an internal user ID. By default (`resolve_owner_emails: true`), the connector lists users from the Omni SCIM users API once per run and uses each owner's lowercased email address as the DataHub user ID, for example `urn:li:corpuser:jane.doe@example.com`. This matches DataHub users provisioned through SSO with email-based usernames. If your DataHub user IDs keep the email's original case, set `lowercase_owner_emails: false`.
 
-If the users API cannot be read, every owner falls back to the Omni user ID: the ingestion report records an info entry when the key is not allowed to read users (for example a personal access token), and a warning for other errors. An owner that is not in the user list also falls back to its Omni user ID and is listed under `owners_unresolved`.
+If the key is not allowed to read users (for example a personal access token), every owner falls back to the Omni user ID and the ingestion report records an info entry. If the users API fails for any other reason, the run emits no ownership, so owners from earlier runs stay in place, and the report records a warning. An owner that is not in the user list falls back to its Omni user ID and is counted in `owners_unresolved_count`.

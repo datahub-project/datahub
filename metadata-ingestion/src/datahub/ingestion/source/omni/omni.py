@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, Iterator, List, Literal, Optional, Set
 
 import requests
@@ -25,7 +26,6 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
-    make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -87,13 +87,27 @@ def _scim_user_email(user: ScimUser) -> Optional[str]:
     user_name = user.get("userName")
     if isinstance(user_name, str) and "@" in user_name:
         return user_name.strip()
-    emails = user.get("emails") or []
-    candidates = [e for e in emails if e.get("primary")] + list(emails)
+    raw_emails = user.get("emails")
+    # The payload is untrusted: skip malformed entries instead of letting one
+    # odd record abort the lookup for every user.
+    emails = (
+        [e for e in raw_emails if isinstance(e, dict)]
+        if isinstance(raw_emails, list)
+        else []
+    )
+    candidates = [e for e in emails if e.get("primary")] + emails
     for entry in candidates:
         value = entry.get("value")
         if isinstance(value, str) and "@" in value:
             return value.strip()
     return None
+
+
+class _OwnerLookup(Enum):
+    NOT_RUN = "not_run"  # resolve_owner_emails is off
+    DENIED = "denied"  # the key may not read users: stable from run to run
+    FAILED = "failed"  # transient or unexpected failure
+    SUCCEEDED = "succeeded"
 
 
 @dataclass(frozen=True)
@@ -205,7 +219,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         # Filled once before document workers start and only read afterwards,
         # so a plain dict is safe across threads.
         self._owner_email_by_id: Dict[str, str] = {}
-        self._owner_lookup_succeeded = False
+        self._owner_lookup = _OwnerLookup.NOT_RUN
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "OmniSource":
@@ -470,7 +484,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         display_name: Optional[str] = None,
         upstreams: Optional[UpstreamLineageClass] = None,
         schema_fields: Optional[List[SchemaFieldClass]] = None,
-        owner_urn: Optional[str] = None,
         external_url: Optional[str] = None,
         platform: Optional[str] = None,
         platform_instance: Optional[str] = None,
@@ -489,8 +502,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             schema=schema_fields or None,
             upstreams=upstreams,
         )
-        if owner_urn:
-            dataset.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
         yield from dataset.as_workunits()
 
     def _emit_dashboard(
@@ -502,7 +513,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         external_url: str,
         chart_urns: List[str],
         custom_properties: Dict[str, str],
-        owner_urn: Optional[str] = None,
+        owner: Optional[CorpUserUrn] = None,
         folder_urn: Optional[str] = None,
         updated_at: Optional[str] = None,
     ) -> Iterator[MetadataWorkUnit]:
@@ -516,6 +527,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             dashboard_url=external_url,
             custom_properties=custom_properties,
             parent_container=[folder_urn] if folder_urn else unset,
+            owners=[(owner, OwnershipTypeClass.DATAOWNER)] if owner else None,
         )
         dashboard.set_charts(chart_urns)
         if updated_at:
@@ -528,10 +540,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     updated_at,
                     exc,
                 )
-        if owner_urn:
-            dashboard.set_owners(
-                [(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)]
-            )
         yield from dashboard.as_workunits()
 
     def _emit_chart(
@@ -543,7 +551,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         external_url: str,
         input_urns: List[str],
         custom_properties: Dict[str, str],
-        owner_urn: Optional[str] = None,
+        owner: Optional[CorpUserUrn] = None,
         updated_at: Optional[str] = None,
     ) -> Iterator[MetadataWorkUnit]:
         chart = Chart(
@@ -556,6 +564,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             chart_url=external_url,
             custom_properties=custom_properties,
             input_datasets=input_urns or None,
+            owners=[(owner, OwnershipTypeClass.DATAOWNER)] if owner else None,
         )
         if updated_at:
             try:
@@ -567,8 +576,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     updated_at,
                     exc,
                 )
-        if owner_urn:
-            chart.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
         yield from chart.as_workunits()
 
     # ------------------------------------------------------------------
@@ -1155,8 +1162,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     email_by_id[str(user_id)] = email
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code in (401, 403):
-                # Expected with a personal access token, which Omni rejects on
-                # SCIM endpoints; the rest of ingestion is unaffected.
+                self._owner_lookup = _OwnerLookup.DENIED
                 self.report.info(
                     title="Owner emails not resolved",
                     message=(
@@ -1173,31 +1179,40 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             self._report_owner_lookup_failure(exc)
             return
         self._owner_email_by_id = email_by_id
-        self._owner_lookup_succeeded = True
+        self._owner_lookup = _OwnerLookup.SUCCEEDED
 
     def _report_owner_lookup_failure(self, exc: Exception) -> None:
+        self._owner_lookup = _OwnerLookup.FAILED
         self.report.warning(
             title="Owner email lookup failed",
             message=(
-                "Could not list users from the Omni SCIM users API, so all owners "
-                "are emitted as Omni user IDs. Other metadata is unaffected."
+                "Could not list users from the Omni SCIM users API, so ownership "
+                "is not emitted in this run and existing owners are kept. Other "
+                "metadata is unaffected."
             ),
             exc=exc,
         )
 
-    def _resolve_owner_urn(self, *, owner_id: str, owner_name: str) -> Optional[str]:
+    def _resolve_owner_urn(
+        self, *, owner_id: str, owner_name: str
+    ) -> Optional[CorpUserUrn]:
         if owner_id:
+            if self._owner_lookup is _OwnerLookup.FAILED:
+                # Ownership is re-emitted in full each run, so falling back to the
+                # Omni ID here would overwrite owners earlier runs resolved to
+                # emails. Emit nothing and leave them in place.
+                return None
             email = self._owner_email_by_id.get(owner_id)
             if email:
                 self.report.report_owner_resolved(owner_id)
-                return make_user_urn(email)
+                return CorpUserUrn(email)
             # Only flag individual misses when the lookup ran; otherwise the
-            # single lookup-failure warning already explains every fallback.
-            if self._owner_lookup_succeeded:
+            # single denied-lookup info entry already explains every fallback.
+            if self._owner_lookup is _OwnerLookup.SUCCEEDED:
                 self.report.report_owner_unresolved(owner_id)
-            return make_user_urn(owner_id)
+            return CorpUserUrn(owner_id)
         if owner_name:
-            return make_user_urn(owner_name)
+            return CorpUserUrn(owner_name)
         return None
 
     def _ingest_folders(self) -> Iterator[MetadataWorkUnit]:
@@ -1553,7 +1568,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             folder_name = str(folder.get("name") or "")
             folder_path = str(folder.get("path") or "")
             owner_info = document.get("owner") or {}
-            owner_urn = self._resolve_owner_urn(
+            owner = self._resolve_owner_urn(
                 owner_id=str(owner_info.get("id") or ""),
                 owner_name=str(owner_info.get("name") or ""),
             )
@@ -1652,7 +1667,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     external_url=tile_result.chart_urls.get(qp_id, dashboard_url),
                     input_urns=sorted(tile_result.chart_inputs.get(qp_id, set())),
                     custom_properties={"documentId": doc_id},
-                    owner_urn=owner_urn,
+                    owner=owner,
                     updated_at=document.get("updatedAt"),
                 )
                 self.report.increment_counter("charts_emitted")
@@ -1676,7 +1691,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     "topicNames": ",".join(sorted(tile_result.dashboard_topics)),
                     "updatedAt": str(document.get("updatedAt") or ""),
                 },
-                owner_urn=owner_urn,
+                owner=owner,
                 folder_urn=folder_urn,
                 updated_at=document.get("updatedAt"),
             )

@@ -48,9 +48,10 @@ class OmniSourceConfig(
 
     api_key: pydantic.SecretStr = Field(
         description=(
-            "Omni Organization API key (not a Personal Access Token). "
-            "Generate in Omni Admin → API Keys. "
-            "The key must have read access to models, documents, and connections."
+            "Omni Organization API key. Generate in Omni Admin → API Keys. "
+            "The key must have read access to models, documents, and connections. "
+            "A Personal Access Token also works but only ingests the models and "
+            "documents its creator can see, and cannot resolve owner emails."
         )
     )
     page_size: int = Field(
