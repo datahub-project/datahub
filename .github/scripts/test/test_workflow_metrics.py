@@ -33,6 +33,19 @@ def test_parse_matrix_reusable_workflow_dynamic_inner_name():
     ) == ("Playwright E2E Tests", ["5", "5"])
 
 
+def test_parse_matrix_nested_in_parent_workflow():
+    # Jobs of a lane called by e2e-tests.yml carry the caller job's prefix;
+    # it must not swallow every lane job into one "docker" entry.
+    assert JobMetrics._parse_matrix("docker / setup") == ("docker / setup", [])
+    assert JobMetrics._parse_matrix("docker / Pytest Smoke Tests (Batch 0/5)") == (
+        "docker / Pytest Smoke Tests",
+        ["Batch 0/5"],
+    )
+    assert JobMetrics._parse_matrix(
+        "docker / Playwright E2E Tests (5, 5) / Playwright E2E Tests (Shard 5/5)"
+    ) == ("docker / Playwright E2E Tests", ["5", "5"])
+
+
 # Shared GitHub "workflow run attempt" API payload. Individual tests override only
 # the keys they exercise, so a change to the API shape lands in one place.
 _REPOSITORY = "org/repo"

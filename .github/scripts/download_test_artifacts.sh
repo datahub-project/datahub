@@ -10,7 +10,7 @@ set -euxo pipefail
 # Default values
 OUTPUT_DIR="./dev-artifacts/test-results"
 RUN_COUNT=3
-WORKFLOW_NAME="docker-unified.yml"
+WORKFLOW_NAME="e2e-tests.yml"
 REPOSITORY=""
 # Artifact name prefix to download. Default matches smoke-test result artifacts; override for
 # other workflows (e.g. "build-and-test" for Gradle JUnit from build-and-test.yml).
@@ -28,7 +28,7 @@ Download test artifacts from recent CI runs.
 OPTIONS:
     --output-dir DIR      Output directory for artifacts (default: ./dev-artifacts/test-results)
     --run-count N         Number of recent runs to download (default: 3)
-    --workflow NAME       Workflow file name (default: docker-unified.yml)
+    --workflow NAME       Workflow file name (default: e2e-tests.yml)
     --repository REPO     Repository in format owner/repo (default: auto-detect from git)
     --artifact-prefix STR Artifact name prefix to download (default: "Test Results (smoke tests)")
     --allow-failed        Also harvest completed-but-failed runs (default: off, success-only).

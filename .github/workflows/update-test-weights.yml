@@ -52,7 +52,7 @@ jobs:
           bash .github/scripts/download_test_artifacts.sh \
             --output-dir ./test-artifacts-smoke \
             --run-count ${{ github.event.inputs.run_count || '3' }} \
-            --workflow docker-unified.yml \
+            --workflow e2e-tests.yml \
             --repository ${{ github.repository }}
 
           echo "Downloading Gradle JUnit artifacts from recent build & test runs..."
@@ -65,12 +65,12 @@ jobs:
             --artifact-prefix "build-and-test" \
             --repository ${{ github.repository }}
 
-          echo "Downloading Playwright JUnit artifacts from recent docker-unified runs..."
+          echo "Downloading Playwright JUnit artifacts from recent E2E Tests runs..."
           # Named playwright-junit-{shard} by resusable-playwright-tests.yml.
           bash .github/scripts/download_test_artifacts.sh \
             --output-dir ./test-artifacts-playwright \
             --run-count ${{ github.event.inputs.run_count || '3' }} \
-            --workflow docker-unified.yml \
+            --workflow e2e-tests.yml \
             --artifact-prefix "playwright-junit" \
             --repository ${{ github.repository }}
 
@@ -174,7 +174,7 @@ jobs:
             --stats-out ./weight-stats/smoke.json \
             --file smoke-test/pytest_test_weights.json \
             --framework "Smoke pytest" \
-            --workflow docker-unified.yml \
+            --workflow e2e-tests.yml \
             --entry-noun tests \
             --batch-hint "FULL_BATCH_COUNT / P0_BATCH_COUNT in docker-unified.yml (full=5; p0=2; forks=3)" \
             --test-id-key testId \
@@ -249,7 +249,7 @@ jobs:
             --stats-out ./weight-stats/playwright.json \
             --file e2e-test/ui/playwright/playwright_test_weights.json \
             --framework "Playwright specs" \
-            --workflow docker-unified.yml \
+            --workflow e2e-tests.yml \
             --entry-noun "spec files" \
             --batch-hint "docker-unified.yml playwright_shard_count default 5" \
             --test-id-key filePath \
