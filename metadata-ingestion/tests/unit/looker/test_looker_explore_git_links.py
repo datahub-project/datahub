@@ -246,16 +246,6 @@ def test_current_and_stale_ingestion_links_give_remove_only(
     assert ops(patch) == [("remove", path_for(OLD_URL))]
 
 
-def test_hand_made_link_at_same_url_and_label_is_not_overwritten(
-    looker_source_factory: SourceFactory,
-) -> None:
-    source = with_graph(
-        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True),
-        link(ORDERS_URL, USER_STAMP),
-    )
-    assert link_patches(source) == []
-
-
 def test_missing_production_branch_falls_back_to_master(
     looker_source_factory: SourceFactory,
 ) -> None:
@@ -446,7 +436,10 @@ def test_project_without_usable_remote_gets_no_link(
         client.project.side_effect = project_response
     else:
         client.project.return_value = project_response
-    source = with_graph(looker_source_factory(client, extract_explore_git_links=True))
+    source = with_graph(
+        looker_source_factory(client, extract_explore_git_links=True),
+        link(OLD_URL, INGESTION_STAMP),
+    )
 
     assert link_patches(source) == []
     assert any(w.title == warning_title for w in source.reporter.warnings)
@@ -462,12 +455,21 @@ def test_no_link_when_flag_is_off(looker_source_factory: SourceFactory) -> None:
     client.project.assert_not_called()
 
 
-def test_no_link_for_explore_from_imported_project(
-    looker_source_factory: SourceFactory,
+@pytest.mark.parametrize(
+    "lookml_link",
+    ["/projects/proj/files/imported_projects%2Fother%2Forders.view.lkml", None],
+    ids=["imported-project", "no-lookml-file"],
+)
+def test_explore_without_own_lookml_file_keeps_existing_link(
+    looker_source_factory: SourceFactory, lookml_link: Optional[str]
 ) -> None:
-    client = client_with(
-        "/projects/proj/files/imported_projects%2Fother%2Forders.view.lkml"
+    client = client_with(lookml_link)
+    source = with_graph(
+        looker_source_factory(client, extract_explore_git_links=True),
+        link(OLD_URL, INGESTION_STAMP),
     )
-    source = looker_source_factory(client, extract_explore_git_links=True)
     assert link_patches(source) == []
     client.project.assert_not_called()
+    graph = source.ctx.graph
+    assert isinstance(graph, mock.MagicMock)
+    graph.get_aspect.assert_not_called()

@@ -233,7 +233,7 @@ def https_repo_url_from_git_remote(remote: str) -> Optional[str]:
     except ValueError:
         return None
     repo_path = path.strip("/").removesuffix(".git")
-    # Needs at least owner/repo; never fall back to guessing a host.
+    # Needs at least owner/repo.
     if not host or "/" not in repo_path:
         return None
     return f"https://{GIT_HOST_ALIASES.get(host, host)}/{repo_path}"

@@ -37,11 +37,7 @@ class HasInstitutionalMemoryPatch(MetadataPatchProposal):
     def add_institutional_memory_by_url_and_label(
         self, element: InstitutionalMemoryMetadataClass
     ) -> Self:
-        """Adds the link, replacing only an existing link with the same url and label (``description``).
-
-        Unlike ``add_institutional_memory``, which keys links by url alone, links here are
-        keyed by url and label, so links at the same url with other labels are kept.
-        """
+        """Adds the link keyed by url and label (``description``), keeping other labels at that url."""
         self._add_patch(
             InstitutionalMemoryClass.ASPECT_NAME,
             "add",
@@ -54,11 +50,7 @@ class HasInstitutionalMemoryPatch(MetadataPatchProposal):
     def remove_institutional_memory_by_url_and_label(
         self, url: str, label: str
     ) -> Self:
-        """Removes only the link with exactly this url and label (``description``).
-
-        Keyed by url and label, unlike ``add_institutional_memory``, so links at the same url
-        with other labels are kept.
-        """
+        """Removes only the link with this url and label (``description``)."""
         self._add_patch(
             InstitutionalMemoryClass.ASPECT_NAME,
             "remove",
