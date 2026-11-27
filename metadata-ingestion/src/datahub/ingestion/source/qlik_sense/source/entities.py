@@ -15,14 +15,16 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Space,
     SpaceKey,
 )
-from datahub.ingestion.source.qlik_sense.source.base import QlikSourceBase
-from datahub.ingestion.source.qlik_sense.source_utils import (
+from datahub.ingestion.source.qlik_sense.dataset_naming import (
     dataset_display_name,
     dataset_subtype,
-    gen_schema_field,
     qlik_dataset_identifier,
+)
+from datahub.ingestion.source.qlik_sense.field_lineage import (
+    gen_schema_field,
     qlik_field_id,
 )
+from datahub.ingestion.source.qlik_sense.source.base import QlikSourceBase
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
     SubTypes,

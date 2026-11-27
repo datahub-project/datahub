@@ -15,12 +15,21 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     LineageTable,
     SchemaField as QlikDatasetSchemaField,
 )
-from datahub.ingestion.source.qlik_sense.lib_path import named_space
-from datahub.ingestion.source.qlik_sense.lineage_utils import (
+from datahub.ingestion.source.qlik_sense.datahub_io import (
     patch_upstreams,
+)
+from datahub.ingestion.source.qlik_sense.dataset_naming import (
+    qlik_app_id,
+)
+from datahub.ingestion.source.qlik_sense.field_lineage import (
     script_column_lineage,
 )
+from datahub.ingestion.source.qlik_sense.lib_path import named_space
 from datahub.ingestion.source.qlik_sense.reload_sql import merged_lineage
+from datahub.ingestion.source.qlik_sense.report_text import (
+    bounded_list,
+    error_type,
+)
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     VARIABLE_REFERENCE_RE,
     ParsedScript,
@@ -43,11 +52,6 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     ScriptTableKey,
     SpaceNeed,
     UntypedTable,
-)
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    bounded_list,
-    error_type,
-    qlik_app_id,
 )
 from datahub.ingestion.source.qlik_sense.table_matching import (
     lineage_table_identifier,

@@ -8,24 +8,28 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.qlik_sense.constants import QVD_EXTENSION
 from datahub.ingestion.source.qlik_sense.data_classes import ReloadStatement
+from datahub.ingestion.source.qlik_sense.datahub_io import (
+    patch_upstreams,
+)
+from datahub.ingestion.source.qlik_sense.dataset_naming import (
+    qlik_app_id,
+)
 from datahub.ingestion.source.qlik_sense.lib_path import (
     is_ambiguous_lib_path,
     path_has_label,
     path_key,
     path_space,
 )
-from datahub.ingestion.source.qlik_sense.lineage_utils import patch_upstreams
 from datahub.ingestion.source.qlik_sense.reload_sql import parse_reload_files
+from datahub.ingestion.source.qlik_sense.report_text import (
+    bounded_list,
+    describe_error,
+)
 from datahub.ingestion.source.qlik_sense.source.file_entities import FileEntitiesMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
     GraphNamedApps,
     GraphNamedPath,
     SpaceNeed,
-)
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    bounded_list,
-    describe_error,
-    qlik_app_id,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetLineageType
 

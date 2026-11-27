@@ -5,9 +5,15 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     SchemaField as QlikDatasetSchemaField,
 )
+from datahub.ingestion.source.qlik_sense.datahub_io import (
+    patch_workunits,
+)
+from datahub.ingestion.source.qlik_sense.field_lineage import (
+    qlik_field_id,
+    stale_field_lineage,
+)
 from datahub.ingestion.source.qlik_sense.file_lineage import FilePlatform
 from datahub.ingestion.source.qlik_sense.lib_path import is_data_files
-from datahub.ingestion.source.qlik_sense.lineage_utils import stale_field_lineage
 from datahub.ingestion.source.qlik_sense.qvd_lineage import QvdWrite, stored_fields
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     ParsedScript,
@@ -17,10 +23,6 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.source.onprem_qvd import OnPremQvdMixin
 from datahub.ingestion.source.qlik_sense.source_models import PendingStoredFile
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    patch_workunits,
-    qlik_field_id,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     Upstream,

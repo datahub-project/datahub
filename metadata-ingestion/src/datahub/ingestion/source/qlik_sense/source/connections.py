@@ -1,6 +1,10 @@
 from typing import Dict, Optional
 
 from datahub.ingestion.source.qlik_sense.data_classes import App
+from datahub.ingestion.source.qlik_sense.dataset_naming import (
+    MappingT,
+    get_ignoring_case,
+)
 from datahub.ingestion.source.qlik_sense.lib_path import (
     connection_key,
     parse_lib_connection,
@@ -20,10 +24,6 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.source.entities import EntityEmitMixin
 from datahub.ingestion.source.qlik_sense.source_models import SpaceNeed, UnseenSpace
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    MappingT,
-    get_ignoring_case,
-)
 
 
 class DataConnectionMixin(EntityEmitMixin):

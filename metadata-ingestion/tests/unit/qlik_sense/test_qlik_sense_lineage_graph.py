@@ -28,6 +28,9 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     UnchangedApp,
     UnreadItem,
 )
+from datahub.ingestion.source.qlik_sense.field_lineage import (
+    refs_of_field_sources,
+)
 from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
@@ -41,7 +44,6 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     ResolvedSource,
     UntypedTable,
 )
-from datahub.ingestion.source.qlik_sense.source_utils import refs_of_field_sources
 from datahub.ingestion.source.qlik_sense.table_matching import name_unknown_tables
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,

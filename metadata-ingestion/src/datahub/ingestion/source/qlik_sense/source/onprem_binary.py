@@ -13,6 +13,9 @@ from datahub.ingestion.source.qlik_sense.constants import (
 )
 from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.qvd_lineage import canonical_path
+from datahub.ingestion.source.qlik_sense.report_text import (
+    bounded_list,
+)
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     ParsedScript,
     QvdReference,
@@ -25,7 +28,6 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     BinaryLoad,
     UnreadBinarySource,
 )
-from datahub.ingestion.source.qlik_sense.source_utils import bounded_list
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     FineGrainedLineage,

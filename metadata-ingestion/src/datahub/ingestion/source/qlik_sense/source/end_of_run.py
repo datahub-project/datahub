@@ -13,9 +13,11 @@ from datahub.ingestion.source.qlik_sense.constants import (
     UPSTREAM_GRAPH_READ_FAILED_TITLE,
 )
 from datahub.ingestion.source.qlik_sense.lib_path import path_space
+from datahub.ingestion.source.qlik_sense.report_text import (
+    bounded_list,
+)
 from datahub.ingestion.source.qlik_sense.source.items import ItemsMixin
 from datahub.ingestion.source.qlik_sense.source_models import SpaceNeed
-from datahub.ingestion.source.qlik_sense.source_utils import bounded_list
 
 
 class EndOfRunMixin(ItemsMixin):

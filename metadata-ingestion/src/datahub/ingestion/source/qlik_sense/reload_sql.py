@@ -1,4 +1,5 @@
 import re
+from dataclasses import dataclass
 from typing import Dict, List, Set
 
 from pydantic import BaseModel, ConfigDict
@@ -10,8 +11,10 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     LineageTable,
     ReloadStatement,
 )
+from datahub.ingestion.source.qlik_sense.field_lineage import (
+    refs_of_field_sources,
+)
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
-from datahub.ingestion.source.qlik_sense.source_utils import refs_of_field_sources
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -47,7 +50,9 @@ RELOAD_FILE_RE = re.compile(
 )
 
 
-class _ClauseState(BaseModel):
+# A dataclass, as one is built per parenthesis of every SQL statement.
+@dataclass(frozen=True)
+class _ClauseState:
     in_clause: bool = False
     in_from: bool = False
 

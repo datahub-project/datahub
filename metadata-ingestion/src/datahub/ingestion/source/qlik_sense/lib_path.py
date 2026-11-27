@@ -1,5 +1,6 @@
 import re
-from typing import List, Optional
+from collections import Counter
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -120,3 +121,23 @@ def path_has_label(path: str, label: str) -> bool:
     return match is not None and _path_key_parts(
         match.group("path")
     ) == _path_key_parts(label)
+
+
+def voted_segments(
+    path: str, spellings: Dict[str, Counter[str]]
+) -> Optional[List[str]]:
+    """The segments of a path whose space and connection can't be told
+    apart, when exactly one way of splitting them is spelled elsewhere."""
+    match = LIB_PATH_RE.match(path)
+    if not match or "$(" in path:
+        return None
+    connection = match.group("connection")
+    splits = [
+        [connection[:i].strip(), connection[i + 1 :].strip()]
+        for i, char in enumerate(connection)
+        if char == SPACE_SEPARATOR
+    ]
+    known = [split for split in splits if path_key("/".join(split)) in spellings]
+    if len(known) != 1:
+        return None
+    return [*known[0], *lib_path_parts(match.group("path"))]

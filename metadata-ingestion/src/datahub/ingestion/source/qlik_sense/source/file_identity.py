@@ -14,6 +14,14 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import (
 )
 from datahub.ingestion.source.qlik_sense.config import Constant, FileStorageDetail
 from datahub.ingestion.source.qlik_sense.data_classes import App
+from datahub.ingestion.source.qlik_sense.datahub_io import (
+    patch_workunits,
+)
+from datahub.ingestion.source.qlik_sense.dataset_naming import (
+    file_display_name,
+    is_qvd_dataset,
+    qlik_dataset_identifier,
+)
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FILE_QRI_RE,
     PLATFORM_BY_QRI_SCHEME,
@@ -43,12 +51,6 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     CataloguedFile,
     FileSourceResolution,
     FileStorageMatch,
-)
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    file_display_name,
-    is_qvd_dataset,
-    patch_workunits,
-    qlik_dataset_identifier,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.schema_classes import (

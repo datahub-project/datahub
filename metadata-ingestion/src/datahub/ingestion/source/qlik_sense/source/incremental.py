@@ -9,11 +9,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
 from datahub.ingestion.source.qlik_sense.config import Constant
-from datahub.ingestion.source.qlik_sense.source.connections import DataConnectionMixin
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    describe_error,
+from datahub.ingestion.source.qlik_sense.datahub_io import (
     entities_present,
 )
+from datahub.ingestion.source.qlik_sense.report_text import (
+    describe_error,
+)
+from datahub.ingestion.source.qlik_sense.source.connections import DataConnectionMixin
 from datahub.metadata.schema_classes import ContainerPropertiesClass
 from datahub.utilities.urns.urn import guess_entity_type
 

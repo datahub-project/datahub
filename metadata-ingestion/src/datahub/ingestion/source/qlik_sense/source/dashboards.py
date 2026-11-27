@@ -23,15 +23,17 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     ChartInputs,
     Sheet,
 )
+from datahub.ingestion.source.qlik_sense.datahub_io import (
+    patch_workunits,
+)
+from datahub.ingestion.source.qlik_sense.field_lineage import (
+    gen_schema_field,
+)
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     expand_variables,
     reads_unknown_fields,
 )
 from datahub.ingestion.source.qlik_sense.source.app_tables import AppTablesMixin
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    gen_schema_field,
-    patch_workunits,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,

@@ -10,7 +10,14 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     SchemaField as QlikDatasetSchemaField,
 )
-from datahub.ingestion.source.qlik_sense.lineage_utils import stale_field_lineage
+from datahub.ingestion.source.qlik_sense.datahub_io import (
+    patch_workunits,
+)
+from datahub.ingestion.source.qlik_sense.field_lineage import (
+    qvd_fields,
+    schema_field_parent,
+    stale_field_lineage,
+)
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     CANONICAL_ABSOLUTE_PATH_RE,
     AppQvdLineage,
@@ -18,18 +25,15 @@ from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     QvdWrite,
     app_qvd_lineage,
 )
+from datahub.ingestion.source.qlik_sense.report_text import (
+    bounded_list,
+)
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     ParsedScript,
     ScriptTableLineage,
 )
 from datahub.ingestion.source.qlik_sense.source.reload_lineage import ReloadSqlMixin
 from datahub.ingestion.source.qlik_sense.source_models import QvdsUnknownReason
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    bounded_list,
-    patch_workunits,
-    qvd_fields,
-    schema_field_parent,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     FineGrainedLineage,

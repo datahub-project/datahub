@@ -28,6 +28,9 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     UnchangedApp,
     UnreadItem,
 )
+from datahub.ingestion.source.qlik_sense.datahub_io import (
+    patch_upstreams,
+)
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FilePlatform,
     FileStorage,
@@ -36,7 +39,6 @@ from datahub.ingestion.source.qlik_sense.file_lineage import (
     file_storage_of_uri,
     qri_part_id,
 )
-from datahub.ingestion.source.qlik_sense.lineage_utils import patch_upstreams
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
@@ -45,6 +47,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     FileLoad,
     IncludeRead,
     ParsedScript,
+    ScriptTableLineage,
     inline_includes,
     parse_script,
 )
@@ -2199,6 +2202,71 @@ def test_unresolved_file_of_an_app_calling_an_undefined_sub_only_adds(
     )
 
     assert writes[ORDERS] == f"patch:{RATES}"
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_added_graph_table_lineage_drops_edges_to_other_names_of_its_file(
+    mock_api_cls: MagicMock,
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        datasets_listed=False,
+    )
+
+    ops = _upstream_ops(_app_and_end_of_run(source, app))
+
+    # Lineage is only added to, as the datasets could not be listed, but the
+    # edge an earlier run wrote to the file's QRI name still goes.
+    qri_name = make_dataset_urn(
+        "qlik-sense",
+        _file_qri("adls", "unknown", "landing/orders.csv").rsplit("#", 1)[0].lower(),
+    )
+    assert f"remove upstream {qri_name}" in ops[ORDERS]
+    assert (
+        "add upstream urn:li:dataset:(urn:li:dataPlatform:abs,lake/landing/orders.csv,PROD)"
+        in ops[ORDERS]
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_added_script_table_lineage_drops_edges_to_other_names_of_its_file(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {
+            "Sales Space:Share": {
+                "storage_uri": SHARE,
+                "platform_instance": "qlik_onprem",
+            }
+        },
+        {},
+        script="Targets: LOAD * FROM [lib://Sales Space:Share/Ref/Targets.xlsx] (ooxml);\n",
+    )
+    file_qri = _file_qri("local", SHARE, "Ref/Targets.xlsx")
+    urn = source._file_source_resolution("app-1", file_qri).urn
+    assert urn is not None
+    table = ScriptTableLineage(
+        label="Targets", identifier="app-1.targets", upstream_urns=[urn]
+    )
+
+    ops = _upstream_ops(
+        source._gen_script_tables_workunit([table], "app-1", replace_lineage=False)
+    )
+
+    assert sorted(
+        op
+        for op in ops[make_dataset_urn("qlik-sense", "app-1.targets")]
+        if op.startswith("remove")
+    ) == sorted(
+        [
+            "remove upstream "
+            + make_dataset_urn("qlik-sense", file_qri.rsplit("#", 1)[0].lower()),
+            "remove upstream urn:li:dataset:(urn:li:dataPlatform:qlik-sense,"
+            "qlik_onprem.//files.example.com/qlik/qvd/ref/targets.xlsx,PROD)",
+        ]
+    )
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")

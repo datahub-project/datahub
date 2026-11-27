@@ -8,17 +8,21 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     UPSTREAM_RESOURCE_QRI_PREFIXES,
     LineageUpstreams,
 )
+from datahub.ingestion.source.qlik_sense.dataset_naming import (
+    qlik_app_id,
+)
+from datahub.ingestion.source.qlik_sense.field_lineage import (
+    qlik_field_id,
+)
 from datahub.ingestion.source.qlik_sense.file_lineage import FILE_QRI_RE
+from datahub.ingestion.source.qlik_sense.report_text import (
+    describe_error,
+)
 from datahub.ingestion.source.qlik_sense.source.file_identity import FileIdentityMixin
 from datahub.ingestion.source.qlik_sense.source_models import (
     IncompleteLineageReason,
     ResolvedSource,
     ResolvedSources,
-)
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    describe_error,
-    qlik_app_id,
-    qlik_field_id,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,

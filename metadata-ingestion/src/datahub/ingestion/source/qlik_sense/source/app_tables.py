@@ -14,17 +14,19 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     QlikTable,
     SchemaField as QlikDatasetSchemaField,
 )
+from datahub.ingestion.source.qlik_sense.dataset_naming import (
+    own_table_urns,
+    qlik_app_id,
+)
+from datahub.ingestion.source.qlik_sense.report_text import (
+    bounded_list,
+    error_type,
+)
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     ScriptTableLineage,
     has_qualified_name,
 )
 from datahub.ingestion.source.qlik_sense.source.column_lineage import ColumnLineageMixin
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    bounded_list,
-    error_type,
-    own_table_urns,
-    qlik_app_id,
-)
 from datahub.ingestion.source.qlik_sense.table_matching import (
     app_graph_tables_unresolved,
     app_tables_unknown,

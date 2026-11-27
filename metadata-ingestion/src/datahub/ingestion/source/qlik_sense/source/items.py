@@ -27,6 +27,16 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     QlikDataset,
     UnchangedApp,
 )
+from datahub.ingestion.source.qlik_sense.dataset_naming import (
+    is_stored_qvd,
+    own_table_urns,
+)
+from datahub.ingestion.source.qlik_sense.field_lineage import (
+    app_field_names,
+)
+from datahub.ingestion.source.qlik_sense.report_text import (
+    read_errors_context,
+)
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     LIB_PATH_RE,
     app_table_identifier,
@@ -36,12 +46,6 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     PartialRead,
     QvdsUnknownReason,
     StorageFile,
-)
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    app_field_names,
-    is_stored_qvd,
-    own_table_urns,
-    read_errors_context,
 )
 from datahub.ingestion.source.qlik_sense.table_matching import (
     app_graph_tables_unresolved,

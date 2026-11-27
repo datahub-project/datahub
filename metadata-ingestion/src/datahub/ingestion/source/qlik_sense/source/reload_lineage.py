@@ -23,6 +23,11 @@ from datahub.ingestion.source.qlik_sense.reload_sql import (
     untraced_source_groups,
     urn_names_table,
 )
+from datahub.ingestion.source.qlik_sense.report_text import (
+    bounded_list,
+    describe_error,
+    error_type,
+)
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
     ResolvedConnection,
@@ -35,11 +40,6 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.source.resolution import SourceResolutionMixin
 from datahub.ingestion.source.qlik_sense.source_models import SpaceNeed
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    bounded_list,
-    describe_error,
-    error_type,
-)
 from datahub.ingestion.source.qlik_sense.table_matching import lineage_table_identifier
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import (

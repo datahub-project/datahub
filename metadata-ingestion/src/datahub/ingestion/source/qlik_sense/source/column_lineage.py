@@ -4,10 +4,10 @@ from datahub.ingestion.source.qlik_sense.constants import (
     DATAHUB_LINEAGE_READ_FAILED_TITLE,
     ENTITY_CHECK_BATCH_SIZE,
 )
-from datahub.ingestion.source.qlik_sense.source.incremental import IncrementalMixin
-from datahub.ingestion.source.qlik_sense.source_utils import (
+from datahub.ingestion.source.qlik_sense.report_text import (
     bounded_list,
 )
+from datahub.ingestion.source.qlik_sense.source.incremental import IncrementalMixin
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     UpstreamLineage,

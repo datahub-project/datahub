@@ -9,8 +9,10 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     ChartInputs,
     SchemaField as QlikDatasetSchemaField,
 )
+from datahub.ingestion.source.qlik_sense.datahub_io import (
+    patch_workunits,
+)
 from datahub.ingestion.source.qlik_sense.script_lineage import expression_names
-from datahub.ingestion.source.qlik_sense.source_utils import patch_workunits
 from datahub.specific.chart import ChartPatchBuilder
 
 

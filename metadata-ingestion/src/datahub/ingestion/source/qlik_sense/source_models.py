@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
 from pydantic import BaseModel, ConfigDict
@@ -58,10 +59,12 @@ class SpaceNeed(StrEnum):
     DATA_CONNECTIONS = "data connections"
 
 
-class UnseenSpace(BaseModel):
+# Dataclasses rather than models, as these are built per file or space lookup.
+@dataclass
+class UnseenSpace:
     # As first written, while the space is keyed by its lowercased name.
     name: str
-    needs: Set[SpaceNeed] = set()
+    needs: Set[SpaceNeed] = field(default_factory=set)
 
 
 class OnlyAddedTablesKey(BaseModel):
@@ -71,9 +74,8 @@ class OnlyAddedTablesKey(BaseModel):
     reason: str
 
 
-class CataloguedFile(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
+@dataclass(frozen=True)
+class CataloguedFile:
     platform: FilePlatform
     # The path part of the file's QRI.
     path_id: str

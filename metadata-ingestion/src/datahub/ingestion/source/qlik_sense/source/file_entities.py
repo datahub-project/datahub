@@ -10,22 +10,22 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.qlik_sense.config import Constant
 from datahub.ingestion.source.qlik_sense.constants import QVD_EXTENSION
+from datahub.ingestion.source.qlik_sense.dataset_naming import (
+    file_display_name,
+)
 from datahub.ingestion.source.qlik_sense.lib_path import (
     build_lib_path,
     is_ambiguous_connection,
     lib_path_segments,
     parse_lib_connection,
     path_key,
+    voted_segments,
 )
 from datahub.ingestion.source.qlik_sense.qvd_lineage import CANONICAL_ABSOLUTE_PATH_RE
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     LIB_PATH_RE,
 )
 from datahub.ingestion.source.qlik_sense.source.store_lineage import StoreLineageMixin
-from datahub.ingestion.source.qlik_sense.source_utils import (
-    file_display_name,
-    voted_segments,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
