@@ -20,7 +20,6 @@ from typing import (
 )
 from urllib.parse import quote
 
-import requests
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.serialize import DeserializeError
 from looker_sdk.sdk.api40.models import (
@@ -34,7 +33,6 @@ from looker_sdk.sdk.api40.models import (
 )
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import GraphError
 from datahub.configuration.git import GitReference
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -82,7 +80,6 @@ from datahub.ingestion.source.looker.looker_common import (
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_constant import (
     EXPLORE_GIT_LINK_LABEL,
-    EXPLORE_GIT_LINK_RUN_WIDE_HTTP_STATUSES,
     LOOKER_DEFAULT_GIT_BRANCH,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
@@ -234,7 +231,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.explores_for_usage: List[looker_usage.LookerExploreForUsage] = []
 
         self._project_git_refs: Dict[str, Optional[GitReference]] = {}
-        self._git_link_read_failed = False
         if config.extract_explore_git_links and ctx.graph is None:
             self.reporter.info(
                 title="Explore Git links are add-only",
@@ -974,7 +970,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             self.source_config.extract_explore_git_links
             and explore_dataset_entity is not None
             and looker_explore is not None
-            and not self._git_link_read_failed
             and self._git_link_path(looker_explore) is not None
         ):
             # Read here, on the worker thread, so the GMS round trip runs in parallel
@@ -1047,27 +1042,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             return set()
         try:
             memory = self.ctx.graph.get_aspect(explore_urn, InstitutionalMemoryClass)
-        except (requests.RequestException, GraphError) as e:
-            if (
-                isinstance(e, requests.HTTPError)
-                and e.response is not None
-                and 400 <= e.response.status_code < 500
-                and e.response.status_code
-                not in EXPLORE_GIT_LINK_RUN_WIDE_HTTP_STATUSES
-            ):
-                # About this Explore only (e.g. access denied), so keep going with the rest.
-                self.reporter.warning(
-                    title="Could not read an Explore's existing links",
-                    message="No Git link is written for this Explore this run; its existing links are left unchanged.",
-                    context=explore_urn,
-                    exc=e,
-                )
-                return None
-            # Outage-type error: the graph session has already retried, so later reads would fail too.
-            self._git_link_read_failed = True
+        except Exception as e:
+            # Links are optional, so a failed read skips only this Explore's link.
             self.reporter.warning(
-                title="Failed to read existing Explore links",
-                message="Explore Git links are skipped for the rest of the run; existing links are left unchanged.",
+                title="Could not read an Explore's existing links",
+                message="No Git link is written for this Explore this run; its existing links are left unchanged.",
                 context=explore_urn,
                 exc=e,
             )

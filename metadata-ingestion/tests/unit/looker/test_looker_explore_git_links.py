@@ -1,11 +1,12 @@
 import json
 import threading
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from unittest import mock
 
 import pytest
 import requests
 from looker_sdk.error import SDKError
+from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api40.models import LookmlModelExplore, Project
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -38,11 +39,16 @@ INGESTION_STAMP = AuditStampClass(time=0, actor="urn:li:corpuser:__ingestion")
 USER_STAMP = AuditStampClass(time=1700000000000, actor="urn:li:corpuser:jdoe")
 
 
-def client_with(lookml_link: Optional[str], project: Optional[Project] = None) -> Any:
+def client_with(
+    lookml_link: Optional[str], project: Optional[Project] = None
+) -> mock.MagicMock:
     client = fake_client()
 
     def explore_with_link(
-        model: str, explore_name: str, fields: Any = None, transport_options: Any = None
+        model: str,
+        explore_name: str,
+        fields: Optional[str] = None,
+        transport_options: Optional[TransportOptions] = None,
     ) -> LookmlModelExplore:
         result = explore(model, explore_name)
         result.lookml_link = lookml_link
@@ -179,7 +185,10 @@ def test_each_project_gets_its_own_repo(looker_source_factory: SourceFactory) ->
     by_explore = client.lookml_model_explore.side_effect
 
     def explore_in_own_project(
-        model: str, explore_name: str, fields: Any = None, transport_options: Any = None
+        model: str,
+        explore_name: str,
+        fields: Optional[str] = None,
+        transport_options: Optional[TransportOptions] = None,
     ) -> LookmlModelExplore:
         result = by_explore(model, explore_name)
         result.project_name = "proj" if explore_name == "orders" else "other"
@@ -327,12 +336,12 @@ def http_error(status: int) -> requests.HTTPError:
     [
         requests.ConnectionError("GMS unreachable"),
         http_error(503),
-        http_error(429),
-        http_error(401),
+        http_error(403),
+        ValueError("aspect could not be decoded"),
     ],
-    ids=["connection-error", "http-503", "http-429", "http-401"],
+    ids=["connection-error", "http-503", "http-403", "unreadable-response"],
 )
-def test_failed_link_read_skips_links_for_the_rest_of_the_run(
+def test_failed_link_read_skips_only_that_explore(
     looker_source_factory: SourceFactory, error: Exception
 ) -> None:
     source = with_graph(
@@ -340,48 +349,29 @@ def test_failed_link_read_skips_links_for_the_rest_of_the_run(
     )
     graph = source.ctx.graph
     assert isinstance(graph, mock.MagicMock)
-    graph.get_aspect.side_effect = error
 
-    workunits = list(source.get_workunits_internal())
-
-    # Explores are still emitted; only their links are skipped, without retrying per Explore.
-    explore_urns = {str(wu.urn) for wu in workunits if isinstance(wu, Dataset)}
-    assert {ORDERS_URN, INVOICES_URN} <= explore_urns
-    assert not any(
-        isinstance(wu, MetadataWorkUnit)
-        and isinstance(wu.metadata, MetadataChangeProposalClass)
-        and wu.metadata.aspectName == "institutionalMemory"
-        for wu in workunits
-    )
-    assert graph.get_aspect.call_count == 1
-    assert [w.title for w in source.reporter.warnings].count(
-        "Failed to read existing Explore links"
-    ) == 1
-
-
-def test_access_denied_on_one_explore_skips_only_that_explore(
-    looker_source_factory: SourceFactory,
-) -> None:
-    source = with_graph(
-        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True)
-    )
-    graph = source.ctx.graph
-    assert isinstance(graph, mock.MagicMock)
-
-    def get_aspect(urn: str, aspect_type: Any) -> None:
+    def get_aspect(urn: str, aspect_type: Type[InstitutionalMemoryClass]) -> None:
         if urn == ORDERS_URN:
-            raise http_error(403)
+            raise error
         return None
 
     graph.get_aspect.side_effect = get_aspect
 
-    patches = link_patches(source)
+    workunits = list(source.get_workunits_internal())
 
-    assert [p["entityUrn"] for p in patches] == [INVOICES_URN]
-    assert graph.get_aspect.call_count == 2
-    titles = [w.title for w in source.reporter.warnings]
-    assert "Could not read an Explore's existing links" in titles
-    assert "Failed to read existing Explore links" not in titles
+    explore_urns = {str(wu.urn) for wu in workunits if isinstance(wu, Dataset)}
+    assert {ORDERS_URN, INVOICES_URN} <= explore_urns
+    linked = [
+        wu.metadata.entityUrn
+        for wu in workunits
+        if isinstance(wu, MetadataWorkUnit)
+        and isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "institutionalMemory"
+    ]
+    assert linked == [INVOICES_URN]
+    assert [w.title for w in source.reporter.warnings].count(
+        "Could not read an Explore's existing links"
+    ) == 1
 
 
 def test_link_read_runs_on_worker_threads(
@@ -394,7 +384,7 @@ def test_link_read_runs_on_worker_threads(
     assert isinstance(graph, mock.MagicMock)
     read_threads = []
 
-    def get_aspect(urn: str, aspect_type: Any) -> None:
+    def get_aspect(urn: str, aspect_type: Type[InstitutionalMemoryClass]) -> None:
         read_threads.append(threading.current_thread())
         return None
 
@@ -448,7 +438,7 @@ def test_no_datahub_connection_adds_only_and_notes_it_once(
 )
 def test_project_without_usable_remote_gets_no_link(
     looker_source_factory: SourceFactory,
-    project_response: Any,
+    project_response: Union[Project, Exception],
     warning_title: str,
 ) -> None:
     client = client_with(ORDERS_LINK)
