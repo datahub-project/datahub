@@ -3,7 +3,7 @@
 Send one ``ci_smart_selection`` event to PostHog for a PR's smart test selection.
 
 Run by each test framework's planner job (docker-unified ``smoke_test_matrix``
-for pytest) after the classifier and the plan. The classifier fields are the
+for pytest, ``playwright_plan`` for Playwright) after the classifier and the plan. The classifier fields are the
 same for every framework; selection and counts come from ``PLAN_FILE``, the
 framework's own plan. Selection and plan outcome come from the planner job
 (``SMART_SELECTION``, ``SELECTION_APPLIED``, ``PLAN_OUTCOME``); only the counts
@@ -79,6 +79,8 @@ def build_properties(
         "head_sha": get("HEAD_SHA"),
         "pr_number": _number(get("PR_NUMBER"), int),
         "framework": get("TEST_FRAMEWORK"),
+        # Which e2e lane planned it (docker, docker-free); empty when unset.
+        "lane": get("TEST_LANE"),
         "mode": get("SMART_MODE"),
         "confidence": get("SMART_CONFIDENCE"),
         "failsafe_reason": failsafe_reason,

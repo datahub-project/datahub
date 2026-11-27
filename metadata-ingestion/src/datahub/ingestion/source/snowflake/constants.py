@@ -1,3 +1,5 @@
+import re
+
 from datahub.utilities.str_enum import StrEnum
 
 
@@ -65,10 +67,45 @@ class SnowflakeObjectDomain(StrEnum):
     STREAM = "stream"
     PROCEDURE = "procedure"
     DYNAMIC_TABLE = "dynamic table"
+    INTERACTIVE_TABLE = "interactive table"
     STREAMLIT = "streamlit"
     STAGE = "stage"
     TASK = "task"
     PIPE = "pipe"
+
+
+# ACCESS_HISTORY reports interactive tables as 'Interactive Table' (both words capitalized),
+# so `.capitalize()` on the enum value would not match the case-sensitive SQL filter.
+INTERACTIVE_TABLE_ACCESS_HISTORY_DOMAIN = "Interactive Table"
+
+# sqlglot cannot parse CREATE INTERACTIVE TABLE; dropping INTERACTIVE makes it parse. Anchored to the
+# statement start (past leading whitespace and comments) so a comment saying "create interactive
+# table" ahead of the statement is never the text that gets rewritten.
+INTERACTIVE_TABLE_CREATE_RE = re.compile(
+    r"^((?:\s|--[^\n]*|//[^\n]*|/\*.*?\*/)*create\s+(?:or\s+replace\s+)?)interactive\s+(table)\b",
+    re.IGNORECASE | re.DOTALL,
+)
+# TARGET_LAG is a table property (`TARGET_LAG = '1 minute'`), so only the text ahead of the AS query
+# is searched and the `=` is required; a column or alias named target_lag in the query doesn't count.
+_TARGET_LAG_PROPERTY_RE = re.compile(r"\btarget_lag\s*=", re.IGNORECASE)
+_AS_QUERY_RE = re.compile(r"\bas\s*\(?\s*(?:select|with)\b", re.IGNORECASE)
+# Strings, quoted identifiers and comments, blanked before that search so a column COMMENT or a note
+# saying "as select" can't cut the head short ahead of TARGET_LAG. One alternation, so whichever
+# starts first wins (a `--` inside a string stays part of the string).
+_SQL_LITERAL_OR_COMMENT_RE = re.compile(
+    r"'(?:[^'\\]|\\.)*'|\"(?:[^\"]|\"\")*\"|\$\$.*?\$\$|--[^\n]*|//[^\n]*|/\*.*?\*/",
+    re.DOTALL,
+)
+
+
+def rewrite_interactive_table_create(sql: str) -> str:
+    return INTERACTIVE_TABLE_CREATE_RE.sub(r"\1\2", sql, count=1)
+
+
+def has_target_lag_property(sql: str) -> bool:
+    scan = _SQL_LITERAL_OR_COMMENT_RE.sub(" ", sql)
+    head = _AS_QUERY_RE.split(scan, maxsplit=1)[0]
+    return _TARGET_LAG_PROPERTY_RE.search(head) is not None
 
 
 # The plural keyword naming an object class in a SHOW statement, e.g. `SHOW DYNAMIC TABLES`.
@@ -79,6 +116,7 @@ class SnowflakeShowKind(StrEnum):
     VIEWS = "VIEWS"
     STREAMS = "STREAMS"
     DYNAMIC_TABLES = "DYNAMIC TABLES"
+    INTERACTIVE_TABLES = "INTERACTIVE TABLES"
 
 
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"

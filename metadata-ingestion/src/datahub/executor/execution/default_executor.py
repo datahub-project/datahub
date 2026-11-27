@@ -31,7 +31,6 @@ from datahub.executor.secret.secret_store_registry import SecretStoreRegistry
 from datahub.secret.secret_store import SecretStore, SecretStoreConfig
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 """
 Sets up the Task Executor

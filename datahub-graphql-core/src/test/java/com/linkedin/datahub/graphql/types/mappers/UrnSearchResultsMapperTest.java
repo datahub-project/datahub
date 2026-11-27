@@ -160,6 +160,9 @@ public class UrnSearchResultsMapperTest {
             new com.linkedin.metadata.search.VectorRetrievalExplanation()
                 .setOutcome("served")
                 .setProfile("text_embedding_3_small")
+                .setStore("external")
+                .setAdapterLatencyMillis(42L)
+                .setRemovedByHydration(2)
                 .setEntityTypes(new StringArray("document"))
                 .setExcludedEntityTypes(new StringArray("dataset:entityNotEnabled"))
                 .setK(1000)
@@ -177,6 +180,9 @@ public class UrnSearchResultsMapperTest {
 
     assertEquals(mapped.getOutcome(), "served");
     assertEquals(mapped.getProfile(), "text_embedding_3_small");
+    assertEquals(mapped.getStore(), "external");
+    assertEquals(mapped.getAdapterLatencyMillis().longValue(), 42L);
+    assertEquals(mapped.getRemovedByHydration(), 2);
     assertEquals(mapped.getEntityTypes(), List.of("document"));
     assertEquals(mapped.getExcludedEntityTypes(), List.of("dataset:entityNotEnabled"));
     assertEquals(mapped.getK().intValue(), 1000);
@@ -191,6 +197,33 @@ public class UrnSearchResultsMapperTest {
     assertNull(
         UrnSearchResultsMapper.map(null, backendResult(new SearchEntityArray()))
             .getVectorRetrieval());
+  }
+
+  @Test
+  public void testNativeVectorRetrievalMapsWithoutTheExternalStoreFields() throws Exception {
+    // A rung on the DataHub index calls no adapter, so explain has no latency or hydration counts
+    SearchResult backend = backendResult(new SearchEntityArray());
+    backend
+        .getMetadata()
+        .setVectorRetrieval(
+            new com.linkedin.metadata.search.VectorRetrievalExplanation()
+                .setOutcome("served")
+                .setProfile("text_embedding_3_small")
+                .setEntityTypes(new StringArray("document"))
+                .setExcludedEntityTypes(new StringArray())
+                .setK(100)
+                .setCandidates(3)
+                .setFilterInVectorSearch(true)
+                .setDeprecations(new StringArray()));
+
+    VectorRetrievalExplanation mapped =
+        UrnSearchResultsMapper.map(null, backend).getVectorRetrieval();
+
+    assertEquals(mapped.getOutcome(), "served");
+    assertNull(mapped.getStore());
+    assertNull(mapped.getAdapterLatencyMillis());
+    assertEquals(mapped.getRemovedByHydration(), 0);
+    assertEquals(mapped.getCandidates().intValue(), 3);
   }
 
   @Test

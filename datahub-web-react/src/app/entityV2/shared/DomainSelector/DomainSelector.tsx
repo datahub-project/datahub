@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 
 import DomainOptionLabel from '@app/entityV2/shared/DomainSelector/DomainOptionLabel';
+import { isSubdomainOfSelected } from '@app/entityV2/shared/DomainSelector/DomainSelector.utils';
 import { InfiniteScrollNestedSelect } from '@app/entityV2/shared/DomainSelector/InfiniteScrollNestedSelect';
 import useInfiniteScrollDomains, {
     getDomainSelectorScrollInput,
@@ -44,6 +45,10 @@ type DomainSelectorProps = {
     label?: string;
     isMultiSelect?: boolean;
     selectChildrenWithParent?: boolean;
+    // Show every subdomain of a selected domain as checked. Display only: the selection keeps
+    // explicitly picked subdomains, so they still apply if moved out from under the domain.
+    includeSubdomains?: boolean;
+    dropdownHeader?: React.ReactNode;
     renderCustomOptionText?: CustomOptionRenderer<EntityNestedSelectOption>;
     renderCustomSelectedValue?: (option: EntityNestedSelectOption) => React.ReactNode;
     isRequired?: boolean;
@@ -68,6 +73,8 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     label,
     isMultiSelect = false,
     selectChildrenWithParent = true,
+    includeSubdomains = false,
+    dropdownHeader,
     renderCustomOptionText = (option) => <DomainOptionLabel option={option} />,
     renderCustomSelectedValue,
     isRequired = false,
@@ -274,12 +281,14 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             isDisabled={isDisabled}
             showSearch
             implicitlySelectChildren={false}
+            isOptionImplicitlySelected={includeSubdomains ? isSubdomainOfSelected : undefined}
             selectChildrenWithParent={selectChildrenWithParent}
             areParentsSelectable
             shouldAlwaysSyncParentValues
             hideParentCheckbox={false}
             renderCustomOptionText={renderCustomOptionText}
             renderCustomSelectedValue={renderCustomSelectedValue}
+            dropdownHeader={dropdownHeader}
             selectLabelProps={renderCustomSelectedValue ? { variant: 'custom' } : undefined}
             showClear
         />

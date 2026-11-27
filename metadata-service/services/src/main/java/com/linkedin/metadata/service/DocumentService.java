@@ -1198,7 +1198,8 @@ public class DocumentService {
    * @param facets optional facet fields to aggregate; null/empty keeps the default single-entity
    *     search path
    * @param searchFlags optional flags; fulltext is always enabled. A caller template and explain
-   *     flag are kept so template selection can authorize and resolve them.
+   *     flag are kept so template selection can authorize and resolve them, and minSimilarity and
+   *     keywordFallbackOnEmbeddingFailure for a vector template.
    */
   @Nonnull
   public SearchResult searchDocuments(
@@ -1249,6 +1250,13 @@ public class DocumentService {
                 }
                 if (searchFlags.hasIncludeExplain()) {
                   flags.setIncludeExplain(searchFlags.isIncludeExplain());
+                }
+                if (searchFlags.hasMinSimilarity()) {
+                  flags.setMinSimilarity(searchFlags.getMinSimilarity());
+                }
+                if (searchFlags.hasKeywordFallbackOnEmbeddingFailure()) {
+                  flags.setKeywordFallbackOnEmbeddingFailure(
+                      searchFlags.isKeywordFallbackOnEmbeddingFailure());
                 }
               }
               flags.setFulltext(true);

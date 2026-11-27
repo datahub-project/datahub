@@ -17,50 +17,50 @@ test.describe('Homepage Modules', () => {
     expect(isVisible).toBe(true);
   });
 
-  test('domains module is visible on homepage', async () => {
+  test('domains module is visible on homepage', { tag: [DomainTag.Catalog] }, async () => {
     const isVisible = await homePage.isDomainsModuleVisible();
     expect(isVisible).toBe(true);
   });
 
-  test('your assets module displays correct header', async () => {
+  test('your assets module displays correct header', { tag: [DomainTag.Catalog] }, async () => {
     const headerText = await homePage.getYourAssetsModuleHeader();
     expect(headerText).toBeTruthy();
     expect(headerText?.toLowerCase()).toContain('your assets');
   });
 
-  test('domains module displays correct header', async () => {
+  test('domains module displays correct header', { tag: [DomainTag.Catalog] }, async () => {
     const headerText = await homePage.getDomainsModuleHeader();
     expect(headerText).toBeTruthy();
     expect(headerText?.toLowerCase()).toContain('domain');
   });
 
-  test('your assets module displays entities', async () => {
+  test('your assets module displays entities', { tag: [DomainTag.Catalog] }, async () => {
     const entityCount = await homePage.getYourAssetsEntityCount();
     expect(entityCount).toBeGreaterThanOrEqual(0);
   });
 
-  test('domains module displays entities', async () => {
+  test('domains module displays entities', { tag: [DomainTag.Catalog] }, async () => {
     const entityCount = await homePage.getDomainsEntityCount();
     expect(entityCount).toBeGreaterThanOrEqual(0);
   });
 
-  test('platforms module is visible on homepage', async () => {
+  test('platforms module is visible on homepage', { tag: [DomainTag.Catalog] }, async () => {
     const isVisible = await homePage.isPlatformsModuleVisible();
     expect(isVisible).toBe(true);
   });
 
-  test('platforms module displays correct header', async () => {
+  test('platforms module displays correct header', { tag: [DomainTag.Catalog] }, async () => {
     const headerText = await homePage.getPlatformsModuleHeader();
     expect(headerText).toBeTruthy();
     expect(headerText?.toLowerCase()).toContain('platform');
   });
 
-  test('platforms module displays entities', async () => {
+  test('platforms module displays entities', { tag: [DomainTag.Catalog] }, async () => {
     const entityCount = await homePage.getPlatformsEntityCount();
     expect(entityCount).toBeGreaterThanOrEqual(0);
   });
 
-  test('modules render in expected order on homepage', async () => {
+  test('modules render in expected order on homepage', { tag: [DomainTag.Catalog] }, async () => {
     const moduleCount = await homePage.getModuleCount();
     expect(moduleCount).toBe(3);
 
@@ -68,7 +68,7 @@ test.describe('Homepage Modules', () => {
     expect(inOrder).toBe(true);
   });
 
-  test('module container is visible', async () => {
+  test('module container is visible', { tag: [DomainTag.Catalog] }, async () => {
     const containerVisible = await homePage.isModuleContainerVisible();
     expect(containerVisible).toBe(true);
   });

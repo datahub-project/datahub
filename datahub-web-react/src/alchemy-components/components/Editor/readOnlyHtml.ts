@@ -6,6 +6,13 @@ import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/
 
 const ALLOWED_SCHEMES = new Set(['http', 'https', 'mailto']);
 
+// Raster screenshots pasted into descriptions before hosted uploads existed.
+// SVG is excluded: a data:image/svg+xml document can carry script.
+const DATA_IMAGE_URI = /^data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[a-z0-9+/]+={0,2}$/i;
+
+// Per image, after whitespace is removed. About 1.5 MB of decoded pixels.
+export const MAX_DATA_IMAGE_URI_LENGTH = 2_000_000;
+
 // Attributes the browser fetches or navigates. `srcset` is parsed separately.
 // `background` still loads an image on table cells. `xlink:href` loads on SVG images.
 export const URL_ATTRIBUTES = ['href', 'src', 'poster', 'action', 'formaction', 'background', 'xlink:href'] as const;
@@ -28,7 +35,7 @@ export function normalizeHref(href: string): string {
 /**
  * Allow http(s), mailto, and any relative reference that does not become a
  * protocol-relative host after normalization. Reject `javascript:`, `data:`,
- * and `//host`.
+ * and `//host`. Image `src` uses {@link isSafeImageSource} instead.
  */
 export function isSafeHref(href: string): boolean {
     const normalized = normalizeHref(href);
@@ -39,12 +46,20 @@ export function isSafeHref(href: string): boolean {
     return ALLOWED_SCHEMES.has(scheme[1].toLowerCase());
 }
 
-export function scrubSrcset(value: string): string | null {
+/** `data:image` raster URIs are safe on `<img>` only, and only under the size cap. */
+export function isSafeImageSource(value: string): boolean {
+    if (isSafeHref(value)) return true;
+    const normalized = normalizeHref(value).replace(/ /g, '');
+    if (normalized.length > MAX_DATA_IMAGE_URI_LENGTH) return false;
+    return DATA_IMAGE_URI.test(normalized);
+}
+
+export function scrubSrcset(value: string, isSafe: (url: string) => boolean = isSafeHref): string | null {
     const candidates = value
         .split(',')
         .map((candidate) => candidate.trim())
         .filter(Boolean);
-    const safe = candidates.filter((candidate) => isSafeHref(candidate.split(/\s+/)[0] ?? ''));
+    const safe = candidates.filter((candidate) => isSafe(candidate.split(/\s+/)[0] ?? ''));
     if (safe.length === 0) return null;
     if (safe.length === candidates.length) return value;
     return safe.join(', ');
@@ -57,16 +72,22 @@ function scrubXlinkHref(element: Element): void {
     element.removeAttribute('xlink:href');
 }
 
+function attributeIsSafe(element: Element, name: string, value: string): boolean {
+    if (element.tagName === 'IMG' && (name === 'src' || name === 'srcset')) return isSafeImageSource(value);
+    return isSafeHref(value);
+}
+
 function scrubUrlAttributes(element: Element): void {
+    const imageSource = element.tagName === 'IMG';
     URL_ATTRIBUTES.forEach((name) => {
         if (!element.hasAttribute(name)) return;
         const value = element.getAttribute(name) ?? '';
-        if (!isSafeHref(value)) element.removeAttribute(name);
+        if (!attributeIsSafe(element, name, value)) element.removeAttribute(name);
     });
     scrubXlinkHref(element);
 
     if (!element.hasAttribute('srcset')) return;
-    const srcset = scrubSrcset(element.getAttribute('srcset') ?? '');
+    const srcset = scrubSrcset(element.getAttribute('srcset') ?? '', imageSource ? isSafeImageSource : isSafeHref);
     if (srcset === null) element.removeAttribute('srcset');
     else element.setAttribute('srcset', srcset);
 }
@@ -77,7 +98,8 @@ function scrubUrlAttributes(element: Element): void {
  * card for them.
  */
 export function toReadOnlyHtml(markdown: string): string {
-    const sanitized = markdownToHtml(markdown, DOMPurify.sanitize);
+    // DOMPurify blocks data: URIs unless the tag is listed. Only images may carry one.
+    const sanitized = markdownToHtml(markdown, (html) => DOMPurify.sanitize(html, { ADD_DATA_URI_TAGS: ['img'] }));
     if (typeof DOMParser === 'undefined') {
         return sanitized;
     }

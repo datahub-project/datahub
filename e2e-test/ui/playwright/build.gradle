@@ -13,6 +13,8 @@ node {
 }
 
 task yarnInstall(type: YarnTask) {
+  // Shares the yarn cache with the other yarn installs (see yarnInstallLock in the root build.gradle).
+  usesService(rootProject.ext.yarnInstallLock)
   args = ['install', '--network-timeout', '300000']
 }
 

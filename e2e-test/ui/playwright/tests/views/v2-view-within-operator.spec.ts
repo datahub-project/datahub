@@ -1,6 +1,7 @@
 import { expect, test } from '../../fixtures/base-test';
 import { ManageViewsPage } from '../../pages/views/manage-views.page';
 import { withRandomSuffix } from '../../utils/random';
+import { DomainTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'views' });
 
@@ -16,86 +17,90 @@ test.describe('View Within Operator', () => {
     await manageViewsPage.navigate();
   });
 
-  test('shows Within for hierarchical fields, persists DESCENDANTS_INCL, and reloads correctly', async ({ page }) => {
-    test.setTimeout(120_000);
+  test(
+    'shows Within for hierarchical fields, persists DESCENDANTS_INCL, and reloads correctly',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      test.setTimeout(120_000);
 
-    await manageViewsPage.createView(viewName);
-    await expect(manageViewsPage.conditionSelect).toBeVisible();
+      await manageViewsPage.createView(viewName);
+      await expect(manageViewsPage.conditionSelect).toBeVisible();
 
-    // Domain supports Within + help text
-    await manageViewsPage.selectProperty('domains');
-    await manageViewsPage.openOperatorDropdown();
-    await manageViewsPage.expectOperatorOptionVisible('within');
-    await manageViewsPage.expectOperatorDescriptionVisible(WITHIN_DESCRIPTION);
-    // Select Within to close the dropdown without Escape (Escape closes the modal)
-    await page.getByTestId('option-within').click();
-
-    // Container and Parent Document also expose Within
-    for (const field of ['container', 'parentDocument'] as const) {
-      await manageViewsPage.selectProperty(field);
+      // Domain supports Within + help text
+      await manageViewsPage.selectProperty('domains');
       await manageViewsPage.openOperatorDropdown();
       await manageViewsPage.expectOperatorOptionVisible('within');
+      await manageViewsPage.expectOperatorDescriptionVisible(WITHIN_DESCRIPTION);
+      // Select Within to close the dropdown without Escape (Escape closes the modal)
       await page.getByTestId('option-within').click();
-    }
 
-    // Non-hierarchical URN field does not expose Within
-    await manageViewsPage.selectProperty('tags');
-    await manageViewsPage.openOperatorDropdown();
-    await manageViewsPage.expectOperatorOptionNotVisible('within');
-    // Close by selecting Equals
-    await page.getByTestId('option-equals').click();
+      // Container and Parent Document also expose Within
+      for (const field of ['container', 'parentDocument'] as const) {
+        await manageViewsPage.selectProperty(field);
+        await manageViewsPage.openOperatorDropdown();
+        await manageViewsPage.expectOperatorOptionVisible('within');
+        await page.getByTestId('option-within').click();
+      }
 
-    // Build Domain + Within filter, then save and assert createView payload
-    await manageViewsPage.addFilterWithSearch('domains', 'within', SEEDED_DOMAIN_NAME);
+      // Non-hierarchical URN field does not expose Within
+      await manageViewsPage.selectProperty('tags');
+      await manageViewsPage.openOperatorDropdown();
+      await manageViewsPage.expectOperatorOptionNotVisible('within');
+      // Close by selecting Equals
+      await page.getByTestId('option-equals').click();
 
-    const createViewRequestPromise = page.waitForRequest((request) => {
-      if (!request.url().includes('/api/v2/graphql')) return false;
-      const postData = request.postDataJSON() as { operationName?: string } | null;
-      return postData?.operationName === 'createView';
-    });
+      // Build Domain + Within filter, then save and assert createView payload
+      await manageViewsPage.addFilterWithSearch('domains', 'within', SEEDED_DOMAIN_NAME);
 
-    await manageViewsPage.saveView();
-    const createViewRequest = await createViewRequestPromise;
-    const requestBody = createViewRequest.postDataJSON() as {
-      variables?: {
-        input?: {
-          definition?: {
-            filter?: {
-              orFilters?: Array<{
-                and?: Array<{ field?: string; condition?: string }>;
-              }>;
-              json?: string;
+      const createViewRequestPromise = page.waitForRequest((request) => {
+        if (!request.url().includes('/api/v2/graphql')) return false;
+        const postData = request.postDataJSON() as { operationName?: string } | null;
+        return postData?.operationName === 'createView';
+      });
+
+      await manageViewsPage.saveView();
+      const createViewRequest = await createViewRequestPromise;
+      const requestBody = createViewRequest.postDataJSON() as {
+        variables?: {
+          input?: {
+            definition?: {
+              filter?: {
+                orFilters?: Array<{
+                  and?: Array<{ field?: string; condition?: string }>;
+                }>;
+                json?: string;
+              };
             };
           };
         };
       };
-    };
 
-    // Verify json contains the LogicalPredicate with within operator
-    const jsonStr = requestBody.variables?.input?.definition?.filter?.json;
-    expect(jsonStr).toBeDefined();
-    const logicalPredicate = JSON.parse(jsonStr!) as {
-      operands?: Array<{ property?: string; operator?: string }>;
-    };
-    expect(logicalPredicate.operands).toBeDefined();
-    const domainOperand = logicalPredicate.operands?.find((op) => op.property === 'domains');
-    expect(domainOperand?.operator).toBe('within');
+      // Verify json contains the LogicalPredicate with within operator
+      const jsonStr = requestBody.variables?.input?.definition?.filter?.json;
+      expect(jsonStr).toBeDefined();
+      const logicalPredicate = JSON.parse(jsonStr!) as {
+        operands?: Array<{ property?: string; operator?: string }>;
+      };
+      expect(logicalPredicate.operands).toBeDefined();
+      const domainOperand = logicalPredicate.operands?.find((op) => op.property === 'domains');
+      expect(domainOperand?.operator).toBe('within');
 
-    // Verify orFilters contains the DESCENDANTS_INCL condition
-    const orFilters = requestBody.variables?.input?.definition?.filter?.orFilters ?? [];
-    const domainOrFilter = orFilters.flatMap((or) => or.and || []).find((criterion) => criterion.field === 'domains');
-    expect(domainOrFilter?.condition).toBe('DESCENDANTS_INCL');
+      // Verify orFilters contains the DESCENDANTS_INCL condition
+      const orFilters = requestBody.variables?.input?.definition?.filter?.orFilters ?? [];
+      const domainOrFilter = orFilters.flatMap((or) => or.and || []).find((criterion) => criterion.field === 'domains');
+      expect(domainOrFilter?.condition).toBe('DESCENDANTS_INCL');
 
-    await manageViewsPage.expectViewVisible(viewName);
+      await manageViewsPage.expectViewVisible(viewName);
 
-    // Re-open and confirm Within is restored
-    const menuButton = await manageViewsPage.getViewOptionMenu(viewName);
-    await menuButton.click();
-    await manageViewsPage.menuItemEdit.click();
-    await manageViewsPage.expectSelectedOperator('Within');
+      // Re-open and confirm Within is restored
+      const menuButton = await manageViewsPage.getViewOptionMenu(viewName);
+      await menuButton.click();
+      await manageViewsPage.menuItemEdit.click();
+      await manageViewsPage.expectSelectedOperator('Within');
 
-    await manageViewsPage.saveView();
-    await manageViewsPage.deleteView(viewName);
-    await manageViewsPage.expectViewNotVisible(viewName);
-  });
+      await manageViewsPage.saveView();
+      await manageViewsPage.deleteView(viewName);
+      await manageViewsPage.expectViewNotVisible(viewName);
+    },
+  );
 });

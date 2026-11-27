@@ -10,6 +10,7 @@ import { MetricsPage } from '../../pages/metrics.page';
 import { AutocompletePage } from '../../pages/autocomplete.page';
 import { TIMEOUTS } from '../../utils/constants';
 import { METRICS_FEATURE_FLAGS, NAMES, SEMANTIC_MODEL_ORDERS_URN, TOTAL_REVENUE_URN } from './constants';
+import { DomainTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'metrics' });
 
@@ -26,17 +27,21 @@ test.describe('Metrics global search', () => {
     await searchPage.navigateToHome();
   });
 
-  test('finds semantic model by name and opens Metrics-wrapped detail', async ({ page }) => {
-    await searchPage.search(NAMES.ORDERS_MODEL);
-    await searchPage.expectHasResults();
-    await searchPage.openResultByUrn(SEMANTIC_MODEL_ORDERS_URN);
+  test(
+    'finds semantic model by name and opens Metrics-wrapped detail',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await searchPage.search(NAMES.ORDERS_MODEL);
+      await searchPage.expectHasResults();
+      await searchPage.openResultByUrn(SEMANTIC_MODEL_ORDERS_URN);
 
-    await expect(page).toHaveURL(/\/semanticModel\//, { timeout: TIMEOUTS.LONG });
-    await metricsPage.expectEntityNamed(NAMES.ORDERS_MODEL);
-    await expect(metricsPage.sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
-  });
+      await expect(page).toHaveURL(/\/semanticModel\//, { timeout: TIMEOUTS.LONG });
+      await metricsPage.expectEntityNamed(NAMES.ORDERS_MODEL);
+      await expect(metricsPage.sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
+    },
+  );
 
-  test('finds metric by name and opens Metrics-wrapped detail', async ({ page }) => {
+  test('finds metric by name and opens Metrics-wrapped detail', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await searchPage.search(NAMES.TOTAL_REVENUE);
     await searchPage.expectHasResults();
     await searchPage.openResultByUrn(TOTAL_REVENUE_URN);
@@ -46,52 +51,60 @@ test.describe('Metrics global search', () => {
     await expect(metricsPage.sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
   });
 
-  test('filters search results by Semantic Models and Metrics types', async ({ page }) => {
-    await searchPage.search('Orders');
-    await searchPage.expectHasResults();
+  test(
+    'filters search results by Semantic Models and Metrics types',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await searchPage.search('Orders');
+      await searchPage.expectHasResults();
 
-    const hasTypeFilter = await searchPage.isFilterAvailable('Type');
-    test.skip(!hasTypeFilter, 'Type filter not available in this environment');
+      const hasTypeFilter = await searchPage.isFilterAvailable('Type');
+      test.skip(!hasTypeFilter, 'Type filter not available in this environment');
 
-    const typeDropdown = page.getByTestId('filter-dropdown-Type');
-    await typeDropdown.click();
-    // Option checkboxes have no accessible name; clicking the option row toggles it.
-    const semanticOption = searchPage.filterDropdownMenu.getByText(/Semantic Model/i).first();
-    const metricOption = searchPage.filterDropdownMenu.getByText(/^Metrics?$/i).first();
+      const typeDropdown = page.getByTestId('filter-dropdown-Type');
+      await typeDropdown.click();
+      // Option checkboxes have no accessible name; clicking the option row toggles it.
+      const semanticOption = searchPage.filterDropdownMenu.getByText(/Semantic Model/i).first();
+      const metricOption = searchPage.filterDropdownMenu.getByText(/^Metrics?$/i).first();
 
-    if (await semanticOption.isVisible().catch(() => false)) {
-      await semanticOption.click();
-      await searchPage.applyFilterSelection(typeDropdown);
-      await expect(page.getByText(NAMES.ORDERS_MODEL, { exact: false }).first()).toBeVisible({
-        timeout: TIMEOUTS.LONG,
-      });
-    } else if (await metricOption.isVisible().catch(() => false)) {
-      await metricOption.click();
-      await searchPage.applyFilterSelection(typeDropdown);
+      if (await semanticOption.isVisible().catch(() => false)) {
+        await semanticOption.click();
+        await searchPage.applyFilterSelection(typeDropdown);
+        await expect(page.getByText(NAMES.ORDERS_MODEL, { exact: false }).first()).toBeVisible({
+          timeout: TIMEOUTS.LONG,
+        });
+      } else if (await metricOption.isVisible().catch(() => false)) {
+        await metricOption.click();
+        await searchPage.applyFilterSelection(typeDropdown);
+        await expect(page.getByText(NAMES.TOTAL_REVENUE, { exact: false }).first()).toBeVisible({
+          timeout: TIMEOUTS.LONG,
+        });
+      } else {
+        throw new Error('Type filter opened but neither Semantic Model nor Metric option was visible');
+      }
+    },
+  );
+
+  test(
+    'restores search state after opening a result and navigating back',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await searchPage.search(NAMES.TOTAL_REVENUE);
+      await searchPage.expectHasResults();
+      const searchUrl = page.url();
+
+      await searchPage.openResultByUrn(TOTAL_REVENUE_URN);
+      await expect(page).toHaveURL(/\/metric\//, { timeout: TIMEOUTS.LONG });
+
+      await page.goBack();
+      await expect(page).toHaveURL(searchUrl, { timeout: TIMEOUTS.LONG });
       await expect(page.getByText(NAMES.TOTAL_REVENUE, { exact: false }).first()).toBeVisible({
         timeout: TIMEOUTS.LONG,
       });
-    } else {
-      throw new Error('Type filter opened but neither Semantic Model nor Metric option was visible');
-    }
-  });
+    },
+  );
 
-  test('restores search state after opening a result and navigating back', async ({ page }) => {
-    await searchPage.search(NAMES.TOTAL_REVENUE);
-    await searchPage.expectHasResults();
-    const searchUrl = page.url();
-
-    await searchPage.openResultByUrn(TOTAL_REVENUE_URN);
-    await expect(page).toHaveURL(/\/metric\//, { timeout: TIMEOUTS.LONG });
-
-    await page.goBack();
-    await expect(page).toHaveURL(searchUrl, { timeout: TIMEOUTS.LONG });
-    await expect(page.getByText(NAMES.TOTAL_REVENUE, { exact: false }).first()).toBeVisible({
-      timeout: TIMEOUTS.LONG,
-    });
-  });
-
-  test('shows autocomplete suggestions for metrics entities', async ({ page }) => {
+  test('shows autocomplete suggestions for metrics entities', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     // V3 autocomplete is a phrase prefix of the name, so this query matches the semantic
     // model named "PW Orders Model" and not the related logical dataset.
     await autocompletePage.typeInSearchBar(NAMES.ORDERS_MODEL);

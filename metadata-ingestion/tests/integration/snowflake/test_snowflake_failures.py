@@ -181,7 +181,7 @@ def test_snowflake_no_tables_causes_pipeline_failure(
                 SnowflakeQuery.tables_for_schema(
                     "TEST_SCHEMA",
                     "TEST_DB",
-                    table_types={"BASE TABLE", "EXTERNAL TABLE"},
+                    table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"},
                 )
             ],
             [],
@@ -237,7 +237,7 @@ def test_snowflake_no_tables_warns_on_no_datasets(
                 SnowflakeQuery.tables_for_schema(
                     "TEST_SCHEMA",
                     "TEST_DB",
-                    table_types={"BASE TABLE", "EXTERNAL TABLE"},
+                    table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"},
                 )
             ],
             [],

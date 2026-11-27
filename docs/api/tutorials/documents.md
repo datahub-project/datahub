@@ -33,10 +33,10 @@ DataHub supports two types of documents:
 Documents can be configured to:
 
 - **Show in global context** (default): Appear in global search results and the knowledge base sidebar
-- **Hide from global context**: Only accessible through related assets. This is useful for:
+- **Hide from global context**: Hidden from global search and the sidebar by default, not access control: use permissions for content only some users may see. This is useful for:
   - Documentation specific to a single dataset
   - Context documents for AI agents
-  - Private notes attached to assets
+  - Notes attached to assets
 
 ### Goal Of This Guide
 
@@ -194,8 +194,8 @@ from datahub.sdk import DataHubClient, Document
 
 client = DataHubClient.from_env()
 
-# Create a document hidden from global context
-# Only accessible via the related asset - useful for AI agents
+# Create a document hidden from global search and the sidebar by default
+# This is not access control; the related asset still leads to it - useful for AI agents
 doc = Document.create_document(
     id="orders-dataset-context",
     title="Orders Dataset Context",
@@ -782,7 +782,7 @@ The Document SDK provides the following methods:
 | `doc.status` / `doc.set_status(...)` | Get/set PUBLISHED or UNPUBLISHED status   |
 | `doc.publish()` / `doc.unpublish()`  | Publish or unpublish the document         |
 | `doc.show_in_global_context`         | Check if visible in global search/sidebar |
-| `doc.hide_from_global_context()`     | Hide from global context (AI-only access) |
+| `doc.hide_from_global_context()`     | Hide from global context                  |
 | `doc.show_in_global_search()`        | Show in global context                    |
 
 ### Relationships

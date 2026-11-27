@@ -75,6 +75,9 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     if (searchResultMetadata.hasVectorRetrieval()) {
       result.setVectorRetrieval(mapVectorRetrieval(searchResultMetadata.getVectorRetrieval()));
     }
+    if (searchResultMetadata.hasKeywordFallback()) {
+      result.setKeywordFallback(searchResultMetadata.getKeywordFallback());
+    }
 
     return result;
   }
@@ -97,14 +100,19 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     final VectorRetrievalExplanation explanation = new VectorRetrievalExplanation();
     explanation.setOutcome(input.getOutcome());
     explanation.setProfile(input.getProfile());
+    explanation.setStore(input.getStore());
+    explanation.setAdapterLatencyMillis(input.getAdapterLatencyMillis());
+    explanation.setRemovedByHydration(input.getRemovedByHydration());
     explanation.setEntityTypes(new ArrayList<>(input.getEntityTypes()));
     explanation.setExcludedEntityTypes(new ArrayList<>(input.getExcludedEntityTypes()));
     explanation.setK(input.getK());
     explanation.setClampedCandidateCap(input.getClampedCandidateCap());
     explanation.setCandidates(input.getCandidates());
     explanation.setMinSimilarity(input.getMinSimilarity());
+    explanation.setCallerMinSimilarity(input.getCallerMinSimilarity());
     explanation.setMinSimilaritySkipped(input.getMinSimilaritySkipped());
     explanation.setBelowMinSimilarity(input.getBelowMinSimilarity());
+    explanation.setBelowCallerMinSimilarity(input.getBelowCallerMinSimilarity());
     explanation.setBelowMinScore(input.getBelowMinScore());
     explanation.setFilterInVectorSearch(input.isFilterInVectorSearch());
     explanation.setDeprecations(new ArrayList<>(input.getDeprecations()));

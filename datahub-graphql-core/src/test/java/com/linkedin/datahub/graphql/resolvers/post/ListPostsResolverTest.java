@@ -35,7 +35,9 @@ import com.linkedin.post.PostInfo;
 import com.linkedin.post.PostType;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -133,6 +135,43 @@ public class ListPostsResolverTest {
     assertEquals(result.getCount(), 10);
     assertEquals(result.getTotal(), 1);
     assertEquals(result.getPosts().size(), 1);
+  }
+
+  @Test
+  public void testListPostsKeepsSearchOrder() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(_dataFetchingEnvironment.getArgument("input")).thenReturn(new ListPostsInput());
+
+    final Urn newerUrn = Urn.createFromString("urn:li:post:newer");
+    final Urn olderUrn = Urn.createFromString("urn:li:post:older");
+    final SearchResult searchResult =
+        new SearchResult()
+            .setMetadata(new SearchResultMetadata())
+            .setFrom(0)
+            .setPageSize(2)
+            .setNumEntities(2);
+    searchResult.setEntities(
+        new SearchEntityArray(
+            ImmutableList.of(
+                new SearchEntity().setEntity(newerUrn), new SearchEntity().setEntity(olderUrn))));
+
+    final Map<Urn, EntityResponse> responses = new LinkedHashMap<>();
+    responses.put(
+        olderUrn, new EntityResponse().setUrn(olderUrn).setAspects(new EnvelopedAspectMap()));
+    responses.put(
+        newerUrn, new EntityResponse().setUrn(newerUrn).setAspects(new EnvelopedAspectMap()));
+
+    when(_entityClient.search(
+            any(), eq(POST_ENTITY_NAME), any(), eq(null), any(), anyInt(), anyInt()))
+        .thenReturn(searchResult);
+    when(_entityClient.batchGetV2(any(), eq(POST_ENTITY_NAME), any(), any())).thenReturn(responses);
+
+    ListPostsResult result = _resolver.get(_dataFetchingEnvironment).join();
+    assertEquals(
+        result.getPosts().stream().map(post -> post.getUrn()).collect(Collectors.toList()),
+        ImmutableList.of(newerUrn.toString(), olderUrn.toString()));
   }
 
   @Test

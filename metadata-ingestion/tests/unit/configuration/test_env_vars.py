@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from datahub.configuration.env_vars import (
+    get_debug,
     get_rest_sink_default_tcp_keepalive,
     get_sql_agg_max_queries_per_downstream,
     is_ci,
@@ -110,3 +111,14 @@ def test_get_sql_agg_max_queries_per_downstream() -> None:
         assert get_sql_agg_max_queries_per_downstream() == 5000
     with patch.dict(os.environ, {var: "-1"}, clear=True), pytest.raises(ValueError):
         get_sql_agg_max_queries_per_downstream()
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [("true", True), ("1", True), ("TRUE", True), ("false", False), ("0", False)],
+)
+def test_get_debug(value: str, expected: bool) -> None:
+    with patch.dict(os.environ, {"DATAHUB_DEBUG": value}, clear=True):
+        assert get_debug() is expected
+    with patch.dict(os.environ, {}, clear=True):
+        assert get_debug() is False

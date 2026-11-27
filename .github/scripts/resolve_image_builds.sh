@@ -41,16 +41,19 @@ IMAGES=(
   ":metadata-jobs:mce-consumer-job|datahub-mce-consumer|DATAHUB_MCE_VERSION|"
   ":datahub-frontend|datahub-frontend-react|DATAHUB_FRONTEND_VERSION|"
   ":datahub-actions|datahub-actions|DATAHUB_ACTIONS_VERSION|-slim"
+  ":packages:datahub-ai-service|datahub-ai-service|DATAHUB_AI_VERSION|"
 )
 
 ACTIONS=":datahub-actions"
-EVERYTHING=":metadata-service:war :datahub-upgrade :metadata-jobs:mae-consumer-job :metadata-jobs:mce-consumer-job :datahub-frontend ${ACTIONS}"
+AI_SERVICE=":packages:datahub-ai-service"
+EVERYTHING=":metadata-service:war :datahub-upgrade :metadata-jobs:mae-consumer-job :metadata-jobs:mce-consumer-job :datahub-frontend ${ACTIONS} ${AI_SERVICE}"
 
 # Which images a changed path can affect: "<prefix>|<space separated modules>".
 # First matching prefix wins, so specific prefixes precede general ones. An
 # empty module list means the path cannot change any image.
 #
-# There are deliberately only three outcomes: nothing, actions-only, or all six.
+# There are deliberately few outcomes: nothing, the Python images alone
+# (actions and/or datahub-ai-service), or the whole set.
 # An earlier revision distinguished server / frontend / shared-library changes
 # with a per-image map derived from the Gradle graph (see git history). Measured
 # on CI, those distinctions saved nothing: any JVM image build spends ~90% of
@@ -59,7 +62,7 @@ EVERYTHING=":metadata-service:war :datahub-upgrade :metadata-jobs:mae-consumer-j
 # requested targets in parallel, so a smaller set costs the same as the full
 # set. server-only measured 3.8m vs full 3.9m; frontend-only 4.2m. The two
 # outcomes that do pay, measured: nothing (0.7m, saves ~3.2m) and actions-only
-# (2.4m, saves ~1.5m) -- the Python image is the one build that skips the shared
+# (2.4m, saves ~1.5m) -- the Python images are the builds that skip the shared
 # JVM chain entirely.
 PATH_RULES=(
   # Cannot end up inside any image.
@@ -81,16 +84,24 @@ PATH_RULES=(
   #
   # Two snippets feed JVM service images and map to the full set:
   # setup_java_runtime.sh (gms, frontend, mae, mce, upgrade, actions) and
-  # wait_for_deps.sh (gms, mae, mce, upgrade, ingestion-base). The rest of
-  # docker/snippets/ feeds only the ingestion/actions images.
+  # wait_for_deps.sh (gms, mae, mce, upgrade, ingestion-base). datahub-ai-service
+  # uses openssl4_ssl_compat.py and uv/; the rest of docker/snippets/ feeds only
+  # the ingestion/actions images.
   "docker/snippets/setup_java_runtime.sh|${EVERYTHING}"
   "docker/snippets/wait_for_deps.sh|${EVERYTHING}"
+  "docker/snippets/openssl4_ssl_compat.py|${ACTIONS} ${AI_SERVICE}"
+  "docker/snippets/uv/|${ACTIONS} ${AI_SERVICE}"
   "docker/snippets/|${ACTIONS}"
   "datahub-actions/|${ACTIONS}"
   "docker/datahub-actions/|${ACTIONS}"
   "docker/datahub-ingestion/|${ACTIONS}"
   "docker/datahub-ingestion-base/|${ACTIONS}"
-  "metadata-ingestion/|${ACTIONS}"
+  # datahub-ai-service is Python too: it installs ../metadata-ingestion and both
+  # packages from source.
+  "docker/datahub-ai-service/|${AI_SERVICE}"
+  "packages/datahub-ai-service/|${AI_SERVICE}"
+  "packages/datahub-core-mcp-tools/|${AI_SERVICE}"
+  "metadata-ingestion/|${ACTIONS} ${AI_SERVICE}"
   "metadata-ingestion-modules/|${ACTIONS}"
 
   # Everything below can alter a JVM image, and per the note above there is no

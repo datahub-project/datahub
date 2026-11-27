@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
@@ -59,6 +60,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateM
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
+import com.linkedin.metadata.search.embedding.EmbeddingThrottledException;
 import com.linkedin.metadata.search.hybrid.HybridRerankPlan;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.utils.CriterionUtils;
@@ -67,6 +69,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRetrieval;
+import com.linkedin.search.template.SearchTemplateScope;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -306,6 +309,42 @@ public class ESSearchDAOHybridTest {
             100);
     assertEquals(rowIds(timedOut), range(10, 20));
     assertKept(SearchTemplateKeywordRerank.TIMEOUT);
+  }
+
+  @Test
+  public void testAThrottledQueryEmbeddingKeepsKeywordOrderAsRejected() throws IOException {
+    // The provider throttled the query embedding, which a vector rung reports as rejected too
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
+        .thenThrow(new EmbeddingThrottledException("Vertex AI call failed after 1 attempts: 429"));
+
+    SearchResult throttled =
+        dao.finishTemplateHybrid(
+            keywordRerankContext(KEEP_PLACES, true, null),
+            ENTITY_NAMES,
+            "revenue",
+            null,
+            result(100),
+            10,
+            10,
+            100);
+
+    assertEquals(rowIds(throttled), range(10, 20));
+    assertKept(SearchTemplateKeywordRerank.REJECTED);
+    // Unlike a full executor, a throttle comes from the provider, so three in a row pause hybrid
+    // read, as failed reranks do
+    for (int i = 0; i < 3; i++) {
+      dao.finishTemplateHybrid(
+          keywordRerankContext(KEEP_PLACES, true, null),
+          ENTITY_NAMES,
+          "revenue",
+          null,
+          result(100),
+          10,
+          10,
+          100);
+    }
+    assertKept(SearchTemplateKeywordRerank.PAUSED);
   }
 
   @Test
@@ -573,7 +612,11 @@ public class ESSearchDAOHybridTest {
   @Test
   public void testPinnedKeywordRerankRungReranksThroughSearch() throws IOException {
     SearchResult result =
-        searchRung(fulltext("{ \"vectorWeight\": 0.3, \"blendFloor\": 0.6 }"), "revenue", null);
+        searchRung(
+            fulltext("{ \"vectorWeight\": 0.3, \"blendFloor\": 0.6 }"),
+            ENTITY_NAMES,
+            "revenue",
+            null);
 
     // The search fetched the 100-row window; the mocked rerank reverses it, and the page is sliced
     assertEquals(rowIds(result), range(99, 89));
@@ -586,6 +629,62 @@ public class ESSearchDAOHybridTest {
   }
 
   @Test
+  public void testKeywordRerankRungScopedAwayFromDocumentFetchesOnlyThePage() throws IOException {
+    SearchTemplateProperties scoped = fulltext("{ \"vectorWeight\": 0.3 }");
+    scoped.setScope(new SearchTemplateScope().setEntityTypes(new StringArray("dataset")));
+
+    // The request includes Document, but the rung searches only Dataset, so it has no window to
+    // rerank: the engine is asked for the caller's page, and the rung reports why
+    SearchResult result = searchRung(scoped, ENTITY_NAMES, "revenue", null);
+
+    SearchSourceBuilder page = searchedSource();
+    assertEquals(page.from(), 0);
+    assertEquals(page.size(), 10);
+    assertEquals(
+        result.getMetadata().getKeywordRerank().getReason(),
+        SearchTemplateKeywordRerank.NO_DOCUMENT);
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+
+    // The same rung without a scope is assigned the whole request and reranks the hybrid window
+    clearInvocations(client);
+    SearchResult unscoped =
+        searchRung(fulltext("{ \"vectorWeight\": 0.3 }"), ENTITY_NAMES, "revenue", null);
+
+    SearchSourceBuilder window = searchedSource();
+    assertEquals(window.from(), 0);
+    assertEquals(window.size(), 100);
+    assertEquals(
+        unscoped.getMetadata().getKeywordRerank().getOutcome(),
+        SearchTemplateKeywordRerank.APPLIED);
+  }
+
+  @Test
+  public void testAScopedKeywordRerankRungSearchesItsAssignmentAndKeepsGateFailingRows()
+      throws IOException {
+    SearchTemplateProperties scoped = fulltext("{ \"vectorWeight\": 0.3 }");
+    scoped.setScope(
+        new SearchTemplateScope().setEntityTypes(new StringArray("dataset", "document")));
+
+    SearchResult result =
+        searchRung(scoped, List.of("chart", "dataset", "document"), "revenue", null);
+
+    // The keyword query searches the requested types in the scope: Chart is left out, and Dataset
+    // is searched though it fails the entity gates
+    ArgumentCaptor<SearchRequest> request = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(client)
+        .search(any(OperationContext.class), request.capture(), eq(RequestOptions.DEFAULT));
+    List<String> indices = Arrays.asList(request.getValue().indices());
+    assertTrue(indices.stream().noneMatch(index -> index.contains("chart")), indices.toString());
+    assertTrue(indices.stream().anyMatch(index -> index.contains("dataset")), indices.toString());
+    assertTrue(indices.stream().anyMatch(index -> index.contains("document")), indices.toString());
+    // Only Document rows are scored; Dataset rows keep their keyword places
+    assertEquals(rerankPlans(1).get(0).eligibleEntityNames(), Set.of("document"));
+    assertEquals(
+        result.getMetadata().getKeywordRerank().getOutcome(), SearchTemplateKeywordRerank.APPLIED);
+  }
+
+  @Test
   public void testRungWithItsOwnSortReranksOnlyASearchSortedByScore() throws IOException {
     SearchTemplateProperties sorted = fulltext(null);
     sorted.setApiVersion(2);
@@ -593,7 +692,7 @@ public class ESSearchDAOHybridTest {
     sorted.setSort("[ { \"name\": \"asc\" } ]");
 
     // With no sort in the request, the engine orders the window by the rung's sort
-    SearchResult unsorted = searchRung(sorted, "revenue", null);
+    SearchResult unsorted = searchRung(sorted, ENTITY_NAMES, "revenue", null);
     assertEquals(rowIds(unsorted), range(0, 10));
     assertEquals(
         unsorted.getMetadata().getKeywordRerank().getReason(),
@@ -601,7 +700,7 @@ public class ESSearchDAOHybridTest {
     // A request sorted by score replaces the rung's sort, so its window is reranked
     List<SortCriterion> byScore =
         List.of(new SortCriterion().setField("_score").setOrder(SortOrder.DESCENDING));
-    assertEquals(rowIds(searchRung(sorted, "revenue", byScore)), range(99, 89));
+    assertEquals(rowIds(searchRung(sorted, ENTITY_NAMES, "revenue", byScore)), range(99, 89));
     rerankPlans(1);
   }
 
@@ -615,12 +714,12 @@ public class ESSearchDAOHybridTest {
 
     // A short query renders an empty sort, so the engine keeps score order and the window is
     // reranked
-    SearchResult scored = searchRung(conditional, "revenue", null);
+    SearchResult scored = searchRung(conditional, ENTITY_NAMES, "revenue", null);
     assertEquals(rowIds(scored), range(99, 89));
     assertEquals(
         scored.getMetadata().getKeywordRerank().getOutcome(), SearchTemplateKeywordRerank.APPLIED);
     // A long query renders the name sort, which orders the window, so the rerank does not apply
-    SearchResult sorted = searchRung(conditional, "monthly revenue by region", null);
+    SearchResult sorted = searchRung(conditional, ENTITY_NAMES, "monthly revenue by region", null);
     assertEquals(rowIds(sorted), range(0, 10));
     assertEquals(
         sorted.getMetadata().getKeywordRerank().getReason(),
@@ -958,7 +1057,7 @@ public class ESSearchDAOHybridTest {
     sorted.setParent(UrnUtils.getUrn(Constants.SEARCH_TEMPLATE_FULLTEXT_URN));
     sorted.setSort("[{ \"urn\": { \"order\": \"asc\" } }]");
 
-    SearchResult result = searchRung(sorted, "revenue", null);
+    SearchResult result = searchRung(sorted, ENTITY_NAMES, "revenue", null);
 
     assertEquals(
         result.getMetadata().getKeywordRerank().getReason(),
@@ -1078,11 +1177,15 @@ public class ESSearchDAOHybridTest {
   }
 
   /**
-   * The first page of a search for {@code query} through the template executor with {@code
-   * template} pinned, on an OpenSearch build that reranks Document rows, with explain on.
+   * The first page of a search of {@code entityNames} for {@code query} through the template
+   * executor with {@code template} pinned, on an OpenSearch build that reranks Document rows, with
+   * explain on.
    */
   private SearchResult searchRung(
-      SearchTemplateProperties template, String query, List<SortCriterion> sort)
+      SearchTemplateProperties template,
+      List<String> entityNames,
+      String query,
+      List<SortCriterion> sort)
       throws IOException {
     SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
     harness.setup();
@@ -1107,8 +1210,13 @@ public class ESSearchDAOHybridTest {
     OperationContext searching =
         TestOperationContexts.withFixedSearchClient(harness.opContext, client)
             .withSearchTemplateRuntime(documentRerankCoordinator(harness, true))
-            .withSearchFlags(flags -> flags.setFulltext(true).setIncludeExplain(true));
-    return search(templated, searching, RERANK_URN, query, sort);
+            .withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(true)
+                        .setIncludeExplain(true)
+                        .setSearchTemplate(UrnUtils.getUrn(RERANK_URN)));
+    return templated.search(searching, entityNames, query, null, sort, 0, 10, List.of());
   }
 
   private static SearchTemplateProperties fulltext(String knn) {

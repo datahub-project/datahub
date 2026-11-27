@@ -9,6 +9,13 @@ public final class SearchTemplateSurfaces {
   public static final String SCROLL_ENTITIES = "scrollEntities";
   public static final String AGGREGATE_ENTITIES = "aggregateEntities";
 
+  /**
+   * Semantic search ({@code semanticSearchAcrossEntities} and {@code semanticSearch}) through a
+   * template. Only a vector rung may serve it. Its rollout is off unless set: a blank setting does
+   * not inherit the global mode.
+   */
+  public static final String SEMANTIC_SEARCH = "semanticSearch";
+
   private SearchTemplateSurfaces() {}
 
   /**
@@ -23,5 +30,10 @@ public final class SearchTemplateSurfaces {
       return opContext;
     }
     return opContext.withSearchSurface(surface);
+  }
+
+  /** The request runs on the semantic search surface. */
+  public static boolean semantic(@Nonnull OperationContext opContext) {
+    return SEMANTIC_SEARCH.equals(opContext.getSearchContext().getSearchSurface());
   }
 }

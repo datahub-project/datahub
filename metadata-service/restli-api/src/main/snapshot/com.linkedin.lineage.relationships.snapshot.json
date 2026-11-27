@@ -105,7 +105,21 @@
     }, {
       "name" : "partial",
       "type" : "boolean",
-      "doc" : "Indicates whether the results are partial due to reaching the maxRelations limit",
+      "doc" : "Indicates whether the results are partial: the walk reached the maxRelations limit, or part of\nthe graph could not be read in time",
+      "optional" : true
+    }, {
+      "name" : "partialReason",
+      "type" : {
+        "type" : "enum",
+        "name" : "LineagePartialReason",
+        "doc" : "Why a lineage result is partial",
+        "symbols" : [ "MAX_RELATIONS", "INCOMPLETE_FETCH" ],
+        "symbolDocs" : {
+          "INCOMPLETE_FETCH" : "Part of the graph was not read because a hop timed out or a batch, slice or shard failed.\nWalking again may return more.",
+          "MAX_RELATIONS" : "The walk stopped at the maxRelations limit. Walking again returns the same truncation."
+        }
+      },
+      "doc" : "Why the results are partial. Absent when the results are complete or the reason is unknown.",
       "optional" : true
     }, {
       "name" : "relationships",
@@ -202,7 +216,7 @@
       },
       "doc" : "Relationships in the result set"
     } ]
-  }, "com.linkedin.metadata.graph.LineageRelationship" ],
+  }, "com.linkedin.metadata.graph.LineagePartialReason", "com.linkedin.metadata.graph.LineageRelationship" ],
   "schema" : {
     "name" : "relationships",
     "namespace" : "com.linkedin.lineage",

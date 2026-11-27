@@ -339,6 +339,38 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testRetrievalTotalFacetsPageAndAuthorizationTakeOnlyTheDefinedValues() {
+    SearchTemplateChecks.check(
+        rung(r -> r.setCombine("vector").setTotal("candidates").setFacets("candidateUrns")), 1024);
+    // Blank is unset
+    SearchTemplateChecks.check(
+        rung(
+            r ->
+                r.setCombine("vector")
+                    .setTotal(" ")
+                    .setFacets("")
+                    .setPage(" ")
+                    .setAuthorization("")),
+        1024);
+
+    // Page and authorization define no value yet
+    List<Consumer<SearchTemplateRetrieval>> unknown =
+        List.of(
+            r -> r.setCombine("vector").setTotal("exact"),
+            r -> r.setCombine("vector").setFacets("candidates"),
+            r -> r.setCombine("vector").setPage("window"),
+            r -> r.setCombine("vector").setAuthorization("preFilter"));
+    for (Consumer<SearchTemplateRetrieval> rule : unknown) {
+      SearchTemplateProperties properties = rung(rule);
+      assertRejects(
+          properties.getRetrieval().toString(), () -> SearchTemplateChecks.check(properties, 1024));
+    }
+
+    // Only writes are checked: a template stored with such a value still loads and binds
+    assertNull(rejectionOf("storedTotal", rung(r -> r.setCombine("vector").setTotal("exact"))));
+  }
+
+  @Test
   public void testMergedSectionsRules() {
     SearchTemplateProperties similarityKnn = similarity();
     similarityKnn.setKnn(BLEND);
@@ -382,16 +414,16 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     assertEquals(
         rejectionOf("zeroCap", rung(r -> r.setCombine("vector").setCandidateCap(0))),
         "retrievalCandidateCap");
-    assertEquals(
-        rejectionOf("similarity", rung(r -> r.setCombine("vector").setQuerySource("anchorEntity"))),
-        "similarity");
+    assertNull(
+        rejectionOf(
+            "similarity", rung(r -> r.setCombine("vector").setQuerySource("anchorEntity"))));
     assertEquals(
         rejectionOf("vectorBody", rung(r -> r.setCombine("keywordRerank").setVectorBody("{}"))),
         "vectorBody");
     SearchTemplateProperties scoped = body("Scoped", "{ \"match_all\": {} }", null);
     scoped.setApiVersion(2);
     scoped.setScope(new SearchTemplateScope().setEntityTypes(new StringArray(List.of("document"))));
-    assertEquals(rejectionOf("scoped", scoped), "entityPartition");
+    assertNull(rejectionOf("scoped", scoped));
     assertNull(rejectionOf("keywordRerank", rung(r -> r.setCombine("keywordRerank"))));
     // This release skips the rerank and keeps keyword order, so the selection does not block bind.
     SearchTemplateProperties rerankProfiles =
@@ -416,17 +448,23 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     nativeSibling.setApiVersion(2);
     SearchTemplateChecks.check(nativeSibling, 1024);
 
+    // A route condition this release does not know fails the search when its pattern matches,
+    // instead of being read as met.
     SearchTemplateProperties router = body("Router", "{ \"match_all\": {} }", null);
     router.setApiVersion(2);
-    SearchTemplateRoute conditional = route("^urn:.*", SEARCH_TEMPLATE_FULLTEXT_URN);
-    conditional.setMatch(new SearchTemplateRouteMatch().setSemanticEligible(true));
-    router.setRoutes(routes(conditional, route("^orders$", SEARCH_TEMPLATE_FULLTEXT_URN)));
+    SearchTemplateRoute future = route("^urn:.*", SEARCH_TEMPLATE_FULLTEXT_URN);
+    SearchTemplateRouteMatch futureMatch = new SearchTemplateRouteMatch();
+    futureMatch.data().put("futureCondition", true);
+    future.setMatch(futureMatch);
+    router.setRoutes(routes(future, route("^orders$", SEARCH_TEMPLATE_FULLTEXT_URN)));
     store("urn:li:searchTemplate:router", router);
     MergedSearchTemplate routes = loader.load(opContext, "urn:li:searchTemplate:router");
     assertEquals(
-        SearchTemplateRoutes.decide(routes, "orders").target(), SEARCH_TEMPLATE_FULLTEXT_URN);
+        SearchTemplateRoutes.decide(routes, "orders", NO_INPUTS).target(),
+        SEARCH_TEMPLATE_FULLTEXT_URN);
     assertThrows(
-        SearchTemplateException.class, () -> SearchTemplateRoutes.decide(routes, "urn:li:x"));
+        SearchTemplateException.class,
+        () -> SearchTemplateRoutes.decide(routes, "urn:li:x", NO_INPUTS));
   }
 
   @Test

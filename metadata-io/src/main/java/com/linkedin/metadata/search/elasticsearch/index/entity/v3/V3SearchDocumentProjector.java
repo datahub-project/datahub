@@ -26,6 +26,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -413,6 +414,8 @@ public class V3SearchDocumentProjector {
 
   private static void omitV3ExcludedFields(
       @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode projectedFields) {
+    final Set<String> v3HasValues = new HashSet<>();
+    final Set<String> v2OnlyHasValues = new HashSet<>();
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
       final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
       if (!annotation.isV3Searchable()) {
@@ -420,10 +423,20 @@ public class V3SearchDocumentProjector {
         annotation.getHasValuesFieldName().ifPresent(projectedFields::remove);
         annotation.getNumValuesFieldName().ifPresent(projectedFields::remove);
       }
-      if (!annotation.resolvedForV3().isIncludeSystemModifiedAt()) {
+      final SearchableAnnotation resolved = annotation.resolvedForV3();
+      if (!resolved.isIncludeSystemModifiedAt()) {
         ESUtils.getSystemModifiedAtFieldName(fieldSpec).ifPresent(projectedFields::remove);
       }
+      if (annotation.isV3Searchable()) {
+        resolved.getHasValuesFieldName().ifPresent(v3HasValues::add);
+        if (!annotation.isV3HasValues()) {
+          annotation.getHasValuesFieldName().ifPresent(v2OnlyHasValues::add);
+        }
+      }
     }
+    // v3.hasValues false: the transformer still writes the V2 boolean, which V3 must not index.
+    v2OnlyHasValues.removeAll(v3HasValues);
+    v2OnlyHasValues.forEach(projectedFields::remove);
   }
 
   /**

@@ -75,15 +75,19 @@ test.describe('column lineage counts with hidden chart consumers', () => {
     }
   });
 
-  test('reads 0 / 1 for a column whose only chart is hidden, and 1 / 1 once it is drawn', async () => {
-    let hiddenColumns = 0;
-    for (const id of CHART_IDS) {
-      const column = `field_${id}`;
-      const chartShown = await lineagePage.getReactFlowNode(chartUrn(id)).isVisible();
-      await hoverUntilReadout(column, chartShown ? /1 \/ 1/ : /0 \/ 1/);
-      if (!chartShown) hiddenColumns += 1;
-      await lineagePage.unhoverColumn(EXPLORE_URN, column);
-    }
-    expect(hiddenColumns).toBe(2);
-  });
+  test(
+    'reads 0 / 1 for a column whose only chart is hidden, and 1 / 1 once it is drawn',
+    { tag: [DomainTag.Catalog] },
+    async () => {
+      let hiddenColumns = 0;
+      for (const id of CHART_IDS) {
+        const column = `field_${id}`;
+        const chartShown = await lineagePage.getReactFlowNode(chartUrn(id)).isVisible();
+        await hoverUntilReadout(column, chartShown ? /1 \/ 1/ : /0 \/ 1/);
+        if (!chartShown) hiddenColumns += 1;
+        await lineagePage.unhoverColumn(EXPLORE_URN, column);
+      }
+      expect(hiddenColumns).toBe(2);
+    },
+  );
 });

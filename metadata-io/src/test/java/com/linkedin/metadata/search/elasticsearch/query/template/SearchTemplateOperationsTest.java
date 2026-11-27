@@ -242,8 +242,8 @@ public class SearchTemplateOperationsTest {
               executor,
               LIGHT,
               new SearchTemplateWalk.Request(
-                  "orders", null, null, 10, SearchTemplateWalk.identity()),
-              urn ->
+                  "orders", null, null, 10, List.of("dataset"), SearchTemplateWalk.identity()),
+              (urn, assigned) ->
                   SearchTemplateWalk.AttemptResult.ok(
                       urn, 1, List.of(), List.of(), false, null, null, false),
               (first, entities, total) -> first);

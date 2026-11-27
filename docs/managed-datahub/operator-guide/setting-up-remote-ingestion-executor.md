@@ -56,8 +56,7 @@ Before deploying a Remote Executor, ensure you have the following:
    - A container registry hosting the DataHub Remote Executor image (e.g., AWS ECR or `docker.datahub.com`)
 
 4. **Registry Access**
-   - For AWS: Provide your AWS account ID to DataHub Cloud
-   - For Kubernetes: Work with DataHub team to set up access to the Remote Executor Docker Image Registry
+   - Permission for your deployment to pull the Remote Executor image, set up as described in [Getting the executor image](#getting-the-executor-image)
 
 ## Creating and Managing Executor Pools
 
@@ -100,6 +99,18 @@ For pools on the Kafka channel, use Remote Executor v2.3.0 or later (Helm chart 
 To move an existing pool from SQS to Kafka, follow [Removing the SQS Dependency](../remote-executor/removing-sqs-dependency.md). Do not change the channel of a running executor outside that procedure.
 :::
 
+### Getting the executor image
+
+The Remote Executor image is hosted in a private DataHub Cloud container registry. Whatever you deploy on, the principal that pulls the image needs to be allowed first.
+
+**On AWS (ECS, EKS, or Docker on EC2):** from DataHub Cloud v2.5, allow your AWS account in the DataHub UI. Go to **Settings > Platform > Image Registry Access**, click **Add principal** and enter your 12-digit AWS account ID. The grant shows **Granted** once the registry has been updated, usually within a minute, together with the repository URIs your account may pull from. One grant covers every DataHub instance you run, so there is no need to repeat it per instance. If your security policy requires it, you can restrict the grant to one IAM role instead of the whole account. Grants can be revoked or deleted from the same page, and the page tells you when your instance has reached its number of allowed principals and how to raise it.
+
+The page is absent on earlier versions, and some instances show it with a note that image registry access is managed by DataHub support. In both cases, or if your deployment needs something the page does not offer, share your AWS account ID with your DataHub Cloud representative. Either way, the result is the same: your AWS account can pull the Remote Executor container image.
+
+**On Google Cloud:** provide the cluster's IAM service account to your DataHub Cloud representative.
+
+**Elsewhere:** contact the DataHub team for the requirements of your platform.
+
 ### Custom images with additional connectors
 
 Remote Executor (`datahub-executor`) images use the same **bundled venv** mechanism as DataHub Core **`datahub-actions`**: connector installs are baked under `/opt/datahub/venvs` at **image build** time via variables such as `BUNDLED_VENV_PLUGINS` and `BUNDLED_CLI_VERSION`. To run sources that need extra dependencies, work with DataHub Cloud for an image built with your plugin list. Details: [Bundled ingestion virtual environments](/docs/docker/bundled-ingestion-venvs.md).
@@ -108,14 +119,9 @@ Remote Executor (`datahub-executor`) images use the same **bundled venv** mechan
 
 DataHub Cloud Remote Executors run on AWS ECS/Fargate. You can provision the deployment with either **CloudFormation** or **Terraform** — the AWS setup below is the same for both; choose your tool in the tabs under step 3.
 
-1. **AWS Account Configuration**
+1. **Registry Access**
 
-To access the private DataHub Cloud ECR registry, provide your AWS account ID to DataHub Cloud. You can securely share it through:
-
-- Your DataHub Cloud representative
-- A secure secret-sharing service like [One Time Secret](https://onetimesecret.com/)
-
-This grants your AWS account access to pull the Remote Executor container image.
+Allow the AWS account that runs the ECS tasks to pull the image, as described in [Getting the executor image](#getting-the-executor-image).
 
 2. **Prerequisites**
 
@@ -294,12 +300,7 @@ The [datahub-executor-worker](https://executor-helm.acryl.io/index.yaml) Helm ch
 
 1. **Registry Access Configuration**
 
-To access the private DataHub Cloud container registry, you'll need to work with your DataHub Cloud representative to set up the necessary permissions:
-
-For AWS EKS: Provide the IAM principal that will pull from the ECR repository
-
-- For Google Cloud: Provide the cluster's IAM service account
-- For other platforms: Contact DataHub team for specific requirements
+Allow the principal that pulls the image (on EKS, the AWS account or the node or pod IAM role; on GKE, the cluster's IAM service account) as described in [Getting the executor image](#getting-the-executor-image).
 
 2. **Configure Access Token Secret**
 
@@ -445,7 +446,7 @@ The Remote Executor image can be run directly using Docker, though this is not r
 
 1. **Registry Access Configuration**
 
-To access the private DataHub Cloud container registry, you'll need to contact your DataHub Cloud representative for specific requirements.
+Allow the principal that pulls the image as described in [Getting the executor image](#getting-the-executor-image).
 
 2. **Run Docker Container**
 
