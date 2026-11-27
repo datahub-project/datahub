@@ -207,10 +207,10 @@ class GitLabApiClient:
         }
 
         projects: List[GitLabProject] = []
+        seen_paths: Set[str] = set()
         url: Optional[str] = list_url
         params: Optional[Dict[str, Union[str, int]]] = list_params
-        saw_pagination_header = False
-        last_page_full = False
+        page = 1
         while url:
             response = self._get(url, params=params)
             items = self._json_or_none(response)
@@ -227,6 +227,7 @@ class GitLabApiClient:
                 raise RuntimeError(
                     f"Could not list the projects in group '{group}': {detail}"
                 )
+            paths: List[str] = []
             for item in items:
                 path = (
                     item.get("path_with_namespace") if isinstance(item, dict) else None
@@ -238,6 +239,15 @@ class GitLabApiClient:
                         f"Could not list the projects in group '{group}': "
                         f"{self._last_api_error}"
                     )
+                paths.append(path)
+            if items and all(path in seen_paths for path in paths):
+                # A proxy that drops the page parameter would repeat this page forever.
+                raise RuntimeError(
+                    f"GitLab returned the same projects again for group '{group}'; "
+                    "the listing cannot be paged."
+                )
+            for item, path in zip(items, paths, strict=True):
+                seen_paths.add(path)
                 if not allowed(path):
                     continue
                 branch = item.get("default_branch")
@@ -249,20 +259,13 @@ class GitLabApiClient:
                 )
             if len(projects) > max_projects:
                 return GroupProjects(projects=projects[:max_projects], truncated=True)
-            if "Link" in response.headers or "X-Next-Page" in response.headers:
-                saw_pagination_header = True
-            last_page_full = len(items) >= TREE_PAGE_SIZE
-            url, params = self._next_page(response, url, params)
-        # A proxy can strip the pagination headers, which would turn a multi-page
-        # group into one page and let stale removal delete the unread projects.
-        truncated = (
-            last_page_full
-            and not saw_pagination_header
-            and self._has_entries_after_first_page(
-                list_url, list_params, "a list of projects"
-            )
-        )
-        return GroupProjects(projects=projects, truncated=truncated)
+            next_url, next_params = self._next_page(response, url, params)
+            if next_url is None and len(items) >= TREE_PAGE_SIZE:
+                # Some proxies strip the pagination headers; the offset page parameter still works.
+                next_url, next_params = list_url, {**list_params, "page": page + 1}
+            page += 1
+            url, params = next_url, next_params
+        return GroupProjects(projects=projects, truncated=False)
 
     def list_matching_files(
         self,
@@ -328,26 +331,24 @@ class GitLabApiClient:
         truncated = (
             last_page_full
             and not saw_pagination_header
-            and self._has_entries_after_first_page(
-                f"{self._project_url(owner_repo)}/repository/tree",
-                {
-                    "ref": branch,
-                    "recursive": "true",
-                    "per_page": TREE_PAGE_SIZE,
-                },
-                "a list of tree entries",
-            )
+            and self._tree_has_entries_after_first_page(owner_repo, branch)
         )
         self._index_file_paths = selection.index_paths
         return selection.files, truncated
 
-    def _has_entries_after_first_page(
-        self, url: str, params: Dict[str, Union[str, int]], expected: str
-    ) -> bool:
-        response = self._get(url, params={**params, "page": 2})
+    def _tree_has_entries_after_first_page(self, owner_repo: str, branch: str) -> bool:
+        response = self._get(
+            f"{self._project_url(owner_repo)}/repository/tree",
+            params={
+                "ref": branch,
+                "recursive": "true",
+                "per_page": TREE_PAGE_SIZE,
+                "page": 2,
+            },
+        )
         items = self._json_or_none(response)
         if response is not None and items is not None and not isinstance(items, list):
-            self._record_unexpected_shape(response, expected)
+            self._record_unexpected_shape(response, "a list of tree entries")
         if not isinstance(items, list):
             # Cannot confirm the listing is complete, so treat it as truncated
             # and keep stale removal from acting on it.

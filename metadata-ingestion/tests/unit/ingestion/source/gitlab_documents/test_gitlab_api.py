@@ -592,7 +592,7 @@ def test_get_default_branch_records_the_api_error() -> None:
     assert client.last_api_error is not None
 
 
-def test_list_group_projects_checks_for_more_when_pagination_headers_are_missing() -> (
+def test_list_group_projects_pages_through_when_pagination_headers_are_missing() -> (
     None
 ):
     full_page = [{"path_with_namespace": f"acme/data/p{i}"} for i in range(100)]
@@ -608,17 +608,22 @@ def test_list_group_projects_checks_for_more_when_pagination_headers_are_missing
             include_archived=False,
             max_projects=500,
         )
-    assert listing.truncated is True
-
-    with requests_mock.Mocker() as m:
-        m.get(GROUP_API, [{"json": full_page}, {"json": []}])
-        listing = client.list_group_projects(
-            "acme/data",
-            include_subgroups=True,
-            include_archived=False,
-            max_projects=500,
-        )
+    assert len(listing.projects) == 101
     assert listing.truncated is False
+
+
+def test_list_group_projects_fails_when_a_proxy_repeats_the_first_page() -> None:
+    full_page = [{"path_with_namespace": f"acme/data/p{i}"} for i in range(100)]
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(GROUP_API, json=full_page)
+        with pytest.raises(RuntimeError, match="same projects again"):
+            client.list_group_projects(
+                "acme/data",
+                include_subgroups=True,
+                include_archived=False,
+                max_projects=500,
+            )
 
 
 def test_get_default_branch_reports_an_unexpected_response_shape() -> None:
