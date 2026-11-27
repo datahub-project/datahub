@@ -1,3 +1,5 @@
+import logging
+import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
@@ -25,6 +27,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
 )
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.telemetry import peak_rss_mb
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -61,6 +64,57 @@ _INVERT_CARDINALITY: Dict[str, str] = {
 }
 
 _SEMANTIC_MODEL_ID = "schema"
+
+# Log semantic-model metric progress at least this often, by count, as well
+# as every progress_log_interval_seconds.
+_METRIC_PROGRESS_EVERY = 1000
+
+logger = logging.getLogger(__name__)
+
+
+class _MetricProgress:
+    """Progress lines for the per-metric model fetches, which in a large
+    project run for over an hour and otherwise log nothing at all."""
+
+    def __init__(
+        self,
+        *,
+        project_id: str,
+        total: int,
+        every_seconds: float,
+        report: MicroStrategyReport,
+    ) -> None:
+        self._project_id = project_id
+        self.total = total
+        self._every_seconds = every_seconds
+        self._report = report
+        self._started = time.perf_counter()
+        self._last_logged = self._started
+        self.done = 0
+        self.failed = 0
+
+    def step(self) -> None:
+        """Count one metric as started, logging when an interval is due."""
+        if self.done and (
+            self.done % _METRIC_PROGRESS_EVERY == 0
+            or time.perf_counter() - self._last_logged >= self._every_seconds
+        ):
+            self.log()
+        self.done += 1
+
+    def log(self) -> None:
+        self._last_logged = time.perf_counter()
+        self._report.peak_rss_mb = peak_rss_mb()
+        logger.info(
+            "Semantic model metrics: %d/%d in %.0fs, %d failed; peak RSS %s MB "
+            "(project=%s)",
+            self.done,
+            self.total,
+            self._last_logged - self._started,
+            self.failed,
+            self._report.peak_rss_mb,
+            self._project_id,
+        )
 
 
 @dataclass
@@ -117,7 +171,11 @@ class MicroStrategySemanticModelMapper:
         model_tables: List[Dict[str, object]],
         warehouse_context: Optional[WarehouseLineageContext],
         project_container_key: ContainerKey,
+        referenced_object_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        """`referenced_object_ids` limits the metrics to those ids and the
+        metrics they are built from (semantic_model_metric_scope=referenced);
+        None emits every catalog metric."""
         model_urn = str(
             SemanticModelUrn(
                 platform=MICROSTRATEGY_PLATFORM,
@@ -144,15 +202,6 @@ class MicroStrategySemanticModelMapper:
             project_id, model_urn, tables, project_container_key
         )
         relationships = self._relationships(project_id, tables, attribute_table_aliases)
-        metrics = list(
-            self._metrics(
-                project_id=project_id,
-                model_urn=model_urn,
-                fact_table_aliases=fact_table_aliases,
-                attribute_table_aliases=attribute_table_aliases,
-                alias_to_dataset=alias_to_dataset,
-            )
-        )
 
         model = SemanticModel(
             platform=MICROSTRATEGY_PLATFORM,
@@ -168,12 +217,24 @@ class MicroStrategySemanticModelMapper:
         yield from model.as_workunits()
         for dataset in datasets:
             yield from dataset.as_workunits()
-        for metric in metrics:
+        # Metrics stream straight to the sink: a large project has tens of
+        # thousands, and holding them all until the last one is built kept
+        # every one of them in memory at once.
+        metrics_emitted = 0
+        for metric in self._metrics(
+            project_id=project_id,
+            model_urn=model_urn,
+            fact_table_aliases=fact_table_aliases,
+            attribute_table_aliases=attribute_table_aliases,
+            alias_to_dataset=alias_to_dataset,
+            referenced_object_ids=referenced_object_ids,
+        ):
             yield from metric.as_workunits()
+            metrics_emitted += 1
 
         self.report.report_semantic_model_emitted()
         self.report.report_semantic_model_datasets_emitted(len(datasets))
-        self.report.report_semantic_model_metrics_emitted(len(metrics))
+        self.report.report_semantic_model_metrics_emitted(metrics_emitted)
         self.report.report_semantic_model_relationships_emitted(len(relationships))
 
     def _container_aspects(
@@ -573,6 +634,7 @@ class MicroStrategySemanticModelMapper:
         fact_table_aliases: Dict[str, Set[str]],
         attribute_table_aliases: Dict[str, Set[str]],
         alias_to_dataset: Dict[str, SemanticModelDataset],
+        referenced_object_ids: Optional[Set[str]] = None,
     ) -> Iterable[Metric]:
         consolidation_cache: Dict[str, List[str]] = {}
         try:
@@ -583,22 +645,51 @@ class MicroStrategySemanticModelMapper:
             # not take the structural semantic-model entities (the model and
             # its logical datasets, already built by the caller) down with
             # it, so this degrades to "no metrics" rather than propagating.
+            # It is reported as a failure, not a warning: stateful ingestion
+            # skips stale-entity removal only on a source failure, and would
+            # otherwise soft-delete every metric the previous run emitted.
             self.report.report_semantic_model_metric_search_api_failure()
-            self.report.warning(
+            self.report.failure(
                 title="MicroStrategy Metric Search Unavailable",
                 message=(
                     "Skipping metric emission for the semantic model; project "
-                    "metrics could not be enumerated."
+                    "metrics could not be enumerated. Stale-entity removal is "
+                    "skipped for this run so previously ingested metrics are kept."
                 ),
                 context=f"project_id={project_id}",
                 exc=error,
             )
             return
-        for metric_object in metric_objects:
-            metric_id = normalize_object_id(metric_object.id)
+        # Metrics in catalog order; with a reference scope, only the metrics
+        # the ingested datasets use, then (appended as their definitions are
+        # read) the metrics those are built from.
+        by_id = {
+            normalize_object_id(metric_object.id): metric_object
+            for metric_object in metric_objects
+        }
+        if referenced_object_ids is None:
+            queue = list(by_id)
+        else:
+            queue = [
+                metric_id for metric_id in by_id if metric_id in referenced_object_ids
+            ]
+        queued: Set[str] = set(queue)
+        progress = _MetricProgress(
+            project_id=project_id,
+            total=len(queue),
+            every_seconds=self.config.progress_log_interval_seconds,
+            report=self.report,
+        )
+        position = 0
+        while position < len(queue):
+            metric_id = queue[position]
+            position += 1
+            metric_object = by_id[metric_id]
+            progress.step()
             try:
                 model = self.client.get_metric_model(project_id, metric_object.id)
             except MicroStrategyAPIError as error:
+                progress.failed += 1
                 self.report.report_metric_expression_api_failure()
                 self.report.report_failed_metric_model(metric_object.id)
                 self.report.warning(
@@ -638,6 +729,13 @@ class MicroStrategySemanticModelMapper:
                 )
                 for referenced_metric_id in metric_metric_ids_from_model(model)
             ]
+            if referenced_object_ids is not None:
+                for referenced_metric_id in metric_metric_ids_from_model(model):
+                    dependency = normalize_object_id(referenced_metric_id)
+                    if dependency in by_id and dependency not in queued:
+                        queued.add(dependency)
+                        queue.append(dependency)
+                        progress.total += 1
 
             model_expression = model.get("expression")
             expression_text = _optional_str(
@@ -665,6 +763,9 @@ class MicroStrategySemanticModelMapper:
                 upstream_datasets=upstream_dataset_urns,
                 derived_from=derived_from,
             )
+        progress.log()
+        if referenced_object_ids is not None:
+            self.report.semantic_model_metrics_out_of_scope += len(by_id) - len(queue)
 
     def _resolve_consolidation(
         self,

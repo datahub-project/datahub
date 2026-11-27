@@ -1,9 +1,32 @@
+import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+from typing import Dict, Iterator, List, Optional
 
+from datahub.ingestion.source.microstrategy.telemetry import (
+    dashboard_seconds_bucket,
+    endpoint_template,
+    peak_rss_mb,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolverReport
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.stats_collections import TopKDict
+
+# Rows shown for each per-endpoint / per-phase / slowest-object table. The
+# dictionaries keep every key; only the printed report is trimmed.
+_TELEMETRY_TOP_K = 40
+_SLOWEST_TOP_K = 25
+
+
+def _float_top_k(top_k: int = _TELEMETRY_TOP_K) -> "TopKDict[str, float]":
+    return TopKDict(float, top_k=top_k)
+
+
+def _int_top_k(top_k: int = _TELEMETRY_TOP_K) -> "TopKDict[str, int]":
+    return TopKDict(int, top_k=top_k)
 
 
 @dataclass
@@ -83,6 +106,16 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     execution_timeouts: int = 0
     executions_skipped_after_timeouts: int = 0
     execution_timeout_limit_projects: LossyList[str] = field(default_factory=LossyList)
+    # Shape of Report Services document definitions that carry
+    # visualizations: top-level keys, the keys each visualization has, and
+    # the scalar fields of one visualization per sampled document. Recorded
+    # to learn which field holds the title a grid shows in Strategy, since
+    # most document grids carry default names such as GridGraph1e3.
+    document_definition_keys: "TopKDict[str, int]" = field(default_factory=_int_top_k)
+    document_visualization_keys: "TopKDict[str, int]" = field(
+        default_factory=_int_top_k
+    )
+    document_visualization_samples: LossyList[str] = field(default_factory=LossyList)
     # What the Modeling document definition yielded: document-level derived
     # metrics found, and how many of them carried a formula.
     document_model_definition_failures: int = 0
@@ -143,14 +176,87 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     document_dataset_sql_view_failures: int = 0
     document_datasets_skipped_not_grid_report: int = 0
     reports_skipped_not_dashboard_linked: int = 0
+    # dataset_identity=per_report: additional sightings of a report already
+    # registered in its project (a report used by 18 dashboards counts 17),
+    # and the one-per-report dataset entities emitted.
+    reports_deduplicated: int = 0
+    report_datasets_emitted: int = 0
     failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)
     semantic_models_emitted: int = 0
     semantic_model_datasets_emitted: int = 0
     semantic_model_metrics_emitted: int = 0
+    # Report SQL views refused (406) because the report's prompts were
+    # unanswered; of those, answered with defaults and read, or skipped
+    # because a required prompt had no default.
+    prompted_report_sql_views: int = 0
+    prompted_reports_answered: int = 0
+    prompted_reports_without_defaults: int = 0
+    # Catalog metrics left out by semantic_model_metric_scope=referenced.
+    semantic_model_metrics_out_of_scope: int = 0
     semantic_model_relationships_emitted: int = 0
     semantic_model_attribute_relationship_api_failures: int = 0
     semantic_model_consolidation_api_failures: int = 0
     semantic_model_metric_search_api_failures: int = 0
+    # --- Telemetry: where the run's time goes (see telemetry.py). ---
+    # Every MicroStrategy HTTP attempt, retries included, with its wall time;
+    # endpoints have object and instance ids replaced by {id}.
+    api_calls: int = 0
+    api_call_seconds: float = 0.0
+    api_retries: int = 0
+    api_retry_sleep_seconds: float = 0.0
+    api_calls_by_endpoint: TopKDict[str, int] = field(default_factory=_int_top_k)
+    api_seconds_by_endpoint: TopKDict[str, float] = field(default_factory=_float_top_k)
+    api_max_seconds_by_endpoint: TopKDict[str, float] = field(
+        default_factory=_float_top_k
+    )
+    # "<endpoint> <status>", status "error" for network-level failures.
+    api_responses_by_endpoint_status: TopKDict[str, int] = field(
+        default_factory=_int_top_k
+    )
+    # API seconds charged to the innermost phase active when the call was made.
+    api_seconds_by_phase: TopKDict[str, float] = field(default_factory=_float_top_k)
+    # Inclusive phase wall time (phases nest) and how often each phase ran.
+    phase_seconds: TopKDict[str, float] = field(default_factory=_float_top_k)
+    phase_calls: TopKDict[str, int] = field(default_factory=_int_top_k)
+    # Per dashboard/document: source time only (sink writes excluded).
+    dashboards_timed: int = 0
+    dashboard_seconds_total: float = 0.0
+    dashboard_seconds_histogram: Dict[str, int] = field(default_factory=dict)
+    slowest_dashboards: TopKDict[str, float] = field(
+        default_factory=lambda: _float_top_k(_SLOWEST_TOP_K)
+    )
+    datasets_by_slow_dashboard: Dict[str, int] = field(default_factory=dict)
+    # SQL view parsing: parses actually run (cache misses), their time, and
+    # datasets served from the parse cache because the same report SQL was
+    # already parsed this project.
+    sql_parses_executed: int = 0
+    sql_parse_seconds: float = 0.0
+    sql_parse_max_seconds: float = 0.0
+    sql_parse_cache_hits: int = 0
+    # Parse failures served from the cache: the failure is reported once per
+    # distinct SQL, not once per document that reuses the report.
+    sql_parse_failure_cache_hits: int = 0
+    slowest_sql_parses: TopKDict[str, float] = field(
+        default_factory=lambda: _float_top_k(_SLOWEST_TOP_K)
+    )
+    sql_statements_parsed: int = 0
+    # Report SQL fetched from MicroStrategy (not cache hits): size in bytes.
+    report_sql_fetched: int = 0
+    report_sql_bytes_total: int = 0
+    report_sql_max_bytes: int = 0
+    # DataHub schema lookups made by the SQL parser (shared resolver).
+    schema_resolution_seconds: float = 0.0
+    schema_resolution_calls: int = 0
+    schema_resolver: SchemaResolverReport = field(default_factory=SchemaResolverReport)
+    # Per-run caches: entries at the end of the largest project, and how many
+    # times project-scoped caches were dropped at a project boundary.
+    cache_entries_peak: Dict[str, int] = field(default_factory=dict)
+    cache_project_resets: int = 0
+    sqlglot_warnings_suppressed: TopKDict[str, int] = field(
+        default_factory=lambda: _int_top_k(10)
+    )
+    peak_rss_mb: Optional[float] = None
+    _phase_stack: List[str] = field(default_factory=list)
 
     def report_project_scanned(self) -> None:
         self.projects_scanned += 1
@@ -400,8 +506,23 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_reports_skipped_not_dashboard_linked(self) -> None:
         self.reports_skipped_not_dashboard_linked += 1
 
+    def report_report_deduplicated(self) -> None:
+        self.reports_deduplicated += 1
+
+    def report_report_dataset_emitted(self) -> None:
+        self.report_datasets_emitted += 1
+
     def report_failed_metric_model(self, metric_id: str) -> None:
         self.failed_metric_model_ids.append(metric_id)
+
+    def report_prompted_report_sql_view(self) -> None:
+        self.prompted_report_sql_views += 1
+
+    def report_prompted_report_answered(self) -> None:
+        self.prompted_reports_answered += 1
+
+    def report_prompted_report_without_defaults(self) -> None:
+        self.prompted_reports_without_defaults += 1
 
     def report_semantic_model_emitted(self) -> None:
         self.semantic_models_emitted += 1
@@ -423,3 +544,116 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_semantic_model_metric_search_api_failure(self) -> None:
         self.semantic_model_metric_search_api_failures += 1
+
+    @contextmanager
+    def phase(self, name: str, count: bool = True) -> Iterator[None]:
+        """Charge the enclosed wall time (and API calls) to phase ``name``."""
+        self._phase_stack.append(name)
+        start = time.perf_counter()
+        try:
+            yield
+        finally:
+            self.phase_seconds[name] += time.perf_counter() - start
+            if count:
+                self.phase_calls[name] += 1
+            # Remove this phase's own entry even if an inner phase leaked.
+            for index in range(len(self._phase_stack) - 1, -1, -1):
+                if self._phase_stack[index] == name:
+                    del self._phase_stack[index]
+                    break
+
+    def report_api_call(
+        self, method: str, path: str, status: Optional[int], seconds: float
+    ) -> None:
+        endpoint = endpoint_template(method, path)
+        self.api_calls += 1
+        self.api_call_seconds += seconds
+        self.api_calls_by_endpoint[endpoint] += 1
+        self.api_seconds_by_endpoint[endpoint] += seconds
+        if seconds > self.api_max_seconds_by_endpoint.get(endpoint, 0.0):
+            self.api_max_seconds_by_endpoint[endpoint] = seconds
+        status_label = str(status) if status is not None else "error"
+        self.api_responses_by_endpoint_status[f"{endpoint} {status_label}"] += 1
+        phase = self._phase_stack[-1] if self._phase_stack else "(no phase)"
+        self.api_seconds_by_phase[phase] += seconds
+
+    def report_api_retry(self, sleep_seconds: float) -> None:
+        self.api_retries += 1
+        self.api_retry_sleep_seconds += sleep_seconds
+
+    def report_dashboard_timing(self, key: str, seconds: float, datasets: int) -> None:
+        self.dashboards_timed += 1
+        self.dashboard_seconds_total += seconds
+        bucket = dashboard_seconds_bucket(seconds)
+        self.dashboard_seconds_histogram[bucket] = (
+            self.dashboard_seconds_histogram.get(bucket, 0) + 1
+        )
+        self._keep_slowest(self.slowest_dashboards, key, seconds)
+        if key in self.slowest_dashboards:
+            self.datasets_by_slow_dashboard[key] = datasets
+        for stale in set(self.datasets_by_slow_dashboard) - set(
+            self.slowest_dashboards
+        ):
+            del self.datasets_by_slow_dashboard[stale]
+
+    def report_sql_parse_executed(
+        self, key: str, seconds: float, statements: int
+    ) -> None:
+        self.sql_parses_executed += 1
+        self.sql_parse_seconds += seconds
+        self.sql_statements_parsed += statements
+        self.sql_parse_max_seconds = max(self.sql_parse_max_seconds, seconds)
+        self._keep_slowest(self.slowest_sql_parses, key, seconds)
+
+    def report_sql_parse_cache_hit(self, failed: bool) -> None:
+        self.sql_parse_cache_hits += 1
+        if failed:
+            self.sql_parse_failure_cache_hits += 1
+
+    def report_report_sql_fetched(self, sql: Optional[str]) -> None:
+        self.report_sql_fetched += 1
+        size = len(sql.encode("utf-8")) if sql else 0
+        self.report_sql_bytes_total += size
+        self.report_sql_max_bytes = max(self.report_sql_max_bytes, size)
+
+    def report_schema_resolution(self, seconds: float) -> None:
+        self.schema_resolution_calls += 1
+        self.schema_resolution_seconds += seconds
+
+    def report_cache_entries(self, name: str, entries: int) -> None:
+        self.cache_entries_peak[name] = max(
+            self.cache_entries_peak.get(name, 0), entries
+        )
+
+    @staticmethod
+    def _keep_slowest(table: "TopKDict[str, float]", key: str, seconds: float) -> None:
+        """Keep at most top_k rows so a long run does not hold every key."""
+        table[key] = max(table.get(key, 0.0), seconds)
+        if len(table) > table.top_k:
+            fastest = min(table, key=lambda name: table[name])
+            del table[fastest]
+
+    def compute_stats(self) -> None:
+        super().compute_stats()
+        current_rss = peak_rss_mb()
+        if current_rss is not None:
+            self.peak_rss_mb = current_rss
+        for name in (
+            "api_call_seconds",
+            "api_retry_sleep_seconds",
+            "dashboard_seconds_total",
+            "sql_parse_seconds",
+            "sql_parse_max_seconds",
+            "schema_resolution_seconds",
+        ):
+            setattr(self, name, round(getattr(self, name), 3))
+        for table in (
+            self.api_seconds_by_endpoint,
+            self.api_max_seconds_by_endpoint,
+            self.api_seconds_by_phase,
+            self.phase_seconds,
+            self.slowest_dashboards,
+            self.slowest_sql_parses,
+        ):
+            for key in table:
+                table[key] = round(table[key], 3)

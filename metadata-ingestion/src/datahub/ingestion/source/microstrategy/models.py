@@ -856,9 +856,29 @@ def _extract_datasource_reference(
     return None
 
 
+def _visualizations_under(node: object) -> List[MicroStrategyDict]:
+    """Every visualization in a page subtree: those listed on the page itself
+    and those inside its panel stacks, which nest panels (and further panel
+    stacks) under the page rather than listing them in its
+    `visualizations`."""
+    found: List[MicroStrategyDict] = []
+    if isinstance(node, dict):
+        visualizations = node.get("visualizations")
+        if isinstance(visualizations, list):
+            found.extend(item for item in visualizations if isinstance(item, dict))
+        for key, nested in node.items():
+            if key != "visualizations":
+                found.extend(_visualizations_under(nested))
+    elif isinstance(node, list):
+        for nested in node:
+            found.extend(_visualizations_under(nested))
+    return found
+
+
 def _page_visualizations(chapters: List[object]) -> List[MicroStrategyDict]:
-    """Visualizations placed on dossier pages, each annotated with the chapter
-    and page it sits on: definition key, name and 1-based position."""
+    """Visualizations placed on dossier pages, including those inside panel
+    stacks, each annotated with the chapter and page it sits on: definition
+    key, name and 1-based position."""
     found: List[MicroStrategyDict] = []
     for chapter_index, chapter in enumerate(chapters, start=1):
         if not isinstance(chapter, dict):
@@ -873,12 +893,7 @@ def _page_visualizations(chapters: List[object]) -> List[MicroStrategyDict]:
                 continue
             page_key = _first_str(page, MSTR_KEYS_KEY_ID)
             page_name = _first_str(page, MSTR_KEYS_NAME)
-            visualizations = page.get("visualizations")
-            if not isinstance(visualizations, list):
-                continue
-            for visualization in visualizations:
-                if not isinstance(visualization, dict):
-                    continue
+            for visualization in _visualizations_under(page):
                 annotated = dict(visualization)
                 if chapter_key:
                     annotated["chapterKey"] = chapter_key

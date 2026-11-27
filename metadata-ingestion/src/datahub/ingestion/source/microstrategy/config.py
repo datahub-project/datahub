@@ -102,6 +102,33 @@ class MicroStrategyConfig(
         gt=0,
         description="Number of objects requested per paginated metadata search call.",
     )
+    cache_memory_entries: int = Field(
+        default=2000,
+        gt=0,
+        description=(
+            "Entries the large per-project caches (report SQL text and parsed "
+            "SQL lineage) keep in memory. Older entries spill to a temporary "
+            "local SQLite file instead of being dropped, so memory stays "
+            "bounded on large projects without re-fetching or re-parsing "
+            "anything; the caches are discarded when each project finishes."
+        ),
+    )
+    progress_log_interval_dashboards: int = Field(
+        default=25,
+        gt=0,
+        description=(
+            "Log a whole-run progress line (rates, API and SQL parse time, "
+            "cache hits, peak memory) after this many dashboards."
+        ),
+    )
+    progress_log_interval_seconds: int = Field(
+        default=300,
+        gt=0,
+        description=(
+            "Also log the progress line when this many seconds have passed "
+            "since the last one, so slow dashboards never leave the log silent."
+        ),
+    )
 
     project_pattern: AllowDenyPattern = Field(
         default_factory=AllowDenyPattern.allow_all,
@@ -365,6 +392,19 @@ class MicroStrategyConfig(
             "resolve a dashboard instance."
         ),
     )
+    answer_report_prompts_with_defaults: bool = Field(
+        default=False,
+        description=(
+            "Whether to answer a prompted report's prompts with their default "
+            "answers when its SQL view is refused (HTTP 406) because prompts "
+            "are unanswered, then read the SQL view again. Without it a "
+            "prompted report's dataset gets no warehouse lineage. A report "
+            "with a required prompt that has no default is still skipped. Off "
+            "by default: Strategy does not document whether answering the last "
+            "prompt of a report instance starts the report's execution against "
+            "the warehouse."
+        ),
+    )
     dashboard_instance_resolve_only: bool = Field(
         default=False,
         description=(
@@ -492,6 +532,18 @@ class MicroStrategyConfig(
             "MicroStrategy modeling APIs."
         ),
     )
+    semantic_model_metric_scope: Literal["all", "referenced"] = Field(
+        default="all",
+        description=(
+            "Which catalog metrics the semantic model emits when "
+            "`emit_semantic_model_entities` is on. `all` emits every metric in "
+            "the project. `referenced` emits only the metrics that a dataset "
+            "ingested this run uses, plus every metric those metrics are built "
+            "from, so the semantic model follows the dashboard and report "
+            "scope instead of the whole project catalog. `referenced` also "
+            "fetches only those metrics' definitions."
+        ),
+    )
     tag_measures_and_dimensions: bool = Field(
         default=True,
         description=(
@@ -514,6 +566,32 @@ class MicroStrategyConfig(
             "single run, the behaviour of earlier releases. Either way the "
             "DataHub schema tab re-sorts the fields alphabetically when the "
             "column header is clicked."
+        ),
+    )
+    dataset_identity: Literal["per_dashboard", "per_report"] = Field(
+        default="per_dashboard",
+        description=(
+            "What one DataHub dataset entity stands for. `per_dashboard` (the "
+            "default, the historical behaviour) keys each dataset by the "
+            "dossier or document that embeds it (`<project>.<dashboard>."
+            "<dataset>`), so a report used by N dashboards is N identically "
+            "named entities, and with `extract_reports` the same report is "
+            "also a chart plus a report-scoped dataset. `per_report` keys the "
+            "dataset by the MicroStrategy report object itself "
+            "(`<project>.<report>`): one entity per report (grid report or "
+            "cube) per project, filed under the report's own folder, with its "
+            "schema from its own definition when `extract_reports` fetched "
+            "one (else the first dashboard that embeds it), warehouse lineage "
+            "computed once, and every visualization and document that uses "
+            "the report linking to that single entity; with `extract_reports` "
+            "the `Report` chart is not emitted and report usage statistics "
+            "attach to the dataset. Switching schemes changes every dataset "
+            "URN: with stateful ingestion the previous scheme's entities are "
+            "soft-deleted as stale on the next run, so raise "
+            "`stateful_ingestion.fail_safe_threshold` for that run when more "
+            "than the default percentage of entities would change. The design "
+            "note is metadata-ingestion/src/datahub/ingestion/source/"
+            "microstrategy/dataset_identity.md in the DataHub repository."
         ),
     )
     datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
