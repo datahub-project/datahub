@@ -379,6 +379,52 @@ def test_query_log_lineage_does_not_over_qualify(monkeypatch):
     ]
 
 
+def _usage_source_reading(query_log_table: Optional[str]) -> ClickHouseSource:
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_usage_statistics": True,
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-15T00:00:00Z",
+            **({"query_log_table": query_log_table} if query_log_table else {}),
+        }
+    )
+    return ClickHouseSource(config, PipelineContext(run_id="test"))
+
+
+def test_query_log_is_read_from_system_query_log_by_default():
+    sql = _usage_source_reading(None)._build_query_log_query()
+
+    assert "FROM system.query_log\n" in sql
+
+
+@pytest.mark.parametrize("table", ["observability.query_log_all", "query_log_all"])
+def test_query_log_table_replaces_system_query_log(table: str) -> None:
+    """system.query_log is local to one server; a cluster needs a view over all
+    replicas, which the docs tell users to pass as query_log_table."""
+    sql = _usage_source_reading(table)._build_query_log_query()
+
+    assert f"FROM {table}\n" in sql
+    assert "system.query_log" not in sql
+
+
+@pytest.mark.parametrize(
+    "table",
+    [
+        "system.query_log; DROP TABLE users --",
+        "clusterAllReplicas('c', system.query_log)",
+        "db.schema.table",
+        "",
+    ],
+)
+def test_query_log_table_rejects_anything_but_an_identifier(table: str) -> None:
+    # The value is interpolated into the fetch SQL as an identifier.
+    with pytest.raises(ValueError, match="query_log_table"):
+        ClickHouseConfig.model_validate(
+            {"host_port": "localhost:8123", "query_log_table": table}
+        )
+
+
 def test_query_log_query_only_fetches_columns_it_reads():
     config = ClickHouseConfig.model_validate(
         {

@@ -136,6 +136,12 @@ _CLICKHOUSE_DICT_SOURCE_TABLE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# A ClickHouse table identifier is at most `database.table`; restrict to characters
+# valid in an (optionally qualified) identifier. query_log_table is interpolated into
+# the fetch SQL as an identifier (identifiers cannot be bound as query parameters), so
+# validating it here is what prevents SQL injection through that config value.
+_QUERY_LOG_TABLE_PATTERN = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?$")
+
 # adding extra types not handled by clickhouse-sqlalchemy 0.1.8
 base.ischema_names["DateTime64(0)"] = DATETIME
 base.ischema_names["DateTime64(1)"] = DATETIME
@@ -422,6 +428,15 @@ class ClickHouseConfig(
         description="Whether to show recent write activity on datasets. "
         "Displays INSERT, UPDATE, DELETE history in the dataset's activity tab.",
     )
+    query_log_table: str = Field(
+        default="system.query_log",
+        description="Table or view to read the query log from, as `table` or `database.table`. "
+        "`system.query_log` holds only the queries of the server the source connects to, so on a "
+        "cluster point this at a view over `clusterAllReplicas('<cluster>', system.query_log)`. "
+        "The view must keep the columns the source reads: `query_id`, `query`, `query_kind`, `user`, "
+        "`event_time`, `current_database`, `normalized_query_hash`, `tables`, `columns`, `type` "
+        "and `is_initial_query`.",
+    )
     query_log_deny_usernames: List[str] = Field(
         default=[],
         description="List of ClickHouse usernames to exclude from query log extraction.",
@@ -439,6 +454,18 @@ class ClickHouseConfig(
         default=10,
         description="Number of top queries to save to each table for usage statistics.",
     )
+
+    @field_validator("query_log_table")
+    @classmethod
+    def validate_query_log_table(cls, v: str) -> str:
+        """Validate the query log table identifier to prevent SQL injection."""
+        if not _QUERY_LOG_TABLE_PATTERN.match(v):
+            raise ValueError(
+                f"Invalid query_log_table '{v}'. It must be an (optionally "
+                "database-qualified) identifier containing only alphanumeric "
+                "characters and underscores, e.g. 'system.query_log'."
+            )
+        return v
 
     @field_validator("query_log_deny_usernames")
     @classmethod
@@ -1000,7 +1027,8 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
 
         # Security: usernames are validated by Pydantic field validator
         # (validate_query_log_deny_usernames) to only allow safe characters [a-zA-Z0-9_-],
-        # preventing SQL injection.
+        # and query_log_table is validated to a plain identifier by
+        # validate_query_log_table, preventing SQL injection.
         return f"""
 SELECT
     query_id,
@@ -1010,7 +1038,7 @@ SELECT
     event_time,
     current_database,
     normalized_query_hash{usage_columns}
-FROM system.query_log
+FROM {self.config.query_log_table}
 WHERE type = 'QueryFinish'
   AND is_initial_query = 1
   AND event_time >= '{start_time_str}'

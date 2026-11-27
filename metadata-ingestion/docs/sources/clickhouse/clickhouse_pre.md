@@ -52,5 +52,5 @@ Notes:
 
 - `SHOW DATABASES` does not need to be granted separately when the grants above are present.
 - No write privileges (`INSERT`, `ALTER`, `CREATE`) are required.
-- If you route lineage/usage through a custom query-log view (e.g. for a cluster where you union `clusterAllReplicas('cluster', system.query_log)` into a view), grant `SELECT` on that view instead of `system.query_log` and set `query_log_table` in the recipe.
+- If you route lineage/usage through a custom query-log view (e.g. for a cluster where you union `clusterAllReplicas('cluster', system.query_log)` into a view), grant `SELECT` on that view instead of `system.query_log` and set `query_log_table` in the recipe. The view must keep the columns the source reads; they are listed in the description of `query_log_table`.
 - ClickHouse Cloud uses the same GRANT syntax; run the statements as a user with `GRANT OPTION` on the target objects.
