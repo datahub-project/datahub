@@ -795,7 +795,7 @@ class PostgresSource(SQLAlchemySource):
         except Exception as e:
             self.report.warning(
                 title="Failed to list table partitions",
-                message="Partitions in this schema will be ingested as regular tables. "
+                message="Partitions in this schema will be ingested and profiled as regular tables. "
                 "Detecting partitions requires Postgres 10+ and read access to pg_catalog.",
                 context=f"{self.get_db_name(inspector)}.{schema}",
                 exc=e,
