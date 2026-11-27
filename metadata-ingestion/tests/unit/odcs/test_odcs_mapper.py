@@ -17,6 +17,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     _make_owners,
     _operator_and_params_from_threshold,
     build_schema_metadata,
+    business_term_urn,
     odcs_to_assertion_mcps,
     odcs_to_data_contract_mcps,
     odcs_to_data_product_urn,
@@ -27,7 +28,10 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_schema_assertion_mcps,
     odcs_to_sla_freshness_assertion_mcps,
     substitute_object_placeholder,
+    unlinked_support_channels,
     unmapped_owner_roles,
+    unmapped_sla_properties,
+    unplaced_sla_entries,
     unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
@@ -2544,97 +2548,92 @@ def test_lenient_fields_by_model_matches_the_lenient_validators() -> None:
 ORDERS_URN = "urn:li:dataset:(urn:li:dataPlatform:odcs,c1.orders,PROD)"
 
 
-def _sla_contract(**extra: Any) -> ODCSContract:
+def _sla_contract(*slas: Dict[str, Any], **extra: Any) -> ODCSContract:
     payload: Dict[str, Any] = {
         "id": "c1",
         "apiVersion": "v3.1.0",
         "schema": [
-            {"name": "orders", "properties": [{"name": "updated_at"}]},
+            {
+                "name": "orders",
+                "properties": [
+                    {"name": "updated_at"},
+                    {"name": "loaded_at", "physicalName": "load_ts"},
+                ],
+            },
             {"name": "customers", "properties": [{"name": "id"}]},
         ],
-        "slaProperties": [
-            {
-                "property": "latency",
-                "value": 4,
-                "unit": "d",
-                "element": "orders.updated_at",
-                "driver": "operational",
-            },
-            {"property": "retention", "value": 3, "unit": "y"},
-            {"property": "timeOfAvailability", "value": "09:00-08:00"},
-            {
-                "property": "timeOfAvailability",
-                "value": "08:00-08:00",
-                "driver": "analytics",
-            },
-            {
-                "property": "frequency",
-                "value": 1,
-                "unit": "d",
-                "element": "customers.id",
-            },
-            # Names no table of this contract, so it cannot be placed.
-            {"property": "throughput", "value": 100, "element": "staging.col_a"},
-        ],
+        "slaProperties": list(slas),
     }
     payload.update(extra)
     return ODCSContract.model_validate(payload)
+
+
+def _latency(**fields: Any) -> Dict[str, Any]:
+    return {"property": "latency", "value": 4, "unit": "d", **fields}
 
 
 def _schema_named(contract: ODCSContract, name: str) -> ODCSSchemaObject:
     return next(s for s in contract.schema_ or [] if s.name == name)
 
 
-def _dataset_props(
-    contract: ODCSContract, schema_name: str = "orders"
-) -> DatasetPropertiesClass:
-    mcps, _ = odcs_to_logical_dataset_mcps(
+def _freshness(contract: ODCSContract, schema_name: str = "orders") -> Any:
+    return odcs_to_sla_freshness_assertion_mcps(
         contract=contract,
         schema_entry=_schema_named(contract, schema_name),
         logical_urn=ORDERS_URN,
     )
-    return next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
 
 
-def test_sla_properties_recorded_on_the_tables_they_apply_to() -> None:
-    props = _dataset_props(_sla_contract()).customProperties
-    assert props["odcs.sla.latency"] == (
-        "4 d (element: orders.updated_at, driver: operational)"
+def _tables_with_assertion(contract: ODCSContract) -> List[str]:
+    return [
+        name
+        for name in ("orders", "customers")
+        if _freshness(contract, name).assertion_urns
+    ]
+
+
+@pytest.mark.parametrize(
+    "element,tables",
+    [
+        (None, ["orders", "customers"]),
+        ("orders.updated_at", ["orders"]),
+        # The table is named even though it has no such column.
+        ("orders.id", ["orders"]),
+        ("updated_at", ["orders"]),
+        # A column's physical name, under an unknown table name.
+        ("orders_tbl.load_ts", ["orders"]),
+        # An unknown table, but a column only customers has.
+        ("tab1.id", ["customers"]),
+        ("customers.id, orders.updated_at", ["orders", "customers"]),
+        ("staging.col_a", []),
+    ],
+)
+def test_latency_sla_applies_to_the_tables_its_element_names(
+    element: Optional[str], tables: List[str]
+) -> None:
+    assert _tables_with_assertion(_sla_contract(_latency(element=element))) == tables
+
+
+def test_sla_naming_no_table_or_column_is_reported() -> None:
+    contract = _sla_contract(
+        _latency(element="staging.col_a"), _latency(element="updated_at")
     )
-    assert props["odcs.sla.retention"] == "3 y"
-    assert props["odcs.sla.timeOfAvailability"] == (
-        "09:00-08:00; 08:00-08:00 (driver: analytics)"
-    )
-    # The frequency SLA names another table's column.
-    assert "odcs.sla.frequency" not in props
-    customer_props = _dataset_props(_sla_contract(), "customers").customProperties
-    assert "odcs.sla.latency" not in customer_props
-    assert customer_props["odcs.sla.frequency"] == "1 d (element: customers.id)"
-    for table_props in (props, customer_props):
-        assert table_props["odcs.sla.throughput"] == "100 (element: staging.col_a)"
+    assert unplaced_sla_entries(contract) == ["latency: 4 d (element: staging.col_a)"]
 
 
 def test_sla_default_element_applies_when_entry_has_none() -> None:
-    contract = _sla_contract(
-        slaDefaultElement="customers.id",
-        slaProperties=[{"property": "latency", "value": 2, "unit": "h"}],
-    )
-    assert "odcs.sla.latency" not in _dataset_props(contract).customProperties
-    assert (
-        _dataset_props(contract, "customers").customProperties["odcs.sla.latency"]
-        == "2 h (element: customers.id)"
-    )
+    contract = _sla_contract(_latency(), slaDefaultElement="customers.id")
+    assert _tables_with_assertion(contract) == ["customers"]
 
 
 def test_sla_latency_becomes_freshness_assertion() -> None:
-    contract = _sla_contract()
-    urns, mcps = odcs_to_sla_freshness_assertion_mcps(
-        contract=contract,
-        schema_entry=_schema_named(contract, "orders"),
-        logical_urn=ORDERS_URN,
+    contract = _sla_contract(
+        _latency(element="orders.updated_at", driver="operational"),
+        {"property": "retention", "value": 3, "unit": "y"},
     )
-    assert len(urns) == 1
-    info = _single_info(mcps)
+    result = _freshness(contract)
+    assert len(result.assertion_urns) == 1
+    info = _single_info(result.mcps)
     assert info.type == AssertionTypeClass.FRESHNESS
     freshness = info.freshnessAssertion
     assert freshness is not None
@@ -2646,41 +2645,61 @@ def test_sla_latency_becomes_freshness_assertion() -> None:
     assert freshness.schedule.fixedInterval.multiple == 4
     assert info.customProperties is not None
     assert info.customProperties["odcs.sla.element"] == "orders.updated_at"
-    assert any(isinstance(m.aspect, DataPlatformInstanceClass) for m in mcps)
-    # Stable across runs.
-    again, _ = odcs_to_sla_freshness_assertion_mcps(
+    assert info.customProperties["odcs.sla.driver"] == "operational"
+    assert any(isinstance(m.aspect, DataPlatformInstanceClass) for m in result.mcps)
+    assert _freshness(contract).assertion_urns == result.assertion_urns
+    # SLA properties other than latency are not mapped, only reported.
+    assert unmapped_sla_properties(contract) == ["retention"]
+    mcps, _ = odcs_to_logical_dataset_mcps(
         contract=contract,
         schema_entry=_schema_named(contract, "orders"),
         logical_urn=ORDERS_URN,
     )
-    assert again == urns
-    # The latency SLA names the orders table only.
-    none, _ = odcs_to_sla_freshness_assertion_mcps(
-        contract=contract,
-        schema_entry=_schema_named(contract, "customers"),
-        logical_urn=ORDERS_URN,
+    props = next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
+    assert not any(key.startswith("odcs.sla") for key in props.customProperties)
+
+
+def test_sla_assertion_urn_follows_the_sla_id_not_its_element() -> None:
+    def urns(sla: Dict[str, Any]) -> List[str]:
+        return _freshness(_sla_contract(sla)).assertion_urns
+
+    assert urns(_latency(id="lat", element="orders.updated_at")) == urns(
+        _latency(id="lat", element="updated_at")
     )
-    assert none == []
+    assert urns(_latency(element="orders.updated_at")) != urns(
+        _latency(element="updated_at")
+    )
+
+
+def test_latency_slas_differing_by_driver_get_their_own_assertions() -> None:
+    result = _freshness(
+        _sla_contract(
+            _latency(element="updated_at", driver="regulatory"),
+            _latency(element="updated_at", driver="analytics", value=1),
+        )
+    )
+    assert len(set(result.assertion_urns)) == 2
+    assert result.duplicates == []
+
+
+def test_identical_latency_slas_are_reported_as_duplicates() -> None:
+    result = _freshness(_sla_contract(_latency(), _latency(value=2)))
+    assert len(result.assertion_urns) == 1
+    assert result.duplicates == ["latency: 2 d"]
 
 
 @pytest.mark.parametrize(
     "value,unit",
-    [(4, "m"), (4, None), (1.5, "d"), (0, "d"), (True, "d"), ("soon", "d")],
+    [(30, "s"), (1.5, "h"), ("PT1H", None), (4, "m"), (0, "d"), (True, "d")],
 )
-def test_sla_latency_without_a_clear_interval_is_not_an_assertion(
+def test_latency_without_a_clear_interval_is_reported(
     value: Any, unit: Optional[str]
 ) -> None:
-    contract = _sla_contract(
-        slaProperties=[{"property": "latency", "value": value, "unit": unit}]
+    result = _freshness(
+        _sla_contract({"property": "latency", "value": value, "unit": unit})
     )
-    urns, _ = odcs_to_sla_freshness_assertion_mcps(
-        contract=contract,
-        schema_entry=_schema_named(contract, "orders"),
-        logical_urn=ORDERS_URN,
-    )
-    assert urns == []
-    # It is still recorded as a property.
-    assert "odcs.sla.latency" in _dataset_props(contract).customProperties
+    assert result.assertion_urns == []
+    assert len(result.unconvertible) == 1
 
 
 def test_data_contract_references_freshness_assertions() -> None:
@@ -2700,7 +2719,7 @@ def test_data_contract_references_freshness_assertions() -> None:
     assert [f.assertion for f in props.freshness] == ["urn:li:assertion:fresh"]
 
 
-def test_support_channels_become_links_or_properties() -> None:
+def test_support_channels_become_links() -> None:
     contract = ODCSContract.model_validate(
         {
             "id": "c1",
@@ -2732,36 +2751,10 @@ def test_support_channels_become_links_or_properties() -> None:
         ("mailto:data-announce@example.com", "Support: data-announce (email)"),
         ("https://feedback.example.com", "Support: Feedback — Product feedback"),
     ]
+    # No link to store: reported, not written as a property.
+    assert unlinked_support_channels(contract) == ["#data-help"]
     props = next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
-    # No link to store, so the channel is kept as a property.
-    assert props.customProperties["odcs.support.#data-help"] == (
-        "tool: slack, scope: interactive"
-    )
-    assert "odcs.support.Feedback" not in props.customProperties
-
-
-def test_roles_recorded_as_properties() -> None:
-    contract = ODCSContract.model_validate(
-        {
-            "id": "c1",
-            "schema": [{"name": "orders"}],
-            "roles": [
-                {
-                    "role": "orders_reader",
-                    "access": "read",
-                    "firstLevelApprovers": "Reporting Manager",
-                    "secondLevelApprovers": "Data Owner",
-                },
-                {"role": "orders_admin"},
-            ],
-        }
-    )
-    props = _dataset_props(contract).customProperties
-    assert props["odcs.role.orders_reader"] == (
-        "access: read, firstLevelApprovers: Reporting Manager, "
-        "secondLevelApprovers: Data Owner"
-    )
-    assert props["odcs.role.orders_admin"] == ""
+    assert not any(key.startswith("odcs.support") for key in props.customProperties)
 
 
 def _fields_by_path(
@@ -2775,37 +2768,32 @@ def _fields_by_path(
     return {f.fieldPath: f for f in result.schema_metadata.fields}
 
 
-def _tag_urns(field: SchemaFieldClass) -> List[str]:
-    return [t.tag for t in field.globalTags.tags] if field.globalTags else []
+def _term_urns(field: SchemaFieldClass) -> List[str]:
+    return [t.urn for t in field.glossaryTerms.terms] if field.glossaryTerms else []
 
 
-def test_classification_and_critical_data_element_become_field_tags() -> None:
+def test_classification_becomes_a_field_term_not_a_tag() -> None:
     fields = _fields_by_path(
         [
             {
                 "name": "email",
-                "classification": "confidential",
+                "classification": "Restricted",
                 "criticalDataElement": True,
                 "tags": ["pii"],
             },
-            {"name": "note", "criticalDataElement": False},
-        ],
-        tag_prefix="odcs.",
+            {"name": "note", "classification": "confidential"},
+        ]
     )
-    assert _tag_urns(fields["email"]) == [
-        "urn:li:tag:odcs.pii",
-        "urn:li:tag:odcs.classification:confidential",
-        "urn:li:tag:odcs.critical_data_element",
+    assert _term_urns(fields["email"]) == [
+        "urn:li:glossaryTerm:classification-restricted"
     ]
-    assert _tag_urns(fields["note"]) == []
-
-
-def test_classification_tag_prefix_is_configurable() -> None:
-    fields = _fields_by_path(
-        [{"name": "email", "classification": "restricted"}],
-        classification_tag_prefix="sensitivity_",
-    )
-    assert _tag_urns(fields["email"]) == ["urn:li:tag:sensitivity_restricted"]
+    assert _term_urns(fields["note"]) == [
+        "urn:li:glossaryTerm:classification-confidential"
+    ]
+    # Only the contract's own tags; criticalDataElement is not mapped.
+    email_tags = fields["email"].globalTags
+    assert email_tags is not None
+    assert [t.tag for t in email_tags.tags] == ["urn:li:tag:pii"]
 
 
 def test_business_name_added_to_field_description_unless_redundant() -> None:
@@ -2817,6 +2805,9 @@ def test_business_name_added_to_field_description_unless_redundant() -> None:
                 "businessName": "Customer Reference Number",
             },
             {"name": "order_id", "businessName": "OrderId"},
+            # Different non-Latin names are not a re-casing of each other.
+            {"name": "名前", "businessName": "氏名"},
+            {"name": "größe", "businessName": "GRÖSSE"},
         ]
     )
     assert fields["cust_ref"].description == (
@@ -2824,20 +2815,53 @@ def test_business_name_added_to_field_description_unless_redundant() -> None:
     )
     # A business name that only re-cases the column name adds nothing.
     assert fields["order_id"].description is None
+    assert fields["größe"].description is None
+    assert fields["名前"].description == "**Business name:** 氏名"
 
 
-def test_glossary_term_urns_become_field_terms() -> None:
-    term = "urn:li:glossaryTerm:Finance.Revenue"
+@pytest.mark.parametrize(
+    "reference,urn",
+    [
+        ("term:imo_number", "urn:li:glossaryTerm:term-imo_number"),
+        ("External Glossary Term", "urn:li:glossaryTerm:external_glossary_term"),
+        (
+            "urn:li:glossaryTerm:Finance.Revenue",
+            "urn:li:glossaryTerm:Finance.Revenue",
+        ),
+        ("  --Net Revenue (EUR)--  ", "urn:li:glossaryTerm:net_revenue_eur"),
+        ("ns:Sub:Term", "urn:li:glossaryTerm:ns-sub-term"),
+        ("***", None),
+        ("", None),
+        ("urn:li:glossaryTerm:", None),
+    ],
+)
+def test_business_term_urn(reference: str, urn: Optional[str]) -> None:
+    assert business_term_urn(reference) == urn
+
+
+def test_business_definitions_on_properties_become_field_terms() -> None:
     contract = _make_contract(
         schema=[
             {
                 "name": "t",
                 "properties": [
                     {
-                        "name": "amount",
+                        "name": "vessel",
                         "authoritativeDefinitions": [
-                            {"type": "businessDefinition", "url": term},
-                            {"type": "glossary", "url": "urn:li:glossaryTerm:"},
+                            {"type": "businessDefinition", "url": "term:imo_number"},
+                            {
+                                "type": "businessDefinition",
+                                "url": "urn:li:glossaryTerm:Finance.Revenue",
+                            },
+                            # A web page stays a link.
+                            {
+                                "type": "businessDefinition",
+                                "url": "https://wiki.example.com/imo",
+                            },
+                            # A path is a (relative) link, not a term.
+                            {"type": "businessDefinition", "url": "../docs/imo.md"},
+                            # Only business definitions name terms.
+                            {"type": "implementation", "url": "term:other"},
                         ],
                     }
                 ],
@@ -2850,33 +2874,45 @@ def test_glossary_term_urns_become_field_terms() -> None:
         logical_urn=LOGICAL_URN,
     )
     schema = next(m.aspect for m in mcps if isinstance(m.aspect, SchemaMetadataClass))
-    terms = schema.fields[0].glossaryTerms
-    assert terms is not None
-    assert [t.urn for t in terms.terms] == [term]
-    # Not a link, and not reported as one that was skipped; the malformed urn is.
-    assert not any(isinstance(m.aspect, InstitutionalMemoryClass) for m in mcps)
+    assert _term_urns(schema.fields[0]) == [
+        "urn:li:glossaryTerm:term-imo_number",
+        "urn:li:glossaryTerm:Finance.Revenue",
+    ]
+    memory = next(
+        m.aspect for m in mcps if isinstance(m.aspect, InstitutionalMemoryClass)
+    )
+    assert [e.url for e in memory.elements] == ["https://wiki.example.com/imo"]
     assert unstorable_authoritative_definition_urls(contract) == [
-        "urn:li:glossaryTerm:"
+        "../docs/imo.md",
+        "term:other",
     ]
 
 
-def test_glossary_term_urns_outside_properties_are_still_reported() -> None:
+def test_term_references_outside_properties_are_still_reported() -> None:
     term = "urn:li:glossaryTerm:Finance.Revenue"
+    definition = {"type": "businessDefinition", "url": term}
     contract = _make_contract(
-        schema=[{"name": "t"}],
-        authoritative_definitions=[{"type": "businessDefinition", "url": term}],
+        schema=[
+            {
+                "name": "t",
+                "properties": [
+                    {"name": "amount", "authoritativeDefinitions": [definition]}
+                ],
+            }
+        ],
+        authoritative_definitions=[definition],
     )
+    # Mapped on the property, but skipped (and reported) at contract level.
     assert unstorable_authoritative_definition_urls(contract) == [term]
 
 
-def test_off_spec_sla_support_roles_and_business_name_are_dropped() -> None:
+def test_off_spec_sla_support_and_business_name_are_dropped() -> None:
     contract = ODCSContract.model_validate(
         {
             "id": "c1",
             "slaProperties": [{"value": 1}, {"property": "latency", "unit": 5}],
             "slaDefaultElement": 3,
             "support": "help",
-            "roles": [{"access": "read"}],
             "schema": [{"name": "t", "properties": [{"name": "a", "businessName": 5}]}],
         }
     )
@@ -2884,35 +2920,5 @@ def test_off_spec_sla_support_roles_and_business_name_are_dropped() -> None:
     assert [(s.property, s.unit) for s in contract.slaProperties] == [("latency", None)]
     assert contract.slaDefaultElement is None
     assert contract.support is None
-    assert contract.roles is None
     props = _first_schema(contract).properties
     assert props is not None and props[0].businessName is None
-
-
-def test_field_classification_tags_can_be_turned_off() -> None:
-    fields = _fields_by_path(
-        [
-            {
-                "name": "email",
-                "classification": "confidential",
-                "criticalDataElement": True,
-                "tags": ["pii"],
-            }
-        ],
-        emit_field_classification_tags=False,
-    )
-    assert _tag_urns(fields["email"]) == ["urn:li:tag:pii"]
-
-
-def test_business_name_can_be_turned_off() -> None:
-    fields = _fields_by_path(
-        [
-            {
-                "name": "cust_ref",
-                "description": "Customer key.",
-                "businessName": "Customer Reference Number",
-            }
-        ],
-        emit_business_name=False,
-    )
-    assert fields["cust_ref"].description == "Customer key."

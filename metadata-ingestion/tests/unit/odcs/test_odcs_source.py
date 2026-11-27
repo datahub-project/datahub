@@ -35,6 +35,7 @@ from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
     DomainsClass,
     EdgeClass,
+    GlossaryTermKeyClass,
     InstitutionalMemoryClass,
     LogicalParentClass,
     OwnershipClass,
@@ -2972,3 +2973,64 @@ def test_unknown_keys_inside_context_and_enum_warn(tmp_path: pathlib.Path) -> No
     assert "<root>.context.constraints[*].id" in ignored
     assert "<root>.context.verifiedStatements[*].id" in ignored
     assert "<root>.schema[*].properties[*].enum[*].id" in ignored
+
+
+_SLA_SUPPORT_TERMS_BODY = """\
+apiVersion: v3.1.0
+kind: DataContract
+id: sla
+version: 1.0.0
+status: active
+schema:
+  - name: orders
+    properties:
+      - name: updated_at
+        classification: confidential
+        authoritativeDefinitions:
+          - type: businessDefinition
+            url: "term:order_timestamp"
+slaProperties:
+  - property: latency
+    value: 30
+    unit: s
+    element: orders.updated_at
+  - property: latency
+    value: 4
+    unit: d
+    element: staging.col_a
+  - property: retention
+    value: 3
+    unit: y
+support:
+  - channel: "#data-help"
+    tool: slack
+"""
+
+
+def test_sla_support_and_term_lossy_cases_are_reported(
+    tmp_path: pathlib.Path,
+) -> None:
+    contract_file = _write(tmp_path / "c.odcs.yaml", _SLA_SUPPORT_TERMS_BODY)
+    graph = MagicMock()
+    graph.exists.side_effect = lambda urn: not urn.startswith("urn:li:glossaryTerm:")
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    list(src.get_workunits_internal())
+    warnings = _messages(src.report.warnings)
+    assert "latency: 30 s (element: orders.updated_at)" in warnings
+    assert "latency: 4 d (element: staging.col_a)" in warnings
+    assert "term=urn:li:glossaryTerm:term-order_timestamp" in warnings
+    assert "term=urn:li:glossaryTerm:classification-confidential" in warnings
+    infos = _messages(src.report.infos)
+    assert "#data-help" in infos
+    assert "<root>.slaProperties[property=retention]" in src.report.spec_fields_ignored
+
+
+def test_referenced_glossary_terms_are_never_created(tmp_path: pathlib.Path) -> None:
+    contract_file = _write(tmp_path / "c.odcs.yaml", _SLA_SUPPORT_TERMS_BODY)
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits())
+    schema = _aspects_of(workunits, SchemaMetadataClass)[0]
+    assert schema.fields[0].glossaryTerms is not None
+    # The framework materializes a key aspect for every referenced term, which
+    # would create it; the source only references terms.
+    assert not _aspects_of(workunits, GlossaryTermKeyClass)

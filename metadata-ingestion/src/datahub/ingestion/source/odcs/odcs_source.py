@@ -58,7 +58,10 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_schema_assertion_mcps,
     odcs_to_sla_freshness_assertion_mcps,
     substitute_object_placeholder,
+    unlinked_support_channels,
     unmapped_owner_roles,
+    unmapped_sla_properties,
+    unplaced_sla_entries,
     unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
@@ -67,7 +70,6 @@ from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_ENTRY_FIELDS,
     KNOWN_UNMAPPED_PROPERTY_FIELDS,
     KNOWN_UNMAPPED_QUALITY_FIELDS,
-    KNOWN_UNMAPPED_ROLE_FIELDS,
     KNOWN_UNMAPPED_SCHEMA_FIELDS,
     KNOWN_UNMAPPED_SERVER_FIELDS,
     KNOWN_UNMAPPED_SLA_FIELDS,
@@ -88,7 +90,6 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSEnumValue,
     ODCSProperty,
     ODCSQualityRule,
-    ODCSRole,
     ODCSSchemaObject,
     ODCSServer,
     ODCSSlaProperty,
@@ -114,8 +115,10 @@ from datahub.metadata.schema_classes import (
     DataProductPropertiesClass,
     DomainPropertiesClass,
     DomainsClass,
+    GlossaryTermKeyClass,
     LogicalParentClass,
     OwnershipClass,
+    SchemaMetadataClass,
     StatusClass,
 )
 from datahub.metadata.urns import DataProductUrn, DomainUrn
@@ -158,7 +161,6 @@ _KNOWN_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
     ODCSTeam: KNOWN_UNMAPPED_TEAM_FIELDS,
     ODCSSlaProperty: KNOWN_UNMAPPED_SLA_FIELDS,
     ODCSSupportItem: KNOWN_UNMAPPED_SUPPORT_FIELDS,
-    ODCSRole: KNOWN_UNMAPPED_ROLE_FIELDS,
     ODCSTeamMember: KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition: KNOWN_UNMAPPED_AUTHDEF_FIELDS,
     ODCSContextConstraint: KNOWN_UNMAPPED_ENTRY_FIELDS,
@@ -217,7 +219,6 @@ _CHILD_MODEL_BY_KEY: Dict[type, Dict[str, type]] = {
         "team": ODCSTeamMember,
         "slaProperties": ODCSSlaProperty,
         "support": ODCSSupportItem,
-        "roles": ODCSRole,
     },
     ODCSTeam: {"members": ODCSTeamMember},
     ODCSSchemaObject: {
@@ -234,6 +235,20 @@ _CHILD_MODEL_BY_KEY: Dict[type, Dict[str, type]] = {
         "verifiedStatements": ODCSVerifiedStatement,
     },
 }
+
+
+def _drop_glossary_term_keys(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """Drop the key aspects the framework adds for every referenced glossary term.
+
+    A key aspect would create the term (and put it in the stale-removal
+    checkpoint, to be soft-deleted later); ODCS only references terms. The
+    source itself never emits a term key.
+    """
+    for wu in stream:
+        if not isinstance(getattr(wu.metadata, "aspect", None), GlossaryTermKeyClass):
+            yield wu
 
 
 def _model_field_keys(model_cls: type[BaseModel]) -> Set[str]:
@@ -408,6 +423,8 @@ class ODCSSource(StatefulIngestionSourceBase):
         self._urn_verify_failed: Set[str] = set()
         # Owner URNs already warned about (report-only resolution check).
         self._owners_warned: Set[str] = set()
+        # Glossary term URNs already warned about (report-only, like owners).
+        self._terms_warned: Set[str] = set()
         self._data_product_ports: Dict[str, _DataProductMembership] = {}
         # `dataProduct` value -> resolution; cached so a value shared by many
         # contracts resolves and warns once. Whether the product is new is folded
@@ -441,6 +458,7 @@ class ODCSSource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            _drop_glossary_term_keys,
             partial(auto_stale_entity_removal, self.stale_entity_removal_handler),
         ]
 
@@ -998,6 +1016,36 @@ class ODCSSource(StatefulIngestionSourceBase):
                         context=f"file={source_uri} owner={owner.owner}",
                     )
 
+    def _check_term_resolution(
+        self, mcps: List[MetadataChangeProposalWrapper], source_uri: str
+    ) -> None:
+        """Report-only: warn once per field glossary term that does not exist.
+
+        ODCS never creates terms; the reference resolves once the term exists.
+        """
+        for mcp in mcps:
+            if not isinstance(mcp.aspect, SchemaMetadataClass):
+                continue
+            for schema_field in mcp.aspect.fields:
+                terms = schema_field.glossaryTerms
+                for term in terms.terms if terms else []:
+                    if term.urn in self._terms_warned:
+                        continue
+                    if self._urn_exists_in_graph(term.urn) is False:
+                        self._terms_warned.add(term.urn)
+                        self.report.warning(
+                            title="Glossary term not found in DataHub",
+                            message=(
+                                "The field's term reference was emitted anyway and "
+                                "will resolve once the term exists; ODCS does not "
+                                "create terms."
+                            ),
+                            context=(
+                                f"file={source_uri} field={schema_field.fieldPath} "
+                                f"term={term.urn}"
+                            ),
+                        )
+
     def _process_file(self, file_path: pathlib.Path) -> Iterable[MetadataWorkUnit]:
         self.report.contracts_scanned += 1
         loaded = self._load_yaml(file_path)
@@ -1065,6 +1113,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 ),
                 context=f"{source_uri}: {', '.join(unstorable_urls)}",
             )
+        self._report_sla_and_support(contract, source_uri)
         self._report_lossy_mappings(raw_dict, contract, source_uri)
 
         overrides = self.config.physical_urn_overrides.get(contract.id)
@@ -1125,12 +1174,9 @@ class ODCSSource(StatefulIngestionSourceBase):
                 assertion_urns = yield from self._emit_assertions(
                     contract, binding, source_uri, physical_usable
                 )
-                freshness_urns, freshness_mcps = odcs_to_sla_freshness_assertion_mcps(
-                    contract, binding.schema_entry, binding.logical_urn
+                freshness_urns = yield from self._emit_freshness_assertions(
+                    contract, binding, source_uri
                 )
-                self.report.assertions_emitted += len(freshness_urns)
-                for mcp in freshness_mcps:
-                    yield mcp.as_workunit()
             if self.config.emit_schema_assertion:
                 schema_assertion_urn = yield from self._emit_schema_assertion(
                     contract, binding
@@ -1203,11 +1249,9 @@ class ODCSSource(StatefulIngestionSourceBase):
             replicate_contract_metadata=self.config.replicate_contract_metadata,
             strip_owner_email_domain=self.config.strip_owner_email_domain,
             owner_email_domain=self.config.owner_email_domain,
-            classification_tag_prefix=self.config.classification_tag_prefix,
-            emit_field_classification_tags=self.config.emit_field_classification_tags,
-            emit_business_name=self.config.emit_business_name,
         )
         self._check_owner_resolution(logical_mcps, source_uri)
+        self._check_term_resolution(logical_mcps, source_uri)
         for mcp in logical_mcps:
             is_field = guess_entity_type(mcp.entityUrn or "") == "schemaField"
             if is_field and isinstance(mcp.aspect, AiContextClass):
@@ -1224,6 +1268,41 @@ class ODCSSource(StatefulIngestionSourceBase):
         for unmapped in unmapped_types:
             self.report.schema_type_fallbacks.append(
                 f"{contract.id}/{schema_entry.name}: {unmapped}"
+            )
+
+    def _report_sla_and_support(self, contract: ODCSContract, source_uri: str) -> None:
+        unmapped_slas = unmapped_sla_properties(contract)
+        if unmapped_slas:
+            self.report.spec_fields_ignored.extend(
+                f"<root>.slaProperties[property={p}]" for p in unmapped_slas
+            )
+            self.report.info(
+                title="ODCS SLA properties DataHub does not map",
+                message=(
+                    "Only `latency` SLAs are mapped (to freshness assertions); "
+                    "these SLA properties are ignored."
+                ),
+                context=f"{source_uri}: {', '.join(unmapped_slas)}",
+            )
+        unplaced = unplaced_sla_entries(contract)
+        if unplaced:
+            self.report.warning(
+                title="ODCS latency SLA matches no table",
+                message=(
+                    "The SLA's element names no table or column of the contract, "
+                    "so no freshness assertion was created for it."
+                ),
+                context=f"{source_uri}: {'; '.join(unplaced)}",
+            )
+        unlinked = unlinked_support_channels(contract)
+        if unlinked:
+            self.report.info(
+                title="ODCS support channels without a link",
+                message=(
+                    "Support channels are added as links; these have no URL DataHub "
+                    "can store, so they were not added."
+                ),
+                context=f"{source_uri}: {', '.join(unlinked)}",
             )
 
     def _report_lossy_mappings(
@@ -1445,6 +1524,36 @@ class ODCSSource(StatefulIngestionSourceBase):
         for mcp in assertion_mcps:
             yield mcp.as_workunit()
         return assertion_urns
+
+    def _emit_freshness_assertions(
+        self, contract: ODCSContract, binding: PhysicalBinding, source_uri: str
+    ) -> Generator[MetadataWorkUnit, None, List[str]]:
+        result = odcs_to_sla_freshness_assertion_mcps(
+            contract, binding.schema_entry, binding.logical_urn
+        )
+        context = f"file={source_uri} schema={binding.schema_entry.name}"
+        if result.unconvertible:
+            self.report.warning(
+                title="ODCS latency SLA not converted to a freshness assertion",
+                message=(
+                    "A freshness assertion needs a whole, positive `value` and a "
+                    "`unit` of min, h, d, w, mo or y (or their spelled-out forms)."
+                ),
+                context=f"{context}: {'; '.join(result.unconvertible)}",
+            )
+        if result.duplicates:
+            self.report.warning(
+                title="Duplicate ODCS latency SLA skipped",
+                message=(
+                    "These latency SLAs share an `id`, or an element and driver, "
+                    "with an earlier one; only the first became an assertion."
+                ),
+                context=f"{context}: {'; '.join(result.duplicates)}",
+            )
+        self.report.assertions_emitted += len(result.assertion_urns)
+        for mcp in result.mcps:
+            yield mcp.as_workunit()
+        return result.assertion_urns
 
     def _emit_schema_assertion(
         self,

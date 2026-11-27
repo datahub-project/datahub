@@ -63,12 +63,16 @@
                     },
                     "nativeDataType": "date",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
+                    "glossaryTerms": {
+                        "terms": [
                             {
-                                "tag": "urn:li:tag:classification:public"
+                                "urn": "urn:li:glossaryTerm:classification-public"
                             }
-                        ]
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     },
                     "isPartOfKey": false
                 },
@@ -83,12 +87,16 @@
                     },
                     "nativeDataType": "varchar(18)",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
+                    "glossaryTerms": {
+                        "terms": [
                             {
-                                "tag": "urn:li:tag:classification:restricted"
+                                "urn": "urn:li:glossaryTerm:classification-restricted"
                             }
-                        ]
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     },
                     "isPartOfKey": true
                 },
@@ -103,12 +111,16 @@
                     },
                     "nativeDataType": "varchar(2)",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
+                    "glossaryTerms": {
+                        "terms": [
                             {
-                                "tag": "urn:li:tag:classification:public"
+                                "urn": "urn:li:glossaryTerm:classification-public"
                             }
-                        ]
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     },
                     "isPartOfKey": false
                 }
@@ -235,12 +247,16 @@
                             },
                             "nativeDataType": "date",
                             "recursive": false,
-                            "globalTags": {
-                                "tags": [
+                            "glossaryTerms": {
+                                "terms": [
                                     {
-                                        "tag": "urn:li:tag:classification:public"
+                                        "urn": "urn:li:glossaryTerm:classification-public"
                                     }
-                                ]
+                                ],
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub"
+                                }
                             },
                             "isPartOfKey": false
                         },
@@ -255,12 +271,16 @@
                             },
                             "nativeDataType": "varchar(18)",
                             "recursive": false,
-                            "globalTags": {
-                                "tags": [
+                            "glossaryTerms": {
+                                "terms": [
                                     {
-                                        "tag": "urn:li:tag:classification:restricted"
+                                        "urn": "urn:li:glossaryTerm:classification-restricted"
                                     }
-                                ]
+                                ],
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub"
+                                }
                             },
                             "isPartOfKey": true
                         },
@@ -275,12 +295,16 @@
                             },
                             "nativeDataType": "varchar(2)",
                             "recursive": false,
-                            "globalTags": {
-                                "tags": [
+                            "glossaryTerms": {
+                                "terms": [
                                     {
-                                        "tag": "urn:li:tag:classification:public"
+                                        "urn": "urn:li:glossaryTerm:classification-public"
                                     }
-                                ]
+                                ],
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub"
+                                }
                             },
                             "isPartOfKey": false
                         }
@@ -887,22 +911,6 @@
     }
 },
 {
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:classification:public",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "classification:public"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-bitol-schema__all-schema-types",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.AnotherObject,PROD)",
     "changeType": "UPSERT",
@@ -910,22 +918,6 @@
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-bitol-schema__all-schema-types",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:classification:restricted",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "classification:restricted"
         }
     },
     "systemMetadata": {

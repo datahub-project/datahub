@@ -67,9 +67,10 @@ SLA_UNIT_TO_CALENDAR_INTERVAL: Dict[str, str] = {
     **dict.fromkeys(("y", "yr", "yrs", "year", "years"), CalendarIntervalClass.YEAR),
 }
 
-# Schema-field tags derived from property `classification` / `criticalDataElement`.
-DEFAULT_CLASSIFICATION_TAG_PREFIX = "classification:"
-TAG_CRITICAL_DATA_ELEMENT = "critical_data_element"
+# A property's business definition names a glossary term; its classification
+# names the term `classification:<value>` (see odcs_mapper.business_term_urn).
+AUTHDEF_TYPE_BUSINESS_DEFINITION = "businessDefinition"
+CLASSIFICATION_TERM_PREFIX = "classification:"
 
 UNIT_ROWS = "rows"
 UNIT_PERCENT = "percent"
@@ -104,10 +105,6 @@ PROP_RULE_DIMENSION = "odcs.rule.dimension"
 PROP_RULE_SEVERITY = "odcs.rule.severity"
 PROP_RULE_BUSINESS_IMPACT = "odcs.rule.businessImpact"
 PROP_RULE_TYPE = "odcs.rule.type"
-# Prefixes for one dataset property per SLA property, role and support channel.
-PROP_SLA_PREFIX = "odcs.sla."
-PROP_ROLE_PREFIX = "odcs.role."
-PROP_SUPPORT_PREFIX = "odcs.support."
 PROP_SLA_ELEMENT = "odcs.sla.element"
 PROP_SLA_DRIVER = "odcs.sla.driver"
 

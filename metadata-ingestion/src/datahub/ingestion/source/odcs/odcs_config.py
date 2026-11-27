@@ -14,9 +14,6 @@ from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
 from datahub.ingestion.source.common.http_connection_config import HTTPConnectionConfig
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
-from datahub.ingestion.source.odcs.odcs_constants import (
-    DEFAULT_CLASSIFICATION_TAG_PREFIX,
-)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -188,25 +185,6 @@ class ODCSSourceConfig(
         default=None,
         description="Optional prefix prepended to every tag emitted from ODCS `tags` and "
         "property-level `tags` (e.g. `odcs.`). Useful for distinguishing ODCS-sourced tags.",
-    )
-    classification_tag_prefix: str = Field(
-        default=DEFAULT_CLASSIFICATION_TAG_PREFIX,
-        description="Prefix of the schema-field tag emitted from a property's `classification` "
-        "(`confidential` becomes the tag `classification:confidential`). `tag_prefix`, when set, "
-        "is prepended as for other tags. Use an empty string for the bare classification value.",
-    )
-    emit_field_classification_tags: bool = Field(
-        default=True,
-        description="Whether to tag schema fields from a property's `classification` (see "
-        "`classification_tag_prefix`) and `criticalDataElement: true` (the tag "
-        "`critical_data_element`). Set False if your fields are tagged by another source, such "
-        "as a classifier, and you do not want the contract's values as tags too.",
-    )
-    emit_business_name: bool = Field(
-        default=True,
-        description="Whether to add a property's `businessName` to its field description, as a "
-        "`**Business name:**` section. A business name that only re-cases the column name "
-        "(`OrderId` for `order_id`) is always skipped.",
     )
     strip_owner_email_domain: bool = Field(
         default=False,

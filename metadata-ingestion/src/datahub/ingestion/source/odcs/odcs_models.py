@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 # tests/unit/odcs/test_odcs_models.py enforces that invariant so a future spec
 # bump fails loudly instead of producing spurious "check spelling" warnings.
 
-KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(("price",))
+KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(("price", "roles"))
 
 KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
     (
@@ -30,7 +30,6 @@ KNOWN_UNMAPPED_PROPERTY_FIELDS = frozenset(
         "items",
         "logicalTypeOptions",
         "map",
-        "physicalName",
         "relationships",
         "transformSourceObjects",
     )
@@ -78,7 +77,6 @@ KNOWN_UNMAPPED_SLA_FIELDS = frozenset(
     (
         "authoritativeDefinitions",
         "customProperties",
-        "id",
         "schedule",
         "scheduler",
         "valueExt",
@@ -87,17 +85,17 @@ KNOWN_UNMAPPED_SLA_FIELDS = frozenset(
 
 KNOWN_UNMAPPED_SUPPORT_FIELDS = frozenset(("customProperties", "id", "invitationUrl"))
 
-KNOWN_UNMAPPED_ROLE_FIELDS = frozenset(("customProperties", "id"))
-
 # Fields the models read but no mapping uses. Reported with the spec-valid but
 # unmapped keys so nothing is dropped without a trace.
 READ_BUT_UNMAPPED_CONTRACT_FIELDS = frozenset(("contractCreatedTs",))
 READ_BUT_UNMAPPED_SCHEMA_FIELDS = frozenset(("businessName",))
 READ_BUT_UNMAPPED_PROPERTY_FIELDS = frozenset(
     (
+        "criticalDataElement",
         "encryptedName",
         "partitionKeyPosition",
         "partitioned",
+        "physicalName",
         "primaryKeyPosition",
         "unique",
     )
@@ -289,6 +287,7 @@ class ODCSEnumValue(ODCSBaseModel):
 
 
 class ODCSSlaProperty(ODCSBaseModel):
+    id: Optional[str] = None
     property: str
     value: Optional[JsonValue] = None
     unit: Optional[str] = None
@@ -297,7 +296,7 @@ class ODCSSlaProperty(ODCSBaseModel):
     description: Optional[str] = None
 
     _lenient_strings = field_validator(
-        "unit", "element", "driver", "description", mode="before"
+        "id", "unit", "element", "driver", "description", mode="before"
     )(_str_or_none)
 
 
@@ -310,22 +309,6 @@ class ODCSSupportItem(ODCSBaseModel):
 
     _lenient_strings = field_validator(
         "url", "tool", "scope", "description", mode="before"
-    )(_str_or_none)
-
-
-class ODCSRole(ODCSBaseModel):
-    role: str
-    access: Optional[str] = None
-    firstLevelApprovers: Optional[str] = None
-    secondLevelApprovers: Optional[str] = None
-    description: Optional[str] = None
-
-    _lenient_strings = field_validator(
-        "access",
-        "firstLevelApprovers",
-        "secondLevelApprovers",
-        "description",
-        mode="before",
     )(_str_or_none)
 
 
@@ -357,6 +340,8 @@ class ODCSProperty(ODCSBaseModel):
     transformDescription: Optional[str] = None
     enum: Optional[List[ODCSEnumValue]] = None
     businessName: Optional[str] = None
+    # Read only to place SLAs whose element names the physical column.
+    physicalName: Optional[str] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
     _lenient_synonyms = field_validator("synonyms", mode="before")(_synonym_entries)
@@ -366,6 +351,7 @@ class ODCSProperty(ODCSBaseModel):
         "transformLogic",
         "transformDescription",
         "businessName",
+        "physicalName",
         mode="before",
     )(_str_or_none)
 
@@ -543,7 +529,6 @@ class ODCSContract(ODCSBaseModel):
     # Deprecated since v3.1; the element an SLA entry without one applies to.
     slaDefaultElement: Optional[str] = None
     support: Optional[List[ODCSSupportItem]] = None
-    roles: Optional[List[ODCSRole]] = None
 
     _lenient_context = field_validator("context", mode="before")(_context_or_none)
     _lenient_sla = field_validator("slaProperties", mode="before")(
@@ -555,7 +540,6 @@ class ODCSContract(ODCSBaseModel):
     _lenient_support = field_validator("support", mode="before")(
         _entries_with("channel")
     )
-    _lenient_roles = field_validator("roles", mode="before")(_entries_with("role"))
 
     @property
     def team_members(self) -> List[ODCSTeamMember]:
@@ -579,11 +563,9 @@ LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {
         "slaProperties",
         "slaDefaultElement",
         "support",
-        "roles",
     ),
-    ODCSSlaProperty: ("unit", "element", "driver", "description"),
+    ODCSSlaProperty: ("id", "unit", "element", "driver", "description"),
     ODCSSupportItem: ("url", "tool", "scope", "description"),
-    ODCSRole: ("access", "firstLevelApprovers", "secondLevelApprovers", "description"),
     ODCSContext: ("instructions", "constraints", "verifiedStatements"),
     ODCSVerifiedStatement: ("answer",),
     ODCSEnumValue: ("label", "description"),
@@ -597,5 +579,6 @@ LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {
         "transformDescription",
         "enum",
         "businessName",
+        "physicalName",
     ),
 }
