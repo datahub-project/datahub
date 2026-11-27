@@ -673,6 +673,35 @@ class DataHubListener:
         if self.config.debug_emitter:
             logging.getLogger("datahub.emitter").setLevel(logging.DEBUG)
 
+    def _emit_mcps(
+        self, emitter: Emitter, mcps: List[MetadataChangeProposalWrapper]
+    ) -> None:
+        """Emit MCPs in as few requests as each emitter allows.
+
+        REST emitters, including those inside a CompositeEmitter, get one
+        ``emit_mcps`` batch. If the batch fails, or for other emitters (Kafka,
+        file), the MCPs are emitted one by one as before, so one rejected MCP
+        does not keep the others from being written.
+        """
+        import datahub.emitter.rest_emitter
+
+        emitters = (
+            emitter.emitters if isinstance(emitter, CompositeEmitter) else [emitter]
+        )
+        for i, child in enumerate(emitters):
+            # Like CompositeEmitter.emit, report results only for the first emitter.
+            callback = self._make_emit_callback() if i == 0 else None
+            if isinstance(child, datahub.emitter.rest_emitter.DataHubRestEmitter):
+                try:
+                    child.emit_mcps(mcps)
+                    continue
+                except Exception as e:
+                    logger.warning(
+                        f"Batch emit of {len(mcps)} MCPs failed, emitting them one by one: {e}"
+                    )
+            for mcp in mcps:
+                child.emit(mcp, callback)
+
     def _make_emit_callback(self) -> Callable[[Optional[Exception], str], None]:
         def emit_callback(err: Optional[Exception], msg: str) -> None:
             if err:
@@ -1502,6 +1531,8 @@ class DataHubListener:
         )
 
     def on_dag_start(self, dag_run: "DagRun") -> None:  # type: ignore[no-untyped-def]
+        # Runs on every task start (see on_task_instance_running), so the MCPs below,
+        # one Status per task in the DAG included, are sent as a batch where possible.
         logger.debug(
             f"DataHub on_dag_start called for dag_id={dag_run.dag_id}, run_id={dag_run.run_id}"
         )
@@ -1527,46 +1558,47 @@ class DataHubListener:
             logger.warning("DataHub emitter not available, skipping DataFlow emission")
             return
 
-        # Emit dataflow
-        logger.debug(f"Emitting DataFlow MCPs for {dataflow.urn}")
-        dataflow.emit(emitter, callback=self._make_emit_callback())
+        mcps: List[MetadataChangeProposalWrapper] = list(dataflow.generate_mcp())
 
-        event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-            entityUrn=str(dataflow.urn), aspect=StatusClass(removed=False)
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=str(dataflow.urn), aspect=StatusClass(removed=False)
+            )
         )
-        emitter.emit(event)
 
         for task in dag.tasks:
             task_urn = builder.make_data_job_urn_with_flow(
                 str(dataflow.urn), task.task_id
             )
-            event = MetadataChangeProposalWrapper(
-                entityUrn=task_urn, aspect=StatusClass(removed=False)
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=task_urn, aspect=StatusClass(removed=False)
+                )
             )
-            emitter.emit(event)
 
         if self.config.platform_instance:
             instance = make_dataplatform_instance_urn(
                 platform="airflow",
                 instance=self.config.platform_instance,
             )
-            event = MetadataChangeProposalWrapper(
-                entityUrn=str(dataflow.urn),
-                aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn("airflow"),
-                    instance=instance,
-                ),
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=str(dataflow.urn),
+                    aspect=DataPlatformInstanceClass(
+                        platform=make_data_platform_urn("airflow"),
+                        instance=instance,
+                    ),
+                )
             )
-            emitter.emit(event)
 
         # emit tags
         for tag in dataflow.tags:
             tag_urn = builder.make_tag_urn(tag)
-
-            event = MetadataChangeProposalWrapper(
-                entityUrn=tag_urn, aspect=StatusClass(removed=False)
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=tag_urn, aspect=StatusClass(removed=False)
+                )
             )
-            emitter.emit(event)
 
         browsePaths: List[BrowsePathEntryClass] = []
         if self.config.platform_instance:
@@ -1575,7 +1607,7 @@ class DataHubListener:
             )
             browsePaths.append(BrowsePathEntryClass(self.config.platform_instance, urn))
         browsePaths.append(BrowsePathEntryClass(str(dag.dag_id)))
-        browse_path_v2_event: MetadataChangeProposalWrapper = (
+        mcps.append(
             MetadataChangeProposalWrapper(
                 entityUrn=str(dataflow.urn),
                 aspect=BrowsePathsV2Class(
@@ -1584,9 +1616,9 @@ class DataHubListener:
             )
         )
         logger.debug(
-            f"Emitting BrowsePathsV2 MCP: entityUrn={browse_path_v2_event.entityUrn}, paths={[getattr(p, 'path', str(p)) for p in browsePaths]}"
+            f"Emitting {len(mcps)} DataFlow MCPs for {dataflow.urn}, BrowsePathsV2 paths={[getattr(p, 'path', str(p)) for p in browsePaths]}"
         )
-        emitter.emit(browse_path_v2_event)
+        self._emit_mcps(emitter, mcps)
         logger.debug(f"Completed emitting all DataFlow MCPs for {dataflow.urn}")
 
         if dag.dag_id == _DATAHUB_CLEANUP_DAG:
