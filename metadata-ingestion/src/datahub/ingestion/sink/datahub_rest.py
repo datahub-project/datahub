@@ -397,20 +397,6 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 self.report.report_failure({"e": e})
                 write_callback.on_failure(record_envelope, Exception(e), {})
 
-    def _mcps_from_mce(
-        self, mce: MetadataChangeEvent
-    ) -> List[MetadataChangeProposalWrapper]:
-        mcps = list(mcps_from_mce(mce))
-        if not mcps:
-            logger.warning(f"MCE for {mce.proposedSnapshot.urn} produced zero MCPs")
-            self.report.report_warning(
-                {
-                    "warning": "Skipped a MetadataChangeEvent with no aspects",
-                    "info": {"urn": mce.proposedSnapshot.urn},
-                }
-            )
-        return mcps
-
     def _emit_wrapper(
         self,
         record: Union[
@@ -422,11 +408,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     ) -> None:
         # TODO: Add timing metrics
         if isinstance(record, MetadataChangeEvent):
-            mcps = self._mcps_from_mce(record)
-            if not mcps:
-                return
-            # Not emitter.emit(): it only logs an MCE with no aspects and reports success; the sink reports it as a warning.
-            self.emitter.emit_mcps(mcps, emit_mode=emit_mode)
+            self.emitter.emit_mcps(list(mcps_from_mce(record)), emit_mode=emit_mode)
         else:
             self.emitter.emit(record, emit_mode=emit_mode)
 
@@ -448,7 +430,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             event = record[0]
 
             if isinstance(event, MetadataChangeEvent):
-                events.extend(self._mcps_from_mce(event))
+                events.extend(mcps_from_mce(event))
             else:
                 events.append(event)
 
@@ -477,6 +459,24 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         # should only have a high value if the sink is actually a bottleneck.
         with self.report.main_thread_blocking_timer:
             record = record_envelope.record
+            # Acknowledged here, not submitted, so it isn't counted as written (same as the Kafka sink).
+            if (
+                isinstance(record, MetadataChangeEvent)
+                and not record.proposedSnapshot.aspects
+            ):
+                logger.warning(
+                    f"Skipped MCE for {record.proposedSnapshot.urn}: no aspects"
+                )
+                self.report.report_warning(
+                    {
+                        "warning": "Skipped a MetadataChangeEvent with no aspects",
+                        "info": {"urn": record.proposedSnapshot.urn},
+                    }
+                )
+                write_callback.on_success(
+                    record_envelope, {"msg": "MCE had zero aspects"}
+                )
+                return
             if self.config.mode == RestSinkMode.ASYNC:
                 assert isinstance(self.executor, PartitionExecutor)
                 partition_key = _get_partition_key(record_envelope)

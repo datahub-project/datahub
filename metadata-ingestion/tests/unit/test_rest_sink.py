@@ -12,6 +12,7 @@ import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.errors import DataHubDeprecationWarning
+from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.datahub_rest import (
     DatahubRestSink,
@@ -506,13 +507,18 @@ def test_emit_wrapper_sends_mce_as_one_mcp_batch():
     assert mock_emitter.emit_mcps.call_args.kwargs["emit_mode"] == EmitMode.SYNC_PRIMARY
 
 
-@pytest.mark.parametrize("batch", [False, True])
-def test_sink_warns_on_mce_without_aspects(batch: bool) -> None:
+def test_emit_batch_wrapper_expands_mces_in_order():
+    status = models.StatusClass(removed=False)
+    properties = models.DatasetPropertiesClass(description="d")
     mce = models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
-            aspects=[],
+            aspects=[status, properties],
         )
+    )
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:dataset:(urn:li:dataPlatform:foo,baz,PROD)",
+        aspect=models.StatusClass(removed=True),
     )
     mock_emitter = MagicMock()
     sink = DatahubRestSink.__new__(DatahubRestSink)
@@ -521,10 +527,33 @@ def test_sink_warns_on_mce_without_aspects(batch: bool) -> None:
     sink.report = DataHubRestSinkReport()
     sink._gms_emit_mode = EmitMode.ASYNC
 
-    if batch:
-        sink._emit_batch_wrapper([(mce,)])
-        assert mock_emitter.emit_mcps.call_args.args[0] == []
-    else:
-        sink._emit_wrapper(mce, emit_mode=EmitMode.SYNC_PRIMARY)
-        mock_emitter.emit_mcps.assert_not_called()
+    sink._emit_batch_wrapper([(mce,), (mcp,)])
+
+    emitted = mock_emitter.emit_mcps.call_args.args[0]
+    assert [m.aspect for m in emitted] == [status, properties, mcp.aspect]
+    assert all(isinstance(m, MetadataChangeProposalWrapper) for m in emitted)
+
+
+def test_sink_skips_mce_without_aspects() -> None:
+    mce = models.MetadataChangeEventClass(
+        proposedSnapshot=models.DatasetSnapshotClass(
+            urn="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+            aspects=[],
+        )
+    )
+    sink = DatahubRestSink.__new__(DatahubRestSink)
+    sink.config = DatahubRestSinkConfig(
+        server=MOCK_GMS_ENDPOINT, mode=RestSinkMode.ASYNC_BATCH
+    )
+    sink.executor = MagicMock()
+    sink.report = DataHubRestSinkReport()
+    callback = MagicMock()
+    envelope: RecordEnvelope = RecordEnvelope(mce, metadata={})
+
+    sink.write_record_async(envelope, callback)
+
+    sink.executor.submit.assert_not_called()
+    callback.on_success.assert_called_once()
+    assert callback.on_success.call_args.args[0] is envelope
+    callback.on_failure.assert_not_called()
     assert len(sink.report.warnings) == 1
