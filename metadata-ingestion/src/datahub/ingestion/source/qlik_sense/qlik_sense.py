@@ -45,6 +45,10 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_report.ingestion_stage import (
+    LINEAGE_EXTRACTION,
+    METADATA_EXTRACTION,
+)
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
@@ -239,33 +243,35 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
             self._init_fingerprint_salt()
         space_names = {space.id: space.name for space in allowed_spaces}
         self._allowed_space_ids = set(space_names)
-        for space in allowed_spaces:
-            yield from self._gen_space_workunit(space)
-        logger.info(f"Reading the items of {len(allowed_spaces)} spaces")
-        # Items of all spaces share one pool of workers, so max_workers bounds
-        # the whole run.
-        items = self.qlik_api.get_items(
-            [
-                "personal" if space.id == Constant.PERSONAL_SPACE_ID else space.id
-                for space in allowed_spaces
-            ],
-            is_unchanged=self._is_app_unchanged if skip_unchanged else None,
-        )
-        for item in items:
-            space_id = getattr(item, "spaceId", "")
-            yield from self._gen_item_workunits(
-                item, space_names.get(space_id, space_id), record_state
+        with self.reporter.new_stage(METADATA_EXTRACTION):
+            for space in allowed_spaces:
+                yield from self._gen_space_workunit(space)
+            logger.info(f"Reading the items of {len(allowed_spaces)} spaces")
+            # Items of all spaces share one pool of workers, so max_workers bounds
+            # the whole run.
+            items = self.qlik_api.get_items(
+                [
+                    "personal" if space.id == Constant.PERSONAL_SPACE_ID else space.id
+                    for space in allowed_spaces
+                ],
+                is_unchanged=self._is_app_unchanged if skip_unchanged else None,
             )
-        yield from self._gen_pending_table_lineage()
-        yield from self._gen_dataset_store_lineage()
-        yield from self._gen_stored_table_types()
-        yield from self._gen_qvd_lineage()
-        yield from self._gen_binary_lineage()
-        # Before any file is placed, so the spellings hold every STORE.
-        graph_named_apps = self._read_graph_named_reloads()
-        yield from self._gen_unmapped_file_entities()
-        yield from self._gen_graph_named_resources(graph_named_apps)
-        yield from self._gen_storage_qvd_types()
+            for item in items:
+                space_id = getattr(item, "spaceId", "")
+                yield from self._gen_item_workunits(
+                    item, space_names.get(space_id, space_id), record_state
+                )
+        with self.reporter.new_stage(LINEAGE_EXTRACTION):
+            yield from self._gen_pending_table_lineage()
+            yield from self._gen_dataset_store_lineage()
+            yield from self._gen_stored_table_types()
+            yield from self._gen_qvd_lineage()
+            yield from self._gen_binary_lineage()
+            # Before any file is placed, so the spellings hold every STORE.
+            graph_named_apps = self._read_graph_named_reloads()
+            yield from self._gen_unmapped_file_entities()
+            yield from self._gen_graph_named_resources(graph_named_apps)
+            yield from self._gen_storage_qvd_types()
         self._record_end_of_run_urns()
         self._report_end_of_run()
         if self.reporter.failures:

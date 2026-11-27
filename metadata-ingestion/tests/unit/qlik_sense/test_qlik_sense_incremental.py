@@ -684,6 +684,16 @@ def test_checkpoint_load_failure_while_reading_is_reported(
     ]
 
 
+def test_run_reports_metadata_and_lineage_stages(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    source, _ = _run(mock_datahub_graph, _Qlik(), "run-1")
+
+    stages = " ".join(source.reporter.ingestion_stage_durations)
+    assert "Metadata Extraction" in stages
+    assert "Lineage Extraction" in stages
+
+
 def test_partial_read_without_last_read_is_not_recorded(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
