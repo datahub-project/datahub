@@ -14,6 +14,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
 )
 from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import (
     MicroStrategySemanticModelMapper,
+    _MetricProgress,
 )
 from datahub.ingestion.source.microstrategy.models import MicroStrategyObject
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -870,3 +871,22 @@ def test_table_context_resolver_sets_each_dataset_upstream_from_its_own_warehous
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snow_db.snow.snow_sales,PROD)"
     ]
     assert upstreams("UNLINKED_SALES") == []
+
+
+def test_metric_progress_logs_once_the_interval_has_elapsed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    progress = _MetricProgress(
+        project_id="project-1",
+        total=10,
+        every_seconds=0,
+        report=MicroStrategyReport(),
+    )
+
+    with caplog.at_level(logging.INFO):
+        progress.step()
+        assert not caplog.records
+        progress.step()
+
+    assert len(caplog.records) == 1
+    assert "1/10" in caplog.records[0].getMessage()
