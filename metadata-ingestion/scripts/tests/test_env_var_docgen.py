@@ -130,7 +130,6 @@ def test_render_groups_in_declaration_order_and_tags_non_default_tiers() -> None
     assert out.index(EnvVarGroup.CONNECTION.value) < out.index(EnvVarGroup.MISC.value)
     assert "`DATAHUB_FIRST`<br />_Basic_" in out
     assert "`DATAHUB_RISKY`<br />_Experimental_" in out
-    # Advanced is the default tier and is deliberately untagged.
-    assert "`DATAHUB_LATER` |" in out
-    assert "_Advanced_" not in out
+    # Every tier is tagged, including the commonest one.
+    assert "`DATAHUB_LATER`<br />_Advanced_" in out
     assert out.count("<div className='config-table'>") == 2

@@ -25,7 +25,6 @@ from datahub.configuration.env_var_registry import (
     EnvVarAudience,
     EnvVarGroup,
     EnvVarSpec,
-    EnvVarTier,
     get_registry,
 )
 
@@ -148,16 +147,11 @@ def render(specs: List[EnvVarSpec]) -> str:
         out.append("| Variable | Type | Default | Description |")
         out.append("| --- | --- | --- | --- |")
         for spec in by_group[group]:
-            # Advanced is the default tier and covers most rows, so it carries no tag; the
-            # page explains that an untagged row is advanced tuning.
-            tier = (
-                f"<br />_{spec.tier.display_name}_"
-                if spec.tier is not EnvVarTier.ADVANCED
-                else ""
-            )
+            # Every row states its tier. Leaving the commonest one implicit meant a reader had
+            # to know that no tag meant advanced.
             out.append(
-                f"| `{spec.name}`{tier} | {spec.display_type} | {format_default(spec)} "
-                f"| {format_description(spec, known)} |"
+                f"| `{spec.name}`<br />_{spec.tier.display_name}_ | {spec.display_type} "
+                f"| {format_default(spec)} | {format_description(spec, known)} |"
             )
         out.append("\n</div>\n")
     return "\n".join(out) + "\n"
