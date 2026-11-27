@@ -214,6 +214,9 @@ class StoreLineageMixin(OnPremQvdMixin):
                 pending.current,
                 owned.__contains__,
                 has_field_schema=pending.has_field_schema,
+                # A file on storage or a share, never this source's dataset,
+                # even one it no longer resolves this run.
+                is_primary_source=False,
             )
         self._pending_stored_files = []
 

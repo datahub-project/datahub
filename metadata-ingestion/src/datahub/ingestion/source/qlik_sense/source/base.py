@@ -82,7 +82,7 @@ class QlikSourceBase:
     # recipe, not this one's.
     _share_file_urns: Set[str]
     # The on-prem recipe's platform_instance of each such file, by its URN.
-    _share_file_instances: Dict[str, str]
+    _share_file_instances: Dict[str, Optional[str]]
     # Tables kept apps store into files on storage that was unknown when
     # their last read recorded them.
     _kept_storage_file_stores: Dict[str, List[str]]

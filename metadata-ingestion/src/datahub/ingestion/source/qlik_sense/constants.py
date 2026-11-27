@@ -36,6 +36,9 @@ COLUMN_LINEAGE_READ_FAILED_TITLE: Final = "Unable to read Qlik column lineage"
 UNSEEN_SPACES_TITLE: Final = "Qlik spaces the API key can't see"
 INCLUDE_READ_FAILED_TITLE: Final = "Unable to read included Qlik scripts"
 UNRESOLVED_FILE_CONNECTIONS_TITLE: Final = "Qlik file connections have no known storage"
+SHARES_NAMED_FROM_CONNECTIONS_TITLE: Final = (
+    "Windows shares named from their Qlik connections"
+)
 DATASET_LINEAGE_READ_FAILED_TITLE: Final = "Unable to read Qlik dataset lineage"
 UPSTREAM_GRAPH_READ_FAILED_TITLE: Final = "Unable to read Qlik upstream lineage graph"
 CHANGE_CHECK_FAILED_TITLE: Final = "Unable to check whether Qlik apps changed"

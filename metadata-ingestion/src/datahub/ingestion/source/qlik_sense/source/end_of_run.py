@@ -7,6 +7,7 @@ from datahub.ingestion.source.qlik_sense.constants import (
     INCLUDE_READ_FAILED_TITLE,
     OWNER_LOOKUP_FAILED_TITLE,
     QLIK_READ_FAILED_TITLE,
+    SHARES_NAMED_FROM_CONNECTIONS_TITLE,
     UNRESOLVED_FILE_CONNECTIONS_TITLE,
     UNSEEN_SPACES_TITLE,
     UPSTREAM_GRAPH_READ_FAILED_TITLE,
@@ -100,6 +101,20 @@ class EndOfRunMixin(ItemsMixin):
                 "`file_connection_to_storage` with the URI of its storage; other "
                 "connectors, such as SFTP, can't be mapped.",
                 context=bounded_list(sorted(self.reporter.unresolved_file_connections)),
+            )
+        if self.reporter.shares_named_from_connections:
+            self.reporter.info(
+                title=SHARES_NAMED_FROM_CONNECTIONS_TITLE,
+                message="These Data Gateway connections' entries in "
+                "`file_connection_to_storage` set no `storage_uri`, so their "
+                "files are named from the share path the connection holds. If "
+                "the on-prem recipe's `qvd_folder_aliases` renames that share, "
+                "or on-prem apps reach it by another host name or a drive, set "
+                "`storage_uri` to the share as the on-prem recipe names it, or "
+                "lineage between the two recipes does not join.",
+                context=bounded_list(
+                    sorted(self.reporter.shares_named_from_connections)
+                ),
             )
         if self.qlik_api.lineage_read_failures:
             self.reporter.warning(

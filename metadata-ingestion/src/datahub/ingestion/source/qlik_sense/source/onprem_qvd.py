@@ -186,6 +186,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
                 # The storage sources don't read QVDs, so a QVD on storage has
                 # no fields in DataHub.
                 has_field_schema=self._is_own_dataset(urn),
+                is_primary_source=self._is_own_dataset(urn),
             )
 
     def _storage_qvds_written_before(self) -> Set[str]:
@@ -266,6 +267,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
         current: Optional[UpstreamLineage],
         is_owned: Callable[[str], bool],
         has_field_schema: bool,
+        is_primary_source: bool,
     ) -> Iterable[MetadataWorkUnit]:
         """`is_owned` tells the tables whose edges into the file this run knows
         all of, so that those no longer written are removed."""
@@ -321,9 +323,7 @@ class OnPremQvdMixin(ReloadSqlMixin):
                 ):
                     patch.remove_fine_grained_lineage(lineage)
         # A file on storage is not this source's to remove when stale.
-        yield from patch_workunits(
-            patch, is_primary_source=self._is_own_dataset(qvd_urn)
-        )
+        yield from patch_workunits(patch, is_primary_source=is_primary_source)
 
     def _is_own_dataset(self, urn: str) -> bool:
         return urn not in self._share_file_urns and DatasetUrn.from_string(

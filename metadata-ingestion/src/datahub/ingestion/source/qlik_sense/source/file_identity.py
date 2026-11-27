@@ -1,6 +1,6 @@
 import posixpath
 from functools import cached_property, partial
-from typing import Callable, Dict, Iterable, List, Optional, Set
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -9,8 +9,10 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.data_lake_common.data_lake_utils import (
+    ContainerWUCreator,
+)
 from datahub.ingestion.source.qlik_sense.config import Constant, FileStorageDetail
-from datahub.ingestion.source.qlik_sense.constants import ENTITY_CHECK_BATCH_SIZE
 from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FILE_QRI_RE,
@@ -43,7 +45,6 @@ from datahub.ingestion.source.qlik_sense.source_models import (
     FileStorageMatch,
 )
 from datahub.ingestion.source.qlik_sense.source_utils import (
-    bounded_list,
     file_display_name,
     is_qvd_dataset,
     patch_workunits,
@@ -53,7 +54,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
+    ContainerClass,
     DataPlatformInstanceClass,
+    StatusClass,
 )
 from datahub.metadata.urns import DatasetUrn
 from datahub.specific.dataset import DatasetPatchBuilder
@@ -214,6 +217,13 @@ class FileIdentityMixin(DashboardMixin):
                 # The connection's own properties still check the QRI.
                 storage.qri_connection_id = visible.qri_connection_id
             return FileStorageMatch(storage=storage, detail=detail)
+        if (
+            detail is not None
+            and visible is not None
+            and visible.platform == FilePlatform.WINDOWS_SHARE
+            and connection not in self.reporter.shares_named_from_connections
+        ):
+            self.reporter.shares_named_from_connections.append(connection)
         return FileStorageMatch(storage=visible, detail=detail)
 
     def _file_urn(
@@ -222,8 +232,9 @@ class FileIdentityMixin(DashboardMixin):
         urn = self._storage_file_urn(storage, detail, path)
         if storage.platform == FilePlatform.WINDOWS_SHARE:
             self._share_file_urns.add(urn)
-            if detail is not None and detail.platform_instance:
-                self._share_file_instances[urn] = detail.platform_instance
+            self._share_file_instances[urn] = (
+                detail.platform_instance if detail else None
+            )
         return urn
 
     def _storage_file_urn(
@@ -454,8 +465,9 @@ class FileIdentityMixin(DashboardMixin):
         space_id: str,
     ) -> None:
         """The file's other names, which earlier runs may have linked before
-        its storage was mapped or its resolution fixed: from its QRI, its
-        connection and path, and its storage or share."""
+        its storage was mapped or its resolution fixed: from its QRI, and the
+        connection-named and storage names of the script reference it resolved
+        to. Another reference with the same path may be another file."""
         names: Set[str] = set()
         qri = FILE_QRI_RE.match(file_qri)
         if qri:
@@ -464,13 +476,21 @@ class FileIdentityMixin(DashboardMixin):
             qualified = self._connection_file_name(
                 reference.connection, reference.path, space_id
             )
-            if qualified is not None:
-                names.add(self._gen_qlik_dataset_urn(qualified.lower()))
             match = self._connection_storage(reference.connection, space_id)
-            if match.storage is not None:
-                names.add(
-                    self._storage_file_urn(match.storage, match.detail, reference.path)
-                )
+            reference_names = {
+                *([self._gen_qlik_dataset_urn(qualified.lower())] if qualified else []),
+                *(
+                    [
+                        self._storage_file_urn(
+                            match.storage, match.detail, reference.path
+                        )
+                    ]
+                    if match.storage is not None
+                    else []
+                ),
+            }
+            if urn in reference_names:
+                names.update(reference_names)
         self._superseded_file_urns[urn].update(names - {urn})
 
     def _superseded_names(self, upstream_urns: List[str]) -> Set[str]:
@@ -500,13 +520,22 @@ class FileIdentityMixin(DashboardMixin):
 
     def _gen_share_qvd_placement(self) -> Iterable[MetadataWorkUnit]:
         # A share QVD the on-prem recipe never reads would otherwise sit outside
-        # its platform instance. The instance is the one that recipe writes.
-        instances = {
-            urn: make_dataplatform_instance_urn(self.platform, instance)
-            for urn, instance in self._share_file_instances.items()
-            if urn in self._linked_storage_qvds
-        }
-        for urn, instance_urn in sorted(instances.items()):
+        # its platform instance, under the browse path DataHub derives from the
+        # dots of the server name. It is placed exactly as that recipe places
+        # it, so whichever recipe writes last, the aspects are the same.
+        paths: Dict[str, List[BrowsePathEntryClass]] = {}
+        creators: Dict[Tuple[Optional[str], str], ContainerWUCreator] = {}
+        for urn in sorted(self._linked_storage_qvds):
+            if urn not in self._share_file_instances:
+                continue
+            instance = self._share_file_instances[urn]
+            dataset = DatasetUrn.from_string(urn)
+            path = dataset.name[len(instance) + 1 :] if instance else dataset.name
+            instance_urn = (
+                make_dataplatform_instance_urn(self.platform, instance)
+                if instance
+                else None
+            )
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn,
                 aspect=DataPlatformInstanceClass(
@@ -514,42 +543,39 @@ class FileIdentityMixin(DashboardMixin):
                     instance=instance_urn,
                 ),
             ).as_workunit(is_primary_source=False)
-        # The on-prem recipe's browse path places the file in its share
-        # folders, so one is only written where none exists.
-        for urn in sorted(self._without_browse_path(sorted(instances))):
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=BrowsePathsV2Class(
-                    path=[BrowsePathEntryClass(id=instances[urn], urn=instances[urn])]
-                ),
-            ).as_workunit(is_primary_source=False)
-
-    def _without_browse_path(self, dataset_urns: List[str]) -> Set[str]:
-        graph = self.ctx.graph
-        if graph is None or not dataset_urns:
-            return set()
-        missing: Set[str] = set()
-        for start in range(0, len(dataset_urns), ENTITY_CHECK_BATCH_SIZE):
-            batch = dataset_urns[start : start + ENTITY_CHECK_BATCH_SIZE]
-            try:
-                entities = graph.get_entities(
-                    "dataset", batch, aspects=[BrowsePathsV2Class.ASPECT_NAME]
-                )
-            except Exception as e:
-                self.reporter.warning(
-                    title="Unable to read browse paths of share QVDs from DataHub",
-                    message="These QVDs on a Windows share get no browse path "
-                    "this run.",
-                    context=bounded_list(batch),
-                    exc=e,
-                )
-                continue
-            missing.update(
-                urn
-                for urn in batch
-                if not entities.get(urn, {}).get(BrowsePathsV2Class.ASPECT_NAME)
+            creator = creators.setdefault(
+                (instance, dataset.env),
+                ContainerWUCreator(self.platform, instance, dataset.env),
             )
-        return missing
+            placed: List[str] = []
+            for wu in creator.create_container_hierarchy(path.lstrip("/"), urn):
+                # Status is the on-prem recipe's, so a folder it removed stays
+                # removed.
+                if wu.get_aspect_of_type(StatusClass) is not None:
+                    continue
+                wu.is_primary_source = False
+                yield wu
+                entity = wu.get_urn()
+                if entity not in paths:
+                    paths[entity] = []
+                    placed.append(entity)
+                parent = wu.get_aspect_of_type(ContainerClass)
+                if parent is not None:
+                    paths[entity] = [
+                        *paths.get(parent.container, []),
+                        BrowsePathEntryClass(id=parent.container, urn=parent.container),
+                    ]
+            # As the browse path processor derives them for the on-prem recipe.
+            prefix = (
+                [BrowsePathEntryClass(id=instance_urn, urn=instance_urn)]
+                if instance_urn
+                else []
+            )
+            for entity in placed:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=entity,
+                    aspect=BrowsePathsV2Class(path=[*prefix, *paths[entity]]),
+                ).as_workunit(is_primary_source=False)
 
     def _link_unmapped_file(self, app_id: str, urn: str) -> None:
         self._linked_unmapped_files.add(urn)

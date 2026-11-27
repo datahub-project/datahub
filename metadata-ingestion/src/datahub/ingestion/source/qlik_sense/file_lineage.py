@@ -181,10 +181,13 @@ def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
     `gs://` URI, or a `\\\\server\\share` path, names."""
     uri = uri.strip()
     if uri.startswith(("\\\\", "//")) and "://" not in uri:
-        location = canonical_path(uri)
-        # `//` alone, or a server without a share, is no share.
-        if len([part for part in location.split("/") if part]) < 2:
+        parts = [part for part in uri.replace("\\", "/").split("/") if part]
+        # A server and a share, with no `.` or `..` segments, which would move
+        # the path, and no `\\?\` or `\\.\` device prefix, which Qlik Sense
+        # Enterprise never names a share by.
+        if len(parts) < 2 or parts[0] == "?" or {".", ".."} & set(parts):
             return None
+        location = canonical_path(uri)
         return FileStorage(
             platform=FilePlatform.WINDOWS_SHARE,
             location=location,
