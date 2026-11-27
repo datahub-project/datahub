@@ -42,6 +42,8 @@ from datahub.ingestion.source.snowflake.constants import (
     SNOWFLAKE_DATABASE,
     STREAMLIT_PLATFORM,
     SnowflakeObjectDomain,
+    has_target_lag_property,
+    rewrite_interactive_table_create,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
@@ -66,6 +68,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
     SnowflakeDynamicTable,
     SnowflakeFK,
+    SnowflakeInteractiveTable,
     SnowflakePK,
     SnowflakeSchema,
     SnowflakeSemanticView,
@@ -148,6 +151,7 @@ from datahub.metadata.urns import (
 from datahub.sdk.dashboard import Dashboard
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
+    ObservedQuery,
     SqlParsingAggregator,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
@@ -161,6 +165,16 @@ logger = logging.getLogger(__name__)
 # but its tokenizer lexes it fine, which is all the extraction below needs.
 _REFRESH_USING_RE = re.compile(r"\brefresh\s+using\s*\(", re.IGNORECASE)
 _MERGE_INTO_RE = re.compile(r"\bmerge\s+into\b", re.IGNORECASE)
+
+
+def _interactive_table_has_target_lag(table: SnowflakeInteractiveTable) -> bool:
+    # is_dynamic comes from INFORMATION_SCHEMA, so it holds even when SHOW omitted the table.
+    if table.target_lag or table.is_dynamic:
+        return True
+    definition = table.definition
+    return bool(definition and has_target_lag_property(definition))
+
+
 # Token types whose text is data rather than code (strings and quoted identifiers); their spans get
 # blanked so a stray keyword or paren inside them isn't read as SQL.
 _DATA_TOKENS = {
@@ -789,6 +803,50 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     lineage_type=DatasetLineageTypeClass.VIEW,
                 )
 
+    def _register_interactive_table_upstreams(
+        self,
+        table: SnowflakeInteractiveTable,
+        db_name: str,
+        schema_name: str,
+        *,
+        pending_static_queries: Optional[List[Tuple[str, ObservedQuery]]] = None,
+    ) -> bool:
+        aggregator = self.aggregator
+        if aggregator is None:
+            return False
+        if not table.definition:
+            # Static tables have no definition by design (lineage comes from the query log).
+            if table.is_dynamic or table.target_lag:
+                self.report.num_interactive_tables_without_definition += 1
+            return False
+        view_definition = rewrite_interactive_table_create(table.definition)
+        if _interactive_table_has_target_lag(table):
+            downstream_urn = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier(
+                    table.name, schema_name, db_name
+                )
+            )
+            aggregator.add_view_definition(
+                view_urn=downstream_urn,
+                view_definition=view_definition,
+                default_db=db_name,
+                default_schema=schema_name,
+            )
+        else:
+            # Static tables: TRANSFORMED so query-log CTAS/INSERT keeps precedence over this fallback.
+            observed = ObservedQuery(
+                query=view_definition,
+                default_db=db_name,
+                default_schema=schema_name,
+            )
+            if pending_static_queries is not None:
+                pending_static_queries.append(
+                    (f"{db_name}.{schema_name}.{table.name}", observed)
+                )
+            else:
+                aggregator.add_observed_query(observed)
+        return True
+
     def _process_tables(
         self,
         tables: List[SnowflakeTable],
@@ -797,6 +855,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         schema_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         dynamic_tables = [t for t in tables if isinstance(t, SnowflakeDynamicTable)]
+        interactive_tables = [
+            t for t in tables if isinstance(t, SnowflakeInteractiveTable)
+        ]
         # Identifiers feed the queries extractor's refresh-row suppression, in every config.
         for dynamic_table in dynamic_tables:
             self.dynamic_table_identifiers.add(
@@ -807,6 +868,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # Register lineage outside the include_technical_schema gate (like view definitions) so a
         # lineage-only run still gets dynamic-table upstreams. Guard per table: an unhandled error
         # would abort the whole schema scan (this runs in a ThreadedIteratorExecutor worker).
+        pending_static_interactive_queries: List[Tuple[str, ObservedQuery]] = []
         if self.aggregator:
             for dynamic_table in dynamic_tables:
                 try:
@@ -819,19 +881,53 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         f"{db_name}.{schema_name}.{dynamic_table.name}",
                         exc=e,
                     )
+            for interactive_table in interactive_tables:
+                try:
+                    registered = self._register_interactive_table_upstreams(
+                        interactive_table,
+                        db_name,
+                        schema_name,
+                        pending_static_queries=pending_static_interactive_queries,
+                    )
+                    if registered and _interactive_table_has_target_lag(
+                        interactive_table
+                    ):
+                        self.dynamic_table_identifiers.add(
+                            self.identifiers.get_dataset_identifier(
+                                interactive_table.name, schema_name, db_name
+                            )
+                        )
+                except Exception as e:
+                    self.structured_reporter.warning(
+                        "Failed to register interactive table lineage",
+                        f"{db_name}.{schema_name}.{interactive_table.name}",
+                        exc=e,
+                    )
 
-        if self.config.include_technical_schema:
-            data_reader = self.make_data_reader()
-            for table in tables:
-                table_wu_generator = self._process_table(
-                    table, snowflake_schema, db_name
-                )
-                yield from classification_workunit_processor(
-                    table_wu_generator,
-                    self.classification_handler,
-                    data_reader,
-                    [db_name, schema_name, table.name],
-                )
+        try:
+            if self.config.include_technical_schema:
+                data_reader = self.make_data_reader()
+                for table in tables:
+                    table_wu_generator = self._process_table(
+                        table, snowflake_schema, db_name
+                    )
+                    yield from classification_workunit_processor(
+                        table_wu_generator,
+                        self.classification_handler,
+                        data_reader,
+                        [db_name, schema_name, table.name],
+                    )
+        finally:
+            if self.aggregator:
+                for context, observed in pending_static_interactive_queries:
+                    try:
+                        self.aggregator.add_observed_query(observed)
+                    except Exception as e:
+                        self.structured_reporter.warning(
+                            "Failed to register interactive table lineage",
+                            context,
+                            exc=e,
+                        )
 
     def _process_views(
         self,
@@ -1738,7 +1834,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def get_dataset_properties(
         self,
         table: Union[
-            SnowflakeTable, SnowflakeView, SnowflakeSemanticView, SnowflakeStream
+            SnowflakeTable,
+            SnowflakeInteractiveTable,
+            SnowflakeView,
+            SnowflakeSemanticView,
+            SnowflakeStream,
         ],
         schema_name: str,
         db_name: str,
@@ -1764,7 +1864,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 }
             )
 
-            if isinstance(table, SnowflakeDynamicTable):
+            if isinstance(table, (SnowflakeDynamicTable, SnowflakeInteractiveTable)):
                 if table.target_lag:
                     custom_properties["TARGET_LAG"] = table.target_lag
 
@@ -1822,7 +1922,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     schema_name,
                     db_name,
                     (
-                        SnowflakeObjectDomain.DYNAMIC_TABLE
+                        SnowflakeObjectDomain.TABLE
+                        if isinstance(table, SnowflakeInteractiveTable)
+                        else SnowflakeObjectDomain.DYNAMIC_TABLE
                         if isinstance(table, SnowflakeTable) and table.is_dynamic
                         else SnowflakeObjectDomain.TABLE
                         if isinstance(table, SnowflakeTable)

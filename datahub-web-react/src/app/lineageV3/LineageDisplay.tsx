@@ -4,7 +4,12 @@ import { useOnSelectionChange, useReactFlow } from 'reactflow';
 import { LINEAGE_ANNOTATION_NODE_NAME } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import useAddAnnotationNodes from '@app/lineageV3/LineageAnnotationNode/useAddAnnotationNodes';
 import { DATA_FLOW_LINEAGE_CONTROL_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
-import { useTrackLineageView } from '@app/lineageV3/LineageDisplay.hooks';
+import {
+    useFitView,
+    useIsExpanding,
+    useLineageSettled,
+    useTrackLineageView,
+} from '@app/lineageV3/LineageDisplay.hooks';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 import LineageSidebar from '@app/lineageV3/LineageSidebar';
@@ -78,8 +83,8 @@ export default function LineageDisplay({
         flowNodes.forEach((node) => setDefault(map, node.data.urn || node.id, []).push(node.id));
         return map;
     }, [flowNodes]);
-    const refetchUrn = useBulkEntityLineage(shownUrns);
-    useBulkBoundingBoxMemberships();
+    const { refetchUrn, loading: entitiesLoading } = useBulkEntityLineage(shownUrns);
+    const { loading: membershipsLoading } = useBulkBoundingBoxMemberships();
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, displayedAdjacencyList);
     const {
@@ -103,10 +108,11 @@ export default function LineageDisplay({
     }, [isModuleView, addAnnotationNodes, flowNodes, levelsInfo, levelsMap]);
 
     const { rootUrn, rootType, nodes, adjacencyList, nodeVersion } = useContext(LineageNodesContext);
+    const loaded = initialized !== undefined ? initialized && nodeVersion > 0 : nodeVersion > 0;
 
     // Track lineage view analytics
     useTrackLineageView({
-        initialized: initialized !== undefined ? initialized && nodeVersion > 0 : nodeVersion > 0,
+        initialized: loaded,
         type: rootType,
         adjacencyList,
         rootUrn,
@@ -143,7 +149,11 @@ export default function LineageDisplay({
 
     useEffect(() => setEdges(flowEdges), [flowEdges, getEdge, setEdges]);
 
-    useFitView(initialized !== undefined ? initialized && nodeVersion > 0 : nodeVersion > 0);
+    const fitting = useFitView(loaded);
+    const expanding = useIsExpanding();
+    // Not `loaded`: a home node whose lineage is empty, or only soft-deleted, never bumps nodeVersion
+    const fetched = initialized ?? nodeVersion > 0;
+    const settled = useLineageSettled(!fetched || expanding || entitiesLoading || membershipsLoading, fitting);
 
     return (
         <LineageDisplayContext.Provider
@@ -173,6 +183,8 @@ export default function LineageDisplay({
             }}
         >
             <LineageVisualization initialNodes={finalNodes} initialEdges={flowEdges} />
+            {/* For automated tests to wait on */}
+            <span hidden data-testid="lineage-state" data-state={settled ? 'settled' : 'loading'} />
             <LineageSidebar />
         </LineageDisplayContext.Provider>
     );
@@ -198,35 +210,4 @@ function useSelectedNode(): [LineageEntity | null, (v: LineageEntity | null) => 
     });
 
     return [selectedNode, setSelectedNode];
-}
-
-function useFitView(loaded: boolean) {
-    const { fitView } = useReactFlow();
-    const { displayVersion } = useContext(LineageNodesContext);
-    const [, displayVersionNodes] = displayVersion;
-
-    useEffect(() => {
-        if (!loaded) return () => {};
-        const timeout = setTimeout(() => fitView({ duration: 1000, maxZoom: 2, padding: 0.5 }), 1000);
-        return () => {
-            clearTimeout(timeout);
-        };
-    }, [loaded, fitView]);
-
-    useEffect(() => {
-        if (!loaded || !displayVersionNodes.length) return () => {};
-        const timeout = setTimeout(
-            () =>
-                fitView({
-                    duration: 1000,
-                    nodes: displayVersionNodes.map((urn) => ({ id: urn })),
-                    maxZoom: 1,
-                    padding: 0.2,
-                }),
-            100,
-        );
-        return () => {
-            clearTimeout(timeout);
-        };
-    }, [loaded, displayVersionNodes, fitView]);
 }

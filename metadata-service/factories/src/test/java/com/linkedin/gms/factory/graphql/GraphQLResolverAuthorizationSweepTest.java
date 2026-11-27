@@ -208,7 +208,6 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
               Map.entry("deletePageTemplate", Outcome.WROTE),
               Map.entry("linkPhysicalChild", Outcome.WROTE),
               Map.entry("setLogicalParent", Outcome.WROTE),
-              Map.entry("submitFormPrompt", Outcome.WROTE),
               Map.entry("unlinkPhysicalChild", Outcome.WROTE),
               // PRECONDITION: the generated arguments fail an existence or input check that runs
               // before the authorization check (the check exists on the success path).
@@ -229,9 +228,7 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
               Map.entry("patchEntity", Outcome.RETURNED),
               // FOLLOW-UP: baselined, see follow-up.
               Map.entry("batchUpdateStepStates", Outcome.WROTE),
-              Map.entry("createDataHubFile", Outcome.FAILED),
-              Map.entry("deleteAssertion", Outcome.WROTE),
-              Map.entry("deleteQuery", Outcome.WROTE)));
+              Map.entry("createDataHubFile", Outcome.FAILED)));
 
   /**
    * Query fields that are not refused for an actor without privileges, with the outcome observed

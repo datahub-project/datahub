@@ -80,7 +80,7 @@ how to disable replication.
   physical links.
 - Files are loaded leniently by default (`strict_validation: false`) so that contracts with
   extra or non-conformant fields are accepted with warnings. Spec-valid sections the source
-  does not read (SLA, support, pricing, relationships, …) are summarized once per file as an
+  does not read (pricing, relationships, …) are summarized once per file as an
   info (`report.spec_fields_ignored`), together with fields the source reads but does not map;
   genuinely unknown fields warn individually. See [Limitations](#limitations) for the full
   list and the other lossy mappings that are reported. Set `strict_validation: true` to fail on

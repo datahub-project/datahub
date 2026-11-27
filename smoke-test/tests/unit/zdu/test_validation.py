@@ -251,9 +251,9 @@ class TestCheckEsFieldPresence:
         results = ValidationPhase._check_es_field_presence(scenarios, es=es)
         assert results == []
         es.get_doc.assert_called_once()
-        # Verifies alias derivation: dashboard → dashboardindex_v2
+        # Searches every V3 entity alias, so per-entity and grouped layouts both work.
         idx_arg = es.get_doc.call_args.args[0]
-        assert idx_arg == "dashboardindex_v2"
+        assert idx_arg == "*index_v3"
 
     def test_missing_field_emits_fail(self) -> None:
         es = MagicMock()
@@ -276,7 +276,7 @@ class TestCheckEsFieldPresence:
         assert fails[0].tc_number == 315
         assert "not found" in fails[0].actual_result.lower()
 
-    def test_dataset_entity_type_uses_dataset_alias(self) -> None:
+    def test_dataset_entity_type_searches_entity_aliases(self) -> None:
         es = MagicMock()
         es.get_doc.return_value = {"someField": True}
         scenarios = [
@@ -287,7 +287,7 @@ class TestCheckEsFieldPresence:
         results = ValidationPhase._check_es_field_presence(scenarios, es=es)
         assert results == []
         idx_arg = es.get_doc.call_args.args[0]
-        assert idx_arg == "datasetindex_v2"
+        assert idx_arg == "*index_v3"
 
     def test_unknown_entity_type_emits_fail(self) -> None:
         es = MagicMock()

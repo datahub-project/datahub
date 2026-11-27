@@ -1,13 +1,11 @@
 import csv
-import pathlib
+import io
 import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
-from urllib import parse
-
-import requests
 
 from datahub.configuration.common import ConfigurationError
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -19,6 +17,8 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.fs.fs_base import get_path_schema
+from datahub.ingestion.fs.fs_registry import fs_registry
 from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -47,6 +47,7 @@ from datahub.metadata.schema_classes import (
     StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
 )
+from datahub.sql_parsing.schema_resolver import _column_rank
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from datahub.utilities.urns.structured_properties_urn import (
@@ -98,6 +99,7 @@ class CSVEnricherReport(SourceReport):
     num_editable_schema_metadata_workunits_produced: int = 0
     num_domain_workunits_produced: int = 0
     num_structured_properties_workunits_produced: int = 0
+    num_schema_field_structured_properties_workunits_produced: int = 0
 
 
 @platform_name("CSV Enricher")
@@ -124,6 +126,14 @@ class CSVEnricherSource(Source):
         self.report: CSVEnricherReport = CSVEnricherReport()
         # Map from entity urn to a list of SubResourceRow.
         self.editable_schema_metadata_map: Dict[str, List[SubResourceRow]] = {}
+        # Map from schemaField urn to property urn to values, batched like
+        # editable_schema_metadata_map so duplicate rows share one read-merge-write.
+        self.schema_field_structured_properties_map: Dict[
+            str, Dict[str, List[Union[str, float]]]
+        ] = {}
+        # Map from dataset urn to {CSV field path: schemaMetadata fieldPath}, or
+        # None when the schema could not be read.
+        self.schema_field_paths_cache: Dict[str, Optional[Dict[str, str]]] = {}
         self.should_overwrite: bool = self.config.write_semantics == "OVERRIDE"
 
         if not self.should_overwrite:
@@ -345,11 +355,7 @@ class CSVEnricherSource(Source):
     def maybe_extract_structured_properties(
         self,
         row: Dict[str, str],
-        is_resource_row: bool,
     ) -> List[StructuredPropertyValueAssignmentClass]:
-        if not is_resource_row:
-            return []
-
         configured_mappings = self.config.structured_properties or {}
         if len(configured_mappings) <= 0:
             return []
@@ -442,6 +448,112 @@ class CSVEnricherSource(Source):
             entityUrn=entity_urn,
             aspect=current_structured_properties,
         ).as_workunit()
+
+    def get_schema_field_paths(self, dataset_urn: str) -> Optional[Dict[str, str]]:
+        if dataset_urn in self.schema_field_paths_cache:
+            return self.schema_field_paths_cache[dataset_urn]
+
+        assert self.ctx.graph
+        field_paths: Optional[Dict[str, str]] = None
+        try:
+            schema_metadata = self.ctx.graph.get_schema_metadata(dataset_urn)
+        except Exception as e:
+            self.report.warning(
+                title="Failed To Read Dataset Schema",
+                message="Column structured properties were written using the field paths from the CSV as-is, because the dataset's schema could not be read.",
+                context=dataset_urn,
+                exc=e,
+            )
+        else:
+            if schema_metadata is None:
+                self.report.warning(
+                    title="Dataset Schema Not Found",
+                    message="Column structured properties were written using the field paths from the CSV as-is, because the dataset has no schema in DataHub.",
+                    context=dataset_urn,
+                )
+            else:
+                field_paths = {}
+                for field in schema_metadata.fields:
+                    simple_path = get_simple_field_path_from_v2_field_path(
+                        field.fieldPath
+                    )
+                    current = field_paths.get(simple_path)
+                    if current is None or _column_rank(field.fieldPath) < _column_rank(
+                        current
+                    ):
+                        field_paths[simple_path] = field.fieldPath
+                # A CSV path that exactly matches a fieldPath is used as-is.
+                field_paths.update(
+                    {
+                        field.fieldPath: field.fieldPath
+                        for field in schema_metadata.fields
+                    }
+                )
+
+        self.schema_field_paths_cache[dataset_urn] = field_paths
+        return field_paths
+
+    def resolve_schema_field_path(
+        self, dataset_urn: str, field_path: str
+    ) -> Optional[str]:
+        # The CSV holds simple paths, but schemaField urns must use the exact
+        # schemaMetadata fieldPath (possibly v2) to match what the UI reads.
+        if not self.ctx.graph:
+            return field_path
+
+        field_paths = self.get_schema_field_paths(dataset_urn)
+        if field_paths is None:
+            return field_path
+
+        resolved_path = field_paths.get(field_path)
+        if resolved_path is None:
+            self.report.warning(
+                title="Column Not Found In Schema",
+                message="Column structured properties were skipped, because no matching field was found in the dataset's schema.",
+                context=f"resource={dataset_urn}, subresource={field_path}",
+            )
+        return resolved_path
+
+    def add_schema_field_structured_properties(
+        self,
+        dataset_urn: str,
+        field_path: str,
+        structured_properties: List[StructuredPropertyValueAssignmentClass],
+    ) -> None:
+        resolved_path = self.resolve_schema_field_path(dataset_urn, field_path)
+        if resolved_path is None:
+            return
+
+        values_by_property = self.schema_field_structured_properties_map.setdefault(
+            make_schema_field_urn(dataset_urn, resolved_path), {}
+        )
+        for assignment in structured_properties:
+            values = values_by_property.setdefault(assignment.propertyUrn, [])
+            for value in assignment.values:
+                if value not in values:
+                    values.append(value)
+
+    def get_schema_field_structured_properties_work_units(
+        self,
+    ) -> Iterable[MetadataWorkUnit]:
+        for (
+            schema_field_urn,
+            values_by_property,
+        ) in self.schema_field_structured_properties_map.items():
+            maybe_structured_properties_wu = (
+                self.get_resource_structured_properties_work_unit(
+                    entity_urn=schema_field_urn,
+                    structured_properties=[
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn=property_urn, values=values
+                        )
+                        for property_urn, values in values_by_property.items()
+                    ],
+                )
+            )
+            if maybe_structured_properties_wu:
+                self.report.num_schema_field_structured_properties_workunits_produced += 1
+                yield maybe_structured_properties_wu
 
     def get_resource_workunits(
         self,
@@ -721,24 +833,25 @@ class CSVEnricherSource(Source):
         # present in the file. Excel is known to add a BOM to CSV files.
         # As per https://stackoverflow.com/a/63508823/5004662,
         # this is also safe with normal files that don't have a BOM.
-        parsed_location = parse.urlparse(self.config.filename)
-        if parsed_location.scheme in ("http", "https"):
-            try:
-                resp = requests.get(self.config.filename)
-                resp.raise_for_status()  # Raise an exception for HTTP error status codes
-                decoded_content = resp.content.decode("utf-8-sig")
-                rows = list(
-                    csv.DictReader(
-                        decoded_content.splitlines(), delimiter=self.config.delimiter
-                    )
-                )
-            except Exception as e:
-                raise ConfigurationError(
-                    f"Cannot read remote file {self.config.filename}: {e}"
-                ) from e
-        else:
-            with open(pathlib.Path(self.config.filename), encoding="utf-8-sig") as f:
-                rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
+        schema = get_path_schema(self.config.filename)
+        try:
+            fs_class = fs_registry.get(schema)
+        except ConfigurationError as e:
+            # The registry's own hint names a non-existent extra (e.g. [https]).
+            raise ConfigurationError(
+                f"Reading {schema} paths needs extra dependencies: "
+                f"pip install 'acryl-datahub[csv-enricher]'"
+            ) from e
+        try:
+            stream = fs_class.create().open(self.config.filename)
+        except Exception as e:
+            if schema == "file":
+                raise
+            raise ConfigurationError(
+                f"Cannot read remote file {self.config.filename}: {e}"
+            ) from e
+        with io.TextIOWrapper(stream, encoding="utf-8-sig") as f:
+            rows = list(csv.DictReader(f, delimiter=self.config.delimiter, restval=""))
 
         for row in rows:
             # We need the resource to move forward
@@ -755,7 +868,7 @@ class CSVEnricherSource(Source):
             tag_associations: List[TagAssociationClass] = self.maybe_extract_tags(row)
             owners: List[OwnerClass] = self.maybe_extract_owners(row, is_resource_row)
             structured_properties: List[StructuredPropertyValueAssignmentClass] = (
-                self.maybe_extract_structured_properties(row, is_resource_row)
+                self.maybe_extract_structured_properties(row)
             )
 
             domain: Optional[str] = (
@@ -783,19 +896,36 @@ class CSVEnricherSource(Source):
                 # Only dataset sub-resources are currently supported.
                 # Add the row to the map from entity (dataset) to SubResource rows. We cannot emit work units for
                 # EditableSchemaMetadata until we parse the whole CSV due to read-modify-write issues.
-                self.editable_schema_metadata_map.setdefault(entity_urn, [])
-                self.editable_schema_metadata_map[entity_urn].append(
-                    SubResourceRow(
-                        entity_urn=entity_urn,
-                        field_path=row["subresource"],
-                        term_associations=term_associations,
-                        tag_associations=tag_associations,
-                        description=description,
-                        domain=domain,
+                # A row with nothing for editableSchemaMetadata is not added, so a
+                # structured-property-only row does not trigger an OVERRIDE of it.
+                if term_associations or tag_associations or description:
+                    self.editable_schema_metadata_map.setdefault(entity_urn, [])
+                    self.editable_schema_metadata_map[entity_urn].append(
+                        SubResourceRow(
+                            entity_urn=entity_urn,
+                            field_path=row["subresource"],
+                            term_associations=term_associations,
+                            tag_associations=tag_associations,
+                            description=description,
+                            domain=domain,
+                        )
                     )
+
+                if structured_properties:
+                    self.add_schema_field_structured_properties(
+                        dataset_urn=entity_urn,
+                        field_path=row["subresource"],
+                        structured_properties=structured_properties,
+                    )
+            else:
+                self.report.warning(
+                    title="Unsupported Subresource",
+                    message="Ignoring row, because column-level metadata is supported for datasets only.",
+                    context=f"resource={entity_urn}, subresource={row['subresource']}",
                 )
 
         yield from self.get_sub_resource_work_units()
+        yield from self.get_schema_field_structured_properties_work_units()
 
     def get_report(self):
         return self.report

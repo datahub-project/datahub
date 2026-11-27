@@ -41,6 +41,7 @@ from datahub.ingestion.reporting.datahub_ingestion_run_summary_provider import (
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.repository_documents.client import (
     RepositoryDocumentsClient,
+    RepositoryTarget,
 )
 from datahub.ingestion.source.repository_documents.config import (
     RepositoryDocumentsSourceConfigBase,
@@ -212,12 +213,10 @@ class RepositoryDocumentsSourceBase(
         # of its ancestors are already present in these maps.
         self._source_id_to_title: Dict[str, str] = {}
         self._source_id_to_parent: Dict[str, Optional[str]] = {}
-        self._repo_root_source_id: Optional[str] = (
-            None
-            if config.parent_document_urn or not config.create_repo_root_document
-            else make_repo_source_id(
-                config.repository, source_prefix=self._source_prefix
-            )
+        # Set per repository by _select_repository.
+        self._repository: str = config.repository or ""
+        self._repo_root_source_id: Optional[str] = self._root_source_id_for(
+            self._repository
         )
         # Cache of import_source_id -> existing document URN (sync-back round-trip).
         self._resolved_source_id_urns: Dict[str, Optional[str]] = {}
@@ -272,20 +271,42 @@ class RepositoryDocumentsSourceBase(
     def _prop(self, name: str) -> str:
         return property_key(self.platform, name)
 
+    @property
+    def _multi_repository(self) -> bool:
+        return False
+
+    def _targets(self) -> List[RepositoryTarget]:
+        return [
+            RepositoryTarget(repository=self._repository, branch=self.config.branch)
+        ]
+
+    def _root_source_id_for(self, repository: str) -> Optional[str]:
+        nests_under_parent = bool(self.config.parent_document_urn)
+        if not repository or not self.config.create_repo_root_document:
+            return None
+        if nests_under_parent and not self._multi_repository:
+            return None
+        return make_repo_source_id(repository, source_prefix=self._source_prefix)
+
+    def _select_repository(self, repository: str) -> None:
+        self._repository = repository
+        self._repo_root_source_id = self._root_source_id_for(repository)
+        self._soft_deleted_cache = None
+
     def _file_source_id(self, file_path: str) -> str:
         return make_file_source_id(
-            self.config.repository, file_path, source_prefix=self._source_prefix
+            self._repository, file_path, source_prefix=self._source_prefix
         )
 
     def _dir_source_id(self, dir_path: str) -> str:
         return make_dir_source_id(
-            self.config.repository, dir_path, source_prefix=self._source_prefix
+            self._repository, dir_path, source_prefix=self._source_prefix
         )
 
     def _parent_source_id(self, path: str) -> Optional[str]:
         """The source id of the folder (or repository root) holding ``path``."""
         return resolve_parent_dir_source_id(
-            self.config.repository,
+            self._repository,
             path,
             self.config.path_prefix.strip("/"),
             repo_root_source_id=self._repo_root_source_id,
@@ -303,8 +324,70 @@ class RepositoryDocumentsSourceBase(
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        owner_repo = self.config.repository
-        branch = self.config.branch
+        targets = self._targets()
+        if not self._multi_repository:
+            for target in targets:
+                self._select_repository(target.repository)
+                yield from self._import_repository(target)
+            return
+
+        if not targets:
+            if self.report.repositories_failed:
+                raise RuntimeError(
+                    f"Could not import any of the {self.report.repositories_failed.total_elements} "
+                    "repositories; see the 'Repository skipped' warnings."
+                )
+            self._keep_previous_documents()
+            self.report.warning(
+                title="No repositories to import",
+                message=(
+                    "No repository matched the configuration, so nothing was "
+                    "imported and documents imported by earlier runs are kept. "
+                    "Check the group path, the project filters and the token's access."
+                ),
+                context=f"platform={self.platform}",
+            )
+            return
+
+        errors: List[str] = []
+        for target in targets:
+            self._select_repository(target.repository)
+            try:
+                yield from self._import_repository(target)
+                self.report.repositories_imported += 1
+            except Exception as exc:
+                errors.append(f"{target.repository}: {exc}")
+                self._skip_failed_repository(target.repository, target.branch, exc)
+        if errors and not self.report.repositories_imported:
+            raise RuntimeError(
+                f"Could not import any of the {len(errors)} repositories. "
+                f"First error: {errors[0]}"
+            )
+
+    def _skip_failed_repository(
+        self, repository: str, branch: Optional[str], exc: Exception
+    ) -> None:
+        # The checkpoint does not record which repository a URN came from, so
+        # every previous document is kept, not just this repository's.
+        self.report.repositories_failed.append(repository)
+        self._keep_previous_documents()
+        self.report.warning(
+            title="Repository skipped",
+            message=(
+                "The repository could not be imported, so it was skipped and "
+                "documents imported by earlier runs are kept. Other repositories "
+                "were imported."
+            ),
+            context=f"platform={self.platform}, repository={repository}, "
+            f"branch={branch or 'unknown'}",
+            exc=exc,
+        )
+
+    def _import_repository(
+        self, target: RepositoryTarget
+    ) -> Iterable[MetadataWorkUnit]:
+        owner_repo = target.repository
+        branch = target.branch
         path_prefix = self.config.path_prefix.strip("/")
         extensions = self.config.file_extensions
 
@@ -425,7 +508,7 @@ class RepositoryDocumentsSourceBase(
             owner_repo=owner_repo,
             branch=branch,
             repo_path="",
-            parent_document=None,
+            parent_document=self.config.parent_document_urn,
             custom_properties=custom_properties,
             is_directory=True,
         )
@@ -1046,7 +1129,7 @@ class RepositoryDocumentsSourceBase(
                 )
             )
 
-        owner_repo = self.config.repository
+        owner_repo = self._repository
         # rpartition: GitLab projects can sit under nested groups (a/b/project).
         org_name, _, repo_name = owner_repo.rpartition("/")
 
@@ -1160,7 +1243,7 @@ class RepositoryDocumentsSourceBase(
         if self._soft_deleted_cache is not None:
             return self._soft_deleted_cache
 
-        owner_repo = self.config.repository
+        owner_repo = self._repository
         urns: Set[str] = set()
         if self.ctx.graph:
             try:
@@ -1262,6 +1345,12 @@ class RepositoryDocumentsSourceBase(
             )
         return commit_sha
 
+    @classmethod
+    def _connection_targets(
+        cls, client: RepositoryDocumentsClient, config: ConfigT
+    ) -> Iterable[RepositoryTarget]:
+        yield RepositoryTarget(repository=config.repository, branch=config.branch)
+
     def get_report(self) -> RepositoryDocumentsSourceReport:
         return self.report
 
@@ -1278,16 +1367,26 @@ class RepositoryDocumentsSourceBase(
         try:
             client = cls._make_client(config)
             # Resolve the branch the same way ingestion does, so a tag or a
-            # missing branch fails here rather than on the first run.
-            commit_sha = cls._resolve_commit_sha(
-                client, config.repository, config.branch
-            )
-            client.list_matching_files(
-                config.repository,
-                commit_sha,
-                config.path_prefix.strip("/"),
-                config.file_extensions[:1] or [".md"],
-            )
+            # missing branch fails here rather than on the first run. A run
+            # skips an unreadable repository and imports the rest, so the check
+            # passes on the first one that works.
+            last_error: Optional[Exception] = None
+            for target in cls._connection_targets(client, config):
+                try:
+                    commit_sha = cls._resolve_commit_sha(
+                        client, target.repository, target.branch
+                    )
+                    client.list_matching_files(
+                        target.repository,
+                        commit_sha,
+                        config.path_prefix.strip("/"),
+                        config.file_extensions[:1] or [".md"],
+                    )
+                    break
+                except Exception as exc:
+                    last_error = exc
+            else:
+                raise last_error or RuntimeError("No repository to check")
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(capable=True)
             )

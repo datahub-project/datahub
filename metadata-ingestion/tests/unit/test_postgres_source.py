@@ -1,6 +1,6 @@
 from io import StringIO
 from types import SimpleNamespace
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 from unittest import mock
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote
@@ -58,7 +58,7 @@ from datahub.utilities.sqlalchemy_type_converter import (
 )
 from tests.test_helpers.masking_state_helpers import capture_masked_log
 from tests.unit.conftest import as_mock, log_contexts, single_aspect
-from tests.unit.sql_test_helpers import FakeConnection, FakeResult
+from tests.unit.sql_test_helpers import FakeConnection, FakeResult, Outcome
 
 
 def _base_config():
@@ -221,6 +221,142 @@ def test_view_names_survive_materialized_view_listing_failure():
 
     assert source._get_view_names(inspector, "public") == ["v1"]
     assert source.report.warnings
+
+
+def _partitioned_inspector(partition_rows: Outcome) -> MagicMock:
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = [
+        "customers",
+        "events",
+        "events_2026_10",
+        "events_2026_11",
+    ]
+    inspector.engine.connect.return_value = FakeConnection(
+        {"relispartition": partition_rows}
+    )
+    return inspector
+
+
+def test_table_names_include_partitions_by_default():
+    source = PostgresSource(
+        PostgresConfig.model_validate({**_base_config(), "database": "db"}),
+        PipelineContext(run_id="test"),
+    )
+    inspector = _partitioned_inspector([])
+
+    assert source._get_table_names(inspector, "public") == [
+        "customers",
+        "events",
+        "events_2026_10",
+        "events_2026_11",
+    ]
+    inspector.engine.connect.assert_not_called()
+
+
+def test_table_names_skip_partitions_when_disabled():
+    source = PostgresSource(
+        PostgresConfig.model_validate(
+            {**_base_config(), "database": "db", "include_table_partitions": False}
+        ),
+        PipelineContext(run_id="test"),
+    )
+    inspector = _partitioned_inspector(
+        lambda params: (
+            [
+                SimpleNamespace(table_name="events_2026_10"),
+                SimpleNamespace(table_name="events_2026_11"),
+            ]
+            if params == {"schema": "public"}
+            else []
+        )
+    )
+
+    # loop_tables and loop_profiler_requests both list tables; query and count
+    # each schema once.
+    for _ in range(2):
+        assert source._get_table_names(inspector, "public") == ["customers", "events"]
+
+    inspector.engine.connect.assert_called_once()
+    assert source.report.num_table_partitions_skipped == 2
+    assert list(source.report.table_partitions_skipped) == [
+        "db.public.events_2026_10",
+        "db.public.events_2026_11",
+    ]
+
+
+def test_table_names_keep_partitions_when_listing_them_fails():
+    source = PostgresSource(
+        PostgresConfig.model_validate(
+            {**_base_config(), "database": "db", "include_table_partitions": False}
+        ),
+        PipelineContext(run_id="test"),
+    )
+    inspector = _partitioned_inspector(
+        RuntimeError('column "relispartition" does not exist')
+    )
+
+    all_tables = ["customers", "events", "events_2026_10", "events_2026_11"]
+    # The failure is remembered, so profiling keeps the same tables ingestion did.
+    for _ in range(2):
+        assert source._get_table_names(inspector, "public") == all_tables
+
+    inspector.engine.connect.assert_called_once()
+    assert source.report.num_table_partitions_skipped == 0
+    assert source.report.warnings
+
+
+def test_table_partitions_listed_per_database_and_schema():
+    # No database set, so each inspector is its own database (multi-db ingestion).
+    source = PostgresSource(
+        PostgresConfig.model_validate(
+            {**_base_config(), "include_table_partitions": False}
+        ),
+        PipelineContext(run_id="test"),
+    )
+    partitions_by_schema: Dict[str, Dict[str, List[str]]] = {
+        "db1": {"public": ["events_2026_10"], "other": ["events_2026_11"]},
+        "db2": {"public": []},
+    }
+    queried: List[Tuple[str, str]] = []
+
+    def inspector_for(db: str) -> MagicMock:
+        def partition_rows(params: Optional[Dict[str, Any]]) -> List[SimpleNamespace]:
+            assert params is not None
+            queried.append((db, params["schema"]))
+            return [
+                SimpleNamespace(table_name=name)
+                for name in partitions_by_schema[db][params["schema"]]
+            ]
+
+        inspector = _partitioned_inspector(partition_rows)
+        inspector.engine.url.database = db
+        return inspector
+
+    db1, db2 = inspector_for("db1"), inspector_for("db2")
+    for _ in range(2):
+        assert source._get_table_names(db1, "public") == [
+            "customers",
+            "events",
+            "events_2026_11",
+        ]
+        assert source._get_table_names(db1, "other") == [
+            "customers",
+            "events",
+            "events_2026_10",
+        ]
+        assert source._get_table_names(db2, "public") == [
+            "customers",
+            "events",
+            "events_2026_10",
+            "events_2026_11",
+        ]
+
+    assert queried == [("db1", "public"), ("db1", "other"), ("db2", "public")]
+    assert source.report.num_table_partitions_skipped == 2
+    assert list(source.report.table_partitions_skipped) == [
+        "db1.public.events_2026_10",
+        "db1.other.events_2026_11",
+    ]
 
 
 def test_database_in_identifier():

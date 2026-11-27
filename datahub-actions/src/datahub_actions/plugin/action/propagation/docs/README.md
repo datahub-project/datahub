@@ -16,7 +16,7 @@ The Documentation Propagation Action provides several configuration options:
 
 - `enabled`: Controls whether documentation propagation is enabled (default: `true`)
 - `columns_enabled`: Controls whether column-level documentation propagation is enabled (default: `true`)
-- `datasets_enabled`: Controls whether dataset-level documentation propagation is enabled (default: `false`) - Note: Currently not implemented
+- `datasets_enabled`: Currently has no effect. Dataset-level documentation propagation is not supported (default: `false`)
 - `column_propagation_relationships`: Specifies which relationships to use for propagation. Valid values are:
   - `UPSTREAM`: Propagate to upstream columns
   - `DOWNSTREAM`: Propagate to downstream columns

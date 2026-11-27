@@ -10,25 +10,38 @@ Tests:
 - Performance
 """
 
+import builtins
+import json
 import logging
+import os
 import sys
 import threading
 import time
 from io import StringIO
+from logging.handlers import MemoryHandler
+from types import TracebackType
+from typing import Callable, Iterator, NoReturn, Optional, Union
 from unittest.mock import Mock, patch
 
 import pytest
+from pythonjsonlogger.json import JsonFormatter
+from sentry_sdk.utils import exceptions_from_error_tuple
 
-from datahub.masking import secret_registry as registry_module
+from datahub.masking import (
+    masking_filter as filter_module,
+    secret_registry as registry_module,
+)
 from datahub.masking.constants import (
     CAPACITY_EXCEEDED_MESSAGE,
     CIRCUIT_OPEN_MESSAGE,
     MASKING_ERROR_MESSAGE,
 )
 from datahub.masking.masking_filter import (
+    MaskedException,
     SecretMaskingFilter,
     StreamMaskingWrapper,
     _filterable_handlers,
+    _MaskedFormat,
     install_masking_filter,
     uninstall_masking_filter,
 )
@@ -211,6 +224,132 @@ class TestFormattedMessages:
         assert "secret" not in str(record.args)
 
 
+SECRET = "s3cr3t-test-value"
+ExcInfo = tuple[type[BaseException], BaseException, Optional[TracebackType]]
+OptExcInfo = Union[ExcInfo, tuple[None, None, None], None]
+
+
+class QueryError(Exception):
+    def __init__(self, message: str, query: str) -> None:
+        super().__init__(message)
+        self.query = query
+
+
+class ConnectError(Exception):
+    def __init__(self, password: str) -> None:
+        super().__init__("connect failed")
+        self.password = password
+
+    def __str__(self) -> str:
+        return f"cannot connect as {self.password}"
+
+
+class ApiError(Exception):
+    def __init__(self, summary: str, message: str) -> None:
+        super().__init__(summary)
+        self.message = message
+
+
+class DetailError(Exception):
+    def __init__(self, summary: str, detail: str) -> None:
+        super().__init__(summary)
+        self.detail = detail
+
+
+class UnprintableError(Exception):
+    def __str__(self) -> str:
+        raise RuntimeError("cannot render")
+
+
+class _ExcInfoFormatter(logging.Formatter):
+    """Formats only record.exc_info, as JSON formatters do."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return self.formatException(record.exc_info) if record.exc_info else ""
+
+
+def _raise(error: BaseException) -> NoReturn:
+    raise error
+
+
+def _raise_from(cause: BaseException) -> NoReturn:
+    raise QueryError("query failed", "SELECT 1") from cause
+
+
+def _raise_chained(cause: BaseException, *, explicit: bool = True) -> NoReturn:
+    try:
+        raise cause
+    except BaseException as handled:
+        if explicit:
+            raise QueryError("query failed", "SELECT 1") from handled
+        raise QueryError("query failed", "SELECT 1")  # noqa: B904
+
+
+def _raise_from_none(context: BaseException) -> NoReturn:
+    try:
+        raise context
+    except BaseException:
+        raise QueryError(f"login failed for {SECRET}", "SELECT 1") from None
+
+
+def _raise_context_cycle() -> NoReturn:
+    error, retry = ValueError("query failed"), ValueError(f"retry with {SECRET}")
+    error.__context__, retry.__context__ = retry, error
+    raise error
+
+
+def _raise_group() -> NoReturn:
+    members = [ValueError(f"item {i}") for i in range(20)]
+    members[17].add_note(f"while connecting with {SECRET}")
+    raise builtins.ExceptionGroup("batch failed", members)
+
+
+def _raise_with_notes(notes: object) -> NoReturn:
+    error = ValueError("query failed")
+    error.__notes__ = notes  # type: ignore[assignment]
+    raise error
+
+
+def _exc_info(raise_it: Callable[[], object]) -> ExcInfo:
+    try:
+        raise_it()
+    except BaseException as error:
+        return type(error), error, error.__traceback__
+    pytest.fail("expected an exception")
+
+
+def _record(exc_info: OptExcInfo, msg: str = "query failed") -> logging.LogRecord:
+    return logging.LogRecord("test", logging.ERROR, __file__, 1, msg, (), exc_info)
+
+
+def _log(
+    masking_filter: Optional[SecretMaskingFilter], exc_info: ExcInfo
+) -> tuple[logging.LogRecord, list[str]]:
+    """Log exc_info via a stdlib and an exc_info-only handler; return both outputs."""
+    log = logging.Logger("test_exception_masking")
+    streams: list[StringIO] = []
+    for formatter in (logging.Formatter(), _ExcInfoFormatter()):
+        stream = StringIO()
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(formatter)
+        if masking_filter is not None:
+            handler.addFilter(masking_filter)
+        log.addHandler(handler)
+        streams.append(stream)
+    record = _record(exc_info)
+    log.handle(record)
+    return record, [stream.getvalue() for stream in streams]
+
+
+@pytest.fixture
+def diagnostics() -> Iterator[StringIO]:
+    stream = StringIO()
+    handler = logging.StreamHandler(stream)
+    filter_module.logger.addHandler(handler)
+    yield stream
+    filter_module.logger.removeHandler(handler)
+
+
 class TestExceptionMasking:
     """Test masking in exception messages."""
 
@@ -271,6 +410,256 @@ class TestExceptionMasking:
         exc_str = str(exc_value)
         assert "value1" not in exc_str
         assert "value2" not in exc_str
+
+    def test_exception_without_secret_passes_through(self, registry, masking_filter):
+        registry.register_secret("DB_PASSWORD", SECRET)
+        exc_info = _exc_info(lambda: _raise_chained(ConnectionError("reset")))
+
+        record, outputs = _log(masking_filter, exc_info)
+
+        assert record.exc_info is exc_info
+        assert outputs == _log(None, exc_info)[1]
+
+    def test_value_only_in_a_file_path_keeps_the_exception(
+        self, registry, masking_filter
+    ):
+        path_part = os.path.splitext(os.path.basename(__file__))[0]
+        registry.register_secret("SOURCE_FILE", path_part)
+        exc_info = _exc_info(lambda: _raise(ValueError("query failed")))
+
+        record, outputs = _log(masking_filter, exc_info)
+
+        assert record.exc_info is exc_info
+        assert record.exc_text is not None
+        assert path_part not in record.exc_text
+        assert "***REDACTED:SOURCE_FILE***" in record.exc_text
+        assert path_part not in outputs[0]
+
+    @pytest.mark.parametrize(
+        "raise_it",
+        [
+            pytest.param(lambda: _raise(QueryError(SECRET, SECRET)), id="message"),
+            pytest.param(lambda: _raise_from(ConnectionError(SECRET)), id="cause"),
+            pytest.param(
+                lambda: _raise_chained(ConnectionError(SECRET), explicit=False),
+                id="context",
+            ),
+            pytest.param(
+                lambda: _raise_from_none(ConnectionError("reset")), id="from_none"
+            ),
+            pytest.param(_raise_context_cycle, id="context_cycle"),
+            pytest.param(lambda: _raise(ConnectError(SECRET)), id="attribute_str"),
+            pytest.param(
+                lambda: _raise(FileNotFoundError(2, "No such file", f"/tmp/{SECRET}")),
+                id="oserror_filename",
+            ),
+            pytest.param(lambda: _raise(ApiError("failed", SECRET)), id="message_attr"),
+            pytest.param(
+                lambda: _raise(DetailError("failed", SECRET)), id="detail_attr"
+            ),
+            pytest.param(
+                _raise_group,
+                id="group_member_note",
+                marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="3.11+"),
+            ),
+            pytest.param(
+                lambda: _raise_with_notes(("retrying", f"with {SECRET}")),
+                id="notes_tuple",
+                marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="3.11+"),
+            ),
+            pytest.param(
+                lambda: _raise_with_notes(f"with {SECRET}"),
+                id="notes_str",
+                marks=pytest.mark.skipif(sys.version_info < (3, 12), reason="3.12+"),
+            ),
+        ],
+    )
+    def test_secret_anywhere_in_exception_is_masked(
+        self, registry, masking_filter, raise_it
+    ):
+        registry.register_secret("DB_PASSWORD", SECRET)
+        exc_info = _exc_info(raise_it)
+
+        record, outputs = _log(masking_filter, exc_info)
+
+        assert not any(SECRET in output for output in outputs)
+        assert record.exc_info is not None
+        for exception in exceptions_from_error_tuple(record.exc_info):
+            assert SECRET not in f"{exception['type']} {exception['value']}"
+        original, stand_in = exc_info[1], record.exc_info[1]
+        assert isinstance(stand_in, MaskedException)
+        assert record.exc_info[0] is type(stand_in)
+        assert type(stand_in).__name__ == type(original).__name__
+        assert record.exc_info[2] is exc_info[2]
+        assert (stand_in.__cause__ is None) == (original.__cause__ is None)
+        assert (stand_in.__context__ is None) == (original.__context__ is None)
+        assert stand_in.__suppress_context__ == original.__suppress_context__
+        assert set(vars(stand_in)) <= {"__notes__"}
+        assert "Traceback (most recent call last)" in outputs[1]
+        assert record.exc_text and type(original).__name__ in record.exc_text
+
+    @pytest.mark.skipif(sys.version_info < (3, 11), reason="3.11+")
+    def test_replaced_group_keeps_its_members(self, registry, masking_filter):
+        registry.register_secret("DB_PASSWORD", SECRET)
+
+        record, outputs = _log(masking_filter, _exc_info(_raise_group))
+
+        assert record.exc_info is not None
+        assert isinstance(record.exc_info[1], builtins.ExceptionGroup)
+        assert "ExceptionGroup: batch failed (20 sub-exceptions)" in outputs[1]
+        assert "| ValueError: item 0" in outputs[1]
+        values = [e["value"] for e in exceptions_from_error_tuple(record.exc_info)]
+        assert "item 17\nwhile connecting with ***REDACTED:DB_PASSWORD***" in values
+
+    def test_replaced_exception_keeps_masked_chain_and_callers_object(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("DB_PASSWORD", SECRET)
+        exc_info = _exc_info(lambda: _raise_chained(ConnectionError(SECRET)))
+        error, cause = exc_info[1], exc_info[1].__cause__
+        assert cause is not None
+
+        def state() -> list[tuple[object, ...]]:
+            return [
+                (e.args, dict(vars(e)), e.__cause__, e.__context__, e.__traceback__)
+                for e in (error, cause)
+            ]
+
+        before = state()
+        record, outputs = _log(masking_filter, exc_info)
+
+        assert state() == before
+        assert record.exc_info is not None
+        stand_in = record.exc_info[1]
+        assert stand_in is not None
+        assert stand_in.__traceback__ is error.__traceback__
+        assert stand_in.__cause__ is not None
+        assert stand_in.__cause__.__traceback__ is cause.__traceback__
+        assert record.exc_text is not None
+        assert "ConnectionError: ***REDACTED:DB_PASSWORD***" in record.exc_text
+        assert "QueryError: query failed" in record.exc_text
+        assert record.exc_text in outputs[0]
+        assert outputs[1] == f"{record.exc_text}\n"
+        sentry = exceptions_from_error_tuple(record.exc_info)
+        assert [(e["type"], e["value"]) for e in sentry] == [
+            ("ConnectionError", "***REDACTED:DB_PASSWORD***"),
+            ("QueryError", "query failed"),
+        ]
+        assert [e["stacktrace"] for e in sentry] == [
+            e["stacktrace"] for e in exceptions_from_error_tuple(exc_info)
+        ]
+        again, _ = _log(masking_filter, exc_info)
+        assert again.exc_info is not None
+        assert type(again.exc_info[1]) is type(stand_in)
+
+    def test_filtering_a_replaced_record_again_changes_nothing(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("DB_PASSWORD", SECRET)
+        exc_info = _exc_info(lambda: _raise_chained(ConnectionError(SECRET)))
+        record, _ = _log(masking_filter, exc_info)
+        replaced, text = record.exc_info, record.exc_text
+
+        masking_filter.filter(record)
+
+        assert record.exc_info is replaced
+        assert record.exc_text == text
+
+    def test_long_chain_is_filtered_quickly(self, registry, masking_filter):
+        registry.register_secret("DB_PASSWORD", SECRET)
+        errors = [ValueError(f"attempt {i}") for i in range(3000)]
+        errors[0] = ValueError(f"attempt 0 with {SECRET}")
+        for i in range(1, len(errors)):
+            errors[i].__context__ = errors[i - 1]
+        record = _record((ValueError, errors[-1], None))
+
+        start = time.perf_counter()
+        masking_filter.filter(record)
+        masking_filter.filter(record)
+        elapsed = time.perf_counter() - start
+
+        assert record.exc_info is not None
+        assert type(record.exc_info[1]).__name__ == "ValueError"
+        assert isinstance(record.exc_info[1], MaskedException)
+        assert elapsed < 1
+
+    def test_deferred_handler_renders_the_exception_as_logged(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("DB_PASSWORD", SECRET)
+        sink = StringIO()
+        buffering = MemoryHandler(10, logging.CRITICAL, logging.StreamHandler(sink))
+        buffering.addFilter(masking_filter)
+        log = logging.Logger("test_deferred")
+        log.addHandler(buffering)
+        error = ValueError("query failed")
+
+        log.error("query failed", exc_info=error)
+        error.__context__ = ConnectionError(SECRET)
+        buffering.flush()
+
+        assert "ValueError: query failed" in sink.getvalue()
+        assert SECRET not in sink.getvalue()
+
+    def test_empty_exc_info_passes_through_without_diagnostics(
+        self, registry, masking_filter, diagnostics
+    ):
+        registry.register_secret("DB_PASSWORD", SECRET)
+        record = _record((None, None, None))
+
+        masking_filter.filter(record)
+
+        assert record.exc_info == (None, None, None)
+        assert record.exc_text is None
+        assert diagnostics.getvalue() == ""
+
+    def test_exception_masking_failures_do_not_open_the_circuit(self, masking_filter):
+        exc_info = _exc_info(lambda: _raise(ValueError("query failed")))
+        with patch.object(
+            filter_module._FORMATTER, "formatException", side_effect=MemoryError
+        ):
+            for _ in range(11):
+                record = _record(exc_info)
+                masking_filter.filter(record)
+                assert record.exc_info is not None
+                assert record.exc_info[0] is MaskedException
+        record = _record(None, msg="ordinary message")
+
+        masking_filter.filter(record)
+
+        assert record.getMessage() == "ordinary message"
+
+    def test_masking_failure_diagnostics_carry_type_names_only(
+        self, registry, masking_filter, diagnostics, capsys
+    ):
+        registry.register_secret("DB_PASSWORD", SECRET)
+        unprintable = _exc_info(lambda: _raise(UnprintableError(SECRET)))
+        record, outputs = _log(masking_filter, unprintable)
+        assert record.exc_info is not None
+        assert record.exc_info[0] is MaskedException
+        assert str(record.exc_info[1]) == MASKING_ERROR_MESSAGE
+        assert record.exc_info[2] is None
+        assert not any(SECRET in output for output in outputs)
+        try:
+            _raise(QueryError(f"login failed for {SECRET}", "SELECT 1"))
+        except QueryError as error:
+            with patch.object(
+                filter_module._FORMATTER, "formatException", side_effect=MemoryError
+            ):
+                _log(masking_filter, (QueryError, error, error.__traceback__))
+            with patch.object(
+                masking_filter, "mask_text", side_effect=RuntimeError(SECRET)
+            ):
+                masking_filter._mask_args(("value",))
+                masking_filter.filter(_record(None))
+
+        logged, stderr = diagnostics.getvalue(), capsys.readouterr().err
+        for output in (logged, stderr):
+            assert SECRET not in output
+            assert "Traceback" not in output
+        assert "MemoryError" in logged
+        assert "RuntimeError" in logged
+        assert "RuntimeError" in stderr
 
 
 class TestMessageTruncation:
@@ -563,17 +952,20 @@ class TestInstallation:
         registry.register_secret("TEST", "test_value")
 
         probe_handler = logging.NullHandler()
+        original_format = probe_handler.format
         logging.getLogger().addHandler(probe_handler)
         try:
             install_masking_filter(registry)
             assert any(
                 isinstance(f, SecretMaskingFilter) for f in probe_handler.filters
             )
+            assert isinstance(probe_handler.format, _MaskedFormat)
 
             uninstall_masking_filter()
             assert not any(
                 isinstance(f, SecretMaskingFilter) for f in probe_handler.filters
             )
+            assert probe_handler.format == original_format
         finally:
             logging.getLogger().removeHandler(probe_handler)
 
@@ -692,6 +1084,54 @@ class TestInstallation:
             probe_logger.removeHandler(handler)
             probe_logger.propagate = True
 
+    def test_json_file_output_is_masked(self, tmp_path):
+        """A formatter that renders exc_info and extra fields itself, writing to
+        a file: a value found only in traceback paths, and a secret in a field
+        the filter does not mask, in its JSON-escaped form."""
+        path_value = os.path.splitext(os.path.basename(__file__))[0]
+        escaped_secret = 'pa"ss-w\u00f6rd-value'
+        registry = SecretRegistry()
+        registry.register_secret("DB_USER", path_value)
+        registry.register_secret("DB_PASSWORD", escaped_secret)
+        log_file = tmp_path / "ingestion.log"
+        handler = logging.FileHandler(log_file)
+        handler.setFormatter(JsonFormatter("%(message)s"))
+        probe_logger = logging.getLogger("app.json_file_probe")
+        probe_logger.addHandler(handler)
+        probe_logger.propagate = False
+        try:
+            install_masking_filter(registry)
+            try:
+                raise ValueError("query failed")
+            except ValueError:
+                probe_logger.exception(
+                    "ingestion failed", extra={"detail": escaped_secret}
+                )
+        finally:
+            probe_logger.removeHandler(handler)
+            probe_logger.propagate = True
+            handler.close()
+
+        written = log_file.read_text()
+        assert "ValueError: query failed" in written
+        assert "***REDACTED:DB_USER***" in written
+        assert path_value not in written
+        assert '"detail": "***REDACTED:DB_PASSWORD***"' in written
+        assert "ss-w" not in written
+
+    def test_formatted_output_is_withheld_when_masking_raises(self):
+        handler = logging.StreamHandler(StringIO())
+        logging.getLogger().addHandler(handler)
+        try:
+            masking_filter = install_masking_filter(SecretRegistry())
+            record = logging.LogRecord(
+                "app", logging.ERROR, __file__, 1, "token %s", (SECRET,), None
+            )
+            with patch.object(masking_filter, "mask_text", side_effect=RuntimeError):
+                assert handler.format(record) == MASKING_ERROR_MESSAGE
+        finally:
+            logging.getLogger().removeHandler(handler)
+
     def test_double_install(self):
         """Repeated installation stacks no duplicate filters or wrappers."""
         registry = SecretRegistry()
@@ -705,6 +1145,8 @@ class TestInstallation:
                 f for f in probe_handler.filters if isinstance(f, SecretMaskingFilter)
             ]
             assert len(masking_filters) == 1
+            assert isinstance(probe_handler.format, _MaskedFormat)
+            assert not isinstance(probe_handler.format.original, _MaskedFormat)
             assert isinstance(sys.stdout, StreamMaskingWrapper)
             assert not isinstance(sys.stdout._original, StreamMaskingWrapper)
         finally:
@@ -1176,6 +1618,40 @@ class TestRegexSecurityFixes:
         # Should NOT match as regex
         assert masking_filter.mask_text("Pattern: 123") == "Pattern: 123"
         assert masking_filter.mask_text("Value: testvalue") == "Value: testvalue"
+
+    @pytest.mark.parametrize(
+        "secret, render",
+        [
+            pytest.param('pa"ss-w\u00f6rd', lambda s: json.dumps({"pw": s}), id="json"),
+            pytest.param(
+                "CORP\\svc-user",
+                lambda s: json.dumps(f"users: {[s]!r}"),
+                id="repr_inside_json",
+            ),
+            pytest.param(
+                'pa"ss-value',
+                lambda s: json.dumps(json.dumps({"pw": s})),
+                id="json_inside_json",
+            ),
+            pytest.param(
+                "it's-secret-value",
+                lambda s: repr(f'{s} "quoted"'),
+                id="repr_with_both_quotes",
+            ),
+        ],
+    )
+    def test_escaped_secret_is_masked(
+        self,
+        registry: SecretRegistry,
+        masking_filter: SecretMaskingFilter,
+        secret: str,
+        render: Callable[[str], str],
+    ) -> None:
+        registry.register_secret("DB_PASSWORD", secret)
+
+        masked = masking_filter.mask_text(render(secret))
+
+        assert masked == render("***REDACTED:DB_PASSWORD***")
 
 
 class TestNestedConfigHandling:

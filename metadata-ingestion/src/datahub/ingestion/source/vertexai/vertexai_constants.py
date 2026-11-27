@@ -59,11 +59,15 @@ class DetailCalls:
     MODEL_LOOKUP = "model_lookup"
     ENDPOINT_LIST = "endpoint_list"
     EVALUATION_LOOKUP = "evaluation_lookup"
+    EXPERIMENT_CONTEXT = "experiment_context"
+    EXPERIMENT_RUN_INIT = "experiment_run_init"
+    EXPERIMENT_RUN_LEGACY_METRICS = "experiment_run_legacy_metrics"
     EXPERIMENT_RUN_EXECUTIONS = "experiment_run_executions"
     EXPERIMENT_RUN_LOGGED_JOBS = "experiment_run_logged_jobs"
     EXPERIMENT_RUN_DETAIL = "experiment_run_detail"
     EXPERIMENT_RUN_ARTIFACTS = "experiment_run_artifacts"
     PIPELINE_LOOKUP = "pipeline_lookup"
+    PIPELINE_BUILD = "pipeline_build"
     PIPELINE_TASK_ARTIFACTS = "pipeline_task_artifacts"
     AUTOML_JOB_CONFIG = "automl_job_config"
     REGION_DISCOVERY = "region_discovery"
@@ -89,7 +93,7 @@ DETAIL_SWITCHES: Dict[str, str] = {
 LINKS_LOST_ON_STOP = frozenset({DetailCalls.PIPELINE_LOOKUP})
 # Only the lost pipeline's own region is held back.
 PIPELINE_LINKS_ELSEWHERE = 'Models in other regions or projects used by these pipelines may lose their pipeline "used by" links until a run reads these pipelines again.'
-REGION_DISCOVERY_FAILED = "Could not list regions, so only the configured region is read. Entity names do not carry their region, so every earlier entity of the project is kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project: stale-entity removal is paused for this project until discovery works again. A refusal needs aiplatform.locations.list; to skip discovery, set `discover_regions: false` and list `regions`."
+REGION_DISCOVERY_FAILED = "Could not list regions, so only the listed regions (`regions`, else `region`) are read. Entity names do not carry their region, so every earlier entity of the project is kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project: stale-entity removal is paused for this project until discovery works again. A refusal needs aiplatform.locations.list; to skip discovery, set `discover_regions: false` and list `regions`."
 LOCATIONS_SKIPPED_TITLE = "Vertex AI locations skipped"
 LOCATIONS_SKIPPED = "These locations of the project are not read. `newer_regions` are Vertex AI regions the installed Google Cloud SDK (google-cloud-aiplatform) cannot read yet; `multi_regions` are multi-region locations and `unsupported` is the `global` location, which the connector does not read yet. Full coverage is planned for a later release."
 GLOBAL_LOCATION = "global"
@@ -99,7 +103,17 @@ SKIPPED_UNSUPPORTED = "unsupported"
 REGION_UNKNOWN_TITLE = "Configured region is not a Vertex AI location"
 REGION_UNKNOWN = "A region set in `regions` (or the deprecated `region`) is not in Google's list of Vertex AI locations, so no project is read. Earlier entities are kept and not soft-deleted. Correct the region name in the recipe."
 REGION_UNCHECKED_TITLE = "Configured region could not be checked"
-REGION_UNCHECKED = "A region set in `regions` (or the deprecated `region`) is not one the installed Google Cloud SDK (google-cloud-aiplatform) can read, and Google's list of Vertex AI locations could not be read to tell a newer region from a misspelt one, so this project is not read. Its earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project. Remove the region from the recipe, or grant aiplatform.locations.list so it can be checked."
+REGION_UNCHECKED = "A region set in `regions` (or the deprecated `region`) is not one the installed Google Cloud SDK (google-cloud-aiplatform) can read, and Google's list of Vertex AI locations could not be read to tell a newer region from a misspelt one, so no project is read. Each project's earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project. Remove the region from the recipe, or grant aiplatform.locations.list so it can be checked."
+REGION_UNCHECKED_AFTER_DISCOVERY = "A region set in `regions` (or the deprecated `region`) is not one the installed Google Cloud SDK (google-cloud-aiplatform) can read, and discovery could not list Google's Vertex AI locations to tell a newer region from a misspelt one, so the regions named in the context are not read. The other listed regions are. The project's earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project. Remove the region from the recipe, or grant aiplatform.locations.list so it can be checked."
+REGION_UNCHECKED_AFTER_DISCOVERY_NONE_READ = "A region set in `regions` (or the deprecated `region`) is not one the installed Google Cloud SDK (google-cloud-aiplatform) can read, and discovery could not list Google's Vertex AI locations to tell a newer region from a misspelt one, so no listed region can be read and this project is not read. The project's earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project. Remove the region from the recipe, or grant aiplatform.locations.list so it can be checked."
+LEGACY_RUN_EXECUTIONS_TITLE = (
+    "Experiment runs from Vertex Experiment Preview read without executions"
+)
+LEGACY_RUN_EXECUTIONS = (
+    "Experiment runs created during the Vertex Experiment Preview have no "
+    "executions or logged custom jobs, so they are written without them, and "
+    "nothing is kept for them."
+)
 UNSCOPED_KEPT_TITLE = "Pipelines and containers kept in every project"
 UNSCOPED_KEPT = "A read was lost in the project named in the context, so earlier pipelines, pipeline tasks or containers of every project are kept this run: their URNs do not show their project, so their stale-entity removal pauses."
 UNSCOPED_KEPT_DISCOVERED = "A read was lost in the discovered project named in the context, so earlier pipelines, pipeline tasks or containers of every project are kept this run: their URNs do not show their project, so their stale-entity removal pauses. If this repeats on every run, exclude the project with `project_id_pattern`, or restore its access."

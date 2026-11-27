@@ -127,6 +127,10 @@ skills-lock.json
 # Environment files with credentials
 .env*
 *.env
+# Checked-in service env layers for the local stacks (no secrets; see env/README.md).
+!/env/**/*.env
+!/smoke-test/env/**/*.env
+!/e2e-test/ui/playwright/env/**/*.env
 # Exception: ZDU test compose override (no secrets — only authz bypass flags)
 !docker/profiles/zdu-test.env
 

@@ -336,6 +336,17 @@ public class ESSearchDAOVectorStoreTest {
   }
 
   @Test
+  public void testAStoreServesOnAnOpenSearchTheDataHubIndexCannotSearch() throws Exception {
+    // OpenSearch 3.5 is the floor of the DataHub index's kNN filter; a store runs its own search
+    when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    when(client.getEngineVersion()).thenReturn("2.19.3");
+    hydrationReturns(D0, D1, D2);
+
+    assertEquals(urns(search(null, f -> {})), List.of(D0, D1, D2));
+    assertEquals(fake.requests.size(), 1);
+  }
+
+  @Test
   public void testOfTwoStoresServingTheProfileTheFirstByNameServes() throws Exception {
     hydrationReturns(D0);
     FakeVectorStore declaredFirst = new FakeVectorStore();

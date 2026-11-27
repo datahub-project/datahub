@@ -1,6 +1,8 @@
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.gcp_project_filter import GcpProject
@@ -268,3 +270,16 @@ def test_platform_instance_map_env_reaches_the_dataset_urn_in_any_case() -> None
     # The map's env, not the recipe's (PROD), names the upstream environment.
     assert upstream_urn("dev") == upstream_urn("DEV")
     assert upstream_urn("dev").endswith(",DEV)")
+
+
+def test_docs_recipe_validates() -> None:
+    recipe_path = (
+        Path(__file__).parents[3]
+        / "docs"
+        / "sources"
+        / "vertexai"
+        / "vertexai_recipe.yml"
+    )
+    recipe = yaml.safe_load(recipe_path.read_text())
+
+    VertexAIConfig.model_validate(recipe["source"]["config"])

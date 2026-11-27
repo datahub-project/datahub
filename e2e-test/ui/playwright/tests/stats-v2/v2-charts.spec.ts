@@ -45,7 +45,7 @@ test.describe('Statistics Charts', () => {
     await statsPage.verifyStorageSizeChartIsVisible();
   });
 
-  test('should be empty when there is no data', async ({ apiMock }) => {
+  test('should be empty when there is no data', { tag: [DomainTag.Catalog] }, async ({ apiMock }) => {
     await setupChartsDataEmpty(apiMock, TEST_DATASET_URN);
 
     await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
@@ -56,7 +56,7 @@ test.describe('Statistics Charts', () => {
     await statsPage.verifyStorageSizeChartIsEmpty();
   });
 
-  test('should hide time filter when there is no data', async ({ apiMock }) => {
+  test('should hide time filter when there is no data', { tag: [DomainTag.Catalog] }, async ({ apiMock }) => {
     await setupChartsDataEmpty(apiMock, TEST_DATASET_URN);
     await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
@@ -64,7 +64,7 @@ test.describe('Statistics Charts', () => {
     await statsPage.verifyTimeRangeSelectorDoesNotExist();
   });
 
-  test('should hide time filter when there is only one option', async ({ apiMock }) => {
+  test('should hide time filter when there is only one option', { tag: [DomainTag.Catalog] }, async ({ apiMock }) => {
     const timestamp = getNormalizedTimestamp();
     await setupChartsData(apiMock, timestamp, TEST_DATASET_URN);
 
@@ -72,127 +72,147 @@ test.describe('Statistics Charts', () => {
     await statsPage.verifyTimeRangeSelectorDoesNotExist();
   });
 
-  test('should widen the time filter when the only profile is older than 30 days', async ({ apiMock }) => {
-    await setupChartsData(apiMock, TIMESTAMP_OFFSETS.ONE_YEAR_AGO, TEST_DATASET_URN);
+  test(
+    'should widen the time filter when the only profile is older than 30 days',
+    { tag: [DomainTag.Catalog] },
+    async ({ apiMock }) => {
+      await setupChartsData(apiMock, TIMESTAMP_OFFSETS.ONE_YEAR_AGO, TEST_DATASET_URN);
 
-    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
+      await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
-    // The chart opens on the smallest window that still includes that profile
-    await statsPage.verifyTimeRangeSelectorExists();
-    await statsPage.verifyTimeRangeSelected(TIME_RANGES.YEAR);
-    await statsPage.verifyRowCountChartIsVisible();
-  });
+      // The chart opens on the smallest window that still includes that profile
+      await statsPage.verifyTimeRangeSelectorExists();
+      await statsPage.verifyTimeRangeSelected(TIME_RANGES.YEAR);
+      await statsPage.verifyRowCountChartIsVisible();
+    },
+  );
 
-  test('should show time filter with all options when a year of data is available', async ({ apiMock }) => {
-    await setupChartsData(apiMock, TIMESTAMP_OFFSETS.ONE_YEAR_AGO, TEST_DATASET_URN, getNormalizedTimestamp());
+  test(
+    'should show time filter with all options when a year of data is available',
+    { tag: [DomainTag.Catalog] },
+    async ({ apiMock }) => {
+      await setupChartsData(apiMock, TIMESTAMP_OFFSETS.ONE_YEAR_AGO, TEST_DATASET_URN, getNormalizedTimestamp());
 
-    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
+      await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
-    // Selector should exist
-    await statsPage.verifyTimeRangeSelectorExists();
+      // Selector should exist
+      await statsPage.verifyTimeRangeSelectorExists();
 
-    // Default selection should be MONTH
-    await statsPage.verifyTimeRangeSelected(TIME_RANGES.MONTH);
+      // Default selection should be MONTH
+      await statsPage.verifyTimeRangeSelected(TIME_RANGES.MONTH);
 
-    // All options should be available
-    await statsPage.verifyTimeRangeOptionsExist([
-      TIME_RANGES.WEEK,
-      TIME_RANGES.MONTH,
-      TIME_RANGES.QUARTER,
-      TIME_RANGES.HALF_OF_YEAR,
-      TIME_RANGES.YEAR,
-    ]);
-  });
+      // All options should be available
+      await statsPage.verifyTimeRangeOptionsExist([
+        TIME_RANGES.WEEK,
+        TIME_RANGES.MONTH,
+        TIME_RANGES.QUARTER,
+        TIME_RANGES.HALF_OF_YEAR,
+        TIME_RANGES.YEAR,
+      ]);
+    },
+  );
 
-  test('should show time filter with expected options when more than 6 months of data is available', async ({
-    apiMock,
-  }) => {
-    await setupChartsData(apiMock, TIMESTAMP_OFFSETS.SIX_MONTHS_AGO, TEST_DATASET_URN, getNormalizedTimestamp());
+  test(
+    'should show time filter with expected options when more than 6 months of data is available',
+    { tag: [DomainTag.Catalog] },
+    async ({ apiMock }) => {
+      await setupChartsData(apiMock, TIMESTAMP_OFFSETS.SIX_MONTHS_AGO, TEST_DATASET_URN, getNormalizedTimestamp());
 
-    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
+      await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
-    await statsPage.verifyTimeRangeSelectorExists();
-    await statsPage.verifyTimeRangeSelected(TIME_RANGES.MONTH);
-    await statsPage.verifyTimeRangeOptionsExist([
-      TIME_RANGES.WEEK,
-      TIME_RANGES.MONTH,
-      TIME_RANGES.QUARTER,
-      TIME_RANGES.HALF_OF_YEAR,
-      TIME_RANGES.YEAR,
-    ]);
-  });
+      await statsPage.verifyTimeRangeSelectorExists();
+      await statsPage.verifyTimeRangeSelected(TIME_RANGES.MONTH);
+      await statsPage.verifyTimeRangeOptionsExist([
+        TIME_RANGES.WEEK,
+        TIME_RANGES.MONTH,
+        TIME_RANGES.QUARTER,
+        TIME_RANGES.HALF_OF_YEAR,
+        TIME_RANGES.YEAR,
+      ]);
+    },
+  );
 
-  test('should show time filter with expected options when more than 3 months of data is available', async ({
-    apiMock,
-  }) => {
-    await setupChartsData(apiMock, TIMESTAMP_OFFSETS.THREE_MONTHS_AGO, TEST_DATASET_URN, getNormalizedTimestamp());
+  test(
+    'should show time filter with expected options when more than 3 months of data is available',
+    { tag: [DomainTag.Catalog] },
+    async ({ apiMock }) => {
+      await setupChartsData(apiMock, TIMESTAMP_OFFSETS.THREE_MONTHS_AGO, TEST_DATASET_URN, getNormalizedTimestamp());
 
-    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
+      await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
-    // Selector should exist
-    await statsPage.verifyTimeRangeSelectorExists();
+      // Selector should exist
+      await statsPage.verifyTimeRangeSelectorExists();
 
-    // Default selection should be MONTH
-    await statsPage.verifyTimeRangeSelected(TIME_RANGES.MONTH);
+      // Default selection should be MONTH
+      await statsPage.verifyTimeRangeSelected(TIME_RANGES.MONTH);
 
-    // Available options
-    await statsPage.verifyTimeRangeOptionsExist([
-      TIME_RANGES.WEEK,
-      TIME_RANGES.MONTH,
-      TIME_RANGES.QUARTER,
-      TIME_RANGES.HALF_OF_YEAR,
-    ]);
+      // Available options
+      await statsPage.verifyTimeRangeOptionsExist([
+        TIME_RANGES.WEEK,
+        TIME_RANGES.MONTH,
+        TIME_RANGES.QUARTER,
+        TIME_RANGES.HALF_OF_YEAR,
+      ]);
 
-    // Year should not be available
-    await statsPage.verifyTimeRangeOptionsDoNotExist([TIME_RANGES.YEAR]);
-  });
+      // Year should not be available
+      await statsPage.verifyTimeRangeOptionsDoNotExist([TIME_RANGES.YEAR]);
+    },
+  );
 
-  test('should show time filter with expected options when more than 1 month of data is available', async ({
-    apiMock,
-  }) => {
-    await setupChartsData(
-      apiMock,
-      TIMESTAMP_OFFSETS.ONE_MONTH_ONE_WEEK_AGO,
-      TEST_DATASET_URN,
-      getNormalizedTimestamp(),
-    );
+  test(
+    'should show time filter with expected options when more than 1 month of data is available',
+    { tag: [DomainTag.Catalog] },
+    async ({ apiMock }) => {
+      await setupChartsData(
+        apiMock,
+        TIMESTAMP_OFFSETS.ONE_MONTH_ONE_WEEK_AGO,
+        TEST_DATASET_URN,
+        getNormalizedTimestamp(),
+      );
 
-    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
+      await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
-    // Selector should exist
-    await statsPage.verifyTimeRangeSelectorExists();
+      // Selector should exist
+      await statsPage.verifyTimeRangeSelectorExists();
 
-    // Default selection should be MONTH
-    await statsPage.verifyTimeRangeSelected(TIME_RANGES.MONTH);
+      // Default selection should be MONTH
+      await statsPage.verifyTimeRangeSelected(TIME_RANGES.MONTH);
 
-    // Available options
-    await statsPage.verifyTimeRangeOptionsExist([TIME_RANGES.WEEK, TIME_RANGES.MONTH, TIME_RANGES.QUARTER]);
+      // Available options
+      await statsPage.verifyTimeRangeOptionsExist([TIME_RANGES.WEEK, TIME_RANGES.MONTH, TIME_RANGES.QUARTER]);
 
-    // Half year and year should not be available
-    await statsPage.verifyTimeRangeOptionsDoNotExist([TIME_RANGES.HALF_OF_YEAR, TIME_RANGES.YEAR]);
-  });
+      // Half year and year should not be available
+      await statsPage.verifyTimeRangeOptionsDoNotExist([TIME_RANGES.HALF_OF_YEAR, TIME_RANGES.YEAR]);
+    },
+  );
 
-  test('should show time filter with expected options when more than 1 week of data is available', async ({
-    apiMock,
-  }) => {
-    await setupChartsData(apiMock, TIMESTAMP_OFFSETS.ONE_WEEK_ONE_DAY_AGO, TEST_DATASET_URN);
+  test(
+    'should show time filter with expected options when more than 1 week of data is available',
+    { tag: [DomainTag.Catalog] },
+    async ({ apiMock }) => {
+      await setupChartsData(apiMock, TIMESTAMP_OFFSETS.ONE_WEEK_ONE_DAY_AGO, TEST_DATASET_URN);
 
-    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
+      await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
-    // Selector should exist
-    await statsPage.verifyTimeRangeSelectorExists();
+      // Selector should exist
+      await statsPage.verifyTimeRangeSelectorExists();
 
-    // Default selection should be MONTH
-    await statsPage.verifyTimeRangeSelected(TIME_RANGES.MONTH);
+      // Default selection should be MONTH
+      await statsPage.verifyTimeRangeSelected(TIME_RANGES.MONTH);
 
-    // Only week and month should be available
-    await statsPage.verifyTimeRangeOptionsExist([TIME_RANGES.WEEK, TIME_RANGES.MONTH]);
+      // Only week and month should be available
+      await statsPage.verifyTimeRangeOptionsExist([TIME_RANGES.WEEK, TIME_RANGES.MONTH]);
 
-    // Quarter, half year, and year should not be available
-    await statsPage.verifyTimeRangeOptionsDoNotExist([TIME_RANGES.QUARTER, TIME_RANGES.HALF_OF_YEAR, TIME_RANGES.YEAR]);
-  });
+      // Quarter, half year, and year should not be available
+      await statsPage.verifyTimeRangeOptionsDoNotExist([
+        TIME_RANGES.QUARTER,
+        TIME_RANGES.HALF_OF_YEAR,
+        TIME_RANGES.YEAR,
+      ]);
+    },
+  );
 
-  test('should not be available when user has no permissions', async ({ apiMock }) => {
+  test('should not be available when user has no permissions', { tag: [DomainTag.Catalog] }, async ({ apiMock }) => {
     await setupChartsDataNoPermissions(apiMock, TEST_DATASET_URN);
     await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 

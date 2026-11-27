@@ -4,6 +4,7 @@ import static com.datahub.authorization.AuthUtil.isAuthorized;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.EntityResponse;
@@ -43,6 +44,10 @@ public class DeleteServiceAccountResolver implements DataFetcher<CompletableFutu
 
           try {
             final Urn urn = Urn.createFromString(urnString);
+            if (!AuthorizationUtils.isEntityType(urn, Constants.CORP_USER_ENTITY_NAME)) {
+              throw new IllegalArgumentException(
+                  "The specified URN is not a service account: " + urnString);
+            }
 
             // Fetch the entity to verify it's a service account
             // Explicitly request SubTypes aspect to check if it's a service account

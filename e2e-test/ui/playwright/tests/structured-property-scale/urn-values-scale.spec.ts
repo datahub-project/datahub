@@ -24,6 +24,7 @@ import {
   ensureUrnValuesFixture,
   type UrnValuesFixture,
 } from '../../helpers/seeders/urn-values-seeder';
+import { DomainTag } from '../../utils/test-tags';
 
 const FACTOR = Number(process.env.SCALE_BUDGET_FACTOR ?? 1);
 // Typical CI runs take 5-8 s, but on a slow runner every request is 2-3x slower and the page
@@ -48,94 +49,96 @@ const fixture: UrnValuesFixture = buildUrnValuesFixture(OPTIONS);
 test.describe('Structured property with many URN values', () => {
   test.setTimeout(5 * 60_000);
 
-  test(`loads a glossary term whose property holds ${VALUES} term URNs within budget`, async ({
-    page,
-    playwright,
-    gmsToken,
-    logger,
-    logDir,
-  }, testInfo) => {
-    const term = new GlossaryTermScalePage(page, logger, logDir);
-    const timings: Record<string, number> = {};
+  test(
+    `loads a glossary term whose property holds ${VALUES} term URNs within budget`,
+    { tag: [DomainTag.Catalog] },
+    async ({ page, playwright, gmsToken, logger, logDir }, testInfo) => {
+      const term = new GlossaryTermScalePage(page, logger, logDir);
+      const timings: Record<string, number> = {};
 
-    // Seed after the login fixture has run (it is what mints the GMS token the seeder uses).
-    await test.step('seed fixture', async () => {
-      const request = await playwright.request.newContext();
-      try {
-        const { seeded, seedMs } = await ensureUrnValuesFixture(request, gmsUrl(), gmsToken, OPTIONS);
-        logger.info(seeded ? 'urn-values-scale: seeded fixture' : 'urn-values-scale: fixture already present', {
-          values: VALUES,
-          seedMs,
-        });
-      } finally {
-        await request.dispose();
-      }
-    });
-
-    const graphql = term.recordGraphql();
-    const t0 = Date.now();
-
-    // 1. Navigation → header painted.
-    await test.step('term page painted', async () => {
-      await term.gotoTerm(fixture.termUrn);
-      await expect(term.entityHeader).toContainText(fixture.termName.slice(0, 20), {
-        timeout: BUDGET_MS.pagePainted * GRACE,
+      // Seed after the login fixture has run (it is what mints the GMS token the seeder uses).
+      await test.step('seed fixture', async () => {
+        const request = await playwright.request.newContext();
+        try {
+          const { seeded, seedMs } = await ensureUrnValuesFixture(request, gmsUrl(), gmsToken, OPTIONS);
+          logger.info(seeded ? 'urn-values-scale: seeded fixture' : 'urn-values-scale: fixture already present', {
+            values: VALUES,
+            seedMs,
+          });
+        } finally {
+          await request.dispose();
+        }
       });
-      timings.pagePaintedMs = Date.now() - t0;
-      logger.info('urn-values-scale: page painted', { ms: timings.pagePaintedMs });
-      expect.soft(timings.pagePaintedMs, 'term page painted').toBeLessThan(BUDGET_MS.pagePainted);
-    });
 
-    // 2. The sidebar section for the property shows its first value.
-    await test.step('sidebar shows the first value', async () => {
-      const first = fixture.valueTerms[0];
-      const section = term.sidebarSectionContent(fixture.displayName);
-      await expect(section).toBeVisible({ timeout: BUDGET_MS.firstValue * GRACE });
-      await expect(term.propertyValue(fixture.displayName, first.urn)).toContainText(first.name, {
-        timeout: BUDGET_MS.firstValue * GRACE,
-      });
-      timings.firstValueMs = Date.now() - t0;
-      logger.info('urn-values-scale: first value visible', { ms: timings.firstValueMs });
-      expect.soft(timings.firstValueMs, 'first value visible').toBeLessThan(BUDGET_MS.firstValue);
-    });
-
-    // 3 + 4. Everything the page fires on load has come back, and nothing was enormous.
-    await test.step('GraphQL traffic settles', async () => {
-      await graphql.settled(IDLE_MS, BUDGET_MS.settled * GRACE);
-      timings.settledMs = Date.now() - t0 - IDLE_MS;
-      const largest = graphql.calls.reduce((a, b) => (b.responseBytes > a.responseBytes ? b : a));
-      logger.info('urn-values-scale: graphql settled', {
-        ms: timings.settledMs,
-        calls: graphql.calls.length,
-        totalResponseBytes: graphql.calls.reduce((n, c) => n + c.responseBytes, 0),
-        largest: { operation: largest.operation, responseBytes: largest.responseBytes, durationMs: largest.durationMs },
-      });
-      expect.soft(timings.settledMs, 'graphql settled').toBeLessThan(BUDGET_MS.settled);
-      expect
-        .soft(largest.responseBytes, `largest graphql response (${largest.operation})`)
-        .toBeLessThan(MAX_RESPONSE_BYTES);
-    });
-
-    // 5. Find a specific value by typing instead of paging through thousands of chips.
-    const last = fixture.valueTerms[fixture.valueTerms.length - 1];
-    await test.step('filter finds the last value', async () => {
+      const graphql = term.recordGraphql();
       const t0 = Date.now();
-      await term.filterPropertyValues(fixture.displayName, last.name, BUDGET_MS.filtered * GRACE);
-      await expect(term.propertyValue(fixture.displayName, last.urn)).toContainText(last.name, {
-        timeout: BUDGET_MS.filtered * GRACE,
-      });
-      timings.filteredMs = Date.now() - t0;
-      logger.info('urn-values-scale: filter found the last value', { ms: timings.filteredMs });
-      expect.soft(timings.filteredMs, 'filter found the last value').toBeLessThan(BUDGET_MS.filtered);
-    });
 
-    await testInfo.attach('urn-values-scale-timings.json', {
-      body: JSON.stringify(
-        { values: VALUES, budgetFactor: FACTOR, budgetsMs: BUDGET_MS, ...timings, graphql: graphql.byOperation() },
-        null,
-        2,
-      ),
-      contentType: 'application/json',
-    });
-  });
+      // 1. Navigation → header painted.
+      await test.step('term page painted', async () => {
+        await term.gotoTerm(fixture.termUrn);
+        await expect(term.entityHeader).toContainText(fixture.termName.slice(0, 20), {
+          timeout: BUDGET_MS.pagePainted * GRACE,
+        });
+        timings.pagePaintedMs = Date.now() - t0;
+        logger.info('urn-values-scale: page painted', { ms: timings.pagePaintedMs });
+        expect.soft(timings.pagePaintedMs, 'term page painted').toBeLessThan(BUDGET_MS.pagePainted);
+      });
+
+      // 2. The sidebar section for the property shows its first value.
+      await test.step('sidebar shows the first value', async () => {
+        const first = fixture.valueTerms[0];
+        const section = term.sidebarSectionContent(fixture.displayName);
+        await expect(section).toBeVisible({ timeout: BUDGET_MS.firstValue * GRACE });
+        await expect(term.propertyValue(fixture.displayName, first.urn)).toContainText(first.name, {
+          timeout: BUDGET_MS.firstValue * GRACE,
+        });
+        timings.firstValueMs = Date.now() - t0;
+        logger.info('urn-values-scale: first value visible', { ms: timings.firstValueMs });
+        expect.soft(timings.firstValueMs, 'first value visible').toBeLessThan(BUDGET_MS.firstValue);
+      });
+
+      // 3 + 4. Everything the page fires on load has come back, and nothing was enormous.
+      await test.step('GraphQL traffic settles', async () => {
+        await graphql.settled(IDLE_MS, BUDGET_MS.settled * GRACE);
+        timings.settledMs = Date.now() - t0 - IDLE_MS;
+        const largest = graphql.calls.reduce((a, b) => (b.responseBytes > a.responseBytes ? b : a));
+        logger.info('urn-values-scale: graphql settled', {
+          ms: timings.settledMs,
+          calls: graphql.calls.length,
+          totalResponseBytes: graphql.calls.reduce((n, c) => n + c.responseBytes, 0),
+          largest: {
+            operation: largest.operation,
+            responseBytes: largest.responseBytes,
+            durationMs: largest.durationMs,
+          },
+        });
+        expect.soft(timings.settledMs, 'graphql settled').toBeLessThan(BUDGET_MS.settled);
+        expect
+          .soft(largest.responseBytes, `largest graphql response (${largest.operation})`)
+          .toBeLessThan(MAX_RESPONSE_BYTES);
+      });
+
+      // 5. Find a specific value by typing instead of paging through thousands of chips.
+      const last = fixture.valueTerms[fixture.valueTerms.length - 1];
+      await test.step('filter finds the last value', async () => {
+        const t0 = Date.now();
+        await term.filterPropertyValues(fixture.displayName, last.name, BUDGET_MS.filtered * GRACE);
+        await expect(term.propertyValue(fixture.displayName, last.urn)).toContainText(last.name, {
+          timeout: BUDGET_MS.filtered * GRACE,
+        });
+        timings.filteredMs = Date.now() - t0;
+        logger.info('urn-values-scale: filter found the last value', { ms: timings.filteredMs });
+        expect.soft(timings.filteredMs, 'filter found the last value').toBeLessThan(BUDGET_MS.filtered);
+      });
+
+      await testInfo.attach('urn-values-scale-timings.json', {
+        body: JSON.stringify(
+          { values: VALUES, budgetFactor: FACTOR, budgetsMs: BUDGET_MS, ...timings, graphql: graphql.byOperation() },
+          null,
+          2,
+        ),
+        contentType: 'application/json',
+      });
+    },
+  );
 });

@@ -295,6 +295,14 @@ export function liteModePlugin(): Plugin {
             register(server.middlewares);
         },
         configurePreviewServer(server) {
+            // Node closes idle keep-alive sockets after 5s, while browsers and Playwright reuse
+            // them for up to 60s; a request racing that close fails with ECONNRESET. 65s outlives
+            // a 60s client idle timeout, and headersTimeout must stay above keepAliveTimeout.
+            const { httpServer } = server;
+            if ('keepAliveTimeout' in httpServer) {
+                httpServer.keepAliveTimeout = 65_000;
+                httpServer.headersTimeout = 66_000;
+            }
             register(server.middlewares);
             serveSubstitutedIndexHtml(server);
         },

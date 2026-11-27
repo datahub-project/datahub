@@ -53,6 +53,13 @@ class SnapshotT0:
     doc_counts: dict[str, int] = field(default_factory=dict)
     """physical index name -> doc count at T0."""
 
+    alias_doc_counts: dict[str, int] = field(default_factory=dict)
+    """alias name -> doc count at T0. Suite B compares this against the
+    per-alias upgrade state, which is keyed by alias."""
+
+    index_names: list[str] = field(default_factory=list)
+    """Every physical index name present when the snapshot was taken."""
+
     aspects_by_version: dict[str, dict[int | None, int]] = field(default_factory=dict)
     """aspect name -> {schemaVersion or None: row count} at T0."""
 
@@ -233,6 +240,25 @@ class UpgradeBlockingReRunResult:
 
 
 @dataclass
+class SettingsOnlyUpgradeResult:
+    """Captured by ``UpgradeSettingsOnlyPhase`` — a third ``SystemUpdateBlocking``
+    run where only a dynamic index setting (``refresh_interval``) changes.
+
+    Search V3 applies a dynamic setting in place, with no reindex. Used by
+    TC-103. ``settings_updated`` maps alias -> desired refresh interval from
+    the ``Updated index <alias> settings`` log line; ``es_refresh_intervals``
+    maps alias -> the value ES reports after the run.
+    """
+
+    desired_refresh_interval: str
+    settings_updated: dict[str, str] = field(default_factory=dict)
+    reindex_tasks: list[str] = field(default_factory=list)
+    es_refresh_intervals: dict[str, str] = field(default_factory=dict)
+    exit_code: int = -1
+    duration_s: float = 0.0
+
+
+@dataclass
 class DataIntegritySnapshot:
     """Post-Phase-10 ES presence check for gap and dual URNs.
 
@@ -241,13 +267,13 @@ class DataIntegritySnapshot:
     was lost across the rolling-restart + catch-up window.
 
     ``entity_index_presence[urn]`` is True iff the URN is searchable via
-    the entity index alias (``dashboardindex_v2``).
+    the Search V3 entity aliases (``*index_v3``).
     ``systemmetadata_counts[urn]`` is the number of aspect entries in
     ``system_metadata_service_v1`` keyed by that URN (typically 4 per
     URN: corresponding to the ZDU framework's seed aspects).
     """
 
-    entity_index_alias: str = "dashboardindex_v2"
+    entity_index_alias: str = "*index_v3"
     entity_index_presence: dict[str, bool] = field(default_factory=dict)
     systemmetadata_counts: dict[str, int] = field(default_factory=dict)
     # Suite C TC-401 — every gap/dual URN's embed aspect must be
@@ -427,6 +453,9 @@ class TestContext:
     # invocation; consumed by TC-108 validator.
     upgrade_blocking_rerun: UpgradeBlockingReRunResult | None = None
 
+    # UpgradeSettingsOnlyPhase writes — consumed by TC-103.
+    upgrade_settings_only: SettingsOnlyUpgradeResult | None = None
+
     # KillSwitchSweepPhase writes — captures TC-324 cursor resumability test
     # (seed → start sweep → kill mid-execution → restart → verify resume).
     kill_switch_capture: KillSwitchCapture | None = None
@@ -476,8 +505,8 @@ class TestContext:
     # ValidationPhase writes
     validation_results: list[ValidationResult] = field(default_factory=list)
 
-    # Runner caches the active scenario list here so Suite B's TC-102 can
-    # look up TC-101's expected_reindex_indices at validation time without
-    # adding a back-reference from the scenario loader. Typed as Any to
+    # Runner caches the active scenario list here so cross-scenario
+    # validators can look up siblings at validation time without adding a
+    # back-reference from the scenario loader. Typed as Any to
     # avoid a circular import (scenario_loader → context → scenario_loader).
     all_scenarios: list[Any] = field(default_factory=list)

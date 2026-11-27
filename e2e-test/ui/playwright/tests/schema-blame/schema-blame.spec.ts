@@ -75,37 +75,41 @@ test.describe('schema blame', () => {
     },
   );
 
-  test('can activate the blame view and verify for an older version of a dataset', async ({ page, logger, logDir }) => {
-    const schemaPage = new SchemaBlamePage(page, logger, logDir);
+  test(
+    'can activate the blame view and verify for an older version of a dataset',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger, logDir }) => {
+      const schemaPage = new SchemaBlamePage(page, logger, logDir);
 
-    // Navigate to dataset
-    await schemaPage.navigateToDataset(DATASET_URN);
+      // Navigate to dataset
+      await schemaPage.navigateToDataset(DATASET_URN);
 
-    // ── Verify field_baz is visible in latest version ──
-    await schemaPage.verifyFieldVisible('field_baz');
+      // ── Verify field_baz is visible in latest version ──
+      await schemaPage.verifyFieldVisible('field_baz');
 
-    // Close any modals
-    await schemaPage.closeModals();
+      // Close any modals
+      await schemaPage.closeModals();
 
-    // ── Open version selector and select older version ──
-    await schemaPage.openVersionSelector();
-    await schemaPage.selectVersion('0');
+      // ── Open version selector and select older version ──
+      await schemaPage.openVersionSelector();
+      await schemaPage.selectVersion('0');
 
-    // ── Verify older version (version 0 with field_bar) ──
-    // Older version should have: field_foo, field_bar (NOT field_baz)
-    await expect(page.getByText('field_foo')).toBeVisible();
-    await expect(page.getByText('field_bar')).toBeVisible();
-    await schemaPage.verifyFieldNotVisible('field_baz');
+      // ── Verify older version (version 0 with field_bar) ──
+      // Older version should have: field_foo, field_bar (NOT field_baz)
+      await expect(page.getByText('field_foo')).toBeVisible();
+      await expect(page.getByText('field_bar')).toBeVisible();
+      await schemaPage.verifyFieldNotVisible('field_baz');
 
-    // ── Verify field descriptions in older version ──
-    await expect(page.getByText('Foo field description')).toBeVisible();
-    await expect(page.getByText('Bar field description')).toBeVisible();
+      // ── Verify field descriptions in older version ──
+      await expect(page.getByText('Foo field description')).toBeVisible();
+      await expect(page.getByText('Bar field description')).toBeVisible();
 
-    // ── Verify Legacy tag does NOT exist on field_foo in older version ──
-    await schemaPage.clickField('field_foo');
-    await schemaPage.verifyFieldDoesNotHaveTag('field_foo', 'Legacy');
+      // ── Verify Legacy tag does NOT exist on field_foo in older version ──
+      await schemaPage.clickField('field_foo');
+      await schemaPage.verifyFieldDoesNotHaveTag('field_foo', 'Legacy');
 
-    // ── Verify raw view button exists ──
-    await schemaPage.verifyRawViewButtonExists();
-  });
+      // ── Verify raw view button exists ──
+      await schemaPage.verifyRawViewButtonExists();
+    },
+  );
 });
