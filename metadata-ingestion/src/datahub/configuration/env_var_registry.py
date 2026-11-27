@@ -108,19 +108,6 @@ class EnvVarSpec:
         return not self.hidden and self.audience is not EnvVarAudience.INTERNAL
 
 
-def summarize_docstring(doc: Optional[str]) -> str:
-    """A whole docstring collapsed onto one line.
-
-    Every paragraph is kept, not just the opening one. Caveats are usually written below the
-    summary, so taking the first paragraph alone is how a warning gets silently lost on the
-    way to the docs -- which is exactly what happened to the ``incremental_lineage`` note on
-    ``DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH``. A long cell is the lesser problem.
-    """
-    if not doc:
-        return ""
-    return " ".join(line.strip() for line in doc.strip().splitlines() if line.strip())
-
-
 _REGISTRY: Dict[str, EnvVarSpec] = {}
 _ACCESSORS: Dict[str, Callable[[], object]] = {}
 
@@ -150,8 +137,8 @@ def env_var(
     *,
     name: str,
     type: Type[object],
+    description: str,
     group: EnvVarGroup,
-    description: Optional[str] = None,
     default: object = _UNSET,
     tier: EnvVarTier = EnvVarTier.ADVANCED,
     audience: EnvVarAudience = EnvVarAudience.USER,
@@ -172,21 +159,20 @@ def env_var(
     forcing the read into one module. ``datahub.configuration.env_vars`` remains the
     conventional home for variables with no better one.
 
-    ``description`` defaults to the accessor's own docstring, so the explanation lives in
-    one place and cannot drift from the code it describes.
+    ``description`` is the text the reference page shows. It is passed explicitly rather than
+    read from the accessor's docstring: ``python -OO`` strips docstrings, so a docstring-derived
+    description made the whole SDK fail to import under it. Keeping the text here also keeps it
+    in one place -- a docstring repeating it would be free to drift.
+
+    Whether a description is present or usable is checked by the unit tests and the docs
+    generator, never at import time.
     """
 
     def wrapper(func: F) -> F:
-        resolved_description = description or summarize_docstring(func.__doc__)
-        if not resolved_description:
-            raise ValueError(
-                f"Environment variable {name} needs a description: give {func.__name__} "
-                f"a docstring, or pass description= explicitly."
-            )
         spec = EnvVarSpec(
             name=name,
             type=type,
-            description=resolved_description,
+            description=description,
             group=group,
             default=None if default is _UNSET else default,
             tier=tier,

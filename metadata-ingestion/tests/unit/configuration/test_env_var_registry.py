@@ -1,5 +1,6 @@
 import os
 import pathlib
+import subprocess
 import sys
 from unittest.mock import patch
 
@@ -115,6 +116,38 @@ def test_declared_defaults_match_the_code(monkeypatch):
     assert not mismatches, "Declared defaults disagree with the code:\n" + "\n".join(
         mismatches
     )
+
+
+def test_package_imports_under_optimized_python():
+    """`python -OO` must not break the SDK.
+
+    -OO strips docstrings. When descriptions were read from them, importing the package under
+    -OO raised and took the whole SDK down -- in exactly the slim container and Lambda images
+    likely to use it. Descriptions are explicit now; this keeps them that way.
+    """
+    result = subprocess.run(
+        [sys.executable, "-OO", "-c", "import datahub.configuration.env_vars"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        "Importing under python -OO failed:\n" + result.stderr[-2000:]
+    )
+
+
+def test_no_description_is_empty():
+    """A declared description must carry text.
+
+    `description` is a required argument, so it cannot be forgotten -- but it can still be
+    passed as "" or whitespace, which a required field does not catch. Checked here rather
+    than at import, so an authoring mistake fails CI instead of the SDK.
+    """
+    empty = [
+        spec.name
+        for spec in get_registry(include_undocumented=True)
+        if not spec.description.strip()
+    ]
+    assert not empty, f"Declared with an empty description: {empty}"
 
 
 def test_specs_are_internally_consistent():
