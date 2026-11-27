@@ -31,6 +31,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE,
     MSTR_LINEAGE_STOP_WORDS,
     MSTR_METRIC_REFERENCE_RE,
+    MSTR_MODEL_TABLE_DATASOURCE_FIELD,
     MSTR_NAME_TOKEN_RE,
     MSTR_NON_ALNUM_RE,
     MSTR_PLATFORM_QUALIFIED_NAME_PARTS,
@@ -112,6 +113,14 @@ class _WarehouseKey(BaseModel):
 _NO_STATEMENTS = _ParsedSqlView(has_statements=False)
 
 TableContextResolver = Callable[[Dict[str, object]], Optional[WarehouseLineageContext]]
+
+
+def resolve_table_context(
+    table: Dict[str, object],
+    context: Optional[WarehouseLineageContext],
+    table_context_resolver: Optional[TableContextResolver],
+) -> Optional[WarehouseLineageContext]:
+    return table_context_resolver(table) if table_context_resolver else context
 
 
 class _TimedSchemaResolver(SchemaResolver):
@@ -571,8 +580,8 @@ class MicroStrategyLineageExtractor:
             physical_table = table.get("physicalTable")
             if not isinstance(physical_table, dict):
                 continue
-            table_context = (
-                table_context_resolver(table) if table_context_resolver else context
+            table_context = resolve_table_context(
+                table, context, table_context_resolver
             )
             if table_context is None:
                 continue
@@ -855,10 +864,8 @@ def datasource_for_model_table(
     table: Dict[str, object],
     datasources: List[Datasource],
 ) -> Optional[Datasource]:
-    """The project datasource a logical table names as its primaryDataSource,
-    by exact id (or exact name when the id matches nothing). None when the
-    table names none, or the reference matches no datasource or several."""
-    reference = table.get("primaryDataSource")
+    # Exact id first, else exact name; an ambiguous match resolves to nothing.
+    reference = table.get(MSTR_MODEL_TABLE_DATASOURCE_FIELD)
     if not isinstance(reference, dict):
         return None
     reference_id = reference.get("objectId") or reference.get("id")
@@ -866,13 +873,15 @@ def datasource_for_model_table(
         wanted = normalize_object_id(reference_id)
         by_id = [d for d in datasources if normalize_object_id(d.id) == wanted]
         if by_id:
-            return by_id[0] if len(by_id) == 1 else None
+            return _single_datasource(by_id)
     reference_name = reference.get("name")
     if isinstance(reference_name, str) and reference_name:
-        by_name = [d for d in datasources if d.name == reference_name]
-        if len(by_name) == 1:
-            return by_name[0]
+        return _single_datasource([d for d in datasources if d.name == reference_name])
     return None
+
+
+def _single_datasource(datasources: List[Datasource]) -> Optional[Datasource]:
+    return datasources[0] if len(datasources) == 1 else None
 
 
 def warehouse_context_from_datasource(

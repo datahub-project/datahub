@@ -43,6 +43,7 @@ from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
     MSTR_CUBE_SUBTYPES,
+    MSTR_DATASOURCE_MAPPING_HINT,
     MSTR_DEFINITION_ENDPOINT_METRIC_MODEL,
     MSTR_DEFINITION_ENDPOINT_MODEL,
     MSTR_DEFINITION_ENDPOINT_V2,
@@ -673,9 +674,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             message=(
                 "No single project-level warehouse can be chosen, so only "
                 "datasets and logical tables that name their own datasource "
-                "get warehouse lineage. Set datasource_platform_mapping, keyed "
-                "by connection or datasource name, for datasources of a type "
-                "the connector does not recognize."
+                f"get warehouse lineage. {MSTR_DATASOURCE_MAPPING_HINT}"
                 if several
                 else "None of the project's datasources maps to a supported "
                 "platform, so warehouse lineage is skipped. Set "
@@ -2023,9 +2022,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 message=(
                     "Skipping logical table lineage because no supported source "
                     "warehouse context was discovered for this project. "
-                    "Set datasource_platform_mapping, keyed by connection or "
-                    "datasource name, for datasources of a type the connector "
-                    "does not recognize."
+                    f"{MSTR_DATASOURCE_MAPPING_HINT}"
                 ),
                 context=(
                     f"project_id={project_id}, "
@@ -2939,8 +2936,7 @@ class _LazyProjectLineage:
 
     @property
     def table_context_resolver(self) -> Optional[TableContextResolver]:
-        """Per-table warehouse resolution, only for a project whose several
-        datasources give no single project-level context."""
+        # Only for a project whose several datasources give no single context.
         if not self._table_context_resolver_resolved:
             self._table_context_resolver_resolved = True
             if (

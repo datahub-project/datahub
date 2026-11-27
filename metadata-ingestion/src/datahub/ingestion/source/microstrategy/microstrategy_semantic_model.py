@@ -25,6 +25,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
     object_id,
     parse_attribute_relationships,
     physical_table_name,
+    resolve_table_context,
 )
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -280,10 +281,8 @@ class MicroStrategySemanticModelMapper:
             physical_table = table.get("physicalTable")
             if not isinstance(physical_table, dict):
                 continue
-            table_context = (
-                table_context_resolver(table)
-                if table_context_resolver
-                else warehouse_context
+            table_context = resolve_table_context(
+                table, warehouse_context, table_context_resolver
             )
             physical_alias = self._table_alias(physical_table, table_context)
             if not physical_alias:
