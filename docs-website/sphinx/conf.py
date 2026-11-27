@@ -15,14 +15,10 @@ import sphinx_autodoc_typehints  # noqa: E402
 from datahub.sdk import dataset as _sdk_dataset  # noqa: E402
 from datahub.sdk.container import Container  # noqa: E402
 
-# sphinx_autodoc_typehints evaluates the TYPE_CHECKING-only imports of every documented
-# object's module. For pydantic's BaseModel.__init__ that import (AbstractSetIntStr) only
-# exists for type checkers, so it always fails; BaseModel.__init__ has no useful docs anyway.
+# pydantic's TYPE_CHECKING-only import (AbstractSetIntStr) cannot resolve at runtime.
 sphinx_autodoc_typehints._TYPE_GUARD_IMPORTS_RESOLVED.add("pydantic.main")
 
-# `ParentContainerInputType` forward-references Container, which datahub.sdk._shared can only
-# import under TYPE_CHECKING (circular import), so the name is missing when Dataset's
-# signature is resolved.
+# _shared.py imports Container under TYPE_CHECKING to avoid a circular import.
 _sdk_dataset.Container = Container
 
 # -- Project information -----------------------------------------------------
@@ -84,9 +80,7 @@ _PDL_JAVADOC_CODE = re.compile(r"\{@code ([^}]*)\}")
 
 
 def _flatten_generated_model_docs(app, what, name, obj, options, lines: List[str]) -> None:
-    # schema_classes docstrings are PDL comments, which are free-form text with ragged
-    # indentation and Javadoc tags. RST reads the indentation as nested blocks and the
-    # trailing underscore in `[A-Za-z_]` as a hyperlink reference.
+    # PDL comments have ragged indentation and Javadoc {@code} tags that RST misreads.
     if not name.startswith("datahub.metadata.schema_classes."):
         return
     flattened: List[str] = []
@@ -106,9 +100,7 @@ def _flatten_generated_model_docs(app, what, name, obj, options, lines: List[str
 
 
 def _separate_field_lists(app, what, name, obj, options, lines: List[str]) -> None:
-    # `@deprecated` emits a bare `.. deprecated::` block and PDL docs can end in a bullet
-    # list. sphinx_autodoc_typehints then appends `:rtype:` / `:param:` fields right after
-    # them without a blank line.
+    # Autodoc fields must follow a blank line after a directive or bullet list.
     fixed: List[str] = []
     for line in lines:
         if fixed and fixed[-1] and not fixed[-1].startswith(":") and line.startswith(":"):
@@ -120,7 +112,6 @@ def _separate_field_lists(app, what, name, obj, options, lines: List[str]) -> No
 
 
 def setup(app) -> None:
-    # Priority 400 runs before napoleon / sphinx_autodoc_typehints (500) add their
-    # field lists; 900 runs after them.
+    # Lower priority runs before napoleon/sphinx_autodoc_typehints add field lists.
     app.connect("autodoc-process-docstring", _flatten_generated_model_docs, priority=400)
     app.connect("autodoc-process-docstring", _separate_field_lists, priority=900)
