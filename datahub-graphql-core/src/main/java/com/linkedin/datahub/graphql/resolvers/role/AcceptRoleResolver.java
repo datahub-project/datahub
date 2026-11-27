@@ -48,6 +48,8 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
 
     final AcceptRoleInput input =
         bindArgument(environment.getArgument("input"), AcceptRoleInput.class);
+    // The invite token is a redeemable credential. Keep it out of log lines and exception messages:
+    // DataHubDataFetcherExceptionHandler logs every message in the cause chain.
     final String inviteTokenStr = input.getInviteToken();
     final Authentication authentication = context.getAuthentication();
 
@@ -58,8 +60,7 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
                 _inviteTokenService.getVerifiedInviteToken(
                     context.getOperationContext(), inviteTokenStr);
             if (inviteToken == null) {
-              throw new RuntimeException(
-                  String.format("Invite token %s is invalid", inviteTokenStr));
+              throw new RuntimeException("Invite token is invalid");
             }
 
             final Urn roleUrn = inviteToken.hasRole() ? inviteToken.getRole() : null;
@@ -89,8 +90,7 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
 
             return true;
           } catch (Exception e) {
-            throw new RuntimeException(
-                String.format("Failed to accept role using invite token %s", inviteTokenStr), e);
+            throw new RuntimeException("Failed to accept role using invite token", e);
           }
         },
         this.getClass().getSimpleName(),
