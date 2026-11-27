@@ -28,6 +28,9 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     UnchangedApp,
     UnreadItem,
 )
+from datahub.ingestion.source.qlik_sense.datahub_io import (
+    patch_upstreams,
+)
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FilePlatform,
     FileStorage,
@@ -44,6 +47,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     FileLoad,
     IncludeRead,
     ParsedScript,
+    ScriptTableLineage,
     inline_includes,
     parse_script,
 )
@@ -499,8 +503,11 @@ def test_added_lineage_drops_edges_to_other_names_of_a_linked_file(
     urn = source._file_source_resolution("app-1", file_qri).urn
     assert urn == make_dataset_urn("qlik-sense", "sales space:share/ref/targets.xlsx")
 
-    [workunit] = source._patch_upstreams(
-        make_dataset_urn("qlik-sense", "app-1.targets"), [urn], "TRANSFORMED"
+    [workunit] = patch_upstreams(
+        make_dataset_urn("qlik-sense", "app-1.targets"),
+        [urn],
+        "TRANSFORMED",
+        superseded=source._superseded_names([urn]),
     )
 
     # Earlier runs named the file from its QRI, or on the share as only its
@@ -1724,6 +1731,40 @@ def test_kept_writer_alone_does_not_count_as_a_reader_of_its_file(
     ]
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_reader_whose_checkpoint_fails_to_load_leaves_its_file_unread(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source({}, {})
+    source._fingerprint_salt = "salt"
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    previous = AppCheckpoint(
+        urns=[stored],
+        unmapped_file_stores={
+            UNMAPPED_ORDERS_QVD: UnmappedFileStore(
+                path="lib://Sales Space:Lake/qvd/orders.qvd", table_urns=[stored]
+            )
+        },
+        read_unmapped_file_urns=[UNMAPPED_ORDERS_QVD],
+    )
+    with (
+        patch.object(source.app_state, "previous", return_value=previous),
+        patch.object(source.app_state, "record"),
+    ):
+        source._keep_unchanged_app(UnchangedApp(id="app-2", fingerprint="f"))
+    with patch.object(
+        source.app_state, "previous", side_effect=RuntimeError("checkpoint unavailable")
+    ):
+        workunits = list(source._gen_unmapped_file_entities())
+
+    assert not workunits
+    assert list(source.reporter.unread_stored_files) == [
+        "lib://Sales Space:Lake/qvd/orders.qvd"
+    ]
+    assert len(source._checkpoint_load_failures) == 1
+    assert source._checkpoint_load_failures[0].startswith("app-2: ")
+
+
 ABS_ORDERS_QVD = "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/orders.qvd,PROD)"
 
 
@@ -2195,6 +2236,71 @@ def test_unresolved_file_of_an_app_calling_an_undefined_sub_only_adds(
     )
 
     assert writes[ORDERS] == f"patch:{RATES}"
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_added_graph_table_lineage_drops_edges_to_other_names_of_its_file(
+    mock_api_cls: MagicMock,
+) -> None:
+    source, app = _graph_app_source(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        datasets_listed=False,
+    )
+
+    ops = _upstream_ops(_app_and_end_of_run(source, app))
+
+    # Lineage is only added to, as the datasets could not be listed, but the
+    # edge an earlier run wrote to the file's QRI name still goes.
+    qri_name = make_dataset_urn(
+        "qlik-sense",
+        _file_qri("adls", "unknown", "landing/orders.csv").rsplit("#", 1)[0].lower(),
+    )
+    assert f"remove upstream {qri_name}" in ops[ORDERS]
+    assert (
+        "add upstream urn:li:dataset:(urn:li:dataPlatform:abs,lake/landing/orders.csv,PROD)"
+        in ops[ORDERS]
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_added_script_table_lineage_drops_edges_to_other_names_of_its_file(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {
+            "Sales Space:Share": {
+                "storage_uri": SHARE,
+                "platform_instance": "qlik_onprem",
+            }
+        },
+        {},
+        script="Targets: LOAD * FROM [lib://Sales Space:Share/Ref/Targets.xlsx] (ooxml);\n",
+    )
+    file_qri = _file_qri("local", SHARE, "Ref/Targets.xlsx")
+    urn = source._file_source_resolution("app-1", file_qri).urn
+    assert urn is not None
+    table = ScriptTableLineage(
+        label="Targets", identifier="app-1.targets", upstream_urns=[urn]
+    )
+
+    ops = _upstream_ops(
+        source._gen_script_tables_workunit([table], "app-1", replace_lineage=False)
+    )
+
+    assert sorted(
+        op
+        for op in ops[make_dataset_urn("qlik-sense", "app-1.targets")]
+        if op.startswith("remove")
+    ) == sorted(
+        [
+            "remove upstream "
+            + make_dataset_urn("qlik-sense", file_qri.rsplit("#", 1)[0].lower()),
+            "remove upstream urn:li:dataset:(urn:li:dataPlatform:qlik-sense,"
+            "qlik_onprem.//files.example.com/qlik/qvd/ref/targets.xlsx,PROD)",
+        ]
+    )
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -2700,7 +2806,7 @@ def test_connection_is_found_regardless_of_case(
             },
         )
 
-    storage, _ = source._connection_storage("SALES SPACE:LAKE", "space-1")
+    storage = source._connection_storage("SALES SPACE:LAKE", "space-1").storage
 
     assert (storage.platform if storage else None) == expected
 
@@ -2818,7 +2924,7 @@ def test_bracketed_connection_finds_its_storage(
             },
         )
 
-    storage, _ = source._connection_storage(connection, "space-1")
+    storage = source._connection_storage(connection, "space-1").storage
 
     assert storage is not None and storage.platform == FilePlatform.ABS
 

@@ -10,6 +10,11 @@ from websocket import WebSocketBadStatusException
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.qlik_sense.chart_fields import (
+    app_field_key,
+    get_chart_input_fields,
+    index_app_fields,
+)
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
@@ -23,7 +28,7 @@ from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import (
     UNPUBLISHED_APPS_NAME,
     QlikOnPremAPI,
-    _QrsAdapter,
+    QrsAdapter,
 )
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
@@ -335,9 +340,10 @@ def test_items_of_next_space_are_listed_only_after_first_item_is_taken(
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
     with patch.object(api, "_list_items", side_effect=list_items):
         items = api._items_in_turn(["stream-1", "stream-2"])
-        assert next(items) == ("stream-1", {"id": "stream-1-0"})
+        first = next(items)
+        assert (first.space_id, first.item) == ("stream-1", {"id": "stream-1-0"})
         assert listed == ["stream-1"]
-        assert [item["id"] for _, item in items] == [
+        assert [listed_item.item["id"] for listed_item in items] == [
             "stream-2-0",
             "stream-1-1",
             "stream-2-1",
@@ -357,7 +363,7 @@ def test_onprem_unexpected_app_error_records_app_id(
     with patch.object(api, "_read_app", side_effect=RuntimeError("boom")):
         assert list(api.get_items(["stream-1"])) == []
 
-    assert api.unread_items == [UnreadItem(name=APP["id"], cause="boom")]
+    assert api.unread_items == [UnreadItem(name=APP["id"], cause="RuntimeError: boom")]
 
 
 def test_chart_keeps_dimension_in_error_state() -> None:
@@ -798,7 +804,7 @@ def test_onprem_reads_chart_field_expressions(
 def test_chart_input_fields_match_app_fields() -> None:
     orders = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
     customers = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = index_app_fields(
         {
             orders: [SchemaField(name="order_id"), SchemaField(name="Net Sales")],
             customers: [
@@ -820,7 +826,7 @@ def test_chart_input_fields_match_app_fields() -> None:
 
     assert [
         (field.dataset_urn, field.field.name)
-        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+        for field in get_chart_input_fields(chart, app_fields)
     ] == [
         (orders, "Net Sales"),
         (customers, "Region"),
@@ -969,7 +975,7 @@ def test_chart_inputs_when_fields_are_unknown(
         "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)",
     ]
     # A SQL SELECT * script table has no known columns.
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = index_app_fields(
         {app_tables[0]: [], app_tables[1]: [SchemaField(name="Region")]}
     )
 
@@ -996,7 +1002,7 @@ def test_field_names_match_in_any_case_only_for_script_tables() -> None:
     model_a = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.a,PROD)"
     model_b = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.b,PROD)"
     script = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = index_app_fields(
         {
             model_a: [SchemaField(name="ID")],
             model_b: [SchemaField(name="id")],
@@ -1009,14 +1015,14 @@ def test_field_names_match_in_any_case_only_for_script_tables() -> None:
 
     assert [
         (field.dataset_urn, field.field.name)
-        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+        for field in get_chart_input_fields(chart, app_fields)
     ] == [(model_a, "ID"), (script, "amount")]
 
 
 def test_exact_match_does_not_hide_script_table_in_other_case() -> None:
     model = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.a,PROD)"
     script = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = index_app_fields(
         {model: [SchemaField(name="order_id")], script: [SchemaField(name="ORDER_ID")]},
         script_table_urns={script},
     )
@@ -1025,27 +1031,22 @@ def test_exact_match_does_not_hide_script_table_in_other_case() -> None:
 
     assert [
         (field.dataset_urn, field.field.name)
-        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+        for field in get_chart_input_fields(chart, app_fields)
     ] == [(model, "order_id"), (script, "ORDER_ID")]
 
 
 def test_qualified_field_name_matches_before_derived_field() -> None:
     table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
+    app_fields = index_app_fields(
         {table: [SchemaField(name="Orders.Region"), SchemaField(name="Orders")]}
     )
 
-    assert QlikSenseSource._app_field_key("Orders.Region", app_fields) == (
-        "Orders.Region"
-    )
-    assert QlikSenseSource._app_field_key("Orders.autoCalendar.Year", app_fields) == (
-        "Orders"
-    )
-    assert QlikSenseSource._app_field_key("Customers.Region", app_fields) is None
+    assert app_field_key("Orders.Region", app_fields) == ("Orders.Region")
+    assert app_field_key("Orders.autoCalendar.Year", app_fields) == ("Orders")
+    assert app_field_key("Customers.Region", app_fields) is None
     # A field whose own name contains a dot keeps it when a suffix is derived.
     assert (
-        QlikSenseSource._app_field_key("Orders.Region.autoCalendar.Year", app_fields)
-        == "Orders.Region"
+        app_field_key("Orders.Region.autoCalendar.Year", app_fields) == "Orders.Region"
     )
 
 
@@ -1108,9 +1109,7 @@ def test_input_fields_are_kept_when_measures_were_unread(
     chart.fields_complete = False
     chart.fields_unread = fields_unread
     table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)"
-    app_fields = QlikSenseSource._index_app_fields(
-        {table: [SchemaField(name="Region")]}
-    )
+    app_fields = index_app_fields({table: [SchemaField(name="Region")]})
 
     inputs = source._chart_inputs([chart], {}, app_fields, [table], False)
     workunits = list(source._gen_charts_workunit([chart], inputs, "app-1"))
@@ -1243,6 +1242,21 @@ def test_onprem_source_uses_onprem_client(
 
     mock_onprem.assert_called_once()
     mock_cloud.assert_not_called()
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_source_raises_when_qrs_cannot_be_reached(
+    mock_session_cls: MagicMock,
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = requests.ConnectionError("qrs unreachable")
+
+    with pytest.raises(requests.ConnectionError):
+        QlikSenseSource(
+            QlikSourceConfig.model_validate(ONPREM_CONFIG),
+            PipelineContext(run_id="test-onprem-connect"),
+        )
 
 
 def _script_tables(
@@ -1546,6 +1560,36 @@ def test_onprem_qrs_rejecting_the_connection_check_fails_fast(
         QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
 
 
+def _on_prem_warnings(**on_prem: object) -> List[Optional[str]]:
+    with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI"):
+        source = QlikSenseSource(
+            QlikSourceConfig.model_validate({"on_prem": {**ON_PREM, **on_prem}}),
+            PipelineContext(run_id="test-onprem"),
+        )
+    return [warning.title for warning in source.reporter.warnings]
+
+
+@pytest.mark.parametrize("read_data_model, warned", [(False, True), (True, False)])
+def test_binary_file_to_app_without_read_data_model_warns(
+    read_data_model: bool, warned: bool
+) -> None:
+    titles = _on_prem_warnings(
+        read_data_model=read_data_model,
+        binary_file_to_app={"lib://Apps/Sales.qvf": "app-1"},
+    )
+    assert ("binary_file_to_app is ignored" in titles) is warned
+
+
+@pytest.mark.parametrize("verify, warned", [(False, True), (True, False)])
+def test_server_cert_hostname_without_hostname_check_warns(
+    verify: bool, warned: bool
+) -> None:
+    titles = _on_prem_warnings(
+        server_cert_hostname="qlik.example.com", verify_server_hostname=verify
+    )
+    assert ("server_cert_hostname is not used for TLS" in titles) is warned
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api._presented_certificate")
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_onprem_logs_presented_certificate_when_tls_fails(
@@ -1675,7 +1719,9 @@ def test_cloud_app_read_failure_closes_engine_session(
         is None
     )
     websocket.close_websocket.assert_called_once()
-    assert api.unread_items == [UnreadItem(name="app-1", cause="Access denied")]
+    assert api.unread_items == [
+        UnreadItem(name="app-1", cause="RuntimeError: Access denied")
+    ]
 
 
 def _open_onprem_engine(refusals: RefusedConnectionBudget) -> WebsocketConnection:
@@ -2266,7 +2312,7 @@ def test_engine_reply_wait_is_bounded(mock_connect: MagicMock) -> None:
 
 
 def test_qrs_adapter_passes_the_client_key_password() -> None:
-    adapter = _QrsAdapter(assert_hostname=None, key_password="key-password")
+    adapter = QrsAdapter(assert_hostname=None, key_password="key-password")
 
     assert adapter.poolmanager.connection_pool_kw["key_password"] == "key-password"
     assert "assert_hostname" not in adapter.poolmanager.connection_pool_kw

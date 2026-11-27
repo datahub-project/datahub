@@ -4,6 +4,7 @@ from typing import AbstractSet, Callable, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
+from datahub.ingestion.source.qlik_sense.constants import QVD_EXTENSION
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FilePlatform,
     FileStorage,
@@ -71,7 +72,7 @@ VARIABLE_RE = re.compile(
     r"^(?P<kind>SET|LET)\s+(?P<name>[^\s=]+)\s*=(?P<value>.*)$",
     re.IGNORECASE | re.DOTALL,
 )
-EXPRESSION_NAME_RE = re.compile(r"[^\W\d]\w*")
+BARE_NAME_RE = re.compile(r"[^\W\d]\w*")
 STRING_LITERAL_RE = re.compile(r"'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"")
 VARIABLE_REFERENCE_RE = re.compile(r"\$\((?P<name>[^()=]+)\)")
 # A label can be a variable the parser can't expand, kept as `$(name)`.
@@ -153,7 +154,6 @@ LIB_PATH_RE = re.compile(
 )
 # A file system path, which only legacy mode allows: C:\..., \\server\... or //server/...
 ABSOLUTE_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\|//)")
-QVD_EXTENSION = ".qvd"
 # STORE formats other than QVD, which write files storage sources ingest.
 STORED_FILE_FORMATS = ("txt", "parquet")
 LOAD_FIELDS_RE = re.compile(
@@ -884,7 +884,7 @@ class _ControlFlowTracker(BaseModel):
         }
         if is_expression:
             # A LET expression can read a variable by its bare name.
-            names.update(EXPRESSION_NAME_RE.findall(STRING_LITERAL_RE.sub("", value)))
+            names.update(BARE_NAME_RE.findall(STRING_LITERAL_RE.sub("", value)))
         return not names.isdisjoint(self.state.unknown)
 
 

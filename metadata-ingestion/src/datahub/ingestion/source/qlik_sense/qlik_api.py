@@ -34,6 +34,7 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     ReadErrors,
     log_read_error,
 )
+from datahub.ingestion.source.qlik_sense.report_text import describe_error
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     SPACE_SEPARATOR,
     DataConnectionInfo,
@@ -156,7 +157,7 @@ class QlikAPI(QlikBaseAPI):
             log_read_error(
                 f"Unable to fetch table lineage of dataset {dataset_id}. Exception: {e}"
             )
-            self.lineage_read_failures.append(f"{dataset_id}: {e}")
+            self.lineage_read_failures.append(f"{dataset_id}: {describe_error(e)}")
         return dataset
 
     def get_table_lineage(self, qri: str) -> Optional[List[LineageTable]]:
@@ -194,7 +195,9 @@ class QlikAPI(QlikBaseAPI):
                         f"Unable to fetch field lineage of {table.qri}. Exception: {e}"
                     )
                     table.field_lineage_failed = True
-                    self.field_lineage_failures.append(f"{table.qri}: {e}")
+                    self.field_lineage_failures.append(
+                        f"{table.qri}: {describe_error(e)}"
+                    )
         return list(tables.values())
 
     @staticmethod
@@ -278,7 +281,7 @@ class QlikAPI(QlikBaseAPI):
             # Only lineage needs the list, and it falls back to adding edges,
             # so this is not a failed read of the run's entities.
             log_read_error(f"Unable to list datasets. Exception: {e}")
-            self.dataset_listing_error = str(e)
+            self.dataset_listing_error = describe_error(e)
             return None
         return datasets
 
@@ -462,6 +465,8 @@ class QlikAPI(QlikBaseAPI):
                 f"Unable to fetch data connections. Exception: {e}",
                 e,
             )
+            # A partial listing can't show that a bare name is unique.
+            return connections
         for name, infos in by_name.items():
             if len(infos) == 1:
                 connections.setdefault(name, infos[0])
@@ -488,11 +493,11 @@ class QlikAPI(QlikBaseAPI):
                 method="GetIncludeFileContent", params={"qPath": path}
             ).get("qContent")
         except EngineError as e:
-            result = IncludeRead(error=str(e))
+            result = IncludeRead(error=describe_error(e))
         except Exception as e:
             # Not cached for the run, as a dropped websocket may read it for
             # the next app.
-            transient[path] = IncludeRead(error=str(e))
+            transient[path] = IncludeRead(error=describe_error(e))
             return transient[path]
         else:
             result = (
@@ -563,7 +568,7 @@ class QlikAPI(QlikBaseAPI):
                 f"Unable to fetch reload statements of app {app.id}. Exception: {e}"
             )
             app.reload_statements_read_failed = True
-            self.reload_statement_read_failures.append(f"{app.id}: {e}")
+            self.reload_statement_read_failures.append(f"{app.id}: {describe_error(e)}")
 
     def get_database_labels(self, qri: str) -> Dict[str, str]:
         """Labels of the database tables the app's lineage graph tables load
@@ -638,10 +643,7 @@ class QlikAPI(QlikBaseAPI):
                     # Unlabelled script tables are named from the data model,
                     # so without it they may not match their graph tables.
                     app.tables_read_failed = True
-            app.read_errors = errors.messages
-            app.sheets_complete = not errors.sheets_unread
-            app.read_fallbacks = errors.fallbacks
-            return app
+            return self._finish_read(app, errors)
         finally:
             self._close_engine(websocket_connection, app_id)
 

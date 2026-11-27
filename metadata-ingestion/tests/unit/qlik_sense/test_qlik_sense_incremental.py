@@ -16,11 +16,19 @@ from datahub.ingestion.source.qlik_sense.app_state import (
     QlikAppStateHandler,
 )
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
+from datahub.ingestion.source.qlik_sense.constants import (
+    CHECKPOINT_KEEP_FAILED_TITLE,
+    CHECKPOINT_LOAD_FAILURES_TITLE,
+)
 from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source_report.ingestion_stage import (
+    LINEAGE_EXTRACTION,
+    METADATA_EXTRACTION,
+)
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DatasetLineageTypeClass,
@@ -662,6 +670,60 @@ def test_unchanged_app_whose_checkpoint_fails_to_reload_keeps_its_last_read(
     assert third.reporter.apps_skipped_unchanged == 1
     assert not _soft_deleted_urns(third_wus)
     assert qlik.engine_opens == 1
+
+
+def test_checkpoint_load_failure_while_reading_is_reported(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    with (
+        patch.object(
+            QlikAppStateHandler,
+            "previous",
+            side_effect=RuntimeError("checkpoint unavailable"),
+        ),
+        patch.object(QlikAppStateHandler, "record") as record,
+    ):
+        second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    failure = next(
+        f for f in second.reporter.failures if f.title == CHECKPOINT_LOAD_FAILURES_TITLE
+    )
+    # Several lookups of the one app fail, but the failure names it once.
+    assert str(failure.context).count("RuntimeError: checkpoint unavailable") == 1
+    # Its last read is kept rather than replaced by one that lacks what it recorded.
+    record.assert_not_called()
+
+
+def test_failure_to_keep_unrecorded_apps_is_reported(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    _DataHub(mock_datahub_graph)
+    qlik.engine_fails = True
+
+    with patch.object(
+        QlikAppStateHandler,
+        "keep_unrecorded_apps",
+        side_effect=RuntimeError("state unavailable"),
+    ):
+        source, _ = _run(mock_datahub_graph, qlik, "run-1")
+
+    assert CHECKPOINT_KEEP_FAILED_TITLE in [f.title for f in source.reporter.failures]
+
+
+def test_run_reports_metadata_and_lineage_stages(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    source, _ = _run(mock_datahub_graph, _Qlik(), "run-1")
+
+    stages = " ".join(source.reporter.ingestion_stage_durations)
+    assert METADATA_EXTRACTION in stages
+    assert LINEAGE_EXTRACTION in stages
 
 
 def test_partial_read_without_last_read_is_not_recorded(

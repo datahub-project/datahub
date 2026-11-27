@@ -258,3 +258,13 @@ def test_nested_fallback_values_are_expanded_in_sql() -> None:
         "LIB CONNECT TO 'db';\nT: SQL SELECT id FROM $(vTable);",
         {"vTable": "$(vSchema).orders", "vSchema": "sales"},
     ) == ["SELECT id FROM sales.orders"]
+
+
+def test_let_reading_an_unknown_variable_by_its_bare_name_is_unknown() -> None:
+    # The LET reads vT by its bare name, so its value is not the app's last one.
+    sql = _sql(
+        "LIB CONNECT TO 'db';\nFOR EACH vT IN 'a', 'b'\nNEXT vT;\n"
+        "LET vSchema = Lower(vT);\nT: SQL SELECT id FROM $(vSchema).orders;",
+        {"vSchema": "sales"},
+    )
+    assert sql and set(sql) == {"SELECT id FROM $(vSchema).orders"}

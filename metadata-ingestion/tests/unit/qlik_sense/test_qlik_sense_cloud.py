@@ -1,5 +1,6 @@
 import io
 import ssl
+from datetime import datetime
 from functools import partial
 from typing import Callable, Dict, List, Optional
 from unittest.mock import MagicMock, patch
@@ -13,6 +14,7 @@ from urllib3.exceptions import NewConnectionError, ProtocolError
 from urllib3.response import HTTPResponse
 from urllib3.util.retry import Retry
 
+from datahub.emitter.mce_builder import UNKNOWN_USER, make_user_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
@@ -113,7 +115,7 @@ def test_failed_request_is_recorded_as_unread(
 
     list(getattr(api, call)(*([["space-1"]] if call == "get_items" else [])))
 
-    assert api.unread_items == [UnreadItem(name=unread, cause="down")]
+    assert api.unread_items == [UnreadItem(name=unread, cause="ConnectionError: down")]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
@@ -305,6 +307,25 @@ def _cloud_app(**extra: object) -> App:
     )
 
 
+@pytest.mark.parametrize(
+    "user_name, actor",
+    [("jane", make_user_urn("jane")), (None, UNKNOWN_USER)],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_audit_stamp_actor_is_the_user_the_owner_aspect_names(
+    mock_api_cls: MagicMock, user_name: Optional[str], actor: str
+) -> None:
+    mock_api_cls.return_value.get_user_name.return_value = user_name
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-cloud"),
+    )
+
+    stamp = source._get_audit_stamp(datetime(2024, 1, 9), "qlik-user-id")
+
+    assert stamp.actor == actor
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_denied_load_script_is_a_warning(mock_api_cls: MagicMock) -> None:
     space = MagicMock(id="space-1")
@@ -314,6 +335,7 @@ def test_denied_load_script_is_a_warning(mock_api_cls: MagicMock) -> None:
         _cloud_app(script_read_failed=True)
     ]
     mock_api_cls.return_value.unread_items = []
+    mock_api_cls.return_value.get_user_name.return_value = None
     mock_api_cls.return_value.failed_user_lookups = {}
     mock_api_cls.return_value.lineage_read_failures = []
     mock_api_cls.return_value.field_lineage_failures = []
@@ -568,6 +590,30 @@ def test_data_connections_are_keyed_by_space(
         "Sales:Warehouse": "postgres",
         "Orders": "mssql",
     }
+
+
+def test_bare_connection_names_are_dropped_when_the_listing_is_partial(
+    requests_mock: requests_mock_module.Mocker,
+) -> None:
+    base_url = "https://tenant.example.com/api/v1"
+    url = f"{base_url}/data-connections"
+    requests_mock.get(f"{base_url}/api-keys", json={})
+    requests_mock.get(
+        url,
+        complete_qs=True,
+        json={
+            "data": [_data_connection("Warehouse", "space-1", "snowflake")],
+            "links": {"next": {"href": f"{url}?next=2"}},
+        },
+    )
+    # The next page may hold a second `Warehouse`, so the first is not unique.
+    requests_mock.get(f"{url}?next=2", status_code=500)
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    api.spaces = {"space-1": "Finance"}
+
+    connections = api.get_data_connections()
+
+    assert list(connections) == ["Finance:Warehouse"]
 
 
 def test_data_connections_page_without_data_is_empty(
@@ -1211,3 +1257,15 @@ def test_engine_reply_without_result_names_the_request(
 
     with pytest.raises(EngineError, match="OpenDoc.*OnSessionTimedOut"):
         connection.websocket_send_request(method="OpenDoc")
+
+
+def test_source_raises_when_it_cannot_connect(
+    requests_mock: requests_mock_module.Mocker,
+) -> None:
+    requests_mock.get("https://tenant.example.com/api/v1/api-keys", status_code=401)
+    # The pipeline reports the cause instead of the process exiting.
+    with pytest.raises(requests.HTTPError):
+        QlikSenseSource(
+            QlikSourceConfig.model_validate(CLOUD_CONFIG),
+            PipelineContext(run_id="test-cloud"),
+        )
