@@ -44,6 +44,7 @@
     "inviteToken.copyTooltip": "复制邀请链接。",
     "inviteToken.createError": "为角色 {{roleName}} 创建邀请令牌失败：\n {{error}}",
     "inviteToken.footerText": "复制邀请链接并发送给你的用户。用户加入后将自动分配到所选角色。",
+    "inviteToken.footerTextNoRole": "复制邀请链接并发送给你的用户。用户可以创建账户，但不会被分配角色。",
     "inviteToken.generateNewLinkTooltip": "生成新链接。所有旧链接都将失效。",
     "inviteToken.generateSuccess": "已生成新的邀请链接",
     "inviteToken.modalTitle": "分享邀请链接",

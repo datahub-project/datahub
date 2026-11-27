@@ -6,6 +6,7 @@
     "addDataProductError": "未能将数据资产添加到数据产品。发生了未知错误。",
     "addDataProductModalTitle": "将数据资产添加到数据产品",
     "addDataProductTooltip": "将数据资产添加到数据产品",
+    "addDataProductUnauthorized": "你没有向此数据产品添加数据资产的权限",
     "addDomainError": "未能将数据资产添加到数据域：{{error}}",
     "addDomainModalTitle": "将数据资产添加到数据域",
     "addDomainTooltip": "将数据资产添加到数据域",
