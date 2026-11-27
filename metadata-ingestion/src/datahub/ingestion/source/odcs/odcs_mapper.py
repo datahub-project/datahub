@@ -25,6 +25,7 @@ from datahub.emitter.mce_builder import (
     make_domain_urn,
     make_schema_field_urn,
     make_tag_urn,
+    make_term_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -38,6 +39,9 @@ from datahub.ingestion.source.odcs.odcs_config import (
 )
 from datahub.ingestion.source.odcs.odcs_constants import (
     ASSERTION_SCHEMA_COMPLIANCE,
+    ASSERTION_SLA_LATENCY,
+    AUTHDEF_TYPE_BUSINESS_DEFINITION,
+    CLASSIFICATION_TERM_PREFIX,
     LOGICAL_TYPE_MAP,
     METRIC_DUPLICATE_COUNT,
     METRIC_DUPLICATE_VALUES,
@@ -69,6 +73,8 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     PROP_RULE_UNIT,
     PROP_SCHEMA_NAME,
     PROP_SCOPE,
+    PROP_SLA_DRIVER,
+    PROP_SLA_ELEMENT,
     PROP_SOURCE_FILE,
     PROP_STATUS,
     PROP_TENANT,
@@ -81,6 +87,8 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     SCOPE_SCHEMA,
     SEMANTIC_TYPE_MEASURE,
     SERVER_TYPE_ICEBERG,
+    SLA_PROPERTY_LATENCY,
+    SLA_UNIT_TO_CALENDAR_INTERVAL,
     SYNONYM_STATUS_DEPRECATED,
     UNIT_PERCENT,
     UNIT_ROWS,
@@ -97,6 +105,8 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSQualityRule,
     ODCSSchemaObject,
     ODCSServer,
+    ODCSSlaProperty,
+    ODCSSupportItem,
 )
 from datahub.metadata.schema_classes import (
     AiContextClass,
@@ -123,7 +133,15 @@ from datahub.metadata.schema_classes import (
     FieldValuesAssertionClass,
     FieldValuesFailThresholdClass,
     FieldValuesFailThresholdTypeClass,
+    FixedIntervalScheduleClass,
+    FreshnessAssertionInfoClass,
+    FreshnessAssertionScheduleClass,
+    FreshnessAssertionScheduleTypeClass,
+    FreshnessAssertionTypeClass,
+    FreshnessContractClass,
     GlobalTagsClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermsClass,
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     LogicalParentClass,
@@ -147,7 +165,12 @@ from datahub.metadata.schema_classes import (
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
 )
-from datahub.metadata.urns import DataProductUrn, DatasetUrn, DomainUrn
+from datahub.metadata.urns import (
+    DataProductUrn,
+    DatasetUrn,
+    DomainUrn,
+    GlossaryTermUrn,
+)
 from datahub.specific.dataproduct import DataProductPatchBuilder
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.error import InvalidUrnError
@@ -783,6 +806,11 @@ def _field_description(prop: ODCSProperty) -> Optional[str]:
     never accumulate and disappear when the contract drops them.
     """
     parts = [_description_to_str(prop.description)]
+    business_name = _one_line(prop.businessName)
+    # A business name that only re-cases the column name (`OrderId` for
+    # `order_id`) adds nothing.
+    if business_name and _alphanumeric(business_name) != _alphanumeric(prop.name):
+        parts.append(f"**Business name:** {business_name}")
     transform_description = _description_to_str(prop.transformDescription)
     transform_logic = _description_to_str(prop.transformLogic)
     if transform_description or transform_logic:
@@ -799,6 +827,11 @@ def _field_description(prop: ODCSProperty) -> Optional[str]:
             + "\n".join(_enum_value_line(entry) for entry in prop.enum)
         )
     return "\n\n".join(p for p in parts if p) or None
+
+
+def _alphanumeric(text: str) -> str:
+    # Unicode-aware, so different non-Latin names do not both reduce to "".
+    return "".join(c for c in text.casefold() if c.isalnum())
 
 
 def _one_line(text: Optional[str]) -> Optional[str]:
@@ -824,6 +857,87 @@ def _enum_value_line(entry: ODCSEnumValue) -> str:
     return line
 
 
+def business_term_urn(reference: str) -> Optional[str]:
+    """The glossary term urn an ODCS term reference names, or None if it names none.
+
+    A `urn:li:glossaryTerm:` urn is used as is. Anything else (an external
+    reference such as `term:order_line`, or a plain name) becomes a term id:
+    trimmed and lowercased, each `:` turned into `-` (with the whitespace
+    around it dropped), and other runs of whitespace into `_`. Letters and
+    digits in any script, `_`, `-` and `.` are kept as they are. A reference
+    with any other character (`+`, `&`, parentheses, ...), or with nothing on
+    one side of a `:`, names no term: distinct references must never collapse
+    onto one term. So `term:order_line` names `term-order_line`,
+    `External Glossary Term` names `external_glossary_term` and
+    `classification:機密` names `classification-機密`. The term is referenced,
+    never created.
+    """
+    if reference.startswith("urn:li:glossaryTerm:"):
+        try:
+            GlossaryTermUrn.from_string(reference)
+        except InvalidUrnError:
+            return None
+        return reference
+    segments = ["_".join(seg.split()) for seg in reference.strip().lower().split(":")]
+    term_id = "-".join(segments)
+    if not all(segments) or not all(c.isalnum() or c in "_-." for c in term_id):
+        return None
+    return make_term_urn(term_id)
+
+
+def _is_business_definition(definition: ODCSAuthoritativeDefinition) -> bool:
+    return (definition.type or "").strip() == AUTHDEF_TYPE_BUSINESS_DEFINITION
+
+
+def _definition_term_reference(
+    definition: ODCSAuthoritativeDefinition,
+) -> Optional[str]:
+    """The term reference a property's business definition holds, if any.
+
+    A web page stays a link, and a path (anything with `/`, such as the
+    relative `../docs/orders.md` ODCS allows) is a link GMS cannot store, not
+    a term reference.
+    """
+    url = definition.url
+    if not url or not _is_business_definition(definition):
+        return None
+    if _is_storable_link_url(url) or "/" in url:
+        return None
+    return url
+
+
+def _field_term_references(prop: ODCSProperty) -> List[str]:
+    references = [
+        ref
+        for d in prop.authoritativeDefinitions or []
+        if (ref := _definition_term_reference(d))
+    ]
+    classification = (prop.classification or "").strip()
+    if classification:
+        references.append(f"{CLASSIFICATION_TERM_PREFIX}{classification}")
+    return references
+
+
+def _field_term_urns(prop: ODCSProperty) -> List[str]:
+    urns = (business_term_urn(ref) for ref in _field_term_references(prop))
+    return list(dict.fromkeys(urn for urn in urns if urn))
+
+
+def unresolved_term_references(contract: ODCSContract) -> List[str]:
+    """Distinct property term references (business definitions and
+    `classification:<value>`) that name no glossary term, so the source can
+    report them."""
+    return sorted(
+        {
+            ref
+            for entry in contract.schema_ or []
+            for _, prop in _walk_properties(entry.properties)
+            for ref in _field_term_references(prop)
+            if business_term_urn(ref) is None
+        }
+    )
+
+
 def build_schema_metadata(
     schema_entry: ODCSSchemaObject,
     tag_prefix: Optional[str] = None,
@@ -832,8 +946,9 @@ def build_schema_metadata(
 
     Field paths are dotted (`address.street`) to mirror the nested ODCS
     `properties[]` structure. Descriptions, tags, nullability (from `required`),
-    and key membership (from `primaryKey`) are carried through. Returns no
-    schema metadata when the entry declares no properties.
+    key membership (from `primaryKey`) and glossary terms (from business
+    definitions and `classification`, see `business_term_urn`) are carried
+    through. Returns no schema metadata when the entry declares no properties.
     """
     fields: List[SchemaFieldClass] = []
     unmapped_types: List[str] = []
@@ -844,6 +959,7 @@ def build_schema_metadata(
                 f"{field_path}:{prop.logicalType or prop.physicalType}"
             )
         tag_assoc = _make_tag_associations(prop.tags, tag_prefix)
+        term_urns = _field_term_urns(prop)
         fields.append(
             SchemaFieldClass(
                 fieldPath=field_path,
@@ -853,6 +969,12 @@ def build_schema_metadata(
                 nullable=not bool(prop.required),
                 isPartOfKey=bool(prop.primaryKey),
                 globalTags=GlobalTagsClass(tags=tag_assoc) if tag_assoc else None,
+                glossaryTerms=GlossaryTermsClass(
+                    terms=[GlossaryTermAssociationClass(urn=u) for u in term_urns],
+                    auditStamp=AuditStampClass(time=0, actor=ODCS_ACTOR),
+                )
+                if term_urns
+                else None,
                 recursive=False,
             )
         )
@@ -912,35 +1034,71 @@ def _authoritative_definitions(
 def unstorable_authoritative_definition_urls(contract: ODCSContract) -> List[str]:
     """Distinct contract/schema/property authoritativeDefinitions URLs that GMS
     would reject as links (relative paths, other schemes), so the source can
-    report them; `_institutional_memory_mcp` skips them."""
-    return sorted(
-        {
-            d.url
-            for d in _authoritative_definitions(contract, contract.schema_ or [])
-            if d.url and not _is_storable_link_url(d.url)
-        }
-    )
+    report them; `_institutional_memory_mcp` skips them. A property's business
+    definition that holds a term reference is a field term instead (or reported
+    by `unresolved_term_references`); the same reference at contract or schema
+    level is reported here."""
+    urls: Set[str] = set()
+    for d in contract.authoritativeDefinitions or []:
+        urls.add(d.url or "")
+    for entry in contract.schema_ or []:
+        for d in entry.authoritativeDefinitions or []:
+            urls.add(d.url or "")
+        for _, prop in _walk_properties(entry.properties):
+            for d in prop.authoritativeDefinitions or []:
+                if _definition_term_reference(d) is None:
+                    urls.add(d.url or "")
+    return sorted(url for url in urls if url and not _is_storable_link_url(url))
+
+
+def unlinked_support_channels(contract: ODCSContract) -> List[str]:
+    """`support` channels with no URL DataHub can store as a link."""
+    return [
+        item.channel
+        for item in contract.support or []
+        if not (item.url and _is_storable_link_url(item.url))
+    ]
+
+
+def _support_link_label(item: ODCSSupportItem) -> str:
+    label = f"Support: {item.channel}"
+    if item.tool:
+        label += f" ({item.tool})"
+    if item.description:
+        label += f" — {item.description}"
+    return label
 
 
 def _institutional_memory_mcp(
     logical_urn: str, schema_entry: ODCSSchemaObject, contract: ODCSContract
 ) -> Optional[MetadataChangeProposalWrapper]:
-    """Link the logical dataset to author-provided authoritativeDefinitions.
+    """Link the logical dataset to author-provided authoritativeDefinitions and
+    `support` channels.
 
     Only author-declared URLs are emitted (deterministic, not tied to the
     ingesting host's filesystem). The source-file basename is carried in
     DatasetProperties.customProperties instead.
     """
+    links = [
+        (d.url, d.type or "ODCS authoritative definition")
+        for d in _authoritative_definitions(contract, [schema_entry])
+        if d.url
+    ]
+    links.extend(
+        (item.url, _support_link_label(item))
+        for item in contract.support or []
+        if item.url
+    )
     seen: Set[str] = set()
     elements: List[InstitutionalMemoryMetadataClass] = []
-    for d in _authoritative_definitions(contract, [schema_entry]):
-        if not d.url or d.url in seen or not _is_storable_link_url(d.url):
+    for url, description in links:
+        if url in seen or not _is_storable_link_url(url):
             continue
-        seen.add(d.url)
+        seen.add(url)
         elements.append(
             InstitutionalMemoryMetadataClass(
-                url=d.url,
-                description=d.type or "ODCS authoritative definition",
+                url=url,
+                description=description,
                 # Fixed epoch (not wall-clock): the link content is stable across
                 # runs, so a fresh timestamp each run would churn the aspect and
                 # cause needless write amplification.
@@ -1059,6 +1217,130 @@ def _context_section(contexts: List[Optional[ODCSContext]]) -> Optional[str]:
     if not parts:
         return None
     return "\n\n".join(["**Guidance for AI and analysts:**", *parts])
+
+
+def _sla_label(sla: ODCSSlaProperty, element: Optional[str]) -> str:
+    value = (
+        None
+        if sla.value is None
+        else sla.value
+        if isinstance(sla.value, str)
+        else json.dumps(sla.value)
+    )
+    label = f"{sla.property}: " + " ".join(p for p in (value, sla.unit) if p)
+    details = ", ".join(
+        f"{key}: {text}"
+        for key, text in (("element", element), ("driver", sla.driver))
+        if text
+    )
+    return f"{label} ({details})" if details else label
+
+
+def _sla_applies(
+    element: Optional[str], schema_entry: ODCSSchemaObject, tables: Set[str]
+) -> bool:
+    """Whether an SLA with `element` applies to `schema_entry`.
+
+    An SLA without an element is contract-wide. Otherwise one of its
+    comma-separated elements must name the table (`table` or `table.column`),
+    a column of it by dotted path or physical name (`address.street`), or,
+    when it names no table of the contract (`tables`), a column of it under
+    another table name (`<unknown table>.column`).
+    """
+    if not element:
+        return True
+    names = {n.lower() for n in (schema_entry.name, schema_entry.physicalName) if n}
+    columns = {
+        name.lower()
+        for path, prop in _walk_properties(schema_entry.properties)
+        for name in (path, prop.physicalName)
+        if name
+    }
+    for part in element.split(","):
+        part = part.strip().lower()
+        if part in columns:
+            return True
+        # A table name may itself contain dots (`sales.orders`), so match it
+        # as a whole and as a prefix rather than splitting at the first dot.
+        if any(part == n or part.startswith(n + ".") for n in names):
+            return True
+        table, _, column = part.partition(".")
+        if column and table not in tables and column in columns:
+            return True
+    return False
+
+
+def _table_names(contract: ODCSContract) -> Set[str]:
+    return {
+        n.lower()
+        for entry in contract.schema_ or []
+        for n in (entry.name, entry.physicalName)
+        if n
+    }
+
+
+def _latency_slas(
+    contract: ODCSContract,
+) -> Iterable[Tuple[ODCSSlaProperty, Optional[str]]]:
+    """The `latency` SLA entries, each with its effective element."""
+    for sla in contract.slaProperties or []:
+        if sla.property.strip().lower() == SLA_PROPERTY_LATENCY:
+            yield sla, sla.element or contract.slaDefaultElement
+
+
+def unplaced_sla_entries(contract: ODCSContract) -> List[str]:
+    """Latency SLAs whose element names no table or column of the contract."""
+    entries = contract.schema_ or []
+    tables = _table_names(contract)
+    return [
+        _sla_label(sla, element)
+        for sla, element in _latency_slas(contract)
+        if entries and not any(_sla_applies(element, e, tables) for e in entries)
+    ]
+
+
+def unconvertible_latency_slas(contract: ODCSContract) -> List[str]:
+    """Latency SLAs that cannot become a freshness assertion's interval."""
+    return [
+        _sla_label(sla, element)
+        for sla, element in _latency_slas(contract)
+        if _sla_interval(sla) is None
+    ]
+
+
+def duplicate_latency_slas(contract: ODCSContract) -> List[str]:
+    """Latency SLAs that repeat an earlier one on the same table (same `id`, or
+    with no id the same element and driver), so they share its assertion there
+    and are skipped. Assertion URNs include the dataset, so the same key on
+    different tables is not a duplicate."""
+    entries = contract.schema_ or []
+    tables = _table_names(contract)
+    seen: Set[Tuple[Tuple[str, ...], int]] = set()
+    duplicates: List[str] = []
+    for sla, element in _latency_slas(contract):
+        if _sla_interval(sla) is None:
+            continue
+        key = ("id", sla.id) if sla.id else ("element", element or "", sla.driver or "")
+        targets = {
+            (key, index)
+            for index, entry in enumerate(entries)
+            if _sla_applies(element, entry, tables)
+        }
+        if targets & seen:
+            duplicates.append(_sla_label(sla, element))
+        seen |= targets
+    return duplicates
+
+
+def unmapped_sla_properties(contract: ODCSContract) -> List[str]:
+    """Distinct SLA properties other than `latency`, which are not mapped."""
+    return sorted(
+        {
+            sla.property
+            for sla in contract.slaProperties or []
+            if sla.property.strip().lower() != SLA_PROPERTY_LATENCY
+        }
+    )
 
 
 def odcs_to_logical_dataset_mcps(
@@ -1951,6 +2233,111 @@ def odcs_to_schema_assertion_mcps(
     ]
 
 
+# The interval's `multiple` is an Avro int.
+_MAX_INTERVAL_MULTIPLE = 2**31 - 1
+
+
+def _sla_interval(sla: ODCSSlaProperty) -> Optional[FixedIntervalScheduleClass]:
+    unit = SLA_UNIT_TO_CALENDAR_INTERVAL.get((sla.unit or "").strip().lower())
+    value = sla.value
+    if isinstance(value, str) and value.strip().isdecimal():
+        try:
+            value = int(value)
+        except ValueError:  # beyond Python's digit limit for int()
+            return None
+    if (
+        unit is None
+        or isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not 0 < value <= _MAX_INTERVAL_MULTIPLE
+        or not float(value).is_integer()
+    ):
+        return None
+    return FixedIntervalScheduleClass(unit=unit, multiple=int(value))
+
+
+@dataclass
+class SlaFreshnessResult:
+    """Freshness assertions for one schema entry."""
+
+    assertion_urns: List[str] = field(default_factory=list)
+    mcps: List[MetadataChangeProposalWrapper] = field(default_factory=list)
+
+
+def _sla_assertion_urn(
+    contract: ODCSContract, sla: ODCSSlaProperty, element: Optional[str], urn: str
+) -> str:
+    # The SLA's stable `id` (v3.1+) survives edits to its element; without one
+    # the element and driver tell entries apart.
+    if sla.id:
+        key = {"contract": contract.id, "sla_id": sla.id, "dataset": urn}
+    else:
+        key = {
+            "contract": contract.id,
+            "dataset": urn,
+            "kind": "sla_latency",
+            "element": element or "",
+        }
+        if sla.driver:
+            key["driver"] = sla.driver
+    return make_assertion_urn(datahub_guid(key))
+
+
+def odcs_to_sla_freshness_assertion_mcps(
+    contract: ODCSContract,
+    schema_entry: ODCSSchemaObject,
+    logical_urn: str,
+) -> SlaFreshnessResult:
+    """One FRESHNESS assertion per `latency` SLA that applies to the entry.
+
+    Like the quality-rule assertions, it records the contract's promise on the
+    logical dataset. A latency without a whole positive value and an
+    unambiguous unit, or one repeating an earlier entry, produces none; see
+    `unconvertible_latency_slas` and `duplicate_latency_slas`.
+    """
+    result = SlaFreshnessResult()
+    tables = _table_names(contract)
+    for sla, element in _latency_slas(contract):
+        if not _sla_applies(element, schema_entry, tables):
+            continue
+        interval = _sla_interval(sla)
+        if interval is None:
+            continue
+        urn = _sla_assertion_urn(contract, sla, element, logical_urn)
+        if urn in result.assertion_urns:
+            continue
+        props = {
+            PROP_ID: contract.id,
+            PROP_SCOPE: SCOPE_SCHEMA,
+            PROP_ASSERTION: ASSERTION_SLA_LATENCY,
+        }
+        for key, value in ((PROP_SLA_ELEMENT, element), (PROP_SLA_DRIVER, sla.driver)):
+            if value:
+                props[key] = value
+        description = sla.description or (
+            f"Latency SLA: {interval.multiple} {sla.unit}"
+            + (f" on `{element}`" if element else "")
+        )
+        info = AssertionInfoClass(
+            type=AssertionTypeClass.FRESHNESS,
+            source=make_assertion_source(),
+            description=description,
+            customProperties=props,
+            freshnessAssertion=FreshnessAssertionInfoClass(
+                type=FreshnessAssertionTypeClass.DATASET_CHANGE,
+                entity=logical_urn,
+                schedule=FreshnessAssertionScheduleClass(
+                    type=FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL,
+                    fixedInterval=interval,
+                ),
+            ),
+        )
+        result.assertion_urns.append(urn)
+        result.mcps.append(MetadataChangeProposalWrapper(entityUrn=urn, aspect=info))
+        result.mcps.append(assertion_platform_instance_mcp(urn))
+    return result
+
+
 def odcs_data_contract_urn(entity_urn: str) -> str:
     # Stable per target dataset and identical to the convention the DataContract
     # SDK uses, so a hand-authored contract and the ODCS-derived one collapse to
@@ -1964,15 +2351,16 @@ def odcs_to_data_contract_mcps(
     entity_urn: str,
     schema_assertion_urn: Optional[str],
     data_quality_assertion_urns: List[str],
+    freshness_assertion_urns: List[str],
 ) -> Tuple[Optional[str], List[MetadataChangeProposalWrapper]]:
     """Emit a native DataHub `dataContract` on `entity_urn`.
 
     Both the logical `odcs` dataset (where the assertions actually live — the
     self-consistent home) and the bound physical dataset (where consumers browse)
-    use this: the contract just references the schema and data-quality assertion
-    urns, never duplicating assertion entities. State mirrors ODCS `status`
-    (`active` -> ACTIVE, otherwise PENDING). Returns (None, []) when the entry
-    produced no assertions worth pinning a contract to.
+    use this: the contract just references the schema, data-quality and
+    freshness assertion urns, never duplicating assertion entities. State
+    mirrors ODCS `status` (`active` -> ACTIVE, otherwise PENDING). Returns
+    (None, []) when the entry produced no assertions worth pinning a contract to.
     """
     schema_contracts = (
         [SchemaContractClass(assertion=schema_assertion_urn)]
@@ -1982,7 +2370,10 @@ def odcs_to_data_contract_mcps(
     dq_contracts = [
         DataQualityContractClass(assertion=urn) for urn in data_quality_assertion_urns
     ]
-    if schema_contracts is None and not dq_contracts:
+    freshness_contracts = [
+        FreshnessContractClass(assertion=urn) for urn in freshness_assertion_urns
+    ]
+    if schema_contracts is None and not dq_contracts and not freshness_contracts:
         return None, []
 
     contract_urn = odcs_data_contract_urn(entity_urn)
@@ -1999,6 +2390,7 @@ def odcs_to_data_contract_mcps(
                     entity=entity_urn,
                     schema=schema_contracts,
                     dataQuality=dq_contracts or None,
+                    freshness=freshness_contracts or None,
                 ),
                 StatusClass(removed=False),
                 DataContractStatusClass(state=state),

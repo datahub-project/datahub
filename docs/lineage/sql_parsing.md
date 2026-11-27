@@ -8,9 +8,9 @@ Many data platforms are built on top of SQL, which means deeply understanding SQ
 
 DataHub's SQL parser is built on top of [sqlglot](https://github.com/tobymao/sqlglot) and adds a number of additional features to improve the accuracy of SQL parsing.
 
-In our benchmarks, the DataHub SQL parser generates lineage with 97-99% accuracy and outperforms other SQL parsers by a wide margin.
+In our benchmarks, the DataHub SQL parser generates lineage for 97-99% of queries (lineage coverage; correctness is tested separately) and outperforms other SQL parsers on coverage by a wide margin.
 
-We've published a blog post on some of the technical details of the parser: [Extracting Column Lineage from SQL Queries](https://medium.com/datahub-project/extracting-column-level-lineage-from-sql-779b8ce17567).
+We've published a blog post on some of the technical details of the parser: [Extracting Column-Level Lineage from SQL](https://datahub.com/blog/extracting-column-level-lineage-from-sql/).
 
 ## Built-in SQL Parsing Support
 
@@ -58,7 +58,7 @@ Note that these utilities are not officially part of the DataHub SDK and hence d
 - We only support the 20+ SQL dialects supported by the underlying [sqlglot](https://github.com/tobymao/sqlglot) library.
 - There's a few SQL syntaxes that we don't support yet, but intend to support in the future.
   - `INSERT INTO (col1_new, col2_new) SELECT col1_old, col2_old FROM ...`. We only support `INSERT INTO` statements that either (1) don't specify a column list, or (2) specify a column list that matches the columns in the `SELECT` clause.
-  - `MERGE INTO` statements - We don't generate column-level lineage for these.
+  - `MERGE INTO` statements - Table-level lineage is captured. Column-level lineage is best effort: columns are matched by name, so it is reliable only when source and target column names match.
 - In cases where the table schema information in DataHub is outdated or otherwise incorrect, we may not be able to generate accurate column-level lineage.
 - We sometimes trip over BigQuery queries that use the `_partitiontime` and `_partitiondate` pseudo-columns with a table name prefix e.g. `my_table._partitiontime` fails. However, unqualified references like `_partitiontime` and `_partitiondate` will be fine.
 - We do not consider columns referenced in filtering or organizational clauses such as `WHERE`, `GROUP BY`, `ORDER BY`, `JOIN`, `HAVING`, or `PARTITION BY` to be part of lineage. For example, `SELECT col1, col2 FROM upstream_table WHERE col3 = 3` will not generate any lineage related to `col3`.
