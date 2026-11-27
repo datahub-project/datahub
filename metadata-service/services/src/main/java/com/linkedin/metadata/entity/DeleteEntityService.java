@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -69,6 +70,9 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class DeleteEntityService {
+
+  /** Cascade outcome for a referrer whose reference stays because its entity type is unknown. */
+  static final String UNKNOWN_REFERRER_LEFT_OUTCOME = "unknown_referrer_left";
 
   private final EntityService<?> _entityService;
   private final GraphService _graphService;
@@ -155,6 +159,7 @@ public class DeleteEntityService {
       RelatedEntitiesScrollResult scrollResult =
           scrollGraphReferrers(opContext, urn, null, BATCH_SIZE);
       int totalProcessed = 0;
+      final Map<String, Integer> unknownReferrersLeft = new TreeMap<>();
       while (true) {
         if (!scrollResult.getEntities().isEmpty()) {
           log.info(
@@ -163,6 +168,7 @@ public class DeleteEntityService {
               totalProcessed,
               scrollResult.getNumResults());
           for (RelatedEntities entity : scrollResult.getEntities()) {
+            countIfUnknownReferrer(opContext, entity, unknownReferrersLeft, cascade);
             deleteReference(opContext, urn, entity, cascade);
             cascade.recordEntityProcessed();
           }
@@ -176,6 +182,7 @@ public class DeleteEntityService {
       }
       log.info(
           "Graph reference cleanup complete for {}: {} references processed", urn, totalProcessed);
+      warnIfUnknownReferrersLeft(urn, unknownReferrersLeft);
     }
   }
 
@@ -284,6 +291,7 @@ public class DeleteEntityService {
       result.setTotal(scrollResult.getNumResults() + totalSearchAssetCount + totalFileCount);
 
       int totalProcessed = 0;
+      final Map<String, Integer> unknownReferrersLeft = new TreeMap<>();
       do {
         if (!scrollResult.getEntities().isEmpty()) {
           log.info(
@@ -295,6 +303,7 @@ public class DeleteEntityService {
               .getEntities()
               .forEach(
                   entity -> {
+                    countIfUnknownReferrer(opContext, entity, unknownReferrersLeft, cascade);
                     deleteReference(opContext, urn, entity, cascade);
                     cascade.recordEntityProcessed();
                   });
@@ -309,9 +318,47 @@ public class DeleteEntityService {
         scrollResult = scrollGraphReferrers(opContext, urn, nextScrollId, BATCH_SIZE);
       } while (true);
       log.info("Reference cleanup complete for {}: {} references processed", urn, totalProcessed);
+      warnIfUnknownReferrersLeft(urn, unknownReferrersLeft);
     }
 
     return result;
+  }
+
+  /**
+   * One line per cleanup, naming the deleted urn so the references can be removed later; the
+   * referrers' own urns stay out of the logs.
+   */
+  private static void warnIfUnknownReferrersLeft(
+      @Nonnull final Urn urn, @Nonnull final Map<String, Integer> unknownReferrersLeft) {
+    if (!unknownReferrersLeft.isEmpty()) {
+      log.warn(
+          "Reference cleanup of {} left the references held by entities of types this version"
+              + " doesn't know, written by a newer version before a rollback: {}. After rolling"
+              + " forward, restore the indices of those entity types, then remove the"
+              + " references to this urn (datahub delete references --urn ...).",
+          urn,
+          unknownReferrersLeft);
+    }
+  }
+
+  /**
+   * While unknown data is tolerated, a referrer of an entity type this registry doesn't know is
+   * skipped by {@link #getAspects}, so its reference stays. Counted here by entity type, and in the
+   * cascade's {@code unknown_referrer_left} outcome. Never looks anything up when not tolerated.
+   */
+  private void countIfUnknownReferrer(
+      @Nonnull OperationContext opContext,
+      @Nonnull final RelatedEntity referrer,
+      @Nonnull final Map<String, Integer> unknownReferrersLeft,
+      @Nonnull final CascadeOperationContext cascade) {
+    if (!handling().toleratesUnknownEntityAspect()) {
+      return;
+    }
+    final String entityType = UrnUtils.getUrn(referrer.getUrn()).getEntityType();
+    if (handling().entitySpecForData(opContext.getEntityRegistry(), entityType).isEmpty()) {
+      unknownReferrersLeft.merge(entityType, 1, Integer::sum);
+      cascade.recordOutcome(UNKNOWN_REFERRER_LEFT_OUTCOME);
+    }
   }
 
   /**
