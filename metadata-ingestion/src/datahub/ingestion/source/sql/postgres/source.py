@@ -588,10 +588,8 @@ class PostgresSource(SQLAlchemySource):
             config.rds_iam_token_manager()
         )
 
-        # Partition names per (database, schema). loop_tables and
-        # loop_profiler_requests both list tables, so caching the first answer
-        # keeps the two passes consistent (also when listing fails) and lets
-        # each schema be queried and reported once.
+        # Cached so loop_tables and loop_profiler_requests skip the same tables,
+        # including after a listing failure.
         self._table_partitions: Dict[Tuple[str, str], FrozenSet[str]] = {}
 
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
