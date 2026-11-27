@@ -1260,9 +1260,11 @@ def _sla_applies(
         part = part.strip().lower()
         if part in columns:
             return True
-        table, _, column = part.partition(".")
-        if table in names:
+        # A table name may itself contain dots (`sales.orders`), so match it
+        # as a whole and as a prefix rather than splitting at the first dot.
+        if any(part == n or part.startswith(n + ".") for n in names):
             return True
+        table, _, column = part.partition(".")
         if column and table not in tables and column in columns:
             return True
     return False
@@ -1307,17 +1309,26 @@ def unconvertible_latency_slas(contract: ODCSContract) -> List[str]:
 
 
 def duplicate_latency_slas(contract: ODCSContract) -> List[str]:
-    """Latency SLAs that repeat an earlier one (same `id`, or with no id the
-    same element and driver), so they share its assertion and are skipped."""
-    seen: Set[Tuple[str, ...]] = set()
+    """Latency SLAs that repeat an earlier one on the same table (same `id`, or
+    with no id the same element and driver), so they share its assertion there
+    and are skipped. Assertion URNs include the dataset, so the same key on
+    different tables is not a duplicate."""
+    entries = contract.schema_ or []
+    tables = _table_names(contract)
+    seen: Set[Tuple[Tuple[str, ...], int]] = set()
     duplicates: List[str] = []
     for sla, element in _latency_slas(contract):
         if _sla_interval(sla) is None:
             continue
         key = ("id", sla.id) if sla.id else ("element", element or "", sla.driver or "")
-        if key in seen:
+        targets = {
+            (key, index)
+            for index, entry in enumerate(entries)
+            if _sla_applies(element, entry, tables)
+        }
+        if targets & seen:
             duplicates.append(_sla_label(sla, element))
-        seen.add(key)
+        seen |= targets
     return duplicates
 
 

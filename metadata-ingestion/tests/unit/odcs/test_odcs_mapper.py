@@ -2989,3 +2989,20 @@ def test_off_spec_sla_support_and_business_name_are_dropped() -> None:
     assert contract.support is None
     props = _first_schema(contract).properties
     assert props is not None and props[0].businessName is None
+
+
+@pytest.mark.parametrize("element", ["sales.orders", "sales.orders.updated_at"])
+def test_sla_element_matches_a_dotted_table_name(element: str) -> None:
+    contract = _sla_contract(_latency(element=element))
+    _schema_named(contract, "orders").physicalName = "sales.orders"
+    assert _tables_with_assertion(contract) == ["orders"]
+    assert unplaced_sla_entries(contract) == []
+
+
+def test_latency_slas_sharing_an_id_on_different_tables_are_not_duplicates() -> None:
+    contract = _sla_contract(
+        _latency(id="lat", element="orders.updated_at"),
+        _latency(id="lat", element="customers.id", value=2),
+    )
+    assert _tables_with_assertion(contract) == ["orders", "customers"]
+    assert duplicate_latency_slas(contract) == []

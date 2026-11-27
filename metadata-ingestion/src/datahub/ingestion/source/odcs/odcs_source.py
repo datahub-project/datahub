@@ -1329,7 +1329,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 title="Duplicate ODCS latency SLA skipped",
                 message=(
                     "These latency SLAs share an `id`, or an element and driver, "
-                    "with an earlier one; only the first became an assertion."
+                    "with an earlier one on the same table; only the first became an assertion there."
                 ),
                 context=f"{source_uri}: {'; '.join(duplicates)}",
             )
