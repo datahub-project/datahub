@@ -34,6 +34,22 @@ public class SearchTemplateSynonymTest {
   }
 
   /** A word's synonym is not a synonym of a longer query, so the whole-query list leaves it out. */
+  /** A term on several lines takes the members of all of them; other terms keep their own line. */
+  @Test
+  public void testATermOnSeveralLinesTakesEveryLinesMembers() {
+    Map<String, List<String>> catalog =
+        SearchTemplateSynonyms.parse(
+            List.of(
+                "# a comment",
+                "org, organization",
+                "Organization, organisation",
+                "cac => cac, customer"));
+    assertEquals(catalog.get("organization"), List.of("org", "organisation"));
+    assertEquals(catalog.get("org"), List.of("organization"));
+    assertEquals(catalog.get("organisation"), List.of("organization"));
+    assertNull(catalog.get("cac"));
+  }
+
   @Test
   public void testWholeQuerySynonymsLeaveOutWordSynonyms() {
     assertEquals(

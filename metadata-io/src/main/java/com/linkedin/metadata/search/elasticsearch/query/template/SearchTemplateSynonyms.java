@@ -87,7 +87,7 @@ public final class SearchTemplateSynonyms {
 
   @Nonnull
   private static Map<String, List<String>> load() {
-    Map<String, List<String>> map = new LinkedHashMap<>();
+    List<String> lines = new ArrayList<>();
     try {
       Resource[] resources =
           new PathMatchingResourcePatternResolver()
@@ -98,35 +98,49 @@ public final class SearchTemplateSynonyms {
                 new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
           String line;
           while ((line = reader.readLine()) != null) {
-            String trimmed = line.trim().toLowerCase(Locale.ROOT);
-            if (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.contains("=>")) {
-              continue;
-            }
-            List<String> terms = new ArrayList<>();
-            for (String part : trimmed.split(",")) {
-              String term = part.trim();
-              if (!term.isEmpty()) {
-                terms.add(term);
-              }
-            }
-            if (terms.size() < 2) {
-              continue;
-            }
-            for (String term : terms) {
-              List<String> others = new ArrayList<>();
-              for (String other : terms) {
-                if (!other.equals(term)) {
-                  others.add(other);
-                }
-              }
-              map.put(term, others);
-            }
+            lines.add(line);
           }
         }
       }
     } catch (IOException e) {
       throw new SearchTemplateException("Failed to read search synonym files", e);
     }
+    return parse(lines);
+  }
+
+  /**
+   * The equivalence classes of synonym file lines. A term on several lines takes the other members
+   * of all of them, as the analyzers' synonym map does.
+   */
+  @Nonnull
+  static Map<String, List<String>> parse(@Nonnull List<String> lines) {
+    Map<String, Set<String>> merged = new LinkedHashMap<>();
+    for (String line : lines) {
+      String trimmed = line.trim().toLowerCase(Locale.ROOT);
+      if (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.contains("=>")) {
+        continue;
+      }
+      List<String> terms = new ArrayList<>();
+      for (String part : trimmed.split(",")) {
+        String term = part.trim();
+        if (!term.isEmpty()) {
+          terms.add(term);
+        }
+      }
+      if (terms.size() < 2) {
+        continue;
+      }
+      for (String term : terms) {
+        Set<String> others = merged.computeIfAbsent(term, ignored -> new LinkedHashSet<>());
+        for (String other : terms) {
+          if (!other.equals(term)) {
+            others.add(other);
+          }
+        }
+      }
+    }
+    Map<String, List<String>> map = new LinkedHashMap<>();
+    merged.forEach((term, others) -> map.put(term, List.copyOf(others)));
     return Map.copyOf(map);
   }
 }

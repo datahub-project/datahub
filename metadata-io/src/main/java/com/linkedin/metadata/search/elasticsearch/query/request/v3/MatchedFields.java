@@ -154,7 +154,8 @@ public final class MatchedFields {
 
   /**
    * Typed words first, across every group of a name, then synonyms for the names that no typed word
-   * matched.
+   * matched. Typed matches are reported ahead of synonym-only ones, so a caller that reads the
+   * first value of several names gets a typed one when there is one.
    */
   @Nonnull
   private SearchHitMatches scan(
@@ -175,20 +176,26 @@ public final class MatchedFields {
     }
     final List<MatchedField> matchedFields = new ArrayList<>();
     final List<MatchEvidence> evidence = new ArrayList<>();
+    final List<MatchedField> synonymFields = new ArrayList<>();
+    final List<MatchEvidence> synonymEvidence = new ArrayList<>();
     for (int i = 0; i < groups.size(); i++) {
       final String name = groups.get(i).getKey();
       ValueMatch match = found.get(i);
-      if (match == null && !synonymStems.isEmpty() && !typed.contains(name)) {
+      final boolean synonymOnly = match == null && !synonymStems.isEmpty() && !typed.contains(name);
+      if (synonymOnly) {
         match = firstValue(source, groups.get(i).getValue(), true);
       }
       if (match != null) {
-        matchedFields.add(
-            new MatchedField().setName(name).setValue(fragment(match.text(), match.start())));
+        (synonymOnly ? synonymFields : matchedFields)
+            .add(new MatchedField().setName(name).setValue(fragment(match.text(), match.start())));
         if (includeExplain) {
-          evidence.add(evidence(name, match.text(), match.start()));
+          (synonymOnly ? synonymEvidence : evidence)
+              .add(evidence(name, match.text(), match.start()));
         }
       }
     }
+    matchedFields.addAll(synonymFields);
+    evidence.addAll(synonymEvidence);
     return new SearchHitMatches(matchedFields, evidence);
   }
 

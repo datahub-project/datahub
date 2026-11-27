@@ -152,6 +152,23 @@ public class MatchedFieldsTest {
     assertEquals(new MatchedFields("staging", 0).find(source, paths, names).size(), 2);
   }
 
+  /**
+   * Values that hold a typed word are reported ahead of synonym-only ones, so the first of several
+   * names is a typed match when there is one.
+   */
+  @Test
+  public void testTypedMatchesAreReportedBeforeSynonymOnlyOnes() {
+    // prod and production are one equivalence line; the key holds only the synonym
+    Map<String, Object> source = new HashMap<>();
+    source.put("name", "prod-oncall");
+    source.put("displayName", "Production Support");
+    assertEquals(
+        names(
+            new MatchedFields("production support", 0)
+                .find(source, List.of("name", "displayName"))),
+        List.of("displayName", "name"));
+  }
+
   /** A path listed under two names reports both. */
   @Test
   public void testAPathListedUnderTwoNamesReportsBoth() {
