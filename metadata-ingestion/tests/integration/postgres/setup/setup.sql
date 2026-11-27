@@ -119,8 +119,9 @@ CREATE TABLE special_types (
 ANALYZE special_types;
 
 -- Declarative partitioning: each partition is listed as its own table unless
--- include_table_partitions is false. logs_child uses table inheritance, which is
--- not partitioning, so it is ingested either way.
+-- include_table_partitions is false. events_2022_03 is itself partitioned, so
+-- events_2022_03_default is a sub-partition and is skipped too. logs_child uses
+-- table inheritance, which is not partitioning, so it is ingested either way.
 CREATE SCHEMA partitioned;
 
 CREATE TABLE partitioned.events (
@@ -132,7 +133,11 @@ CREATE TABLE partitioned.events_2022_02 PARTITION OF partitioned.events
     FOR VALUES FROM ('2022-02-01') TO ('2022-03-01');
 
 CREATE TABLE partitioned.events_2022_03 PARTITION OF partitioned.events
-    FOR VALUES FROM ('2022-03-01') TO ('2022-04-01');
+    FOR VALUES FROM ('2022-03-01') TO ('2022-04-01')
+    PARTITION BY LIST (id);
+
+CREATE TABLE partitioned.events_2022_03_default
+    PARTITION OF partitioned.events_2022_03 DEFAULT;
 
 CREATE TABLE partitioned.logs (id INT);
 
