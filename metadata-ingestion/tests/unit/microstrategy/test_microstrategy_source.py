@@ -16,7 +16,10 @@ from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAuthError,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
-from datahub.ingestion.source.microstrategy.lineage import WarehouseLineageContext
+from datahub.ingestion.source.microstrategy.lineage import (
+    ModelLineageIndex,
+    WarehouseLineageContext,
+)
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
@@ -32,6 +35,7 @@ from datahub.ingestion.source.microstrategy.models import (
 from datahub.ingestion.source.microstrategy.source import (
     MicroStrategySource,
     _LazyProjectLineage,
+    _report_dataset_key,
 )
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -4472,6 +4476,102 @@ def test_per_report_report_pass_drops_field_lineage_for_replaced_fields() -> Non
     downstream_paths = _field_lineage_downstream_paths(lineage)
     assert downstream_paths == ["net_report_amt"]
     assert set(downstream_paths) <= schema_paths
+
+
+class _EmptyReportDefinitionClient(_SharedReportClient):
+    def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        return {"result": {"definition": {"description": "Empty definition"}}}
+
+
+def test_per_report_report_pass_without_a_schema_keeps_dossier_lineage() -> None:
+    source = _per_report_source(
+        {
+            "extract_warehouse_lineage": True,
+            "extract_report_sql_lineage": True,
+            "extract_source_warehouses": True,
+            "extract_reports": True,
+            "extract_independent_reports": True,
+        }
+    )
+    client = _EmptyReportDefinitionClient(with_sql=True)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(source._process_project(_PROJECT))
+
+    assert client.report_instances == ["report-solo"]
+    schema = _aspects_by_urn(workunits, SchemaMetadataClass)[_SHARED_URN]
+    assert [field.fieldPath for field in schema.fields] == ["Net Sales Retail Amt"]
+    lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
+    assert [upstream.dataset for upstream in lineage[_SHARED_URN].upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+    ]
+
+
+class _MetricModelRecordingClient(_SharedReportClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.metric_models: List[str] = []
+
+    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        self.metric_models.append(metric_id)
+        return {}
+
+
+def test_per_report_report_pass_enriches_the_report_metrics() -> None:
+    source = _per_report_source({"extract_metric_expressions": True})
+    client = _MetricModelRecordingClient()
+    source.client = client  # type: ignore[assignment]
+    report_object = client.get_object_info("project-1", "ds-shared", 3)
+
+    source._process_report_as_dataset(
+        "project-1", report_object, _LazyProjectLineage(source, "project-1", [])
+    )
+
+    assert client.metric_models == ["M-NET", "M-GROSS"]
+
+
+def test_per_report_report_pass_attaches_model_lineage() -> None:
+    source = _per_report_source()
+    client = _SharedReportClient()
+    report_object = client.get_object_info("project-1", "ds-shared", 3)
+    source.client = client  # type: ignore[assignment]
+    index = ModelLineageIndex(
+        fact_upstreams={}, attribute_upstreams={}, attribute_form_upstreams={}
+    )
+    lineage_context = _LazyProjectLineage(source, "project-1", [])
+
+    with (
+        mock.patch.object(
+            _LazyProjectLineage,
+            "model_lineage_index",
+            new_callable=mock.PropertyMock,
+            return_value=index,
+        ),
+        mock.patch.object(source.mapper, "attach_dataset_model_lineage") as attach,
+    ):
+        source._process_report_as_dataset("project-1", report_object, lineage_context)
+
+    dataset = source._report_datasets[_report_dataset_key("project-1", "ds-shared")]
+    attach.assert_called_once_with(dataset.dataset, index)
+
+
+def test_per_report_document_reuses_lineage_a_dossier_settled() -> None:
+    source = _per_report_source(
+        {
+            "extract_warehouse_lineage": True,
+            "extract_document_dataset_sql_lineage": True,
+            "extract_source_warehouses": True,
+        }
+    )
+    client = _SharedReportClient(with_sql=True)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(source._process_project(_PROJECT))
+
+    assert client.report_instances == []
+    assert source.report.document_dataset_sql_views_reused == 1
+    lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
+    assert len(lineage[_SHARED_URN].upstreams) == 1
 
 
 def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
