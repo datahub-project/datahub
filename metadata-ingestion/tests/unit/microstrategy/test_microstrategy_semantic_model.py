@@ -703,7 +703,7 @@ def test_consolidated_metric_resolves_upstream_through_consolidation_attributes(
     assert client.consolidation_calls == ["CONSOL1"]
 
 
-def test_metric_model_fetch_failure_fails_run_and_skips_that_metric() -> None:
+def test_metric_model_fetch_failure_keeps_the_metric_without_failing_the_run() -> None:
     client = FakeSemanticModelClient(
         metrics=[_metric_object("BROKEN", "Broken Metric")],
         metric_models={},  # no fixture -> get_metric_model raises via override below
@@ -729,11 +729,12 @@ def test_metric_model_fetch_failure_fails_run_and_skips_that_metric() -> None:
     )
 
     metric_urn = "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,BROKEN)"
-    assert metric_urn not in aspects
+    assert metric_urn in aspects
     assert mapper.report.metric_expression_api_failures == 1
     assert list(mapper.report.failed_metric_model_ids) == ["BROKEN"]
-    # A failure, so stale-entity removal keeps the previous run's copy of the metric.
-    assert [f.title for f in mapper.report.failures] == [
+    # Deterministic per-metric 500s must not fail the run, or stale removal never runs.
+    assert not mapper.report.failures
+    assert [w.title for w in mapper.report.warnings] == [
         "MicroStrategy Metric Model Unavailable"
     ]
 
@@ -775,9 +776,7 @@ def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
     assert model_urn in aspects
     assert dataset_urn in aspects
     assert mapper.report.semantic_model_metric_search_api_failures == 1
-    # A failure, not a warning: stateful ingestion skips stale-entity
-    # removal only on a source failure, and otherwise soft-deletes every
-    # metric the previous run emitted.
+    # A warning would let stale removal soft-delete every previously emitted metric.
     assert [failure.title for failure in mapper.report.failures] == [
         "MicroStrategy Metric Search Unavailable"
     ]
@@ -786,9 +785,7 @@ def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
 def test_metrics_are_emitted_as_they_are_fetched(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # A large project has tens of thousands of metrics. Building them all
-    # before emitting the first kept every one in memory at once, in a phase
-    # that already runs for over an hour.
+    # Holding every metric until the last one is built doubled peak memory.
     fetched: List[str] = []
 
     class RecordingClient(FakeSemanticModelClient):

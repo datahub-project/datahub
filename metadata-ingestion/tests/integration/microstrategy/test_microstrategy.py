@@ -710,8 +710,7 @@ def _dashboards_sharing_a_report(
     client: MicroStrategyClient,
     project_id: str,
 ) -> Iterable[MicroStrategyObject]:
-    # A second dossier in the same folder that reads the report-backed
-    # dataset (ds-2) the first one also reads.
+    # A second dossier reads the same report-backed dataset.
     return [
         *_dashboards(client, project_id),
         MicroStrategyObject.model_validate(
@@ -828,9 +827,7 @@ def _dataset_sql_view_by_id(
 
 
 def test_microstrategy_ingestion_per_report(pytestconfig: Any, tmp_path: Path) -> None:
-    # dataset_identity=per_report: the report-backed dataset both dossiers
-    # read (ds-2) is one entity, keyed by the report and filed under its own
-    # folder, with both dossiers' visualizations pointing at it.
+    # Both dossiers' visualizations point at the one report-keyed entity.
     output_path = tmp_path / "microstrategy_per_report_mcps.json"
     test_resources_dir = pytestconfig.rootpath / "tests/integration/microstrategy"
 

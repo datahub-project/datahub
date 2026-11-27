@@ -7,7 +7,10 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.source.microstrategy.constants import MICROSTRATEGY_PLATFORM
+from datahub.ingestion.source.microstrategy.constants import (
+    MICROSTRATEGY_PLATFORM,
+    MicroStrategyDatasetIdentity,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -543,8 +546,8 @@ class MicroStrategyConfig(
             "column header is clicked."
         ),
     )
-    dataset_identity: Literal["per_dashboard", "per_report"] = Field(
-        default="per_dashboard",
+    dataset_identity: MicroStrategyDatasetIdentity = Field(
+        default=MicroStrategyDatasetIdentity.PER_DASHBOARD,
         description=(
             "What one DataHub dataset entity stands for. `per_dashboard` (the "
             "default, the historical behaviour) keys each dataset by the "
