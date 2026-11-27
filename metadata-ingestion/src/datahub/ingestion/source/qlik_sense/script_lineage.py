@@ -477,6 +477,7 @@ class FileLoad(BaseModel):
     # The path uses a variable the script makes unknown, such as a FOR EACH
     # variable over a FileList, so the app's last value names only one file.
     uses_unknown_variable: bool = False
+    qvd: bool = False
 
 
 class ParsedScript(BaseModel):
@@ -1105,6 +1106,42 @@ def _script_pieces(script: str) -> _Script:
     return parsed
 
 
+class _StatementHead(BaseModel):
+    label: Optional[str] = None
+    variable_label: bool = False
+    prefix: str = ""
+    body: str
+
+
+def _take_label(statement: str) -> _StatementHead:
+    match = LABEL_RE.match(statement)
+    if not match:
+        return _StatementHead(body=statement)
+    return _StatementHead(
+        label=_first_group(match).strip(),
+        variable_label=match.group("variable") is not None,
+        body=statement[match.end() :].lstrip(),
+    )
+
+
+def _statement_head(statement: str) -> _StatementHead:
+    """A statement's label and prefixes, and the rest of it. Qlik takes the
+    label after the prefixes too, as in `NoConcatenate Orders: LOAD ...`."""
+    head = _take_label(statement)
+    prefix_match = PREFIX_RE.match(head.body)
+    prefix = prefix_match.group(0) if prefix_match else ""
+    body = head.body[len(prefix) :]
+    if head.label is None and prefix:
+        head = _take_label(body)
+        body = head.body
+    return _StatementHead(
+        label=head.label,
+        variable_label=head.variable_label,
+        prefix=prefix,
+        body=body,
+    )
+
+
 def _format_name(spec: Optional[str]) -> str:
     return (spec or "").split(",")[0].strip().lower()
 
@@ -1255,21 +1292,16 @@ class _ScriptParser(BaseModel):
             self._clear_pending()
             return
 
-        label: Optional[str] = None
-        label_match = LABEL_RE.match(statement)
-        if label_match:
-            label = _first_group(label_match).strip()
-            statement = statement[label_match.end() :].lstrip()
-        prefix = PREFIX_RE.match(statement)
-        merge = MERGE_PREFIX_RE.search(prefix.group(0)) if prefix else None
+        head = _statement_head(statement)
+        label = head.label
+        statement = head.body
+        merge = MERGE_PREFIX_RE.search(head.prefix)
         # Only the prefix keywords, not arguments such as Concatenate ([Mapping]).
-        keywords = re.sub(_PREFIX_ARGS, "", prefix.group(0)) if prefix else ""
+        keywords = re.sub(_PREFIX_ARGS, "", head.prefix)
         mapping = bool(MAPPING_PREFIX_RE.search(keywords))
         reshaped = bool(RESHAPE_PREFIX_RE.search(keywords))
         generic = bool(GENERIC_PREFIX_RE.search(keywords))
         replace = bool(REPLACE_PREFIX_RE.search(keywords))
-        if prefix:
-            statement = statement[prefix.end() :]
         skip = False
         if merge:
             target = merge.group("target")
@@ -1289,7 +1321,7 @@ class _ScriptParser(BaseModel):
                 )
             else:
                 if not self.pending_loads:
-                    crosstable = _crosstable(prefix.group(0) if prefix else "")
+                    crosstable = _crosstable(head.prefix)
                 else:
                     # A reshaping under the preceding loads hides the fields.
                     crosstable = None if reshaped else self.pending_crosstable
@@ -1341,7 +1373,7 @@ class _ScriptParser(BaseModel):
                 self.pending_merge = bool(merge)
                 self.pending_replace = replace
                 self.pending_mapping = mapping
-                self.pending_crosstable = _crosstable(prefix.group(0) if prefix else "")
+                self.pending_crosstable = _crosstable(head.prefix)
             elif reshaped:
                 # Reshaped below the top, so the top's fields are not known.
                 self.pending_crosstable = None
@@ -1521,24 +1553,18 @@ class _ScriptParser(BaseModel):
             self.dropped_tables.append(name)
 
     def _variable_labelled(self, statement: str) -> bool:
-        label = LABEL_RE.match(statement)
-        if label is None or label.group("variable") is None:
+        head = _statement_head(statement)
+        if not head.variable_label:
             return False
         # Only noted as a table it can't name: as before such labels were read,
         # the statement gets no lineage, so later tables keep their table_<n>.
-        statement = statement[label.end() :].lstrip()
-        prefix = PREFIX_RE.match(statement)
-        if prefix:
-            keywords = re.sub(_PREFIX_ARGS, "", prefix.group(0))
-            statement = statement[prefix.end() :]
-        else:
-            keywords = ""
-        if SQL_RE.match(statement) or LOAD_RE.match(statement):
+        keywords = re.sub(_PREFIX_ARGS, "", head.prefix)
+        if SQL_RE.match(head.body) or LOAD_RE.match(head.body):
             # Kept until recorded, as a preceding load's Replace or Generic
             # applies to this table; the caller clears them.
             self._record_table(
                 None,
-                merged=bool(prefix and MERGE_PREFIX_RE.search(prefix.group(0))),
+                merged=bool(MERGE_PREFIX_RE.search(head.prefix)),
                 mapping=bool(MAPPING_PREFIX_RE.search(keywords)),
                 generic=bool(GENERIC_PREFIX_RE.search(keywords)),
                 replace=bool(REPLACE_PREFIX_RE.search(keywords)),
@@ -1554,9 +1580,14 @@ class _ScriptParser(BaseModel):
         if expanded is None:
             return
         as_written = _load_path(self.raw_statement) or expanded
+        source = _load_source(statement)
+        format_name = _format_name(source.group("spec") if source else None)
         load = FileLoad(
             expanded=expanded,
             as_written=as_written,
+            qvd=format_name == "qvd"
+            if format_name
+            else expanded.lower().endswith(QVD_EXTENSION),
             uses_unknown_variable=any(
                 reference.group("name").strip() in self.flow.state.unknown
                 for reference in VARIABLE_REFERENCE_RE.finditer(as_written)
