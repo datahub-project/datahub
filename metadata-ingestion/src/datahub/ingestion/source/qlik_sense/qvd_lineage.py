@@ -1,10 +1,10 @@
-import posixpath
 import re
 from typing import Callable, Dict, Iterable, List, Optional, TypeVar
 
 from pydantic import BaseModel
 
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.ingestion.source.qlik_sense.file_lineage import canonical_path
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     ParsedScript,
     PrecedingLoad,
@@ -24,12 +24,6 @@ _BUFFERS_FOLDER = "/engine/buffers/"
 
 # A canonical QVD path: a UNC share or a drive. App table names never match.
 CANONICAL_ABSOLUTE_PATH_RE = re.compile(r"^(?://|[a-z]:/)")
-
-
-def canonical_path(path: str) -> str:
-    """One spelling per file: forward slashes, no `.` or `..`, lower case, as
-    Windows paths are case-insensitive. `//server/share` keeps its UNC prefix."""
-    return posixpath.normpath(path.strip().replace("\\", "/")).lower()
 
 
 class QvdPathResolver:

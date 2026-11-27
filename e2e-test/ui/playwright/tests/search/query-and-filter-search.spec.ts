@@ -33,7 +33,7 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('Dashboard');
   });
 
-  test('should filter by type: ML Models', async () => {
+  test('should filter by type: ML Models', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'ML Models');
     await searchPage.expectUrlContains('filter__entityType');
@@ -41,7 +41,7 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('ML Model');
   });
 
-  test('should filter by type: Pipelines', async () => {
+  test('should filter by type: Pipelines', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Pipelines');
     await searchPage.expectUrlContains('filter__entityType');
@@ -49,7 +49,7 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('Pipeline');
   });
 
-  test('should filter by type: Glossary Terms', async () => {
+  test('should filter by type: Glossary Terms', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Glossary Terms');
     await searchPage.expectUrlContains('filter__entityType');
@@ -57,7 +57,7 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('Glossary Term');
   });
 
-  test('should filter by platform: Hive', async ({ page }) => {
+  test('should filter by platform: Hive', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Platform', 'Hive');
     await searchPage.expectUrlContains('filter_platform');
@@ -68,7 +68,7 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('Dataset');
   });
 
-  test('should filter by platform: HDFS', async () => {
+  test('should filter by platform: HDFS', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Platform', 'HDFS');
     await searchPage.expectUrlContains('filter_platform');
@@ -76,7 +76,7 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('HDFS');
   });
 
-  test('should filter by platform: Airflow', async ({ page }) => {
+  test('should filter by platform: Airflow', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Platform', 'Airflow');
     await searchPage.expectUrlContains('filter_platform');
@@ -102,7 +102,7 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('PlaywrightFeatureTag');
   });
 
-  test('should combine multiple filters and verify results', async ({ page }) => {
+  test('should combine multiple filters and verify results', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Datasets');
     await searchPage.expectActiveFilter('Datasets');
@@ -117,7 +117,7 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('Dataset');
   });
 
-  test('should preserve filters when navigating back', async ({ page }) => {
+  test('should preserve filters when navigating back', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Datasets');
     await searchPage.expectActiveFilter('Datasets');

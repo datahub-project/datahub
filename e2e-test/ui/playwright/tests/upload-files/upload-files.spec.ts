@@ -15,6 +15,7 @@ import { Route } from '@playwright/test';
 import { generateRandomString } from '../../utils/random';
 import DescriptionEditorPage from '../../pages/description-editor.page';
 import type { ApiMocker } from '../../utils/api-mock';
+import { DomainTag } from '../../utils/test-tags';
 
 test.describe('Upload Files', () => {
   const DOMAIN_URN = 'urn:li:domain:marketing';
@@ -51,7 +52,7 @@ test.describe('Upload Files', () => {
     });
   };
 
-  test('should allow to drop file', async ({ page, logger, logDir, apiMock }) => {
+  test('should allow to drop file', { tag: [DomainTag.Catalog] }, async ({ page, logger, logDir, apiMock }) => {
     const testId = generateRandomString();
     await setupPresignedUrlMock(apiMock, testId);
 
@@ -69,53 +70,61 @@ test.describe('Upload Files', () => {
     await editor.verifyFileNodeInEditor(fileId, fileName);
   });
 
-  test('should allow to upload file by button', async ({ page, logger, logDir, apiMock }) => {
-    const testId = generateRandomString();
-    await setupPresignedUrlMock(apiMock, testId);
+  test(
+    'should allow to upload file by button',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger, logDir, apiMock }) => {
+      const testId = generateRandomString();
+      await setupPresignedUrlMock(apiMock, testId);
 
-    const editor = new DescriptionEditorPage(page, logger, logDir);
-    await editor.navigateToDomain(DOMAIN_URN);
-    await editor.openEditor();
+      const editor = new DescriptionEditorPage(page, logger, logDir);
+      await editor.navigateToDomain(DOMAIN_URN);
+      await editor.openEditor();
 
-    const fileContent = 'content';
-    const fileName = 'button-upload.txt';
-    const mimeType = 'text/plain';
-    const buffer = Buffer.from(fileContent);
+      const fileContent = 'content';
+      const fileName = 'button-upload.txt';
+      const mimeType = 'text/plain';
+      const buffer = Buffer.from(fileContent);
 
-    await editor.uploadFileViaButton(fileName, mimeType, buffer);
+      await editor.uploadFileViaButton(fileName, mimeType, buffer);
 
-    const fileId = `urn:li:dataHubFile:test_${testId}`;
-    await editor.verifyFileNodeInEditor(fileId, fileName);
-  });
+      const fileId = `urn:li:dataHubFile:test_${testId}`;
+      await editor.verifyFileNodeInEditor(fileId, fileName);
+    },
+  );
 
-  test('should render file in readonly mode', async ({ page, logger, logDir, apiMock }) => {
-    const testId = generateRandomString();
-    await setupPresignedUrlMock(apiMock, testId);
+  test(
+    'should render file in readonly mode',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger, logDir, apiMock }) => {
+      const testId = generateRandomString();
+      await setupPresignedUrlMock(apiMock, testId);
 
-    const editor = new DescriptionEditorPage(page, logger, logDir);
-    await editor.navigateToDomain(DOMAIN_URN);
-    await editor.openEditor();
+      const editor = new DescriptionEditorPage(page, logger, logDir);
+      await editor.navigateToDomain(DOMAIN_URN);
+      await editor.openEditor();
 
-    const fileContent = 'content';
-    const fileName = 'readonly.txt';
-    const mimeType = 'text/plain';
+      const fileContent = 'content';
+      const fileName = 'readonly.txt';
+      const mimeType = 'text/plain';
 
-    await editor.dragAndDropFileWithBuffer(fileContent, fileName, mimeType);
+      await editor.dragAndDropFileWithBuffer(fileContent, fileName, mimeType);
 
-    const fileId = `urn:li:dataHubFile:test_${testId}`;
-    await editor.verifyFileNodeInEditor(fileId, fileName);
+      const fileId = `urn:li:dataHubFile:test_${testId}`;
+      await editor.verifyFileNodeInEditor(fileId, fileName);
 
-    // Publish to switch to read-only mode
-    await editor.publishDescription();
+      // Publish to switch to read-only mode
+      await editor.publishDescription();
 
-    // Verify file persists in readonly display
-    await editor.verifyFileNodeInAboutSection(fileId, fileName);
+      // Verify file persists in readonly display
+      await editor.verifyFileNodeInAboutSection(fileId, fileName);
 
-    // Cleanup: clear description for next test
-    await editor.clearDescription();
-  });
+      // Cleanup: clear description for next test
+      await editor.clearDescription();
+    },
+  );
 
-  test('should validate file type', async ({ page, logger, logDir, apiMock }) => {
+  test('should validate file type', { tag: [DomainTag.Catalog] }, async ({ page, logger, logDir, apiMock }) => {
     const testId = generateRandomString();
     await setupPresignedUrlMock(apiMock, testId);
 

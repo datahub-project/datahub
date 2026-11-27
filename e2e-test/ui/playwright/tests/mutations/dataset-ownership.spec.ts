@@ -17,6 +17,7 @@ import { test, expect } from '../../fixtures/base-test';
 import { DatasetPage } from '../../pages/dataset.page';
 import { GroupsPage } from '../../pages/groups.page';
 import { LoginPage } from '../../pages/login.page';
+import { DomainTag } from '../../utils/test-tags';
 
 const testId = Math.floor(Math.random() * 100000);
 const username = `Example Name ${testId}`;
@@ -48,7 +49,7 @@ test.describe.skip('add, remove ownership for dataset', () => {
     });
   });
 
-  test('create test user and test group, add user to a group', async ({ page }) => {
+  test('create test user and test group, add user to a group', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const groupsPage = new GroupsPage(page);
     const loginPage = new LoginPage(page);
 
@@ -89,33 +90,41 @@ test.describe.skip('add, remove ownership for dataset', () => {
   });
 
   for (const ownerType of ['Business Owner', 'Data Steward', 'None', 'Technical Owner']) {
-    test(`open test dataset page, add and remove user ownership (${ownerType})`, async ({ page, logger, logDir }) => {
-      // userHref is dynamic — contains the test-run-specific testId in the URN
-      const userHref = `[href="/user/urn:li:corpuser:example${testId}@example.com/owner of"]`;
-      const datasetPage = new DatasetPage(page, logger, logDir);
-      await datasetPage.navigateToDataset(DATASET_URN);
-      await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
-      await datasetPage.addOwner(username, ownerType);
-      // Verify in owned assets
-      await page.getByText(username).click();
-      await expectOwnedAssetAfterIndexing(page, /\/user\//);
-      await datasetPage.navigateToDataset(DATASET_URN);
-      await datasetPage.removeOwner(username, userHref);
-    });
+    test(
+      `open test dataset page, add and remove user ownership (${ownerType})`,
+      { tag: [DomainTag.Catalog] },
+      async ({ page, logger, logDir }) => {
+        // userHref is dynamic — contains the test-run-specific testId in the URN
+        const userHref = `[href="/user/urn:li:corpuser:example${testId}@example.com/owner of"]`;
+        const datasetPage = new DatasetPage(page, logger, logDir);
+        await datasetPage.navigateToDataset(DATASET_URN);
+        await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
+        await datasetPage.addOwner(username, ownerType);
+        // Verify in owned assets
+        await page.getByText(username).click();
+        await expectOwnedAssetAfterIndexing(page, /\/user\//);
+        await datasetPage.navigateToDataset(DATASET_URN);
+        await datasetPage.removeOwner(username, userHref);
+      },
+    );
   }
 
   for (const ownerType of ['Business Owner', 'Data Steward', 'None', 'Technical Owner']) {
-    test(`open test dataset page, add and remove group ownership (${ownerType})`, async ({ page, logger, logDir }) => {
-      // groupHref is dynamic — contains the test-run-specific testId in the URN
-      const groupHref = `[href="/group/urn:li:corpGroup:${testId}/owner of"]`;
-      const datasetPage = new DatasetPage(page, logger, logDir);
-      await datasetPage.navigateToDataset(DATASET_URN);
-      await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
-      await datasetPage.addOwner(groupName, ownerType);
-      await page.getByText(groupName).click();
-      await expectOwnedAssetAfterIndexing(page, /\/group\//);
-      await datasetPage.navigateToDataset(DATASET_URN);
-      await datasetPage.removeOwner(groupName, groupHref);
-    });
+    test(
+      `open test dataset page, add and remove group ownership (${ownerType})`,
+      { tag: [DomainTag.Catalog] },
+      async ({ page, logger, logDir }) => {
+        // groupHref is dynamic — contains the test-run-specific testId in the URN
+        const groupHref = `[href="/group/urn:li:corpGroup:${testId}/owner of"]`;
+        const datasetPage = new DatasetPage(page, logger, logDir);
+        await datasetPage.navigateToDataset(DATASET_URN);
+        await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
+        await datasetPage.addOwner(groupName, ownerType);
+        await page.getByText(groupName).click();
+        await expectOwnedAssetAfterIndexing(page, /\/group\//);
+        await datasetPage.navigateToDataset(DATASET_URN);
+        await datasetPage.removeOwner(groupName, groupHref);
+      },
+    );
   }
 });

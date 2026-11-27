@@ -88,35 +88,43 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
     await searchPage.navigateToHome();
   });
 
-  test('Browse V2 sidebar is visible when feature flags are enabled', async ({ page, logger }) => {
-    logger?.step('perform wildcard search to load browse sidebar');
-    await searchPage.search(SEARCH_QUERIES.WILDCARD);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+  test(
+    'Browse V2 sidebar is visible when feature flags are enabled',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      logger?.step('perform wildcard search to load browse sidebar');
+      await searchPage.search(SEARCH_QUERIES.WILDCARD);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    logger?.step('verify browse v2 sidebar is visible');
-    await browseV2Page.expectBrowseV2Visible();
-  });
+      logger?.step('verify browse v2 sidebar is visible');
+      await browseV2Page.expectBrowseV2Visible();
+    },
+  );
 
-  test('Browse V2 sidebar is hidden when feature flags are disabled', async ({ page, apiMock, logger }) => {
-    // Disable Browse V2
-    await apiMock.setFeatureFlags({
-      showBrowseV2: false,
-      showSearchFiltersV2: false,
-    });
+  test(
+    'Browse V2 sidebar is hidden when feature flags are disabled',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, apiMock, logger }) => {
+      // Disable Browse V2
+      await apiMock.setFeatureFlags({
+        showBrowseV2: false,
+        showSearchFiltersV2: false,
+      });
 
-    logger?.step('reload page with flags disabled');
-    await page.reload();
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      logger?.step('reload page with flags disabled');
+      await page.reload();
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    logger?.step('perform wildcard search');
-    await searchPage.search(SEARCH_QUERIES.WILDCARD);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      logger?.step('perform wildcard search');
+      await searchPage.search(SEARCH_QUERIES.WILDCARD);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    logger?.step('verify browse v2 sidebar is not visible');
-    await browseV2Page.expectBrowseV2NotVisible();
-  });
+      logger?.step('verify browse v2 sidebar is not visible');
+      await browseV2Page.expectBrowseV2NotVisible();
+    },
+  );
 
-  test('Sidebar toggle collapses and expands', async ({ page, logger }) => {
+  test('Sidebar toggle collapses and expands', { tag: [DomainTag.Catalog] }, async ({ page, logger }) => {
     logger?.step('perform wildcard search');
     await searchPage.search(SEARCH_QUERIES.WILDCARD);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
@@ -142,75 +150,91 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
     await browseV2Page.expectSidebarExpanded();
   });
 
-  test('Wildcard search discovers multiple platforms in browse sidebar', async ({ page, logger }) => {
-    logger?.step('perform wildcard search');
-    await searchPage.search(SEARCH_QUERIES.WILDCARD);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+  test(
+    'Wildcard search discovers multiple platforms in browse sidebar',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      logger?.step('perform wildcard search');
+      await searchPage.search(SEARCH_QUERIES.WILDCARD);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    logger?.step('verify browse v2 sidebar is visible');
-    await browseV2Page.expectBrowseV2Visible();
+      logger?.step('verify browse v2 sidebar is visible');
+      await browseV2Page.expectBrowseV2Visible();
 
-    logger?.step('verify BigQuery platform is discoverable');
-    await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
-  });
+      logger?.step('verify BigQuery platform is discoverable');
+      await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
+    },
+  );
 
-  test('Platform navigation: expand/collapse keeps sidebar visible', async ({ page, logger }) => {
-    logger?.step('perform wildcard search');
-    await searchPage.search(SEARCH_QUERIES.WILDCARD);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+  test(
+    'Platform navigation: expand/collapse keeps sidebar visible',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      logger?.step('perform wildcard search');
+      await searchPage.search(SEARCH_QUERIES.WILDCARD);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    logger?.step('expand BigQuery platform');
-    await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
-    await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
+      logger?.step('expand BigQuery platform');
+      await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
+      await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
 
-    logger?.step('verify sidebar remains visible after expanding');
-    await browseV2Page.expectBrowseV2Visible();
+      logger?.step('verify sidebar remains visible after expanding');
+      await browseV2Page.expectBrowseV2Visible();
 
-    logger?.step('collapse BigQuery platform');
-    await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
+      logger?.step('collapse BigQuery platform');
+      await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
 
-    logger?.step('verify sidebar remains visible after collapsing');
-    await browseV2Page.expectBrowseV2Visible();
-  });
+      logger?.step('verify sidebar remains visible after collapsing');
+      await browseV2Page.expectBrowseV2Visible();
+    },
+  );
 
-  test('Home page entity type search navigates to unified search+browse', async ({ page, logger }) => {
-    logger?.step('perform entity type search');
-    await searchPage.search(SEARCH_QUERIES.ENTITY_TYPE);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+  test(
+    'Home page entity type search navigates to unified search+browse',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      logger?.step('perform entity type search');
+      await searchPage.search(SEARCH_QUERIES.ENTITY_TYPE);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    logger?.step('verify browse v2 sidebar is visible');
-    await browseV2Page.expectBrowseV2Visible();
+      logger?.step('verify browse v2 sidebar is visible');
+      await browseV2Page.expectBrowseV2Visible();
 
-    logger?.step('verify BigQuery platform is available in browse');
-    await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
+      logger?.step('verify BigQuery platform is available in browse');
+      await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
 
-    logger?.step('verify URL is search experience (not legacy /browse/dataset)');
-    const url = page.url();
-    expect(url).toContain(URL_PATTERNS.SEARCH);
-    expect(url).not.toContain(URL_PATTERNS.LEGACY_BROWSE);
-  });
+      logger?.step('verify URL is search experience (not legacy /browse/dataset)');
+      const url = page.url();
+      expect(url).toContain(URL_PATTERNS.SEARCH);
+      expect(url).not.toContain(URL_PATTERNS.LEGACY_BROWSE);
+    },
+  );
 
-  test('Browse hierarchy is navigable: platform → path → nodes', async ({ page, logger }) => {
-    logger?.step('perform wildcard search');
-    await searchPage.search(SEARCH_QUERIES.WILDCARD);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+  test(
+    'Browse hierarchy is navigable: platform → path → nodes',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      logger?.step('perform wildcard search');
+      await searchPage.search(SEARCH_QUERIES.WILDCARD);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    logger?.step('expand BigQuery platform');
-    await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
-    await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
+      logger?.step('expand BigQuery platform');
+      await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
+      await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
 
-    logger?.step('verify PlaywrightBrowseEntity browse path is visible');
-    await browseV2Page.expectBrowseNodeVisible(BROWSE_PATHS.PROJECT);
+      logger?.step('verify PlaywrightBrowseEntity browse path is visible');
+      await browseV2Page.expectBrowseNodeVisible(BROWSE_PATHS.PROJECT);
 
-    logger?.step('expand PlaywrightBrowseEntity path');
-    await browseV2Page.expandBrowseNode(BROWSE_PATHS.PROJECT);
+      logger?.step('expand PlaywrightBrowseEntity path');
+      await browseV2Page.expandBrowseNode(BROWSE_PATHS.PROJECT);
 
-    logger?.step('verify test_schema child node is visible');
-    await browseV2Page.expectBrowseNodeVisible(BROWSE_PATHS.SCHEMA);
+      logger?.step('verify test_schema child node is visible');
+      await browseV2Page.expectBrowseNodeVisible(BROWSE_PATHS.SCHEMA);
 
-    logger?.step('verify sidebar remains visible throughout navigation');
-    await browseV2Page.expectBrowseV2Visible();
-  });
+      logger?.step('verify sidebar remains visible throughout navigation');
+      await browseV2Page.expectBrowseV2Visible();
+    },
+  );
 
   test(
     'Browse path selection applies filters and reduces results',
@@ -253,7 +277,7 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
     },
   );
 
-  test('Browse path deselection removes filters', async ({ page, logger }) => {
+  test('Browse path deselection removes filters', { tag: [DomainTag.Catalog] }, async ({ page, logger }) => {
     logger?.step('perform wildcard search');
     await searchPage.search(SEARCH_QUERIES.WILDCARD);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);

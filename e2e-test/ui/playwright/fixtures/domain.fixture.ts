@@ -1,9 +1,10 @@
 /**
  * Domain fixture — writes each test's owning product domains into the JUnit report.
  *
- * A test carries a DomainTag (`@domain:observe`, …; utils/test-tags.ts) on itself. This auto
- * fixture copies those tags into a `domains` annotation, which the JUnit reporter writes as a
- * property (embedAnnotationsAsProperties), so CI results can group failures by domain.
+ * Every test carries a DomainTag (`@domain:observe`, …; utils/test-tags.ts) on itself. This
+ * auto fixture copies those tags into a `domains` annotation, which the JUnit reporter writes as
+ * a property (embedAnnotationsAsProperties), so CI results group failures by domain.
+ * .github/scripts/check_playwright_p0.py fails CI when a test has no DomainTag.
  */
 import { test as base } from '@playwright/test';
 import { AnnotationType } from '../utils/test-tags';

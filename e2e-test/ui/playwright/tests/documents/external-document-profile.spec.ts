@@ -12,6 +12,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
+import { DomainTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'documents' });
 
@@ -28,26 +29,30 @@ test.describe('external document profile', () => {
     });
   });
 
-  test('loads summary tab with inline content and last synced property', async ({ page }) => {
-    await page.goto(`/document/${encodeURIComponent(DOCUMENT_URN)}`);
+  test(
+    'loads summary tab with inline content and last synced property',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await page.goto(`/document/${encodeURIComponent(DOCUMENT_URN)}`);
 
-    // Title confirms the entity loaded
-    await expect(page.getByText(DOCUMENT_TITLE).first()).toBeVisible({ timeout: 15000 });
+      // Title confirms the entity loaded
+      await expect(page.getByText(DOCUMENT_TITLE).first()).toBeVisible({ timeout: 15000 });
 
-    // "Last Synced" property should be populated (validates the lastObserved fallback in DocumentMapper)
-    await expect(page.getByText('Last Synced').first()).toBeVisible({ timeout: 10000 });
+      // "Last Synced" property should be populated (validates the lastObserved fallback in DocumentMapper)
+      await expect(page.getByText('Last Synced').first()).toBeVisible({ timeout: 10000 });
 
-    // Inline content section renders
-    const contentSection = page.getByTestId('external-document-inline-content-section');
-    await expect(contentSection).toBeVisible({ timeout: 10000 });
+      // Inline content section renders
+      const contentSection = page.getByTestId('external-document-inline-content-section');
+      await expect(contentSection).toBeVisible({ timeout: 10000 });
 
-    // Info banner explains the content is extracted and may be lossy
-    const banner = page.getByTestId('external-document-inline-banner');
-    await expect(banner).toBeVisible();
-    await expect(banner).toContainText('Text extracted from');
-    await expect(banner).toContainText('Notion');
+      // Info banner explains the content is extracted and may be lossy
+      const banner = page.getByTestId('external-document-inline-banner');
+      await expect(banner).toBeVisible();
+      await expect(banner).toContainText('Text extracted from');
+      await expect(banner).toContainText('Notion');
 
-    // Markdown body renders the document contents
-    await expect(contentSection.getByText('Playwright smoke-test document')).toBeVisible();
-  });
+      // Markdown body renders the document contents
+      await expect(contentSection.getByText('Playwright smoke-test document')).toBeVisible();
+    },
+  );
 });

@@ -17,8 +17,9 @@ export enum TestTag {
 }
 
 /**
- * Owning product domain, e.g. `--grep @domain:observe`. fixtures/domain.fixture.ts writes it into
- * the JUnit report.
+ * Owning product domain, e.g. `--grep @domain:observe`. Every test carries one (enforced by
+ * .github/scripts/check_playwright_p0.py); fixtures/domain.fixture.ts writes it into the JUnit
+ * report. Values after `@domain:` match smoke-test/utilities/domains.py.
  */
 export enum DomainTag {
   Platform = '@domain:platform',

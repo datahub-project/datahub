@@ -520,6 +520,13 @@ jobs:
       - name: Install dependencies
         working-directory: e2e-test/ui/playwright
         run: yarn install --frozen-lockfile
+      # Every test must carry a DomainTag. Playwright's own listing (no browser, no
+      # server) sees tests declared in loops too, which a static scan cannot.
+      - name: Check every Playwright test has a domain tag
+        working-directory: e2e-test/ui/playwright
+        run: |
+          npx playwright test --list --reporter=json > "$RUNNER_TEMP/playwright-list.json"
+          python3 ../../../.github/scripts/check_playwright_p0.py --playwright-list "$RUNNER_TEMP/playwright-list.json"
       - name: Prettier format check
         working-directory: e2e-test/ui/playwright
         run: yarn format:check
