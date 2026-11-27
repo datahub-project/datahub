@@ -35,6 +35,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_DOT_COLLAPSE_RE,
     MSTR_OBJECT_TIMESTAMP_FORMATS,
+    MSTR_PROP_FINGERPRINT,
     MSTR_STRUCTURED_PROPERTY_CHAPTER,
     MSTR_STRUCTURED_PROPERTY_PAGE,
     MSTR_STRUCTURED_PROPERTY_PAGE_POSITION,
@@ -428,6 +429,23 @@ class MicroStrategyMapper:
                 self._emitted_folder_keys.add(folder_key.guid())
             parent_key = folder_key
 
+    def folder_container_urns(
+        self,
+        project_id: str,
+        mstr_object: MicroStrategyObject,
+        predefined_folders: Optional[PredefinedFolderResolution] = None,
+    ) -> List[str]:
+        """The folder containers `gen_folder_containers` places the object
+        under, whether or not this run already emitted them."""
+        urns: List[str] = []
+        current_path = ""
+        for name in self.folder_path_names(mstr_object, predefined_folders):
+            if not self.config.folder_pattern.allowed(name):
+                continue
+            current_path = f"{current_path}/{name}" if current_path else name
+            urns.append(self.folder_key(project_id, current_path).as_urn())
+        return urns
+
     def folder_container_for_dashboard(
         self,
         project_id: str,
@@ -569,6 +587,7 @@ class MicroStrategyMapper:
         dataset_object: Optional[MicroStrategyObject],
         dashboard_ids: Sequence[str],
         report_definition: Optional[ReportDefinition] = None,
+        fingerprint: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """The one dataset entity a MicroStrategy report is under
         dataset_identity=per_report: the report object itself, however many
@@ -584,6 +603,8 @@ class MicroStrategyMapper:
         )
         if dataset_object is not None:
             custom_properties.update(self._dashboard_object_properties(dataset_object))
+        if fingerprint is not None:
+            custom_properties[MSTR_PROP_FINGERPRINT] = fingerprint
         self.report.report_report_dataset_emitted()
         yield from self._gen_dataset_entity_workunits(
             project_id=project_id,
@@ -720,6 +741,7 @@ class MicroStrategyMapper:
         report_definition: Optional[ReportDefinition],
         source_dataset: Optional[DatasetObject],
         parent_key: ProjectKey,
+        fingerprint: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_report_scanned()
         self.report.report_chart_scanned()
@@ -735,6 +757,14 @@ class MicroStrategyMapper:
         inputs = [input_urn] if input_urn else []
         if inputs:
             self.report.report_chart_lineage_edges(len(inputs))
+        custom_properties = self._report_properties(
+            project_id=project_id,
+            report_object=report_object,
+            report_definition=report_definition,
+            source_dataset=source_dataset,
+        )
+        if fingerprint is not None:
+            custom_properties[MSTR_PROP_FINGERPRINT] = fingerprint
 
         yield self._platform_instance_workunit(report_urn)
         yield MetadataChangeProposalWrapper(
@@ -748,12 +778,7 @@ class MicroStrategyMapper:
                 ),
                 lastModified=self._dashboard_audit_stamps(report_object),
                 chartUrl=f"{self.config.base_url}/app/{project_id}/{report_object.id}",
-                customProperties=self._report_properties(
-                    project_id=project_id,
-                    report_object=report_object,
-                    report_definition=report_definition,
-                    source_dataset=source_dataset,
-                ),
+                customProperties=custom_properties,
                 inputs=inputs,
                 inputEdges=[EdgeClass(destinationUrn=input_urn) for input_urn in inputs]
                 or None,
@@ -868,6 +893,7 @@ class MicroStrategyMapper:
         dashboard: DashboardDefinition,
         parent_key: ProjectKey,
         extra_chart_urns: Sequence[str] = (),
+        fingerprint: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_dashboard_scanned()
         dashboard_urn = self.dashboard_urn(project_id, dashboard.id)
@@ -894,6 +920,8 @@ class MicroStrategyMapper:
         if dashboard.layouts:
             custom_properties["microstrategyLayoutCount"] = str(len(dashboard.layouts))
             custom_properties["microstrategyLayouts"] = "; ".join(dashboard.layouts)
+        if fingerprint is not None:
+            custom_properties[MSTR_PROP_FINGERPRINT] = fingerprint
 
         # A document exposes no visualizations through the REST API, so no
         # chart carries its dataset lineage the way a dossier's do; its

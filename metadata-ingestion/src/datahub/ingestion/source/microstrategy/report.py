@@ -171,6 +171,13 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     # and the one-per-report dataset entities emitted.
     reports_deduplicated: int = 0
     report_datasets_emitted: int = 0
+    # skip_unchanged_objects: objects kept from the previous run without being
+    # read, and change checks that errored (the object is read instead).
+    dashboards_skipped_unchanged: int = 0
+    reports_skipped_unchanged: int = 0
+    report_datasets_skipped_unchanged: int = 0
+    change_check_failures: int = 0
+    change_check_failure_samples: LossyList[str] = field(default_factory=LossyList)
     failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)
     semantic_models_emitted: int = 0
     semantic_model_datasets_emitted: int = 0

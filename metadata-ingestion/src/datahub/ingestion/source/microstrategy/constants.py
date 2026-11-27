@@ -115,6 +115,12 @@ USAGE_TARGET_DATASET = "dataset"
 DATASET_IDENTITY_PER_DASHBOARD = "per_dashboard"
 DATASET_IDENTITY_PER_REPORT = "per_report"
 
+# skip_unchanged_objects: custom property stamped on the dashboard, report
+# chart and per_report dataset properties, so a skip is only trusted when
+# DataHub still holds what the checkpointed run wrote.
+MSTR_PROP_FINGERPRINT = "microstrategyFingerprint"
+ENTITY_CHECK_BATCH_SIZE = 100
+
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.
 MSTR_NULL_OBJECT_ID = "00000000000000000000000000000000"

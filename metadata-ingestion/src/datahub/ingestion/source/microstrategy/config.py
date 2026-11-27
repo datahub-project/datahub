@@ -602,6 +602,27 @@ class MicroStrategyConfig(
         default=None,
         description="Stateful ingestion config with stale entity removal support.",
     )
+    skip_unchanged_objects: bool = Field(
+        default=False,
+        description=(
+            "Skip re-reading dashboards (dossiers and documents) and standalone "
+            "reports that have not changed since the last successful run. An "
+            "object is skipped only when its version, last-modified time, "
+            "name, owner, description, certification and folder path, the "
+            "same properties of every report and cube it depends on, the "
+            "project's warehouse datasources, the recipe and the connector "
+            "version all match the previous run, and every entity it emitted "
+            "is still present in DataHub with the same change fingerprint. "
+            "Under `dataset_identity: per_report`, a shared report dataset is "
+            "re-emitted together with every dashboard that uses it whenever "
+            "any of them changes. Skipped entities are kept during stale "
+            "entity removal and keep receiving usage statistics. Requires "
+            "stateful ingestion and a DataHub graph connection; otherwise a "
+            "warning is reported and everything is read. To force a full "
+            "re-read, run once with `stateful_ingestion.ignore_old_state: "
+            "true` or with this option off."
+        ),
+    )
 
     @model_validator(mode="after")
     def _formula_lineage_requires_metric_expressions(self) -> "MicroStrategyConfig":
