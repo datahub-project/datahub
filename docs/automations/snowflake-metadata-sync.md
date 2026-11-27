@@ -131,12 +131,6 @@ As of DataHub Cloud v2.3.3, Initialize also fills in Snowflake comments from des
 - With **Sync descriptions from logical models** turned on, it also writes logical-model descriptions. See [Logical model descriptions](#logical-model-descriptions).
 - On the Automations page, Initialize stays greyed out until the run finishes.
 
-:::info
-
-The back-filling of tags will be available in a future release.
-
-:::
-
 ## Viewing Synced Metadata
 
 You can view propagated Tags, Terms, and updated Comments (and corresponding DataHub URNs) inside the Snowflake UI to confirm the automation is working as expected.
