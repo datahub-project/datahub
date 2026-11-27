@@ -67,7 +67,7 @@
         "dayjs": "^1.11.23",
         "deepmerge": "^4.2.2",
         "diff": "^8.0.3",
-        "dompurify": "^3.4.0",
+        "dompurify": "^3.4.17",
         "faker": "5.5.3",
         "fuse.js": "^7.0.0",
         "graphql": "^15.5.0",
