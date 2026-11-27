@@ -11,6 +11,10 @@ from datahub.ingestion.source.repository_documents.config import (
     RepositoryDocumentsSourceConfigBase,
 )
 
+_GROUP_ONLY_OPTIONS = frozenset(
+    ("include_subgroups", "include_archived", "project_pattern", "max_projects")
+)
+
 
 class GitLabDocumentsSourceConfig(RepositoryDocumentsSourceConfigBase):
     """
@@ -75,9 +79,10 @@ class GitLabDocumentsSourceConfig(RepositoryDocumentsSourceConfigBase):
         default=100,
         ge=1,
         description=(
-            "Maximum number of projects to ingest from group per run. If the group has "
-            "more, the extra projects are skipped with a report warning and documents "
-            "imported by earlier runs are kept."
+            "Maximum number of projects to ingest from group per run, counting only "
+            "those project_pattern allows. If more match, the extra projects are "
+            "skipped with a report warning and documents imported by earlier runs "
+            "are kept."
         ),
     )
 
@@ -131,7 +136,17 @@ class GitLabDocumentsSourceConfig(RepositoryDocumentsSourceConfigBase):
             self.group = self.group.strip().strip("/")
             if not self.group:
                 raise ValueError("group cannot be empty.")
+        else:
+            group_only = sorted(self.model_fields_set & _GROUP_ONLY_OPTIONS)
+            if group_only:
+                raise ValueError(f"{', '.join(group_only)} only apply with group.")
         return self
+
+    @property
+    def configured_branch(self) -> Optional[str]:
+        # branch defaults to "main", which rarely fits every project of a group,
+        # so it only overrides a project's own default branch when it was set.
+        return self.branch if "branch" in self.model_fields_set else None
 
     @property
     def explicit_repositories(self) -> List[str]:

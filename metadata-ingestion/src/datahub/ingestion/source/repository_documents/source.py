@@ -213,8 +213,7 @@ class RepositoryDocumentsSourceBase(
         # of its ancestors are already present in these maps.
         self._source_id_to_title: Dict[str, str] = {}
         self._source_id_to_parent: Dict[str, Optional[str]] = {}
-        # The repository being imported. A single-repository source never changes
-        # it; a multi-repository source selects each repository in turn.
+        # Set per repository by _select_repository.
         self._repository: str = config.repository or ""
         self._repo_root_source_id: Optional[str] = self._root_source_id_for(
             self._repository
@@ -358,18 +357,19 @@ class RepositoryDocumentsSourceBase(
                 self.report.repositories_imported += 1
             except Exception as exc:
                 errors.append(f"{target.repository}: {exc}")
-                self._skip_failed_repository(target, exc)
+                self._skip_failed_repository(target.repository, target.branch, exc)
         if errors and not self.report.repositories_imported:
             raise RuntimeError(
                 f"Could not import any of the {len(errors)} repositories. "
                 f"First error: {errors[0]}"
             )
 
-    def _skip_failed_repository(self, target: RepositoryTarget, exc: Exception) -> None:
-        # Its files were not listed, so stale removal cannot tell a deleted file
-        # from an unread one. The previous documents are kept for the whole run
-        # because the checkpoint does not record which repository a URN came from.
-        self.report.repositories_failed.append(target.repository)
+    def _skip_failed_repository(
+        self, repository: str, branch: Optional[str], exc: Exception
+    ) -> None:
+        # The checkpoint does not record which repository a URN came from, so
+        # every previous document is kept, not just this repository's.
+        self.report.repositories_failed.append(repository)
         self._keep_previous_documents()
         self.report.warning(
             title="Repository skipped",
@@ -378,8 +378,8 @@ class RepositoryDocumentsSourceBase(
                 "documents imported by earlier runs are kept. Other repositories "
                 "were imported."
             ),
-            context=f"platform={self.platform}, repository={target.repository}, "
-            f"branch={target.branch}",
+            context=f"platform={self.platform}, repository={repository}, "
+            f"branch={branch or 'unknown'}",
             exc=exc,
         )
 

@@ -9,7 +9,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import SourceCapability
-from datahub.ingestion.source.gitlab_documents.gitlab_api import GitLabApiClient
+from datahub.ingestion.source.gitlab_documents.gitlab_api import (
+    GitLabApiClient,
+    GitLabProject,
+)
 from datahub.ingestion.source.gitlab_documents.gitlab_documents_config import (
     GitLabDocumentsSourceConfig,
 )
@@ -72,66 +75,82 @@ class GitLabDocumentsSource(RepositoryDocumentsSourceBase[GitLabDocumentsSourceC
             return super()._targets()
 
         targets: List[RepositoryTarget] = []
-        for repository, default_branch in self._candidate_repositories():
-            branch = self._configured_branch() or default_branch
+        for repository, candidate in self._candidate_repositories().items():
+            default_branch, lookup_error = candidate
+            branch = self.config.configured_branch or default_branch
             if branch is None:
-                self._skip_failed_repository(
-                    RepositoryTarget(repository=repository, branch=""),
-                    RuntimeError(
-                        "No default branch. The project may be empty, or the "
-                        "token's role cannot read its repository (it needs at "
-                        "least Reporter). Set branch to read a specific branch."
-                    ),
+                reason = (
+                    f"Could not read the project: {lookup_error}"
+                    if lookup_error
+                    else "No default branch. The project may be empty, or the "
+                    "token's role cannot read its repository (it needs at least "
+                    "Reporter). Set branch to read a specific branch."
                 )
+                self._skip_failed_repository(repository, None, RuntimeError(reason))
                 continue
             targets.append(RepositoryTarget(repository=repository, branch=branch))
         return targets
 
-    def _configured_branch(self) -> Optional[str]:
-        # branch defaults to "main", which rarely fits every project of a group,
-        # so it only overrides the projects' own default branch when it was set.
-        return self.config.branch if "branch" in self.config.model_fields_set else None
-
-    def _candidate_repositories(self) -> List[Tuple[str, Optional[str]]]:
-        candidates: Dict[str, Optional[str]] = {
-            repository: (
-                None
-                if self._configured_branch()
-                else self.client.get_default_branch(repository)
-            )
-            for repository in self.config.explicit_repositories
-        }
+    def _candidate_repositories(
+        self,
+    ) -> Dict[str, Tuple[Optional[str], Optional[str]]]:
+        """Each repository's default branch, or None with the lookup error."""
+        candidates: Dict[str, Tuple[Optional[str], Optional[str]]] = {}
+        for repository in self.config.explicit_repositories:
+            if self.config.configured_branch:
+                candidates[repository] = (None, None)
+            else:
+                branch = self.client.get_default_branch(repository)
+                error = None if branch else self.client.last_api_error
+                candidates[repository] = (branch, error)
         if self.config.group:
-            for repository, default_branch in self._discover_group_projects(
-                self.config.group
-            ):
-                candidates.setdefault(repository, default_branch)
-        return list(candidates.items())
+            for project in self._group_projects_or_skip(self.config.group):
+                known_branch, _ = candidates.get(project.path, (None, None))
+                if known_branch is None:
+                    candidates[project.path] = (project.default_branch, None)
+        return candidates
 
-    def _discover_group_projects(self, group: str) -> List[Tuple[str, Optional[str]]]:
+    def _group_projects_or_skip(self, group: str) -> List[GitLabProject]:
+        if not self.config.explicit_repositories:
+            return self._discover_group_projects(group)
+        try:
+            return self._discover_group_projects(group)
+        except Exception as exc:
+            # The named projects can still be imported; the group's documents
+            # from earlier runs are kept.
+            self._keep_previous_documents()
+            self.report.warning(
+                title="Group projects not listed",
+                message=(
+                    "The group's projects could not be listed, so only the projects "
+                    "named in repository or repositories were imported, and "
+                    "documents imported by earlier runs are kept."
+                ),
+                context=f"group={group}",
+                exc=exc,
+            )
+            return []
+
+    def _discover_group_projects(self, group: str) -> List[GitLabProject]:
         listing = self.client.list_group_projects(
             group,
             include_subgroups=self.config.include_subgroups,
             include_archived=self.config.include_archived,
             max_projects=self.config.max_projects,
+            allowed=self.config.project_pattern.allowed,
         )
         if listing.truncated:
             self._keep_previous_documents()
             self.report.warning(
                 title="Group projects truncated by max_projects",
                 message=(
-                    "The group has more projects than max_projects allows, so "
-                    "only the first ones were imported and documents imported by "
-                    "earlier runs are kept. Raise max_projects or narrow "
-                    "project_pattern."
+                    "More projects matched than max_projects allows, so only the "
+                    "first ones were imported and documents imported by earlier "
+                    "runs are kept. Raise max_projects or narrow project_pattern."
                 ),
                 context=f"group={group}, max_projects={self.config.max_projects}",
             )
-        return [
-            (project.path, project.default_branch)
-            for project in listing.projects
-            if self.config.project_pattern.allowed(project.path)
-        ]
+        return listing.projects
 
     @classmethod
     def _connection_target(
@@ -140,24 +159,24 @@ class GitLabDocumentsSource(RepositoryDocumentsSourceBase[GitLabDocumentsSourceC
         if not config.multi_repository:
             return super()._connection_target(client, config)
         gitlab = cast(GitLabApiClient, client)
-        configured_branch = (
-            config.branch if "branch" in config.model_fields_set else None
-        )
         explicit = config.explicit_repositories
         if explicit:
             repository = explicit[0]
-            branch = configured_branch or gitlab.get_default_branch(repository)
+            branch = config.configured_branch or gitlab.get_default_branch(repository)
         else:
             listing = gitlab.list_group_projects(
                 config.group or "",
                 include_subgroups=config.include_subgroups,
                 include_archived=config.include_archived,
                 max_projects=1,
+                allowed=config.project_pattern.allowed,
             )
             if not listing.projects:
-                raise RuntimeError(f"No projects found in group '{config.group}'.")
+                raise RuntimeError(
+                    f"No projects in group '{config.group}' match project_pattern."
+                )
             repository = listing.projects[0].path
-            branch = configured_branch or listing.projects[0].default_branch
+            branch = config.configured_branch or listing.projects[0].default_branch
         if not branch:
             raise RuntimeError(
                 f"Could not find a default branch for {repository}. Check the "

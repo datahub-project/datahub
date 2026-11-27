@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import quote, urlparse, urlsplit
 
 import requests
@@ -184,21 +184,24 @@ class GitLabApiClient:
         include_subgroups: bool,
         include_archived: bool,
         max_projects: int,
+        allowed: Callable[[str], bool] = lambda _: True,
     ) -> GroupProjects:
+        """Projects of ``group`` that ``allowed`` accepts, up to ``max_projects``.
+
+        The filter runs before the cap, so a narrow filter on a large group is
+        not cut short by projects it would drop anyway.
+        """
         url: Optional[str] = f"{self._api_base}/groups/{quote(group, safe='')}/projects"
-        first_page_params: Dict[str, Union[str, int]] = {
+        params: Optional[Dict[str, Union[str, int]]] = {
             "include_subgroups": str(include_subgroups).lower(),
             # Projects shared into the group live under another path.
             "with_shared": "false",
-            # A stable order keeps pages from shifting if a project is created
-            # while the listing is read.
+            # Keeps pages from shifting if a project is created mid-listing.
             "order_by": "id",
             "sort": "asc",
             "per_page": TREE_PAGE_SIZE,
+            **({} if include_archived else {"archived": "false"}),
         }
-        if not include_archived:
-            first_page_params["archived"] = "false"
-        params: Optional[Dict[str, Union[str, int]]] = first_page_params
 
         projects: List[GitLabProject] = []
         while url:
@@ -222,6 +225,13 @@ class GitLabApiClient:
                     item.get("path_with_namespace") if isinstance(item, dict) else None
                 )
                 if not isinstance(path, str) or not path:
+                    # Dropping it would let stale removal delete its documents.
+                    self._record_unexpected_shape(response, "projects with a path")
+                    raise RuntimeError(
+                        f"Could not list the projects in group '{group}': "
+                        f"{self._last_api_error}"
+                    )
+                if not allowed(path):
                     continue
                 branch = item.get("default_branch")
                 projects.append(

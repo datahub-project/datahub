@@ -63,8 +63,8 @@ source:
 - `project_pattern` matches the full path of projects found through `group`. Projects listed in `repository` or `repositories` are always ingested.
 - Archived projects, and projects shared into the group from elsewhere, are not ingested. Set `include_archived: true` to include archived ones.
 - `branch` is each project's default branch unless you set it. If you set it, every project is read from that branch, and a project without it is skipped.
-- A group is read up to `max_projects` projects (default 100) per run.
-- If a project cannot be imported, it is skipped with a `Repository skipped` warning and the other projects are imported. The run fails only when no project could be imported. A skipped project, a group larger than `max_projects`, or a group that returns no projects keep the documents earlier runs imported: nothing is removed during that run, including files deleted in other projects, until a run completes without them.
+- A group is read up to `max_projects` projects (default 100) per run. Only projects that `project_pattern` allows count toward it. `include_subgroups`, `include_archived`, `project_pattern` and `max_projects` only apply with `group`, and setting them without it is a config error.
+- If a project cannot be imported, it is skipped with a `Repository skipped` warning and the other projects are imported. The run fails only when no project could be imported. If the group cannot be listed, the projects named in `repository` or `repositories` are still imported, with a `Group projects not listed` warning. A skipped project, a group larger than `max_projects`, or a group that returns no projects keep the documents earlier runs imported: nothing is removed during that run, including files deleted in other projects, until a run completes without them.
 
 #### Shared behaviour with `github-documents`
 

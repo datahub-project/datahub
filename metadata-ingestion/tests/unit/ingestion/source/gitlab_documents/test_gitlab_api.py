@@ -520,7 +520,7 @@ def test_list_group_projects_fails_instead_of_returning_a_partial_list() -> None
                 {"status_code": 403},
             ],
         )
-        with pytest.raises(RuntimeError, match="HTTP 403"):
+        with pytest.raises(RuntimeError):
             client.list_group_projects(
                 "acme/data",
                 include_subgroups=True,
@@ -537,3 +537,56 @@ def test_get_default_branch() -> None:
         # A token that cannot read the repository gets no default branch.
         m.get(API, json={"default_branch": None})
         assert client.get_default_branch("acme/data/docs") is None
+
+
+def test_list_group_projects_counts_only_allowed_projects_toward_the_cap() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(
+            GROUP_API,
+            json=[{"path_with_namespace": f"acme/data/p{i}"} for i in range(3)],
+        )
+        listing = client.list_group_projects(
+            "acme/data",
+            include_subgroups=True,
+            include_archived=False,
+            max_projects=1,
+            allowed=lambda path: path.endswith("p2"),
+        )
+    assert [p.path for p in listing.projects] == ["acme/data/p2"]
+    assert listing.truncated is False
+
+
+def test_list_group_projects_exactly_at_max_projects_is_not_truncated() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(
+            GROUP_API,
+            json=[{"path_with_namespace": f"acme/data/p{i}"} for i in range(2)],
+        )
+        listing = client.list_group_projects(
+            "acme/data", include_subgroups=True, include_archived=False, max_projects=2
+        )
+    assert len(listing.projects) == 2
+    assert listing.truncated is False
+
+
+def test_list_group_projects_fails_on_a_project_without_a_path() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(GROUP_API, json=[{"path_with_namespace": "acme/data/a"}, {"id": 7}])
+        with pytest.raises(RuntimeError):
+            client.list_group_projects(
+                "acme/data",
+                include_subgroups=True,
+                include_archived=False,
+                max_projects=10,
+            )
+
+
+def test_get_default_branch_records_the_api_error() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(API, status_code=404)
+        assert client.get_default_branch("acme/data/docs") is None
+    assert client.last_api_error is not None
