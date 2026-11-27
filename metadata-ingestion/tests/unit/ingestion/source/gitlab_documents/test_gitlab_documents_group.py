@@ -472,3 +472,77 @@ def test_test_connection_falls_back_from_unreadable_named_projects() -> None:
         report = GitLabDocumentsSource.test_connection(config)
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is True
+
+
+def test_test_connection_moves_past_a_project_missing_the_configured_branch() -> None:
+    config = {
+        "gitlab_token": "glpat-test",
+        "base_url": BASE,
+        "branch": "main",
+        "repositories": ["acme/gone", "acme/one"],
+    }
+    with requests_mock.Mocker() as m:
+        m.get(f"{_project_api('acme/gone')}/repository/branches/main", status_code=404)
+        m.get(
+            f"{_project_api('acme/one')}/repository/branches/main",
+            json={"commit": {"id": "abc123"}},
+        )
+        m.get(f"{_project_api('acme/one')}/repository/tree", json=[])
+        report = GitLabDocumentsSource.test_connection(config)
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable is True
+
+
+def test_test_connection_fails_when_no_project_has_the_configured_branch() -> None:
+    config = {
+        "gitlab_token": "glpat-test",
+        "base_url": BASE,
+        "branch": "main",
+        "repositories": ["acme/gone", "acme/also-gone"],
+    }
+    with requests_mock.Mocker() as m:
+        for path in ("acme/gone", "acme/also-gone"):
+            m.get(f"{_project_api(path)}/repository/branches/main", status_code=404)
+        report = GitLabDocumentsSource.test_connection(config)
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable is False
+
+
+def test_projects_with_identical_file_names_stay_separate() -> None:
+    source = _source(group="acme/data", create_repo_root_document=True)
+    with requests_mock.Mocker() as m:
+        _mock_group(
+            m,
+            [
+                {"path_with_namespace": "acme/data/a", "default_branch": "main"},
+                {"path_with_namespace": "acme/data/b", "default_branch": "main"},
+            ],
+        )
+        _mock_project(m, "acme/data/a", "main", {"README.md": "# A"})
+        _mock_project(m, "acme/data/b", "main", {"README.md": "# B"})
+        workunits = [
+            wu
+            for wu in source.get_workunits_internal()
+            if isinstance(wu, MetadataWorkUnit)
+            and wu.get_aspect_of_type(DocumentInfoClass) is not None
+        ]
+
+    infos = {wu.get_urn(): wu.get_aspect_of_type(DocumentInfoClass) for wu in workunits}
+    assert len(infos) == 4
+    for repo in ("acme/data/a", "acme/data/b"):
+        root_urn, root = next(
+            (urn, info)
+            for urn, info in infos.items()
+            if info
+            and info.customProperties["gitlab_repo"] == repo
+            and info.customProperties.get("is_repo_root_document") == "true"
+        )
+        readme = next(
+            info
+            for info in infos.values()
+            if info
+            and info.customProperties["gitlab_repo"] == repo
+            and info.customProperties.get("is_repo_root_document") != "true"
+        )
+        assert readme.parentDocument is not None
+        assert readme.parentDocument.document == root_urn

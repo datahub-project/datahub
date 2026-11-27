@@ -334,7 +334,7 @@ class RepositoryDocumentsSourceBase(
         if not targets:
             if self.report.repositories_failed:
                 raise RuntimeError(
-                    f"Could not import any of the {len(self.report.repositories_failed)} "
+                    f"Could not import any of the {self.report.repositories_failed.total_elements} "
                     "repositories; see the 'Repository skipped' warnings."
                 )
             self._keep_previous_documents()
@@ -1346,10 +1346,10 @@ class RepositoryDocumentsSourceBase(
         return commit_sha
 
     @classmethod
-    def _connection_target(
+    def _connection_targets(
         cls, client: RepositoryDocumentsClient, config: ConfigT
-    ) -> RepositoryTarget:
-        return RepositoryTarget(repository=config.repository, branch=config.branch)
+    ) -> Iterable[RepositoryTarget]:
+        yield RepositoryTarget(repository=config.repository, branch=config.branch)
 
     def get_report(self) -> RepositoryDocumentsSourceReport:
         return self.report
@@ -1367,17 +1367,26 @@ class RepositoryDocumentsSourceBase(
         try:
             client = cls._make_client(config)
             # Resolve the branch the same way ingestion does, so a tag or a
-            # missing branch fails here rather than on the first run.
-            target = cls._connection_target(client, config)
-            commit_sha = cls._resolve_commit_sha(
-                client, target.repository, target.branch
-            )
-            client.list_matching_files(
-                target.repository,
-                commit_sha,
-                config.path_prefix.strip("/"),
-                config.file_extensions[:1] or [".md"],
-            )
+            # missing branch fails here rather than on the first run. A run
+            # skips an unreadable repository and imports the rest, so the check
+            # passes on the first one that works.
+            last_error: Optional[Exception] = None
+            for target in cls._connection_targets(client, config):
+                try:
+                    commit_sha = cls._resolve_commit_sha(
+                        client, target.repository, target.branch
+                    )
+                    client.list_matching_files(
+                        target.repository,
+                        commit_sha,
+                        config.path_prefix.strip("/"),
+                        config.file_extensions[:1] or [".md"],
+                    )
+                    break
+                except Exception as exc:
+                    last_error = exc
+            else:
+                raise last_error or RuntimeError("No repository to check")
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(capable=True)
             )

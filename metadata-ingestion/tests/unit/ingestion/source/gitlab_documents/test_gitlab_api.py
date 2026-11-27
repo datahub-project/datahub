@@ -590,3 +590,40 @@ def test_get_default_branch_records_the_api_error() -> None:
         m.get(API, status_code=404)
         assert client.get_default_branch("acme/data/docs") is None
     assert client.last_api_error is not None
+
+
+def test_list_group_projects_checks_for_more_when_pagination_headers_are_missing() -> (
+    None
+):
+    full_page = [{"path_with_namespace": f"acme/data/p{i}"} for i in range(100)]
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(
+            GROUP_API,
+            [{"json": full_page}, {"json": [{"path_with_namespace": "acme/data/x"}]}],
+        )
+        listing = client.list_group_projects(
+            "acme/data",
+            include_subgroups=True,
+            include_archived=False,
+            max_projects=500,
+        )
+    assert listing.truncated is True
+
+    with requests_mock.Mocker() as m:
+        m.get(GROUP_API, [{"json": full_page}, {"json": []}])
+        listing = client.list_group_projects(
+            "acme/data",
+            include_subgroups=True,
+            include_archived=False,
+            max_projects=500,
+        )
+    assert listing.truncated is False
+
+
+def test_get_default_branch_reports_an_unexpected_response_shape() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(API, json=["not", "a", "project"])
+        assert client.get_default_branch("acme/data/docs") is None
+    assert client.last_api_error is not None

@@ -1,5 +1,7 @@
-from typing import Dict, List, Optional, Tuple, cast
+from typing import Dict, Iterable, List, Optional
 from urllib.parse import quote
+
+from pydantic import BaseModel
 
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -23,6 +25,11 @@ from datahub.ingestion.source.repository_documents.client import (
 from datahub.ingestion.source.repository_documents.source import (
     RepositoryDocumentsSourceBase,
 )
+
+
+class _Candidate(BaseModel, frozen=True):
+    default_branch: Optional[str] = None
+    lookup_error: Optional[str] = None
 
 
 @platform_name("GitLab")
@@ -76,12 +83,11 @@ class GitLabDocumentsSource(RepositoryDocumentsSourceBase[GitLabDocumentsSourceC
 
         targets: List[RepositoryTarget] = []
         for repository, candidate in self._candidate_repositories().items():
-            default_branch, lookup_error = candidate
-            branch = self.config.configured_branch or default_branch
+            branch = self.config.configured_branch or candidate.default_branch
             if branch is None:
                 reason = (
-                    f"Could not read the project: {lookup_error}"
-                    if lookup_error
+                    f"Could not read the project: {candidate.lookup_error}"
+                    if candidate.lookup_error
                     else "No default branch. The project may be empty, or the "
                     "token's role cannot read its repository (it needs at least "
                     "Reporter). Set branch to read a specific branch."
@@ -93,16 +99,17 @@ class GitLabDocumentsSource(RepositoryDocumentsSourceBase[GitLabDocumentsSourceC
 
     def _candidate_repositories(
         self,
-    ) -> Dict[str, Tuple[Optional[str], Optional[str]]]:
-        """Each repository's default branch, or None with the lookup error."""
-        candidates: Dict[str, Tuple[Optional[str], Optional[str]]] = {}
+    ) -> Dict[str, _Candidate]:
+        candidates: Dict[str, _Candidate] = {}
         for repository in self.config.explicit_repositories:
             if self.config.configured_branch:
-                candidates[repository] = (None, None)
+                candidates[repository] = _Candidate()
             else:
                 branch = self.client.get_default_branch(repository)
-                error = None if branch else self.client.last_api_error
-                candidates[repository] = (branch, error)
+                candidates[repository] = _Candidate(
+                    default_branch=branch,
+                    lookup_error=None if branch else self.client.last_api_error,
+                )
         if self.config.group:
             # GitLab paths are case-insensitive: a project named in repositories with
             # different casing from the group listing is the same project, so it
@@ -110,9 +117,11 @@ class GitLabDocumentsSource(RepositoryDocumentsSourceBase[GitLabDocumentsSourceC
             named = {repository.casefold(): repository for repository in candidates}
             for project in self._group_projects_or_skip(self.config.group):
                 repository = named.get(project.path.casefold(), project.path)
-                known_branch, _ = candidates.get(repository, (None, None))
-                if known_branch is None:
-                    candidates[repository] = (project.default_branch, None)
+                known = candidates.get(repository)
+                if known is None or known.default_branch is None:
+                    candidates[repository] = _Candidate(
+                        default_branch=project.default_branch
+                    )
         return candidates
 
     def _group_projects_or_skip(self, group: str) -> List[GitLabProject]:
@@ -158,18 +167,21 @@ class GitLabDocumentsSource(RepositoryDocumentsSourceBase[GitLabDocumentsSourceC
         return listing.projects
 
     @classmethod
-    def _connection_target(
+    def _connection_targets(
         cls, client: RepositoryDocumentsClient, config: GitLabDocumentsSourceConfig
-    ) -> RepositoryTarget:
+    ) -> Iterable[RepositoryTarget]:
         if not config.multi_repository:
-            return super()._connection_target(client, config)
-        gitlab = cast(GitLabApiClient, client)
-        # Ingestion skips a project without a readable branch and imports the
-        # rest, so the check uses the first project a run would import.
+            yield from super()._connection_targets(client, config)
+            return
+        if not isinstance(client, GitLabApiClient):
+            raise TypeError(f"Expected a GitLabApiClient, got {type(client).__name__}")
+        gitlab = client
+        found = False
         for repository in config.explicit_repositories:
             branch = config.configured_branch or gitlab.get_default_branch(repository)
             if branch:
-                return RepositoryTarget(repository=repository, branch=branch)
+                found = True
+                yield RepositoryTarget(repository=repository, branch=branch)
         if config.group:
             listing = gitlab.list_group_projects(
                 config.group,
@@ -181,9 +193,11 @@ class GitLabDocumentsSource(RepositoryDocumentsSourceBase[GitLabDocumentsSourceC
             for project in listing.projects:
                 branch = config.configured_branch or project.default_branch
                 if branch:
-                    return RepositoryTarget(repository=project.path, branch=branch)
-        raise RuntimeError(
-            "No configured project has a default branch the token can read. Check "
-            "the group path, project_pattern and the token's role (at least "
-            "Reporter), or set branch."
-        )
+                    found = True
+                    yield RepositoryTarget(repository=project.path, branch=branch)
+        if not found:
+            raise RuntimeError(
+                "No configured project has a default branch the token can read. "
+                "Check the group path, project_pattern and the token's role (at "
+                "least Reporter), or set branch."
+            )

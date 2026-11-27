@@ -46,6 +46,7 @@ class GitLabDocumentsSourceConfig(RepositoryDocumentsSourceConfigBase):
             "combined with group."
         ),
     )
+    # Overrides the required str on the base config so recipes can omit it.
     repository: Optional[str] = Field(  # type: ignore[assignment]
         default=None,
         json_schema_extra={"hidden_from_docs": True},

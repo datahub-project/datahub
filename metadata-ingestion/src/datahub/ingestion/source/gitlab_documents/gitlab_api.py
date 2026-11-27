@@ -174,7 +174,10 @@ class GitLabApiClient:
         node = self._json_or_none(response)
         if response is None or node is None:
             return None
-        branch = node.get("default_branch") if isinstance(node, dict) else None
+        if not isinstance(node, dict):
+            self._record_unexpected_shape(response, "a project")
+            return None
+        branch = node.get("default_branch")
         return branch if isinstance(branch, str) and branch else None
 
     def list_group_projects(
@@ -191,8 +194,8 @@ class GitLabApiClient:
         The filter runs before the cap, so a narrow filter on a large group is
         not cut short by projects it would drop anyway.
         """
-        url: Optional[str] = f"{self._api_base}/groups/{quote(group, safe='')}/projects"
-        params: Optional[Dict[str, Union[str, int]]] = {
+        list_url = f"{self._api_base}/groups/{quote(group, safe='')}/projects"
+        list_params: Dict[str, Union[str, int]] = {
             "include_subgroups": str(include_subgroups).lower(),
             # Projects shared into the group live under another path.
             "with_shared": "false",
@@ -204,6 +207,10 @@ class GitLabApiClient:
         }
 
         projects: List[GitLabProject] = []
+        url: Optional[str] = list_url
+        params: Optional[Dict[str, Union[str, int]]] = list_params
+        saw_pagination_header = False
+        last_page_full = False
         while url:
             response = self._get(url, params=params)
             items = self._json_or_none(response)
@@ -242,8 +249,20 @@ class GitLabApiClient:
                 )
             if len(projects) > max_projects:
                 return GroupProjects(projects=projects[:max_projects], truncated=True)
+            if "Link" in response.headers or "X-Next-Page" in response.headers:
+                saw_pagination_header = True
+            last_page_full = len(items) >= TREE_PAGE_SIZE
             url, params = self._next_page(response, url, params)
-        return GroupProjects(projects=projects, truncated=False)
+        # A proxy can strip the pagination headers, which would turn a multi-page
+        # group into one page and let stale removal delete the unread projects.
+        truncated = (
+            last_page_full
+            and not saw_pagination_header
+            and self._has_entries_after_first_page(
+                list_url, list_params, "a list of projects"
+            )
+        )
+        return GroupProjects(projects=projects, truncated=truncated)
 
     def list_matching_files(
         self,
@@ -309,24 +328,26 @@ class GitLabApiClient:
         truncated = (
             last_page_full
             and not saw_pagination_header
-            and self._tree_has_entries_after_first_page(owner_repo, branch)
+            and self._has_entries_after_first_page(
+                f"{self._project_url(owner_repo)}/repository/tree",
+                {
+                    "ref": branch,
+                    "recursive": "true",
+                    "per_page": TREE_PAGE_SIZE,
+                },
+                "a list of tree entries",
+            )
         )
         self._index_file_paths = selection.index_paths
         return selection.files, truncated
 
-    def _tree_has_entries_after_first_page(self, owner_repo: str, branch: str) -> bool:
-        response = self._get(
-            f"{self._project_url(owner_repo)}/repository/tree",
-            params={
-                "ref": branch,
-                "recursive": "true",
-                "per_page": TREE_PAGE_SIZE,
-                "page": 2,
-            },
-        )
+    def _has_entries_after_first_page(
+        self, url: str, params: Dict[str, Union[str, int]], expected: str
+    ) -> bool:
+        response = self._get(url, params={**params, "page": 2})
         items = self._json_or_none(response)
         if response is not None and items is not None and not isinstance(items, list):
-            self._record_unexpected_shape(response, "a list of tree entries")
+            self._record_unexpected_shape(response, expected)
         if not isinstance(items, list):
             # Cannot confirm the listing is complete, so treat it as truncated
             # and keep stale removal from acting on it.
