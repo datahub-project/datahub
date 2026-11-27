@@ -244,7 +244,12 @@ def test_table_names_include_partitions_by_default():
     )
     inspector = _partitioned_inspector([])
 
-    assert len(source._get_table_names(inspector, "public")) == 4
+    assert source._get_table_names(inspector, "public") == [
+        "customers",
+        "events",
+        "events_2026_10",
+        "events_2026_11",
+    ]
     inspector.engine.connect.assert_not_called()
 
 
