@@ -56,7 +56,7 @@ test.describe('Schema Field Structured Properties', () => {
     },
   );
 
-  test('Verify updating a structured property on a schema field', async ({ cleanup }) => {
+  test('Verify updating a structured property on a schema field', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     const propertyName = withRandomSuffix('field-update');
     const fieldProperty = { name: propertyName, entity: 'Column' };
 
@@ -93,48 +93,52 @@ test.describe('Schema Field Structured Properties', () => {
     cleanup.track(propertyUrn);
   });
 
-  test('Verify removing a structured property from a schema field', async ({ cleanup }) => {
-    const propertyName = withRandomSuffix('field-remove');
-    const fieldProperty = { name: propertyName, entity: 'Column' };
+  test(
+    'Verify removing a structured property from a schema field',
+    { tag: [DomainTag.Catalog] },
+    async ({ cleanup }) => {
+      const propertyName = withRandomSuffix('field-remove');
+      const fieldProperty = { name: propertyName, entity: 'Column' };
 
-    const propertyUrn = await structuredPropertiesPage.createStructuredProperty(fieldProperty);
+      const propertyUrn = await structuredPropertiesPage.createStructuredProperty(fieldProperty);
 
-    await structuredPropertiesPage.enableShowInColumnsTable(fieldProperty);
+      await structuredPropertiesPage.enableShowInColumnsTable(fieldProperty);
 
-    // Wait for property setting to propagate to backend before navigating to dataset
-    await new Promise((resolve) => setTimeout(resolve, TIMEOUTS.SETTING_PROPAGATION));
+      // Wait for property setting to propagate to backend before navigating to dataset
+      await new Promise((resolve) => setTimeout(resolve, TIMEOUTS.SETTING_PROPAGATION));
 
-    await datasetPage.navigateToDataset(TEST_DATA.SCHEMA_FIELD_REMOVE_DATASET);
-    await datasetPage.clickSchemaFieldByName(TEST_DATA.SCHEMA_FIELD_REMOVE);
+      await datasetPage.navigateToDataset(TEST_DATA.SCHEMA_FIELD_REMOVE_DATASET);
+      await datasetPage.clickSchemaFieldByName(TEST_DATA.SCHEMA_FIELD_REMOVE);
 
-    await datasetPage.waitForFieldDrawer(TIMEOUTS.DRAWER_VISIBLE);
+      await datasetPage.waitForFieldDrawer(TIMEOUTS.DRAWER_VISIBLE);
 
-    await structuredPropertiesPage.waitForPageLoad();
+      await structuredPropertiesPage.waitForPageLoad();
 
-    await structuredPropertiesPage.waitForFieldPropertyButton(propertyName, TIMEOUTS.FIELD_BUTTON_VISIBLE);
-    await structuredPropertiesPage.clickFieldPropertyButton(propertyName);
+      await structuredPropertiesPage.waitForFieldPropertyButton(propertyName, TIMEOUTS.FIELD_BUTTON_VISIBLE);
+      await structuredPropertiesPage.clickFieldPropertyButton(propertyName);
 
-    await structuredPropertiesPage.fillFieldPropertyValue(TEST_DATA.PROPERTY_VALUE);
-    await structuredPropertiesPage.submitFieldProperty();
+      await structuredPropertiesPage.fillFieldPropertyValue(TEST_DATA.PROPERTY_VALUE);
+      await structuredPropertiesPage.submitFieldProperty();
 
-    await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_ADDED);
+      await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_ADDED);
 
-    // Wait for the drawer to refresh with the new property before accessing the properties tab
-    await structuredPropertiesPage.waitForPageLoad();
+      // Wait for the drawer to refresh with the new property before accessing the properties tab
+      await structuredPropertiesPage.waitForPageLoad();
 
-    await structuredPropertiesPage.clickFieldPropertiesTab();
+      await structuredPropertiesPage.clickFieldPropertiesTab();
 
-    await structuredPropertiesPage.clickFieldPropertyAction(propertyName, 'Remove');
+      await structuredPropertiesPage.clickFieldPropertyAction(propertyName, 'Remove');
 
-    await structuredPropertiesPage.confirmModalAction();
+      await structuredPropertiesPage.confirmModalAction();
 
-    await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_REMOVED);
-    // Check that the specific property is gone by verifying its name is not in the drawer.
-    // The two-phase schema load now issues two sequential awaited refetches on removal
-    // (structural + full metadata) instead of one, so give the default 5s assert timeout
-    // 50% more headroom to let both round-trips settle before asserting.
-    await structuredPropertiesPage.expectDrawerNotContains(propertyName, 7500);
+      await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_REMOVED);
+      // Check that the specific property is gone by verifying its name is not in the drawer.
+      // The two-phase schema load now issues two sequential awaited refetches on removal
+      // (structural + full metadata) instead of one, so give the default 5s assert timeout
+      // 50% more headroom to let both round-trips settle before asserting.
+      await structuredPropertiesPage.expectDrawerNotContains(propertyName, 7500);
 
-    cleanup.track(propertyUrn);
-  });
+      cleanup.track(propertyUrn);
+    },
+  );
 });

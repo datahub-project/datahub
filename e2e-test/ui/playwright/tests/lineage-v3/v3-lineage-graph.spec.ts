@@ -279,7 +279,7 @@ test.describe('lineage v3 — lineage graph', () => {
     await expect(lineagePage.getReactFlowNodeByUrn(BAZ_CHART_URN)).toBeVisible({ timeout: TIMEOUTS.LONG });
   });
 
-  test('cannot see any lineage edges for 2021', async () => {
+  test('cannot see any lineage edges for 2021', { tag: [DomainTag.Catalog] }, async () => {
     await lineagePage.goToLineageGraphWithTimeRange(
       DATASET_ENTITY_TYPE,
       DATASET_URN,
@@ -295,7 +295,7 @@ test.describe('lineage v3 — lineage graph', () => {
     await expect(lineagePage.getReactFlowNodeByUrn(BAZ_CHART_URN)).not.toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('can see when the inputs to a data job change', async () => {
+  test('can see when the inputs to a data job change', { tag: [DomainTag.Catalog] }, async () => {
     test.setTimeout(TEST_TIMEOUT_TASK_LINEAGE);
 
     // Between 14 days ago and 7 days ago, only transactions was an input
@@ -329,7 +329,7 @@ test.describe('lineage v3 — lineage graph', () => {
     expect(await lineagePage.areGraphEdgesVisible()).toBe(true);
   });
 
-  test('can see when a data job is replaced', async () => {
+  test('can see when a data job is replaced', { tag: [DomainTag.Catalog] }, async () => {
     // Between 14 days ago and 7 days ago, only temperature_etl_1 was an input
     await lineagePage.goToLineageGraphWithTimeRange(
       DATASET_ENTITY_TYPE,
@@ -359,7 +359,7 @@ test.describe('lineage v3 — lineage graph', () => {
     expect(await lineagePage.areGraphEdgesVisible()).toBe(true);
   });
 
-  test('can see when a dataset join changes', async () => {
+  test('can see when a dataset join changes', { tag: [DomainTag.Catalog] }, async () => {
     // 8 days ago, both gdp and factor_income were joined to create gnp
     await lineagePage.goToLineageGraphWithTimeRange(
       DATASET_ENTITY_TYPE,
@@ -556,7 +556,7 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkEdgeExists(NODE7_DATAJOB_URN, NODE8_DATASET_URN);
   });
 
-  test('draws manually added edges dashed, and ingested ones solid', async () => {
+  test('draws manually added edges dashed, and ingested ones solid', { tag: [DomainTag.Catalog] }, async () => {
     // node5's upstream edge from node1 is seeded with `properties.source = UI`, which is what
     // marks a lineage edge as manually added; node1 -> node2 is an ordinary ingested edge.
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, NODE1_DATASET_URN);
@@ -567,7 +567,7 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkEdgeIsManual(NODE1_DATASET_URN, NODE2_DATASET_URN, false);
   });
 
-  test('should allow to expand and filter children', async ({ apiMock }) => {
+  test('should allow to expand and filter children', { tag: [DomainTag.Catalog] }, async ({ apiMock }) => {
     // The dedicated filter-node UI asserted below only renders when showLineageFilterNodes is on.
     await apiMock.setFeatureFlags({ ...BASE_FEATURE_FLAGS, showLineageFilterNodes: true });
 
@@ -907,7 +907,7 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkNodeNotExists(FILTERING_NODE20_URN);
   });
 
-  test('paginates and filters children via the contract button', async ({ apiMock }) => {
+  test('paginates and filters children via the contract button', { tag: [DomainTag.Catalog] }, async ({ apiMock }) => {
     // Filter nodes off: pagination/search lives on the contract button (ContractLineageControl).
     await apiMock.setFeatureFlags({ ...BASE_FEATURE_FLAGS, showLineageFilterNodes: false });
 
@@ -981,18 +981,22 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkNodeExists(FILTERING_NODE8_URN);
   });
 
-  test('can switch direction between upstream and downstream in compact mode', async () => {
-    await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
-    await lineagePage.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await lineagePage.waitForGraphToRender();
+  test(
+    'can switch direction between upstream and downstream in compact mode',
+    { tag: [DomainTag.Catalog] },
+    async () => {
+      await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
+      await lineagePage.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      await lineagePage.waitForGraphToRender();
 
-    // Verify both upstream and downstream lineage is visible
-    await expect(lineagePage.getReactFlowNodeByUrn(DATASET_URN)).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(lineagePage.getReactFlowNodeByUrn(HDFS_DATASET_URN)).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(lineagePage.getReactFlowNodeByUrn(BAZ_CHART_URN)).toBeVisible({ timeout: TIMEOUTS.LONG });
-  });
+      // Verify both upstream and downstream lineage is visible
+      await expect(lineagePage.getReactFlowNodeByUrn(DATASET_URN)).toBeVisible({ timeout: TIMEOUTS.LONG });
+      await expect(lineagePage.getReactFlowNodeByUrn(HDFS_DATASET_URN)).toBeVisible({ timeout: TIMEOUTS.LONG });
+      await expect(lineagePage.getReactFlowNodeByUrn(BAZ_CHART_URN)).toBeVisible({ timeout: TIMEOUTS.LONG });
+    },
+  );
 
-  test('renders complete lineage graph with multiple node types and edges', async () => {
+  test('renders complete lineage graph with multiple node types and edges', { tag: [DomainTag.Catalog] }, async () => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
     await lineagePage.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await lineagePage.waitForGraphToRender();
@@ -1005,7 +1009,7 @@ test.describe('lineage v3 — lineage graph', () => {
     expect(await lineagePage.areGraphEdgesVisible()).toBe(true);
   });
 
-  test('graph remains stable with all lineage nodes visible after loading', async () => {
+  test('graph remains stable with all lineage nodes visible after loading', { tag: [DomainTag.Catalog] }, async () => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
     await lineagePage.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await lineagePage.waitForGraphToRender();

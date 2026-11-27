@@ -72,26 +72,26 @@ test.describe('Domains V2 Advanced Functionality', () => {
     });
   });
 
-  test('Verify Edit domain name', async ({ page, logger, cleanup }) => {
+  test('Verify Edit domain name', { tag: [DomainTag.Catalog] }, async ({ page, logger, cleanup }) => {
     await runDomainTest(page, logger, cleanup, 'EditTest', async (domainsPage) => {
       const newName = `Edited${Date.now()}`;
       await domainsPage.editDomainName(newName);
     });
   });
 
-  test('Verify Add documentation to domain', async ({ page, logger, cleanup }) => {
+  test('Verify Add documentation to domain', { tag: [DomainTag.Catalog] }, async ({ page, logger, cleanup }) => {
     await runDomainTest(page, logger, cleanup, 'DocsTest', async (domainsPage) => {
       await domainsPage.addDocumentation(TEST_DOCUMENTATION);
     });
   });
 
-  test('Verify Add link to domain', async ({ page, logger, cleanup }) => {
+  test('Verify Add link to domain', { tag: [DomainTag.Catalog] }, async ({ page, logger, cleanup }) => {
     await runDomainTest(page, logger, cleanup, 'LinkTest', async (domainsPage) => {
       await domainsPage.addLink(TEST_LINK_URL, TEST_LINK_LABEL);
     });
   });
 
-  test('Verify Add owner to domain', async ({ page, logger, cleanup }) => {
+  test('Verify Add owner to domain', { tag: [DomainTag.Catalog] }, async ({ page, logger, cleanup }) => {
     await runDomainTest(page, logger, cleanup, 'OwnerTest', async (domainsPage) => {
       await domainsPage.addOwner(TEST_OWNER_NAME);
     });

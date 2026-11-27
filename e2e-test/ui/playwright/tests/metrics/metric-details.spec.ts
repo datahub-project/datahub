@@ -45,7 +45,7 @@ test.describe('Metric details', () => {
     },
   );
 
-  test('shows SQL expression and related metrics classifications', async ({ page }) => {
+  test('shows SQL expression and related metrics classifications', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await metricsPage.navigateToMetric(TOTAL_REVENUE_URN);
     await metricsPage.openSummaryTab();
     await metricsPage.expectMetricModulesVisible();
@@ -56,7 +56,7 @@ test.describe('Metric details', () => {
     await metricsPage.expectModuleContains(metricsPage.relatedMetricsModule, 'Related To');
   });
 
-  test('shows Derived From on derived metric', async () => {
+  test('shows Derived From on derived metric', { tag: [DomainTag.Catalog] }, async () => {
     await metricsPage.navigateToMetric(DOUBLE_REVENUE_URN);
     await metricsPage.expectEntityNamed(NAMES.DOUBLE_REVENUE);
     await metricsPage.openSummaryTab();
@@ -64,7 +64,7 @@ test.describe('Metric details', () => {
     await metricsPage.expectModuleContains(metricsPage.relatedMetricsModule, 'Derived From');
   });
 
-  test('shows Child of on nested metric and expands ancestry', async () => {
+  test('shows Child of on nested metric and expands ancestry', { tag: [DomainTag.Catalog] }, async () => {
     await metricsPage.navigateToMetric(CHILD_REVENUE_URN);
     await metricsPage.expectEntityNamed(NAMES.CHILD_REVENUE);
     await expect(metricsPage.sidebarMetric(CHILD_REVENUE_URN)).toBeVisible({
@@ -78,7 +78,7 @@ test.describe('Metric details', () => {
     await metricsPage.expectModuleContains(metricsPage.relatedMetricsModule, 'Child of');
   });
 
-  test('related metrics module navigates to linked metric', async ({ page }) => {
+  test('related metrics module navigates to linked metric', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await metricsPage.navigateToMetric(TOTAL_REVENUE_URN);
     await metricsPage.openSummaryTab();
     await metricsPage.expectModuleContains(metricsPage.relatedMetricsModule, NAMES.ORDER_COUNT);
@@ -88,7 +88,7 @@ test.describe('Metric details', () => {
     expect(decodeURIComponent(page.url())).toContain(ORDER_COUNT_URN);
   });
 
-  test('exposes Properties and Lineage tabs', async () => {
+  test('exposes Properties and Lineage tabs', { tag: [DomainTag.Catalog] }, async () => {
     await metricsPage.navigateToMetric(TOTAL_REVENUE_URN);
     await expect(metricsPage.propertiesTab).toBeVisible();
     await expect(metricsPage.lineageTab).toBeVisible();
