@@ -15,7 +15,7 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
-### Policies that aren't active no longer grant privileges in `getGrantedPrivileges`
+### Policies that aren't active no longer grant privileges in `getGrantedPrivileges` ([#21664](https://github.com/datahub-project/datahub/pull/21664))
 
 `getGrantedPrivileges`, which the UI uses to decide which actions to offer, counted every policy
 whose state wasn't `INACTIVE`. A policy in another state, such as `DRAFT`, or a state only a newer
