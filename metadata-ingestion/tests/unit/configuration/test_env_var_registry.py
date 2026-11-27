@@ -64,18 +64,12 @@ UNDECLARED_ALLOWLIST = {
     "ONNX_EMBEDDING_MODEL_DIR": "Local ONNX model directory for the unstructured source.",
     "ONNX_EMBEDDING_POOLING": "ONNX pooling strategy for the unstructured source.",
     "ONNX_EMBEDDING_QUERY_INSTRUCTION": "ONNX query instruction prefix for the unstructured source.",
-    "MLFLOW_TRACKING_USERNAME": "MLflow client credential, set from recipe config.",
-    "MLFLOW_TRACKING_PASSWORD": "MLflow client credential, set from recipe config.",
-    "ORACLE_CLIENT_LIBRARY_DIR": "Oracle instant client setting, set from recipe config.",
-    "TNS_ADMIN": "Oracle TNS configuration directory, set from recipe config.",
-    "KRB5_CLIENT_KTNAME": "Kerberos keytab path, set for the Presto dialect.",
-    "KRB5CCNAME": "Kerberos credential cache path, set for the Presto dialect.",
-    "SQLMESH__DEFAULT_GATEWAY": "SQLMesh's own setting, written and restored around a call.",
     "PGCONNECT_TIMEOUT": "libpq setting; DataHub defers to an operator-set value.",
     "JAVA_HOME": "Standard JVM location, read to find a Java runtime.",
-    "VIRTUAL_ENV": "Standard Python virtualenv marker, set for ingestion subprocesses.",
     "PATH": "Standard search path, set for ingestion subprocesses.",
     "TZ": "Standard timezone variable, manipulated only by test helpers.",
+    "SCARF_NO_ANALYTICS": "Scarf's own telemetry opt-out, defaulted off for unstructured.",
+    "UNSTRUCTURED_DISABLE_NOTICE": "unstructured.io's own notice switch, defaulted off.",
 }
 
 
