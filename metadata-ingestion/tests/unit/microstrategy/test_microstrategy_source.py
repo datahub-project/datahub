@@ -3942,12 +3942,8 @@ def test_chapter_page_structured_property_definitions_sync_through_graph() -> No
     assert len(_structured_property_values(workunits)) == 2
 
 
+# A dossier and a document (or second dossier) share report "ds-shared"; one more report is unused.
 class _SharedReportClient:
-    """Two dashboards that both embed one grid report ("ds-shared"): a dossier
-    whose visualization reads it and, by default, a Report Services document
-    (else a second dossier, for the SQL-view path). The report library holds
-    that report plus one no dashboard uses."""
-
     def __init__(self, second: str = "document", with_sql: bool = False) -> None:
         self.second = second
         self.with_sql = with_sql

@@ -24,7 +24,6 @@ from datahub.ingestion.source.microstrategy.config import (
     MicroStrategyConfig,
 )
 from datahub.ingestion.source.microstrategy.constants import (
-    DATASET_IDENTITY_PER_REPORT,
     MSTR_CREATE_TABLE_NAME_RE,
     MSTR_DEFAULT_QUALIFIED_NAME_PARTS,
     MSTR_HEX_OBJECT_ID_RE,
@@ -41,6 +40,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_SQL_VIEW_OUTPUT_SENTINEL,
     MSTR_WHITESPACE_RE,
     MicroStrategyCache,
+    MicroStrategyDatasetIdentity,
     MicroStrategyPhase,
 )
 from datahub.ingestion.source.microstrategy.models import (
@@ -259,9 +259,6 @@ class MicroStrategyLineageExtractor:
         parent_id: Optional[str],
         dataset: DatasetObject,
     ) -> str:
-        """URN for a MicroStrategy dataset: scoped to its parent dashboard or
-        report under dataset_identity=per_dashboard, or to the report object
-        itself (the parent plays no part) under per_report."""
         return make_dataset_urn_with_platform_instance(
             platform=self.config.platform,
             platform_instance=self.config.platform_instance,
@@ -275,10 +272,7 @@ class MicroStrategyLineageExtractor:
         parent_id: Optional[str],
         dataset: DatasetObject,
     ) -> str:
-        """The dataset's name within the platform, which is also its URN name:
-        `<project>.<parent>.<dataset>` per dashboard, `<project>.<dataset>`
-        per report."""
-        if self.config.dataset_identity == DATASET_IDENTITY_PER_REPORT:
+        if self.config.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT:
             return f"{project_id}.{dataset.id}".lower()
         return f"{project_id}.{parent_id}.{dataset.id}".lower()
 

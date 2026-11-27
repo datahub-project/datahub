@@ -110,9 +110,6 @@ USAGE_TARGET_DASHBOARD = "dashboard"
 USAGE_TARGET_CHART = "chart"
 USAGE_TARGET_DATASET = "dataset"
 
-DATASET_IDENTITY_PER_DASHBOARD = "per_dashboard"
-DATASET_IDENTITY_PER_REPORT = "per_report"
-
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.
 MSTR_NULL_OBJECT_ID = "00000000000000000000000000000000"
@@ -526,6 +523,11 @@ MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] =
         "1-based position of the visualization's page within its chapter.",
     ),
 )
+
+
+class MicroStrategyDatasetIdentity(StrEnum):
+    PER_DASHBOARD = "per_dashboard"
+    PER_REPORT = "per_report"
 
 
 class MicroStrategyPhase(StrEnum):

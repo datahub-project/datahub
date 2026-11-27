@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass, field
 from typing import (
     Callable,
     Dict,
@@ -14,7 +13,7 @@ from typing import (
 )
 
 import requests
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter.emit_mode import EmitMode
@@ -41,7 +40,6 @@ from datahub.ingestion.source.microstrategy.client import (
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
-    DATASET_IDENTITY_PER_REPORT,
     MICROSTRATEGY_PLATFORM,
     MSTR_CUBE_SUBTYPES,
     MSTR_DEFINITION_ENDPOINT_METRIC_MODEL,
@@ -62,6 +60,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     USAGE_TARGET_DASHBOARD,
     USAGE_TARGET_DATASET,
     MicroStrategyCache,
+    MicroStrategyDatasetIdentity,
     MicroStrategyPhase,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
@@ -91,6 +90,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasetObject,
     Datasource,
     MetricEnrichment,
+    MicroStrategyDict,
     MicroStrategyObject,
     PersonalFolderResolution,
     PredefinedFolderResolution,
@@ -233,8 +233,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._consecutive_execution_timeouts: Dict[str, int] = {}
         self._execution_limited_projects: Set[str] = set()
         # One dataset per report per project, shared by every dashboard that embeds it.
-        self._per_report = self.config.dataset_identity == DATASET_IDENTITY_PER_REPORT
-        self._report_datasets: Dict[Tuple[str, str], _ReportDatasetEntry] = {}
+        self._per_report = (
+            self.config.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT
+        )
+        self._report_datasets: Dict[_ReportDatasetKey, _ReportDatasetEntry] = {}
         if self.config.extract_derived_metrics and not (
             self.config.extract_lineage and self.config.extract_visualization_details
         ):
@@ -977,7 +979,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional["_ReportDatasetEntry"]:
         if not self._per_report:
             return None
-        return self._report_datasets.get((project_id, normalize_object_id(dataset_id)))
+        return self._report_datasets.get(_report_dataset_key(project_id, dataset_id))
 
     def _report_lineage_resolved(self, project_id: str, dataset_id: str) -> bool:
         # A parsed SQL view means this report is not executed again.
@@ -991,17 +993,19 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dataset: DatasetObject,
     ) -> DatasetObject:
         # Later dashboards share the first one's instance, so enrichment accumulates once.
-        cache_key = (project_id, normalize_object_id(dataset.id))
+        cache_key = _report_dataset_key(project_id, dataset.id)
         entry = self._report_datasets.get(cache_key)
         if entry is None:
             entry = _ReportDatasetEntry(
                 dataset=dataset, first_dashboard_object=dashboard_object
             )
-            self._report_datasets[cache_key] = entry
         else:
             self.report.report_report_deduplicated()
         if dashboard_object.id not in entry.dashboard_ids:
-            entry.dashboard_ids.append(dashboard_object.id)
+            entry = entry.model_copy(
+                update={"dashboard_ids": [*entry.dashboard_ids, dashboard_object.id]}
+            )
+        self._report_datasets[cache_key] = entry
         return entry.dataset
 
     def _register_report_dataset(
@@ -1011,41 +1015,30 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_definition: Optional[ReportDefinition],
     ) -> "_ReportDatasetEntry":
         # Keeps the dashboard's instance; the report definition replaces the schema.
-        cache_key = (project_id, normalize_object_id(report_object.id))
+        cache_key = _report_dataset_key(project_id, report_object.id)
         available_objects = (
             report_definition.available_objects if report_definition else {}
         )
         description = (
             report_definition.description if report_definition else None
         ) or report_object.description
+        fresh = _report_dataset_object(report_object, available_objects, description)
         entry = self._report_datasets.get(cache_key)
         if entry is None:
-            entry = _ReportDatasetEntry(
-                dataset=DatasetObject.model_validate(
-                    {
-                        "id": report_object.id,
-                        "name": report_object.name,
-                        "description": description,
-                        "availableObjects": available_objects,
-                    }
-                )
-            )
-            self._report_datasets[cache_key] = entry
+            entry = _ReportDatasetEntry(dataset=fresh)
         elif available_objects:
-            fresh = DatasetObject.model_validate(
-                {
-                    "id": report_object.id,
-                    "name": report_object.name,
-                    "availableObjects": available_objects,
-                }
-            )
             entry.dataset.available_objects = fresh.available_objects
             entry.dataset.object_ids = fresh.object_ids
             if description:
                 entry.dataset.description = description
-        entry.report_object = report_object
-        entry.report_definition = report_definition
-        entry.from_report_pass = True
+        entry = entry.model_copy(
+            update={
+                "report_object": report_object,
+                "report_definition": report_definition,
+                "from_report_pass": True,
+            }
+        )
+        self._report_datasets[cache_key] = entry
         return entry
 
     def _gen_report_dataset_workunits(
@@ -1053,7 +1046,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         # Once, after both passes, so the entity has everything the run learned.
         predefined_folders = self._predefined_folders(project_id)
-        project_keys = [key for key in self._report_datasets if key[0] == project_id]
+        project_keys = [
+            key for key in self._report_datasets if key.project_id == project_id
+        ]
         for cache_key in project_keys:
             entry = self._report_datasets.pop(cache_key)
             if not (
@@ -2378,8 +2373,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         if result.upstream_urns:
             dataset.warehouse_upstream_urns = result.upstream_urns
-            if entry is not None:
-                entry.lineage_resolved = True
+            if entry is not None and project_id:
+                self._report_datasets[_report_dataset_key(project_id, dataset.id)] = (
+                    entry.model_copy(update={"lineage_resolved": True})
+                )
         if result.field_upstreams:
             dataset.field_warehouse_upstreams = result.field_upstreams
         return result
@@ -2751,15 +2748,44 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         return self.report
 
 
-@dataclass
-class _ReportDatasetEntry:
+class _ReportDatasetKey(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    project_id: str
+    report_id: str
+
+
+class _ReportDatasetEntry(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     dataset: DatasetObject
     first_dashboard_object: Optional[MicroStrategyObject] = None
-    dashboard_ids: List[str] = field(default_factory=list)
+    dashboard_ids: List[str] = Field(default_factory=list)
     report_object: Optional[MicroStrategyObject] = None
     report_definition: Optional[ReportDefinition] = None
     from_report_pass: bool = False
     lineage_resolved: bool = False
+
+
+def _report_dataset_key(project_id: str, dataset_id: str) -> _ReportDatasetKey:
+    return _ReportDatasetKey(
+        project_id=project_id, report_id=normalize_object_id(dataset_id)
+    )
+
+
+def _report_dataset_object(
+    report_object: MicroStrategyObject,
+    available_objects: MicroStrategyDict,
+    description: Optional[str],
+) -> DatasetObject:
+    return DatasetObject.model_validate(
+        {
+            "id": report_object.id,
+            "name": report_object.name,
+            "description": description,
+            "availableObjects": available_objects,
+        }
+    )
 
 
 class _LazyProjectLineage:
