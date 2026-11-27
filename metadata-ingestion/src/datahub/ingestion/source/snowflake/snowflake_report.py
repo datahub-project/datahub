@@ -146,6 +146,10 @@ class SnowflakeV2Report(
     # keying bug fixed in #19143, and of the graph-history query's filters excluding
     # everything on an edition whose output differs from the documented one.
     num_dynamic_tables_missing_graph_info: int = 0
+    # SHOW INTERACTIVE TABLES lists only tables the role can SELECT; others never appear.
+    num_interactive_tables_missing_from_show: int = 0
+    num_interactive_tables_failed_get_ddl: int = 0
+    num_interactive_tables_without_definition: int = 0
     num_structured_property_templates_created: int = 0
     # sqlglot parse failures while resolving metric-to-metric derivedFrom refs;
     # best-effort, the metric is still emitted without those edges.

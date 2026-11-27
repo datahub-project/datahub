@@ -97,6 +97,42 @@ pytest tests/path/to/file.py::TestClass::test_method  # Single test
 - **Security**: Use `SecretStr` for passwords, auth tokens, etc.
 - **Deprecation**: Use `pydantic_removed_field` helper for field deprecations
 
+### Keeping credentials out of reports and logs
+
+A credential embedded in a plain `str` config field — a URL with `user:pass@`, a presigned query,
+a connection string — is invisible to `_register_secret_fields`, so `SecretStr` alone does not
+cover it.
+
+- **Strategic: register the secret.** Register it by hand from a `model_validator(mode="after")`, as
+  `SQLAlchemyConnectionConfig.register_sqlalchemy_uri_secrets` does (`source/sql/sql_config.py`) and
+  `DBTCoreConfig.register_artifact_url_secrets` does (`source/dbt/dbt_core.py`). Use the canonical
+  helpers to extract the values: `sqlalchemy_uri_secrets` (`source/sql/sqlalchemy_uri.py`) for
+  SQLAlchemy URLs and `http_url_secrets` (`source/common/object_store_files.py`) for http(s) URL
+  fields. Registration masks the value wherever it surfaces, including in strings built by code we
+  do not own. Register the whole query string rather than individual parameters — enumerating every
+  presigning scheme's signature parameter does not scale, and a presigned signature is a bearer
+  credential in its own right.
+- **Tactical: redact at the call site.** A `redact_*` helper on a specific `report.*` call is a
+  deterministic floor for the strings we build, and the only thing that keeps the _in-memory_
+  report clean, since `mask_structure()` runs at serialization and `source.get_report()` is never
+  masked. Use it in addition to registration, never instead of it.
+- **`exc=` defeats a redacted `context=`.** `StructuredLogs.report_log` appends
+  `f"{context} {type(exc)}: {exc}"` after the `context` argument is built, so sanitizing `context`
+  alone does nothing for the exception text. `requests` keeps userinfo in `PreparedRequest.url`, so
+  `raise_for_status()` names the password verbatim. Only registration covers this.
+- **Don't hand-roll substring redaction of a secret.** Replacing a secret value in text with
+  `str.replace` re-implements the masking filter without the registry's guards: it refuses values
+  shorter than `MIN_SECRET_LENGTH` and common literals (`true`, `no`, ...), because blind
+  replacement corrupts unrelated text (a one-character password mangles the host name). Register the
+  value and keep `exc=e`.
+- **Scope: CLI ingestion.** `initialize_secret_masking()` is installed by the CLI
+  (`datahub ingest`, `datahub recipe`) and the executor, so registration covers logs, stdout and
+  the report there. A programmatic `Pipeline` that never calls it logs raw — that is the caller's
+  choice to install the masking bootstrap or their own, and is not a reason to hand-roll redaction
+  in a source.
+- **Test with a realistic exception.** A test asserting "no password in the report" while mocking a
+  credential-free `ValueError` passes against a broken fix.
+
 ## Connector Conventions
 
 - **Structure**: Split connector code by duty: `constants.py`, `models.py`, `config.py`, `client.py`, `source.py`, plus `lineage.py`, `mapper.py`, and `usage.py` as needed. Match the quality and structure of existing connectors like Power BI, Airbyte, Redshift, BigID, and Grafana.

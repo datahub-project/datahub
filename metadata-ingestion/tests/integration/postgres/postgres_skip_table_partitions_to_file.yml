@@ -1,0 +1,22 @@
+run_id: postgres-test
+
+source:
+  type: postgres
+  config:
+    host_port: 'localhost:5432'
+    database: 'postgrestest'
+    username: 'postgres'
+    password: 'example'
+    schema_pattern:
+      allow:
+        - 'partitioned'
+    include_table_partitions: false
+    # Profiling lists tables separately from loop_tables; partitions must be
+    # skipped there too, so only the kept tables get a datasetProfile.
+    profiling:
+      enabled: true
+      profile_table_level_only: true
+sink:
+  type: file
+  config:
+    filename: "./postgres_skip_table_partitions_mces.json"

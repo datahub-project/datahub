@@ -1,0 +1,63 @@
+# datahub-ai-service: serves MCP, reached through the frontend at /mcp. Listens on the host's loopback
+# only; remote clients go through the frontend. No depends_on: it starts before GMS is healthy
+# and answers 503 until GMS is up. The image has its own healthcheck.
+x-datahub-ai-service: &datahub-ai-service
+  hostname: datahub-ai-service
+  image: ${DATAHUB_AI_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-ai-service}:${DATAHUB_AI_VERSION:-${DATAHUB_VERSION:-quickstart}}
+  ports:
+    - 127.0.0.1:${DATAHUB_MAPPED_AI_PORT:-9005}:9005
+  env_file:
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+  environment: &datahub-ai-service-env
+    DATAHUB_GMS_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH:-}
+    DATAHUB_AI_PORT: 9005
+    DATAHUB_AI_MCP_ENABLED: ${DATAHUB_AI_MCP_ENABLED:-true}
+    # The frontend proxies /mcp and says which host the client used; believe only it.
+    DATAHUB_AI_TRUSTED_PROXIES: datahub-frontend-react
+  restart: on-failure
+  stop_grace_period: 30s
+
+# Runs the checkout's sources over the installed packages, so a restart picks up changes.
+x-datahub-ai-service-dev: &datahub-ai-service-dev
+  <<: *datahub-ai-service
+  image: ${DATAHUB_AI_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-ai-service}:${DATAHUB_AI_VERSION:-${DATAHUB_VERSION:-debug}}
+  environment:
+    <<: *datahub-ai-service-env
+    PYTHONPATH: /datahub-ai-src/datahub-ai-service:/datahub-ai-src/datahub-core-mcp-tools
+  volumes:
+    - ../../packages/datahub-ai-service/src:/datahub-ai-src/datahub-ai-service:ro
+    - ../../packages/datahub-core-mcp-tools/src:/datahub-ai-src/datahub-core-mcp-tools:ro
+
+services:
+  # Not in the plain `quickstart` profile yet: `datahub docker quickstart` starts that
+  # profile with the latest release's images, and no release has published this image
+  # yet. Add `quickstart` here once one does, and stop docker/build.gradle's
+  # generateQuickstartComposeConfig from removing the frontend's DATAHUB_AI_SERVICE_URL.
+  datahub-ai-service-quickstart:
+    <<: *datahub-ai-service
+    profiles:
+      - quickstart-frontend
+      - quickstart-opensearch2
+      - quickstart-opensearch3
+      - quickstart-cassandra
+      - quickstart-consumers
+      - quickstart-consumers-cdc
+      - quickstart-postgres
+      - quickstart-postgres-cdc
+      - quickstart-postgres-consumers
+  datahub-ai-service-debug:
+    <<: *datahub-ai-service-dev
+    profiles:
+      - debug
+      - debug-opensearch2
+      - debug-opensearch3
+      - debug-aws
+      - debug-cassandra
+      - debug-consumers
+      - debug-consumers-cdc
+      - debug-elasticsearch
+      - debug-frontend
+      - debug-neo4j
+      - debug-postgres
+      - debug-postgres-cdc
+      - debug-postgres-consumers

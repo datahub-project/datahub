@@ -224,9 +224,10 @@ class ODCSSourceConfig(
     )
     emit_assertions: bool = Field(
         default=True,
-        description="Whether to emit Assertion entities derived from the ODCS `quality[]` rules. "
-        "Assertions target the logical `odcs` dataset and are emitted whether or not a "
-        "physical binding resolves.",
+        description="Whether to emit Assertion entities derived from the ODCS `quality[]` rules "
+        "and from `latency` SLAs (`slaProperties[]`, as freshness assertions). Assertions "
+        "target the logical `odcs` dataset and are emitted whether or not a physical binding "
+        "resolves.",
     )
     emit_schema_assertion: bool = Field(
         default=True,

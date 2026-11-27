@@ -35,13 +35,13 @@ test.describe('siblings', () => {
     await expect(siblingsPage.entityHeader).toBeVisible();
   });
 
-  test('will merge metadata to primary sibling', async () => {
+  test('will merge metadata to primary sibling', { tag: [DomainTag.Catalog] }, async () => {
     await siblingsPage.navigateToDataset(DBT_CUSTOMERS_URN);
     await siblingsPage.verifyPlatformLogosVisible(PLATFORMS);
     await expect(siblingsPage.entityHeader).toBeVisible();
   });
 
-  test('can view individual nodes', async () => {
+  test('can view individual nodes', { tag: [DomainTag.Catalog] }, async () => {
     await siblingsPage.navigateToDataset(DBT_CUSTOMERS_URN);
     await siblingsPage.navigateToSiblingByUrn(BIGQUERY_CUSTOMERS_URN);
     await siblingsPage.verifyIndividualPlatformHeader(BIGQUERY_PLATFORM);
@@ -58,12 +58,12 @@ test.describe('siblings', () => {
     await siblingsPage.removeGlossaryTerm(PLAYWRIGHT_TERM);
   });
 
-  test('will combine results in search', async () => {
+  test('will combine results in search', { tag: [DomainTag.Catalog] }, async () => {
     await siblingsPage.navigateToSearchResults(SEARCH_QUERY_STG);
     await siblingsPage.verifySingleSearchResult(STG_ORDERS_DATASET, PLATFORMS);
   });
 
-  test('separates siblings in lineage', async () => {
+  test('separates siblings in lineage', { tag: [DomainTag.Catalog] }, async () => {
     await siblingsPage.navigateToLineageGraph(DATASET_ENTITY_TYPE, DBT_STG_ORDERS_URN);
     await siblingsPage.verifyLineageNodesVisible([DBT_STG_ORDERS_URN, DBT_RAW_ORDERS_URN]);
   });

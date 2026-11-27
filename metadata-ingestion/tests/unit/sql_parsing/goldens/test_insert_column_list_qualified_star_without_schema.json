@@ -1,0 +1,62 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "1fd3076538ebb2fb53a8a5a00a18707a56ae2355d4919c99ebd6713b3008095c",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.unknown,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt,PROD)",
+                "column": "x",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)",
+                    "column": "x"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"S\".\"X\" AS \"X\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.unknown,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)"
+            ],
+            "on_clause": "\"U\".\"Y\" = \"S\".\"Y\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)",
+                    "column": "Y"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.unknown,PROD)",
+                    "column": "Y"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.4,
+        "generalized_statement": "INSERT INTO my_db.my_schema.tgt (a, b) SELECT u.*, s.x FROM my_db.my_schema.unknown AS u JOIN my_db.my_schema.src AS s ON u.y = s.y"
+    }
+}

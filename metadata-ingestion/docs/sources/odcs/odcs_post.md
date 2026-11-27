@@ -235,6 +235,49 @@ id-derived urn is set unverified with a warning, and nothing is created.
 With the option on, the contract owns the logical dataset's domain: dropping `domain` from a
 contract clears it on the next run. An unresolved value leaves the current domain in place.
 
+#### Glossary terms
+
+A property's `classification`, and each of its `authoritativeDefinitions` with
+`type: businessDefinition` whose `url` is not a web link or a path, become glossary terms on
+the field. A reference becomes a term urn by one fixed rule: a `urn:li:glossaryTerm:` urn is
+used as is; anything else is trimmed and lowercased, each `:` becomes `-` (whitespace around
+it is dropped), and other runs of whitespace become `_`. Letters and digits in any script,
+`_`, `-` and `.` are kept as they are. A reference containing any other character (such as
+`+`, `&` or parentheses), or with nothing on one side of a `:`, names no term: it is
+reported as a skipped term reference rather than mapped, so distinct references never
+collapse onto one term. A classification is resolved as `classification:<value>`.
+
+| Contract value                   | Glossary term                                     |
+| -------------------------------- | ------------------------------------------------- |
+| `url: "term:order_line"`         | `urn:li:glossaryTerm:term-order_line`             |
+| `url: "External Glossary Term"`  | `urn:li:glossaryTerm:external_glossary_term`      |
+| `url: "a.b"`                     | `urn:li:glossaryTerm:a.b`                         |
+| `url: "urn:li:glossaryTerm:a.b"` | `urn:li:glossaryTerm:a.b`                         |
+| `classification: confidential`   | `urn:li:glossaryTerm:classification-confidential` |
+| `classification: 機密`           | `urn:li:glossaryTerm:classification-機密`         |
+| `classification: A+`             | none: reported as skipped                         |
+
+Create the terms with these ids (for example with a business glossary file) for the
+references to resolve. The source never creates terms: it does not emit the key aspect
+DataHub would otherwise add for a referenced term, and with a DataHub graph available
+(datahub-rest sink) it warns once per term that does not exist. Only property-level
+references are mapped; a business definition at contract or schema level that is not a web
+link is reported as a skipped link.
+
+#### What changes for existing users
+
+There are no new config options. Re-ingesting a contract now adds:
+
+- a freshness assertion per `latency` SLA, referenced from the logical `dataContract`'s
+  `freshness` (with `emit_assertions`, the default);
+- `support` channels as links on the logical dataset;
+- glossary terms on fields, from `classification` and business definitions;
+- a `**Business name:**` section in field descriptions.
+
+Property-level business definitions such as `term:order_line` are no longer reported as
+skipped links. Latency SLAs that cannot be placed or converted, and support channels
+without a link, are now reported.
+
 ### Limitations
 
 - ODCS v3.0, v3.1 and v3.2 only. Contracts reporting v2.x in `apiVersion` are skipped with a
@@ -256,17 +299,31 @@ contract clears it on the next run. An unresolved value leaves the current domai
   file.
 - File loading is capped at 5 MB by default (`max_input_file_bytes`). Larger YAML files
   are skipped with a warning before parsing.
-- Out of scope: SLA (`slaProperties`), `support`, `price`, v3.1 `relationships` (foreign
-  keys), `customProperties` → DataHub `customProperties` (only the `odcs.*` provenance
-  subset is emitted), `classification` → `GlossaryTerm` linking, schemaField-level
+- Out of scope: `price`, `roles`, SLA properties other than `latency`, property
+  `criticalDataElement`, v3.1 `relationships` (foreign keys), `customProperties` → DataHub
+  `customProperties` (only the `odcs.*` provenance subset is emitted), schemaField-level
   `logicalParent` column links, and ODCS export. Spec-valid fields the source does not map
-  are reported once per file as an info and listed in `report.spec_fields_ignored`. Besides
-  whole sections such as SLA, support and price, these include fields the source reads but
-  does not map: `unique`, `primaryKeyPosition`, `partitioned`, `partitionKeyPosition`,
-  `criticalDataElement` and `encryptedName` on properties, `businessName` on schema
-  objects, `contractCreatedTs`, quality-rule `method` / `schedule` / `scheduler`,
-  team-member `dateIn` / `replacedByUsername`, and server `environment` / `location` /
-  `region`. These may land in a follow-up.
+  are reported once per file as an info and listed in `report.spec_fields_ignored`
+  (unmapped SLA properties as `<root>.slaProperties[property=<name>]`). Besides whole
+  sections such as price and roles, these include fields the source reads but does not
+  map: `unique`, `primaryKeyPosition`, `partitioned`, `partitionKeyPosition`,
+  `criticalDataElement`, `encryptedName` and `physicalName` on properties, `businessName`
+  on schema objects, `contractCreatedTs`, quality-rule `method` / `schedule` /
+  `scheduler`, team-member `dateIn` / `replacedByUsername`, server `environment` /
+  `location` / `region`, SLA `valueExt` / `schedule` / `scheduler`, and support
+  `invitationUrl`. These may land in a follow-up.
+- **SLA freshness assertions are declared, not run.** Like the quality-rule assertions, the
+  freshness assertion from a `latency` SLA records the contract's promise on the logical
+  dataset; the SLA's `element` and `driver` are kept in the assertion's `odcs.sla.element`
+  and `odcs.sla.driver` properties. It is placed on a table when its element names the
+  table (`table` or `table.column`), a column of it (by dotted path such as
+  `address.street`, or `physicalName`), or names no table of the contract but a column of
+  that table (`<unknown table>.column`); an SLA without an element applies to every table. A latency SLA
+  that matches no table, cannot be read as a whole interval (`30 s`, `1.5 h`, `PT1H`, bare
+  `m`, values too large for an interval), or repeats an earlier one is reported as a warning,
+  once per contract. The assertion's urn follows the
+  SLA's `id` when it has one. Other SLA properties (retention, frequency, availability, …)
+  are not recorded yet.
 - **Lossy mappings are reported.** Besides the info above: off-spec values that were
   dropped, `${VAR}` references in quality `query` text, `{object}` placeholders on a table
   that is not bound or not found in DataHub, and `physical_urn_overrides` values that are not

@@ -120,14 +120,13 @@ Stopping the shared node interrupts search for every stack using it. Stop stacks
 first. The manager sends SIGTERM, waits for shutdown, and uses SIGKILL only if
 necessary. `start` can also prewarm the node without starting GMS.
 
-An optional `--env-file /path/to/overrides.env` accepts literal `KEY=VALUE` lines,
-optional `export ` prefixes, quoted values, and whole-line comments. There is no
-default env file. The launcher inherits the shell environment, applies this file,
-and then pins its local connection settings. Search URI, credentials, TLS,
-proxy, routing, and per-cluster prefix overrides are neutralised for both GMS
-and upgrades so the embedded node and instance prefix always win. The full
-variable-to-YAML mapping appears in the environment contract below. The generated `gms-N/env.sh` records settings
-that differ from the inherited environment, using shell-safe quoting. It is an
+Service values live in [layered env files](../../env/README.md). `env/common` is
+followed by `env/docker-free`, extension layers, and the optional `--job` folder.
+`--mode local|ci` selects variant files. Repeatable `--env-file [scope:]PATH` applies
+ad-hoc overrides last. The launcher then protects isolated storage, search and auth
+connections. `--print-env` boots nothing and prints redacted values with their source;
+every start writes the same report to `<data-dir>/resolved-env.json`.
+The generated `gms-N/env.sh` records settings that differ from the inherited environment, using shell-safe quoting. It is an
 output file and is never read back automatically.
 
 ## Discovery and authentication

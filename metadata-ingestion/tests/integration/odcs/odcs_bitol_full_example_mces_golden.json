@@ -66,12 +66,23 @@
                     },
                     "nativeDataType": "date",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:classification-public"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "rcvr_id",
                     "nullable": true,
-                    "description": "A description for column rcvr_id.",
+                    "description": "A description for column rcvr_id.\n\n**Business name:** receiver id",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -86,12 +97,23 @@
                             }
                         ]
                     },
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:classification-restricted"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": true
                 },
                 {
                     "fieldPath": "rcvr_cntry_code",
                     "nullable": true,
-                    "description": "Country code",
+                    "description": "Country code\n\n**Business name:** receiver country code",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -99,6 +121,17 @@
                     },
                     "nativeDataType": "varchar(2)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:classification-public"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 }
             ]
@@ -209,6 +242,22 @@
                 {
                     "url": "https://github.com/myorg/myrepo",
                     "description": "transformationImplementation",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:datahub"
+                    }
+                },
+                {
+                    "url": "mailto:datacontract-ann@bitol.io",
+                    "description": "Support: datacontract-ann (email)",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:datahub"
+                    }
+                },
+                {
+                    "url": "https://product-feedback.com",
+                    "description": "Support: Feedback \u2014 General Product Feedback (Public)",
                     "createStamp": {
                         "time": 0,
                         "actor": "urn:li:corpuser:datahub"
@@ -355,6 +404,63 @@
 },
 {
     "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:04e322eb1c18fcf252c7e8188097a8d6",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "53581432-6c55-4ba2-a65f-72344a91553a",
+                "odcs.scope": "schema",
+                "odcs.assertion": "sla-latency",
+                "odcs.sla.element": "tab1.txn_ref_dt"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.tbl,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "DAY",
+                        "multiple": 4
+                    }
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "Latency SLA: 4 d on `tab1.txn_ref_dt`"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:04e322eb1c18fcf252c7e8188097a8d6",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:odcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
     "entityUrn": "urn:li:assertion:45137d08416fbfdb694c9d3b16a03359",
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
@@ -398,12 +504,23 @@
                             },
                             "nativeDataType": "date",
                             "recursive": false,
+                            "glossaryTerms": {
+                                "terms": [
+                                    {
+                                        "urn": "urn:li:glossaryTerm:classification-public"
+                                    }
+                                ],
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub"
+                                }
+                            },
                             "isPartOfKey": false
                         },
                         {
                             "fieldPath": "rcvr_id",
                             "nullable": true,
-                            "description": "A description for column rcvr_id.",
+                            "description": "A description for column rcvr_id.\n\n**Business name:** receiver id",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.StringType": {}
@@ -418,12 +535,23 @@
                                     }
                                 ]
                             },
+                            "glossaryTerms": {
+                                "terms": [
+                                    {
+                                        "urn": "urn:li:glossaryTerm:classification-restricted"
+                                    }
+                                ],
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub"
+                                }
+                            },
                             "isPartOfKey": true
                         },
                         {
                             "fieldPath": "rcvr_cntry_code",
                             "nullable": true,
-                            "description": "Country code",
+                            "description": "Country code\n\n**Business name:** receiver country code",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.StringType": {}
@@ -431,6 +559,17 @@
                             },
                             "nativeDataType": "varchar(2)",
                             "recursive": false,
+                            "glossaryTerms": {
+                                "terms": [
+                                    {
+                                        "urn": "urn:li:glossaryTerm:classification-public"
+                                    }
+                                ],
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub"
+                                }
+                            },
                             "isPartOfKey": false
                         }
                     ]
@@ -480,6 +619,11 @@
             "schema": [
                 {
                     "assertion": "urn:li:assertion:45137d08416fbfdb694c9d3b16a03359"
+                }
+            ],
+            "freshness": [
+                {
+                    "assertion": "urn:li:assertion:04e322eb1c18fcf252c7e8188097a8d6"
                 }
             ],
             "dataQuality": [
@@ -608,7 +752,7 @@
                 {
                     "fieldPath": "id",
                     "nullable": false,
-                    "description": "Unique identifier for receiver",
+                    "description": "Unique identifier for receiver\n\n**Business name:** receiver identifier",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -616,12 +760,23 @@
                     },
                     "nativeDataType": "varchar(18)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:classification-restricted"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": true
                 },
                 {
                     "fieldPath": "country_code",
                     "nullable": false,
-                    "description": "Country code of the receiver",
+                    "description": "Country code of the receiver\n\n**Business name:** receiver country",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -629,6 +784,17 @@
                     },
                     "nativeDataType": "varchar(2)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:classification-public"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": true
                 },
                 {
@@ -642,6 +808,17 @@
                     },
                     "nativeDataType": "varchar(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:classification-restricted"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -655,6 +832,17 @@
                     },
                     "nativeDataType": "varchar(20)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:classification-public"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 }
             ]
@@ -737,6 +925,22 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:datahub"
                     }
+                },
+                {
+                    "url": "mailto:datacontract-ann@bitol.io",
+                    "description": "Support: datacontract-ann (email)",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:datahub"
+                    }
+                },
+                {
+                    "url": "https://product-feedback.com",
+                    "description": "Support: Feedback \u2014 General Product Feedback (Public)",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:datahub"
+                    }
                 }
             ]
         }
@@ -784,7 +988,7 @@
                         {
                             "fieldPath": "id",
                             "nullable": false,
-                            "description": "Unique identifier for receiver",
+                            "description": "Unique identifier for receiver\n\n**Business name:** receiver identifier",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.StringType": {}
@@ -792,12 +996,23 @@
                             },
                             "nativeDataType": "varchar(18)",
                             "recursive": false,
+                            "glossaryTerms": {
+                                "terms": [
+                                    {
+                                        "urn": "urn:li:glossaryTerm:classification-restricted"
+                                    }
+                                ],
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub"
+                                }
+                            },
                             "isPartOfKey": true
                         },
                         {
                             "fieldPath": "country_code",
                             "nullable": false,
-                            "description": "Country code of the receiver",
+                            "description": "Country code of the receiver\n\n**Business name:** receiver country",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.StringType": {}
@@ -805,6 +1020,17 @@
                             },
                             "nativeDataType": "varchar(2)",
                             "recursive": false,
+                            "glossaryTerms": {
+                                "terms": [
+                                    {
+                                        "urn": "urn:li:glossaryTerm:classification-public"
+                                    }
+                                ],
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub"
+                                }
+                            },
                             "isPartOfKey": true
                         },
                         {
@@ -818,6 +1044,17 @@
                             },
                             "nativeDataType": "varchar(255)",
                             "recursive": false,
+                            "glossaryTerms": {
+                                "terms": [
+                                    {
+                                        "urn": "urn:li:glossaryTerm:classification-restricted"
+                                    }
+                                ],
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub"
+                                }
+                            },
                             "isPartOfKey": false
                         },
                         {
@@ -831,6 +1068,17 @@
                             },
                             "nativeDataType": "varchar(20)",
                             "recursive": false,
+                            "glossaryTerms": {
+                                "terms": [
+                                    {
+                                        "urn": "urn:li:glossaryTerm:classification-public"
+                                    }
+                                ],
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub"
+                                }
+                            },
                             "isPartOfKey": false
                         }
                     ]
@@ -960,6 +1208,22 @@
 {
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:45137d08416fbfdb694c9d3b16a03359",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:04e322eb1c18fcf252c7e8188097a8d6",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

@@ -31,6 +31,25 @@ export function gmsTokenPath(username: string): string {
   return path.join(AUTH_DIR, `gms-token-${username}.json`);
 }
 
+const GMS_TOKEN_MIN_REMAINING_MS = 60 * 60 * 1000;
+
+/**
+ * Delete the cached GMS token file for `username` when its token has expired or is about to,
+ * so the next producer mints a fresh one instead of reusing it.
+ */
+export function dropExpiringGmsToken(username: string): void {
+  const tokenFile = gmsTokenPath(username);
+  if (!fs.existsSync(tokenFile)) return;
+  try {
+    const { token } = JSON.parse(fs.readFileSync(tokenFile, 'utf-8')) as { token: string };
+    const { exp } = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf-8')) as { exp?: number };
+    if (exp === undefined || exp * 1000 - Date.now() > GMS_TOKEN_MIN_REMAINING_MS) return;
+  } catch {
+    // An unreadable token file is as useless as an expired one.
+  }
+  fs.rmSync(tokenFile, { force: true });
+}
+
 /**
  * Read the GMS personal access token for `username` from disk.
  *

@@ -6,6 +6,7 @@
     "addDataProductError": "Nem sikerült eszközöket hozzáadni az adattermékhez. Ismeretlen hiba történt.",
     "addDataProductModalTitle": "Eszközök hozzáadása az adattermékhez",
     "addDataProductTooltip": "Eszközök hozzáadása az adattermékhez",
+    "addDataProductUnauthorized": "Nincs jogosultsága eszközök hozzáadásához ehhez az adattermékhez",
     "addDomainError": "Nem sikerült eszközöket hozzáadni a tartományhoz: {{error}}",
     "addDomainModalTitle": "Eszközök hozzáadása a tartományhoz",
     "addDomainTooltip": "Eszközök hozzáadása a tartományhoz",

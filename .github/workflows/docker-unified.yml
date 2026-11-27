@@ -17,79 +17,47 @@ on:
         required: false
         default: "nomic-embed-text"
         type: string
-  push:
-    branches:
-      - master
-      - releases/**
-    paths:
-      - "**"
-      - "!docs/**"
-      - "!**.md"
-      - "!.github/**"
-      - ".github/workflows/docker-unified.yml"
-      - ".github/scripts/send_failed_tests_to_posthog.py"
-      - ".github/scripts/send_smart_selection_to_posthog.py"
-      # Smart-testing classifier, selection and batch planning (pytest wiring).
-      - ".github/smart-testing/**"
-      - "!.github/smart-testing/**.md"
-      - ".github/scripts/docker_helpers.sh"
-      - ".github/scripts/resolve_image_builds.sh"
-      - ".github/scripts/test_resolve_image_builds.sh"
-      - ".github/workflows/resusable-playwright-tests.yml"
-      - ".github/workflows/reusable-playwright-report.yml"
-      - ".github/scripts/plan_playwright_tier.py"
-      - ".github/scripts/split_playwright_tests.py"
-      - ".github/actions/ci-optimization"
-      - ".github/actions/restore-dependency-caches"
-      - ".github/actions/configure-fast-apt-mirror"
-      - ".github/scripts/check_python_package.py"
-      - ".github/scripts/parse_failed_pytest_tests.py"
-      - ".github/scripts/docker_logs.sh"
-      - ".github/actions/smoke-test-retry"
-      - ".github/actions/report-test-results/**"
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches:
-      - "**"
-    paths:
-      - "**"
-      - "!docs/**"
-      - "!**.md"
-      - "!.github/**"
-      - ".github/workflows/docker-unified.yml"
-      - ".github/scripts/send_failed_tests_to_posthog.py"
-      - ".github/scripts/send_smart_selection_to_posthog.py"
-      # Smart-testing classifier, selection and batch planning (pytest wiring).
-      - ".github/smart-testing/**"
-      - "!.github/smart-testing/**.md"
-      - ".github/scripts/docker_helpers.sh"
-      - ".github/scripts/resolve_image_builds.sh"
-      - ".github/scripts/test_resolve_image_builds.sh"
-      - ".github/workflows/resusable-playwright-tests.yml"
-      - ".github/workflows/reusable-playwright-report.yml"
-      - ".github/scripts/plan_playwright_tier.py"
-      - ".github/scripts/split_playwright_tests.py"
-      - ".github/actions/ci-optimization"
-      - ".github/actions/restore-dependency-caches"
-      - ".github/actions/configure-fast-apt-mirror"
-      - ".github/scripts/check_python_package.py"
-      - ".github/scripts/parse_failed_pytest_tests.py"
-      - ".github/scripts/docker_logs.sh"
-      - ".github/actions/smoke-test-retry"
-      - ".github/actions/report-test-results/**"
+  # PRs and pushes reach this workflow through e2e-tests.yml, which classifies
+  # the PR once (smart testing) and passes the classifier's outputs here.
+  workflow_call:
+    inputs:
+      playwright_mode:
+        type: string
+        default: ""
+      smart_tags:
+        type: string
+        default: ""
+      confidence:
+        type: string
+        default: ""
+      failsafe_reason:
+        type: string
+        default: ""
+      reasoning:
+        type: string
+        default: ""
+      changed_files:
+        type: string
+        default: ""
+      proposed_tags:
+        type: string
+        default: ""
+      model:
+        type: string
+        default: ""
+      classifier_duration_s:
+        type: string
+        default: ""
   release:
     types: [published]
 
-concurrency:
-  # Using `github.run_id` (unique val) instead of `github.ref` here
-  # because we don't want to cancel this workflow on master only for PRs
-  #   as that makes reproducing issues easier
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+# No concurrency group: e2e-tests.yml owns PR cancellation, and release and
+# dispatch runs were never grouped. Inside a called workflow github.workflow is
+# the caller's name, so reusing the old group would collide with the parent's.
 
 env:
   DOCKER_REGISTRY: "acryldata"
-  PROFILE_NAME: "${{ github.event.inputs.profileName || 'quickstart-consumers' }}"
+  PROFILE_NAME: "${{ inputs.profileName || 'quickstart-consumers' }}"
 
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
@@ -178,8 +146,8 @@ jobs:
       # variable is 'true'; post-merge pushes -- and the default with the
       # variable unset -- always run the full suite. smoke.sh reads it as
       # SMOKE_TIER. Repository variables don't reach pull requests from forks,
-      # so those always run the full suite (smoke_test_matrix gives them 3
-      # batches).
+      # so those always run the full suite (smoke_test_matrix gives them
+      # FORK_BATCH_COUNT batches).
       #
       # The `run-all-tests` label (both suites) or `run-all-tests:pytest` (pytest
       # only) opts a single PR back into the whole suite, for
@@ -193,6 +161,8 @@ jobs:
       #
       # This is the default tier only: smoke_test_matrix owns the final tier
       # (its smoke_tier output) and replaces it under active smart testing.
+      # e2e-tests.yml's setup copies this and smoke_changed_tests for the
+      # Docker-free lane; keep them in step.
       smoke_tier: >-
         ${{
           (github.event_name == 'pull_request'
@@ -411,7 +381,7 @@ jobs:
         id: set-playwright-matrix
         if: ${{ steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
         run: |
-          shard_count=$(( ${{ github.event.inputs.playwright_shard_count || env.PLAYWRIGHT_SHARD_COUNT }} ))
+          shard_count=$(( ${{ inputs.playwright_shard_count || env.PLAYWRIGHT_SHARD_COUNT }} ))
           matrix=''
           for i in $(seq 1 "$shard_count"); do
             if [[ -n "$matrix" ]]; then
@@ -653,157 +623,13 @@ jobs:
               await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
 
-  # Classifies the PR into taxonomy tags (smart testing) once, for both suites:
-  # smoke_test_matrix plans pytest batches from them and playwright_plan the
-  # Playwright tier. Every step is continue-on-error because pytest_tests gates on
-  # !failure(), which counts every ancestor job: a failure here must never turn
-  # into skipped tests. No smart_tags output means each suite's fail-safe.
-  classify_pr:
-    name: Classify PR for smart testing
-    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
-    needs: [setup]
-    if: ${{ always() && needs.setup.result == 'success' && github.event_name == 'pull_request' }}
-    # Job-level permissions replace the workflow's, so restate them and add
-    # pull-requests: read for classify_pr.py's compare API call.
-    permissions:
-      contents: read
-      id-token: write
-      actions: read
-      pull-requests: read
-    outputs:
-      # The Playwright tier's smart testing mode: off, or shadow when the PR is
-      # eligible. smoke_test_matrix resolves the pytest mode (SMART_TESTING_MODE)
-      # itself.
-      playwright_mode: ${{ steps.resolve-mode.outputs.playwright_mode || 'off' }}
-      smart_tags: ${{ steps.smart-testing.outputs.smart_tags }}
-      confidence: ${{ steps.smart-testing.outputs.confidence }}
-      failsafe_reason: ${{ steps.smart-testing.outputs.failsafe_reason }}
-      reasoning: ${{ steps.smart-testing.outputs.reasoning }}
-      changed_files: ${{ steps.smart-testing.outputs.changed_files }}
-      proposed_tags: ${{ steps.smart-testing.outputs.proposed_tags }}
-      model: ${{ steps.smart-testing.outputs.model }}
-      classifier_duration_s: ${{ steps.smart-testing.outputs.classifier_duration_s }}
-    steps:
-      - name: Resolve smart testing mode
-        id: resolve-mode
-        continue-on-error: true
-        # Each suite has its own mode. pytest's is off | shadow | active from the
-        # SMART_TESTING_MODE repo var (shadow when unset). Playwright's is shadow
-        # only: its selection is reported but never applied until it has a
-        # baseline for untagged specs, so going active is a change here. Forks get
-        # no OIDC token or secrets for Claude auth, and the run-all-tests label opts
-        # the PR out entirely. Each
-        # suite's own label (run-all-tests:pytest, run-all-tests:playwright) opts
-        # out only that suite, and a PR is classified only when some suite's mode
-        # is on. The pytest condition is a superset of smoke_test_matrix's
-        # run_pytest, so a PR whose pytest batches use tags always has them.
-        env:
-          PYTEST_OPT_OUT: ${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests:pytest') }}
-          PLAYWRIGHT_OPT_OUT: ${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests:playwright') }}
-          PLAYWRIGHT_MATRIX: ${{ needs.setup.outputs.playwright_matrix }}
-        run: |
-          eligible=false
-          if [[ "${{ env.IS_FORK }}" != 'true' \
-                && "${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}" != 'true' ]]; then
-            eligible=true
-          fi
-
-          pytest_mode=off
-          if [[ "$eligible" == 'true' && "$PYTEST_OPT_OUT" != 'true' ]] && [[ "${{ needs.setup.outputs.backend_change }}" == 'true' \
-                || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' \
-                || "${{ needs.setup.outputs.ingestion_only }}" == 'true' \
-                || "${{ needs.setup.outputs.pytest_workflow_change }}" == 'true' ]]; then
-            pytest_mode="${{ vars.SMART_TESTING_MODE || 'shadow' }}"
-          fi
-          playwright_mode=off
-          if [[ "$eligible" == 'true' && "$PLAYWRIGHT_OPT_OUT" != 'true' && -n "$PLAYWRIGHT_MATRIX" && "$PLAYWRIGHT_MATRIX" != '{"include":[]}' ]]; then
-            playwright_mode=shadow
-          fi
-          # Classify when either suite uses the tags (shadow or active).
-          run_classifier=false
-          if [[ "$pytest_mode" != 'off' || "$playwright_mode" != 'off' ]]; then
-            run_classifier=true
-          fi
-
-          echo "Smart testing: run_classifier=$run_classifier pytest=$pytest_mode playwright=$playwright_mode"
-          {
-            echo "run_classifier=$run_classifier"
-            echo "pytest_mode=$pytest_mode"
-            echo "playwright_mode=$playwright_mode"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Check out the repo
-        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
-        continue-on-error: true
-        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-
-      - name: Set up Python
-        uses: ./.github/actions/setup-toolchain
-        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
-        continue-on-error: true
-        with:
-          java: false
-          gradle: false
-
-      # Claude Workload Identity Federation: the SDK exchanges this GitHub OIDC
-      # JWT for a short-lived token, so no static API key is stored. The JWT
-      # expires ~5 minutes after issuance, so fetch it right before the
-      # classifier runs.
-      - name: Fetch Claude identity token
-        id: claude-identity
-        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
-        continue-on-error: true
-        uses: ./.github/actions/claude-identity-token
-
-      - name: Smart Testing Selection
-        id: smart-testing
-        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
-        # No smart_tags output means each suite's fail-safe (active) or no
-        # shadow comparison (shadow).
-        continue-on-error: true
-        env:
-          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
-          # SDK's credential resolution and would silently shadow WIF.
-          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
-          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
-          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
-          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
-          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity.outputs.token_file }}
-          # The classifier reads the PR's own changes (merge-base diff) from
-          # the compare API, not ci-optimize's changed-files-path: that is a
-          # two-dot diff against the base tip and grows as the base moves on.
-          GH_TOKEN: ${{ github.token }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
-        run: |
-          pip install --quiet -r .github/smart-testing/requirements.txt
-          python .github/smart-testing/classify_pr.py 2>&1 | tee /tmp/smart-testing-log.txt
-          {
-            echo "## Smart Testing Selection (pytest: ${{ steps.resolve-mode.outputs.pytest_mode }}, Playwright: ${{ steps.resolve-mode.outputs.playwright_mode }})"
-            echo ""
-            echo '```'
-            grep '^\[smart-testing\]' /tmp/smart-testing-log.txt || echo "No output"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload smart testing selection artifact
-        # Upload on failure too: that is when the log matters most.
-        if: ${{ steps.smart-testing.outcome != 'skipped' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        continue-on-error: true
-        with:
-          name: smart-testing-selection
-          path: /tmp/smart-testing-log.txt
-          retention-days: 7
-
-  # Owns pytest smoke selection end to end from classify_pr's tags (smart
+  # Owns pytest smoke selection end to end from e2e-tests.yml classify_pr's tags (smart
   # testing): the final tier and the batch matrix. Under active smart testing it also
   # plans which scopes each batch runs (pytest-smoke-plan artifact), sized so
   # the selected set needs only as many batches as it fills.
   smoke_test_matrix:
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
-    needs: [setup, classify_pr]
+    needs: [setup]
     if: ${{ always() && needs.setup.result == 'success' }}
     outputs:
       pytest_matrix: ${{ steps.set-matrix.outputs.pytest_matrix }}
@@ -814,7 +640,7 @@ jobs:
       # The plan step writes selection before smoke.sh runs, so a failed plan
       # still sets it; the outcome check is what drops it.
       smart_selection: ${{ steps.plan.outcome == 'success' && steps.plan.outputs.selection || '' }}
-      smart_confidence: ${{ needs.classify_pr.outputs.confidence }}
+      smart_confidence: ${{ inputs.confidence }}
       # 'true' when pytest_tests must download pytest-smoke-plan and run only
       # the scopes planned for its batch.
       batch_plan: ${{ steps.set-matrix.outputs.batch_plan }}
@@ -833,6 +659,8 @@ jobs:
             mode="${{ vars.SMART_TESTING_MODE || 'shadow' }}"
           fi
 
+          # e2e-tests.yml's setup copies this run_pytest (PR values) to start the
+          # Docker-free lane; keep them in step.
           run_pytest=false
           if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
             run_pytest=true
@@ -910,7 +738,11 @@ jobs:
         env:
           RUN_QUICKSTART: "false"
           TEST_STRATEGY: plan
-          SMOKE_SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
+          # The stack the batches run on (smoke-test/utilities/backends.py).
+          # The plan records it, and a batch job with a different value stops
+          # rather than running another lane's selection.
+          SMOKE_BACKEND: docker
+          SMOKE_SMART_TAGS: ${{ inputs.smart_tags }}
           SMOKE_CHANGED_TESTS: ${{ needs.setup.outputs.smoke_changed_tests }}
           SMOKE_DUMP_BATCH_PLAN: ${{ github.workspace }}/pytest-smoke-plan/pytest-smoke-plan.json
           # Recorded in the plan so a later reader can tell an applied plan
@@ -942,20 +774,27 @@ jobs:
           PLAN_TIER: ${{ steps.plan.outputs.smoke_tier }}
           PLAN_SELECTION: ${{ steps.plan.outputs.selection }}
           PLAN_FILE: pytest-smoke-plan/pytest-smoke-plan.json
-          SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
+          SMART_TAGS: ${{ inputs.smart_tags }}
           DEFAULT_TIER: ${{ needs.setup.outputs.smoke_tier }}
           # Fixed matrices for runs the planner does not size. Sized the way the
           # planner sizes (shard_pack.size_batches): the fewest batches whose
           # pytest time stays under its 8 min target, measured on CI runs from
           # 2026-11-18. The full suite is ~27 min of pytest time and packs into
-          # 5 batches of ~5.4 min; p0 is ~10 min and packs into 2 of ~5 min (1
-          # would overshoot, and conftest adds the PR's changed test modules to
-          # p0). Each batch also pays ~5 min of fixed cost (setup, image pull,
-          # quickstart), so extra batches add runner time faster than they cut
-          # wall clock. Re-check both counts when test times change a lot
-          # (smoke-test/README.md, "Simulate batch packing").
-          P0_BATCH_COUNT: "2"
+          # 5 batches of ~5.4 min. Each batch also pays ~5 min of fixed cost
+          # (setup, image pull, quickstart), so extra batches add runner time
+          # faster than they cut wall clock. That trade suits pushes, where
+          # compute matters more than wall clock. p0 only runs on pull requests,
+          # so it gets 3 batches of ~2.8 min predicted instead of the 2 of ~4.2
+          # that would fit: the slowest PR batch took ~8.5-9 min at 2. Re-check both
+          # counts when test times change a lot (smoke-test/README.md,
+          # "Simulate batch packing").
+          P0_BATCH_COUNT: "3"
           FULL_BATCH_COUNT: "5"
+          # Pull requests from forks run the full suite (repository variables
+          # don't reach them) on GitHub-hosted runners that build the images in
+          # every batch (~12 min). Matching the push count keeps pytest itself
+          # at ~5.5 min a batch instead of ~8.5 at 3.
+          FORK_BATCH_COUNT: "5"
         run: |
           emit_matrix() {
             local count=$1 items=""
@@ -990,7 +829,7 @@ jobs:
             tags=''
             emit_matrix "$P0_BATCH_COUNT"
           elif [[ "${{ env.IS_FORK }}" == 'true' ]]; then
-            emit_matrix 3
+            emit_matrix "$FORK_BATCH_COUNT"
           elif [[ "$tier" == 'p0' ]]; then
             emit_matrix "$P0_BATCH_COUNT"
           else
@@ -1014,11 +853,11 @@ jobs:
         continue-on-error: true
         env:
           SMART_MODE: ${{ steps.resolve-mode.outputs.mode }}
-          SMART_CONFIDENCE: ${{ needs.classify_pr.outputs.confidence }}
-          FAILSAFE_REASON: ${{ needs.classify_pr.outputs.failsafe_reason }}
-          SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
-          SMART_REASONING: ${{ needs.classify_pr.outputs.reasoning }}
-          CHANGED_FILES: ${{ needs.classify_pr.outputs.changed_files }}
+          SMART_CONFIDENCE: ${{ inputs.confidence }}
+          FAILSAFE_REASON: ${{ inputs.failsafe_reason }}
+          SMART_TAGS: ${{ inputs.smart_tags }}
+          SMART_REASONING: ${{ inputs.reasoning }}
+          CHANGED_FILES: ${{ inputs.changed_files }}
           SMART_SELECTION: ${{ steps.plan.outcome == 'success' && steps.plan.outputs.selection || '' }}
           SELECTION_APPLIED: ${{ steps.set-matrix.outputs.selection }}
           PLAN_OUTCOME: ${{ steps.plan.outcome }}
@@ -1046,6 +885,7 @@ jobs:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
           TEST_FRAMEWORK: pytest
+          TEST_LANE: docker
           HEAD_BRANCH: ${{ github.head_ref }}
           BASE_BRANCH: ${{ github.base_ref }}
           # The PR head, not github.sha (the merge ref): the post-merge check
@@ -1053,12 +893,12 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           SMART_MODE: ${{ steps.resolve-mode.outputs.mode }}
-          SMART_CONFIDENCE: ${{ needs.classify_pr.outputs.confidence }}
-          FAILSAFE_REASON: ${{ needs.classify_pr.outputs.failsafe_reason }}
-          SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
-          PROPOSED_TAGS: ${{ needs.classify_pr.outputs.proposed_tags }}
-          SMART_MODEL: ${{ needs.classify_pr.outputs.model }}
-          CLASSIFIER_DURATION_S: ${{ needs.classify_pr.outputs.classifier_duration_s }}
+          SMART_CONFIDENCE: ${{ inputs.confidence }}
+          FAILSAFE_REASON: ${{ inputs.failsafe_reason }}
+          SMART_TAGS: ${{ inputs.smart_tags }}
+          PROPOSED_TAGS: ${{ inputs.proposed_tags }}
+          SMART_MODEL: ${{ inputs.model }}
+          CLASSIFIER_DURATION_S: ${{ inputs.classifier_duration_s }}
           SMART_SELECTION: ${{ steps.plan.outcome == 'success' && steps.plan.outputs.selection || '' }}
           SELECTION_APPLIED: ${{ steps.set-matrix.outputs.selection }}
           PLAN_OUTCOME: ${{ steps.plan.outcome }}
@@ -1536,6 +1376,8 @@ jobs:
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           CLEANUP_DATA: "false"
           TEST_STRATEGY: pytests
+          # Must match the plan step in smoke_test_matrix.
+          SMOKE_BACKEND: docker
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
           # 'p0' or 'full' -- decided by smoke_test_matrix.
@@ -1662,7 +1504,7 @@ jobs:
             --posthog-api-key "$POSTHOG_API_KEY" \
             --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
             --repository "${{ github.repository }}" \
-            --workflow-name "${{ github.workflow }}" \
+            --workflow-name "Docker Build, Scan, Test" \
             --branch "${GH_HEAD_REF}" \
             --run-id "${{ github.run_id }}" \
             --run-attempt "${{ github.run_attempt }}" \
@@ -1706,7 +1548,7 @@ jobs:
     # which is what replaces the standalone workflow's nightly cron.
     if: ${{ always() && !failure() && !cancelled() && needs.setup.outputs.embedding_ai_change == 'true' }}
     env:
-      LOCAL_EMBEDDING_MODEL: ${{ github.event.inputs.embedding_model || 'nomic-embed-text' }}
+      LOCAL_EMBEDDING_MODEL: ${{ inputs.embedding_model || 'nomic-embed-text' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -1974,10 +1816,10 @@ jobs:
   # Playwright P0 tier on PRs: works out which tests the PR needs (every @p0 test,
   # plus the tests Playwright's --only-changed says the change affects, plus the specs
   # seeding from changed fixture data) with plan_playwright_tier.py, and falls back
-  # to the full suite when a change can't be mapped. Smart testing runs in shadow
-  # (see classify_pr): the plan also records the specs tagged with the PR's
-  # features, which would replace the @p0 tests once active, without running
-  # them. The tier is used when the PLAYWRIGHT_P0_SMOKE repo variable is "true"
+  # to the full suite when a change can't be mapped. With smart testing active
+  # (see classify_pr in e2e-tests.yml), the specs tagged with the PR's features replace the @p0
+  # tests; in shadow the plan only records them, without running them. The tier
+  # is used when the PLAYWRIGHT_P0_SMOKE repo variable is "true"
   # and the PR has neither run-all-tests nor run-all-tests:playwright; otherwise
   # the full suite runs and the plan is only reported (shadow mode; the report
   # job checks it for escapes). If this job fails, playwright_test runs the full
@@ -1985,7 +1827,7 @@ jobs:
   playwright_plan:
     name: Plan Playwright P0 tier
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-24.04' }}
-    needs: [setup, classify_pr]
+    needs: [setup]
     # always(): setup's own needs are often skipped, and a bare condition implies
     # success() over every ancestor. Not !failure(): without classify_pr's tags
     # the plan still runs the P0 tier.
@@ -2030,10 +1872,10 @@ jobs:
         id: plan
         env:
           SUITE_MATRIX: ${{ needs.setup.outputs.playwright_matrix }}
-          # off | shadow, from classify_pr, which turns it off for forks and the
+          # off | shadow | active, from classify_pr in e2e-tests.yml, which turns it off for forks and the
           # run-all-tests and run-all-tests:playwright labels.
-          SMART_MODE: ${{ needs.classify_pr.outputs.playwright_mode || 'off' }}
-          SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
+          SMART_MODE: ${{ inputs.playwright_mode || 'off' }}
+          SMART_TAGS: ${{ inputs.smart_tags }}
           # The tier is on via the PLAYWRIGHT_P0_SMOKE repo variable; run-all-tests (both
           # suites) or run-all-tests:playwright turns it off for a single PR.
           TIER_REQUESTED: >-
@@ -2064,23 +1906,24 @@ jobs:
       - name: Send smart selection telemetry to PostHog
         # One ci_smart_selection event per attempt for Playwright, as
         # smoke_test_matrix sends for pytest. Telemetry only: never fails the job.
-        if: ${{ always() && needs.classify_pr.outputs.playwright_mode != '' && needs.classify_pr.outputs.playwright_mode != 'off' }}
+        if: ${{ always() && inputs.playwright_mode != '' && inputs.playwright_mode != 'off' }}
         continue-on-error: true
         env:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
           TEST_FRAMEWORK: playwright
+          TEST_LANE: docker
           HEAD_BRANCH: ${{ github.head_ref }}
           BASE_BRANCH: ${{ github.base_ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          SMART_MODE: ${{ needs.classify_pr.outputs.playwright_mode }}
-          SMART_CONFIDENCE: ${{ needs.classify_pr.outputs.confidence }}
-          FAILSAFE_REASON: ${{ needs.classify_pr.outputs.failsafe_reason }}
-          SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
-          PROPOSED_TAGS: ${{ needs.classify_pr.outputs.proposed_tags }}
-          SMART_MODEL: ${{ needs.classify_pr.outputs.model }}
-          CLASSIFIER_DURATION_S: ${{ needs.classify_pr.outputs.classifier_duration_s }}
+          SMART_MODE: ${{ inputs.playwright_mode }}
+          SMART_CONFIDENCE: ${{ inputs.confidence }}
+          FAILSAFE_REASON: ${{ inputs.failsafe_reason }}
+          SMART_TAGS: ${{ inputs.smart_tags }}
+          PROPOSED_TAGS: ${{ inputs.proposed_tags }}
+          SMART_MODEL: ${{ inputs.model }}
+          CLASSIFIER_DURATION_S: ${{ inputs.classifier_duration_s }}
           # What smart testing chose (the shadow selection in shadow mode) and what ran.
           SMART_SELECTION: ${{ steps.plan.outputs.smart_selection }}
           SELECTION_APPLIED: ${{ steps.plan.outputs.run_mode }}
@@ -2135,6 +1978,8 @@ jobs:
       docker_login: ${{ needs.setup.outputs.docker-login }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
       send_posthog_metrics: true
+      # Keeps this lane's failure events apart from other lanes run under E2E Tests.
+      workflow_name: "Docker Build, Scan, Test"
       # Opt in to 2 workers on first attempt; fall back to 1 on re-runs for stability.
       workers_per_shard: ${{ github.run_attempt > 1 && '1' || '2' }}
       # P0 or smart tier: each shard packs the plan's tests into a --test-list; empty runs every spec.

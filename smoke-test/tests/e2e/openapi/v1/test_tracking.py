@@ -27,6 +27,7 @@ from dotenv import load_dotenv
 
 from tests.e2e.utils import get_kafka_broker_url, with_test_retry
 from utilities import env_vars
+from utilities.backends import Capability
 from utilities.domains import Domain
 from utilities.messaging_transport import is_pgqueue_transport
 
@@ -230,6 +231,7 @@ def _assert_tracking_event_in_elasticsearch(unique_id: str) -> None:
     assert event.get("customField") == unique_id
 
 
+@pytest.mark.requires(Capability.KAFKA)
 def test_tracking_api_kafka(auth_session):
     """Test that we can post events to the tracking endpoint and verify they are sent to Kafka (DUE)."""
     if is_pgqueue_transport(auth_session):

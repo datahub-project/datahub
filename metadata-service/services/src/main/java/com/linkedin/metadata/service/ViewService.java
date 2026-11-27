@@ -11,7 +11,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DataHubViewKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
@@ -178,15 +177,15 @@ public class ViewService extends BaseService {
   public void deleteView(@Nonnull OperationContext opContext, @Nonnull Urn viewUrn) {
     try {
       final var references =
-          this.entityClient.deleteEntityThenReferences(
+          this.entityClient.deleteReferencesThenEntity(
               opContext, Objects.requireNonNull(viewUrn, "viewUrn must not be null"));
 
-      // Asynchronously delete all references to the entity (to return quickly)
+      // The entity is already gone. This removes the remaining references.
       CompletableFuture.runAsync(
           () -> {
             try {
               references.run();
-            } catch (RemoteInvocationException e) {
+            } catch (Exception e) {
               log.error(
                   String.format(
                       "Caught exception while attempting to clear all entity references for view with urn %s",

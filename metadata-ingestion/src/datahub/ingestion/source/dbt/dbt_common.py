@@ -783,7 +783,9 @@ class DBTCommonConfig(
     )
     prefer_sql_parser_lineage: bool = Field(
         default=False,
-        description="Normally we use dbt's metadata to generate table lineage. When enabled, we prefer results from the SQL parser when generating lineage instead. "
+        description="Normally we use dbt's metadata to generate table lineage. When enabled, the SQL parser's table and column lineage replaces dbt's lineage for each model it parses. "
+        "If the parser reports a table-level error, dbt's table lineage is used instead and no column lineage is emitted for that model. "
+        "Models without a usable parser result (for example when `include_column_lineage` is disabled, compiled code is missing, or the model depends on ephemeral models) keep dbt's lineage. "
         "This can be useful when dbt models reference tables directly, instead of using the ref() macro. "
         "This requires that `skip_sources_in_lineage` is enabled.",
     )

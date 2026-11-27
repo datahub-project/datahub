@@ -1082,7 +1082,7 @@ def generate_lineage_doc(platforms: Dict[str, Platform]) -> None:
 # Automatic Lineage Extraction
 
 DataHub supports **[automatic table- and column-level lineage detection](#automatic-lineage-extraction-support)** from BigQuery, Snowflake, dbt, Looker, PowerBI, and 20+ modern data tools. 
-For data tools with limited native lineage tracking, [**DataHub's SQL Parser**](../../lineage/sql_parsing.md) detects lineage with 97-99% accuracy, ensuring teams will have high quality lineage graphs across all corners of their data stack.
+For data tools with limited native lineage tracking, [**DataHub's SQL Parser**](../../lineage/sql_parsing.md) generates lineage for 97-99% of queries in our benchmarks (lineage coverage; correctness is tested separately), ensuring teams will have high quality lineage graphs across all corners of their data stack.
 
 ## Types of Lineage Connections
 
@@ -1185,7 +1185,7 @@ we have a SQL queries connector that generates column-level lineage and detailed
 
 If these does not suit your needs, you can use the new `DataHubGraph.parse_sql_lineage()` method in our SDK. (See the source code [here](https://docs.datahub.com/docs/python-sdk/clients/graph-client))
 
-For more information, refer to the [Extracting Column-Level Lineage from SQL](https://blog.datahubproject.io/extracting-column-level-lineage-from-sql-779b8ce17567) 
+For more information, refer to the [Extracting Column-Level Lineage from SQL](https://datahub.com/blog/extracting-column-level-lineage-from-sql/) 
 
 
 :::tip Our Roadmap

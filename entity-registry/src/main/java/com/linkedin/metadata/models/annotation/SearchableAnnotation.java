@@ -501,8 +501,8 @@ public class SearchableAnnotation {
     if (copyToOther && !canCopyToOther(resolvedFieldType)) {
       throw new ModelValidationException(
           String.format(
-              "Failed to validate @%s annotation declared at %s: v3.copyToOther requires a string"
-                  + " or URN field, but fieldType is %s",
+              "Failed to validate @%s annotation declared at %s: v3.copyToOther requires a string,"
+                  + " rich text, or URN field, but fieldType is %s",
               ANNOTATION_NAME, context, resolvedFieldType));
     }
     final Optional<Boolean> sourceIndex = sourceFlag(v3Overlay, "index", context);
@@ -604,6 +604,7 @@ public class SearchableAnnotation {
         || fieldType == FieldType.TEXT
         || fieldType == FieldType.TEXT_PARTIAL
         || fieldType == FieldType.WORD_GRAM
+        || fieldType == FieldType.RICH_TEXT
         || fieldType == FieldType.URN
         || fieldType == FieldType.URN_PARTIAL;
   }

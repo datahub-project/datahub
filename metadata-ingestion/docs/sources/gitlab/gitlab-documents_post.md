@@ -8,7 +8,8 @@ source:
   config:
     gitlab_token: "${GITLAB_TOKEN}"
     base_url: https://gitlab.example.com
-    repository: data-platform/analytics/handbook
+    repositories:
+      - data-platform/analytics/handbook
     branch: main
     path_prefix: docs
     parent_document_urn: "urn:li:document:context-handbook"
@@ -29,13 +30,43 @@ source:
   type: gitlab-documents
   config:
     gitlab_token: "${GITLAB_TOKEN}"
-    repository: https://gitlab.com/example-group/analytics
+    repositories:
+      - https://gitlab.com/example-group/analytics
     document_import_mode: EXTERNAL
     stateful_ingestion:
       enabled: true
 ```
 
 Documents link back to the file in GitLab (`<project URL>/-/blob/<branch>/<path>`), and folder documents link to the folder (`/-/tree/`).
+
+#### Several projects from one source
+
+Set `repositories` to name projects, `group` to ingest every project in a group, or both. `repository`, which names a single project, is deprecated and still works. Move it into `repositories`.
+
+```yaml
+source:
+  type: gitlab-documents
+  config:
+    gitlab_token: "${GITLAB_GROUP_TOKEN}"
+    group: data-platform/analytics
+    include_subgroups: true
+    project_pattern:
+      deny:
+        - "data-platform/analytics/archive-.*"
+    repositories:
+      - data-platform/handbook
+    path_prefix: docs
+    parent_document_urn: "urn:li:document:context-handbook"
+    stateful_ingestion:
+      enabled: true
+```
+
+- Each project gets its own root document, named after the project and nested under `parent_document_urn` when one is set. Every other option, such as `path_prefix`, `file_extensions` and `max_files`, applies to each project separately.
+- `project_pattern` matches the full path of projects found through `group`. Projects listed in `repositories` are always ingested.
+- Archived projects, and projects shared into the group from elsewhere, are not ingested. Set `include_archived: true` to include archived ones.
+- `branch` is each project's default branch unless you set it. If you set it, every project is read from that branch, and a project without it is skipped.
+- A group is read up to `max_projects` projects (default 100) per run. Only projects that `project_pattern` allows count toward it. `include_subgroups`, `include_archived`, `project_pattern` and `max_projects` only apply with `group`, and setting them without it is a config error.
+- If a project cannot be imported, it is skipped with a `Repository skipped` warning and the other projects are imported. The run fails only when no project could be imported. If the group cannot be listed, the projects named in `repository` or `repositories` are still imported, with a `Group projects not listed` warning. A skipped project, a group larger than `max_projects`, or a group that returns no projects keep the documents earlier runs imported: nothing is removed during that run, including files deleted in other projects, until a run completes without them.
 
 #### Shared behaviour with `github-documents`
 
@@ -58,7 +89,8 @@ source:
   config:
     gitlab_token: "${GITLAB_TOKEN}"
     base_url: https://gitlab.example.com
-    repository: data/platform.docs
+    repositories:
+      - data/platform.docs
     platform_instance: self-managed
 ```
 
@@ -71,7 +103,7 @@ The source resolves the branch head once and reads the tree and files at that co
 - Maximum file size is 1 MB per file. Larger files are skipped with a `Repository file not read` warning.
 - Requires network access from the ingestion executor to the GitLab instance.
 - Binary formats are not parsed; use text/markdown files.
-- Imports are capped by `max_files` (default 500) per run.
+- Imports are capped by `max_files` (default 500) per project and run.
 - Document IDs are built from the project path. Without `platform_instance`, two sources whose projects produce the same IDs overwrite each other's documents. See [Several GitLab instances or overlapping project paths](#several-gitlab-instances-or-overlapping-project-paths).
 - Changes made in DataHub are not written back to GitLab.
 
@@ -79,7 +111,9 @@ The source resolves the branch head once and reads the tree and files at that co
 
 - **404 from GitLab**: GitLab answers 404, not 403, for private projects the token cannot see. Check the project path (including subgroups), the branch name, and that the token's user or bot is a project member.
 - **401 / 403 from GitLab**: Verify the token has not expired and has the `read_api` scope. Project and group tokens need at least the Reporter role.
-- **Wrong instance**: When `repository` is a URL and `base_url` is also set, the URL must be on that instance.
+- **`Repository skipped` warning**: The warning names the project and the reason. `No default branch` means the project is empty, or the token's role is below Reporter and cannot read its repository. Exclude empty projects with `project_pattern`, or raise the token's role.
+- **No projects found in the group**: Check the group path and that the token can list the group's projects. A project access token only sees its own project; use a group access token.
+- **Wrong instance**: When a project in `repositories` is a URL and `base_url` is also set, the URL must be on that instance.
 - **No files imported**: Check `path_prefix` and `file_extensions` filters.
 - **`Repository file not read` warnings**: The file could not be downloaded, was too large, or was not text. A file that failed to download keeps its previous import, so a temporary GitLab error does not remove the document.
 - **`Repository tree truncated` warning**: GitLab returned a full page of the project tree without pagination headers, and a follow-up request showed more entries exist. This usually means a proxy stripped the headers. If the follow-up request failed, the warning's context includes the API error. The run imports what it listed and skips stale document removal, so nothing is deleted. Let the executor reach the GitLab API directly.

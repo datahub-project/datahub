@@ -185,7 +185,7 @@ export default function GithubStarSlide() {
                                 <StarHighlightInner>
                                     <GithubStarLink
                                         starCount={starCount}
-                                        source="welcomeModal"
+                                        sourceType="welcomeModal"
                                         dataTestId="welcome-modal-github-star-button"
                                     />
                                 </StarHighlightInner>

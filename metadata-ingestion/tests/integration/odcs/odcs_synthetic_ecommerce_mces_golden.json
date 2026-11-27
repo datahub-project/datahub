@@ -86,6 +86,17 @@
                             }
                         ]
                     },
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:classification-confidential"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -249,6 +260,17 @@
                                         "tag": "urn:li:tag:pii"
                                     }
                                 ]
+                            },
+                            "glossaryTerms": {
+                                "terms": [
+                                    {
+                                        "urn": "urn:li:glossaryTerm:classification-confidential"
+                                    }
+                                ],
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub"
+                                }
                             },
                             "isPartOfKey": false
                         },

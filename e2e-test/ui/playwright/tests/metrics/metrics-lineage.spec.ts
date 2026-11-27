@@ -44,7 +44,7 @@ test.describe('Metrics lineage topologies', () => {
     await lineagePage.waitForGraphToRender();
   }
 
-  test('semantic model root draws members inside a bounding box', async () => {
+  test('semantic model root draws members inside a bounding box', { tag: [DomainTag.Catalog] }, async () => {
     await loadLineageGraph('semanticModel', SEMANTIC_MODEL_ORDERS_URN);
 
     await expect(lineagePage.getPrimaryNode(SEMANTIC_MODEL_ORDERS_URN)).toBeVisible({
@@ -55,7 +55,7 @@ test.describe('Metrics lineage topologies', () => {
     await lineagePage.checkNodeExists(TOTAL_REVENUE_URN);
   });
 
-  test('expanding a semantic model member reveals physical and BI lineage', async () => {
+  test('expanding a semantic model member reveals physical and BI lineage', { tag: [DomainTag.Catalog] }, async () => {
     test.setTimeout(90000);
     // Confirm the member is present on the Semantic Model bounding-box graph, then open the
     // member as lineage home. Default 1-hop already surfaces physical upstream + chart;
@@ -91,7 +91,7 @@ test.describe('Metrics lineage topologies', () => {
     },
   );
 
-  test('derived metric shows base metric lineage', async () => {
+  test('derived metric shows base metric lineage', { tag: [DomainTag.Catalog] }, async () => {
     await loadLineageGraph('metric', DOUBLE_REVENUE_URN);
 
     await lineagePage.checkNodeExists(DOUBLE_REVENUE_URN);
@@ -102,7 +102,7 @@ test.describe('Metrics lineage topologies', () => {
     await lineagePage.checkEdgeExists(ORDERS_LOGICAL_URN, DOUBLE_REVENUE_URN);
   });
 
-  test('standalone metric links directly to a physical dataset', async () => {
+  test('standalone metric links directly to a physical dataset', { tag: [DomainTag.Catalog] }, async () => {
     await loadLineageGraph('metric', STANDALONE_EVENT_COUNT_URN);
 
     await lineagePage.checkNodeExists(STANDALONE_EVENT_COUNT_URN);
@@ -110,36 +110,40 @@ test.describe('Metrics lineage topologies', () => {
     await lineagePage.checkEdgeExists(PHYS_STANDALONE_URN, STANDALONE_EVENT_COUNT_URN);
   });
 
-  test('hovering and selecting a metric highlights the columns it reads and draws arrows to it', async ({ page }) => {
-    // total_revenue reads orders_ds.amount (metricUpstreams.fieldUpstreams). Hovering the metric
-    // must surface that column and draw a column -> metric arrow, as hovering a column does;
-    // selecting the metric must keep them once the pointer leaves.
-    await loadLineageGraph('metric', TOTAL_REVENUE_URN);
-    await lineagePage.checkNodeExists(ORDERS_LOGICAL_URN);
-    // The minimap floats over the bottom-right of the canvas and can intercept pointer events
-    await page.addStyleTag({ content: '.react-flow__minimap { pointer-events: none !important; }' });
-    await lineagePage.waitForViewportToSettle();
+  test(
+    'hovering and selecting a metric highlights the columns it reads and draws arrows to it',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      // total_revenue reads orders_ds.amount (metricUpstreams.fieldUpstreams). Hovering the metric
+      // must surface that column and draw a column -> metric arrow, as hovering a column does;
+      // selecting the metric must keep them once the pointer leaves.
+      await loadLineageGraph('metric', TOTAL_REVENUE_URN);
+      await lineagePage.checkNodeExists(ORDERS_LOGICAL_URN);
+      // The minimap floats over the bottom-right of the canvas and can intercept pointer events
+      await page.addStyleTag({ content: '.react-flow__minimap { pointer-events: none !important; }' });
+      await lineagePage.waitForViewportToSettle();
 
-    const ordersNode = lineagePage.getReactFlowNodeByUrn(ORDERS_LOGICAL_URN);
-    const amountColumn = ordersNode.getByTestId('column-amount');
-    const columnToMetricEdge = lineagePage.getColumnToEntityEdge(ORDERS_LOGICAL_URN, 'amount', TOTAL_REVENUE_URN);
-    await expect(amountColumn).not.toBeAttached();
+      const ordersNode = lineagePage.getReactFlowNodeByUrn(ORDERS_LOGICAL_URN);
+      const amountColumn = ordersNode.getByTestId('column-amount');
+      const columnToMetricEdge = lineagePage.getColumnToEntityEdge(ORDERS_LOGICAL_URN, 'amount', TOTAL_REVENUE_URN);
+      await expect(amountColumn).not.toBeAttached();
 
-    await lineagePage.hoverNode(TOTAL_REVENUE_URN);
-    await expect(amountColumn).toHaveAttribute('data-highlighted', 'true', { timeout: TIMEOUTS.MEDIUM });
-    await expect(columnToMetricEdge).toBeAttached({ timeout: TIMEOUTS.MEDIUM });
-    await lineagePage.checkEdgeHasArrowMarker(columnToMetricEdge);
-    await lineagePage.checkNodeHighlighted(TOTAL_REVENUE_URN, true);
+      await lineagePage.hoverNode(TOTAL_REVENUE_URN);
+      await expect(amountColumn).toHaveAttribute('data-highlighted', 'true', { timeout: TIMEOUTS.MEDIUM });
+      await expect(columnToMetricEdge).toBeAttached({ timeout: TIMEOUTS.MEDIUM });
+      await lineagePage.checkEdgeHasArrowMarker(columnToMetricEdge);
+      await lineagePage.checkNodeHighlighted(TOTAL_REVENUE_URN, true);
 
-    await lineagePage.selectNode(TOTAL_REVENUE_URN);
-    await page.mouse.move(0, 0);
-    await expect(lineagePage.lineageSidebar).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await expect(columnToMetricEdge).toBeAttached();
-    await expect(amountColumn).toHaveAttribute('data-highlighted', 'true');
-    await lineagePage.checkNodeHighlighted(TOTAL_REVENUE_URN, true);
-  });
+      await lineagePage.selectNode(TOTAL_REVENUE_URN);
+      await page.mouse.move(0, 0);
+      await expect(lineagePage.lineageSidebar).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      await expect(columnToMetricEdge).toBeAttached();
+      await expect(amountColumn).toHaveAttribute('data-highlighted', 'true');
+      await lineagePage.checkNodeHighlighted(TOTAL_REVENUE_URN, true);
+    },
+  );
 
-  test('multi-input metric keeps dataset and metric upstreams', async () => {
+  test('multi-input metric keeps dataset and metric upstreams', { tag: [DomainTag.Catalog] }, async () => {
     await loadLineageGraph('metric', REVENUE_PER_CUSTOMER_URN);
 
     await lineagePage.checkNodeExists(REVENUE_PER_CUSTOMER_URN);
@@ -151,7 +155,7 @@ test.describe('Metrics lineage topologies', () => {
     await lineagePage.checkEdgeExists(TOTAL_REVENUE_URN, REVENUE_PER_CUSTOMER_URN);
   });
 
-  test('metric home shows chart and dashboard consumers downstream', async () => {
+  test('metric home shows chart and dashboard consumers downstream', { tag: [DomainTag.Catalog] }, async () => {
     await loadLineageGraph('metric', TOTAL_REVENUE_URN);
 
     await lineagePage.checkNodeExists(TOTAL_REVENUE_URN);
@@ -172,7 +176,7 @@ test.describe('Metrics lineage topologies', () => {
     await lineagePage.expectCurrentLineageNotContains(NAMES.DOUBLE_REVENUE);
   });
 
-  test('metric impact analysis lists chart and dashboard downstream', async () => {
+  test('metric impact analysis lists chart and dashboard downstream', { tag: [DomainTag.Catalog] }, async () => {
     await loadLineageGraph('metric', TOTAL_REVENUE_URN);
     await lineagePage.clickImpactAnalysis();
     await lineagePage.clickDownstreamOption();

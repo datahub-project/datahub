@@ -8,7 +8,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.microstrategy.client import MicroStrategyAPIError
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
-from datahub.ingestion.source.microstrategy.lineage import MicroStrategyLineageExtractor
+from datahub.ingestion.source.microstrategy.lineage import (
+    MicroStrategyLineageExtractor,
+    WarehouseLineageContext,
+)
 from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import (
     MicroStrategySemanticModelMapper,
 )
@@ -27,6 +30,7 @@ from datahub.metadata.schema_classes import (
     SemanticFieldTypeClass,
     SemanticModelInfoClass,
     SemanticModelPropertiesClass,
+    UpstreamLineageClass,
 )
 from datahub.metadata.urns import SchemaFieldUrn
 
@@ -816,3 +820,56 @@ def test_metrics_are_emitted_as_they_are_fetched(
     assert fetched == ["METRIC1", "METRIC2"]
     assert mapper.report.semantic_model_metrics_emitted == 2
     assert "Semantic model metrics: 2/2" in caplog.text
+
+
+def test_table_context_resolver_sets_each_dataset_upstream_from_its_own_warehouse() -> (
+    None
+):
+    mapper = _mapper(FakeSemanticModelClient())
+    contexts = {
+        "ORA_SALES": WarehouseLineageContext(
+            platform="oracle", env="PROD", database="ora_db", schema="ora"
+        ),
+        "SNOW_SALES": WarehouseLineageContext(
+            platform="snowflake", env="PROD", database="snow_db", schema="snow"
+        ),
+    }
+
+    def resolver(table: Dict[str, Any]) -> Optional[WarehouseLineageContext]:
+        return contexts.get(table["physicalTable"]["tableName"])
+
+    model_tables = [
+        _table("ORA_SALES", [_attribute("ATTR1", "Region")], []),
+        _table("SNOW_SALES", [_attribute("ATTR2", "Country")], []),
+        _table("UNLINKED_SALES", [_attribute("ATTR3", "City")], []),
+    ]
+
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                project_id="project-1",
+                project_name="Project One",
+                model_tables=model_tables,
+                warehouse_context=None,
+                project_container_key=_project_container_key(),
+                table_context_resolver=resolver,
+            )
+        )
+    )
+
+    def upstreams(table_name: str) -> List[str]:
+        dataset_urn = (
+            f"urn:li:dataset:(urn:li:dataPlatform:microstrategy,"
+            f"project-1.{table_name},PROD)"
+        )
+        lineage = aspects[dataset_urn].get("UpstreamLineageClass")
+        assert lineage is None or isinstance(lineage, UpstreamLineageClass)
+        return [u.dataset for u in lineage.upstreams] if lineage else []
+
+    assert upstreams("ORA_SALES") == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,ora_db.ora.ora_sales,PROD)"
+    ]
+    assert upstreams("SNOW_SALES") == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snow_db.snow.snow_sales,PROD)"
+    ]
+    assert upstreams("UNLINKED_SALES") == []
