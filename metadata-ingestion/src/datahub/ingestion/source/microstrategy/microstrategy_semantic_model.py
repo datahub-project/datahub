@@ -27,6 +27,10 @@ from datahub.ingestion.source.microstrategy.lineage import (
 )
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import (
+    SpillCache,
+    object_cache_key,
+)
 from datahub.ingestion.source.microstrategy.telemetry import peak_rss_mb
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -157,11 +161,15 @@ class MicroStrategySemanticModelMapper:
         report: MicroStrategyReport,
         client: MicroStrategyClient,
         lineage: MicroStrategyLineageExtractor,
+        metric_model_cache: Optional[SpillCache[Optional[Dict[str, object]]]] = None,
     ) -> None:
         self.config = config
         self.report = report
         self.client = client
         self.lineage = lineage
+        # Models the dashboard pass already fetched (None for a failed fetch,
+        # which is retried here so it is reported against the metric).
+        self.metric_model_cache = metric_model_cache
 
     def emit(
         self,
@@ -664,7 +672,7 @@ class MicroStrategySemanticModelMapper:
             progress.step()
             metric_id = normalize_object_id(metric_object.id)
             try:
-                model = self.client.get_metric_model(project_id, metric_object.id)
+                model = self._metric_model(project_id, metric_object.id)
             except MicroStrategyAPIError as error:
                 progress.failed += 1
                 self.report.report_metric_expression_api_failure()
@@ -737,6 +745,17 @@ class MicroStrategySemanticModelMapper:
                 derived_from=derived_from,
             )
         progress.log()
+
+    def _metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
+        # Read-only: this is the last pass to need a metric model, so models
+        # fetched here are not written back to the cache.
+        if self.metric_model_cache is not None:
+            cached = self.metric_model_cache.get(
+                object_cache_key(project_id, metric_id)
+            )
+            if cached is not None:
+                return cached
+        return self.client.get_metric_model(project_id, metric_id)
 
     def _resolve_consolidation(
         self,

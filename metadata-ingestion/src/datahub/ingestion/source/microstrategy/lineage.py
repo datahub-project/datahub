@@ -50,6 +50,7 @@ from datahub.ingestion.source.microstrategy.models import (
     normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import SpillCache
 from datahub.ingestion.source.microstrategy.telemetry import (
     PHASE_SQL_PARSE,
     PHASE_WAREHOUSE_FIELD_LOOKUP,
@@ -60,7 +61,6 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverReport,
 )
-from datahub.utilities.file_backed_collections import FileBackedDict
 
 logger = logging.getLogger(__name__)
 
@@ -139,16 +139,6 @@ class _TimedSchemaResolver(SchemaResolver):
             self._timing_report.report_schema_resolution(time.perf_counter() - started)
 
 
-def new_spill_cache(memory_entries: int, compress: bool = False) -> FileBackedDict:
-    """A per-run cache holding ``memory_entries`` in memory (LRU) and the rest
-    in a temporary SQLite file, so nothing is evicted and memory stays bounded."""
-    return FileBackedDict(
-        cache_max_size=memory_entries,
-        cache_eviction_batch_size=max(1, min(150, memory_entries // 4)),
-        should_compress_value=compress,
-    )
-
-
 @dataclass(frozen=True)
 class ColumnSetBinding:
     """Per-column-group dataset attribution for a compound-grid visualization.
@@ -214,13 +204,9 @@ class MicroStrategyLineageExtractor:
         # Parse results keyed by a digest of the SQL, its warehouse context and
         # whether column lineage was asked for. Many documents reuse the same
         # report, and its SQL is identical each time, so it is parsed once.
-        self._parse_cache: FileBackedDict[_ParsedSqlView] = new_spill_cache(
+        self._parse_cache: SpillCache[_ParsedSqlView] = SpillCache(
             config.cache_memory_entries
         )
-        # Entries added to _parse_cache this project. Counted on insert
-        # because FileBackedDict.__len__ binds one SQL variable per in-memory
-        # key and can exceed SQLite's variable limit.
-        self._parse_cache_entries = 0
         # One schema resolver per warehouse (platform, instance, env) for the
         # whole run, so each warehouse table's schema is fetched from DataHub
         # at most once instead of once per parse.
@@ -231,10 +217,7 @@ class MicroStrategyLineageExtractor:
     def reset_project_caches(self) -> None:
         """Drop the parse cache at a project boundary (keys never cross
         projects in practice), keeping its temporary file small."""
-        self.report.report_cache_entries("sql_parse", self._parse_cache_entries)
-        self._parse_cache.close()
-        self._parse_cache = new_spill_cache(self.config.cache_memory_entries)
-        self._parse_cache_entries = 0
+        self._parse_cache.reset(self.report, "sql_parse")
 
     def close(self) -> None:
         self._parse_cache.close()
@@ -457,8 +440,7 @@ class MicroStrategyLineageExtractor:
                 self.report.report_sql_parse_cache_hit(failed=cached.failed)
             return cached
         parsed = self._parse_sql_view(sql, context, want_field_columns, graph, label)
-        self._parse_cache[cache_key] = parsed
-        self._parse_cache_entries += 1
+        self._parse_cache.put(cache_key, parsed)
         return parsed
 
     def _parse_sql_view(

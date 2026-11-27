@@ -11,6 +11,7 @@ import requests
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.emit_mode import EmitMode
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.microstrategy import spill_cache
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
     MicroStrategyAuthError,
@@ -1328,13 +1329,19 @@ def test_semantic_model_retries_a_failed_model_tables_fetch() -> None:
     assert client.model_table_calls == 2
 
 
-def test_semantic_model_runs_after_the_project_caches_are_released() -> None:
+def test_semantic_model_keeps_metric_models_but_not_report_caches() -> None:
     source = _source({"emit_semantic_model_entities": True})
-    source._metric_model_cache[("project-1", "metric-1")] = {}
-    caches_at_emit: List[int] = []
+    source._metric_model_cache.put("project-1:METRIC-1", {"id": "metric-1"})
+    source._report_sql_cache.put("project-1:REPORT-1", "select 1")
+    caches_at_emit: List[Tuple[bool, bool]] = []
 
     def fake_emit(**kwargs: Any) -> Iterator[Any]:
-        caches_at_emit.append(len(source._metric_model_cache))
+        caches_at_emit.append(
+            (
+                "project-1:METRIC-1" in source._metric_model_cache,
+                "project-1:REPORT-1" in source._report_sql_cache,
+            )
+        )
         return iter([])
 
     class FakeLineageContext:
@@ -1357,7 +1364,8 @@ def test_semantic_model_runs_after_the_project_caches_are_released() -> None:
     # The project boundary releases again; that must not count twice.
     source._reset_project_caches()
 
-    assert caches_at_emit == [0]
+    assert caches_at_emit == [(True, False)]
+    assert "project-1:METRIC-1" not in source._metric_model_cache
     assert source.report.cache_project_resets == 1
 
 
@@ -3649,7 +3657,7 @@ def test_project_caches_are_dropped_at_the_project_boundary() -> None:
     client = _DocumentClient(documents={"doc-1": ["rep-1"]})
     source.client = client  # type: ignore[assignment]
     _run_dashboards(source)
-    source._metric_model_cache[("project-1", "metric-1")] = {}
+    source._metric_model_cache.put("project-1:METRIC-1", {})
 
     source._reset_project_caches()
     _run_dashboards(source)
@@ -3658,7 +3666,8 @@ def test_project_caches_are_dropped_at_the_project_boundary() -> None:
     # from the previous one.
     assert client.report_instances_created == ["rep-1", "rep-1"]
     assert source.report.sql_parses_executed == 2
-    assert source._metric_model_cache == {}
+    assert source._metric_model_cache.entry_count == 0
+    assert source.report.cache_entries_peak["metric_model"] == 1
     assert source.report.cache_project_resets == 1
     assert source.report.cache_entries_peak["report_sql"] == 1
     assert source.report.cache_entries_peak["sql_parse"] == 1
@@ -4431,3 +4440,200 @@ def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
     assert seen_during_run == [len(filters_before) + 1]
     assert sqlglot_logger.filters == filters_before
     assert source.report.peak_rss_mb is not None
+
+
+class _MetricModelClient:
+    """Metric models for dashboard enrichment and the semantic model; one
+    metric's model endpoint always fails."""
+
+    def __init__(self) -> None:
+        self.metric_model_calls: List[str] = []
+
+    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        self.metric_model_calls.append(metric_id)
+        if metric_id.upper() == "M-BROKEN":
+            raise MicroStrategyAPIError("404 Not Found", status_code=404)
+        return {"expression": {"text": f"Sum({metric_id})"}}
+
+    def search_metrics(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            MicroStrategyObject.model_validate({"id": metric_id, "name": metric_id})
+            for metric_id in ("m-net", "M-BROKEN", "M-CATALOG")
+        )
+
+
+class _SemanticModelLineageContext:
+    warehouse_context = None
+
+    def model_tables_retrying_failure(self) -> List[Dict[str, object]]:
+        return [
+            {
+                "physicalTable": {"tableName": "T1"},
+                "facts": [{"information": {"objectId": "F1", "name": "Revenue"}}],
+            }
+        ]
+
+
+def test_semantic_model_reuses_metric_models_from_dashboard_enrichment() -> None:
+    source = _source({"emit_semantic_model_entities": True})
+    client = _MetricModelClient()
+    source.client = client  # type: ignore[assignment]
+    dataset = DatasetObject.model_validate(
+        {
+            "id": "ds-1",
+            "name": "Sales Cube",
+            "availableObjects": {
+                "metrics": [
+                    {"id": "M-NET", "name": "Net Sales"},
+                    {"id": "M-BROKEN", "name": "Broken"},
+                ]
+            },
+        }
+    )
+
+    source._enrich_dataset_metric_expressions("project-1", dataset)
+    source._enrich_dataset_metric_expressions("project-1", dataset)
+    workunits = list(
+        source._process_project_semantic_model(
+            _PROJECT,
+            _SemanticModelLineageContext(),  # type: ignore[arg-type]
+        )
+    )
+
+    # M-NET is fetched once for both passes; the failed M-BROKEN is retried by
+    # the semantic model so it still fails the run, and only the metric the
+    # dashboards never saw is new.
+    assert client.metric_model_calls == ["M-NET", "M-BROKEN", "M-BROKEN", "M-CATALOG"]
+    assert [failure.title for failure in source.report.failures] == [
+        "MicroStrategy Metric Model Unavailable"
+    ]
+    assert source.report.semantic_model_metrics_emitted == 2
+    metric_urns = {
+        workunit.get_urn()
+        for workunit in workunits
+        if workunit.get_urn().startswith("urn:li:metric:")
+    }
+    assert metric_urns == {
+        "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,M-NET)",
+        "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,M-CATALOG)",
+    }
+
+
+class _ObjectInfoClient(_ReportSearchClient):
+    """Report search plus both object-info entry points, recorded together."""
+
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> MicroStrategyObject:
+        self.object_info_calls.append(object_id)
+        return MicroStrategyObject.model_validate(
+            {"id": object_id, "name": object_id, "type": "3", "subtype": "768"}
+        )
+
+    def get_report_object(self, project_id: str, report_id: str) -> MicroStrategyObject:
+        return self.get_object_info(project_id, report_id, 3)
+
+
+def test_report_object_lookups_are_shared_across_datasets_links_and_search() -> None:
+    source = _report_scope_source({"extract_independent_reports": True})
+    client = _ObjectInfoClient()
+    source.client = client  # type: ignore[assignment]
+
+    dataset_object = source._dataset_object_info("project-1", "report-9")
+    linked_object = source._linked_report_object("project-1", "REPORT-9")
+    list(
+        source._process_project_reports(
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+    searched_link = source._linked_report_object("project-1", "report-1")
+    searched_dataset = source._dataset_object_info("project-1", "REPORT-2")
+
+    # One lookup for the dataset and its link; searched reports need none.
+    assert client.object_info_calls == ["report-9"]
+    assert linked_object == dataset_object
+    assert searched_link is not None and searched_link.name == "Linked Report"
+    assert searched_dataset is not None and searched_dataset.name == "Unlinked Report"
+    assert source.report.dataset_object_lookups == 1
+
+
+def test_report_v2_definition_is_fetched_once_for_derived_metrics_and_reports() -> None:
+    source = _source(
+        {
+            "extract_warehouse_lineage": False,
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": False,
+            "extract_model_lineage": False,
+            "extract_reports": True,
+        }
+    )
+    client = _ModelEmptyClient()
+    source.client = client  # type: ignore[assignment]
+
+    _run_dashboards(source)
+    shared = source._get_report_definition(
+        "project-1",
+        MicroStrategyObject.model_validate(
+            {"id": "DS-SHARED", "name": "Retail Sales Yesterday"}
+        ),
+    )
+    other = source._get_report_definition(
+        "project-1",
+        MicroStrategyObject.model_validate({"id": "rep-2", "name": "Other"}),
+    )
+
+    # The derived-metric fallback's v2 payload serves the report pass too.
+    assert client.v2_calls == ["ds-shared", "rep-2"]
+    assert shared is not None and shared.available_objects
+    assert other is not None
+    assert source.report.report_definition_api_failures == 0
+
+
+def test_project_failure_still_closes_every_spill_cache() -> None:
+    source = _source()
+    created: List[Any] = []
+    real_factory = spill_cache.FileBackedDict
+
+    def recording_factory(*args: Any, **kwargs: Any) -> Any:
+        store = real_factory(*args, **kwargs)
+        created.append(store)
+        return store
+
+    def failing_project(project: Project) -> Iterator[Any]:
+        source._metric_model_cache.put("project-1:M-1", {})
+        source._report_object_cache.put("project-1:R-1", None)
+        source._report_sql_cache.put("project-1:R-1", "select 1")
+        source._report_v2_payload_cache.put("project-1:R-1", {})
+        source._report_derived_metric_cache.put("project-1:R-1", [])
+        source.lineage.warehouse_lineage_from_sql(
+            "select * from fact_sales",
+            WarehouseLineageContext(platform="snowflake", env="PROD"),
+            [],
+        )
+        raise RuntimeError("project blew up")
+        yield
+
+    with (
+        mock.patch.object(spill_cache, "FileBackedDict", side_effect=recording_factory),
+        mock.patch.object(source.client, "login"),
+        mock.patch.object(source.client, "close"),
+        mock.patch.object(source.client, "list_projects", return_value=[_PROJECT]),
+        mock.patch.object(source, "_process_project", side_effect=failing_project),
+    ):
+        assert list(source.get_workunits_internal()) == []
+
+    assert len(created) == 6
+    assert all(store.closed for store in created)
+    assert [failure.title for failure in source.report.failures] == [
+        "Failed to Process Project"
+    ]
+    assert source.report.cache_project_resets == 1
+    assert source.report.cache_entries_peak == {
+        "report_sql": 1,
+        "dataset_object": 1,
+        "report_derived_metric": 1,
+        "report_definition": 1,
+        "sql_parse": 1,
+        "metric_model": 1,
+    }

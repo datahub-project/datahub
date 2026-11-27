@@ -70,7 +70,6 @@ from datahub.ingestion.source.microstrategy.lineage import (
     matching_datasource_for_context,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
-    new_spill_cache,
     sql_statement_from_sql_view_entry,
     sql_view_dataset_key,
     sql_view_dataset_name,
@@ -105,6 +104,10 @@ from datahub.ingestion.source.microstrategy.models import (
     normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import (
+    SpillCache,
+    object_cache_key,
+)
 from datahub.ingestion.source.microstrategy.telemetry import (
     PHASE_DASHBOARD,
     PHASE_DASHBOARD_SEARCH,
@@ -123,7 +126,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source_report.ingestion_stage import METADATA_EXTRACTION
-from datahub.utilities.file_backed_collections import FileBackedDict
 
 logger = logging.getLogger(__name__)
 
@@ -190,46 +192,49 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             # would otherwise be swallowed into per-statement parse warnings
             # and the run would report SUCCESS with zero warehouse lineage.
             ensure_sql_lineage_dependencies()
-        # (project id, metric id) -> model; {} once a fetch failed.
-        self._metric_model_cache: Dict[Tuple[str, str], Dict[str, object]] = {}
+        memory_entries = self.config.cache_memory_entries
+        # "project id:METRIC ID" -> metric model, or None once its fetch
+        # failed. Shared by dashboard enrichment, report derived metrics and
+        # the semantic model, which reuses every model fetched before it.
+        self._metric_model_cache: SpillCache[Optional[Dict[str, object]]] = SpillCache(
+            memory_entries, compress=True
+        )
         self._model_document_unavailable_projects: Set[str] = set()
         # The Modeling document of the dashboard in flight, so binding and
         # document derived metrics share one GET. Dashboards are processed one
         # at a time, so only the latest is kept.
-        # (project id, report id) -> report object, or None once a fetch
-        # failed; shared by dashboard chart lists and the linked-report pass.
-        self._report_objects: Dict[Tuple[str, str], Optional[MicroStrategyObject]] = {}
         self._model_document_key: Optional[Tuple[str, str]] = None
         self._model_document_value: Optional[Dict[str, object]] = None
         self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
         self._personal_folder_cache: Dict[str, PersonalFolderResolution] = {}
-        # (project id, dataset object id) -> object info, or None once a lookup
-        # failed so the same dataset is never re-fetched for another dossier.
-        self._dataset_object_cache: Dict[
-            Tuple[str, str], Optional[MicroStrategyObject]
-        ] = {}
+        # "project id:OBJECT ID" -> type-3 object info (report or cube), or
+        # None once a lookup failed so it is never re-fetched. Shared by
+        # dataset lookups, dashboard chart lists, the linked-report pass and
+        # report search results.
+        self._report_object_cache: SpillCache[Optional[MicroStrategyObject]] = (
+            SpillCache(memory_entries)
+        )
         # "project id:report id" -> the SQL _report_sql_statement returned
         # (None once a read failed), so a grid report shared by many documents
-        # is executed once per project and a failed one is not retried. Report
-        # SQL runs to tens of kilobytes, so the cache keeps
-        # cache_memory_entries in memory and spills the rest, compressed, to
-        # a temporary file; it is dropped when the project finishes.
-        self._report_sql_cache: FileBackedDict[Optional[str]] = new_spill_cache(
-            self.config.cache_memory_entries, compress=True
+        # is executed once per project and a failed one is not retried.
+        self._report_sql_cache: SpillCache[Optional[str]] = SpillCache(
+            memory_entries, compress=True
         )
-        # Entries added to _report_sql_cache this project. Counted on insert
-        # because FileBackedDict.__len__ binds one SQL variable per in-memory
-        # key and can exceed SQLite's variable limit.
-        self._report_sql_cache_entries = 0
-        # True once this project's caches were released, so the release
-        # ahead of the semantic model and the one at the project boundary
-        # count as one reset.
+        # "project id:report id" -> GET /api/v2/reports/{id} payloads that
+        # succeeded, read by report derived metrics and then the report pass.
+        self._report_v2_payload_cache: SpillCache[Dict[str, object]] = SpillCache(
+            memory_entries, compress=True
+        )
+        # True once this project's dashboard/report caches, and then all of
+        # its caches, were released, so a repeated release is a no-op and
+        # each project counts as one reset.
+        self._report_caches_released = False
         self._project_caches_released = False
-        # (project id, report id) -> derived metric definitions, or None once
+        # "project id:report id" -> derived metric definitions, or None once
         # every definition endpoint failed for it.
-        self._report_derived_metric_cache: Dict[
-            Tuple[str, str], Optional[List[ReportDerivedMetric]]
-        ] = {}
+        self._report_derived_metric_cache: SpillCache[
+            Optional[List[ReportDerivedMetric]]
+        ] = SpillCache(memory_entries, compress=True)
         # Projects already warned about the Modeling report definition
         # endpoint failing (one structured warning per project, not per
         # report), and projects whose v2 payload shape was already logged.
@@ -371,8 +376,30 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             sqlglot_logger.removeFilter(sqlglot_filter)
             self._warn_if_every_sql_view_failed()
             self.lineage.close()
-            self._report_sql_cache.close()
+            for cache in self._spill_caches():
+                cache.close()
             self.client.close()
+
+    def _spill_caches(self) -> List[SpillCache]:
+        return [
+            self._metric_model_cache,
+            self._report_object_cache,
+            self._report_sql_cache,
+            self._report_v2_payload_cache,
+            self._report_derived_metric_cache,
+        ]
+
+    def _release_report_caches(self) -> None:
+        """Drop the dashboard and report caches the semantic model does not
+        read, so its per-metric work does not stack on top of them."""
+        if self._report_caches_released:
+            return
+        self._report_caches_released = True
+        self._report_sql_cache.reset(self.report, "report_sql")
+        self._report_object_cache.reset(self.report, "dataset_object")
+        self._report_derived_metric_cache.reset(self.report, "report_derived_metric")
+        self._report_v2_payload_cache.reset(self.report, "report_definition")
+        self.lineage.reset_project_caches()
 
     def _reset_project_caches(self) -> None:
         """Drop caches keyed by project once the project is done, so memory and
@@ -381,32 +408,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if self._project_caches_released:
             return
         self._project_caches_released = True
-        self.report.report_cache_entries("report_sql", self._report_sql_cache_entries)
-        self.report.report_cache_entries(
-            "dataset_object", len(self._dataset_object_cache)
-        )
-        self.report.report_cache_entries(
-            "report_derived_metric", len(self._report_derived_metric_cache)
-        )
-        self.report.report_cache_entries("metric_model", len(self._metric_model_cache))
-        self.report.report_cache_entries("report_object", len(self._report_objects))
-        self._report_sql_cache.close()
-        self._report_sql_cache = new_spill_cache(
-            self.config.cache_memory_entries, compress=True
-        )
-        self._report_sql_cache_entries = 0
-        self._dataset_object_cache.clear()
-        self._report_derived_metric_cache.clear()
-        self._metric_model_cache.clear()
-        self._report_objects.clear()
-        self.lineage.reset_project_caches()
+        self._release_report_caches()
+        self._metric_model_cache.reset(self.report, "metric_model")
         self.report.cache_project_resets += 1
-
-    def _remember_report_sql(self, cache_key: str, sql: Optional[str]) -> None:
-        """Cache a report's SQL (None for a failed read) under a key not yet
-        in the cache, counting it for the cache telemetry."""
-        self._report_sql_cache[cache_key] = sql
-        self._report_sql_cache_entries += 1
 
     def _emit_chapter_page_structured_property_definitions(
         self,
@@ -521,6 +525,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _process_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
+        self._report_caches_released = False
         self._project_caches_released = False
         source_warehouses = self._get_project_source_warehouses(project.id)
         # Warehouse/model-table lookups are deferred until an allowed dashboard/report
@@ -564,11 +569,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project: Project,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
-        # The semantic model reads none of the dashboard and report caches,
-        # and fetches one metric model per catalog metric (tens of thousands
-        # in a large project). Release the caches first so that work does not
-        # stack on top of everything the dashboards left in memory.
-        self._reset_project_caches()
+        # The semantic model reads one metric model per catalog metric (tens
+        # of thousands in a large project) and no other dashboard or report
+        # cache, so those are released first. The metric model cache is kept
+        # so every model the dashboards fetched is reused rather than fetched
+        # again; it is released at the project boundary.
+        self._release_report_caches()
         model_tables = lineage_context.model_tables_retrying_failure()
         if model_tables is None:
             # The fetch failed (None), as opposed to a project with no logical
@@ -600,6 +606,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             client=self.client,
             lineage=self.lineage,
+            metric_model_cache=self._metric_model_cache,
         )
         yield from semantic_model_mapper.emit(
             project_id=project.id,
@@ -1232,9 +1239,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         Reports and cubes share object type 3, so one lookup covers both. Any
         failure degrades to the pre-lookup behaviour (dataset parented under
         the dossier's folder, linking to the dossier) and is counted."""
-        cache_key = (project_id, normalize_object_id(dataset_id))
-        if cache_key in self._dataset_object_cache:
-            return self._dataset_object_cache[cache_key]
+        return self._report_object_cache.get_or_load(
+            object_cache_key(project_id, dataset_id),
+            lambda: self._fetch_dataset_object(project_id, dataset_id),
+        )
+
+    def _fetch_dataset_object(
+        self, project_id: str, dataset_id: str
+    ) -> Optional[MicroStrategyObject]:
         dataset_object: Optional[MicroStrategyObject] = None
         try:
             dataset_object = self.client.get_object_info(
@@ -1259,7 +1271,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dataset_object_lookup()
             if dataset_object is None:
                 self.report.report_dataset_object_lookup_failure()
-        self._dataset_object_cache[cache_key] = dataset_object
         return dataset_object
 
     @timed_phase("report_derived_metrics")
@@ -1336,10 +1347,18 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         it carries expressions; the v2 definition (GET /api/v2/reports/{id})
         is the fallback and may name derived metrics without a formula. None
         means both failed (counted in report_definition_failures)."""
-        cache_key = (project_id, normalize_object_id(report_id))
-        if cache_key in self._report_derived_metric_cache:
-            return self._report_derived_metric_cache[cache_key]
+        return self._report_derived_metric_cache.get_or_load(
+            object_cache_key(project_id, report_id),
+            lambda: self._fetch_report_derived_metric_definitions(
+                project_id, report_id
+            ),
+        )
 
+    def _fetch_report_derived_metric_definitions(
+        self,
+        project_id: str,
+        report_id: str,
+    ) -> Optional[List[ReportDerivedMetric]]:
         definitions: List[ReportDerivedMetric] = []
         model_error: Optional[Exception] = None
         v2_error: Optional[Exception] = None
@@ -1363,11 +1382,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     self.report.report_report_definition_without_expressions()
                 elif not definitions:
                     self.report.report_report_model_definition_empty()
+            # Static Modeling definitions can omit derived metrics that v2
+            # names, so an empty answer still falls back to v2.
             if not definitions:
                 try:
-                    v2_payload = self.client.get_report_definition(
-                        project_id, report_id
-                    )
+                    v2_payload = self._report_v2_payload(project_id, report_id)
                 except MicroStrategyAuthError:
                     raise
                 except Exception as error:
@@ -1405,8 +1424,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
         elif definitions:
             self.report.report_report_derived_metrics_extracted(len(definitions))
-        self._report_derived_metric_cache[cache_key] = result
         return result
+
+    def _report_v2_payload(self, project_id: str, report_id: str) -> Dict[str, object]:
+        """GET /api/v2/reports/{id}, memoized on success so report derived
+        metrics and the report pass share one call. A failure is not cached;
+        each caller reports it its own way."""
+        return self._report_v2_payload_cache.get_or_load(
+            object_cache_key(project_id, report_id),
+            lambda: self.client.get_report_definition(project_id, report_id),
+        )
 
     def _resolve_embedded_metric_formulas(
         self,
@@ -1526,6 +1553,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
             return
         for report_object in self.client.search_reports(project_id):
+            self._remember_searched_report(project_id, report_object)
             if not self.config.report_pattern.allowed(report_object.name):
                 self.report.filtered_reports.append(report_object.name)
                 continue
@@ -1542,6 +1570,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 report_object,
                 lineage_context,
             )
+
+    def _remember_searched_report(
+        self, project_id: str, report_object: MicroStrategyObject
+    ) -> None:
+        """A report search result carries the subtype and folder ancestors an
+        object lookup returns, so a searched report is never looked up again
+        (and replaces a remembered failed lookup)."""
+        cache_key = object_cache_key(project_id, report_object.id)
+        if self._report_object_cache.get(cache_key) is None:
+            self._report_object_cache.put(cache_key, report_object)
 
     def _process_linked_reports(
         self,
@@ -1874,8 +1912,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if not self.config.extract_report_definitions:
             return ReportDefinition.from_search_result(report_object)
 
+        # The report pass is the payload's last reader, so a miss is fetched
+        # without being cached.
+        response = self._report_v2_payload_cache.get(
+            object_cache_key(project_id, report_object.id)
+        )
         try:
-            response = self.client.get_report_definition(project_id, report_object.id)
+            if response is None:
+                response = self.client.get_report_definition(
+                    project_id, report_object.id
+                )
         except MicroStrategyAPIError as error:
             self.report.report_report_definition_api_failure()
             self.report.warning(
@@ -2086,10 +2132,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         metric_id: str,
     ) -> Dict[str, object]:
-        normalized_metric_id = metric_id.upper()
-        model = self._metric_model_cache.get((project_id, normalized_metric_id))
-        if model is not None:
-            return model
+        model = self._metric_model_cache.get_or_load(
+            object_cache_key(project_id, metric_id),
+            lambda: self._fetch_metric_model(project_id, metric_id),
+        )
+        return model if model is not None else {}
+
+    def _fetch_metric_model(
+        self, project_id: str, metric_id: str
+    ) -> Optional[Dict[str, object]]:
+        """The metric model, or None once its fetch failed (warned and counted)."""
         try:
             model = self.client.get_metric_model(project_id, metric_id)
         except MicroStrategyAPIError as error:
@@ -2117,9 +2169,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 metric_id,
                 exc_info=True,
             )
-            self._metric_model_cache[(project_id, normalized_metric_id)] = {}
-            return {}
-        self._metric_model_cache[(project_id, normalized_metric_id)] = model
+            return None
         self.report.report_metric_expression_scanned()
         return model
 
@@ -2316,13 +2366,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 # report's lineage: no instance to create, nothing to parse.
                 self.report.report_document_dataset_sql_view_reused()
                 continue
-            cache_key = f"{project_id}:{normalize_object_id(dataset.id)}"
-            if cache_key in self._report_sql_cache:
+            cache_key = object_cache_key(project_id, dataset.id)
+            cached = self._report_sql_cache.get_entry(cache_key)
+            if cached.found:
                 # Dataset URNs are document-scoped but the report's SQL is
                 # not, so a report shared by many documents is read once and
                 # its lineage attached to each; a remembered failure is not
                 # retried and not counted again.
-                sql_statement = self._report_sql_cache[cache_key]
+                sql_statement = cached.value
                 self.report.report_document_dataset_sql_view_reused()
             else:
                 if self._execution_limit_reached(project_id):
@@ -2335,7 +2386,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         f"dataset_id={dataset.id}"
                     ),
                 )
-                self._remember_report_sql(cache_key, sql_statement)
+                self._report_sql_cache.put(cache_key, sql_statement)
                 if sql_statement is None:
                     self.report.report_document_dataset_sql_view_failure()
             if not sql_statement:
@@ -2456,10 +2507,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             # Per report, a dashboard's SQL view already settled the lineage
             # of the dataset this report is; do not execute it again.
             return
-        cache_key = f"{project_id}:{normalize_object_id(report_object.id)}"
-        if cache_key in self._report_sql_cache:
+        cache_key = object_cache_key(project_id, report_object.id)
+        cached = self._report_sql_cache.get_entry(cache_key)
+        if cached.found:
             # Already read this run as the dataset of a document.
-            sql_statement = self._report_sql_cache[cache_key]
+            sql_statement = cached.value
         else:
             if self._execution_limit_reached(project_id):
                 return
@@ -2468,7 +2520,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 report_object.id,
                 context=f"project_id={project_id}, report_id={report_object.id}",
             )
-            self._remember_report_sql(cache_key, sql_statement)
+            self._report_sql_cache.put(cache_key, sql_statement)
         if not sql_statement:
             return
 
@@ -2694,9 +2746,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _linked_report_object(
         self, project_id: str, report_id: str
     ) -> Optional[MicroStrategyObject]:
-        key = (project_id, normalize_object_id(report_id))
-        if key in self._report_objects:
-            return self._report_objects[key]
+        return self._report_object_cache.get_or_load(
+            object_cache_key(project_id, report_id),
+            lambda: self._fetch_linked_report_object(project_id, report_id),
+        )
+
+    def _fetch_linked_report_object(
+        self, project_id: str, report_id: str
+    ) -> Optional[MicroStrategyObject]:
         report_object: Optional[MicroStrategyObject] = None
         try:
             report_object = self.client.get_report_object(project_id, report_id)
@@ -2712,7 +2769,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 context=f"project_id={project_id}, report_id={report_id}",
                 exc=error,
             )
-        self._report_objects[key] = report_object
         return report_object
 
     def _report_left_out(
