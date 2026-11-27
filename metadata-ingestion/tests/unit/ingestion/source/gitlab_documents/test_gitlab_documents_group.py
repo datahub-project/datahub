@@ -357,6 +357,30 @@ def test_group_listing_supplies_a_branch_a_named_lookup_missed() -> None:
     assert not source.report.repositories_failed
 
 
+def test_projects_differing_only_in_case_are_imported_once() -> None:
+    # GitLab paths are case-insensitive, so these all name one project.
+    config = GitLabDocumentsSourceConfig.model_validate(
+        {"gitlab_token": "glpat-test", "repositories": ["Acme/One", "acme/one"]}
+    )
+    assert config.explicit_repositories == ["Acme/One"]
+
+    source = _source(
+        group="acme/data",
+        repositories=["Acme/Data/A"],
+        create_repo_root_document=False,
+    )
+    with requests_mock.Mocker() as m:
+        m.get(_project_api("Acme/Data/A"), json={"default_branch": "main"})
+        _mock_group(
+            m, [{"path_with_namespace": "acme/data/a", "default_branch": "main"}]
+        )
+        _mock_project(m, "Acme/Data/A", "main", {"a.md": "# A"})
+        infos = _infos(source)
+
+    assert len(infos) == 1
+    assert source.report.repositories_imported == 1
+
+
 def test_named_repositories_are_imported_when_the_group_cannot_be_listed() -> None:
     source = _source(
         group="acme/data",

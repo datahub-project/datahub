@@ -9,8 +9,7 @@ export function buildGitLabDocumentsIngestionState() {
   config:
     gitlab_token: null
     base_url: https://gitlab.com
-    repository: ""
-    branch: main
+    repositories: []
     path_prefix: ""
     file_extensions:
       - .md

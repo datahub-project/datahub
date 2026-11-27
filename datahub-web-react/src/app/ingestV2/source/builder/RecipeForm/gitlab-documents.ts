@@ -1,4 +1,7 @@
-import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
+import get from 'lodash/get';
+import omit from 'lodash/omit';
+
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT } from '@app/ingestV2/source/builder/RecipeForm/github-documents';
 
 export const GITLAB_DOCUMENTS_TOKEN: RecipeField = {
@@ -24,15 +27,39 @@ export const GITLAB_DOCUMENTS_BASE_URL: RecipeField = {
     rules: null,
 };
 
-export const GITLAB_DOCUMENTS_REPOSITORY: RecipeField = {
-    name: 'repository',
-    label: 'Project',
-    tooltip: "Project to ingest, as its full path ('group/subgroup/project') or a full GitLab project URL.",
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.repository',
+const repositoriesFieldPath = 'source.config.repositories';
+// Deprecated single-project field. Sources created before repositories existed
+// still carry it, so the form reads it and moves it to repositories on save.
+const legacyRepositoryFieldPath = 'source.config.repository';
+
+export const GITLAB_DOCUMENTS_REPOSITORIES: RecipeField = {
+    name: 'repositories',
+    label: 'Projects',
+    tooltip:
+        "Projects to ingest, each as its full path ('group/subgroup/project') or a full GitLab project URL. Each project gets its own folder document.",
+    type: FieldType.LIST,
+    buttonLabel: 'Add project',
+    fieldPath: repositoriesFieldPath,
     placeholder: 'group/project',
     rules: null,
     required: true,
+    getValueFromRecipeOverride: (recipe: any) => {
+        const repositories: string[] = get(recipe, repositoriesFieldPath) || [];
+        const legacyRepository: string | undefined = get(recipe, legacyRepositoryFieldPath);
+        return legacyRepository ? [legacyRepository, ...repositories] : repositories;
+    },
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(omit(recipe, legacyRepositoryFieldPath), values, repositoriesFieldPath),
+};
+
+export const GITLAB_DOCUMENTS_BRANCH: RecipeField = {
+    name: 'branch',
+    label: 'Branch',
+    tooltip: 'Branch to read from in every project. Leave blank to read each project from its own default branch.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.branch',
+    placeholder: 'Default branch',
+    rules: null,
 };
 
 export const GITLAB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT: RecipeField = {

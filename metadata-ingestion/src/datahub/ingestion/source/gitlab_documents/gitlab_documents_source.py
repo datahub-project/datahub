@@ -104,10 +104,15 @@ class GitLabDocumentsSource(RepositoryDocumentsSourceBase[GitLabDocumentsSourceC
                 error = None if branch else self.client.last_api_error
                 candidates[repository] = (branch, error)
         if self.config.group:
+            # GitLab paths are case-insensitive: a project named in repositories with
+            # different casing from the group listing is the same project, so it
+            # keeps its configured spelling instead of being imported twice.
+            named = {repository.casefold(): repository for repository in candidates}
             for project in self._group_projects_or_skip(self.config.group):
-                known_branch, _ = candidates.get(project.path, (None, None))
+                repository = named.get(project.path.casefold(), project.path)
+                known_branch, _ = candidates.get(repository, (None, None))
                 if known_branch is None:
-                    candidates[project.path] = (project.default_branch, None)
+                    candidates[repository] = (project.default_branch, None)
         return candidates
 
     def _group_projects_or_skip(self, group: str) -> List[GitLabProject]:

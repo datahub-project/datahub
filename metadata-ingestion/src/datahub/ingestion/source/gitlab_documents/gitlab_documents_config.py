@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
@@ -159,8 +159,13 @@ class GitLabDocumentsSourceConfig(RepositoryDocumentsSourceConfigBase):
 
     @property
     def explicit_repositories(self) -> List[str]:
+        # GitLab paths are case-insensitive, so 'Acme/Docs' and 'acme/docs' are one
+        # project; the first spelling wins.
         named = [self.repository] if self.repository else []
-        return list(dict.fromkeys([*named, *self.repositories]))
+        unique: Dict[str, str] = {}
+        for repository in [*named, *self.repositories]:
+            unique.setdefault(repository.casefold(), repository)
+        return list(unique.values())
 
     @property
     def multi_repository(self) -> bool:
