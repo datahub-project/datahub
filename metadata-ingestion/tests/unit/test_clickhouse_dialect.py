@@ -228,6 +228,68 @@ def test_plain_views_register_once() -> None:
     assert as_mock(source.aggregator).add_view_definition.call_count == 1
 
 
+@pytest.mark.parametrize(
+    "header",
+    [
+        "CREATE MATERIALIZED VIEW db.mv UUID '9a36de71-4623-4b46-b9cf-edcf5910efe0'",
+        "CREATE MATERIALIZED VIEW db.`mv (old)` ON CLUSTER my_cluster",
+        "CREATE MATERIALIZED VIEW db.mv REFRESH EVERY 1 DAY OFFSET 2 HOUR"
+        " RANDOMIZE FOR 10 MINUTE DEPENDS ON db.mv_a, db.mv_b"
+        " SETTINGS refresh_retries = 3 APPEND",
+    ],
+)
+def test_to_target_is_found_after_the_clauses_that_can_precede_it(header: str) -> None:
+    source = _source()
+    definition = (
+        f"{header} TO db.target (`id` UInt64 COMMENT 'copied to archive')"
+        " AS SELECT id FROM db.src"
+    )
+    assert source._extract_to_table_urn(_urn("db.mv"), definition, "db") == _urn(
+        "db.target"
+    )
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        pytest.param(
+            "CREATE VIEW db.v (`ddl` String) AS SELECT format("
+            "'CREATE MATERIALIZED VIEW mv_{0} TO {0}\\nAS\\nSELECT * FROM src_{0}',"
+            " name) AS ddl FROM db.src",
+            id="plain-view-building-ddl-in-a-string",
+        ),
+        pytest.param(
+            "CREATE MATERIALIZED VIEW db.v (`id` UInt64 COMMENT 'copied to archive')"
+            " ENGINE = MergeTree ORDER BY id AS SELECT id FROM db.src",
+            id="column-comment",
+        ),
+        pytest.param(
+            "CREATE MATERIALIZED VIEW db.v REFRESH EVERY 1 HOUR ENGINE = MergeTree"
+            " ORDER BY id AS SELECT id, 'sent to archive' AS note FROM db.src",
+            id="refreshable-with-a-string-in-the-query",
+        ),
+        pytest.param(
+            "CREATE MATERIALIZED VIEW db.v UUID '6ebd2b1a-8892-472a-8818-ec268880f48c'"
+            " TO INNER UUID '54881073-f2a0-4d76-91d3-d067028114cd' (`id` UInt64)"
+            " ENGINE = MergeTree ORDER BY id AS SELECT id FROM db.src",
+            id="inner-table-uuid",
+        ),
+    ],
+)
+def test_view_without_a_to_clause_registers_once(definition: str) -> None:
+    """Only the header of a materialized view names a TO table. A ``to <word>``
+    later in the text is not one, and taking it for one writes the view's
+    lineage to a dataset that does not exist."""
+    source = _source_with_mock_aggregator()
+    source._add_view_to_aggregator(_urn("db.v"), definition, "db", None)
+
+    registered = [
+        call.kwargs["view_urn"]
+        for call in as_mock(source.aggregator).add_view_definition.call_args_list
+    ]
+    assert registered == [_urn("db.v")]
+
+
 # --- view lineage from system.tables ---------------------------------------
 
 
