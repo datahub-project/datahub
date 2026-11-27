@@ -19,6 +19,8 @@ from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceRe
 from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     DataProcessInstanceRelationshipsClass,
+    DataTransformLogicClass,
+    QueryLanguageClass,
 )
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
@@ -198,7 +200,13 @@ def test_run_attaches_as_dpi_to_every_job_not_the_flow() -> None:
     assert str(flow.urn) not in templates
 
 
-def _emit_with(client: MagicMock, known: Optional[Set[str]] = None) -> tuple:
+def _emit_with(
+    client: MagicMock,
+    known: Optional[Set[str]] = None,
+    include_source: bool = False,
+    content: Optional[str] = None,
+    language: str = "python",
+) -> tuple:
     report = FabricOneLakeSourceReport()
     if known is None:
         known = {
@@ -208,6 +216,7 @@ def _emit_with(client: MagicMock, known: Optional[Set[str]] = None) -> tuple:
         platform_instance=None,
         env="PROD",
         execution_history_days=30,
+        include_source=include_source,
         report=report,
         client=client,
         known_table_urns=known,
@@ -221,10 +230,69 @@ def _emit_with(client: MagicMock, known: Optional[Set[str]] = None) -> tuple:
         display_name="pipeline",
         description=None,
         owner_user_principal_name=None,
-        content=None,
-        language="python",
+        content=content,
+        language=language,
     )
     return list(emitter.emit([nb])), report
+
+
+def _plans_client() -> MagicMock:
+    client = MagicMock()
+    client.list_notebook_spark_sessions.return_value = [
+        FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
+    ]
+    client.get_spark_sql_plans.return_value = [_PLAN_MID, _PLAN_FINAL]
+    client.get_notebook_runs.return_value = []
+    return client
+
+
+_NOTEBOOK_SOURCE = (
+    'df = spark.read.table("silver_a")\n'
+    'conn = "Server=x;password=hunter2"\n'
+    'df.write.saveAsTable("gold_mid")\n'
+)
+
+
+def test_jobs_carry_masked_notebook_source_when_enabled() -> None:
+    known = {
+        _ref(t, s).to_urn("PROD", None)
+        for t, s in (
+            ("silver_a", "silver"),
+            ("gold_mid", "gold"),
+            ("gold_final", "gold"),
+        )
+    }
+    emitted, _report = _emit_with(
+        _plans_client(), known=known, include_source=True, content=_NOTEBOOK_SOURCE
+    )
+    jobs = [dj for dj in emitted if isinstance(dj, DataJob)]
+    assert len(jobs) == 2
+    for job in jobs:
+        logic = job._get_aspect(DataTransformLogicClass)
+        assert logic is not None
+        statement = logic.transforms[0].queryStatement
+        assert statement is not None
+        assert 'saveAsTable("gold_mid")' in statement.value
+        assert "hunter2" not in statement.value
+        # GraphQL's QueryLanguage enum only has SQL; anything else breaks lineage queries.
+        assert statement.language == QueryLanguageClass.SQL
+
+
+def test_jobs_omit_notebook_source_by_default() -> None:
+    known = {
+        _ref(t, s).to_urn("PROD", None)
+        for t, s in (
+            ("silver_a", "silver"),
+            ("gold_mid", "gold"),
+            ("gold_final", "gold"),
+        )
+    }
+    emitted, _report = _emit_with(
+        _plans_client(), known=known, content=_NOTEBOOK_SOURCE
+    )
+    jobs = [dj for dj in emitted if isinstance(dj, DataJob)]
+    assert jobs
+    assert all(job._get_aspect(DataTransformLogicClass) is None for job in jobs)
 
 
 def test_output_not_in_catalog_produces_no_job() -> None:

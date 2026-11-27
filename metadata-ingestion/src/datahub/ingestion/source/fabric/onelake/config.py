@@ -351,7 +351,9 @@ class FabricOneLakeSourceConfig(
         default=False,
         description=(
             "Emit each notebook's source on the View Definition tab "
-            "(`viewProperties.viewLogic`). Off by default because notebooks often "
+            "(`viewProperties.viewLogic`) and, when `notebook_execution` is "
+            "enabled, on each notebook job's Logic section "
+            "(`dataTransformLogic`). Off by default because notebooks often "
             "hold connection strings, SAS tokens or keys. When on, common "
             "credential patterns (`password=`, `AccountKey=`, `sig=`, bearer "
             "tokens, URL user info, private keys) are masked before emitting; "

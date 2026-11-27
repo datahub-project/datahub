@@ -21,6 +21,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.ingestion.agent.redact import scrub_text
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DataFlowSubTypes,
@@ -56,9 +57,13 @@ from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceRe
 from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     DataProcessTypeClass,
+    DataTransformClass,
+    DataTransformLogicClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    QueryLanguageClass,
+    QueryStatementClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DataJobUrn
 from datahub.sdk.dataflow import DataFlow
@@ -122,6 +127,7 @@ class NotebookProcessEmitter:
         execution_history_days: int,
         reconcile_code: bool = False,
         case_sensitive_columns: bool = False,
+        include_source: bool = False,
         report: FabricOneLakeSourceReport,
         client: OneLakeClient,
         known_table_urns: Set[str],
@@ -133,6 +139,7 @@ class NotebookProcessEmitter:
         self._execution_history_days = execution_history_days
         self._reconcile_code = reconcile_code
         self._case_sensitive_columns = case_sensitive_columns
+        self._include_source = include_source
         self._report = report
         self._client = client
         self._known_table_urns = known_table_urns
@@ -230,6 +237,12 @@ class NotebookProcessEmitter:
         if nb.language:
             custom_properties["language"] = nb.language
 
+        extra_aspects: List[Union[DataJobInputOutputClass, DataTransformLogicClass]] = [
+            io_aspect
+        ]
+        if self._include_source and nb.content:
+            extra_aspects.append(self._transform_logic(nb.content))
+
         datajob = DataJob(
             name=self._job_id(output),
             flow=dataflow,
@@ -238,13 +251,30 @@ class NotebookProcessEmitter:
             subtype=DataJobSubTypes.FABRIC_SPARK_JOB,
             external_url=external_url,
             custom_properties=custom_properties,
-            extra_aspects=[io_aspect],
+            extra_aspects=extra_aspects,
             # The SDK coerces (userPrincipalName, ownershipType) string tuples
             # into owner URNs at runtime; its stub only advertises urn inputs.
             owners=self._owners_fn(nb.owner_user_principal_name),
         )
         datajob._set_container(workspace_key)
         yield datajob
+
+    @staticmethod
+    def _transform_logic(content: str) -> DataTransformLogicClass:
+        # Same credential masking as the notebook dataset's viewLogic. The language
+        # is always SQL: the GraphQL QueryLanguage enum has no UNKNOWN value, so
+        # emitting it makes every lineage query that touches the job fail. Same
+        # workaround as the stored procedure sources.
+        return DataTransformLogicClass(
+            transforms=[
+                DataTransformClass(
+                    queryStatement=QueryStatementClass(
+                        value=scrub_text(content, set()),
+                        language=QueryLanguageClass.SQL,
+                    )
+                )
+            ]
+        )
 
     @staticmethod
     def _output_label(output: SparkTableRef) -> str:
