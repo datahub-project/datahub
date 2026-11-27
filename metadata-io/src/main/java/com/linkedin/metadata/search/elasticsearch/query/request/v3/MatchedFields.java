@@ -5,6 +5,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Legac
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchHitMatches;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSynonyms;
 import com.linkedin.metadata.search.utils.ESUtils;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -15,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -36,7 +38,8 @@ import org.tartarus.snowball.ext.EnglishStemmer;
  * would cost every write. A field matches when one of its words stems to the same word as a word of
  * the query, as the shared fields' {@code stemmed} subfields do, or starts with the last word of
  * the query, as their phrase prefix does; an identifier such as {@code customer_id} also matches by
- * its parts, as the analyzers index them. This is best effort: synonyms are not applied, words are
+ * its parts, as the analyzers index them. A synonym of the query or of one of its words, from the
+ * synonym files the analyzers load, matches like the word itself. This is best effort: words are
  * split on what is not a letter, a digit or an underscore even when a main tokenizer is configured,
  * and as on V2 only the first matching value of a field is reported.
  *
@@ -81,8 +84,19 @@ public final class MatchedFields {
         tokens.add(matcher.group());
       }
     }
-    this.queryStems =
-        queryWords.stream().flatMap(List::stream).map(this::stem).collect(Collectors.toSet());
+    final Set<String> stems =
+        queryWords.stream()
+            .flatMap(List::stream)
+            .map(this::stem)
+            .collect(Collectors.toCollection(HashSet::new));
+    // The analyzers expand synonyms, so a document that holds a synonym matched the query.
+    for (String synonym : SearchTemplateSynonyms.expansions(query)) {
+      final Matcher synonymWords = WORD.matcher(synonym);
+      while (synonymWords.find()) {
+        forms(synonymWords.group()).forEach(form -> stems.add(stem(form)));
+      }
+    }
+    this.queryStems = Set.copyOf(stems);
     this.lastQueryForms = queryWords.isEmpty() ? List.of() : queryWords.get(queryWords.size() - 1);
     this.queryWordForms = List.copyOf(queryWords);
     this.queryTokens = List.copyOf(tokens);

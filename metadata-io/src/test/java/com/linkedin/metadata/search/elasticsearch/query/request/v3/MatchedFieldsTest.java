@@ -83,6 +83,20 @@ public class MatchedFieldsTest {
         new MatchedFields("card", 0).find(Map.of("name", "car rental"), List.of("name")).isEmpty());
   }
 
+  /** A synonym from the analyzers' synonym files matches a field, as it matched the document. */
+  @Test
+  public void testSynonymsOfTheQueryMatch() {
+    Map<String, Object> source = Map.of("name", "stg_orders");
+    // stg and staging are one equivalence line in the synonym file; neither is a prefix or stem
+    // of the other
+    assertEquals(
+        names(new MatchedFields("staging", 0).find(source, List.of("name"))), List.of("name"));
+    assertEquals(
+        names(new MatchedFields("staging events", 0).find(source, List.of("name"))),
+        List.of("name"));
+    assertTrue(new MatchedFields("development", 0).find(source, List.of("name")).isEmpty());
+  }
+
   /**
    * Only the last query word matches as a prefix, as the phrase prefix does; the others match whole
    * words or their stems. Words shorter than the minimum length are dropped, as the analyzers drop
