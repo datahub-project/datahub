@@ -85,9 +85,7 @@ class FileEntitiesMixin(StoreLineageMixin):
             spelled.append(
                 min(votes, key=lambda name: (-votes[name], name)) if votes else segment
             )
-        return build_lib_path(
-            LibPathSegments(space=spelled[0], connection=spelled[1], path=spelled[2:])
-        )
+        return build_lib_path(LibPathSegments.from_parts(spelled))
 
     def _lib_path_spellings(self) -> Dict[str, Counter[str]]:
         paths = [
@@ -186,7 +184,7 @@ class FileEntitiesMixin(StoreLineageMixin):
         # writer's entities hold the file too, so only recorded reads count.
         unread = set(self._unmapped_file_stores) - self._linked_unmapped_files
         for app_id in sorted(self._kept_app_ids) if unread else []:
-            previous = self._load_checkpoint(app_id, self._checkpoint_load_failures)
+            previous = self._load_checkpoint(app_id)
             if previous is not None:
                 self._linked_unmapped_files.update(
                     unread.intersection(previous.read_unmapped_file_urns)

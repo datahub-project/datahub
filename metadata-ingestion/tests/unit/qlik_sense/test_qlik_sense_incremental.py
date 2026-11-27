@@ -16,11 +16,16 @@ from datahub.ingestion.source.qlik_sense.app_state import (
     QlikAppStateHandler,
 )
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
+from datahub.ingestion.source.qlik_sense.constants import CHECKPOINT_LOAD_FAILURES_TITLE
 from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source_report.ingestion_stage import (
+    LINEAGE_EXTRACTION,
+    METADATA_EXTRACTION,
+)
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DatasetLineageTypeClass,
@@ -679,9 +684,11 @@ def test_checkpoint_load_failure_while_reading_is_reported(
     ):
         second, _ = _run(mock_datahub_graph, qlik, "run-2")
 
-    assert "Unable to load the last checkpoint of Qlik apps" in [
-        warning.title for warning in second.reporter.warnings
-    ]
+    warning = next(
+        w for w in second.reporter.warnings if w.title == CHECKPOINT_LOAD_FAILURES_TITLE
+    )
+    # Several lookups of the one app fail, but the warning names it once.
+    assert str(warning.context).count("RuntimeError: checkpoint unavailable") == 1
 
 
 def test_run_reports_metadata_and_lineage_stages(
@@ -690,8 +697,8 @@ def test_run_reports_metadata_and_lineage_stages(
     source, _ = _run(mock_datahub_graph, _Qlik(), "run-1")
 
     stages = " ".join(source.reporter.ingestion_stage_durations)
-    assert "Metadata Extraction" in stages
-    assert "Lineage Extraction" in stages
+    assert METADATA_EXTRACTION in stages
+    assert LINEAGE_EXTRACTION in stages
 
 
 def test_partial_read_without_last_read_is_not_recorded(

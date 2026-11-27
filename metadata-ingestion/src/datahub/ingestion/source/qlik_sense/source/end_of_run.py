@@ -1,7 +1,7 @@
 from datahub.ingestion.source.qlik_sense.constants import (
     APPS_READ_WITHOUT_DATA_TITLE,
     CHANGE_CHECK_FAILED_TITLE,
-    CHECKPOINT_LOAD_WARNING_TITLE,
+    CHECKPOINT_LOAD_FAILURES_TITLE,
     COLUMN_LINEAGE_READ_FAILED_TITLE,
     DATASET_LINEAGE_READ_FAILED_TITLE,
     ENGINE_REFUSED_CONNECTIONS_TITLE,
@@ -34,10 +34,12 @@ class EndOfRunMixin(ItemsMixin):
         if not self._checkpoint_load_failures:
             return
         self.reporter.warning(
-            title=CHECKPOINT_LOAD_WARNING_TITLE,
-            message="Lineage recorded by these apps' last reads may be "
-            "missing from this run.",
-            context=bounded_list(self._checkpoint_load_failures),
+            title=CHECKPOINT_LOAD_FAILURES_TITLE,
+            message="Lineage that these apps' last reads recorded is left out of "
+            "this run and of the checkpoint it saves, so it may not be removed "
+            "once it goes stale.",
+            # Every lookup of an app that fails adds the same entry.
+            context=bounded_list(list(dict.fromkeys(self._checkpoint_load_failures))),
         )
 
     def _report_end_of_run(self) -> None:

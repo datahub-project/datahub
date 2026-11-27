@@ -4233,6 +4233,28 @@ def test_kept_reader_of_a_left_out_graph_named_dataset_counts_toward_its_path(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_reader_whose_checkpoint_fails_to_load_is_reported(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(mock_api_cls, DATASETS)
+    prices = _urn(UNLISTED_QVD)
+    source._graph_named_resources = {prices: "prices.qvd"}
+    source._graph_resource_readers = {prices: {"report-app"}}
+    source._kept_app_ids = {"kept-app"}
+    source.app_state = MagicMock()
+    source.app_state.previous.side_effect = RuntimeError("checkpoint unavailable")
+    mock_api_cls.return_value.get_reload_statements.side_effect = lambda app_id: [
+        _load("lib://hidden:datafiles/prices.qvd")
+    ]
+
+    apps_by_urn = source._read_graph_named_reloads()
+
+    assert apps_by_urn[prices].apps == {"report-app"}
+    assert len(source._checkpoint_load_failures) == 1
+    assert source._checkpoint_load_failures[0].startswith("kept-app: ")
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_unread_graph_keeps_the_reads_of_a_left_out_dataset(
     mock_api_cls: MagicMock,
 ) -> None:

@@ -1731,6 +1731,40 @@ def test_kept_writer_alone_does_not_count_as_a_reader_of_its_file(
     ]
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_reader_whose_checkpoint_fails_to_load_leaves_its_file_unread(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source({}, {})
+    source._fingerprint_salt = "salt"
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    previous = AppCheckpoint(
+        urns=[stored],
+        unmapped_file_stores={
+            UNMAPPED_ORDERS_QVD: UnmappedFileStore(
+                path="lib://Sales Space:Lake/qvd/orders.qvd", table_urns=[stored]
+            )
+        },
+        read_unmapped_file_urns=[UNMAPPED_ORDERS_QVD],
+    )
+    with (
+        patch.object(source.app_state, "previous", return_value=previous),
+        patch.object(source.app_state, "record"),
+    ):
+        source._keep_unchanged_app(UnchangedApp(id="app-2", fingerprint="f"))
+    with patch.object(
+        source.app_state, "previous", side_effect=RuntimeError("checkpoint unavailable")
+    ):
+        workunits = list(source._gen_unmapped_file_entities())
+
+    assert not workunits
+    assert list(source.reporter.unread_stored_files) == [
+        "lib://Sales Space:Lake/qvd/orders.qvd"
+    ]
+    assert len(source._checkpoint_load_failures) == 1
+    assert source._checkpoint_load_failures[0].startswith("app-2: ")
+
+
 ABS_ORDERS_QVD = "urn:li:dataset:(urn:li:dataPlatform:abs,lake/qvd/orders.qvd,PROD)"
 
 

@@ -282,7 +282,7 @@ class DashboardMixin(AppTablesMixin):
         graph names, and those its last read recorded, including on-prem
         tables, which have no QRI and are named after the app."""
         urns = dict.fromkeys(self._app_table_urns(app).values())
-        previous = self._usable_checkpoint(app.id, self._checkpoint_load_failures)
+        previous = self._usable_checkpoint(app.id)
         if previous is not None:
             urns.update(dict.fromkeys((previous.table_urns_by_qri or {}).values()))
             urns.update(

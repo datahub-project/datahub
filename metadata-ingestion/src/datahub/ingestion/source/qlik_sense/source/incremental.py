@@ -64,7 +64,7 @@ class IncrementalMixin(DataConnectionMixin):
         )
 
     def _load_checkpoint(
-        self, app_id: str, failures: List[str]
+        self, app_id: str, failures: Optional[List[str]] = None
     ) -> Optional[AppCheckpoint]:
         try:
             return self.app_state.previous(app_id)
@@ -72,17 +72,18 @@ class IncrementalMixin(DataConnectionMixin):
             logger.debug(
                 f"Unable to load the last checkpoint of app {app_id}", exc_info=True
             )
-            failures.append(
+            (self._checkpoint_load_failures if failures is None else failures).append(
                 f"{app_id}: unable to load the last checkpoint: {describe_error(e)}"
             )
             return None
 
     def _usable_checkpoint(
-        self, app_id: str, failures: List[str]
+        self, app_id: str, failures: Optional[List[str]] = None
     ) -> Optional[AppCheckpoint]:
         """The app's last read, when it can stand in for this run's read: it
         is recorded by the run the stale entity removal state comes from, and
-        it holds the entities to keep. A failed lookup goes to `failures`."""
+        it holds the entities to keep. A failed lookup goes to `failures`, or
+        to the run's checkpoint load failures when none is given."""
         previous = self._load_checkpoint(app_id, failures)
         return previous if previous is not None and previous.urns else None
 

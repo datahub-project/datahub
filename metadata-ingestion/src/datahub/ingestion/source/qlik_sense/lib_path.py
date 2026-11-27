@@ -92,6 +92,10 @@ class LibPathSegments(BaseModel):
     # Folders, then the file name.
     path: List[str]
 
+    @classmethod
+    def from_parts(cls, parts: List[str]) -> "LibPathSegments":
+        return cls(space=parts[0], connection=parts[1], path=parts[2:])
+
     def parts(self) -> List[str]:
         return [self.space, self.connection, *self.path]
 
@@ -102,13 +106,15 @@ def lib_path_segments(path: str) -> Optional[LibPathSegments]:
         return None
     connection = parse_lib_connection(match.group("connection"))
     # Optional brackets are kept as the script spelled them.
-    space, name = (
-        f"[{part}]" if part and f"[{part}]" in match.group("connection") else part
-        for part in (connection.space, connection.name)
-    )
     return LibPathSegments(
-        space=space, connection=name, path=lib_path_parts(match.group("path"))
+        space=_as_spelled(connection.space, match.group("connection")),
+        connection=_as_spelled(connection.name, match.group("connection")),
+        path=lib_path_parts(match.group("path")),
     )
+
+
+def _as_spelled(part: str, raw_connection: str) -> str:
+    return f"[{part}]" if part and f"[{part}]" in raw_connection else part
 
 
 def lib_path_parts(path: str) -> List[str]:
@@ -116,12 +122,14 @@ def lib_path_parts(path: str) -> List[str]:
 
 
 def build_lib_path(segments: LibPathSegments) -> str:
-    space, connection = (
-        name if name.startswith("[") else lib_name(name)
-        for name in (segments.space, segments.connection)
-    )
+    space = _as_written(segments.space)
+    connection = _as_written(segments.connection)
     qualified = f"{space}{SPACE_SEPARATOR}{connection}" if space else connection
     return "/".join([f"lib://{qualified}", *segments.path])
+
+
+def _as_written(name: str) -> str:
+    return name if name.startswith("[") else lib_name(name)
 
 
 def _path_key_parts(path: str) -> List[str]:
@@ -147,14 +155,19 @@ def voted_segments(
         return None
     connection = match.group("connection")
     splits = [
-        (connection[:i].strip(), connection[i + 1 :].strip())
+        LibConnection(space=connection[:i].strip(), name=connection[i + 1 :].strip())
         for i, char in enumerate(connection)
         if char == SPACE_SEPARATOR
     ]
-    known = [split for split in splits if path_key("/".join(split)) in spellings]
+    known = [
+        split
+        for split in splits
+        if path_key(f"{split.space}/{split.name}") in spellings
+    ]
     if len(known) != 1:
         return None
-    space, name = known[0]
     return LibPathSegments(
-        space=space, connection=name, path=lib_path_parts(match.group("path"))
+        space=known[0].space,
+        connection=known[0].name,
+        path=lib_path_parts(match.group("path")),
     )

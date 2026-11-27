@@ -29,6 +29,7 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     ReadErrors,
     log_read_error,
 )
+from datahub.ingestion.source.qlik_sense.report_text import describe_error
 from datahub.ingestion.source.qlik_sense.script_lineage import DataConnectionInfo
 from datahub.ingestion.source.qlik_sense.websocket_connection import (
     EngineError,
@@ -358,7 +359,7 @@ class QlikOnPremAPI(QlikBaseAPI):
                 self._open_doc(websocket_connection, app.id, with_data=False)
                 with_data = False
                 app.data_load_failed = True
-                self.opened_without_data.append(f"{app.id}: {e}")
+                self.opened_without_data.append(f"{app.id}: {describe_error(e)}")
             app.sheets = self._get_app_sheets(
                 websocket_connection,
                 app.id,
@@ -425,7 +426,9 @@ class QlikOnPremAPI(QlikBaseAPI):
                     f"Unable to check whether app {app_dict.get(Constant.ID)} "
                     f"changed, reading it instead. Exception: {e}"
                 )
-                self.change_check_failures.append(f"{app_dict.get(Constant.ID)}: {e}")
+                self.change_check_failures.append(
+                    f"{app_dict.get(Constant.ID)}: {describe_error(e)}"
+                )
         return self._read_app(app_dict, fingerprint)
 
     def _app_fingerprint(self, app_dict: Dict) -> Optional[str]:
@@ -441,7 +444,8 @@ class QlikOnPremAPI(QlikBaseAPI):
                 f"Unable to fetch objects of app {app_dict.get(Constant.ID)}. Exception: {e}"
             )
             self.change_check_failures.append(
-                f"{app_dict.get(Constant.ID)}: unable to fetch app objects: {e}"
+                f"{app_dict.get(Constant.ID)}: unable to fetch app objects: "
+                f"{describe_error(e)}"
             )
             return None
         owner = app_dict.get("owner") or {}
