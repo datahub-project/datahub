@@ -38,6 +38,8 @@ from datahub.ingestion.source.odcs.odcs_config import (
 )
 from datahub.ingestion.source.odcs.odcs_constants import (
     ASSERTION_SCHEMA_COMPLIANCE,
+    ASSERTION_SLA_LATENCY,
+    DEFAULT_CLASSIFICATION_TAG_PREFIX,
     LOGICAL_TYPE_MAP,
     METRIC_DUPLICATE_COUNT,
     METRIC_DUPLICATE_VALUES,
@@ -57,6 +59,7 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     PROP_ID,
     PROP_PHYSICAL_NAME,
     PROP_QUALITY_RULE_COUNT,
+    PROP_ROLE_PREFIX,
     PROP_RULE,
     PROP_RULE_ARGUMENTS,
     PROP_RULE_BUSINESS_IMPACT,
@@ -69,8 +72,12 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     PROP_RULE_UNIT,
     PROP_SCHEMA_NAME,
     PROP_SCOPE,
+    PROP_SLA_DRIVER,
+    PROP_SLA_ELEMENT,
+    PROP_SLA_PREFIX,
     PROP_SOURCE_FILE,
     PROP_STATUS,
+    PROP_SUPPORT_PREFIX,
     PROP_TENANT,
     PROP_VERSION,
     RULE_TYPE_CUSTOM,
@@ -81,7 +88,10 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     SCOPE_SCHEMA,
     SEMANTIC_TYPE_MEASURE,
     SERVER_TYPE_ICEBERG,
+    SLA_PROPERTY_LATENCY,
+    SLA_UNIT_TO_CALENDAR_INTERVAL,
     SYNONYM_STATUS_DEPRECATED,
+    TAG_CRITICAL_DATA_ELEMENT,
     UNIT_PERCENT,
     UNIT_ROWS,
     VARIABLE_MARKER,
@@ -97,6 +107,8 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSQualityRule,
     ODCSSchemaObject,
     ODCSServer,
+    ODCSSlaProperty,
+    ODCSSupportItem,
 )
 from datahub.metadata.schema_classes import (
     AiContextClass,
@@ -123,7 +135,15 @@ from datahub.metadata.schema_classes import (
     FieldValuesAssertionClass,
     FieldValuesFailThresholdClass,
     FieldValuesFailThresholdTypeClass,
+    FixedIntervalScheduleClass,
+    FreshnessAssertionInfoClass,
+    FreshnessAssertionScheduleClass,
+    FreshnessAssertionScheduleTypeClass,
+    FreshnessAssertionTypeClass,
+    FreshnessContractClass,
     GlobalTagsClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermsClass,
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     LogicalParentClass,
@@ -147,7 +167,12 @@ from datahub.metadata.schema_classes import (
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
 )
-from datahub.metadata.urns import DataProductUrn, DatasetUrn, DomainUrn
+from datahub.metadata.urns import (
+    DataProductUrn,
+    DatasetUrn,
+    DomainUrn,
+    GlossaryTermUrn,
+)
 from datahub.specific.dataproduct import DataProductPatchBuilder
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.error import InvalidUrnError
@@ -783,6 +808,11 @@ def _field_description(prop: ODCSProperty) -> Optional[str]:
     never accumulate and disappear when the contract drops them.
     """
     parts = [_description_to_str(prop.description)]
+    business_name = _one_line(prop.businessName)
+    # A business name that only re-cases the column name (`OrderId` for
+    # `order_id`) adds nothing.
+    if business_name and _alphanumeric(business_name) != _alphanumeric(prop.name):
+        parts.append(f"**Business name:** {business_name}")
     transform_description = _description_to_str(prop.transformDescription)
     transform_logic = _description_to_str(prop.transformLogic)
     if transform_description or transform_logic:
@@ -799,6 +829,10 @@ def _field_description(prop: ODCSProperty) -> Optional[str]:
             + "\n".join(_enum_value_line(entry) for entry in prop.enum)
         )
     return "\n\n".join(p for p in parts if p) or None
+
+
+def _alphanumeric(text: str) -> str:
+    return re.sub(r"[^0-9a-z]", "", text.lower())
 
 
 def _one_line(text: Optional[str]) -> Optional[str]:
@@ -824,16 +858,31 @@ def _enum_value_line(entry: ODCSEnumValue) -> str:
     return line
 
 
+def _glossary_term_urn(url: Optional[str]) -> Optional[str]:
+    """`url` when it is a glossary term urn, which names a term rather than a page."""
+    if not url or not url.startswith("urn:li:glossaryTerm:"):
+        return None
+    try:
+        GlossaryTermUrn.from_string(url)
+    except InvalidUrnError:
+        return None
+    return url
+
+
 def build_schema_metadata(
     schema_entry: ODCSSchemaObject,
     tag_prefix: Optional[str] = None,
+    classification_tag_prefix: str = DEFAULT_CLASSIFICATION_TAG_PREFIX,
 ) -> SchemaBuildResult:
     """Build canonical `schemaMetadata` from an ODCS `schema[].properties[]` tree.
 
     Field paths are dotted (`address.street`) to mirror the nested ODCS
-    `properties[]` structure. Descriptions, tags, nullability (from `required`),
-    and key membership (from `primaryKey`) are carried through. Returns no
-    schema metadata when the entry declares no properties.
+    `properties[]` structure. Descriptions, tags (plus `classification` and
+    `criticalDataElement` as tags), nullability (from `required`), key
+    membership (from `primaryKey`) and glossary terms (authoritativeDefinitions
+    whose url is a glossary term urn; terms are referenced, never created) are
+    carried through. Returns no schema metadata when the entry declares no
+    properties.
     """
     fields: List[SchemaFieldClass] = []
     unmapped_types: List[str] = []
@@ -843,7 +892,20 @@ def build_schema_metadata(
             unmapped_types.append(
                 f"{field_path}:{prop.logicalType or prop.physicalType}"
             )
-        tag_assoc = _make_tag_associations(prop.tags, tag_prefix)
+        field_tags = list(prop.tags or [])
+        classification = (prop.classification or "").strip()
+        if classification:
+            field_tags.append(f"{classification_tag_prefix}{classification}")
+        if prop.criticalDataElement:
+            field_tags.append(TAG_CRITICAL_DATA_ELEMENT)
+        tag_assoc = _make_tag_associations(field_tags, tag_prefix)
+        term_urns = list(
+            dict.fromkeys(
+                urn
+                for d in prop.authoritativeDefinitions or []
+                if (urn := _glossary_term_urn(d.url))
+            )
+        )
         fields.append(
             SchemaFieldClass(
                 fieldPath=field_path,
@@ -853,6 +915,12 @@ def build_schema_metadata(
                 nullable=not bool(prop.required),
                 isPartOfKey=bool(prop.primaryKey),
                 globalTags=GlobalTagsClass(tags=tag_assoc) if tag_assoc else None,
+                glossaryTerms=GlossaryTermsClass(
+                    terms=[GlossaryTermAssociationClass(urn=u) for u in term_urns],
+                    auditStamp=AuditStampClass(time=0, actor=ODCS_ACTOR),
+                )
+                if term_urns
+                else None,
                 recursive=False,
             )
         )
@@ -912,35 +980,63 @@ def _authoritative_definitions(
 def unstorable_authoritative_definition_urls(contract: ODCSContract) -> List[str]:
     """Distinct contract/schema/property authoritativeDefinitions URLs that GMS
     would reject as links (relative paths, other schemes), so the source can
-    report them; `_institutional_memory_mcp` skips them."""
+    report them; `_institutional_memory_mcp` skips them. Glossary term urns on
+    properties are mapped to field terms instead, so they are not reported."""
+    field_terms = {
+        d.url
+        for entry in contract.schema_ or []
+        for _, prop in _walk_properties(entry.properties)
+        for d in prop.authoritativeDefinitions or []
+        if _glossary_term_urn(d.url)
+    }
     return sorted(
         {
             d.url
             for d in _authoritative_definitions(contract, contract.schema_ or [])
-            if d.url and not _is_storable_link_url(d.url)
+            if d.url and not _is_storable_link_url(d.url) and d.url not in field_terms
         }
     )
+
+
+def _support_link_label(item: ODCSSupportItem) -> str:
+    label = f"Support: {item.channel}"
+    if item.tool:
+        label += f" ({item.tool})"
+    if item.description:
+        label += f" — {item.description}"
+    return label
 
 
 def _institutional_memory_mcp(
     logical_urn: str, schema_entry: ODCSSchemaObject, contract: ODCSContract
 ) -> Optional[MetadataChangeProposalWrapper]:
-    """Link the logical dataset to author-provided authoritativeDefinitions.
+    """Link the logical dataset to author-provided authoritativeDefinitions and
+    `support` channels.
 
     Only author-declared URLs are emitted (deterministic, not tied to the
     ingesting host's filesystem). The source-file basename is carried in
     DatasetProperties.customProperties instead.
     """
+    links = [
+        (d.url, d.type or "ODCS authoritative definition")
+        for d in _authoritative_definitions(contract, [schema_entry])
+        if d.url
+    ]
+    links.extend(
+        (item.url, _support_link_label(item))
+        for item in contract.support or []
+        if item.url
+    )
     seen: Set[str] = set()
     elements: List[InstitutionalMemoryMetadataClass] = []
-    for d in _authoritative_definitions(contract, [schema_entry]):
-        if not d.url or d.url in seen or not _is_storable_link_url(d.url):
+    for url, description in links:
+        if url in seen or not _is_storable_link_url(url):
             continue
-        seen.add(d.url)
+        seen.add(url)
         elements.append(
             InstitutionalMemoryMetadataClass(
-                url=d.url,
-                description=d.type or "ODCS authoritative definition",
+                url=url,
+                description=description,
                 # Fixed epoch (not wall-clock): the link content is stable across
                 # runs, so a fresh timestamp each run would churn the aspect and
                 # cause needless write amplification.
@@ -1061,6 +1157,84 @@ def _context_section(contexts: List[Optional[ODCSContext]]) -> Optional[str]:
     return "\n\n".join(["**Guidance for AI and analysts:**", *parts])
 
 
+def _details(pairs: Iterable[Tuple[str, Optional[str]]]) -> str:
+    return ", ".join(f"{key}: {value}" for key, value in pairs if value)
+
+
+def _sla_entries(
+    contract: ODCSContract, schema_entry: ODCSSchemaObject
+) -> List[Tuple[ODCSSlaProperty, Optional[str]]]:
+    """The SLA entries that apply to `schema_entry`, each with its element.
+
+    An element is `table.column` (several are comma-separated); an entry whose
+    elements name only other tables of the contract does not apply. One with
+    no element, or naming no table of the contract, applies to every table.
+    """
+
+    def table_names(entry: ODCSSchemaObject) -> Set[str]:
+        return {n.lower() for n in (entry.name, entry.physicalName) if n}
+
+    names = table_names(schema_entry)
+    known = set().union(*(table_names(e) for e in contract.schema_ or []))
+    entries: List[Tuple[ODCSSlaProperty, Optional[str]]] = []
+    for sla in contract.slaProperties or []:
+        element = sla.element or contract.slaDefaultElement
+        tables = known & {
+            e.strip().split(".", 1)[0].lower()
+            for e in (element or "").split(",")
+            if "." in e
+        }
+        if not tables or tables & names:
+            entries.append((sla, element))
+    return entries
+
+
+def _contract_properties(
+    contract: ODCSContract, schema_entry: ODCSSchemaObject
+) -> Dict[str, str]:
+    """SLA, role and support-channel properties, one key per name.
+
+    Entries sharing an SLA property (e.g. `timeOfAvailability` per driver) are
+    joined with `; `. Support channels with a storable URL are links instead.
+    """
+    sla_values: Dict[str, List[str]] = {}
+    for sla, element in _sla_entries(contract, schema_entry):
+        value = sla.value if isinstance(sla.value, str) else json.dumps(sla.value)
+        text = " ".join(p for p in (value, sla.unit) if p)
+        details = _details(
+            (
+                ("element", element),
+                ("driver", sla.driver),
+                ("description", sla.description),
+            )
+        )
+        if details:
+            text += f" ({details})"
+        sla_values.setdefault(f"{PROP_SLA_PREFIX}{sla.property}", []).append(text)
+    props = {key: "; ".join(values) for key, values in sla_values.items()}
+    for role in contract.roles or []:
+        props[f"{PROP_ROLE_PREFIX}{role.role}"] = _details(
+            (
+                ("access", role.access),
+                ("firstLevelApprovers", role.firstLevelApprovers),
+                ("secondLevelApprovers", role.secondLevelApprovers),
+                ("description", role.description),
+            )
+        )
+    for item in contract.support or []:
+        if item.url and _is_storable_link_url(item.url):
+            continue
+        props[f"{PROP_SUPPORT_PREFIX}{item.channel}"] = _details(
+            (
+                ("tool", item.tool),
+                ("scope", item.scope),
+                ("url", item.url),
+                ("description", item.description),
+            )
+        )
+    return props
+
+
 def odcs_to_logical_dataset_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
@@ -1070,6 +1244,7 @@ def odcs_to_logical_dataset_mcps(
     replicate_contract_metadata: bool = True,
     strip_owner_email_domain: bool = False,
     owner_email_domain: Optional[str] = None,
+    classification_tag_prefix: str = DEFAULT_CLASSIFICATION_TAG_PREFIX,
 ) -> Tuple[List[MetadataChangeProposalWrapper], List[str]]:
     """Emit the aspects ODCS owns on the logical `odcs` dataset.
 
@@ -1097,6 +1272,7 @@ def odcs_to_logical_dataset_mcps(
     ):
         if value:
             custom_props[key] = value
+    custom_props.update(_contract_properties(contract, schema_entry))
 
     if contract.name and schema_entry.name:
         display_name: Optional[str] = f"{contract.name} — {schema_entry.name}"
@@ -1114,7 +1290,9 @@ def odcs_to_logical_dataset_mcps(
         )
     )
 
-    schema_result = build_schema_metadata(schema_entry, tag_prefix)
+    schema_result = build_schema_metadata(
+        schema_entry, tag_prefix, classification_tag_prefix=classification_tag_prefix
+    )
     if schema_result.schema_metadata is not None:
         mcps.append(
             MetadataChangeProposalWrapper(
@@ -1951,6 +2129,85 @@ def odcs_to_schema_assertion_mcps(
     ]
 
 
+def _sla_interval(sla: ODCSSlaProperty) -> Optional[FixedIntervalScheduleClass]:
+    unit = SLA_UNIT_TO_CALENDAR_INTERVAL.get((sla.unit or "").strip().lower())
+    value = sla.value
+    if isinstance(value, str) and value.strip().isdigit():
+        value = int(value)
+    if (
+        unit is None
+        or isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or value <= 0
+        or not float(value).is_integer()
+    ):
+        return None
+    return FixedIntervalScheduleClass(unit=unit, multiple=int(value))
+
+
+def odcs_to_sla_freshness_assertion_mcps(
+    contract: ODCSContract,
+    schema_entry: ODCSSchemaObject,
+    logical_urn: str,
+) -> Tuple[List[str], List[MetadataChangeProposalWrapper]]:
+    """One FRESHNESS assertion per `latency` SLA that applies to the entry.
+
+    Like the quality-rule assertions, it records the contract's promise on the
+    logical dataset. A latency without a whole positive value and an
+    unambiguous unit is kept as a dataset property only.
+    """
+    urns: List[str] = []
+    mcps: List[MetadataChangeProposalWrapper] = []
+    for sla, element in _sla_entries(contract, schema_entry):
+        if sla.property.strip().lower() != SLA_PROPERTY_LATENCY:
+            continue
+        interval = _sla_interval(sla)
+        if interval is None:
+            continue
+        urn = make_assertion_urn(
+            datahub_guid(
+                {
+                    "contract": contract.id,
+                    "dataset": logical_urn,
+                    "kind": "sla_latency",
+                    "element": element or "",
+                }
+            )
+        )
+        if urn in urns:
+            continue
+        props = {
+            PROP_ID: contract.id,
+            PROP_SCOPE: SCOPE_SCHEMA,
+            PROP_ASSERTION: ASSERTION_SLA_LATENCY,
+        }
+        for key, value in ((PROP_SLA_ELEMENT, element), (PROP_SLA_DRIVER, sla.driver)):
+            if value:
+                props[key] = value
+        description = sla.description or (
+            f"Latency SLA: {interval.multiple} {sla.unit}"
+            + (f" on `{element}`" if element else "")
+        )
+        info = AssertionInfoClass(
+            type=AssertionTypeClass.FRESHNESS,
+            source=make_assertion_source(),
+            description=description,
+            customProperties=props,
+            freshnessAssertion=FreshnessAssertionInfoClass(
+                type=FreshnessAssertionTypeClass.DATASET_CHANGE,
+                entity=logical_urn,
+                schedule=FreshnessAssertionScheduleClass(
+                    type=FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL,
+                    fixedInterval=interval,
+                ),
+            ),
+        )
+        urns.append(urn)
+        mcps.append(MetadataChangeProposalWrapper(entityUrn=urn, aspect=info))
+        mcps.append(assertion_platform_instance_mcp(urn))
+    return urns, mcps
+
+
 def odcs_data_contract_urn(entity_urn: str) -> str:
     # Stable per target dataset and identical to the convention the DataContract
     # SDK uses, so a hand-authored contract and the ODCS-derived one collapse to
@@ -1964,15 +2221,16 @@ def odcs_to_data_contract_mcps(
     entity_urn: str,
     schema_assertion_urn: Optional[str],
     data_quality_assertion_urns: List[str],
+    freshness_assertion_urns: List[str],
 ) -> Tuple[Optional[str], List[MetadataChangeProposalWrapper]]:
     """Emit a native DataHub `dataContract` on `entity_urn`.
 
     Both the logical `odcs` dataset (where the assertions actually live — the
     self-consistent home) and the bound physical dataset (where consumers browse)
-    use this: the contract just references the schema and data-quality assertion
-    urns, never duplicating assertion entities. State mirrors ODCS `status`
-    (`active` -> ACTIVE, otherwise PENDING). Returns (None, []) when the entry
-    produced no assertions worth pinning a contract to.
+    use this: the contract just references the schema, data-quality and
+    freshness assertion urns, never duplicating assertion entities. State
+    mirrors ODCS `status` (`active` -> ACTIVE, otherwise PENDING). Returns
+    (None, []) when the entry produced no assertions worth pinning a contract to.
     """
     schema_contracts = (
         [SchemaContractClass(assertion=schema_assertion_urn)]
@@ -1982,7 +2240,10 @@ def odcs_to_data_contract_mcps(
     dq_contracts = [
         DataQualityContractClass(assertion=urn) for urn in data_quality_assertion_urns
     ]
-    if schema_contracts is None and not dq_contracts:
+    freshness_contracts = [
+        FreshnessContractClass(assertion=urn) for urn in freshness_assertion_urns
+    ]
+    if schema_contracts is None and not dq_contracts and not freshness_contracts:
         return None, []
 
     contract_urn = odcs_data_contract_urn(entity_urn)
@@ -1999,6 +2260,7 @@ def odcs_to_data_contract_mcps(
                     entity=entity_urn,
                     schema=schema_contracts,
                     dataQuality=dq_contracts or None,
+                    freshness=freshness_contracts or None,
                 ),
                 StatusClass(removed=False),
                 DataContractStatusClass(state=state),

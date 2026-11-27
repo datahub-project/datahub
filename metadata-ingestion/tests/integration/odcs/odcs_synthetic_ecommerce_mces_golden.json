@@ -83,6 +83,9 @@
                         "tags": [
                             {
                                 "tag": "urn:li:tag:pii"
+                            },
+                            {
+                                "tag": "urn:li:tag:classification:confidential"
                             }
                         ]
                     },
@@ -247,6 +250,9 @@
                                 "tags": [
                                     {
                                         "tag": "urn:li:tag:pii"
+                                    },
+                                    {
+                                        "tag": "urn:li:tag:classification:confidential"
                                     }
                                 ]
                             },
@@ -1790,6 +1796,22 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:classification:confidential",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "classification:confidential"
         }
     },
     "systemMetadata": {

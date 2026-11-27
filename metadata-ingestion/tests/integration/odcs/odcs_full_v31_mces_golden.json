@@ -17,7 +17,9 @@
                 "odcs.sourceFile": "odcs_full_v31.odcs.yaml",
                 "odcs.domain": "customers",
                 "odcs.dataProduct": "customer-360",
-                "odcs.tenant": "acme"
+                "odcs.tenant": "acme",
+                "odcs.sla.generalAvailability": "2024-01-01T00:00:00Z",
+                "odcs.sla.latency": "4"
             },
             "name": "customers_full \u2014 customers",
             "description": "Master table of customers.\n\n**purpose**: Customer master records used by the CDP.\n\n**usage**: Joinable to orders and events on customer_id.\n\n**limitations**: Non-PII columns only available outside the data perimeter.",
@@ -83,6 +85,9 @@
                         "tags": [
                             {
                                 "tag": "urn:li:tag:pii"
+                            },
+                            {
+                                "tag": "urn:li:tag:classification:confidential"
                             }
                         ]
                     },
@@ -1105,6 +1110,9 @@
                                 "tags": [
                                     {
                                         "tag": "urn:li:tag:pii"
+                                    },
+                                    {
+                                        "tag": "urn:li:tag:classification:confidential"
                                     }
                                 ]
                             },
@@ -1338,7 +1346,9 @@
                 "odcs.sourceFile": "odcs_full_v31.odcs.yaml",
                 "odcs.domain": "customers",
                 "odcs.dataProduct": "customer-360",
-                "odcs.tenant": "acme"
+                "odcs.tenant": "acme",
+                "odcs.sla.generalAvailability": "2024-01-01T00:00:00Z",
+                "odcs.sla.latency": "4"
             },
             "name": "customers_full \u2014 orders",
             "description": "Order events.\n\n**purpose**: Customer master records used by the CDP.\n\n**usage**: Joinable to orders and events on customer_id.\n\n**limitations**: Non-PII columns only available outside the data perimeter.",
@@ -2006,6 +2016,22 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:classification:confidential",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "classification:confidential"
         }
     },
     "systemMetadata": {

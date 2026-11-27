@@ -337,23 +337,27 @@ def test_unknown_field_increments_counter_and_warns(tmp_path: pathlib.Path) -> N
 
 
 def test_spec_valid_unmapped_field_is_info_not_warning(tmp_path: pathlib.Path) -> None:
-    """`support` / `slaProperties` etc. are valid ODCS the source deliberately
+    """`price`, `relationships` etc. are valid ODCS the source deliberately
     does not map — they produce ONE info per file, never a 'check spelling'
-    warning."""
+    warning. Unmapped keys inside mapped sections are classified the same way."""
     src = _make_source(tmp_path)
     raw_dict: dict = {
         "apiVersion": "v3.1.0",
         "id": "x",
-        "support": [{"channel": "slack", "url": "https://x.example/slack"}],
-        "slaProperties": [{"property": "latency", "value": 4}],
+        "price": {"priceAmount": 1},
+        "support": [{"channel": "slack", "invitationUrl": "https://x.example/join"}],
+        "slaProperties": [{"property": "latency", "value": 4, "valueExt": 4}],
         "schema": [{"name": "t", "relationships": []}],
     }
     src._warn_unknown_fields(raw_dict, str(tmp_path / "f.yaml"))
     assert src.report.unknown_fields_count == 0
     assert not src.report.warnings
-    assert any("support" in entry for entry in src.report.spec_fields_ignored)
-    assert any("slaProperties" in entry for entry in src.report.spec_fields_ignored)
-    assert any("relationships" in entry for entry in src.report.spec_fields_ignored)
+    assert src.report.spec_fields_ignored == [
+        "<root>.price",
+        "<root>.support[*].invitationUrl",
+        "<root>.slaProperties[*].valueExt",
+        "<root>.schema[*].relationships",
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -2501,8 +2505,7 @@ schema:
         mustBeLessThan: 10
     properties:
       - name: col_a
-        criticalDataElement: true
-        classification: confidential
+        unique: true
         semanticType: 5
         transformLogic: [a, b]
 """
@@ -2517,8 +2520,7 @@ def test_lossy_fields_are_reported(tmp_path: pathlib.Path) -> None:
     list(src.get_workunits_internal())
     ignored = " ".join(src.report.spec_fields_ignored)
     # Read by the model but not mapped.
-    assert "<root>.schema[*].properties[*].criticalDataElement" in ignored
-    assert "<root>.schema[*].properties[*].classification" in ignored
+    assert "<root>.schema[*].properties[*].unique" in ignored
     warnings = _messages(src.report.warnings)
     # Off-spec values dropped by the model.
     assert "schema[0].deprecated" in warnings

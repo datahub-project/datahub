@@ -14,6 +14,9 @@ from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
 from datahub.ingestion.source.common.http_connection_config import HTTPConnectionConfig
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
+from datahub.ingestion.source.odcs.odcs_constants import (
+    DEFAULT_CLASSIFICATION_TAG_PREFIX,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -186,6 +189,12 @@ class ODCSSourceConfig(
         description="Optional prefix prepended to every tag emitted from ODCS `tags` and "
         "property-level `tags` (e.g. `odcs.`). Useful for distinguishing ODCS-sourced tags.",
     )
+    classification_tag_prefix: str = Field(
+        default=DEFAULT_CLASSIFICATION_TAG_PREFIX,
+        description="Prefix of the schema-field tag emitted from a property's `classification` "
+        "(`confidential` becomes the tag `classification:confidential`). `tag_prefix`, when set, "
+        "is prepended as for other tags. Use an empty string for the bare classification value.",
+    )
     strip_owner_email_domain: bool = Field(
         default=False,
         description="ODCS team usernames may be emails. When true, the domain is stripped "
@@ -224,9 +233,10 @@ class ODCSSourceConfig(
     )
     emit_assertions: bool = Field(
         default=True,
-        description="Whether to emit Assertion entities derived from the ODCS `quality[]` rules. "
-        "Assertions target the logical `odcs` dataset and are emitted whether or not a "
-        "physical binding resolves.",
+        description="Whether to emit Assertion entities derived from the ODCS `quality[]` rules "
+        "and from `latency` SLAs (`slaProperties[]`, as freshness assertions). Assertions "
+        "target the logical `odcs` dataset and are emitted whether or not a physical binding "
+        "resolves.",
     )
     emit_schema_assertion: bool = Field(
         default=True,

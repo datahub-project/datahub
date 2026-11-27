@@ -256,17 +256,25 @@ contract clears it on the next run. An unresolved value leaves the current domai
   file.
 - File loading is capped at 5 MB by default (`max_input_file_bytes`). Larger YAML files
   are skipped with a warning before parsing.
-- Out of scope: SLA (`slaProperties`), `support`, `price`, v3.1 `relationships` (foreign
-  keys), `customProperties` → DataHub `customProperties` (only the `odcs.*` provenance
-  subset is emitted), `classification` → `GlossaryTerm` linking, schemaField-level
-  `logicalParent` column links, and ODCS export. Spec-valid fields the source does not map
-  are reported once per file as an info and listed in `report.spec_fields_ignored`. Besides
-  whole sections such as SLA, support and price, these include fields the source reads but
-  does not map: `unique`, `primaryKeyPosition`, `partitioned`, `partitionKeyPosition`,
-  `criticalDataElement` and `encryptedName` on properties, `businessName` on schema
-  objects, `contractCreatedTs`, quality-rule `method` / `schedule` / `scheduler`,
-  team-member `dateIn` / `replacedByUsername`, and server `environment` / `location` /
-  `region`. These may land in a follow-up.
+- Out of scope: `price`, v3.1 `relationships` (foreign keys), `customProperties` → DataHub
+  `customProperties` (only the `odcs.*` provenance subset is emitted), access policies from
+  `roles`, glossary terms from `classification` or tags (terms come only from glossary term
+  URNs in property `authoritativeDefinitions`; such URNs at contract or schema level are
+  reported as skipped links), schemaField-level `logicalParent` column links, and ODCS
+  export. Spec-valid fields the source does not map are reported once per file as an info
+  and listed in `report.spec_fields_ignored`. Besides whole sections such as price, these
+  include fields the source reads but does not map: `unique`, `primaryKeyPosition`,
+  `partitioned`, `partitionKeyPosition` and `encryptedName` on properties, `businessName` on
+  schema objects, `contractCreatedTs`, quality-rule `method` / `schedule` / `scheduler`,
+  team-member `dateIn` / `replacedByUsername`, server `environment` / `location` /
+  `region`, SLA `valueExt` / `schedule` / `scheduler`, and support `invitationUrl`. These
+  may land in a follow-up.
+- **SLA freshness assertions are declared, not run.** Like the quality-rule assertions, the
+  freshness assertion from a `latency` SLA records the contract's promise on the logical
+  dataset; the SLA's `element` (the timestamp column) is kept in the assertion's
+  `odcs.sla.element` property. SLA properties other than `latency` (retention, frequency,
+  availability, …) have no native counterpart and are recorded as `odcs.sla.*` properties
+  only.
 - **Lossy mappings are reported.** Besides the info above: off-spec values that were
   dropped, `${VAR}` references in quality `query` text, `{object}` placeholders on a table
   that is not bound or not found in DataHub, and `physical_urn_overrides` values that are not

@@ -54,6 +54,7 @@
                 {
                     "fieldPath": "rcvr_cntry_code",
                     "nullable": true,
+                    "description": "**Business name:** Receiver country code",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -66,6 +67,7 @@
                 {
                     "fieldPath": "rcvr_id",
                     "nullable": true,
+                    "description": "**Business name:** Receiver identification number",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -78,6 +80,7 @@
                 {
                     "fieldPath": "year",
                     "nullable": true,
+                    "description": "**Business name:** Year of transaction",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -90,6 +93,7 @@
                 {
                     "fieldPath": "amount",
                     "nullable": true,
+                    "description": "**Business name:** Transaction amount",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -145,6 +149,7 @@
                         {
                             "fieldPath": "rcvr_cntry_code",
                             "nullable": true,
+                            "description": "**Business name:** Receiver country code",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.StringType": {}
@@ -157,6 +162,7 @@
                         {
                             "fieldPath": "rcvr_id",
                             "nullable": true,
+                            "description": "**Business name:** Receiver identification number",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.StringType": {}
@@ -169,6 +175,7 @@
                         {
                             "fieldPath": "year",
                             "nullable": true,
+                            "description": "**Business name:** Year of transaction",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.NumberType": {}
@@ -181,6 +188,7 @@
                         {
                             "fieldPath": "amount",
                             "nullable": true,
+                            "description": "**Business name:** Transaction amount",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.NumberType": {}

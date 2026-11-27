@@ -18,12 +18,14 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     _operator_and_params_from_threshold,
     build_schema_metadata,
     odcs_to_assertion_mcps,
+    odcs_to_data_contract_mcps,
     odcs_to_data_product_urn,
     odcs_to_logical_dataset_mcps,
     odcs_to_logical_dataset_urn,
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
+    odcs_to_sla_freshness_assertion_mcps,
     substitute_object_placeholder,
     unmapped_owner_roles,
     unstorable_authoritative_definition_urls,
@@ -48,7 +50,9 @@ from datahub.metadata.schema_classes import (
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
     BooleanTypeClass,
+    CalendarIntervalClass,
     CustomAssertionInfoClass,
+    DataContractPropertiesClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     DeprecationClass,
@@ -58,12 +62,16 @@ from datahub.metadata.schema_classes import (
     FieldMetricTypeClass,
     FieldValuesAssertionClass,
     FieldValuesFailThresholdTypeClass,
+    FreshnessAssertionScheduleTypeClass,
+    FreshnessAssertionTypeClass,
     InstitutionalMemoryClass,
     LogicalParentClass,
     NullTypeClass,
     NumberTypeClass,
     OwnershipTypeClass,
     SchemaAssertionCompatibilityClass,
+    SchemaFieldClass,
+    SchemaMetadataClass,
     StringTypeClass,
 )
 from datahub.utilities.urns.error import InvalidUrnError
@@ -2526,3 +2534,356 @@ def test_lenient_fields_by_model_matches_the_lenient_validators() -> None:
         for field_name in decorator.info.fields
     } - {(ODCSSynonym, "synonym")}
     assert lenient <= reported
+
+
+# ---------------------------------------------------------------------------
+# SLA, support, roles, and property classification / CDE / business name /
+# glossary terms
+# ---------------------------------------------------------------------------
+
+ORDERS_URN = "urn:li:dataset:(urn:li:dataPlatform:odcs,c1.orders,PROD)"
+
+
+def _sla_contract(**extra: Any) -> ODCSContract:
+    payload: Dict[str, Any] = {
+        "id": "c1",
+        "apiVersion": "v3.1.0",
+        "schema": [
+            {"name": "orders", "properties": [{"name": "updated_at"}]},
+            {"name": "customers", "properties": [{"name": "id"}]},
+        ],
+        "slaProperties": [
+            {
+                "property": "latency",
+                "value": 4,
+                "unit": "d",
+                "element": "orders.updated_at",
+                "driver": "operational",
+            },
+            {"property": "retention", "value": 3, "unit": "y"},
+            {"property": "timeOfAvailability", "value": "09:00-08:00"},
+            {
+                "property": "timeOfAvailability",
+                "value": "08:00-08:00",
+                "driver": "analytics",
+            },
+            {
+                "property": "frequency",
+                "value": 1,
+                "unit": "d",
+                "element": "customers.id",
+            },
+            # Names no table of this contract, so it cannot be placed.
+            {"property": "throughput", "value": 100, "element": "staging.col_a"},
+        ],
+    }
+    payload.update(extra)
+    return ODCSContract.model_validate(payload)
+
+
+def _schema_named(contract: ODCSContract, name: str) -> ODCSSchemaObject:
+    return next(s for s in contract.schema_ or [] if s.name == name)
+
+
+def _dataset_props(
+    contract: ODCSContract, schema_name: str = "orders"
+) -> DatasetPropertiesClass:
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_schema_named(contract, schema_name),
+        logical_urn=ORDERS_URN,
+    )
+    return next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
+
+
+def test_sla_properties_recorded_on_the_tables_they_apply_to() -> None:
+    props = _dataset_props(_sla_contract()).customProperties
+    assert props["odcs.sla.latency"] == (
+        "4 d (element: orders.updated_at, driver: operational)"
+    )
+    assert props["odcs.sla.retention"] == "3 y"
+    assert props["odcs.sla.timeOfAvailability"] == (
+        "09:00-08:00; 08:00-08:00 (driver: analytics)"
+    )
+    # The frequency SLA names another table's column.
+    assert "odcs.sla.frequency" not in props
+    customer_props = _dataset_props(_sla_contract(), "customers").customProperties
+    assert "odcs.sla.latency" not in customer_props
+    assert customer_props["odcs.sla.frequency"] == "1 d (element: customers.id)"
+    for table_props in (props, customer_props):
+        assert table_props["odcs.sla.throughput"] == "100 (element: staging.col_a)"
+
+
+def test_sla_default_element_applies_when_entry_has_none() -> None:
+    contract = _sla_contract(
+        slaDefaultElement="customers.id",
+        slaProperties=[{"property": "latency", "value": 2, "unit": "h"}],
+    )
+    assert "odcs.sla.latency" not in _dataset_props(contract).customProperties
+    assert (
+        _dataset_props(contract, "customers").customProperties["odcs.sla.latency"]
+        == "2 h (element: customers.id)"
+    )
+
+
+def test_sla_latency_becomes_freshness_assertion() -> None:
+    contract = _sla_contract()
+    urns, mcps = odcs_to_sla_freshness_assertion_mcps(
+        contract=contract,
+        schema_entry=_schema_named(contract, "orders"),
+        logical_urn=ORDERS_URN,
+    )
+    assert len(urns) == 1
+    info = _single_info(mcps)
+    assert info.type == AssertionTypeClass.FRESHNESS
+    freshness = info.freshnessAssertion
+    assert freshness is not None
+    assert freshness.entity == ORDERS_URN
+    assert freshness.type == FreshnessAssertionTypeClass.DATASET_CHANGE
+    assert freshness.schedule.type == FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL
+    assert freshness.schedule.fixedInterval is not None
+    assert freshness.schedule.fixedInterval.unit == CalendarIntervalClass.DAY
+    assert freshness.schedule.fixedInterval.multiple == 4
+    assert info.customProperties is not None
+    assert info.customProperties["odcs.sla.element"] == "orders.updated_at"
+    assert any(isinstance(m.aspect, DataPlatformInstanceClass) for m in mcps)
+    # Stable across runs.
+    again, _ = odcs_to_sla_freshness_assertion_mcps(
+        contract=contract,
+        schema_entry=_schema_named(contract, "orders"),
+        logical_urn=ORDERS_URN,
+    )
+    assert again == urns
+    # The latency SLA names the orders table only.
+    none, _ = odcs_to_sla_freshness_assertion_mcps(
+        contract=contract,
+        schema_entry=_schema_named(contract, "customers"),
+        logical_urn=ORDERS_URN,
+    )
+    assert none == []
+
+
+@pytest.mark.parametrize(
+    "value,unit",
+    [(4, "m"), (4, None), (1.5, "d"), (0, "d"), (True, "d"), ("soon", "d")],
+)
+def test_sla_latency_without_a_clear_interval_is_not_an_assertion(
+    value: Any, unit: Optional[str]
+) -> None:
+    contract = _sla_contract(
+        slaProperties=[{"property": "latency", "value": value, "unit": unit}]
+    )
+    urns, _ = odcs_to_sla_freshness_assertion_mcps(
+        contract=contract,
+        schema_entry=_schema_named(contract, "orders"),
+        logical_urn=ORDERS_URN,
+    )
+    assert urns == []
+    # It is still recorded as a property.
+    assert "odcs.sla.latency" in _dataset_props(contract).customProperties
+
+
+def test_data_contract_references_freshness_assertions() -> None:
+    contract = _make_contract(schema=[{"name": "t"}])
+    urn, mcps = odcs_to_data_contract_mcps(
+        contract=contract,
+        entity_urn=LOGICAL_URN,
+        schema_assertion_urn=None,
+        data_quality_assertion_urns=[],
+        freshness_assertion_urns=["urn:li:assertion:fresh"],
+    )
+    assert urn is not None
+    props = next(
+        m.aspect for m in mcps if isinstance(m.aspect, DataContractPropertiesClass)
+    )
+    assert props.freshness is not None
+    assert [f.assertion for f in props.freshness] == ["urn:li:assertion:fresh"]
+
+
+def test_support_channels_become_links_or_properties() -> None:
+    contract = ODCSContract.model_validate(
+        {
+            "id": "c1",
+            "schema": [{"name": "orders"}],
+            "support": [
+                {"channel": "#data-help", "tool": "slack", "scope": "interactive"},
+                {
+                    "channel": "data-announce",
+                    "tool": "email",
+                    "url": "mailto:data-announce@example.com",
+                },
+                {
+                    "channel": "Feedback",
+                    "description": "Product feedback",
+                    "url": "https://feedback.example.com",
+                },
+            ],
+        }
+    )
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=ORDERS_URN,
+    )
+    memory = next(
+        m.aspect for m in mcps if isinstance(m.aspect, InstitutionalMemoryClass)
+    )
+    assert [(e.url, e.description) for e in memory.elements] == [
+        ("mailto:data-announce@example.com", "Support: data-announce (email)"),
+        ("https://feedback.example.com", "Support: Feedback — Product feedback"),
+    ]
+    props = next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
+    # No link to store, so the channel is kept as a property.
+    assert props.customProperties["odcs.support.#data-help"] == (
+        "tool: slack, scope: interactive"
+    )
+    assert "odcs.support.Feedback" not in props.customProperties
+
+
+def test_roles_recorded_as_properties() -> None:
+    contract = ODCSContract.model_validate(
+        {
+            "id": "c1",
+            "schema": [{"name": "orders"}],
+            "roles": [
+                {
+                    "role": "orders_reader",
+                    "access": "read",
+                    "firstLevelApprovers": "Reporting Manager",
+                    "secondLevelApprovers": "Data Owner",
+                },
+                {"role": "orders_admin"},
+            ],
+        }
+    )
+    props = _dataset_props(contract).customProperties
+    assert props["odcs.role.orders_reader"] == (
+        "access: read, firstLevelApprovers: Reporting Manager, "
+        "secondLevelApprovers: Data Owner"
+    )
+    assert props["odcs.role.orders_admin"] == ""
+
+
+def _fields_by_path(
+    properties: List[Dict[str, Any]], **kwargs: Any
+) -> Dict[str, SchemaFieldClass]:
+    schema_entry = ODCSSchemaObject.model_validate(
+        {"name": "orders", "properties": properties}
+    )
+    result = build_schema_metadata(schema_entry, **kwargs)
+    assert result.schema_metadata is not None
+    return {f.fieldPath: f for f in result.schema_metadata.fields}
+
+
+def _tag_urns(field: SchemaFieldClass) -> List[str]:
+    return [t.tag for t in field.globalTags.tags] if field.globalTags else []
+
+
+def test_classification_and_critical_data_element_become_field_tags() -> None:
+    fields = _fields_by_path(
+        [
+            {
+                "name": "email",
+                "classification": "confidential",
+                "criticalDataElement": True,
+                "tags": ["pii"],
+            },
+            {"name": "note", "criticalDataElement": False},
+        ],
+        tag_prefix="odcs.",
+    )
+    assert _tag_urns(fields["email"]) == [
+        "urn:li:tag:odcs.pii",
+        "urn:li:tag:odcs.classification:confidential",
+        "urn:li:tag:odcs.critical_data_element",
+    ]
+    assert _tag_urns(fields["note"]) == []
+
+
+def test_classification_tag_prefix_is_configurable() -> None:
+    fields = _fields_by_path(
+        [{"name": "email", "classification": "restricted"}],
+        classification_tag_prefix="sensitivity_",
+    )
+    assert _tag_urns(fields["email"]) == ["urn:li:tag:sensitivity_restricted"]
+
+
+def test_business_name_added_to_field_description_unless_redundant() -> None:
+    fields = _fields_by_path(
+        [
+            {
+                "name": "cust_ref",
+                "description": "Customer key.",
+                "businessName": "Customer Reference Number",
+            },
+            {"name": "order_id", "businessName": "OrderId"},
+        ]
+    )
+    assert fields["cust_ref"].description == (
+        "Customer key.\n\n**Business name:** Customer Reference Number"
+    )
+    # A business name that only re-cases the column name adds nothing.
+    assert fields["order_id"].description is None
+
+
+def test_glossary_term_urns_become_field_terms() -> None:
+    term = "urn:li:glossaryTerm:Finance.Revenue"
+    contract = _make_contract(
+        schema=[
+            {
+                "name": "t",
+                "properties": [
+                    {
+                        "name": "amount",
+                        "authoritativeDefinitions": [
+                            {"type": "businessDefinition", "url": term},
+                            {"type": "glossary", "url": "urn:li:glossaryTerm:"},
+                        ],
+                    }
+                ],
+            }
+        ]
+    )
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+    )
+    schema = next(m.aspect for m in mcps if isinstance(m.aspect, SchemaMetadataClass))
+    terms = schema.fields[0].glossaryTerms
+    assert terms is not None
+    assert [t.urn for t in terms.terms] == [term]
+    # Not a link, and not reported as one that was skipped; the malformed urn is.
+    assert not any(isinstance(m.aspect, InstitutionalMemoryClass) for m in mcps)
+    assert unstorable_authoritative_definition_urls(contract) == [
+        "urn:li:glossaryTerm:"
+    ]
+
+
+def test_glossary_term_urns_outside_properties_are_still_reported() -> None:
+    term = "urn:li:glossaryTerm:Finance.Revenue"
+    contract = _make_contract(
+        schema=[{"name": "t"}],
+        authoritative_definitions=[{"type": "businessDefinition", "url": term}],
+    )
+    assert unstorable_authoritative_definition_urls(contract) == [term]
+
+
+def test_off_spec_sla_support_roles_and_business_name_are_dropped() -> None:
+    contract = ODCSContract.model_validate(
+        {
+            "id": "c1",
+            "slaProperties": [{"value": 1}, {"property": "latency", "unit": 5}],
+            "slaDefaultElement": 3,
+            "support": "help",
+            "roles": [{"access": "read"}],
+            "schema": [{"name": "t", "properties": [{"name": "a", "businessName": 5}]}],
+        }
+    )
+    assert contract.slaProperties is not None
+    assert [(s.property, s.unit) for s in contract.slaProperties] == [("latency", None)]
+    assert contract.slaDefaultElement is None
+    assert contract.support is None
+    assert contract.roles is None
+    props = _first_schema(contract).properties
+    assert props is not None and props[0].businessName is None

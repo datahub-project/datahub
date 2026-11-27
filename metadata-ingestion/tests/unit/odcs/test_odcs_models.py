@@ -10,16 +10,22 @@ from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_CONTRACT_FIELDS,
     KNOWN_UNMAPPED_PROPERTY_FIELDS,
     KNOWN_UNMAPPED_QUALITY_FIELDS,
+    KNOWN_UNMAPPED_ROLE_FIELDS,
     KNOWN_UNMAPPED_SCHEMA_FIELDS,
     KNOWN_UNMAPPED_SERVER_FIELDS,
+    KNOWN_UNMAPPED_SLA_FIELDS,
+    KNOWN_UNMAPPED_SUPPORT_FIELDS,
     KNOWN_UNMAPPED_TEAM_FIELDS,
     KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition,
     ODCSContract,
     ODCSProperty,
     ODCSQualityRule,
+    ODCSRole,
     ODCSSchemaObject,
     ODCSServer,
+    ODCSSlaProperty,
+    ODCSSupportItem,
     ODCSTeam,
     ODCSTeamMember,
 )
@@ -73,6 +79,9 @@ def _level_keys() -> Dict[str, Set[str]]:
             "authdef": _spec_keys(
                 (defs.get("AuthoritativeDefinitions") or {}).get("items", {}), defs
             ),
+            "sla": _spec_keys(defs["ServiceLevelAgreementProperty"], defs),
+            "support": _spec_keys(defs["SupportItem"], defs),
+            "role": _spec_keys(defs["Role"], defs),
         }
         if "TeamMember" in defs:
             # v3.1: `team` is an object; members have their own definition.
@@ -99,6 +108,9 @@ def _level_keys() -> Dict[str, Set[str]]:
         ("team_object", ODCSTeam, KNOWN_UNMAPPED_TEAM_FIELDS),
         ("team_member", ODCSTeamMember, KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS),
         ("authdef", ODCSAuthoritativeDefinition, KNOWN_UNMAPPED_AUTHDEF_FIELDS),
+        ("sla", ODCSSlaProperty, KNOWN_UNMAPPED_SLA_FIELDS),
+        ("support", ODCSSupportItem, KNOWN_UNMAPPED_SUPPORT_FIELDS),
+        ("role", ODCSRole, KNOWN_UNMAPPED_ROLE_FIELDS),
     ],
 )
 def test_models_cover_vendored_spec_keys(

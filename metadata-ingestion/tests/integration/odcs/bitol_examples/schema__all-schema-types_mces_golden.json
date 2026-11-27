@@ -55,7 +55,7 @@
                 {
                     "fieldPath": "txn_ref_dt",
                     "nullable": true,
-                    "description": "transaction ref date\n\n**Derivation:** Defines the logic in business terms.\n\n```sql\nsel t1.txn_dt as txn_ref_dt from table_name_1 as t1, table_name_2 as t2, table_name_3 as t3 where t1.txn_dt=date-3\n```",
+                    "description": "transaction ref date\n\n**Business name:** transaction reference date\n\n**Derivation:** Defines the logic in business terms.\n\n```sql\nsel t1.txn_dt as txn_ref_dt from table_name_1 as t1, table_name_2 as t2, table_name_3 as t3 where t1.txn_dt=date-3\n```",
                     "type": {
                         "type": {
                             "com.linkedin.schema.DateType": {}
@@ -63,12 +63,19 @@
                     },
                     "nativeDataType": "date",
                     "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:classification:public"
+                            }
+                        ]
+                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "rcvr_id",
                     "nullable": true,
-                    "description": "A description for column rcvr_id.",
+                    "description": "A description for column rcvr_id.\n\n**Business name:** receiver id",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -76,12 +83,19 @@
                     },
                     "nativeDataType": "varchar(18)",
                     "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:classification:restricted"
+                            }
+                        ]
+                    },
                     "isPartOfKey": true
                 },
                 {
                     "fieldPath": "rcvr_cntry_code",
                     "nullable": true,
-                    "description": "country code",
+                    "description": "country code\n\n**Business name:** receiver country code",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -89,6 +103,13 @@
                     },
                     "nativeDataType": "varchar(2)",
                     "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:classification:public"
+                            }
+                        ]
+                    },
                     "isPartOfKey": false
                 }
             ]
@@ -206,7 +227,7 @@
                         {
                             "fieldPath": "txn_ref_dt",
                             "nullable": true,
-                            "description": "transaction ref date\n\n**Derivation:** Defines the logic in business terms.\n\n```sql\nsel t1.txn_dt as txn_ref_dt from table_name_1 as t1, table_name_2 as t2, table_name_3 as t3 where t1.txn_dt=date-3\n```",
+                            "description": "transaction ref date\n\n**Business name:** transaction reference date\n\n**Derivation:** Defines the logic in business terms.\n\n```sql\nsel t1.txn_dt as txn_ref_dt from table_name_1 as t1, table_name_2 as t2, table_name_3 as t3 where t1.txn_dt=date-3\n```",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.DateType": {}
@@ -214,12 +235,19 @@
                             },
                             "nativeDataType": "date",
                             "recursive": false,
+                            "globalTags": {
+                                "tags": [
+                                    {
+                                        "tag": "urn:li:tag:classification:public"
+                                    }
+                                ]
+                            },
                             "isPartOfKey": false
                         },
                         {
                             "fieldPath": "rcvr_id",
                             "nullable": true,
-                            "description": "A description for column rcvr_id.",
+                            "description": "A description for column rcvr_id.\n\n**Business name:** receiver id",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.StringType": {}
@@ -227,12 +255,19 @@
                             },
                             "nativeDataType": "varchar(18)",
                             "recursive": false,
+                            "globalTags": {
+                                "tags": [
+                                    {
+                                        "tag": "urn:li:tag:classification:restricted"
+                                    }
+                                ]
+                            },
                             "isPartOfKey": true
                         },
                         {
                             "fieldPath": "rcvr_cntry_code",
                             "nullable": true,
-                            "description": "country code",
+                            "description": "country code\n\n**Business name:** receiver country code",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.StringType": {}
@@ -240,6 +275,13 @@
                             },
                             "nativeDataType": "varchar(2)",
                             "recursive": false,
+                            "globalTags": {
+                                "tags": [
+                                    {
+                                        "tag": "urn:li:tag:classification:public"
+                                    }
+                                ]
+                            },
                             "isPartOfKey": false
                         }
                     ]
@@ -845,6 +887,22 @@
     }
 },
 {
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:classification:public",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "classification:public"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__all-schema-types",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.AnotherObject,PROD)",
     "changeType": "UPSERT",
@@ -852,6 +910,22 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__all-schema-types",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:classification:restricted",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "classification:restricted"
         }
     },
     "systemMetadata": {

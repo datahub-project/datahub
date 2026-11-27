@@ -124,6 +124,7 @@
                 {
                     "fieldPath": "DataValue",
                     "nullable": true,
+                    "description": "**Business name:** Measured value",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -195,6 +196,7 @@
                         {
                             "fieldPath": "DataValue",
                             "nullable": true,
+                            "description": "**Business name:** Measured value",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.NumberType": {}
