@@ -65,7 +65,7 @@ from datahub.metadata.urns import (
     OwnershipTypeUrn,
     TagUrn,
 )
-from datahub.utilities.deprecation import log_deprecation_once
+from datahub.utilities.deprecation import deprecation_message, log_deprecation_once
 from datahub.utilities.urn_encoder import UrnEncoder
 
 logger = logging.getLogger(__name__)
@@ -449,40 +449,11 @@ def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
     raise ValueError(f"Unexpected ownership type: {ownership_type}")
 
 
-_MAKE_LINEAGE_MCE_DEPRECATION_MESSAGE = (
+@deprecated(
     "make_lineage_mce is deprecated and will be removed in a future release. Use "
-    "MetadataChangeProposalWrapper(entityUrn=downstream_urn, aspect=UpstreamLineageClass(...)) instead."
+    "MetadataChangeProposalWrapper(entityUrn=downstream_urn, aspect=UpstreamLineageClass(...)) instead.",
+    category=DataHubDeprecationWarning,
 )
-_CAN_ADD_ASPECT_TEMPLATE = (
-    "{name} is deprecated and will be removed in a future release. "
-    "Use datahub.emitter.mcp_builder.entity_supports_aspect(entity_type, aspect_type) instead."
-)
-_SNAPSHOT_ASPECT_TEMPLATE = (
-    "{name} is deprecated and will be removed in a future release. "
-    "Use MetadataChangeProposalWrapper(entityUrn=..., aspect=...) instead."
-)
-_CAN_ADD_ASPECT_TO_SNAPSHOT_DEPRECATION_MESSAGE = _CAN_ADD_ASPECT_TEMPLATE.format(
-    name="can_add_aspect_to_snapshot"
-)
-_CAN_ADD_ASPECT_DEPRECATION_MESSAGE = _CAN_ADD_ASPECT_TEMPLATE.format(
-    name="can_add_aspect"
-)
-_ASSERT_CAN_ADD_ASPECT_DEPRECATION_MESSAGE = _CAN_ADD_ASPECT_TEMPLATE.format(
-    name="assert_can_add_aspect"
-)
-_GET_ASPECT_IF_AVAILABLE_DEPRECATION_MESSAGE = _SNAPSHOT_ASPECT_TEMPLATE.format(
-    name="get_aspect_if_available"
-)
-_REMOVE_ASPECT_IF_AVAILABLE_DEPRECATION_MESSAGE = _SNAPSHOT_ASPECT_TEMPLATE.format(
-    name="remove_aspect_if_available"
-)
-_GET_OR_ADD_ASPECT_DEPRECATION_MESSAGE = _SNAPSHOT_ASPECT_TEMPLATE.format(
-    name="get_or_add_aspect"
-)
-_SET_ASPECT_DEPRECATION_MESSAGE = _SNAPSHOT_ASPECT_TEMPLATE.format(name="set_aspect")
-
-
-@deprecated(_MAKE_LINEAGE_MCE_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning)
 def make_lineage_mce(
     upstream_urns: List[str],
     downstream_urn: str,
@@ -492,7 +463,7 @@ def make_lineage_mce(
     Note: this function only supports lineage for dataset aspects. It will not
     update lineage for any other aspect types.
     """
-    log_deprecation_once(_MAKE_LINEAGE_MCE_DEPRECATION_MESSAGE)
+    log_deprecation_once(deprecation_message(make_lineage_mce))
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
             urn=downstream_urn,
@@ -585,64 +556,70 @@ def _set_aspect(
 
 
 @deprecated(
-    _CAN_ADD_ASPECT_TO_SNAPSHOT_DEPRECATION_MESSAGE,
+    "can_add_aspect_to_snapshot is deprecated and will be removed in a future release. "
+    "Use datahub.emitter.mcp_builder.entity_supports_aspect(entity_type, aspect_type) instead.",
     category=DataHubDeprecationWarning,
 )
 def can_add_aspect_to_snapshot(
     SnapshotType: Type[DictWrapper], AspectType: Type[Aspect]
 ) -> bool:
-    log_deprecation_once(_CAN_ADD_ASPECT_TO_SNAPSHOT_DEPRECATION_MESSAGE)
+    log_deprecation_once(deprecation_message(can_add_aspect_to_snapshot))
     return _can_add_aspect_to_snapshot(SnapshotType, AspectType)
 
 
 @deprecated(
-    _CAN_ADD_ASPECT_DEPRECATION_MESSAGE,
+    "can_add_aspect is deprecated and will be removed in a future release. "
+    "Use datahub.emitter.mcp_builder.entity_supports_aspect(entity_type, aspect_type) instead.",
     category=DataHubDeprecationWarning,
 )
 def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
-    log_deprecation_once(_CAN_ADD_ASPECT_DEPRECATION_MESSAGE)
+    log_deprecation_once(deprecation_message(can_add_aspect))
     return _can_add_aspect(mce, AspectType)
 
 
 @deprecated(
-    _ASSERT_CAN_ADD_ASPECT_DEPRECATION_MESSAGE,
+    "assert_can_add_aspect is deprecated and will be removed in a future release. "
+    "Use datahub.emitter.mcp_builder.entity_supports_aspect(entity_type, aspect_type) instead.",
     category=DataHubDeprecationWarning,
 )
 def assert_can_add_aspect(
     mce: MetadataChangeEventClass, AspectType: Type[Aspect]
 ) -> None:
-    log_deprecation_once(_ASSERT_CAN_ADD_ASPECT_DEPRECATION_MESSAGE)
+    log_deprecation_once(deprecation_message(assert_can_add_aspect))
     _assert_can_add_aspect(mce, AspectType)
 
 
 @deprecated(
-    _GET_ASPECT_IF_AVAILABLE_DEPRECATION_MESSAGE,
+    "get_aspect_if_available is deprecated and will be removed in a future release. "
+    "Use MetadataChangeProposalWrapper(entityUrn=..., aspect=...) instead.",
     category=DataHubDeprecationWarning,
 )
 def get_aspect_if_available(
     mce: MetadataChangeEventClass, AspectType: Type[Aspect]
 ) -> Optional[Aspect]:
-    log_deprecation_once(_GET_ASPECT_IF_AVAILABLE_DEPRECATION_MESSAGE)
+    log_deprecation_once(deprecation_message(get_aspect_if_available))
     return _get_aspect_if_available(mce, AspectType)
 
 
 @deprecated(
-    _REMOVE_ASPECT_IF_AVAILABLE_DEPRECATION_MESSAGE,
+    "remove_aspect_if_available is deprecated and will be removed in a future release. "
+    "Use MetadataChangeProposalWrapper(entityUrn=..., aspect=...) instead.",
     category=DataHubDeprecationWarning,
 )
 def remove_aspect_if_available(
     mce: MetadataChangeEventClass, aspect_type: Type[Aspect]
 ) -> bool:
-    log_deprecation_once(_REMOVE_ASPECT_IF_AVAILABLE_DEPRECATION_MESSAGE)
+    log_deprecation_once(deprecation_message(remove_aspect_if_available))
     return _remove_aspect_if_available(mce, aspect_type)
 
 
 @deprecated(
-    _GET_OR_ADD_ASPECT_DEPRECATION_MESSAGE,
+    "get_or_add_aspect is deprecated and will be removed in a future release. "
+    "Use MetadataChangeProposalWrapper(entityUrn=..., aspect=...) instead.",
     category=DataHubDeprecationWarning,
 )
 def get_or_add_aspect(mce: MetadataChangeEventClass, default: Aspect) -> Aspect:
-    log_deprecation_once(_GET_OR_ADD_ASPECT_DEPRECATION_MESSAGE)
+    log_deprecation_once(deprecation_message(get_or_add_aspect))
     existing = _get_aspect_if_available(mce, type(default))
     if existing is not None:
         return existing
@@ -696,7 +673,8 @@ def make_glossary_terms_aspect_from_urn_list(term_urns: List[str]) -> GlossaryTe
 
 
 @deprecated(
-    _SET_ASPECT_DEPRECATION_MESSAGE,
+    "set_aspect is deprecated and will be removed in a future release. "
+    "Use MetadataChangeProposalWrapper(entityUrn=..., aspect=...) instead.",
     category=DataHubDeprecationWarning,
 )
 def set_aspect(
@@ -704,5 +682,5 @@ def set_aspect(
 ) -> None:
     """Sets the aspect to the provided aspect, overwriting any previous aspect value that might have existed before.
     If passed in aspect is None, then the existing aspect value will be removed"""
-    log_deprecation_once(_SET_ASPECT_DEPRECATION_MESSAGE)
+    log_deprecation_once(deprecation_message(set_aspect))
     _set_aspect(mce, aspect, aspect_type)

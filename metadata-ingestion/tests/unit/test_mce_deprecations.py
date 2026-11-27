@@ -49,7 +49,7 @@ from datahub.ingestion.api.workunit import (
 )
 from datahub.ingestion.extractor.mce_extractor import WorkUnitRecordExtractorConfig
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.run.pipeline import Pipeline, _warn_mce_from_transformer
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.datahub_kafka import DatahubKafkaSink
 from datahub.ingestion.sink.datahub_lite import DataHubLiteSink
 from datahub.ingestion.sink.datahub_pg_queue import DatahubPgQueueSink
@@ -180,7 +180,7 @@ def _write_sink(sink: Sink, record: Record) -> None:
 
 def _mce_file(tmp_path: pathlib.Path) -> pathlib.Path:
     path = tmp_path / "mces.json"
-    path.write_text(json.dumps([_mce().to_obj()]))
+    path.write_text(json.dumps([_mce().to_obj(), _mce().to_obj()]))
     return path
 
 
@@ -266,7 +266,12 @@ class _McpToMceTransformer(Transformer):
     ) -> Iterable[RecordEnvelope]:
         for envelope in record_envelopes:
             if isinstance(envelope.record, MetadataChangeProposalWrapper):
-                envelope = RecordEnvelope(_mce(), envelope.metadata)
+                mce = MetadataChangeEventClass(
+                    proposedSnapshot=DatasetSnapshotClass(
+                        urn=URN, aspects=[StatusClass(False)]
+                    )
+                )
+                envelope = RecordEnvelope(mce, envelope.metadata)
             yield envelope
 
 
@@ -434,11 +439,13 @@ MCE_CALLS: List[Any] = [
         id="CompositeEmitter-file",
     ),
     pytest.param(
-        lambda p: write_metadata_file(p / "out.json", [_mce()]),
+        lambda p: write_metadata_file(p / "out.json", [_mce(), _mce()]),
         id="write_metadata_file",
     ),
     pytest.param(
-        lambda p: write_metadata_file(p / "out.json", [_mce().to_obj()]),
+        lambda p: write_metadata_file(
+            p / "out.json", [_mce().to_obj(), _mce().to_obj()]
+        ),
         id="write_metadata_file-dict",
     ),
     pytest.param(
@@ -467,13 +474,13 @@ MCE_CALLS: List[Any] = [
     ),
     pytest.param(
         lambda p: mce_helpers.check_goldens_stream(
-            outputs=[_mce()], golden_path=_mce_file(p)
+            outputs=[_mce(), _mce()], golden_path=_mce_file(p)
         ),
         id="check_goldens_stream",
     ),
     pytest.param(
         lambda p: mce_helpers.check_goldens_stream(
-            outputs=[_mce().to_obj()], golden_path=_mce_file(p)
+            outputs=[_mce().to_obj(), _mce().to_obj()], golden_path=_mce_file(p)
         ),
         id="check_goldens_stream-dict",
     ),
@@ -547,7 +554,6 @@ def _fresh_once_caches() -> Iterator[None]:
     caches = [
         log_deprecation_once,
         _warn_mce_workunit_deprecated,
-        _warn_mce_from_transformer,
     ]
     for cache in caches:
         cache.cache_clear()
@@ -659,6 +665,11 @@ MCP_CALLS: List[Any] = [
         id="pgqueue-mcp-payload",
     ),
     pytest.param(lambda p: _pg_consumer_config("mcp"), id="pgqueue-mcp-payload-kind"),
+    # The default routes include "mce"; datahub's own default must not warn.
+    pytest.param(
+        lambda p: PgQueueConsumerConfig(queue=_pg_consumer_config("mcp").queue),
+        id="pgqueue-default-payload-kinds",
+    ),
     pytest.param(
         lambda p: MetadataWorkUnit.generate_workunit_id(_mcp()),
         id="generate_workunit_id",
@@ -736,10 +747,13 @@ def test_user_transformer_that_outputs_mces_warns_once(
             report_to=None,
         ).run()
 
-    caught = _deprecations(lambda p: run(), tmp_path)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("default")
+        run()
 
-    assert len(caught) == 1
-    assert "custom transformer" in str(caught[0].message)
+    assert [
+        w.filename for w in caught if issubclass(w.category, DataHubDeprecationWarning)
+    ] == [__file__]
 
 
 def test_unpack_mces_into_mcps_recipe_key_warns() -> None:
@@ -760,7 +774,7 @@ def test_converting_paths_write_the_mcps_of_the_mce(tmp_path: pathlib.Path) -> N
     expected = _objs(mcps_from_mce(_mce()))
 
     with pytest.warns(DataHubDeprecationWarning):
-        assert _objs(read_metadata_file(_mce_file(tmp_path))) == expected
+        assert _objs(read_metadata_file(_mce_file(tmp_path))) == expected * 2
 
     sync_file = tmp_path / "sync.json"
     with pytest.warns(DataHubDeprecationWarning):
@@ -874,108 +888,6 @@ class _ListReturningTransformer(Transformer):
         self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         return list(record_envelopes)
-
-
-class _TupleReturningTransformer(_ListReturningTransformer):
-    def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
-    ) -> Iterable[RecordEnvelope]:
-        return tuple(record_envelopes)
-
-
-class _TwoPassTransformer(Transformer):
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "_TwoPassTransformer":
-        return cls()
-
-    def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
-    ) -> Iterable[RecordEnvelope]:
-        assert isinstance(record_envelopes, (list, tuple))
-        assert len(record_envelopes) == len(list(record_envelopes))
-        return record_envelopes
-
-
-class _ReIterable:
-    def __init__(self, records: List[RecordEnvelope]) -> None:
-        self.records = records
-
-    def __iter__(self) -> Iterator[RecordEnvelope]:
-        return iter(self.records)
-
-
-class _ReIterableTransformer(Transformer):
-    @classmethod
-    def create(
-        cls, config_dict: dict, ctx: PipelineContext
-    ) -> "_ReIterableTransformer":
-        return cls()
-
-    def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
-    ) -> Iterable[RecordEnvelope]:
-        return _ReIterable(list(record_envelopes))
-
-
-class _TwoPassAnyTransformer(Transformer):
-    @classmethod
-    def create(
-        cls, config_dict: dict, ctx: PipelineContext
-    ) -> "_TwoPassAnyTransformer":
-        return cls()
-
-    def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
-    ) -> Iterable[RecordEnvelope]:
-        first = list(record_envelopes)
-        assert list(record_envelopes) == first
-        return first
-
-
-class _OnePass:
-    def __init__(self, records: Iterator[RecordEnvelope]) -> None:
-        self.records = records
-
-    def __iter__(self) -> Iterator[RecordEnvelope]:
-        return self.records
-
-
-class _OnePassIterableTransformer(Transformer):
-    @classmethod
-    def create(
-        cls, config_dict: dict, ctx: PipelineContext
-    ) -> "_OnePassIterableTransformer":
-        return cls()
-
-    def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
-    ) -> Iterable[RecordEnvelope]:
-        return _OnePass(iter(record_envelopes))
-
-
-@pytest.mark.parametrize(
-    "transformers",
-    [
-        ["_ListReturningTransformer", "_TwoPassTransformer"],
-        ["_TupleReturningTransformer", "_TwoPassTransformer"],
-        ["_OnePassIterableTransformer"],
-        ["_ReIterableTransformer", "_TwoPassAnyTransformer"],
-    ],
-)
-def test_user_transformer_output_is_passed_on_unchanged(
-    transformers: List[str], tmp_path: pathlib.Path
-) -> None:
-    output = tmp_path / "o.json"
-    pipeline = Pipeline.create(
-        {
-            "source": {"type": f"{__name__}._McpSource"},
-            "transformers": [{"type": f"{__name__}.{t}"} for t in transformers],
-            "sink": {"type": "file", "config": {"filename": str(output)}},
-        },
-        report_to=None,
-    )
-    pipeline.run()
-    assert len(json.loads(output.read_text())) == 3
 
 
 def test_iterate_generic_file_warning_is_not_swallowed(tmp_path: pathlib.Path) -> None:

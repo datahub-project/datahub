@@ -1,6 +1,5 @@
 import contextlib
 import enum
-import functools
 import itertools
 import logging
 import os
@@ -9,7 +8,6 @@ import shutil
 import sys
 import threading
 import time
-import weakref
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Iterator, List, Optional
 
@@ -60,7 +58,6 @@ from datahub.ingestion.sink.datahub_rest import (
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
-from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
 from datahub.telemetry.telemetry import telemetry_instance
@@ -69,7 +66,6 @@ from datahub.upgrade.upgrade import (
     retrieve_version_stats,
 )
 from datahub.utilities._custom_package_loader import model_version_name
-from datahub.utilities.deprecation import warn_deprecated
 from datahub.utilities.global_warning_util import (
     clear_global_warnings,
     get_global_warnings,
@@ -696,9 +692,6 @@ class Pipeline:
                         )
                     )
                 )
-                # MCEs the source produced, so ones a custom transformer builds can be told
-                # apart; weak, so each entry goes when its MCE does.
-                source_mces: "weakref.WeakValueDictionary[int, MetadataChangeEventClass]" = weakref.WeakValueDictionary()
                 for wu in itertools.islice(
                     self.source.get_workunits(),
                     self.preview_workunits if self.preview_mode else None,
@@ -722,16 +715,8 @@ class Pipeline:
                             "Source produced bad metadata", context=wu.id, exc=e
                         )
                         continue
-                    for record_envelope in record_envelopes:
-                        if isinstance(record_envelope.record, MetadataChangeEventClass):
-                            source_mces[id(record_envelope.record)] = (
-                                record_envelope.record
-                            )
                     try:
                         for record_envelope in self.transform(record_envelopes):
-                            _warn_if_mce_built_after_source(
-                                record_envelope, source_mces
-                            )
                             if not self.dry_run:
                                 try:
                                     self.sink.write_record_async(
@@ -764,7 +749,6 @@ class Pipeline:
                         )
                     ]
                 ):
-                    _warn_if_mce_built_after_source(record_envelope, source_mces)
                     if not self.dry_run and not isinstance(
                         record_envelope.record, EndOfStream
                     ):
@@ -1033,23 +1017,3 @@ class Pipeline:
                 "report": self.sink.get_report().as_obj(),
             },
         }
-
-
-# Checked per record; warning once per process keeps the log readable.
-@functools.lru_cache(maxsize=None)
-def _warn_mce_from_transformer() -> None:
-    warn_deprecated(
-        "Outputting MetadataChangeEvents from a custom transformer is deprecated and will be "
-        "removed in a future release. Use MetadataChangeProposalWrapper instead."
-    )
-
-
-def _warn_if_mce_built_after_source(
-    record_envelope: RecordEnvelope,
-    source_mces: "weakref.WeakValueDictionary[int, MetadataChangeEventClass]",
-) -> None:
-    # Source MCEs were reported at MetadataWorkUnit(mce=) and built-in transformers edit
-    # them in place, so an MCE the source did not produce was built by a custom transformer.
-    record = getattr(record_envelope, "record", None)
-    if isinstance(record, MetadataChangeEventClass) and id(record) not in source_mces:
-        _warn_mce_from_transformer()

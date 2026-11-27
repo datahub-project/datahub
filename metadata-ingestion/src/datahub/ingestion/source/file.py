@@ -60,16 +60,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 from datahub.metadata.schema_classes import UsageAggregationClass
 from datahub.utilities.deprecation import (
     called_from_datahub,
+    deprecation_message,
     log_deprecation_once,
     warn_deprecated,
 )
 
 logger = logging.getLogger(__name__)
 
-_ITERATE_MCE_FILE_DEPRECATION_MESSAGE = (
-    "GenericFileSource.iterate_mce_file is deprecated and will be removed in a future "
-    "release. Use read_metadata_file on a file of MCPs instead."
-)
 _ITERATE_GENERIC_FILE_MCE_DEPRECATION_MESSAGE = (
     "Reading MetadataChangeEvents with GenericFileSource.iterate_generic_file is deprecated "
     "and will be removed in a future release. Use a file of MCPs instead."
@@ -379,10 +376,14 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
             yield contents
 
     @deprecated(
-        _ITERATE_MCE_FILE_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning
+        (
+            "GenericFileSource.iterate_mce_file is deprecated and will be removed in a future "
+            "release. Use read_metadata_file on a file of MCPs instead."
+        ),
+        category=DataHubDeprecationWarning,
     )
     def iterate_mce_file(self, path: str) -> Iterator[MetadataChangeEvent]:
-        log_deprecation_once(_ITERATE_MCE_FILE_DEPRECATION_MESSAGE)
+        log_deprecation_once(deprecation_message(GenericFileSource.iterate_mce_file))
         schema = get_path_schema(path)
         fs_class = fs_registry.get(schema)
         fs = fs_class.create()
@@ -403,6 +404,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
             ],
         ]
     ]:
+        warned = False
         for i, obj in enumerate(self._iterate_file(file_status)):
             try:
                 deserialize_start_time = datetime.datetime.now()
@@ -421,7 +423,12 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             # Checked at each yield, so the caller is the frame iterating this generator;
             # get_workunits_internal reports MCEs itself.
-            if isinstance(item, MetadataChangeEvent) and not called_from_datahub():
+            if (
+                not warned
+                and isinstance(item, MetadataChangeEvent)
+                and not called_from_datahub()
+            ):
+                warned = True
                 warn_deprecated(_ITERATE_GENERIC_FILE_MCE_DEPRECATION_MESSAGE)
             yield i, item
 

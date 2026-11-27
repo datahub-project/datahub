@@ -24,7 +24,11 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
 )
-from datahub.utilities.deprecation import called_from_datahub, warn_deprecated
+from datahub.utilities.deprecation import (
+    called_from_datahub,
+    deprecation_message,
+    warn_deprecated,
+)
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 log = logging.getLogger(__name__)
@@ -32,10 +36,6 @@ log = logging.getLogger(__name__)
 _MCE_TRANSFORM_DEPRECATION_MESSAGE = (
     "Passing a MetadataChangeEvent to a transformer's transform() is deprecated and will be "
     "removed in a future release. Use MetadataChangeProposalWrapper instead."
-)
-_LEGACY_MCE_TRANSFORMER_DEPRECATION_MESSAGE = (
-    "LegacyMCETransformer is deprecated and will be removed in a future release. "
-    "Use SingleAspectTransformer or MultipleAspectTransformer instead."
 )
 
 
@@ -58,13 +58,19 @@ class HandleEndOfStreamTransformer:
 
 # category=None: typing_extensions<4.9 breaks instantiating subclasses of a decorated mixin,
 # so the runtime warning is raised by __init_subclass__ instead.
-@deprecated(_LEGACY_MCE_TRANSFORMER_DEPRECATION_MESSAGE, category=None)
+@deprecated(
+    (
+        "LegacyMCETransformer is deprecated and will be removed in a future release. "
+        "Use SingleAspectTransformer or MultipleAspectTransformer instead."
+    ),
+    category=None,
+)
 class LegacyMCETransformer(
     Transformer, HandleEndOfStreamTransformer, metaclass=ABCMeta
 ):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
-        warn_deprecated(_LEGACY_MCE_TRANSFORMER_DEPRECATION_MESSAGE)
+        warn_deprecated(deprecation_message(LegacyMCETransformer))
 
     @abstractmethod
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:

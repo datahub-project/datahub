@@ -368,7 +368,8 @@ _MCE_CLASS_DEPRECATION_MESSAGE = (
 )
 
 
-def deprecate_mce_class(schema_class_file: Path) -> None:
+def deprecate_mce_class(outdir: Path) -> None:
+    schema_class_file = outdir / "schema_classes.py"
     schema_classes_lines = schema_class_file.read_text().splitlines()
     class_def_line = schema_classes_lines.index(
         "class MetadataChangeEventClass(DictWrapper):"
@@ -393,6 +394,14 @@ def deprecate_mce_class(schema_class_file: Path) -> None:
     ] += "\n\nimport typing_extensions\n"
 
     schema_class_file.write_text("\n".join(schema_classes_lines))
+
+    # Type checkers carry the deprecation through an import alias, not an assignment alias.
+    mxe_init = outdir / "com/linkedin/pegasus2avro/mxe/__init__.py"
+    mxe_lines = mxe_init.read_text().splitlines()
+    mxe_lines[mxe_lines.index("MetadataChangeEvent = MetadataChangeEventClass")] = (
+        "from .....schema_classes import MetadataChangeEventClass as MetadataChangeEvent"
+    )
+    mxe_init.write_text("\n".join(mxe_lines) + "\n")
 
 
 def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
@@ -893,7 +902,7 @@ def generate(
         list(aspects.values()),
         Path(outdir) / "schema_classes.py",
     )
-    deprecate_mce_class(Path(outdir) / "schema_classes.py")
+    deprecate_mce_class(Path(outdir))
 
     if enable_custom_loader:
         # Move schema_classes.py -> _internal_schema_classes.py

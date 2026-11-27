@@ -10,17 +10,18 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.utilities.deprecation import warn_deprecated
-
-_AUTO_HELPER_TRANSFORMER_DEPRECATION_MESSAGE = (
-    "AutoHelperTransformer is deprecated and will be removed in a future release. "
-    "Use the helper in the source's get_workunit_processors instead."
-)
+from datahub.utilities.deprecation import deprecation_message, warn_deprecated
 
 
 # category=None marks it for type checkers only; __init__ warns through warn_deprecated so the
 # warning points at the caller and is logged once.
-@deprecated(_AUTO_HELPER_TRANSFORMER_DEPRECATION_MESSAGE, category=None)
+@deprecated(
+    (
+        "AutoHelperTransformer is deprecated and will be removed in a future release. "
+        "Use the helper in the source's get_workunit_processors instead."
+    ),
+    category=None,
+)
 class AutoHelperTransformer(Transformer):
     """Converts an auto_* source helper into a transformer.
 
@@ -34,7 +35,7 @@ class AutoHelperTransformer(Transformer):
         self,
         converter: Callable[[Iterable[MetadataWorkUnit]], Iterable[MetadataWorkUnit]],
     ):
-        warn_deprecated(_AUTO_HELPER_TRANSFORMER_DEPRECATION_MESSAGE)
+        warn_deprecated(deprecation_message(AutoHelperTransformer))
         self.converter = converter
 
     def transform(

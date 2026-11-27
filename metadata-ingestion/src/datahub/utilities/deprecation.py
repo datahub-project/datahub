@@ -34,15 +34,18 @@ _SKIPPED_MODULES = frozenset({"abc", "typing", "pydantic.main"})
 
 
 def _skipped(frame: FrameType) -> bool:
-    return _in_datahub(frame) or frame.f_globals.get("__name__") in _SKIPPED_MODULES
+    name = frame.f_globals.get("__name__", "")
+    # A custom models package generates its schema classes outside the datahub package.
+    return (
+        _in_datahub(frame)
+        or name in _SKIPPED_MODULES
+        or name.endswith(".metadata._internal_schema_classes")
+    )
 
 
+# Like pandas' find_stack_level; warnings.warn(skip_file_prefixes=) needs Python 3.12.
 def find_stack_level() -> int:
-    """Return the stacklevel of the first frame outside the datahub package.
-
-    Like pandas' find_stack_level; warnings.warn(skip_file_prefixes=) needs Python 3.12.
-    Call it from the function that calls warnings.warn: the level counts from its caller.
-    """
+    """Return the stacklevel of the first frame outside datahub, for the function that calls warnings.warn."""
     frame: Optional[FrameType] = sys._getframe(1)
     level = 1
     while frame is not None and _skipped(frame):
@@ -51,16 +54,20 @@ def find_stack_level() -> int:
     return level
 
 
+# An API that accepts a MetadataChangeEvent warns only for callers outside datahub: when datahub
+# calls it, the MCE was already reported where it entered datahub. The gated function must not
+# be wrapped by a datahub decorator, or every call would look internal.
 def called_from_datahub() -> bool:
-    """Whether the function calling this was itself called from inside the datahub package.
-
-    An API that accepts a MetadataChangeEvent warns only for callers outside datahub: when datahub
-    calls it, the MCE was already reported where it entered datahub. The gated function must not
-    be wrapped by a datahub decorator, or every call would look internal.
-    """
+    """Whether the function calling this was itself called from inside the datahub package."""
     caller = sys._getframe(1).f_back
     # A frame with no Python caller (atexit, finalizers) is treated as outside datahub.
     return caller is not None and _in_datahub(caller)
+
+
+def deprecation_message(api: object) -> str:
+    """Return the message that typing_extensions.deprecated stored on api."""
+    # The decorator takes the message as a literal, because type checkers ignore a constant.
+    return str(api.__deprecated__)  # type: ignore[attr-defined]
 
 
 @functools.lru_cache(maxsize=None)

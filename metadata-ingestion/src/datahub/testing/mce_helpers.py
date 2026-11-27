@@ -32,16 +32,13 @@ from datahub.testing.compare_metadata_json import (
 )
 from datahub.utilities.deprecation import (
     called_from_datahub,
+    deprecation_message,
     log_deprecation_once,
     warn_deprecated,
 )
 
 logger = logging.getLogger(__name__)
 
-_ASSERT_MCE_ENTITY_URN_DEPRECATION_MESSAGE = (
-    "assert_mce_entity_urn is deprecated and will be removed in a future release. "
-    "Use assert_mcp_entity_urn instead."
-)
 _CHECK_GOLDENS_STREAM_MCE_DEPRECATION_MESSAGE = (
     "Passing MetadataChangeEvents to check_goldens_stream is deprecated and will be removed "
     "in a future release. Use MetadataChangeProposalWrapper instead."
@@ -51,11 +48,6 @@ _READ_MCE_URNS_DEPRECATION_MESSAGE = (
     "assert_entity_urn_like or assert_entity_urn_not_like is deprecated and will be removed "
     "in a future release. Use a file of MCPs instead."
 )
-_ASSERT_ENTITY_MCE_ASPECT_DEPRECATION_MESSAGE = (
-    "assert_entity_mce_aspect is deprecated and will be removed in a future release. "
-    "Use assert_entity_mcp_aspect instead."
-)
-
 # Deprecated (no runtime warning), no replacement: it matches MCE paths only.
 IGNORE_PATH_TIMESTAMPS = [
     # Ignore timestamps from the ETL pipeline. A couple examples:
@@ -279,13 +271,17 @@ def _get_mcp_urn_path_spec() -> List[str]:
 
 
 @deprecated(
-    _ASSERT_MCE_ENTITY_URN_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning
+    (
+        "assert_mce_entity_urn is deprecated and will be removed in a future release. "
+        "Use assert_mcp_entity_urn instead."
+    ),
+    category=DataHubDeprecationWarning,
 )
 def assert_mce_entity_urn(
     filter: str, entity_type: str, regex_pattern: str, file: str
 ) -> int:
     """Assert that all mce entity urns must match the regex pattern passed in. Return the number of events matched"""
-    log_deprecation_once(_ASSERT_MCE_ENTITY_URN_DEPRECATION_MESSAGE)
+    log_deprecation_once(deprecation_message(assert_mce_entity_urn))
 
     test_output = load_json_file(file)
     if isinstance(test_output, list):
@@ -366,12 +362,16 @@ def assert_for_each_entity(
 
 
 @deprecated(
-    _ASSERT_ENTITY_MCE_ASPECT_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning
+    (
+        "assert_entity_mce_aspect is deprecated and will be removed in a future release. "
+        "Use assert_entity_mcp_aspect instead."
+    ),
+    category=DataHubDeprecationWarning,
 )
 def assert_entity_mce_aspect(
     entity_urn: str, aspect: Any, aspect_type: Type, file: str
 ) -> int:
-    log_deprecation_once(_ASSERT_ENTITY_MCE_ASPECT_DEPRECATION_MESSAGE)
+    log_deprecation_once(deprecation_message(assert_entity_mce_aspect))
     test_output = load_json_file(file)
     entity_type = Urn.from_string(entity_urn).entity_type
     assert isinstance(test_output, list)
