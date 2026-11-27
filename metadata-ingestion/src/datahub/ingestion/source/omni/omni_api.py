@@ -1,7 +1,7 @@
 import logging
 import time
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Set, TypedDict
 
 import pydantic
 import requests
@@ -19,6 +19,26 @@ logger = logging.getLogger(__name__)
 
 # Safety cap: avoids unbounded requests if cursor pagination misbehaves.
 _MAX_PAGINATION_PAGES = 1000
+
+
+class OmniPaginationError(Exception):
+    """Paging stopped before the listing was known to be complete."""
+
+
+class ScimEmail(TypedDict, total=False):
+    value: str
+    primary: bool
+
+
+class ScimUser(TypedDict, total=False):
+    """The subset of an Omni SCIM user the source reads.
+
+    All keys are optional because live payloads are not guaranteed to carry them.
+    """
+
+    id: str
+    userName: str
+    emails: List[ScimEmail]
 
 
 class OmniClient:
@@ -198,6 +218,52 @@ class OmniClient:
                 queries,
             )
             return queries
+
+    def list_users(self, page_size: int = 100) -> Iterator[ScimUser]:
+        """Yield users from the SCIM users endpoint.
+
+        Unlike the /v1 endpoints this uses SCIM offset paging (1-based
+        ``startIndex`` + ``count``) and a ``Resources`` envelope. Omni only
+        accepts Organization API keys here; personal access tokens get a 401/403.
+
+        Raises ``OmniPaginationError`` when paging cannot finish, so callers
+        never mistake a truncated listing for a complete one.
+        """
+        with self._track_call("list_users"):
+            start_index = 1
+            seen_ids: Set[str] = set()
+            for _ in range(_MAX_PAGINATION_PAGES):
+                payload = self._request(
+                    "GET",
+                    "/scim/v2/users",
+                    params={"count": page_size, "startIndex": start_index},
+                )
+                resources: List[ScimUser] = payload.get("Resources") or []
+                if not resources:
+                    break
+                page_ids = {str(u.get("id")) for u in resources if u.get("id")}
+                if page_ids and page_ids <= seen_ids:
+                    # A server that ignores startIndex replays the same page.
+                    # Raise rather than stop: a truncated listing would make every
+                    # later user look unresolved.
+                    raise OmniPaginationError(
+                        f"User listing repeated a page at startIndex={start_index}"
+                    )
+                seen_ids |= page_ids
+                yield from resources
+                start_index += len(resources)
+                total = payload.get("totalResults")
+                if isinstance(total, int):
+                    # SCIM allows pages shorter than `count`, so with a total
+                    # present a short page is not the end.
+                    if start_index > total:
+                        break
+                elif len(resources) < page_size:
+                    break
+            else:
+                raise OmniPaginationError(
+                    f"User listing exceeded the {_MAX_PAGINATION_PAGES}-page safety cap"
+                )
 
     def list_folders(self, page_size: int = 50) -> Iterator[Dict[str, Any]]:
         with self._track_call("list_folders"):

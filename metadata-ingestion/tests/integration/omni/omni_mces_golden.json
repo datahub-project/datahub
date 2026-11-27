@@ -331,7 +331,7 @@
                 "folderId": "folder-1",
                 "folderPath": "/Finance",
                 "parentFolderPath": "",
-                "ownerId": "user-admin",
+                "ownerId": "3f9a2c1e-7b4d-4e8a-9c61-0d2b5e8f1a47",
                 "ownerName": "Admin User",
                 "scope": "shared",
                 "url": "https://acme.omniapp.co/folders/folder-1"
@@ -1327,7 +1327,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:user-admin",
+                    "owner": "urn:li:corpuser:admin.user@example.com",
                     "type": "DATAOWNER"
                 }
             ],
@@ -1409,7 +1409,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:user-admin",
+                    "owner": "urn:li:corpuser:admin.user@example.com",
                     "type": "DATAOWNER"
                 }
             ],
@@ -1504,7 +1504,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:user-admin",
+                    "owner": "urn:li:corpuser:admin.user@example.com",
                     "type": "DATAOWNER"
                 }
             ],
@@ -1673,7 +1673,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:user-analyst",
+                    "owner": "urn:li:corpuser:b81e4d27-5c3a-4f19-a6e2-9d07c3f8b512",
                     "type": "DATAOWNER"
                 }
             ],

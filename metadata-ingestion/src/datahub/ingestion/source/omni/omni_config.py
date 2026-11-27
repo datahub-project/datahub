@@ -48,9 +48,10 @@ class OmniSourceConfig(
 
     api_key: pydantic.SecretStr = Field(
         description=(
-            "Omni Organization API key (not a Personal Access Token). "
-            "Generate in Omni Admin → API Keys. "
-            "The key must have read access to models, documents, and connections."
+            "Omni Organization API key. Generate in Omni Admin → API Keys. "
+            "The key must have read access to models, documents, and connections. "
+            "A Personal Access Token also works but only ingests the models and "
+            "documents its creator can see, and cannot resolve owner emails."
         )
     )
     page_size: int = Field(
@@ -84,6 +85,23 @@ class OmniSourceConfig(
         description=(
             "Include workbook-only documents that have not been published as a dashboard. "
             "When False (default), only documents with hasDashboard=true are ingested."
+        ),
+    )
+    resolve_owner_emails: bool = Field(
+        default=True,
+        description=(
+            "Resolve Omni owner IDs to email addresses via the Omni SCIM users API "
+            "and use the email as the DataHub user ID, so owners match users "
+            "provisioned in DataHub by SSO. Requires an Organization API key. "
+            "Owners that cannot be resolved fall back to the Omni user ID."
+        ),
+    )
+    lowercase_owner_emails: bool = Field(
+        default=True,
+        description=(
+            "Lowercase owner emails resolved through resolve_owner_emails before "
+            "building DataHub user URNs. Disable if your DataHub user IDs keep the "
+            "email's original case."
         ),
     )
     model_pattern: AllowDenyPattern = Field(

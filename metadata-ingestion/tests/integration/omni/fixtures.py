@@ -11,6 +11,8 @@ The fake client covers:
 
 from typing import Any, Dict, Iterator, List
 
+from datahub.ingestion.source.omni.omni_api import ScimUser
+
 # ---- Connections ----------------------------------------------------------
 
 CONNECTIONS = [
@@ -118,13 +120,28 @@ TOPIC_CUSTOMERS = {
 
 # ---- Folders --------------------------------------------------------------
 
+# ---- Users (SCIM) --------------------------------------------------------
+
+# Omni owner IDs are opaque UUIDs; only the SCIM users API maps them to emails.
+ADMIN_USER_ID = "3f9a2c1e-7b4d-4e8a-9c61-0d2b5e8f1a47"
+# Deliberately absent from USERS to exercise the unresolved-owner fallback.
+ANALYST_USER_ID = "b81e4d27-5c3a-4f19-a6e2-9d07c3f8b512"
+
+USERS: List[ScimUser] = [
+    {
+        "id": ADMIN_USER_ID,
+        "userName": "Admin.User@example.com",
+        "emails": [{"primary": True, "value": "Admin.User@example.com"}],
+    },
+]
+
 FOLDERS = [
     {
         "id": "folder-1",
         "name": "Finance",
         "path": "/Finance",
         "scope": "shared",
-        "owner": {"id": "user-admin", "name": "Admin User"},
+        "owner": {"id": ADMIN_USER_ID, "name": "Admin User"},
         "url": "https://acme.omniapp.co/folders/folder-1",
     }
 ]
@@ -140,7 +157,7 @@ DOCUMENTS = [
         "scope": "shared",
         "deleted": False,
         "folder": {"id": "folder-1", "name": "Finance", "path": "/Finance"},
-        "owner": {"id": "user-admin", "name": "Admin User"},
+        "owner": {"id": ADMIN_USER_ID, "name": "Admin User"},
         "url": "https://acme.omniapp.co/dashboards/doc-dashboard-1",
         "updatedAt": "2024-06-15T12:00:00Z",
         "labels": [{"name": "finance"}, {"name": "executive"}],
@@ -153,7 +170,7 @@ DOCUMENTS = [
         "scope": "personal",
         "deleted": False,
         "folder": {},
-        "owner": {"id": "user-analyst", "name": "Data Analyst"},
+        "owner": {"id": ANALYST_USER_ID, "name": "Data Analyst"},
         "url": "https://acme.omniapp.co/workbooks/doc-workbook-1",
         "updatedAt": "2024-06-10T08:00:00Z",
         "labels": [],
@@ -231,6 +248,9 @@ class FakeOmniClientFull:
 
     def list_folders(self, page_size: int = 50) -> Iterator[Dict[str, Any]]:
         yield from FOLDERS
+
+    def list_users(self, page_size: int = 100) -> Iterator[ScimUser]:
+        yield from USERS
 
     def list_documents(
         self, page_size: int = 50, include_deleted: bool = False

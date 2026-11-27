@@ -1,11 +1,11 @@
 import threading
 from dataclasses import dataclass, field, fields
-from typing import Dict
+from typing import Dict, Set
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
-from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.lossy_collections import LossyList, LossySet
 
 
 @dataclass
@@ -62,12 +62,21 @@ class OmniSourceReport(StaleEntityRemovalSourceReport):
     fine_grained_lineage_edges_exact: int = 0
     fine_grained_lineage_edges_derived: int = 0
     fine_grained_lineage_edges_unresolved: int = 0
+
+    # Owner resolution (Omni user ID -> email). The counts are of distinct owners;
+    # owners_unresolved is a sample of the unresolved IDs.
+    users_scanned: int = 0
+    owners_resolved_to_email: int = 0
+    owners_unresolved_count: int = 0
+    owners_unresolved: LossySet[str] = field(default_factory=LossySet)
     client_report: OmniClientReport = field(default_factory=OmniClientReport)
 
     def __post_init__(self) -> None:
         super().__post_init__()  # type: ignore
         # Lock for thread-safe counter updates
         self._report_lock = threading.Lock()
+        self._resolved_owner_ids: Set[str] = set()
+        self._unresolved_owner_ids: Set[str] = set()
         # Ensure client_report is initialized
         if not isinstance(self.client_report, OmniClientReport):
             self.client_report = OmniClientReport()
@@ -87,3 +96,16 @@ class OmniSourceReport(StaleEntityRemovalSourceReport):
 
     def report_document_filtered(self, doc_id: str) -> None:
         self.filtered_documents.append(doc_id)
+
+    def report_owner_resolved(self, owner_id: str) -> None:
+        with self._report_lock:
+            if owner_id not in self._resolved_owner_ids:
+                self._resolved_owner_ids.add(owner_id)
+                self.owners_resolved_to_email += 1
+
+    def report_owner_unresolved(self, owner_id: str) -> None:
+        with self._report_lock:
+            if owner_id not in self._unresolved_owner_ids:
+                self._unresolved_owner_ids.add(owner_id)
+                self.owners_unresolved_count += 1
+                self.owners_unresolved.add(owner_id)

@@ -62,10 +62,12 @@ Check the logs for retry warnings (logged by tenacity) to understand if rate lim
 
 Common issues:
 
-| Symptom                                          | Likely Cause                                          | Resolution                                                                    |
-| ------------------------------------------------ | ----------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `403 Forbidden` on `/v1/connections`             | API key lacks connection read scope                   | Ingestion continues with config fallbacks; physical lineage may be incomplete |
-| Physical tables not linked to warehouse entities | `connection_to_platform` not configured               | Add connection mapping for each Omni connection ID                            |
-| Snowflake URN mismatch                           | Case mismatch between Omni and DataHub Snowflake URNs | Ensure `normalize_snowflake_names: true` (default)                            |
-| Column lineage empty for some fields             | Field is a computed measure (has SQL expression)      | Expected — only passthrough dimensions produce view→physical column edges     |
-| Slow ingestion performance                       | Omni API rate limiting (60 req/min default)           | Expected for large instances; check logs for retry warnings                   |
+| Symptom                                                                      | Likely Cause                                                                         | Resolution                                                                    |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `403 Forbidden` on `/v1/connections`                                         | API key lacks connection read scope                                                  | Ingestion continues with config fallbacks; physical lineage may be incomplete |
+| Physical tables not linked to warehouse entities                             | `connection_to_platform` not configured                                              | Add connection mapping for each Omni connection ID                            |
+| Snowflake URN mismatch                                                       | Case mismatch between Omni and DataHub Snowflake URNs                                | Ensure `normalize_snowflake_names: true` (default)                            |
+| Column lineage empty for some fields                                         | Field is a computed measure (has SQL expression)                                     | Expected — only passthrough dimensions produce view→physical column edges     |
+| Slow ingestion performance                                                   | Omni API rate limiting (60 req/min default)                                          | Expected for large instances; check logs for retry warnings                   |
+| Owners shown as Omni user IDs (UUIDs)                                        | `Owner emails not resolved` info entry: the API key cannot read `/api/scim/v2/users` | Use an Organization API key; a personal access token cannot read users        |
+| Fewer models than expected, `Dashboard topic from unprocessed model` warning | A personal access token only sees what its creator can access                        | Use an Organization API key                                                   |
