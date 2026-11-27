@@ -861,10 +861,10 @@ def business_term_urn(reference: str) -> Optional[str]:
     """The glossary term urn an ODCS term reference names, or None if it names none.
 
     A `urn:li:glossaryTerm:` urn is used as is. Anything else (an external
-    reference such as `term:imo_number`, or a plain name) becomes a term id:
+    reference such as `term:order_line`, or a plain name) becomes a term id:
     lowercased, `:` turned into `-`, every other run of characters outside
     `[a-z0-9_-]` turned into `_`, and leading/trailing `_`/`-` trimmed. So
-    `term:imo_number` names `term-imo_number` and `External Glossary Term` names
+    `term:order_line` names `term-order_line` and `External Glossary Term` names
     `external_glossary_term`. The term is referenced, never created.
     """
     if reference.startswith("urn:li:glossaryTerm:"):

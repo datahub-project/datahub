@@ -246,7 +246,7 @@ trimmed. A classification is resolved as `classification:<value>`.
 
 | Contract value                   | Glossary term                                     |
 | -------------------------------- | ------------------------------------------------- |
-| `url: "term:imo_number"`         | `urn:li:glossaryTerm:term-imo_number`             |
+| `url: "term:order_line"`         | `urn:li:glossaryTerm:term-order_line`             |
 | `url: "External Glossary Term"`  | `urn:li:glossaryTerm:external_glossary_term`      |
 | `url: "urn:li:glossaryTerm:a.b"` | `urn:li:glossaryTerm:a.b`                         |
 | `classification: confidential`   | `urn:li:glossaryTerm:classification-confidential` |
@@ -268,7 +268,7 @@ There are no new config options. Re-ingesting a contract now adds:
 - glossary terms on fields, from `classification` and business definitions;
 - a `**Business name:**` section in field descriptions.
 
-Property-level business definitions such as `term:imo_number` are no longer reported as
+Property-level business definitions such as `term:order_line` are no longer reported as
 skipped links. Latency SLAs that cannot be placed or converted, and support channels
 without a link, are now reported.
 

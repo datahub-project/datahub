@@ -2822,7 +2822,7 @@ def test_business_name_added_to_field_description_unless_redundant() -> None:
 @pytest.mark.parametrize(
     "reference,urn",
     [
-        ("term:imo_number", "urn:li:glossaryTerm:term-imo_number"),
+        ("term:order_line", "urn:li:glossaryTerm:term-order_line"),
         ("External Glossary Term", "urn:li:glossaryTerm:external_glossary_term"),
         (
             "urn:li:glossaryTerm:Finance.Revenue",
@@ -2846,9 +2846,9 @@ def test_business_definitions_on_properties_become_field_terms() -> None:
                 "name": "t",
                 "properties": [
                     {
-                        "name": "vessel",
+                        "name": "col_a",
                         "authoritativeDefinitions": [
-                            {"type": "businessDefinition", "url": "term:imo_number"},
+                            {"type": "businessDefinition", "url": "term:order_line"},
                             {
                                 "type": "businessDefinition",
                                 "url": "urn:li:glossaryTerm:Finance.Revenue",
@@ -2856,10 +2856,10 @@ def test_business_definitions_on_properties_become_field_terms() -> None:
                             # A web page stays a link.
                             {
                                 "type": "businessDefinition",
-                                "url": "https://wiki.example.com/imo",
+                                "url": "https://wiki.example.com/order-line",
                             },
                             # A path is a (relative) link, not a term.
-                            {"type": "businessDefinition", "url": "../docs/imo.md"},
+                            {"type": "businessDefinition", "url": "../docs/order_line.md"},
                             # Only business definitions name terms.
                             {"type": "implementation", "url": "term:other"},
                         ],
@@ -2875,15 +2875,15 @@ def test_business_definitions_on_properties_become_field_terms() -> None:
     )
     schema = next(m.aspect for m in mcps if isinstance(m.aspect, SchemaMetadataClass))
     assert _term_urns(schema.fields[0]) == [
-        "urn:li:glossaryTerm:term-imo_number",
+        "urn:li:glossaryTerm:term-order_line",
         "urn:li:glossaryTerm:Finance.Revenue",
     ]
     memory = next(
         m.aspect for m in mcps if isinstance(m.aspect, InstitutionalMemoryClass)
     )
-    assert [e.url for e in memory.elements] == ["https://wiki.example.com/imo"]
+    assert [e.url for e in memory.elements] == ["https://wiki.example.com/order-line"]
     assert unstorable_authoritative_definition_urls(contract) == [
-        "../docs/imo.md",
+        "../docs/order_line.md",
         "term:other",
     ]
 
