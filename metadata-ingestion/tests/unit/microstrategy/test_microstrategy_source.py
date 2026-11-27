@@ -4387,6 +4387,71 @@ def test_per_report_report_pass_does_not_execute_a_report_a_dossier_settled() ->
     }
 
 
+class _DivergingReportClient(_SharedReportClient):
+    def __init__(self, second_dataset_id: str = "ds-shared") -> None:
+        super().__init__(second="dossier", with_sql=True)
+        self.second_dataset_id = second_dataset_id
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        definition = super().get_dossier_definition(project_id, dossier_id)
+        dataset = definition["result"]["definition"]["datasets"][0]
+        dataset["availableObjects"]["metrics"][0]["name"] = "net_dossier_amt"
+        if dossier_id == "dash-1":
+            del dataset["sourceWarehouse"]
+        else:
+            dataset["id"] = self.second_dataset_id
+        return definition
+
+    def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        definition = super().get_report_definition(project_id, report_id)
+        metrics = definition["result"]["definition"]["availableObjects"]["metrics"]
+        metrics[0]["name"] = "net_report_amt"
+        return definition
+
+    def get_dossier_datasets_sql(
+        self, project_id: str, dossier_id: str, instance_id: str
+    ) -> List[Dict[str, Any]]:
+        self.sql_view_reads.append(dossier_id)
+        return [
+            {
+                "id": self.second_dataset_id,
+                "sqlStatement": "select net_dossier_amt from fact_dossier",
+            }
+        ]
+
+    def get_report_sql_view(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> SqlView:
+        return SqlView(sql_statement="select net_report_amt from fact_report")
+
+
+def _field_lineage_downstream_paths(aspect: UpstreamLineageClass) -> List[str]:
+    return [
+        urn.split(",")[-1].rstrip(")")
+        for lineage in aspect.fineGrainedLineages or []
+        for urn in lineage.downstreams or []
+    ]
+
+
+@pytest.mark.parametrize("second_dataset_id", ["ds-shared", "DS-SHARED"])
+def test_per_report_later_dashboard_warehouse_settles_lineage_the_first_skipped(
+    second_dataset_id: str,
+) -> None:
+    source = _per_report_source({"extract_warehouse_lineage": True})
+    client = _DivergingReportClient(second_dataset_id)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(source._process_project(_PROJECT))
+
+    lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
+    assert [upstream.dataset for upstream in lineage[_SHARED_URN].upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_dossier,PROD)"
+    ]
+    assert _field_lineage_downstream_paths(lineage[_SHARED_URN]) == ["net_dossier_amt"]
+
+
 def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
     source = _source()
     sqlglot_logger = logging.getLogger("sqlglot")

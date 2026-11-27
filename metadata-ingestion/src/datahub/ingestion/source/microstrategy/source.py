@@ -1001,6 +1001,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
         else:
             self.report.report_report_deduplicated()
+            if entry.dataset.source_warehouse is None:
+                entry.dataset.source_warehouse = dataset.source_warehouse
         if dashboard_object.id not in entry.dashboard_ids:
             entry = entry.model_copy(
                 update={"dashboard_ids": [*entry.dashboard_ids, dashboard_object.id]}
@@ -2309,7 +2311,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         context: Optional[WarehouseLineageContext],
         project_id: Optional[str] = None,
     ) -> None:
-        dataset_by_id = {dataset.id: dataset for dataset in dashboard.datasets}
+        dataset_by_id = {
+            normalize_object_id(dataset.id): dataset for dataset in dashboard.datasets
+        }
         dataset_by_name = {
             dataset.name.strip().lower(): dataset for dataset in dashboard.datasets
         }
@@ -2317,7 +2321,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             dataset = None
             dataset_key = sql_view_dataset_key(row)
             if dataset_key:
-                dataset = dataset_by_id.get(dataset_key)
+                dataset = dataset_by_id.get(normalize_object_id(dataset_key))
             if dataset is None:
                 dataset_name = sql_view_dataset_name(row)
                 if dataset_name:
