@@ -15,6 +15,11 @@ interface Props {
     urns: string[];
     onCloseModal: () => void;
     refetch?: () => void;
+    title?: string;
+    // Applications that may not be chosen, e.g. the application whose parent is being set.
+    excludeUrns?: string[];
+    // Replaces the default "add these assets to the application" save.
+    onSubmit?: (applicationUrn: string) => Promise<unknown>;
 }
 
 type ApplicationOption = {
@@ -22,7 +27,7 @@ type ApplicationOption = {
     label: string;
 };
 
-export const SetApplicationModal = ({ urns, onCloseModal, refetch }: Props) => {
+export const SetApplicationModal = ({ urns, onCloseModal, refetch, title, excludeUrns, onSubmit }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
     const { t: tc } = useTranslation('common.actions');
     const { t: tm } = useTranslation('misc');
@@ -67,6 +72,10 @@ export const SetApplicationModal = ({ urns, onCloseModal, refetch }: Props) => {
         if (!applicationUrn) {
             return;
         }
+        if (onSubmit) {
+            onSubmit(applicationUrn).finally(onCloseModal);
+            return;
+        }
         batchSetApplicationMutation({
             variables: {
                 input: {
@@ -95,11 +104,12 @@ export const SetApplicationModal = ({ urns, onCloseModal, refetch }: Props) => {
             data?.searchAcrossEntities?.searchResults
                 ?.map((r) => r.entity)
                 .filter((entity): entity is Application => entity.__typename === 'Application')
+                .filter((appEntity) => !excludeUrns?.includes(appEntity.urn))
                 .map((appEntity) => ({
                     value: appEntity.urn,
                     label: appEntity.properties?.name || '',
                 })) || [],
-        [data],
+        [data, excludeUrns],
     );
 
     // Keep the chosen application in the option list after search results change,
@@ -129,7 +139,7 @@ export const SetApplicationModal = ({ urns, onCloseModal, refetch }: Props) => {
 
     return (
         <Modal
-            title={t('sidebar.application.modalTitle')}
+            title={title ?? t('sidebar.application.modalTitle')}
             open
             onCancel={onCloseModal}
             buttons={[

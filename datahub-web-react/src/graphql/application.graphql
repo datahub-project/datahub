@@ -111,3 +111,7 @@ mutation batchSetApplication($input: BatchSetApplicationInput!) {
 mutation batchUnsetApplication($input: BatchUnsetApplicationInput!) {
     batchUnsetApplication(input: $input)
 }
+
+mutation moveApplication($input: MoveApplicationInput!) {
+    moveApplication(input: $input)
+}
