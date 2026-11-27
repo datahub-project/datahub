@@ -102,6 +102,33 @@ class MicroStrategyConfig(
         gt=0,
         description="Number of objects requested per paginated metadata search call.",
     )
+    cache_memory_entries: int = Field(
+        default=2000,
+        gt=0,
+        description=(
+            "Entries the large per-project caches (report SQL text and parsed "
+            "SQL lineage) keep in memory. Older entries spill to a temporary "
+            "local SQLite file instead of being dropped, so memory stays "
+            "bounded on large projects without re-fetching or re-parsing "
+            "anything; the caches are discarded when each project finishes."
+        ),
+    )
+    progress_log_interval_dashboards: int = Field(
+        default=25,
+        gt=0,
+        description=(
+            "Log a whole-run progress line (rates, API and SQL parse time, "
+            "cache hits, peak memory) after this many dashboards."
+        ),
+    )
+    progress_log_interval_seconds: int = Field(
+        default=300,
+        gt=0,
+        description=(
+            "Also log the progress line when this many seconds have passed "
+            "since the last one, so slow dashboards never leave the log silent."
+        ),
+    )
 
     project_pattern: AllowDenyPattern = Field(
         default_factory=AllowDenyPattern.allow_all,

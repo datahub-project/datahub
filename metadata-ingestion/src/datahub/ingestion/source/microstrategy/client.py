@@ -66,6 +66,17 @@ _METRIC_MODEL_RETRYABLE_STATUS_CODES = _RETRYABLE_STATUS_CODES - {500}
 # stall ingestion for minutes per request.
 _MAX_RETRY_DELAY_SECONDS = 60
 
+# The first /api/model/tables page normally answers in seconds, but a busy
+# Modeling service has been seen to miss four 30-second timeouts in a row.
+# Everything model-based in the project (model lineage, the semantic model)
+# hangs on that one call, so it gets a longer floor than timeout_seconds.
+_MODEL_TABLES_MIN_TIMEOUT_SECONDS = 120
+
+# A metric search page over a project with tens of thousands of metrics has
+# been seen to miss every 30-second attempt. Losing it drops every metric in
+# the project from the run, so it gets the same longer floor.
+_METRIC_SEARCH_MIN_TIMEOUT_SECONDS = 120
+
 
 class MicroStrategyAPIError(RuntimeError):
     """An API call failed. `status_code` and `url` are set when the failure
@@ -278,7 +289,12 @@ class MicroStrategyClient:
     def search_metrics(self, project_id: str) -> Iterable[MicroStrategyObject]:
         """Project-wide metric catalog, independent of any specific report/cube."""
         yield from self._search_typed_objects(
-            project_id, MSTR_OBJECT_TYPE_METRIC, "metric search"
+            project_id,
+            MSTR_OBJECT_TYPE_METRIC,
+            "metric search",
+            timeout_seconds=max(
+                self.config.timeout_seconds, _METRIC_SEARCH_MIN_TIMEOUT_SECONDS
+            ),
         )
 
     def get_report_object(
@@ -326,10 +342,12 @@ class MicroStrategyClient:
         project_id: str,
         object_type: int,
         context: str,
+        timeout_seconds: Optional[int] = None,
     ) -> Iterable[MicroStrategyObject]:
         for item in self._metadata_search(
             project_id=project_id,
             type_filter=str(object_type),
+            timeout_seconds=timeout_seconds,
         ):
             parsed = self._parse_model(
                 MicroStrategyObject, item, f"{context} project_id={project_id}"
@@ -456,6 +474,9 @@ class MicroStrategyClient:
             "/api/model/tables",
             project_id=project_id,
             params=params,
+            timeout_seconds=max(
+                self.config.timeout_seconds, _MODEL_TABLES_MIN_TIMEOUT_SECONDS
+            ),
         )
         return ModelTablesResponse.model_validate(
             payload if isinstance(payload, dict) else {}
@@ -766,6 +787,7 @@ class MicroStrategyClient:
         project_id: str,
         type_filter: Optional[str] = None,
         name: Optional[str] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Iterable[Dict[str, object]]:
         offset = 0
         total: Optional[int] = None
@@ -782,10 +804,15 @@ class MicroStrategyClient:
             if name:
                 payload["name"] = name
 
+            # Only a search with its own floor overrides timeout_seconds.
+            timeout_override: Dict[str, Any] = (
+                {"timeout_seconds": timeout_seconds} if timeout_seconds else {}
+            )
             result = self._get_json(
                 MSTR_API_SEARCHES,
                 project_id=project_id,
                 params=payload,
+                **timeout_override,
             )
             items = self._extract_search_results(result)
             if total is None:
@@ -983,6 +1010,7 @@ class MicroStrategyClient:
         reauth_attempted = False
         attempt = 0
         while attempt < attempts:
+            started = time.perf_counter()
             try:
                 response = self.session.request(
                     method=method,
@@ -993,12 +1021,17 @@ class MicroStrategyClient:
                     **kwargs,
                 )
             except requests.RequestException as error:
+                self.report.report_api_call(
+                    method, path, None, time.perf_counter() - started
+                )
                 # Network-level failures (connection errors, timeouts) are
                 # transient; HTTP error statuses are handled below so that
                 # non-retryable 4xx responses fail fast.
                 last_error = error
                 if attempt < attempts - 1:
-                    time.sleep(min(2**attempt, _MAX_RETRY_DELAY_SECONDS))
+                    delay = float(min(2**attempt, _MAX_RETRY_DELAY_SECONDS))
+                    self.report.report_api_retry(delay)
+                    time.sleep(delay)
                     attempt += 1
                     continue
                 self.report.report_api_error()
@@ -1006,6 +1039,9 @@ class MicroStrategyClient:
                     f"MicroStrategy API request failed: {method} {path}: {error}"
                 ) from error
 
+            self.report.report_api_call(
+                method, path, response.status_code, time.perf_counter() - started
+            )
             if expected_statuses and response.status_code in expected_statuses:
                 return response
             if response.status_code == 401 and not path.startswith(
@@ -1021,7 +1057,9 @@ class MicroStrategyClient:
                 reauth_attempted = True
                 continue
             if response.status_code in retry_statuses and attempt < attempts - 1:
-                time.sleep(self._retry_delay(response, attempt))
+                delay = self._retry_delay(response, attempt)
+                self.report.report_api_retry(delay)
+                time.sleep(delay)
                 attempt += 1
                 continue
             try:
