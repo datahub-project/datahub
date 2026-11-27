@@ -1319,8 +1319,10 @@ def test_shell_env_tests_and_smoke_env_read_stack_json(
     lines = capsys.readouterr().out.splitlines()
     assert lines[0] == "unset DATAHUB_PROFILE DATAHUB_GMS_TOKEN"
     assert "export DATAHUB_GMS_URL=http://localhost:9080" in lines
+    assert "export ELASTICSEARCH_REFRESH_INTERVAL_SECONDS=1" in lines
     env = dev._smoke_test_env()
     assert env["DATAHUB_GMS_URL"] == "http://localhost:9080"
+    assert env["ELASTICSEARCH_REFRESH_INTERVAL_SECONDS"] == "1"
     assert "DATAHUB_GMS_TOKEN" not in env
 
 

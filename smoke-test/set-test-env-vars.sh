@@ -1,5 +1,11 @@
 # The Docker-free stack (SMOKE_BACKEND=local) exports its own URLs from
 # `datahub-dev.sh shell-env --tests`; its ports depend on the stack's slot.
+if [ "${SMOKE_BACKEND:-docker}" = "local" ]; then
+    # Trailing sleep after each wait_for_writes_to_sync. The local stack indexes with a
+    # 1 s bulk flush and 1 s refresh and acks offsets only after indexing, so the
+    # library's conservative 3 s default only slows every write and GraphQL call.
+    export ELASTICSEARCH_REFRESH_INTERVAL_SECONDS="${ELASTICSEARCH_REFRESH_INTERVAL_SECONDS:-1}"
+fi
 if [ "${SMOKE_BACKEND:-docker}" = "local" ] && [ -n "${DATAHUB_GMS_URL:-}" ]; then
     return 0
 fi

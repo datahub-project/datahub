@@ -528,6 +528,10 @@ jobs:
           SMOKE_SMART_TAGS: ${{ needs.smoke_test_matrix.outputs.smart_tags }}
           SMOKE_BATCH_PLAN: ${{ needs.smoke_test_matrix.outputs.batch_plan == 'true' && format('{0}/pytest-smoke-plan/pytest-smoke-plan.json', github.workspace) || '' }}
           PYTEST_XDIST_WORKERS: "3"
+          # Trailing sleep after each wait_for_writes_to_sync, as in pytest_tests. This stack
+          # indexes with a 1 s bulk flush and 1 s refresh (env/docker-free/gms.env), and
+          # ES_BULK_ACK_AFTER_TRANSFER means a consumed offset is already indexed.
+          ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: "1"
           FILTERED_TESTS: ${{ steps.retry-check.outputs.filtered_tests_file || '' }}
           # See pytest_tests: a retry runs a smaller set, so it takes the stronger wait.
           DATAHUB_TEST_FORCE_LEGACY_WAIT: ${{ github.run_attempt > 1 && 'true' || '' }}
