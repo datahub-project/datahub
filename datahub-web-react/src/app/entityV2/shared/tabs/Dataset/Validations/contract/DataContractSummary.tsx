@@ -88,14 +88,16 @@ export const DataContractSummary = ({
             </SummaryContainer>
             <Actions>
                 <Tooltip title={editDisabled ? editDisabledMessage : null}>
-                    <CreateButton
-                        variant="outline"
-                        disabled={editDisabled}
-                        onClick={showContractBuilder}
-                        icon={{ icon: PencilSimple }}
-                    >
-                        {tc('edit')}
-                    </CreateButton>
+                    <span>
+                        <CreateButton
+                            variant="outline"
+                            disabled={editDisabled}
+                            onClick={showContractBuilder}
+                            icon={{ icon: PencilSimple }}
+                        >
+                            {tc('edit')}
+                        </CreateButton>
+                    </span>
                 </Tooltip>
             </Actions>
         </SummaryHeader>

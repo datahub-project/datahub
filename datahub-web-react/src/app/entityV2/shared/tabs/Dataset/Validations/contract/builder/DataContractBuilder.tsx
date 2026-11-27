@@ -1,9 +1,10 @@
-import { Button, toast } from '@components';
+import { Button, Tooltip, toast } from '@components';
 import isEqual from 'lodash/isEqual';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
 import { extractAssertionsFromQuery } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { DataContractAssertionGroupSelect } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractAssertionGroupSelect';
@@ -74,6 +75,8 @@ type Props = {
 export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCancel }: Props) => {
     const { t } = useTranslation('entity.profile.validations');
     const { t: tc } = useTranslation('common.actions');
+    const { entityData } = useEntityData();
+    const canEditDataContract = !!entityData?.privileges?.canEditDataContract;
     const isEdit = !!initialState;
     const [builderState, setBuilderState] = useState(initialState || DEFAULT_BUILDER_STATE);
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
@@ -204,9 +207,17 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
                     {tc('cancel')}
                 </CancelButton>
                 <div>
-                    <SaveButton disabled={editDisabled} variant="filled" onClick={upsertDataContract}>
-                        {tc('save')}
-                    </SaveButton>
+                    <Tooltip title={canEditDataContract ? undefined : t('contractBuilder.noEditPermission')}>
+                        <span>
+                            <SaveButton
+                                disabled={editDisabled || !canEditDataContract}
+                                variant="filled"
+                                onClick={upsertDataContract}
+                            >
+                                {tc('save')}
+                            </SaveButton>
+                        </span>
+                    </Tooltip>
                 </div>
             </ActionContainer>
         </BuilderContainer>
