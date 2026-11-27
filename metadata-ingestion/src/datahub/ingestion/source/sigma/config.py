@@ -287,8 +287,8 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0
-    # Siblings added as upstreams by orphan recovery; not in intra_upstreams,
-    # which counts what /lineage reported.
+    # Siblings added as upstreams by orphan recovery or a join-chain ref; not
+    # in intra_upstreams, which counts what /lineage reported.
     data_model_element_intra_upstreams_recovered: int = 0
     # Union branches /lineage did not list, added as upstreams from /spec.
     data_model_element_union_upstreams_added: int = 0
@@ -418,6 +418,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # cannot be read, so their keys cannot be told apart; they add no join-key
     # edges. Counted once per Data Model.
     data_model_join_key_repeated_side_skipped: int = 0
+    # Edges from a `[JoinElement/.../Owner/Column]` ref to the element joined
+    # in, de-duplicated. A ref that does not resolve keeps the first-slash
+    # reading's outcome and counter.
+    data_model_element_fgl_join_chain_resolved: int = 0
     # Data Models whose /spec could not be fetched (see the warning for why),
     # and those whose /spec did not match the shape the parser expects, so
     # what is read from it may be incomplete until the connector is updated.

@@ -2763,3 +2763,133 @@ def test_an_unlisted_key_partner_becomes_an_upstream() -> None:
 
     assert join_key_upstreams == {_urn("b")}
     assert _urn("b") not in discovered
+
+
+def _build_chain(
+    source: SigmaSource,
+    formula: str,
+    *,
+    join_sources: List[str] | None = None,
+    listed: Set[str] | None = None,
+    discovered: Set[str] | None = None,
+) -> list:
+    """C reads join element J, which joins A and B; A2 is a second "A" that J
+    does not join."""
+    join = _element(
+        "j", "J", [_column("j-k", "k", None)], source_ids=join_sources or ["a", "b"]
+    )
+    elements = [
+        join,
+        _upstream_element("a", "A", ["x"]),
+        _upstream_element("b", "B", ["y"]),
+        _upstream_element("a2", "A", ["x"]),
+    ]
+    return _build(
+        source,
+        _element("c", "C", [_column("c-x", "x", formula)], source_ids=["j"]),
+        element_name_to_eids={"j": ["j"], "a": ["a", "a2"], "b": ["b"]},
+        elementId_to_dataset_urn={e.elementId: _urn(e.elementId) for e in elements},
+        entity_level_upstream_urns={_urn("j")} if listed is None else listed,
+        upstream_elements=elements,
+        discovered_upstreams=discovered,
+    )
+
+
+@pytest.mark.parametrize("formula", ["[J/A/x]", "[j/a/X]", "[J/B/A/x]"])
+def test_a_join_chain_ref_reaches_the_joined_element(formula: str) -> None:
+    source = _source()
+    discovered: Set[str] = set()
+
+    lineages = _build_chain(source, formula, discovered=discovered)
+
+    assert [fgl.upstreams for fgl in lineages] == [
+        [builder.make_schema_field_urn(_urn("a"), "x")]
+    ]
+    assert discovered == {_urn("a")}
+    assert source.reporter.data_model_element_fgl_join_chain_resolved == 1
+
+
+_UNKNOWN_COLUMN = "data_model_element_fgl_dropped_unknown_upstream_column"
+_ORPHAN = "data_model_element_fgl_dropped_orphan_upstream"
+
+
+@pytest.mark.parametrize(
+    "formula, join_sources, listed, dropped_counter",
+    [
+        # The middle segment names a relationship, not a joined element.
+        ("[J/Rel/x]", None, None, _UNKNOWN_COLUMN),
+        # The joined element lacks the column.
+        ("[J/B/x]", None, None, _UNKNOWN_COLUMN),
+        # The element's /lineage does not list the join element.
+        ("[J/A/x]", None, {_urn("a")}, _ORPHAN),
+        # Both "A"s are joined, so the name does not pick one.
+        ("[J/A/x]", ["a", "a2"], None, _UNKNOWN_COLUMN),
+    ],
+)
+def test_an_unresolved_join_chain_adds_no_edge(
+    formula: str,
+    join_sources: List[str] | None,
+    listed: Set[str] | None,
+    dropped_counter: str,
+) -> None:
+    source = _source()
+    discovered: Set[str] = set()
+
+    lineages = _build_chain(
+        source,
+        formula,
+        join_sources=join_sources,
+        listed=listed,
+        discovered=discovered,
+    )
+
+    assert lineages == []
+    assert discovered == set()
+    assert source.reporter.data_model_element_fgl_join_chain_resolved == 0
+    assert getattr(source.reporter, dropped_counter) == 1
+
+
+def test_a_slash_named_column_beats_a_join_chain() -> None:
+    # Sigma writes [S/Rev/Cost] unescaped for S's own column "Rev/Cost".
+    source = _source()
+    discovered: Set[str] = set()
+    s = _element("s", "S", [_column("s-rc", "Rev/Cost", None)], source_ids=["rev"])
+    rev = _upstream_element("rev", "Rev", ["Revenue", "Cost"])
+
+    lineages = _build(
+        source,
+        _element("c", "C", [_column("c-x", "x", "[S/Rev/Cost]")], source_ids=["s"]),
+        element_name_to_eids={"s": ["s"], "rev": ["rev"]},
+        elementId_to_dataset_urn={"s": _urn("s"), "rev": _urn("rev")},
+        entity_level_upstream_urns={_urn("s")},
+        upstream_elements=[s, rev],
+        discovered_upstreams=discovered,
+    )
+
+    assert [f.upstreams for f in lineages] == [
+        [builder.make_schema_field_urn(_urn("s"), "Rev/Cost")]
+    ]
+    assert discovered == set()
+    assert source.reporter.data_model_element_fgl_join_chain_resolved == 0
+
+
+def test_a_join_chain_picks_the_listed_one_of_same_named_joins() -> None:
+    source = _source()
+    elements = [
+        _element("j", "J", [_column("j-k", "k", None)], source_ids=["a"]),
+        _element("j2", "J", [_column("j2-k", "k", None)], source_ids=["a"]),
+        _upstream_element("a", "A", ["x"]),
+    ]
+
+    lineages = _build(
+        source,
+        _element("c", "C", [_column("c-x", "x", "[J/A/x]")], source_ids=["j"]),
+        element_name_to_eids={"j": ["j", "j2"], "a": ["a"]},
+        elementId_to_dataset_urn={e.elementId: _urn(e.elementId) for e in elements},
+        entity_level_upstream_urns={_urn("j")},
+        upstream_elements=elements,
+    )
+
+    assert [f.upstreams for f in lineages] == [
+        [builder.make_schema_field_urn(_urn("a"), "x")]
+    ]
