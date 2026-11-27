@@ -331,16 +331,18 @@ jobs:
       classifier_duration_s: ${{ needs.classify_pr.outputs.classifier_duration_s }}
     secrets: inherit
 
-  # The Docker-free lane: on PRs (forks too) when the Docker lane runs pytest, and on
-  # every push to master while it runs next to the Docker lane (a stability window,
-  # to be narrowed later). Fork PRs get no repository variables or secrets, so the
-  # lane falls back to GitHub-hosted runners, no Depot cache and smart testing off.
+  # The Docker-free lane runs on every push to master for now, to build up a record of
+  # stable runs before it runs on pull requests. The PR wiring (run_pytest, smoke_tier,
+  # smoke_changed_tests from setup, classify_pr's tags) is in place: enabling it means
+  # adding `|| (github.event_name == 'pull_request' && needs.setup.outputs.run_pytest
+  # == 'true')` to the condition. Fork PRs would then fall back to GitHub-hosted
+  # runners, no Depot cache and smart testing off.
   docker_free:
+    # Prefix of the lane's job names: docker-free / <job>.
+    name: docker-free
     needs: [setup, classify_pr]
     if: >-
-      ${{ !cancelled() && (
-        (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
-        (github.event_name == 'pull_request' && needs.setup.outputs.run_pytest == 'true')) }}
+      ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     permissions:
       contents: read
       actions: read

@@ -2,10 +2,11 @@ name: "Docker-free E2E"
 
 # End-to-end tests on the Docker-free stack (`datahub-dev.sh start --local`); the pytest
 # smoke suite for now, Playwright later. A lane of e2e-tests.yml, which calls it on
-# pull requests when the Docker lane runs pytest, and on pushes to master. The
-# jobs are shaped like docker-unified.yml's smoke_test_matrix and pytest_tests.
+# pushes to master (pull requests later, once the lane has a record of stable runs).
+# The jobs are shaped like docker-unified.yml's smoke_test_matrix and pytest_tests, so
+# the PR path (smart testing, batch plan, PR comment) is ready for that.
 #
-# Test failures fail the run, on pull requests and on master.
+# Test failures fail the run.
 
 on:
   workflow_call:
