@@ -5,6 +5,8 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.util.RecordUtils;
@@ -42,6 +44,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
@@ -53,6 +56,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
@@ -60,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nullable;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
@@ -747,31 +752,33 @@ public class DeleteEntityServiceTest {
     return new Object[][] {{true}, {false}};
   }
 
-  @Test(dataProvider = "dryRun")
-  public void testReferrerOfUnknownEntityTypeIsSkipped(boolean dryRun) throws URISyntaxException {
-    // After a version rollback the graph can hold a reference from an entity type only a newer
-    // build knows. The reference cleanup and its dry-run preview skip it instead of failing.
-    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+  private static final Urn TAG_WITH_AN_UNKNOWN_REFERRER = UrnUtils.getUrn("urn:li:tag:pii");
+  private static final Urn UNKNOWN_TYPE_REFERRER =
+      UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+  private static final Urn KNOWN_REFERRER =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:s,t1,PROD)");
+
+  /**
+   * A service whose graph holds two references to {@link #TAG_WITH_AN_UNKNOWN_REFERRER}: one from
+   * an entity type only a newer build knows, one from a dataset.
+   */
+  private static DeleteEntityService serviceWithAnUnknownTypeReferrer(
+      EntityService<?> entityService, @Nullable MetricUtils metricUtils) {
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     GraphService mockGraphService = Mockito.mock(GraphService.class);
-    DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null, null);
-
-    final Urn tag = UrnUtils.getUrn("urn:li:tag:pii");
-    final Urn unknownTypeReferrer = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
-    final Urn knownReferrer = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:s,t1,PROD)");
+    final String tag = TAG_WITH_AN_UNKNOWN_REFERRER.toString();
     RelatedEntitiesScrollResult page =
         scrollGraphResult(
             2,
             null,
             ImmutableList.of(
-                incomingRelation("TaggedWith", unknownTypeReferrer.toString(), tag.toString()),
-                incomingRelation("TaggedWith", knownReferrer.toString(), tag.toString())));
+                incomingRelation("TaggedWith", UNKNOWN_TYPE_REFERRER.toString(), tag),
+                incomingRelation("TaggedWith", KNOWN_REFERRER.toString(), tag)));
     Mockito.when(
             mockGraphService.scrollRelatedEntities(
                 any(OperationContext.class),
                 nullable(Set.class),
-                eq(newFilter("urn", tag.toString())),
+                eq(newFilter("urn", tag)),
                 nullable(Set.class),
                 eq(EMPTY_FILTER),
                 eq(ImmutableSet.of()),
@@ -797,9 +804,20 @@ public class DeleteEntityServiceTest {
                 Mockito.any(),
                 Mockito.anyInt()))
         .thenReturn(emptyScrollResult);
+    return new DeleteEntityService(
+        entityService, mockGraphService, mockSearchService, null, metricUtils);
+  }
+
+  @Test(dataProvider = "dryRun")
+  public void testReferrerOfUnknownEntityTypeIsSkipped(boolean dryRun) throws URISyntaxException {
+    // After a version rollback the graph can hold a reference from an entity type only a newer
+    // build knows. The reference cleanup and its dry-run preview skip it instead of failing.
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    DeleteEntityService deleteEntityService =
+        serviceWithAnUnknownTypeReferrer(mockEntityService, null);
 
     final DeleteReferencesResponse response =
-        deleteEntityService.deleteReferencesTo(opContext, tag, dryRun);
+        deleteEntityService.deleteReferencesTo(opContext, TAG_WITH_AN_UNKNOWN_REFERRER, dryRun);
 
     assertEquals(2, (int) response.getTotal());
     // The unknown-type referrer is never looked up; the known one still is.
@@ -807,11 +825,73 @@ public class DeleteEntityServiceTest {
         .getEntityV2(
             any(OperationContext.class),
             Mockito.anyString(),
-            eq(unknownTypeReferrer),
+            eq(UNKNOWN_TYPE_REFERRER),
             Mockito.anySet());
     Mockito.verify(mockEntityService, Mockito.atLeastOnce())
         .getEntityV2(
-            any(OperationContext.class), Mockito.anyString(), eq(knownReferrer), Mockito.anySet());
+            any(OperationContext.class), Mockito.anyString(), eq(KNOWN_REFERRER), Mockito.anySet());
+  }
+
+  @Test
+  public void testReferrerOfUnknownEntityTypeLeftIsCounted() {
+    // Its reference stays, so it is counted as the cascade's unknown_referrer_left outcome.
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    DeleteEntityService deleteEntityService =
+        serviceWithAnUnknownTypeReferrer(
+            Mockito.mock(EntityService.class),
+            MetricUtils.builder().registry(meterRegistry).build());
+
+    deleteEntityService.deleteReferencesTo(opContext, TAG_WITH_AN_UNKNOWN_REFERRER, false);
+
+    Counter left =
+        meterRegistry
+            .find("datahub.cascade.outcomes")
+            .tag("outcome", DeleteEntityService.UNKNOWN_REFERRER_LEFT_OUTCOME)
+            .counter();
+    assertNotNull(left);
+    assertEquals(left.count(), 1.0);
+  }
+
+  @Test
+  public void testReferrerOfUnknownEntityTypeLeftByGraphReferenceCleanupIsCounted() {
+    // The graph-only cleanup a hard delete runs counts it the same way.
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    DeleteEntityService deleteEntityService =
+        serviceWithAnUnknownTypeReferrer(
+            Mockito.mock(EntityService.class),
+            MetricUtils.builder().registry(meterRegistry).build());
+
+    deleteEntityService.deleteGraphReferences(opContext, TAG_WITH_AN_UNKNOWN_REFERRER);
+
+    Counter left =
+        meterRegistry
+            .find("datahub.cascade.outcomes")
+            .tag("outcome", DeleteEntityService.UNKNOWN_REFERRER_LEFT_OUTCOME)
+            .counter();
+    assertNotNull(left);
+    assertEquals(left.count(), 1.0);
+  }
+
+  @Test
+  public void testReferrerOfUnknownEntityTypeStrictHandlingFailsAndCountsNothing() {
+    // With unknown data not tolerated, the cleanup fails on it as before and nothing is counted.
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    DeleteEntityService deleteEntityService =
+        serviceWithAnUnknownTypeReferrer(
+            Mockito.mock(EntityService.class),
+            MetricUtils.builder().registry(meterRegistry).build());
+
+    // The registry's own "entity not found" failure, not some other exception from the mocks.
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            deleteEntityService.deleteReferencesTo(opContext, TAG_WITH_AN_UNKNOWN_REFERRER, false));
+    assertNull(
+        meterRegistry
+            .find("datahub.cascade.outcomes")
+            .tag("outcome", DeleteEntityService.UNKNOWN_REFERRER_LEFT_OUTCOME)
+            .counter());
   }
 
   /** Test that file cleanup is triggered when deleting an entity with files */
