@@ -1,7 +1,8 @@
 # Parent of the end-to-end test lanes. Owns the pull_request and push
 # triggers, classifies the PR once for smart testing, and calls each lane as a
-# reusable workflow. Release and manual runs still start docker-unified.yml
-# directly.
+# reusable workflow: docker (docker-unified.yml) and docker-free
+# (docker-free-e2e.yml). Release and manual runs still start docker-unified.yml
+# directly; manual runs of the Docker-free lane start docker-free-e2e.yml.
 name: E2E Tests
 on:
   push:
@@ -15,6 +16,8 @@ on:
       - "!.github/**"
       - ".github/workflows/e2e-tests.yml"
       - ".github/workflows/docker-unified.yml"
+      - ".github/workflows/docker-free-e2e.yml"
+      - ".github/actions/docker-free-stack"
       - ".github/scripts/send_failed_tests_to_posthog.py"
       - ".github/scripts/send_smart_selection_to_posthog.py"
       # Smart-testing classifier, selection and batch planning (pytest wiring).
@@ -46,6 +49,8 @@ on:
       - "!.github/**"
       - ".github/workflows/e2e-tests.yml"
       - ".github/workflows/docker-unified.yml"
+      - ".github/workflows/docker-free-e2e.yml"
+      - ".github/actions/docker-free-stack"
       - ".github/scripts/send_failed_tests_to_posthog.py"
       - ".github/scripts/send_smart_selection_to_posthog.py"
       # Smart-testing classifier, selection and batch planning (pytest wiring).
@@ -81,7 +86,8 @@ permissions:
   contents: read
 
 jobs:
-  # Only what classify_pr reads. Each lane computes its own change flags.
+  # What classify_pr reads, and whether the Docker-free lane runs. Each lane
+  # computes its own change flags.
   setup:
     runs-on: depot-ubuntu-24.04-small
     if: ${{ github.event_name == 'pull_request' }}
@@ -93,6 +99,18 @@ jobs:
       # True when docker-unified's setup builds a non-empty Playwright matrix on a PR.
       playwright_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
       test_runner_type_small: ${{ env.IS_FORK == 'true' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-small' }}
+      # Copies of docker-unified.yml's run_pytest (smoke_test_matrix), smoke_tier and
+      # smoke_changed_tests (setup), PR values only: the Docker-free lane runs when the
+      # Docker lane runs pytest, at the same tier. Keep them in step.
+      run_pytest: ${{ steps.pytest.outputs.run_pytest }}
+      smoke_tier: >-
+        ${{
+          (vars.PYTEST_P0_SMOKE == 'true'
+            && !contains(github.event.pull_request.labels.*.name, 'run-all-tests')
+            && !contains(github.event.pull_request.labels.*.name, 'run-all-tests:pytest'))
+          && 'p0' || 'full'
+        }}
+      smoke_changed_tests: ${{ steps.pytest.outputs.changed_tests }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -101,6 +119,49 @@ jobs:
 
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
+
+      - name: Decide pytest
+        id: pytest
+        env:
+          BACKEND_CHANGE: ${{ steps.ci-optimize.outputs.backend-change }}
+          SMOKE_TEST_CHANGE: ${{ steps.ci-optimize.outputs.smoke-test-change }}
+          CONNECTOR_SOURCE_ONLY: ${{ steps.ci-optimize.outputs.connector-source-only }}
+          INGESTION_ONLY: ${{ steps.ci-optimize.outputs.ingestion-only }}
+          PYTEST_WORKFLOW_CHANGE: ${{ steps.ci-optimize.outputs.pytest-workflow-change }}
+          CHANGED_FILES: ${{ steps.ci-optimize.outputs.changed-files }}
+          # smoke_test_matrix's pytest smart mode; only 'active' matters here.
+          SMART_MODE: >-
+            ${{
+              (env.IS_FORK != 'true'
+                && !contains(github.event.pull_request.labels.*.name, 'run-all-tests')
+                && !contains(github.event.pull_request.labels.*.name, 'run-all-tests:pytest'))
+              && (vars.SMART_TESTING_MODE || 'shadow') || 'off'
+            }}
+        run: |
+          run_pytest=false
+          if [[ "$BACKEND_CHANGE" == 'true' || "$SMOKE_TEST_CHANGE" == 'true' ]]; then
+            run_pytest=true
+          elif [[ "$CONNECTOR_SOURCE_ONLY" == 'true' ]]; then
+            :
+          elif [[ "$INGESTION_ONLY" == 'true' ]]; then
+            run_pytest=true
+          fi
+          if [[ "$PYTEST_WORKFLOW_CHANGE" == 'true' && "$SMART_MODE" == 'active' ]]; then
+            run_pytest=true
+          fi
+
+          files=""
+          if [[ -n "${CHANGED_FILES:-}" ]] && jq -e 'type == "array"' <<<"$CHANGED_FILES" >/dev/null 2>&1; then
+            files=$(jq -r '.[]' <<<"$CHANGED_FILES")
+          fi
+          changed=$(printf '%s\n' "$files" \
+            | grep -E '^smoke-test/tests/e2e/(.*/)?(test_.*|.*_test)\.py$' || true)
+
+          echo "run_pytest=$run_pytest smart_mode=$SMART_MODE changed_tests=$(printf '%s' "$changed" | tr '\n' ' ')"
+          {
+            echo "run_pytest=$run_pytest"
+            echo "changed_tests=$(printf '%s' "$changed" | tr '\n' ' ')"
+          } >> "$GITHUB_OUTPUT"
 
   # Classifies the PR into taxonomy tags (smart testing) once, for both suites:
   # smoke_test_matrix plans pytest batches from them and playwright_plan the
@@ -268,4 +329,33 @@ jobs:
       proposed_tags: ${{ needs.classify_pr.outputs.proposed_tags }}
       model: ${{ needs.classify_pr.outputs.model }}
       classifier_duration_s: ${{ needs.classify_pr.outputs.classifier_duration_s }}
+    secrets: inherit
+
+  # The Docker-free lane: on PRs (forks too) when the Docker lane runs pytest, and on
+  # every push to master while it runs next to the Docker lane (a stability window,
+  # to be narrowed later). Fork PRs get no repository variables or secrets, so the
+  # lane falls back to GitHub-hosted runners, no Depot cache and smart testing off.
+  docker_free:
+    needs: [setup, classify_pr]
+    if: >-
+      ${{ !cancelled() && (
+        (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+        (github.event_name == 'pull_request' && needs.setup.outputs.run_pytest == 'true')) }}
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    uses: ./.github/workflows/docker-free-e2e.yml
+    with:
+      playwright_mode: ${{ needs.classify_pr.outputs.playwright_mode }}
+      smart_tags: ${{ needs.classify_pr.outputs.smart_tags }}
+      confidence: ${{ needs.classify_pr.outputs.confidence }}
+      failsafe_reason: ${{ needs.classify_pr.outputs.failsafe_reason }}
+      reasoning: ${{ needs.classify_pr.outputs.reasoning }}
+      changed_files: ${{ needs.classify_pr.outputs.changed_files }}
+      proposed_tags: ${{ needs.classify_pr.outputs.proposed_tags }}
+      model: ${{ needs.classify_pr.outputs.model }}
+      classifier_duration_s: ${{ needs.classify_pr.outputs.classifier_duration_s }}
+      smoke_tier: ${{ needs.setup.outputs.smoke_tier }}
+      smoke_changed_tests: ${{ needs.setup.outputs.smoke_changed_tests }}
     secrets: inherit

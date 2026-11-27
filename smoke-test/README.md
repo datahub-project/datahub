@@ -328,14 +328,35 @@ no longer matches a difference. CI runs it in report-only mode in the GMS-lite L
 
 ### The Docker-free pytest lane in CI
 
-`.github/workflows/docker-free-e2e.yml` runs the full pytest suite on the Docker-free stack, in
-9 batches. One job builds the jars, the embedded OpenSearch node and the frontend bundle; each
-batch boots its own stack with the `.github/actions/docker-free-stack` action and runs `smoke.sh`
-with `SMOKE_BACKEND=local`, which deselects the tests marked `requires(...)` for what that stack
-lacks.
+`.github/workflows/docker-free-e2e.yml` runs the pytest suite on the Docker-free stack. One job
+builds the jars, the embedded OpenSearch node and the frontend bundle; each batch boots its own
+stack with the `.github/actions/docker-free-stack` action and runs `smoke.sh` with
+`SMOKE_BACKEND=local`, which deselects the tests marked `requires(...)` for what that stack lacks.
 
-- **When it runs:** on every push to `master`. On a pull request only with the
-  `docker-free:pytests` label. A failing batch fails the run, on pull requests and on `master`.
+`.github/workflows/e2e-tests.yml` (`E2E Tests`) owns the pull request and push triggers. It
+classifies the PR once for smart testing and calls each lane as a reusable workflow, so lane jobs
+show as `docker / …` and `docker-free / …`.
+
+|                                            | Docker lane (`docker-unified.yml`)                                                                                | Docker-free lane (`docker-free-e2e.yml`)                         |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Same-repo pull request                     | pytest when the change can affect smoke tests (backend, smoke-test or ingestion code; not connector-only changes) | Same condition as the Docker lane's pytest                       |
+| Pull request from a fork                   | Same condition, full suite in 5 batches                                                                           | Same condition, full suite in 9 batches on GitHub-hosted runners |
+| Push to `master`                           | Full suite, 5 batches                                                                                             | Full suite, 9 batches                                            |
+| Push to `releases/**`                      | Full suite, 5 batches                                                                                             | Skipped                                                          |
+| Batch matrix (smart testing off or shadow) | 5 batches full tier, 3 for `p0`                                                                                   | 9 batches full tier, 3 for `p0`                                  |
+| Batch matrix (smart testing active)        | Planned on `pytest_test_weights.json`                                                                             | Planned on `pytest_test_weights_docker_free.json`                |
+| Smart testing PR comment                   | `Smart test selection`                                                                                            | `Smart test selection (docker-free lane)`                        |
+
+This repository sets `PYTEST_P0_SMOKE=true` and `SMART_TESTING_MODE=active`, so a same-repo pull
+request runs the `p0` tier with active smart testing: each lane runs the batches its plan sizes
+(at most 9), and a pull request that only changes the pytest wiring runs a canary. The fixed
+matrices run on pushes to `master`, on pull requests with `run-all-tests` or `run-all-tests:pytest`,
+on fork pull requests (repository variables don't reach them) and on dispatch.
+
+- **Labels:** `run-all-tests` and `run-all-tests:pytest` turn smart testing off for both lanes, so
+  each runs its fixed matrix. They do not start a lane the change would not start.
+- **Run a lane alone:** dispatch `docker-free-e2e.yml` (full tier, 9 batches, smart testing off) or
+  `docker-unified.yml` from the Actions tab.
 - **Results:** each batch uploads `Test Results (docker-free smoke tests) pytests <N>` and, on failure,
   `logs-docker-free-pytests-<N>` (launcher, GMS, system-update, frontend and OpenSearch logs). The
   Boot stack step writes the boot timings to the job summary.

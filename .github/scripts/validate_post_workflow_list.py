@@ -35,6 +35,8 @@ IGNORED_WORKFLOWS = {
 ALLOWED_NON_PR_WORKFLOWS = {
     # docker-unified.yml: release and dispatch runs; PRs and pushes go through E2E Tests.
     "Docker Build, Scan, Test",
+    # docker-free-e2e.yml: dispatch runs; PRs and pushes go through E2E Tests.
+    "Docker-free E2E",
     "Nightly Docker Test",
     "Release Tests",
     "Release Validation",

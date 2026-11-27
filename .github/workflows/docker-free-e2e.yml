@@ -1,23 +1,57 @@
 name: "Docker-free E2E"
 
 # End-to-end tests on the Docker-free stack (`datahub-dev.sh start --local`); the pytest
-# smoke suite for now, Playwright later. The pytest job is shaped like pytest_tests in
-# docker-unified.yml so it can become a reusable workflow.
+# smoke suite for now, Playwright later. A lane of e2e-tests.yml, which calls it on
+# pull requests when the Docker lane runs pytest, and on pushes to master. The
+# jobs are shaped like docker-unified.yml's smoke_test_matrix and pytest_tests.
 #
-# Pull requests run it only with the docker-free:pytests label. Test failures fail the run,
-# on pull requests and on master.
+# Test failures fail the run, on pull requests and on master.
 
 on:
-  push:
-    branches:
-      - master
-  pull_request:
-    types: [opened, synchronize, reopened, labeled]
+  workflow_call:
+    inputs:
+      # classify_pr's outputs in e2e-tests.yml; same names as docker-unified.yml's
+      # inputs. Empty means no classification: smart testing falls back as there.
+      playwright_mode:
+        type: string
+        default: ""
+      smart_tags:
+        type: string
+        default: ""
+      confidence:
+        type: string
+        default: ""
+      failsafe_reason:
+        type: string
+        default: ""
+      reasoning:
+        type: string
+        default: ""
+      changed_files:
+        type: string
+        default: ""
+      proposed_tags:
+        type: string
+        default: ""
+      model:
+        type: string
+        default: ""
+      classifier_duration_s:
+        type: string
+        default: ""
+      # p0 or full, as docker-unified's setup output; empty means full.
+      smoke_tier:
+        type: string
+        default: ""
+      # Test modules this PR touches, as docker-unified's setup output.
+      smoke_changed_tests:
+        type: string
+        default: ""
+  # Runs the lane alone: full tier, 9 fixed batches, smart testing off.
+  workflow_dispatch:
 
-concurrency:
-  # Adding an unrelated label gets its own group, so it does not cancel a running lane.
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}${{ github.event.action == 'labeled' && github.event.label.name != 'docker-free:pytests' && format('-{0}', github.run_id) || '' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+# No concurrency group: under workflow_call, github.workflow is the caller's name, so a
+# group here would share e2e-tests.yml's. The caller cancels superseded PR runs.
 
 permissions:
   contents: read
@@ -26,22 +60,11 @@ permissions:
 jobs:
   build:
     name: Build stack
-    # Forks get no secrets. A labeled event runs only for this lane's label.
-    if: >-
-      github.event_name == 'push' ||
-      (github.event.pull_request.head.repo.full_name == github.repository &&
-      (github.event.action != 'labeled' || github.event.label.name == 'docker-free:pytests') &&
-      contains(github.event.pull_request.labels.*.name, 'docker-free:pytests'))
     # 4 vCPU / 16 GB, as Build all images in docker-unified; yarnBuild needs 16 GB.
     # GitHub-hosted (same size) where the repository has no Depot project.
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04-4' || 'ubuntu-24.04' }}
     timeout-minutes: 60
     outputs:
-      pytest_matrix: ${{ steps.set-matrix.outputs.pytest_matrix }}
-      smoke_tier: ${{ steps.set-matrix.outputs.smoke_tier }}
-      smart_testing_mode: ${{ steps.set-matrix.outputs.smart_testing_mode }}
-      smart_tags: ${{ steps.set-matrix.outputs.smart_tags }}
-      batch_plan: ${{ steps.set-matrix.outputs.batch_plan }}
       uv_cache_key: ${{ steps.cache-keys.outputs.uv_cache_key }}
       uv_cache_key_prefix: ${{ steps.cache-keys.outputs.uv_cache_key_prefix }}
       yarn_cache_key: ${{ steps.cache-keys.outputs.yarn_cache_key }}
@@ -65,29 +88,6 @@ jobs:
             echo "uv_cache_key_prefix=docker-unified-${{ runner.os }}-uv-"
             echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
             echo "yarn_cache_key_prefix=docker-unified-${{ runner.os }}-yarn-"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Set matrix
-        id: set-matrix
-        env:
-          # Smart testing stays off for this lane. Turning it on means adding the plan
-          # step from smoke_test_matrix (plan_pytest_batches.sh with SMOKE_BACKEND=local)
-          # and emitting its batch_count; the batch job already reads these outputs.
-          SMART_TESTING_MODE: "off"
-          # docker-unified.yml packs the full suite into 5 batches; tests run about
-          # twice as long on this stack, and each batch boots its own stack.
-          FULL_BATCH_COUNT: "9"
-        run: |
-          items=""
-          for ((i=0;i<FULL_BATCH_COUNT;i++)); do
-            items="${items:+$items,}{\"batch\":\"$i\",\"batch_count\":\"$FULL_BATCH_COUNT\"}"
-          done
-          {
-            echo "pytest_matrix={\"include\":[$items]}"
-            echo "smoke_tier=full"
-            echo "smart_testing_mode=$SMART_TESTING_MODE"
-            echo "smart_tags="
-            echo "batch_plan=false"
           } >> "$GITHUB_OUTPUT"
 
       - name: Set up toolchain
@@ -135,16 +135,313 @@ jobs:
           retention-days: 1
           overwrite: true
 
+  # This lane's copy of smoke_test_matrix in docker-unified.yml: the tier, the batch
+  # matrix and, under smart testing, a batch plan packed on this stack's weights
+  # (SMOKE_BACKEND=local). e2e-tests.yml calls the lane only when pytest runs, so there
+  # is no run_pytest gate here. Keep the mode rules and fallbacks in step with it.
+  smoke_test_matrix:
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04-small' || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    outputs:
+      pytest_matrix: ${{ steps.set-matrix.outputs.pytest_matrix }}
+      smoke_tier: ${{ steps.set-matrix.outputs.smoke_tier }}
+      smart_testing_mode: ${{ steps.resolve-mode.outputs.mode }}
+      smart_tags: ${{ steps.set-matrix.outputs.smart_tags }}
+      # Selection context for the pytest failure events sent to PostHog.
+      smart_selection: ${{ steps.plan.outcome == 'success' && steps.plan.outputs.selection || '' }}
+      smart_confidence: ${{ inputs.confidence }}
+      # 'true' when pytest_tests must download pytest-smoke-plan-local and run only
+      # the scopes planned for its batch.
+      batch_plan: ${{ steps.set-matrix.outputs.batch_plan }}
+    steps:
+      - name: Resolve smart testing mode
+        id: resolve-mode
+        # mode: off | shadow | active (repo var SMART_TESTING_MODE), same-repo PRs only.
+        # Dispatch and push run with it off, and so does a PR with the run-all-tests or
+        # run-all-tests:pytest label.
+        run: |
+          mode=off
+          if [[ "${{ github.event_name }}" == 'pull_request' \
+                && "${{ github.event.pull_request.head.repo.full_name == github.repository }}" == 'true' \
+                && "${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}" != 'true' \
+                && "${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests:pytest') }}" != 'true' ]]; then
+            mode="${{ vars.SMART_TESTING_MODE || 'shadow' }}"
+          fi
+          echo "Smart testing mode=$mode"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the repo
+        if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - name: Compute dependency cache keys
+        id: cache-keys
+        if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
+        # Same keys as the build job's step of this name (the docker-unified buckets).
+        run: |
+          {
+            echo "uv_cache_key=docker-unified-${{ runner.os }}-uv-${{ hashFiles(
+              './datahub-actions/pyproject.toml',
+              './datahub-actions/setup.py',
+              './smoke-test/requirements.txt',
+              './smoke-test/pyproject.toml',
+              './metadata-ingestion/pyproject.toml',
+              './metadata-ingestion/setup.py') }}"
+            echo "uv_cache_key_prefix=docker-unified-${{ runner.os }}-uv-"
+            echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
+            echo "yarn_cache_key_prefix=docker-unified-${{ runner.os }}-yarn-"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
+
+      - name: Restore dependency caches
+        uses: ./.github/actions/restore-dependency-caches
+        if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
+        with:
+          uv_cache_key: ${{ steps.cache-keys.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ steps.cache-keys.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ steps.cache-keys.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ steps.cache-keys.outputs.yarn_cache_key_prefix }}
+          restore_yarn: "false"
+
+      - name: Install dependencies
+        if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
+        run: ./metadata-ingestion/scripts/install_deps.sh
+
+      # Collecting the suite imports datahub.metadata, which needs codegen.
+      - name: Generate metadata model classes
+        if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
+        env:
+          DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+        run: ./gradlew :metadata-ingestion:codegen
+
+      - name: Plan pytest batches
+        id: plan
+        if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
+        # A failed plan never blocks: set-matrix falls back to the fixed p0 matrix
+        # (active) or just skips the shadow summary.
+        continue-on-error: true
+        env:
+          RUN_QUICKSTART: "false"
+          TEST_STRATEGY: plan
+          # Packs on pytest_test_weights_docker_free.json and deselects what this stack
+          # lacks. Must match pytest_tests, which refuses another lane's plan.
+          SMOKE_BACKEND: local
+          SMOKE_SMART_TAGS: ${{ inputs.smart_tags }}
+          SMOKE_CHANGED_TESTS: ${{ inputs.smoke_changed_tests }}
+          SMOKE_DUMP_BATCH_PLAN: ${{ github.workspace }}/pytest-smoke-plan/pytest-smoke-plan.json
+          SMOKE_PLAN_SMART_MODE: ${{ steps.resolve-mode.outputs.mode }}
+          # Must match pytest_tests: batch weighting models this many workers.
+          PYTEST_XDIST_WORKERS: "3"
+          # Fewest batches (up to this cap, the full-suite count) whose predicted pytest
+          # time meets 8 min, or the slowest single scope when that alone is longer.
+          PLAN_MAX_BATCHES: "9"
+        run: .github/smart-testing/plan_pytest_batches.sh
+
+      - name: Upload batch plan
+        if: ${{ steps.resolve-mode.outputs.mode != 'off' && steps.plan.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          # The Docker lane's plan in the same run is pytest-smoke-plan.
+          name: pytest-smoke-plan-local
+          path: pytest-smoke-plan/pytest-smoke-plan.json
+          retention-days: 7
+
+      - name: Set Matrix
+        id: set-matrix
+        env:
+          MODE: ${{ steps.resolve-mode.outputs.mode }}
+          PLAN_OUTCOME: ${{ steps.plan.outcome }}
+          PLAN_TIER: ${{ steps.plan.outputs.smoke_tier }}
+          PLAN_SELECTION: ${{ steps.plan.outputs.selection }}
+          PLAN_FILE: pytest-smoke-plan/pytest-smoke-plan.json
+          SMART_TAGS: ${{ inputs.smart_tags }}
+          DEFAULT_TIER: ${{ inputs.smoke_tier || 'full' }}
+          # Fixed matrices for runs the planner does not size. docker-unified.yml packs
+          # the full suite into 5 batches; tests run about twice as long on this stack,
+          # and each batch boots its own stack. On this lane's weights (2026-11-27) the
+          # p0 tier predicts ~2.7 min a batch at 3, about what a full batch predicts at 9.
+          P0_BATCH_COUNT: "3"
+          FULL_BATCH_COUNT: "9"
+        run: |
+          emit_matrix() {
+            local count=$1 items=""
+            batches=$count
+            for ((i=0;i<count;i++)); do
+              items="${items:+$items,}{\"batch\":\"$i\",\"batch_count\":\"$count\"}"
+            done
+            echo "pytest_matrix={\"include\":[$items]}" >> "$GITHUB_OUTPUT"
+          }
+
+          tier=$DEFAULT_TIER
+          tags=$SMART_TAGS
+          batch_plan=false
+          batches=0
+          selection=$DEFAULT_TIER
+
+          if [[ "$MODE" == 'active' && "$PLAN_OUTCOME" == 'success' ]]; then
+            # Zero planned batches gives an empty matrix: pytest_tests skips.
+            tier=$PLAN_TIER
+            selection=$PLAN_SELECTION
+            batch_plan=true
+            emit_matrix "$(jq -r '.batch_count' "$PLAN_FILE")"
+          elif [[ "$MODE" == 'active' ]]; then
+            echo "::warning::Smart testing plan failed; falling back to the fixed p0 matrix"
+            tier=p0
+            selection=p0
+            tags=''
+            emit_matrix "$P0_BATCH_COUNT"
+          elif [[ "$tier" == 'p0' ]]; then
+            emit_matrix "$P0_BATCH_COUNT"
+          else
+            emit_matrix "$FULL_BATCH_COUNT"
+          fi
+
+          {
+            echo "smoke_tier=$tier"
+            echo "smart_tags=$tags"
+            echo "batch_plan=$batch_plan"
+            echo "selection=$selection"
+          } >> "$GITHUB_OUTPUT"
+          echo "Final: mode=$MODE running selection=$selection (tier=$tier) in $batches batch(es), batch_plan=$batch_plan"
+          if [[ "$MODE" == 'shadow' && "$PLAN_OUTCOME" == 'success' ]]; then
+            echo "Shadow: active mode would run selection=$PLAN_SELECTION (tier=$PLAN_TIER) in $(jq -r '.batch_count' "$PLAN_FILE") planned batch(es)"
+          fi
+
+      - name: Render smart testing PR comment
+        # Never blocks: the comment is explanatory only.
+        if: ${{ always() && steps.resolve-mode.outputs.mode != 'off' }}
+        continue-on-error: true
+        env:
+          SMART_MODE: ${{ steps.resolve-mode.outputs.mode }}
+          SMART_CONFIDENCE: ${{ inputs.confidence }}
+          FAILSAFE_REASON: ${{ inputs.failsafe_reason }}
+          SMART_TAGS: ${{ inputs.smart_tags }}
+          SMART_REASONING: ${{ inputs.reasoning }}
+          CHANGED_FILES: ${{ inputs.changed_files }}
+          SMART_SELECTION: ${{ steps.plan.outcome == 'success' && steps.plan.outputs.selection || '' }}
+          SELECTION_APPLIED: ${{ steps.set-matrix.outputs.selection }}
+          PLAN_OUTCOME: ${{ steps.plan.outcome }}
+          PLAN_FILE: pytest-smoke-plan/pytest-smoke-plan.json
+          COMMENT_FILE: smart-testing-comment/pytest-section.md
+        run: python3 .github/smart-testing/render_comment.py pytest
+
+      - name: Upload smart testing comment
+        if: ${{ always() && hashFiles('smart-testing-comment/pytest-section.md') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        continue-on-error: true
+        with:
+          # The Docker lane's section in the same run is smart-testing-comment.
+          name: smart-testing-comment-local
+          path: smart-testing-comment/pytest-section.md
+          retention-days: 7
+
+      - name: Send smart selection telemetry to PostHog
+        # One ci_smart_selection event per attempt for this lane. Telemetry only.
+        if: ${{ always() && steps.resolve-mode.outputs.mode != 'off' }}
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          TEST_FRAMEWORK: pytest
+          TEST_LANE: docker-free
+          HEAD_BRANCH: ${{ github.head_ref }}
+          BASE_BRANCH: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SMART_MODE: ${{ steps.resolve-mode.outputs.mode }}
+          SMART_CONFIDENCE: ${{ inputs.confidence }}
+          FAILSAFE_REASON: ${{ inputs.failsafe_reason }}
+          SMART_TAGS: ${{ inputs.smart_tags }}
+          PROPOSED_TAGS: ${{ inputs.proposed_tags }}
+          SMART_MODEL: ${{ inputs.model }}
+          CLASSIFIER_DURATION_S: ${{ inputs.classifier_duration_s }}
+          SMART_SELECTION: ${{ steps.plan.outcome == 'success' && steps.plan.outputs.selection || '' }}
+          SELECTION_APPLIED: ${{ steps.set-matrix.outputs.selection }}
+          PLAN_OUTCOME: ${{ steps.plan.outcome }}
+          PLAN_FILE: pytest-smoke-plan/pytest-smoke-plan.json
+        run: python3 .github/scripts/send_smart_selection_to_posthog.py
+
+  # Separate from the planning job so it keeps its read-only token. Its own sticky
+  # comment (lane marker), next to the Docker lane's.
+  comment_smart_testing:
+    name: Comment smart test selection
+    runs-on: ubuntu-24.04
+    needs: [smoke_test_matrix]
+    if: |
+      always() && github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      needs.smoke_test_matrix.outputs.smart_testing_mode != '' && needs.smoke_test_matrix.outputs.smart_testing_mode != 'off'
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+      - name: Check out the comment renderer
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: .github/smart-testing
+
+      - name: Download pytest section
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        continue-on-error: true
+        with:
+          name: smart-testing-comment-local
+          path: smart-testing-comment
+
+      - name: Compose comment
+        id: compose
+        continue-on-error: true
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMENT_FILE: smart-testing-comment/comment.md
+        run: |
+          SHORT_SHA=${HEAD_SHA:0:7} python3 .github/smart-testing/render_comment.py compose \
+            --lane docker-free \
+            --pytest-section smart-testing-comment/pytest-section.md
+          cat "$COMMENT_FILE" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upsert smart testing PR comment
+        if: ${{ steps.compose.outcome == 'success' }}
+        continue-on-error: true
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            // render_comment.py lane_marker('docker-free'); differs from the Docker lane's.
+            const marker = '<!-- smart-testing-selection:docker-free -->';
+            const body = fs.readFileSync('smart-testing-comment/comment.md', 'utf8');
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+            });
+            const existing = comments.find(
+              (c) => c.user?.type === 'Bot' && c.body?.includes(marker),
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
   pytest_tests:
     name: Docker-free Pytest Smoke Tests (Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
-    needs: build
+    needs: [build, smoke_test_matrix]
+    # An active plan with zero batches gives an empty matrix.
+    if: ${{ needs.smoke_test_matrix.outputs.pytest_matrix != '{"include":[]}' }}
     # 4 vCPU / 16 GB, as pytest_tests in docker-unified: 3 xdist workers, GMS (2 GB
     # heap), OpenSearch and the frontend preview.
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04-4' || 'ubuntu-24.04' }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.build.outputs.pytest_matrix) }}
+      matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.pytest_matrix) }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -203,6 +500,13 @@ jobs:
           DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
         run: ./gradlew :metadata-ingestion:install
 
+      - name: Download batch plan
+        if: ${{ needs.smoke_test_matrix.outputs.batch_plan == 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pytest-smoke-plan-local
+          path: pytest-smoke-plan
+
       - name: Smoke test
         id: smoke
         if: steps.retry-check.outputs.parse_result != 'all_passed'
@@ -216,11 +520,12 @@ jobs:
           SMOKE_BACKEND: local
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
-          SMOKE_TIER: ${{ needs.build.outputs.smoke_tier }}
-          # Smart testing plumbing, as in pytest_tests; off for this lane (see Set matrix).
-          SMOKE_SMART_TESTING: ${{ needs.build.outputs.smart_testing_mode }}
-          SMOKE_SMART_TAGS: ${{ needs.build.outputs.smart_tags }}
-          SMOKE_BATCH_PLAN: ${{ needs.build.outputs.batch_plan == 'true' && format('{0}/pytest-smoke-plan/pytest-smoke-plan.json', github.workspace) || '' }}
+          SMOKE_TIER: ${{ needs.smoke_test_matrix.outputs.smoke_tier }}
+          SMOKE_CHANGED_TESTS: ${{ inputs.smoke_changed_tests }}
+          # Smart test selection, as in pytest_tests (see smoke_test_matrix).
+          SMOKE_SMART_TESTING: ${{ needs.smoke_test_matrix.outputs.smart_testing_mode }}
+          SMOKE_SMART_TAGS: ${{ needs.smoke_test_matrix.outputs.smart_tags }}
+          SMOKE_BATCH_PLAN: ${{ needs.smoke_test_matrix.outputs.batch_plan == 'true' && format('{0}/pytest-smoke-plan/pytest-smoke-plan.json', github.workspace) || '' }}
           PYTEST_XDIST_WORKERS: "3"
           FILTERED_TESTS: ${{ steps.retry-check.outputs.filtered_tests_file || '' }}
           # See pytest_tests: a retry runs a smaller set, so it takes the stronger wait.
@@ -279,7 +584,9 @@ jobs:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
           GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
-          SMART_MODE: ${{ needs.build.outputs.smart_testing_mode }}
+          SMART_MODE: ${{ needs.smoke_test_matrix.outputs.smart_testing_mode }}
+          SMART_SELECTION: ${{ needs.smoke_test_matrix.outputs.smart_selection }}
+          SMART_CONFIDENCE: ${{ needs.smoke_test_matrix.outputs.smart_confidence }}
         run: |
           if [ -z "$POSTHOG_API_KEY" ]; then
             echo "POSTHOG_API_KEY not configured, skipping test failure metrics"
@@ -295,7 +602,7 @@ jobs:
             --posthog-api-key "$POSTHOG_API_KEY" \
             --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
             --repository "${{ github.repository }}" \
-            --workflow-name "${{ github.workflow }}" \
+            --workflow-name "Docker-free E2E" \
             --branch "${GH_HEAD_REF}" \
             --run-id "${{ github.run_id }}" \
             --run-attempt "${{ github.run_attempt }}" \
@@ -303,7 +610,9 @@ jobs:
             --batch-label "docker-free" \
             --batch-count "${{ strategy.job-total }}" \
             --test-strategy "pytests" \
-            --smart-mode "$SMART_MODE"
+            --smart-mode "$SMART_MODE" \
+            --smart-selection "$SMART_SELECTION" \
+            --smart-confidence "$SMART_CONFIDENCE"
 
           rm -rf "$TEMP_DIR"
 
