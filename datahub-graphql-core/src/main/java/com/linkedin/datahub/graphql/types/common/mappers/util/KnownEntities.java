@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Maps references to GraphQL entities, leaving out the ones GraphQL can't represent.
@@ -27,9 +28,11 @@ import javax.annotation.Nullable;
  * wherever references become entities in a list or a required field, so one unknown reference drops
  * only itself.
  *
- * <p>When unknown data isn't tolerated, nothing is left out or looked up: every urn is mapped as
- * before, including to null.
+ * <p>When unknown data isn't tolerated, nothing is looked up in the registry and every urn is
+ * mapped as before, including to null; only {@link #isReturnable} leaves out a urn GraphQL doesn't
+ * model, as regular search does.
  */
+@Slf4j
 public final class KnownEntities {
 
   private static final UnknownDataGuard UNREPRESENTABLE =
@@ -156,14 +159,22 @@ public final class KnownEntities {
   }
 
   /**
-   * Under tolerant handling, false for a urn GraphQL can't return as an entity, logging the skip:
-   * an entity type it can't map (one only a newer version registered, or one it doesn't model), or
-   * a schema field whose parent it can't represent. Use it before a non-null entity slot, such as a
-   * search result's. True for every urn when unknown data isn't tolerated.
+   * False for a urn GraphQL can't return as an entity, logging the skip. Use it before a non-null
+   * entity slot, such as a search result's. Under tolerant handling: an entity type it can't map
+   * (one only a newer version registered, or one it doesn't model), or a schema field whose parent
+   * it can't represent. Otherwise, as regular search does: only an entity type GraphQL doesn't
+   * model, without a registry check.
    */
   public static boolean isReturnable(@Nullable final QueryContext context, @Nonnull final Urn urn) {
     if (!handling().toleratesUnknownEntityAspect()) {
-      return true;
+      if (UrnToEntityMapper.map(context, urn) != null) {
+        return true;
+      }
+      log.warn(
+          "Search hit {} has no GraphQL entity mapping; excluding it from results rather than "
+              + "failing the whole result set.",
+          urn);
+      return false;
     }
     if (!hasRepresentableParent(context, urn)) {
       return false;
