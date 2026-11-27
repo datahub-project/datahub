@@ -1,95 +1,94 @@
+import { Pill, Text } from '@components';
 import React from 'react';
-import { Trans, useTranslation } from 'react-i18next';
-import styled, { useTheme } from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
-import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { ActionType, RelativeTimeStatus } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import HoverCardHeader from '@app/sharedV2/hoverCard/HoverCardHeader';
+import HoverCardSection from '@app/sharedV2/hoverCard/HoverCardSection';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 
-const HeaderText = styled.span`
-    font-size: 14px;
-    font-weight: 500;
-`;
+import { DataPlatform, Maybe } from '@types';
 
-const Container = styled.div`
-    font-family: Mulish;
-`;
+const LEGEND: { color: RelativeTimeStatus; labelKey: string }[] = [
+    { color: 'green', labelKey: 'sidebar.syncedOrShared.hoverCard.legendPastWeek' },
+    { color: 'yellow', labelKey: 'sidebar.syncedOrShared.hoverCard.legendPastMonth' },
+    { color: 'red', labelKey: 'sidebar.syncedOrShared.hoverCard.legendOlder' },
+];
 
-const Wrapper = styled.div`
+// Same shell as `EntityHoverCard` so this reads as one of the platform's hover cards.
+const Card = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin: 12px 0;
+    gap: 8px;
+    width: 320px;
+    max-width: calc(100vw - 32px);
 `;
 
-const BoldText = styled.span`
-    font-weight: 600;
+const Sections = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 `;
 
-const ColoredContainer = styled.div<{ $bgColor: string; $textColor: string }>`
-    border-radius: 20px;
-    padding: 4px 12px;
-    background-color: ${(props) => props.$bgColor};
-    color: ${(props) => props.$textColor};
-    font-weight: 500;
-    width: max-content;
+const LegendRow = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
 `;
 
-interface Props {
+type Props = {
     type: ActionType;
-}
-
-const SyncedOrSharedTooltip = ({ type }: Props) => {
-    const { t } = useTranslation('entity.shared.containers');
-    const theme = useTheme();
-    return (
-        <Container>
-            <HeaderText>
-                {type === ActionType.SYNC
-                    ? t('sidebar.syncedOrShared.tooltip.synchronizedHeader')
-                    : t('sidebar.syncedOrShared.tooltip.sharedHeader')}
-            </HeaderText>
-            <Wrapper>
-                <ColoredContainer
-                    $bgColor={theme.colors.bgSurfaceSuccess}
-                    $textColor={theme.colors.textOnSurfaceSuccess}
-                >
-                    <Trans
-                        t={t}
-                        i18nKey={
-                            type === ActionType.SYNC
-                                ? 'sidebar.syncedOrShared.tooltip.syncedWithinPastWeek'
-                                : 'sidebar.syncedOrShared.tooltip.sharedWithinPastWeek'
-                        }
-                        components={{ bold: <BoldText /> }}
-                    />
-                </ColoredContainer>
-                <ColoredContainer
-                    $bgColor={theme.colors.bgSurfaceWarning}
-                    $textColor={theme.colors.textOnSurfaceWarning}
-                >
-                    <Trans
-                        t={t}
-                        i18nKey={
-                            type === ActionType.SYNC
-                                ? 'sidebar.syncedOrShared.tooltip.syncedWithinPastMonth'
-                                : 'sidebar.syncedOrShared.tooltip.sharedWithinPastMonth'
-                        }
-                        components={{ bold: <BoldText /> }}
-                    />
-                </ColoredContainer>
-                <ColoredContainer $bgColor={theme.colors.bgSurfaceError} $textColor={theme.colors.textOnSurfaceError}>
-                    <Trans
-                        t={t}
-                        i18nKey={
-                            type === ActionType.SYNC
-                                ? 'sidebar.syncedOrShared.tooltip.syncedMoreThanMonthAgo'
-                                : 'sidebar.syncedOrShared.tooltip.sharedMoreThanMonthAgo'
-                        }
-                        components={{ bold: <BoldText /> }}
-                    />
-                </ColoredContainer>
-            </Wrapper>
-        </Container>
-    );
+    time: number;
+    platformName?: string;
+    platform?: Maybe<DataPlatform>;
 };
 
-export default SyncedOrSharedTooltip;
+export default function SyncedOrSharedTooltip({ type, time, platformName, platform }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
+    const isSync = type === ActionType.SYNC;
+
+    return (
+        <Card>
+            <HoverCardHeader
+                title={
+                    isSync
+                        ? t('sidebar.syncedOrShared.hoverCard.syncTitle')
+                        : t('sidebar.syncedOrShared.hoverCard.shareTitle')
+                }
+                icon={platform ? <PlatformIcon platform={platform} size={24} /> : undefined}
+                typeName={platformName}
+            />
+            <Sections>
+                <HoverCardSection
+                    title={
+                        isSync
+                            ? t('sidebar.syncedOrShared.hoverCard.lastSynced')
+                            : t('sidebar.syncedOrShared.hoverCard.lastShared')
+                    }
+                >
+                    <Text>
+                        {t('sidebar.syncedOrShared.hoverCard.timeValue', {
+                            relativeTime: capitalizeFirstLetterOnly(toRelativeTimeString(time)),
+                            dateTime: toLocalDateTimeString(time),
+                        })}
+                    </Text>
+                </HoverCardSection>
+                {isSync && (
+                    <HoverCardSection title={t('sidebar.syncedOrShared.hoverCard.aboutTitle')}>
+                        <Text>{t('sidebar.syncedOrShared.hoverCard.metadataOnlyNote')}</Text>
+                    </HoverCardSection>
+                )}
+                <HoverCardSection title={t('sidebar.syncedOrShared.hoverCard.freshnessTitle')}>
+                    <LegendRow>
+                        {LEGEND.map(({ color, labelKey }) => (
+                            <Pill key={color} label={t(labelKey)} variant="filled" color={color} size="sm" />
+                        ))}
+                    </LegendRow>
+                </HoverCardSection>
+            </Sections>
+        </Card>
+    );
+}
