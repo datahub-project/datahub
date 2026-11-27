@@ -213,6 +213,57 @@ public abstract class AbstractBulkProcessorShim<T> {
    */
   public void closeBulkProcessor() {
     lifecycle.set(Lifecycle.CLOSED);
+    closeNativeProcessors();
+  }
+
+  /**
+   * Shutdown drain within one budget. The flush and the native close can each block on a bulk still
+   * on the wire, so each runs on a daemon thread and the caller waits only for what remains. Work
+   * still running when the budget expires is left on its daemon thread; closing the client then
+   * aborts it, and the failure is recorded as unrecovered.
+   */
+  public void closeBulkProcessorWithin(long timeoutMillis)
+      throws InterruptedException, TimeoutException {
+    long deadlineNanos =
+        System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(Math.max(0, timeoutMillis));
+    try {
+      flushAndAwaitWithin(deadlineNanos);
+    } finally {
+      lifecycle.set(Lifecycle.CLOSED);
+      closeNativeWithin(deadlineNanos);
+    }
+  }
+
+  private void flushAndAwaitWithin(long deadlineNanos)
+      throws InterruptedException, TimeoutException {
+    if (!runWithin(
+        "bulk-processor-close-flush", this::flushBulkProcessor, millisUntil(deadlineNanos))) {
+      throw new TimeoutException(
+          "Flushing bulk processors did not finish within the shutdown budget");
+    }
+    bulkWriteResultTracker.awaitIdle(
+        Duration.ofNanos(Math.max(0, deadlineNanos - System.nanoTime())));
+  }
+
+  private void closeNativeWithin(long deadlineNanos) {
+    boolean closed;
+    try {
+      closed =
+          runWithin(
+              "bulk-processor-close", this::closeNativeProcessors, millisUntil(deadlineNanos));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      closed = false;
+    }
+    if (!closed) {
+      log.warn(
+          "Bulk processor close did not finish within the shutdown budget; closing the client will"
+              + " abort {} in-flight item(s)",
+          bulkWriteResultTracker.getPendingItems());
+    }
+  }
+
+  private void closeNativeProcessors() {
     if (completionTrackers != null) {
       for (BulkProcessorCompletionTracker completionTracker : completionTrackers) {
         completionTracker.shutdownFlushExecutor();
@@ -224,6 +275,41 @@ public abstract class AbstractBulkProcessorShim<T> {
     for (T processor : bulkProcessors) {
       closeProcessor(processor);
     }
+  }
+
+  /**
+   * Runs {@code action} on a daemon thread and waits up to {@code timeoutMillis}. Returns false if
+   * it is still running so the caller can move on. A RuntimeException from the action is rethrown.
+   */
+  private static boolean runWithin(String name, Runnable action, long timeoutMillis)
+      throws InterruptedException {
+    AtomicReference<RuntimeException> failure = new AtomicReference<>();
+    Thread thread =
+        new Thread(
+            () -> {
+              try {
+                action.run();
+              } catch (RuntimeException e) {
+                failure.set(e);
+              }
+            },
+            name);
+    thread.setDaemon(true);
+    thread.start();
+    // Thread.join(0) waits forever, so a spent budget still allows one millisecond.
+    thread.join(Math.max(1, timeoutMillis));
+    if (thread.isAlive()) {
+      return false;
+    }
+    RuntimeException e = failure.get();
+    if (e != null) {
+      throw e;
+    }
+    return true;
+  }
+
+  private static long millisUntil(long deadlineNanos) {
+    return Math.max(0, TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()));
   }
 
   /**

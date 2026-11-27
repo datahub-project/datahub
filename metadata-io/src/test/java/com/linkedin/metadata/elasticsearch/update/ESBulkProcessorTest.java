@@ -423,25 +423,23 @@ public class ESBulkProcessorTest {
 
     InOrder order = inOrder(mockSearchClient);
     order.verify(mockSearchClient).claimBulkProcessorClose();
-    order.verify(mockSearchClient).flushAndAwaitBulkTransfer(7000L);
+    order.verify(mockSearchClient).closeBulkProcessorWithin(7000L);
     order.verify(mockSearchClient).drainBulkTransferFailures();
-    order.verify(mockSearchClient).closeBulkProcessor();
   }
 
   @Test
-  public void testCloseTimeoutStillClosesProcessorsWithoutThrowing() throws Exception {
+  public void testCloseTimeoutLogsUnconfirmedItemsAndStillDrainsFailures() throws Exception {
     when(mockSearchClient.claimBulkProcessorClose()).thenReturn(true);
     doThrow(new TimeoutException("pending"))
         .when(mockSearchClient)
-        .flushAndAwaitBulkTransfer(anyLong());
+        .closeBulkProcessorWithin(anyLong());
     when(mockSearchClient.pendingBulkItems()).thenReturn(List.of("my_index/doc-1"));
     ESBulkProcessor processor = ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).build();
 
     processor.close(java.time.Duration.ofMillis(10));
 
     verify(mockSearchClient).pendingBulkItems();
-    verify(mockSearchClient, never()).drainBulkTransferFailures();
-    verify(mockSearchClient).closeBulkProcessor();
+    verify(mockSearchClient).drainBulkTransferFailures();
   }
 
   @Test
@@ -451,7 +449,7 @@ public class ESBulkProcessorTest {
 
     processor.close();
 
-    verify(mockSearchClient, never()).flushAndAwaitBulkTransfer(anyLong());
+    verify(mockSearchClient, never()).closeBulkProcessorWithin(anyLong());
     verify(mockSearchClient, never()).flushBulkProcessor();
     verify(mockSearchClient, never()).closeBulkProcessor();
   }

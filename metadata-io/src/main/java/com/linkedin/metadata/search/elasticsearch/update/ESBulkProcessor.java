@@ -299,10 +299,10 @@ public class ESBulkProcessor implements Closeable {
 
   /**
    * Waits up to {@code budget} for every pending bulk to reach a terminal outcome, then closes the
-   * native processors. The wait must finish before the client closes: the native close does not
-   * wait for a bulk already on the wire, and closing the client aborts it. On timeout the pending
-   * items are logged as unconfirmed and the processors are closed anyway, so shutdown never hangs.
-   * A no-op if another processor sharing this client already closed it.
+   * native processors. The wait must finish before the client closes, since closing the client
+   * aborts a bulk still on the wire. Every step shares the same budget, so this returns when it
+   * expires. Work still running then is abandoned on a daemon thread and logged as unconfirmed. A
+   * no-op if another processor sharing this client already closed it.
    */
   public void close(@Nonnull Duration budget) {
     if (!searchClient.claimBulkProcessorClose()) {
@@ -310,14 +310,7 @@ public class ESBulkProcessor implements Closeable {
       return;
     }
     try {
-      searchClient.flushAndAwaitBulkTransfer(Math.max(0, budget.toMillis()));
-      long failures = searchClient.drainBulkTransferFailures();
-      if (failures > 0) {
-        log.error(
-            "Closing bulk processor with {} unrecovered item failure(s); those writes were not"
-                + " applied",
-            failures);
-      }
+      searchClient.closeBulkProcessorWithin(Math.max(0, budget.toMillis()));
     } catch (TimeoutException e) {
       logUnconfirmedOnClose(budget);
     } catch (InterruptedException e) {
@@ -327,8 +320,14 @@ public class ESBulkProcessor implements Closeable {
           searchClient.pendingBulkWriteCount());
     } catch (RuntimeException e) {
       log.error("Failed to drain bulk writes on close", e);
-    } finally {
-      searchClient.closeBulkProcessor();
+    }
+    // Read after the native close so failures recorded while closing are reported too.
+    long failures = searchClient.drainBulkTransferFailures();
+    if (failures > 0) {
+      log.error(
+          "Closing bulk processor with {} unrecovered item failure(s); those writes were not"
+              + " applied",
+          failures);
     }
   }
 

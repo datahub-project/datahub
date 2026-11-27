@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.search;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -35,6 +36,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -409,7 +413,8 @@ public class SearchClusterRegistryTest {
   }
 
   @Test
-  public void testCloseDrainsWrittenClientsThenClosesNonPrimaryClients() throws Exception {
+  public void testCloseDrainsWrittenClientsThenClosesAllNonPrimaryClientsIncludingIdle()
+      throws Exception {
     ElasticSearchConfiguration config =
         config(ComponentClusterConfiguration.builder().searchV3("secondary").build());
     SearchClientShim<?> primaryClient = writtenClient();
@@ -436,9 +441,47 @@ public class SearchClusterRegistryTest {
     for (Duration budget : budgets.getAllValues()) {
       assertTrue(budget.compareTo(Duration.ofSeconds(30)) <= 0, "budget " + budget);
     }
-    verify(idleProcessor, never()).close(any(Duration.class));
-    verify(idleClient, never()).close();
+    verify(idleProcessor).close(any(Duration.class));
+    verify(idleClient).close();
     verify(primaryClient, never()).close();
+  }
+
+  @Test
+  public void testCloseDrainsClustersConcurrentlySoOneStuckClusterCannotStarveAnother()
+      throws Exception {
+    ElasticSearchConfiguration config =
+        config(ComponentClusterConfiguration.builder().searchV3("secondary").build());
+    SearchClientShim<?> primaryClient = writtenClient();
+    SearchClientShim<?> secondaryClient = writtenClient();
+    ESBulkProcessor primaryProcessor = processorWithCloseTimeout(Duration.ofSeconds(30));
+    ESBulkProcessor secondaryProcessor = processorWithCloseTimeout(Duration.ofSeconds(30));
+    CountDownLatch secondaryClosed = new CountDownLatch(1);
+    AtomicBoolean secondaryClosedWhilePrimaryWasStuck = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              secondaryClosedWhilePrimaryWasStuck.set(secondaryClosed.await(10, TimeUnit.SECONDS));
+              return null;
+            })
+        .when(primaryProcessor)
+        .close(any(Duration.class));
+    doAnswer(
+            invocation -> {
+              secondaryClosed.countDown();
+              return null;
+            })
+        .when(secondaryProcessor)
+        .close(any(Duration.class));
+
+    new SearchClusterRegistry(
+            config,
+            liveConnections(
+                config, primaryClient, secondaryClient, primaryProcessor, secondaryProcessor),
+            CONVENTION,
+            null)
+        .close();
+
+    assertTrue(secondaryClosedWhilePrimaryWasStuck.get());
+    verify(secondaryClient).close();
   }
 
   @Test

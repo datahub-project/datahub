@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 
 /**
  * Assembles the {@link SearchClusterRegistry}: for every configured cluster, its effective
@@ -39,7 +40,11 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SearchClusterRegistryFactory {
 
+  // Spring destroys the registry before the primary bulk processor bean. The registry then drains
+  // every cluster under one shared deadline. The bean's later close finds the shim claimed and
+  // returns at once; that is safe because Spring destroys beans one at a time.
   @Bean(name = "searchClusterRegistry")
+  @DependsOn("elasticSearchBulkProcessor")
   @Nonnull
   public SearchClusterRegistry getInstance(
       final ConfigurationProvider configurationProvider,

@@ -548,6 +548,20 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   void closeBulkProcessor();
 
   /**
+   * Shutdown drain: flush, wait for tracked bulks, then close the native processors, all within one
+   * budget. The default runs the steps unbounded; the bulk processor shim bounds each step.
+   */
+  @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
+  default void closeBulkProcessorWithin(long timeoutMillis)
+      throws InterruptedException, java.util.concurrent.TimeoutException {
+    try {
+      flushAndAwaitBulkTransfer(timeoutMillis);
+    } finally {
+      closeBulkProcessor();
+    }
+  }
+
+  /**
    * Claims the close of this client's bulk processors. Several bulk processor wrappers can share
    * one client; only the first claim should drain and close. Default true for shims without state.
    */

@@ -26,6 +26,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -80,6 +86,10 @@ public class SearchClusterRegistry implements SearchClusterAccess, SearchWriteAc
      */
     @Nullable MirroredWriteLog writeLog;
   }
+
+  // Slack on top of the drain deadline for a cluster's own client close, which the processor's
+  // budget does not cover.
+  private static final Duration CLOSE_GRACE = Duration.ofSeconds(5);
 
   private final Map<String, ClusterConnection> connections;
   private final ElasticSearchConfiguration configuration;
@@ -341,11 +351,15 @@ public class SearchClusterRegistry implements SearchClusterAccess, SearchWriteAc
   }
 
   /**
-   * Drains and closes the bulk processors of every client that received writes, then closes those
-   * clients except primary's, which Spring closes as the {@code searchClientShim} bean after this
-   * registry. Processors must finish before their client closes: closing a client aborts any bulk
-   * still on the wire. All processors share one deadline so several clusters cannot multiply the
-   * shutdown time. A client that never received a write has nothing to drain and is left alone.
+   * Drains and closes the bulk processors of every client, then closes those clients except
+   * primary's, which Spring closes as the {@code searchClientShim} bean after this registry.
+   * Processors must finish before their client closes: closing a client aborts any bulk still on
+   * the wire. Clusters drain concurrently under one shared deadline, so shutdown time does not
+   * multiply with the cluster count and an unhealthy cluster cannot use up the time a healthy one
+   * needs. Total time is bounded by the close budget plus {@link #CLOSE_GRACE}, however many
+   * clusters are stuck. A secondary that never received a write has nothing to drain but is still
+   * closed, so its connections and threads are released; primary's processor is closed by its own
+   * bean, so an idle primary is left alone.
    */
   @Override
   public void close() {
@@ -353,29 +367,72 @@ public class SearchClusterRegistry implements SearchClusterAccess, SearchWriteAc
     SearchClientShim<?> primaryClient = primary == null ? null : primary.getClient();
     long deadlineNanos = System.nanoTime() + closeBudget(primary).toNanos();
 
-    List<SearchClientShim<?>> clientsToClose = new ArrayList<>();
-    for (ClusterConnection connection : uniqueConnections) {
-      SearchClientShim<?> client = connection.getClient();
-      ESBulkProcessor processor = connection.getBulkProcessor();
-      if (client == null || processor == null || !client.hasReceivedBulkWrites()) {
-        continue;
+    List<ClusterConnection> toDrain =
+        uniqueConnections.stream()
+            .filter(
+                connection ->
+                    connection.getClient() != null
+                        && (connection.getClient() != primaryClient
+                            || (connection.getBulkProcessor() != null
+                                && connection.getClient().hasReceivedBulkWrites())))
+            .toList();
+    if (toDrain.isEmpty()) {
+      return;
+    }
+
+    ExecutorService executor =
+        Executors.newFixedThreadPool(
+            toDrain.size(),
+            runnable -> {
+              Thread thread = new Thread(runnable, "search-cluster-close");
+              thread.setDaemon(true);
+              return thread;
+            });
+    try {
+      List<Future<?>> drains = new ArrayList<>();
+      for (ClusterConnection connection : toDrain) {
+        drains.add(executor.submit(() -> drain(connection, primaryClient, deadlineNanos)));
       }
-      Duration remaining = Duration.ofNanos(Math.max(0, deadlineNanos - System.nanoTime()));
+      long hardDeadlineNanos = deadlineNanos + CLOSE_GRACE.toNanos();
+      for (int i = 0; i < drains.size(); i++) {
+        long waitNanos = Math.max(0, hardDeadlineNanos - System.nanoTime());
+        try {
+          drains.get(i).get(waitNanos, TimeUnit.NANOSECONDS);
+        } catch (TimeoutException e) {
+          log.warn(
+              "Search cluster '{}' did not finish closing in time; abandoning it",
+              toDrain.get(i).getName());
+        } catch (ExecutionException e) {
+          log.error("Failed to close search cluster '{}'", toDrain.get(i).getName(), e.getCause());
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          return;
+        }
+      }
+    } finally {
+      executor.shutdownNow();
+    }
+  }
+
+  private void drain(
+      ClusterConnection connection,
+      @Nullable SearchClientShim<?> primaryClient,
+      long deadlineNanos) {
+    SearchClientShim<?> client = connection.getClient();
+    Duration remaining = Duration.ofNanos(Math.max(0, deadlineNanos - System.nanoTime()));
+    if (connection.getBulkProcessor() != null) {
       try {
-        processor.close(remaining);
+        connection.getBulkProcessor().close(remaining);
       } catch (RuntimeException e) {
         log.error(
             "Failed to close bulk processor for search cluster '{}'", connection.getName(), e);
       }
-      if (client != primaryClient) {
-        clientsToClose.add(client);
-      }
     }
-    for (SearchClientShim<?> client : clientsToClose) {
+    if (client != primaryClient) {
       try {
         client.close();
       } catch (IOException | RuntimeException e) {
-        log.warn("Failed to close search client", e);
+        log.warn("Failed to close search client for cluster '{}'", connection.getName(), e);
       }
     }
   }

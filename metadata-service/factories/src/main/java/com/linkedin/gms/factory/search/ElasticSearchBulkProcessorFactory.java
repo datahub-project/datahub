@@ -5,6 +5,7 @@ import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.time.Duration;
 import javax.annotation.Nonnull;
 import org.apache.http.client.config.RequestConfig;
 import org.opensearch.action.support.WriteRequest;
@@ -56,6 +57,10 @@ public class ElasticSearchBulkProcessorFactory {
         .itemRequeueMaxAttempts(config.getItemRequeueMaxAttempts())
         .ackAfterTransfer(config.isAckAfterTransfer())
         .ackAfterTransferTimeoutSeconds(config.getAckAfterTransferTimeoutSeconds())
+        .closeTimeout(
+            config.getCloseTimeoutSeconds() > 0
+                ? Duration.ofSeconds(config.getCloseTimeoutSeconds())
+                : null)
         .byQueryRequestOptions(byQueryOpts)
         .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(config.getRefreshPolicy()))
         .build();
