@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
 
+import { useResolvedFacetOptions } from '@app/document/hooks/useResolvedFacetOptions';
 import {
     AuthorFacetOption,
     FacetSelectOption,
     ensureSelectedAuthorOptions,
     ensureSelectedOptions,
     filterOutAiAgentAuthors,
+    getMissingSelectedValues,
     mapFacetToAuthorOptions,
     mapFacetToEntityOptions,
     mapFacetToTypeOptions,
@@ -172,34 +174,43 @@ export default function useDocumentSidebarFacetOptions({
         !includePlatformFacets,
     );
 
-    const { typeOptions, domainOptions, tagOptions, termOptions, authorOptions, platformOptions } = useMemo(() => {
+    const facetOptions = useMemo(() => {
         const displayName = (type: EntityType, entity: Entity) => entityRegistry.getDisplayName(type, entity);
-
         return {
-            typeOptions: ensureSelectedOptions(mapFacetToTypeOptions(typesFacet), typeNames),
-            domainOptions: ensureSelectedOptions(mapFacetToEntityOptions(domainsFacet, displayName), domainUrns),
-            tagOptions: ensureSelectedOptions(mapFacetToEntityOptions(tagsFacet, displayName), tagUrns),
-            termOptions: ensureSelectedOptions(mapFacetToEntityOptions(termsFacet, displayName), termUrns),
-            authorOptions: filterOutAiAgentAuthors(
-                ensureSelectedAuthorOptions(mapFacetToAuthorOptions(creatorsFacet, displayName), authorUrns),
-            ),
-            platformOptions: ensureSelectedOptions(mapFacetToEntityOptions(platformsFacet, displayName), platformUrns),
+            typeOptions: mapFacetToTypeOptions(typesFacet),
+            domainOptions: mapFacetToEntityOptions(domainsFacet, displayName),
+            tagOptions: mapFacetToEntityOptions(tagsFacet, displayName),
+            termOptions: mapFacetToEntityOptions(termsFacet, displayName),
+            authorOptions: mapFacetToAuthorOptions(creatorsFacet, displayName),
+            platformOptions: mapFacetToEntityOptions(platformsFacet, displayName),
         };
-    }, [
-        typesFacet,
-        domainsFacet,
-        tagsFacet,
-        termsFacet,
-        creatorsFacet,
-        platformsFacet,
-        entityRegistry,
-        typeNames,
-        domainUrns,
-        tagUrns,
-        termUrns,
-        authorUrns,
-        platformUrns,
-    ]);
+    }, [typesFacet, domainsFacet, tagsFacet, termsFacet, creatorsFacet, platformsFacet, entityRegistry]);
+
+    const missingSelectedUrns = useMemo(
+        () => [
+            ...getMissingSelectedValues(facetOptions.domainOptions, domainUrns),
+            ...getMissingSelectedValues(facetOptions.tagOptions, tagUrns),
+            ...getMissingSelectedValues(facetOptions.termOptions, termUrns),
+            ...getMissingSelectedValues(facetOptions.authorOptions, authorUrns),
+            ...getMissingSelectedValues(facetOptions.platformOptions, platformUrns),
+        ],
+        [facetOptions, domainUrns, tagUrns, termUrns, authorUrns, platformUrns],
+    );
+    const resolvedOptions = useResolvedFacetOptions(missingSelectedUrns, facetOptions);
+
+    const { typeOptions, domainOptions, tagOptions, termOptions, authorOptions, platformOptions } = useMemo(
+        () => ({
+            typeOptions: ensureSelectedOptions(facetOptions.typeOptions, typeNames),
+            domainOptions: ensureSelectedOptions(facetOptions.domainOptions, domainUrns, resolvedOptions),
+            tagOptions: ensureSelectedOptions(facetOptions.tagOptions, tagUrns, resolvedOptions),
+            termOptions: ensureSelectedOptions(facetOptions.termOptions, termUrns, resolvedOptions),
+            authorOptions: filterOutAiAgentAuthors(
+                ensureSelectedAuthorOptions(facetOptions.authorOptions, authorUrns, resolvedOptions),
+            ),
+            platformOptions: ensureSelectedOptions(facetOptions.platformOptions, platformUrns, resolvedOptions),
+        }),
+        [facetOptions, resolvedOptions, typeNames, domainUrns, tagUrns, termUrns, authorUrns, platformUrns],
+    );
 
     return {
         typeOptions,

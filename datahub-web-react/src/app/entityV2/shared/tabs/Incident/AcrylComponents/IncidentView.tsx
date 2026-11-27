@@ -119,7 +119,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
     }, [resolvedAssignees]);
 
     const navigateToUser = (user) => {
-        history.push(`${entityRegistry.getEntityUrl(EntityType.CorpUser, user.urn)}`);
+        history.push(`${entityRegistry.getEntityUrl(user.type || EntityType.CorpUser, user.urn)}`);
     };
 
     const renderAvatar = (assignee) => {
@@ -206,7 +206,9 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
             </DetailsSection>
             <DetailsSection>
                 <DetailsLabel>{t('field.assigneesLabel')}</DetailsLabel>
-                <ListContainer>{renderAssignees(getAssigneeNamesWithAvatarUrl(incident?.assignees))}</ListContainer>
+                <ListContainer>
+                    {renderAssignees(getAssigneeNamesWithAvatarUrl(incident?.assignees, entityRegistry))}
+                </ListContainer>
             </DetailsSection>
             <DetailsSection>
                 <DetailsLabel>{t('field.linkedAssetsLabel')}</DetailsLabel>

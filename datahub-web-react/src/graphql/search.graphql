@@ -306,10 +306,16 @@ fragment searchResultCardFields on Entity {
         platform {
             ...platformFields
         }
+        properties {
+            propertiesName: name
+        }
     }
     ... on MLModelGroup {
         platform {
             ...platformFields
+        }
+        properties {
+            propertiesName: name
         }
     }
     ... on DataPlatform {

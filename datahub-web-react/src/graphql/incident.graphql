@@ -2,6 +2,7 @@
 fragment incidentLinkedAssetPreview on Entity {
     urn
     type
+    ...entityDisplayNameFields
     ... on HasName {
         name
     }
@@ -141,6 +142,17 @@ fragment incidentFields on Incident {
             username
             status
             properties {
+                displayName
+            }
+        }
+        ... on CorpGroup {
+            urn
+            type
+            name
+            properties {
+                displayName
+            }
+            info {
                 displayName
             }
         }

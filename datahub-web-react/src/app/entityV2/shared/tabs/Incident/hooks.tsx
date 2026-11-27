@@ -24,6 +24,7 @@ import { CorpUser, EntityPrivileges, IncidentType } from '@src/types.generated';
 export const useIncidentsTableColumns = (refetch: () => void, privileges?: EntityPrivileges) => {
     const { t } = useTranslation('entity.profile.incident');
     const { t: tl } = useTranslation('common.labels');
+    const entityRegistry = useEntityRegistry();
     return useMemo(() => {
         const columns = [
             {
@@ -96,7 +97,9 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 key: 'assignees',
                 width: '12%',
                 render: (record) => (
-                    <IncidentAssigneeAvatarStack assignees={getAssigneeNamesWithAvatarUrl(record?.assignees)} />
+                    <IncidentAssigneeAvatarStack
+                        assignees={getAssigneeNamesWithAvatarUrl(record?.assignees, entityRegistry)}
+                    />
                 ),
                 sorter: (a, b) => {
                     return b?.assignees?.length - a?.assignees?.length;
@@ -114,7 +117,7 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
             },
         ];
         return columns;
-    }, [privileges, refetch, t, tl]);
+    }, [privileges, refetch, t, tl, entityRegistry]);
 };
 
 export const useIncidentURNCopyLink = (incidentUrn: string) => {

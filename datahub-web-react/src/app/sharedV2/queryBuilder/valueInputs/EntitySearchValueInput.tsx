@@ -8,6 +8,7 @@ import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEnt
 import { addUserFiltersToMultiEntitySearchInput } from '@app/sharedV2/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { mergeArraysOfObjects } from '@app/utils/arrayUtils';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
 import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
@@ -48,6 +49,7 @@ export const EntitySearchValueInput = ({
     onChangeSelectedUrns,
 }: Props) => {
     const { t } = useTranslation('shared.query-builder');
+    const { t: tcf } = useTranslation('common.feedback');
     const entityRegistry = useEntityRegistry();
     const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
     const attemptedUrnsRef = useRef<Set<string>>(new Set());
@@ -55,7 +57,7 @@ export const EntitySearchValueInput = ({
     /**
      * Bootstrap by resolving all URNs that are not in the cache yet.
      */
-    const [getEntities, { data: resolvedEntitiesData }] = useGetEntitiesLazyQuery();
+    const [getEntities, { data: resolvedEntitiesData, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
     useEffect(() => {
         const attemptedUrns = attemptedUrnsRef.current;
         if (!isEntityResolutionRequired(selectedUrns, entityCache, attemptedUrns)) {
@@ -132,17 +134,22 @@ export const EntitySearchValueInput = ({
             value: entity.urn,
             label: entityRegistry.getDisplayName(entity.type, entity),
         }));
-        // Keep selected URNs visible while entity resolution is in flight.
-        const unresolvedOptions = selectedUrns
+        // Keep selected URNs visible while entity resolution is in flight, labelled as loading rather than by the urn.
+        // Once it is done, an unresolved urn (e.g. a deleted entity) is shown as is.
+        const unresolvedOptions: SelectOption[] = selectedUrns
             .filter((urn) => !resolvedUrns.has(urn))
-            .map((urn) => ({ value: urn, label: urn }));
+            .map((urn) =>
+                entitiesLoading
+                    ? { value: urn, label: tcf('loading'), icon: <StyledSpinner $height={12} /> }
+                    : { value: urn, label: urn },
+            );
 
         return [...resolvedOptions, ...unresolvedOptions].sort((a, b) => {
             const aSelected = selectedSet.has(a.value) ? 0 : 1;
             const bSelected = selectedSet.has(b.value) ? 0 : 1;
             return aSelected - bSelected;
         });
-    }, [searchResults, entityCache, selectedUrns, entityRegistry]);
+    }, [searchResults, entityCache, selectedUrns, entityRegistry, entitiesLoading, tcf]);
 
     const customOptionRenderer = useCallback(
         (option: SelectOption) => {
@@ -155,7 +162,11 @@ export const EntitySearchValueInput = ({
                     </StyledOptionWrapper>
                 );
             }
-            return <span>{option.label}</span>;
+            return (
+                <span>
+                    {option.icon} {option.label}
+                </span>
+            );
         },
         [entityCache],
     );

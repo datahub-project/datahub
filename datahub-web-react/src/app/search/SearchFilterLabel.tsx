@@ -203,6 +203,18 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
         );
     }
 
+    // Any other entity-valued facet (Application, URN-typed structured properties, ...): show its name, not the urn.
+    if (entity) {
+        const displayName = entityRegistry.getDisplayName(entity.type, entity) || value;
+        const truncatedName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
+        return (
+            <Tooltip title={displayName}>
+                {truncatedName}
+                {countText}
+            </Tooltip>
+        );
+    }
+
     // Warning: Special casing for Sub-Types
     if (field === 'typeNames') {
         const displayName = capitalizeFirstLetterOnly(value) || '';
