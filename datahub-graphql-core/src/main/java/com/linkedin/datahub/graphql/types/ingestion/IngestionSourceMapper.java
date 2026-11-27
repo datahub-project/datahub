@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.IngestionSourceSource;
 import com.linkedin.datahub.graphql.generated.IngestionSourceSourceType;
 import com.linkedin.datahub.graphql.generated.StringMapEntry;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -19,6 +20,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.ingestion.DataHubIngestionSourceSource;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -31,6 +33,10 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class IngestionSourceMapper implements ModelMapper<EntityResponse, IngestionSource> {
+
+  private static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(IngestionSourceMapper.class, "ingestion source");
+
   public static final IngestionSourceMapper INSTANCE = new IngestionSourceMapper();
 
   /**
@@ -103,7 +109,11 @@ public class IngestionSourceMapper implements ModelMapper<EntityResponse, Ingest
       result.setSchedule(mapIngestionSourceSchedule(info.getSchedule()));
     }
     if (info.hasSource()) {
-      result.setSource(mapIngestionSourceSource(info.getSource()));
+      result.setSource(
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "ingestion source source",
+              () -> mapIngestionSourceSource(info.getSource())));
     }
   }
 
@@ -152,7 +162,7 @@ public class IngestionSourceMapper implements ModelMapper<EntityResponse, Ingest
   private IngestionSourceSource mapIngestionSourceSource(
       final DataHubIngestionSourceSource source) {
     final IngestionSourceSource result = new IngestionSourceSource();
-    result.setType(IngestionSourceSourceType.valueOf(source.getType().name()));
+    result.setType(UnknownEnumValues.require(IngestionSourceSourceType.class, source.getType()));
     return result;
   }
 

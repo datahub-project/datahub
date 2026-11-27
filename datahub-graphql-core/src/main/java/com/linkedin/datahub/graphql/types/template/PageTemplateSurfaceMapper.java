@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.template;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PageTemplateSurfaceType;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.template.DataHubPageTemplateSurface;
 import javax.annotation.Nonnull;
@@ -26,7 +27,8 @@ public class PageTemplateSurfaceMapper
         new com.linkedin.datahub.graphql.generated.DataHubPageTemplateSurface();
 
     if (surface.hasSurfaceType()) {
-      result.setSurfaceType(PageTemplateSurfaceType.valueOf(surface.getSurfaceType().toString()));
+      result.setSurfaceType(
+          UnknownEnumValues.mapOrNull(PageTemplateSurfaceType.class, surface.getSurfaceType()));
     }
 
     return result;

@@ -37,6 +37,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -45,6 +46,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.NotebookKey;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.notebook.EditableNotebookProperties;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -52,6 +54,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
+
+  private static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(NotebookMapper.class, "notebook");
+
   public static final NotebookMapper INSTANCE = new NotebookMapper();
 
   public static Notebook map(@Nullable final QueryContext context, EntityResponse response) {
@@ -176,31 +182,32 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
 
   private static List<NotebookCell> mapNotebookCells(
       @Nullable final QueryContext context, com.linkedin.notebook.NotebookCellArray pegasusCells) {
-    return pegasusCells.stream()
-        .map(
-            pegasusCell -> {
-              NotebookCell notebookCell = new NotebookCell();
-              NotebookCellType cellType =
-                  NotebookCellType.valueOf(pegasusCell.getType().toString());
-              notebookCell.setType(cellType);
-              switch (cellType) {
-                case CHART_CELL:
-                  notebookCell.setChartCell(mapChartCell(context, pegasusCell.getChartCell()));
-                  break;
-                case TEXT_CELL:
-                  notebookCell.setTextCell(mapTextCell(context, pegasusCell.getTextCell()));
-                  break;
-                case QUERY_CELL:
-                  notebookCell.setQueryChell(mapQueryCell(context, pegasusCell.getQueryCell()));
-                  break;
-                default:
-                  throw new DataHubGraphQLException(
-                      String.format("Un-supported NotebookCellType: %s", cellType),
-                      DataHubGraphQLErrorCode.SERVER_ERROR);
-              }
-              return notebookCell;
-            })
-        .collect(Collectors.toList());
+    return UnknownEnumValues.mapRepresentable(
+        UNREPRESENTABLE,
+        "notebook cell",
+        pegasusCells,
+        pegasusCell -> {
+          NotebookCell notebookCell = new NotebookCell();
+          NotebookCellType cellType =
+              UnknownEnumValues.require(NotebookCellType.class, pegasusCell.getType());
+          notebookCell.setType(cellType);
+          switch (cellType) {
+            case CHART_CELL:
+              notebookCell.setChartCell(mapChartCell(context, pegasusCell.getChartCell()));
+              break;
+            case TEXT_CELL:
+              notebookCell.setTextCell(mapTextCell(context, pegasusCell.getTextCell()));
+              break;
+            case QUERY_CELL:
+              notebookCell.setQueryChell(mapQueryCell(context, pegasusCell.getQueryCell()));
+              break;
+            default:
+              throw new DataHubGraphQLException(
+                  String.format("Un-supported NotebookCellType: %s", cellType),
+                  DataHubGraphQLErrorCode.SERVER_ERROR);
+          }
+          return notebookCell;
+        });
   }
 
   private static ChartCell mapChartCell(

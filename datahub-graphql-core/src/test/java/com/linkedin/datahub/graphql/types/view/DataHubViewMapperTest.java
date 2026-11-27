@@ -18,6 +18,9 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
@@ -446,5 +449,48 @@ public class DataHubViewMapperTest {
     response.setAspects(aspectMap);
 
     return response;
+  }
+
+  @Test
+  public void testViewWithTypeOrConditionFromNewerVersionIsLeftOut() {
+    // The view type is required, and the view editor would save a guessed filter condition back,
+    // so the view is left out instead of failing every view in the request.
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+    try {
+      EntityResponse newerType = buildViewEntityResponse(null, buildSimpleFilter());
+      new DataHubViewInfo(
+              newerType.getAspects().get(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME).getValue().data())
+          .data()
+          .put("type", "VIEW_TYPE_FROM_NEWER_BUILD");
+      assertNull(DataHubViewMapper.mapIfRepresentable(null, newerType));
+
+      Filter filter = buildSimpleFilter();
+      filter.getOr().get(0).getAnd().get(0).data().put("condition", "CONDITION_FROM_NEWER_BUILD");
+      assertNull(DataHubViewMapper.mapIfRepresentable(null, buildViewEntityResponse(null, filter)));
+
+      assertNotNull(
+          DataHubViewMapper.mapIfRepresentable(
+              null, buildViewEntityResponse(null, buildSimpleFilter())));
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
+  }
+
+  @Test
+  public void testViewWithTypeFromNewerVersionStrictHandlingFails() {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    try {
+      EntityResponse newerType = buildViewEntityResponse(null, buildSimpleFilter());
+      new DataHubViewInfo(
+              newerType.getAspects().get(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME).getValue().data())
+          .data()
+          .put("type", "VIEW_TYPE_FROM_NEWER_BUILD");
+
+      expectThrows(
+          IllegalArgumentException.class,
+          () -> DataHubViewMapper.mapIfRepresentable(null, newerType));
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
   }
 }

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.dataplatform.mappers;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataPlatformInfo;
 import com.linkedin.datahub.graphql.generated.PlatformType;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -24,7 +25,7 @@ public class DataPlatformInfoMapper
       @Nullable QueryContext context,
       @Nonnull final com.linkedin.dataplatform.DataPlatformInfo input) {
     final DataPlatformInfo result = new DataPlatformInfo();
-    result.setType(PlatformType.valueOf(input.getType().toString()));
+    result.setType(UnknownEnumValues.map(PlatformType.class, input.getType(), PlatformType.OTHERS));
     result.setDatasetNameDelimiter(input.getDatasetNameDelimiter());
     if (input.hasDisplayName()) {
       result.setDisplayName(input.getDisplayName());

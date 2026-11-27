@@ -10,9 +10,11 @@ import com.linkedin.datahub.graphql.generated.BatchSpec;
 import com.linkedin.datahub.graphql.generated.PartitionSpec;
 import com.linkedin.datahub.graphql.generated.PartitionType;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -20,6 +22,11 @@ public class AssertionRunEventMapper
     implements TimeSeriesAspectMapper<com.linkedin.datahub.graphql.generated.AssertionRunEvent> {
 
   public static final AssertionRunEventMapper INSTANCE = new AssertionRunEventMapper();
+
+  // Run event parts that hold, in a required field, a value only a newer version defines (read
+  // after a rollback) are left out where their parent allows it, instead of failing the request.
+  static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(AssertionRunEventMapper.class, "assertion run event");
 
   public static com.linkedin.datahub.graphql.generated.AssertionRunEvent map(
       @Nullable QueryContext context, @Nonnull final EnvelopedAspect envelopedAspect) {
@@ -49,15 +56,23 @@ public class AssertionRunEventMapper
     assertionRunEvent.setAsserteeUrn(gmsAssertionRunEvent.getAsserteeUrn().toString());
     assertionRunEvent.setRunId(gmsAssertionRunEvent.getRunId());
     assertionRunEvent.setStatus(
-        AssertionRunStatus.valueOf(gmsAssertionRunEvent.getStatus().name()));
+        UnknownEnumValues.require(AssertionRunStatus.class, gmsAssertionRunEvent.getStatus()));
     if (gmsAssertionRunEvent.hasBatchSpec()) {
       assertionRunEvent.setBatchSpec(mapBatchSpec(context, gmsAssertionRunEvent.getBatchSpec()));
     }
     if (gmsAssertionRunEvent.hasPartitionSpec()) {
-      assertionRunEvent.setPartitionSpec(mapPartitionSpec(gmsAssertionRunEvent.getPartitionSpec()));
+      assertionRunEvent.setPartitionSpec(
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "partition spec",
+              () -> mapPartitionSpec(gmsAssertionRunEvent.getPartitionSpec())));
     }
     if (gmsAssertionRunEvent.hasResult()) {
-      assertionRunEvent.setResult(mapAssertionResult(context, gmsAssertionRunEvent.getResult()));
+      assertionRunEvent.setResult(
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "assertion result",
+              () -> mapAssertionResult(context, gmsAssertionRunEvent.getResult())));
     }
     if (gmsAssertionRunEvent.hasRuntimeContext()) {
       assertionRunEvent.setRuntimeContext(
@@ -70,7 +85,8 @@ public class AssertionRunEventMapper
   private PartitionSpec mapPartitionSpec(com.linkedin.timeseries.PartitionSpec gmsPartitionSpec) {
     PartitionSpec partitionSpec = new PartitionSpec();
     partitionSpec.setPartition(gmsPartitionSpec.getPartition());
-    partitionSpec.setType(PartitionType.valueOf(gmsPartitionSpec.getType().name()));
+    partitionSpec.setType(
+        UnknownEnumValues.require(PartitionType.class, gmsPartitionSpec.getType()));
     return partitionSpec;
   }
 
@@ -83,7 +99,8 @@ public class AssertionRunEventMapper
     datasetAssertionResult.setUnexpectedCount(gmsResult.getUnexpectedCount());
     datasetAssertionResult.setExternalUrl(gmsResult.getExternalUrl());
     if (gmsResult.hasType()) {
-      AssertionResultType assertionType = AssertionResultType.valueOf(gmsResult.getType().name());
+      AssertionResultType assertionType =
+          UnknownEnumValues.require(AssertionResultType.class, gmsResult.getType());
       datasetAssertionResult.setType(assertionType);
     }
 
@@ -94,7 +111,7 @@ public class AssertionRunEventMapper
 
     if (gmsResult.hasSeverity()) {
       datasetAssertionResult.setSeverity(
-          AssertionResultSeverity.valueOf(gmsResult.getSeverity().name()));
+          UnknownEnumValues.mapOrNull(AssertionResultSeverity.class, gmsResult.getSeverity()));
     }
 
     return datasetAssertionResult;

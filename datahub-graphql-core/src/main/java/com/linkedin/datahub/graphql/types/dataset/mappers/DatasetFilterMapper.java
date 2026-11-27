@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DatasetFilter;
 import com.linkedin.datahub.graphql.generated.DatasetFilterType;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -21,7 +22,7 @@ public class DatasetFilterMapper
   public DatasetFilter apply(
       @Nullable QueryContext context, @Nonnull final com.linkedin.dataset.DatasetFilter input) {
     final DatasetFilter result = new DatasetFilter();
-    result.setType(DatasetFilterType.valueOf(input.getType().name()));
+    result.setType(UnknownEnumValues.require(DatasetFilterType.class, input.getType()));
     result.setSql(input.getSql());
     return result;
   }

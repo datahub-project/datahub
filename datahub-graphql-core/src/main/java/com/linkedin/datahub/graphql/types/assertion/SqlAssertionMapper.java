@@ -4,6 +4,7 @@ import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.datahub.graphql.generated.AssertionStdOperator;
 import com.linkedin.datahub.graphql.generated.AssertionValueChangeType;
 import com.linkedin.datahub.graphql.generated.SqlAssertionType;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 
 public class SqlAssertionMapper extends AssertionMapper {
 
@@ -12,13 +13,16 @@ public class SqlAssertionMapper extends AssertionMapper {
     final com.linkedin.datahub.graphql.generated.SqlAssertionInfo result =
         new com.linkedin.datahub.graphql.generated.SqlAssertionInfo();
     result.setEntityUrn(gmsSqlAssertionInfo.getEntity().toString());
-    result.setType(SqlAssertionType.valueOf(gmsSqlAssertionInfo.getType().name()));
+    result.setType(
+        UnknownEnumValues.require(SqlAssertionType.class, gmsSqlAssertionInfo.getType()));
     result.setStatement(gmsSqlAssertionInfo.getStatement());
-    result.setOperator(AssertionStdOperator.valueOf(gmsSqlAssertionInfo.getOperator().name()));
+    result.setOperator(
+        UnknownEnumValues.require(AssertionStdOperator.class, gmsSqlAssertionInfo.getOperator()));
     result.setParameters(mapParameters(gmsSqlAssertionInfo.getParameters()));
     if (gmsSqlAssertionInfo.hasChangeType()) {
       result.setChangeType(
-          AssertionValueChangeType.valueOf(gmsSqlAssertionInfo.getChangeType().name()));
+          UnknownEnumValues.mapOrNull(
+              AssertionValueChangeType.class, gmsSqlAssertionInfo.getChangeType()));
     }
     return result;
   }

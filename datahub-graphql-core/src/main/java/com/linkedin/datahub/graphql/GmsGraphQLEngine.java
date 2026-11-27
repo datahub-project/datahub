@@ -169,6 +169,7 @@ import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.GlossaryNodeChildrenCountBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.load.OmitUnrepresentableEntities;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
@@ -3999,13 +4000,14 @@ public class GmsGraphQLEngine {
             typeWiring ->
                 typeWiring.dataFetcher(
                     "views",
-                    new LoadableTypeBatchResolver<>(
-                        dataHubViewType,
-                        (env) ->
-                            ((ListViewsResult) env.getSource())
-                                .getViews().stream()
-                                    .map(DataHubView::getUrn)
-                                    .collect(Collectors.toList()))))
+                    OmitUnrepresentableEntities.from(
+                        new LoadableTypeBatchResolver<>(
+                            dataHubViewType,
+                            (env) ->
+                                ((ListViewsResult) env.getSource())
+                                    .getViews().stream()
+                                        .map(DataHubView::getUrn)
+                                        .collect(Collectors.toList())))))
         .type(
             "CorpUserViewsSettings",
             typeWiring ->

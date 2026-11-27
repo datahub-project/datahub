@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -153,7 +154,9 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
     mlFeature.setProperties(graphqlProperties);
     mlFeature.setDescription(featureProperties.getDescription());
     if (featureProperties.getDataType() != null) {
-      mlFeature.setDataType(MLFeatureDataType.valueOf(featureProperties.getDataType().toString()));
+      mlFeature.setDataType(
+          UnknownEnumValues.map(
+              MLFeatureDataType.class, featureProperties.getDataType(), MLFeatureDataType.UNKNOWN));
     }
   }
 

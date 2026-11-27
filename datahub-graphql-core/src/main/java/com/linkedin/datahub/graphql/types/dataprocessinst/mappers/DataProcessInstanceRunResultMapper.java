@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.dataprocessinst.mappers;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataProcessInstanceRunResultType;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.dataprocess.DataProcessInstanceRunResult;
 import javax.annotation.Nonnull;
@@ -28,7 +29,8 @@ public class DataProcessInstanceRunResultMapper
         new com.linkedin.datahub.graphql.generated.DataProcessInstanceRunResult();
 
     if (input.hasType()) {
-      result.setResultType(DataProcessInstanceRunResultType.valueOf(input.getType().toString()));
+      result.setResultType(
+          UnknownEnumValues.mapOrNull(DataProcessInstanceRunResultType.class, input.getType()));
     }
 
     if (input.hasNativeResultType()) {

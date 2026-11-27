@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertySettings;
 import com.linkedin.datahub.graphql.generated.TypeQualifier;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeUrnMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -72,7 +73,7 @@ public class StructuredPropertyMapper
     StructuredPropertyDefinition definition = new StructuredPropertyDefinition();
     definition.setQualifiedName(gmsDefinition.getQualifiedName());
     definition.setCardinality(
-        PropertyCardinality.valueOf(gmsDefinition.getCardinality().toString()));
+        UnknownEnumValues.mapOrNull(PropertyCardinality.class, gmsDefinition.getCardinality()));
     definition.setImmutable(gmsDefinition.isImmutable());
     definition.setValueType(createDataTypeEntity(gmsDefinition.getValueType()));
     if (gmsDefinition.hasDisplayName()) {

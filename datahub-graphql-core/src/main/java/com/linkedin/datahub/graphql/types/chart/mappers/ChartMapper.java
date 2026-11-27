@@ -46,6 +46,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -212,10 +213,10 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     }
 
     if (info.hasAccess()) {
-      result.setAccess(AccessLevel.valueOf(info.getAccess().toString()));
+      result.setAccess(UnknownEnumValues.mapOrNull(AccessLevel.class, info.getAccess()));
     }
     if (info.hasType()) {
-      result.setType(ChartType.valueOf(info.getType().toString()));
+      result.setType(UnknownEnumValues.mapOrNull(ChartType.class, info.getType()));
     }
     result.setLastModified(AuditStampMapper.map(context, info.getLastModified().getLastModified()));
     result.setCreated(AuditStampMapper.map(context, info.getLastModified().getCreated()));
@@ -245,10 +246,10 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     result.setLastRefreshed(info.getLastRefreshed());
 
     if (info.hasAccess()) {
-      result.setAccess(AccessLevel.valueOf(info.getAccess().toString()));
+      result.setAccess(UnknownEnumValues.mapOrNull(AccessLevel.class, info.getAccess()));
     }
     if (info.hasType()) {
-      result.setType(ChartType.valueOf(info.getType().toString()));
+      result.setType(UnknownEnumValues.mapOrNull(ChartType.class, info.getType()));
     }
     result.setLastModified(AuditStampMapper.map(context, info.getLastModified().getLastModified()));
     result.setCreated(AuditStampMapper.map(context, info.getLastModified().getCreated()));
@@ -276,17 +277,24 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     chart.setQuery(mapQuery(context, gmsChartQuery, entityUrn));
   }
 
+  @Nullable
   private ChartQuery mapQuery(
       @Nullable QueryContext context,
       final com.linkedin.chart.ChartQuery query,
       @Nonnull Urn entityUrn) {
+    // ChartQuery.type is required, so a query whose type only a newer version defines (read after
+    // a rollback) is left out rather than failing the chart.
+    final ChartQueryType type = UnknownEnumValues.mapOrNull(ChartQueryType.class, query.getType());
+    if (type == null) {
+      return null;
+    }
     final ChartQuery result = new ChartQuery();
     if (context == null
         || EntityAspectAuthorizationUtils.canViewQueriesOnEntity(
             context.getOperationContext(), entityUrn)) {
       result.setRawQuery(query.getRawQuery());
     }
-    result.setType(ChartQueryType.valueOf(query.getType().toString()));
+    result.setType(type);
     return result;
   }
 

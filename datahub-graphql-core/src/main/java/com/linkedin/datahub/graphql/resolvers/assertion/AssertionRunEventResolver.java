@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.AssertionRunStatus;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.dataset.mappers.AssertionRunEventMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -34,6 +36,9 @@ import javax.annotation.Nullable;
 /** GraphQL Resolver used for fetching AssertionRunEvents. */
 public class AssertionRunEventResolver
     implements DataFetcher<CompletableFuture<AssertionRunEventsResult>> {
+
+  private static final UnknownDataGuard RUN_EVENTS_UNREPRESENTABLE =
+      UnknownDataGuard.forSite(AssertionRunEventResolver.class, "assertion run event");
 
   private final EntityClient _client;
 
@@ -74,11 +79,14 @@ public class AssertionRunEventResolver
                         maybeStatus,
                         context.getOperationContext().getAspectRetriever()));
 
-            // Step 2: Bind profiles into GraphQL strong types.
+            // Step 2: Bind profiles into GraphQL strong types. A run event whose status only a
+            // newer version defines (read after a rollback) is left out.
             List<AssertionRunEvent> runEvents =
-                aspects.stream()
-                    .map(a -> AssertionRunEventMapper.map(context, a))
-                    .collect(Collectors.toList());
+                UnknownEnumValues.mapRepresentable(
+                    RUN_EVENTS_UNREPRESENTABLE,
+                    "assertion run event",
+                    aspects,
+                    a -> AssertionRunEventMapper.map(context, a));
 
             // Step 3: Package and return response.
             final AssertionRunEventsResult result = new AssertionRunEventsResult();

@@ -121,7 +121,8 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
                 gmsResult.getEntities().stream()
                     .map(entity -> entities.get(entity.getEntity()))
                     .filter(Objects::nonNull)
-                    .map(e -> PostMapper.map(context, e))
+                    .map(e -> PostMapper.mapIfRepresentable(context, e))
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toList()));
             return result;
           } catch (Exception e) {

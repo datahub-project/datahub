@@ -14,6 +14,9 @@ import com.linkedin.ermodelrelation.ERModelRelationshipProperties;
 import com.linkedin.ermodelrelation.EditableERModelRelationshipProperties;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.ERModelRelationshipKey;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
@@ -140,5 +143,49 @@ public class ERModelRelationMapperTest {
 
     Assert.assertNotNull(actual.getStatus());
     Assert.assertFalse(actual.getStatus().getRemoved());
+  }
+
+  @Test
+  public void testCardinalityFromNewerVersionLeavesOutProperties() throws URISyntaxException {
+    // Read after a rollback: the cardinality is required, so one only a newer version defines
+    // leaves out the properties; the relationship is still returned.
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+    try {
+      final ERModelRelationship actual =
+          ERModelRelationMapper.map(null, responseWithNewerCardinality());
+      Assert.assertNotNull(actual);
+      Assert.assertNull(actual.getProperties());
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
+  }
+
+  @Test
+  public void testCardinalityFromNewerVersionStrictHandlingFails() throws URISyntaxException {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    try {
+      final EntityResponse response = responseWithNewerCardinality();
+      Assert.assertThrows(
+          IllegalArgumentException.class, () -> ERModelRelationMapper.map(null, response));
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
+  }
+
+  private static EntityResponse responseWithNewerCardinality() throws URISyntaxException {
+    ERModelRelationshipProperties inputProperties = new ERModelRelationshipProperties();
+    inputProperties.setName("Relationship Name");
+    inputProperties.setCardinality(ERModelRelationshipCardinality.ONE_ONE);
+    inputProperties.setSource(Urn.createFromTuple("dataset", "sourceDataset"));
+    inputProperties.setDestination(Urn.createFromTuple("dataset", "destinationDataset"));
+    inputProperties.data().put("cardinality", "CARDINALITY_FROM_NEWER_BUILD");
+    final Map<String, EnvelopedAspect> propertiesAspect = new HashMap<>();
+    propertiesAspect.put(
+        Constants.ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(inputProperties.data())));
+    return new EntityResponse()
+        .setEntityName(Constants.ER_MODEL_RELATIONSHIP_ENTITY_NAME)
+        .setUrn(TEST_ER_MODEL_RELATIONSHIP_URN)
+        .setAspects(new EnvelopedAspectMap(propertiesAspect));
   }
 }

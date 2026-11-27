@@ -19,6 +19,9 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
@@ -106,5 +109,40 @@ public class ChartMapperTest {
     when(mockContext.getActorUrn()).thenReturn(actorUrn);
     when(mockContext.getOperationContext()).thenReturn(operationContext);
     return mockContext;
+  }
+
+  @Test
+  public void testChartQueryWithTypeFromNewerVersionIsLeftOut() {
+    // ChartQuery.type is required, so a query whose type only a newer version defines (read after
+    // a rollback) is left out instead of failing the chart.
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+    try {
+      final com.linkedin.chart.ChartQuery input = new com.linkedin.chart.ChartQuery();
+      input.setRawQuery("SELECT 1");
+      input.data().put("type", "QUERY_TYPE_FROM_NEWER_BUILD");
+
+      final Chart actual = ChartMapper.map(allowAllQueryContext(), chartResponseWithQuery(input));
+
+      Assert.assertNotNull(actual);
+      Assert.assertNull(actual.getQuery());
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
+  }
+
+  @Test
+  public void testChartQueryWithTypeFromNewerVersionStrictHandlingFails() {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    try {
+      final com.linkedin.chart.ChartQuery input = new com.linkedin.chart.ChartQuery();
+      input.setRawQuery("SELECT 1");
+      input.data().put("type", "QUERY_TYPE_FROM_NEWER_BUILD");
+
+      Assert.expectThrows(
+          IllegalArgumentException.class,
+          () -> ChartMapper.map(allowAllQueryContext(), chartResponseWithQuery(input)));
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
   }
 }

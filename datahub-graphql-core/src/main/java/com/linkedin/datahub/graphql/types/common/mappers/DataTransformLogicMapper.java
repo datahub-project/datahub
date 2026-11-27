@@ -6,7 +6,9 @@ import com.linkedin.datahub.graphql.generated.DataTransform;
 import com.linkedin.datahub.graphql.generated.DataTransformLogic;
 import com.linkedin.datahub.graphql.generated.QueryLanguage;
 import com.linkedin.datahub.graphql.generated.QueryStatement;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -46,6 +48,9 @@ public class DataTransformLogicMapper {
 
 class DataTransformMapper {
 
+  private static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(DataTransformMapper.class, "data transform");
+
   public static final DataTransformMapper INSTANCE = new DataTransformMapper();
 
   public static DataTransform map(
@@ -71,11 +76,17 @@ class DataTransformMapper {
         && (context == null
             || EntityAspectAuthorizationUtils.canViewQueriesOnEntity(
                 context.getOperationContext(), entityUrn))) {
-      QueryStatement statement =
-          new QueryStatement(
-              input.getQueryStatement().getValue(),
-              QueryLanguage.valueOf(input.getQueryStatement().getLanguage().toString()));
-      result.setQueryStatement(statement);
+      // The language is required, so a statement in a language only a newer version defines (read
+      // after a rollback) is left out.
+      result.setQueryStatement(
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "query statement",
+              () ->
+                  new QueryStatement(
+                      input.getQueryStatement().getValue(),
+                      UnknownEnumValues.require(
+                          QueryLanguage.class, input.getQueryStatement().getLanguage()))));
     }
 
     return result;

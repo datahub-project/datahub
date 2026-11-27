@@ -71,12 +71,12 @@ public class PostType implements EntityType<Post, String> {
 
       return gmsResults.stream()
           .map(
-              gmsPost ->
-                  gmsPost == null
-                      ? null
-                      : DataFetcherResult.<Post>newResult()
-                          .data(PostMapper.map(context, gmsPost))
-                          .build())
+              gmsPost -> {
+                // A post holding a value only a newer version defines resolves to null.
+                final Post post =
+                    gmsPost == null ? null : PostMapper.mapIfRepresentable(context, gmsPost);
+                return post == null ? null : DataFetcherResult.<Post>newResult().data(post).build();
+              })
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Queries", e);
