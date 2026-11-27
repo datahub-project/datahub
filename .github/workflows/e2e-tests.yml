@@ -8,6 +8,8 @@ on:
     branches:
       - master
       - releases/**
+      # TEMPORARY: validates the push path on this branch. Remove before merge.
+      - ci/pfp-7310-e2e-tests-parent-workflow
     paths:
       - "**"
       - "!docs/**"
