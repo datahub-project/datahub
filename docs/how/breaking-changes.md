@@ -15,7 +15,7 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
-### Lineage search leaves out hits GraphQL can't return
+### Lineage search leaves out hits GraphQL can't return ([#21668](https://github.com/datahub-project/datahub/pull/21668))
 
 `searchAcrossLineage` and `scrollAcrossLineage` now leave out a hit whose entity type GraphQL doesn't
 model, such as `dataProcess`, and log it, as regular search already does. Before, such a hit made
