@@ -47,7 +47,7 @@ test.describe('create announcement and link post', () => {
     await postsPage.verifyPostRemovedFromHome(announcementUpdated);
   });
 
-  test('create, edit and delete link post', async () => {
+  test('create, edit and delete link post', { tag: [DomainTag.Catalog] }, async () => {
     const linkTitle = withRandomSuffix('Test Link');
     const linkUpdated = `${linkTitle} Updated`;
 

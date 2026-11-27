@@ -18,7 +18,7 @@ test.describe('Homepage Templates', () => {
     expect(isLoaded).toBe(true);
   });
 
-  test('template displays all three module types together', async () => {
+  test('template displays all three module types together', { tag: [DomainTag.Catalog] }, async () => {
     const yourAssetsVisible = await homePage.isYourAssetsModuleVisible();
     const domainsVisible = await homePage.isDomainsModuleVisible();
     const platformsVisible = await homePage.isPlatformsModuleVisible();

@@ -107,7 +107,7 @@ test.describe('ingestion sources', () => {
     await ingestionPage.sourcesTab.expectSourceStatusContains(EXECUTE_SOURCE, 'Success');
   });
 
-  test('search for an ingestion source', async () => {
+  test('search for an ingestion source', { tag: [DomainTag.Ingestion] }, async () => {
     // Quotes select the exact template, so the shared tokens do not keep the other source.
     const quotedName = `"${SEARCH_SOURCE_1}"`;
     await ingestionPage.sourcesTab.typeSearchQuery(quotedName);
@@ -118,7 +118,7 @@ test.describe('ingestion sources', () => {
     await ingestionPage.sourcesTab.clearSearch();
   });
 
-  test('filter ingestion sources by UI', async () => {
+  test('filter ingestion sources by UI', { tag: [DomainTag.Ingestion] }, async () => {
     await ingestionPage.sourcesTab.typeSearchQuery(FILTER_SEARCH);
     await ingestionPage.sourcesTab.expectSourceVisible(FILTER_SOURCE);
     await ingestionPage.sourcesTab.expectSourceVisible(FILTER_CLI_SOURCE);
@@ -131,7 +131,7 @@ test.describe('ingestion sources', () => {
     await ingestionPage.sourcesTab.expectSourceVisible(FILTER_SOURCE);
   });
 
-  test('view run details page', async ({ page }) => {
+  test('view run details page', { tag: [DomainTag.Ingestion] }, async ({ page }) => {
     // Source and its SUCCESS execution are pre-seeded via fixtures/data.json.
     await ingestionPage.sourcesTab.search(RUN_DETAILS_SOURCE);
     await ingestionPage.sourcesTab.expectSourceVisible(RUN_DETAILS_SOURCE);
@@ -148,7 +148,7 @@ test.describe('ingestion sources', () => {
     await ingestionPage.sourcesTab.expectSourceVisible(RUN_DETAILS_SOURCE);
   });
 
-  test('keep the list search after cancelling create source', async ({ page }) => {
+  test('keep the list search after cancelling create source', { tag: [DomainTag.Ingestion] }, async ({ page }) => {
     await ingestionPage.sourcesTab.search(SEARCH_SOURCE_1);
 
     await ingestionPage.sourcesTab.openCreateSourceModal();

@@ -54,7 +54,7 @@ test.describe('About Section Tests', () => {
     await summaryTabPage.updateDescription('', TIMEOUTS.MEDIUM);
   });
 
-  test('about section - links', async () => {
+  test('about section - links', { tag: [DomainTag.Catalog] }, async () => {
     await summaryTabPage.ensureAboutSectionVisible();
 
     const timestamp = Date.now();

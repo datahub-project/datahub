@@ -87,40 +87,52 @@ test.describe('Application Sidebar Integration', () => {
     },
   );
 
-  test('should show application sidebar section always when filled', async ({ page, logger }) => {
-    logger?.info('Test: Show sidebar when filled (flag OFF)');
-    logger?.info('Setting feature flag to false');
-    await setApplicationFeatureFlag(page, false);
-    logger?.info(`Navigating to dataset: ${DATASET_WITH_APP_NAME}`);
-    await applicationsPage.navigateToDataset(DATASET_WITH_APP_URN);
-    logger?.info('Verifying application section is visible');
-    await applicationsPage.verifyApplicationSectionVisible();
-    logger?.info(`Verifying application visible: ${TEST_APP_NAME}`);
-    await applicationsPage.verifyApplicationVisible(TEST_APP_NAME);
-    logger?.info('✓ Test passed');
-  });
+  test(
+    'should show application sidebar section always when filled',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      logger?.info('Test: Show sidebar when filled (flag OFF)');
+      logger?.info('Setting feature flag to false');
+      await setApplicationFeatureFlag(page, false);
+      logger?.info(`Navigating to dataset: ${DATASET_WITH_APP_NAME}`);
+      await applicationsPage.navigateToDataset(DATASET_WITH_APP_URN);
+      logger?.info('Verifying application section is visible');
+      await applicationsPage.verifyApplicationSectionVisible();
+      logger?.info(`Verifying application visible: ${TEST_APP_NAME}`);
+      await applicationsPage.verifyApplicationVisible(TEST_APP_NAME);
+      logger?.info('✓ Test passed');
+    },
+  );
 
-  test('should show application sidebar section when empty if feature flag is on', async ({ page, logger }) => {
-    logger?.info('Test: Show sidebar when empty (flag ON)');
-    logger?.info('Setting feature flag to true');
-    await setApplicationFeatureFlag(page, true);
-    logger?.info(`Navigating to dataset without app: ${DATASET_WITHOUT_APP_NAME}`);
-    await applicationsPage.navigateToDataset(DATASET_WITHOUT_APP_URN);
-    logger?.info('Verifying "No application yet" text');
-    await applicationsPage.verifyNoApplicationYetText();
-    logger?.info('✓ Test passed');
-  });
+  test(
+    'should show application sidebar section when empty if feature flag is on',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      logger?.info('Test: Show sidebar when empty (flag ON)');
+      logger?.info('Setting feature flag to true');
+      await setApplicationFeatureFlag(page, true);
+      logger?.info(`Navigating to dataset without app: ${DATASET_WITHOUT_APP_NAME}`);
+      await applicationsPage.navigateToDataset(DATASET_WITHOUT_APP_URN);
+      logger?.info('Verifying "No application yet" text');
+      await applicationsPage.verifyNoApplicationYetText();
+      logger?.info('✓ Test passed');
+    },
+  );
 
-  test('should hide application sidebar section when empty if feature flag is off', async ({ page, logger }) => {
-    logger?.info('Test: Hide sidebar when empty (flag OFF)');
-    logger?.info('Setting feature flag to false');
-    await setApplicationFeatureFlag(page, false);
-    logger?.info(`Navigating to dataset without app: ${DATASET_WITHOUT_APP_NAME}`);
-    await applicationsPage.navigateToDataset(DATASET_WITHOUT_APP_URN);
-    logger?.info('Verifying "No application yet" text is NOT visible');
-    await applicationsPage.verifyNoApplicationYetTextNotVisible();
-    logger?.info('✓ Test passed');
-  });
+  test(
+    'should hide application sidebar section when empty if feature flag is off',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      logger?.info('Test: Hide sidebar when empty (flag OFF)');
+      logger?.info('Setting feature flag to false');
+      await setApplicationFeatureFlag(page, false);
+      logger?.info(`Navigating to dataset without app: ${DATASET_WITHOUT_APP_NAME}`);
+      await applicationsPage.navigateToDataset(DATASET_WITHOUT_APP_URN);
+      logger?.info('Verifying "No application yet" text is NOT visible');
+      await applicationsPage.verifyNoApplicationYetTextNotVisible();
+      logger?.info('✓ Test passed');
+    },
+  );
 
   test(
     'should add and remove application from dataset',

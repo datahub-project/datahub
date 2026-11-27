@@ -189,12 +189,12 @@ test('reader cannot edit', async ({ page }) => {
 
 Tags live in [`utils/test-tags.ts`](utils/test-tags.ts):
 
-| Tag              | Meaning                                                            |
-| ---------------- | ------------------------------------------------------------------ |
-| `@p0`            | Critical path; the tests to run first, e.g. on every PR            |
-| `@domain:<name>` | Owning product domain (`DomainTag`), written into the JUnit report |
+| Tag              | Meaning                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------ |
+| `@p0`            | Critical path; the tests to run first, e.g. on every PR                                    |
+| `@domain:<name>` | Owning product domain (`DomainTag`); required on every test, written into the JUnit report |
 
-Add tags as a plain array:
+Add tags as a plain array. Every test carries its owning domain:
 
 ```typescript
 import { DomainTag, TestTag } from '../../utils/test-tags';
@@ -202,11 +202,15 @@ import { DomainTag, TestTag } from '../../utils/test-tags';
 test('create a secret', { tag: [TestTag.P0, DomainTag.Ingestion] }, async () => {
   /* ... */
 });
+
+test('renders the lineage graph', { tag: [DomainTag.Catalog] }, async () => {
+  /* ... */
+});
 ```
 
 The domain fixture (`fixtures/domain.fixture.ts`) writes each test's `@domain:*` tags into the JUnit report as a `domains` property.
 
-In a `test.describe.configure({ mode: 'serial' })` block, tag the `test.describe`, not a single test, so `--grep @p0` never runs one step of a chain without the steps before it. `.github/scripts/check_playwright_p0.py` (lint and pre-commit) enforces this.
+In a `test.describe.configure({ mode: 'serial' })` block, tag the `test.describe`, not a single test, so `--grep @p0` never runs one step of a chain without the steps before it. `.github/scripts/check_playwright_p0.py` (lint and pre-commit) enforces this, and CI fails when a test has no domain tag.
 
 ```bash
 npx playwright test --grep @p0               # all P0 tests
