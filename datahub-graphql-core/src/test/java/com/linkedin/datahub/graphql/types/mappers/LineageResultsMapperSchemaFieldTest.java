@@ -18,7 +18,6 @@ import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.util.Arrays;
 import java.util.List;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -83,17 +82,35 @@ public class LineageResultsMapperSchemaFieldTest {
   }
 
   @Test
-  public void testStrictKeepsEveryHit() {
+  public void testStrictSearchAcrossLineageLeavesOutHitsGraphQLDoesNotModel() {
     UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
 
-    // As before: a hit GraphQL can't map keeps its place with no entity.
+    // As regular search does: only hits GraphQL maps to no entity are left out, without a registry
+    // or parent check, so the field on telemetry stays.
     assertEquals(
         UrnSearchAcrossLineageResultsMapper.map(context, searchResult(HITS))
             .getSearchResults()
             .stream()
-            .map(r -> r.getEntity() == null ? null : r.getEntity().getUrn())
+            .map(r -> r.getEntity().getUrn())
             .toList(),
-        Arrays.asList(ON_TELEMETRY, null, ON_DATASET, null));
+        List.of(ON_TELEMETRY, ON_DATASET));
+  }
+
+  @Test
+  public void testStrictScrollAcrossLineageLeavesOutHitsGraphQLDoesNotModel() {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    LineageScrollResult scroll =
+        new LineageScrollResult()
+            .setPageSize(10)
+            .setNumEntities(HITS.size())
+            .setEntities(entities(HITS))
+            .setMetadata(metadata());
+
+    assertEquals(
+        UrnScrollAcrossLineageResultsMapper.map(context, scroll).getSearchResults().stream()
+            .map(r -> r.getEntity().getUrn())
+            .toList(),
+        List.of(ON_TELEMETRY, ON_DATASET));
   }
 
   private static LineageSearchResult searchResult(List<String> urns) {
