@@ -279,9 +279,14 @@ jobs:
             exit 0
           fi
           pr_head=$(jq -r .head.sha <<<"$pr")
-          pr_run=$(gh run list -R "$REPOSITORY" --workflow e2e-tests.yml \
-            --event pull_request --commit "$pr_head" --status completed -L 1 \
-            --json databaseId --jq '.[0].databaseId // empty')
+          # docker-unified.yml covers PRs whose last run predates the E2E Tests
+          # parent; drop it once those have merged. Artifact names are the same.
+          for workflow in e2e-tests.yml docker-unified.yml; do
+            pr_run=$(gh run list -R "$REPOSITORY" --workflow "$workflow" \
+              --event pull_request --commit "$pr_head" --status completed -L 1 \
+              --json databaseId --jq '.[0].databaseId // empty')
+            [[ -n "$pr_run" ]] && break
+          done
           if [[ -z "$pr_run" ]]; then
             echo "No completed PR run for $pr_head; nothing to check"
             exit 0
