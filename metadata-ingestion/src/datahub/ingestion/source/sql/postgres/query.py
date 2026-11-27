@@ -54,7 +54,8 @@ class PostgresQuery:
         relispartition was added in Postgres 10, alongside declarative
         partitioning. It is also set on partitions of partitioned indexes, so
         relkind limits the result to the kinds SQLAlchemy's get_table_names
-        lists: ordinary (r) and partitioned (p, i.e. sub-partitions) tables.
+        lists: ordinary (r) and partitioned (p) tables. A p row here is a
+        partition that has its own partitions.
         """
         return text(
             """
