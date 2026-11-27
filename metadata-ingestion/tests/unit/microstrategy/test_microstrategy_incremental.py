@@ -148,9 +148,8 @@ CONFIG: Dict[str, object] = {
 }
 
 
+# A MicroStrategy server whose object versions tests can bump.
 class _MicroStrategy:
-    """A MicroStrategy server whose object versions tests can bump."""
-
     def __init__(self) -> None:
         self.dashboards: Dict[str, Dict[str, object]] = {
             "dash-1": {
@@ -354,9 +353,8 @@ class _MicroStrategy:
         raise MicroStrategyAPIError(f"unexpected request {method} {path}")
 
 
+# Aspects written by previous runs, served back through the graph.
 class _DataHub:
-    """Aspects written by previous runs, served back through the graph."""
-
     def __init__(self, graph: MagicMock) -> None:
         self.aspects: Dict[Tuple[str, str], _Aspect] = {}
         self.soft_deleted: Set[str] = set()

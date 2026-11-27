@@ -1,9 +1,20 @@
 import hashlib
 import json
 import logging
-from typing import Callable, Dict, List, Mapping, Optional, Sequence, Set, Type, Union
+from typing import (
+    Callable,
+    Dict,
+    FrozenSet,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Type,
+    Union,
+)
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from datahub._version import __version__
 from datahub.ingestion.graph.client import DataHubGraph
@@ -32,20 +43,24 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     StatusClass,
 )
-from datahub.metadata.urns import GlossaryTermUrn, TagUrn
+from datahub.metadata.urns import DatasetUrn, GlossaryTermUrn, TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
-# Fields that shape the output but not which objects are read or how fast.
+# Fields that change how a run reads, not what it emits.
 _SALT_EXCLUDED_CONFIG_FIELDS = {
-    "stateful_ingestion": True,
-    "skip_unchanged_objects": True,
-    "cache_memory_entries": True,
-    "progress_log_interval_dashboards": True,
-    "progress_log_interval_seconds": True,
-    "max_workers": True,
+    "stateful_ingestion",
+    "skip_unchanged_objects",
+    "cache_memory_entries",
+    "progress_log_interval_dashboards",
+    "progress_log_interval_seconds",
+    "max_workers",
 }
+# Shared references rather than an object's own entities.
+SHARED_REFERENCE_ENTITY_TYPES: FrozenSet[str] = frozenset(
+    {TagUrn.ENTITY_TYPE, GlossaryTermUrn.ENTITY_TYPE}
+)
 
 # (project id, object id) -> the object's search/object-info record, or None.
 ObjectLookup = Callable[[str, str], Optional[MicroStrategyObject]]
@@ -55,7 +70,7 @@ _StampedAspect = Union[
 
 
 class ChangeCheckResult(BaseModel):
-    """Whether a dashboard or report can be kept from its last read."""
+    model_config = ConfigDict(frozen=True)
 
     unchanged: bool
     previous: Optional[ObjectCheckpoint] = None
@@ -63,15 +78,17 @@ class ChangeCheckResult(BaseModel):
 
 
 class ReportDatasetCheckResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     unchanged: bool
     previous: Optional[ReportDatasetCheckpoint] = None
     failure: Optional[str] = None
 
 
+# A per_report dataset merges every embedding dashboard, so it is re-emitted
+# only together with all of them; the sets are filled in place during a run.
 class ReportDatasetPlan(BaseModel):
-    """dataset_identity=per_report: one report dataset merges what every
-    dashboard embedding it contributes, so it is re-emitted only together with
-    all of them. Tracks which report datasets must be emitted again this run."""
+    model_config = ConfigDict(frozen=True)
 
     previous_dashboards: Dict[str, ObjectCheckpoint]
     previous_reports: Dict[str, ReportDatasetCheckpoint]
@@ -104,8 +121,7 @@ class ReportDatasetPlan(BaseModel):
                 self.dirty.add(report_id)
 
     def read_in_report_pass(self, report_id: str) -> bool:
-        """Whether the report pass must read the report again; one entering
-        the pass changes its dataset."""
+        # A report newly entering the report pass changes its dataset.
         self.reports_in_pass.add(report_id)
         previous = self.previous_reports.get(report_id)
         if (
@@ -133,7 +149,6 @@ class ReportDatasetPlan(BaseModel):
         }
 
     def dashboards_to_read(self) -> Set[str]:
-        """Unchanged dashboards that embed a report dataset emitted again."""
         found: Set[str] = set()
         for report_id in self.dirty:
             found.update(self.embedders(report_id))
@@ -165,13 +180,11 @@ def object_signature(
 
 
 def entities_present(graph: DataHubGraph, urns: Sequence[str]) -> bool:
-    """Whether every entity the last read produced is in DataHub and not
-    soft-deleted, which also catches entities the sink failed to write."""
+    # Also catches entities the sink failed to write.
     by_type: Dict[str, List[str]] = {}
     for urn in urns:
         entity_type = guess_entity_type(urn)
-        # Tags and terms are shared references, not the object's own entities.
-        if entity_type not in (TagUrn.ENTITY_TYPE, GlossaryTermUrn.ENTITY_TYPE):
+        if entity_type not in SHARED_REFERENCE_ENTITY_TYPES:
             by_type.setdefault(entity_type, []).append(urn)
     for entity_type, typed_urns in by_type.items():
         for start in range(0, len(typed_urns), ENTITY_CHECK_BATCH_SIZE):
@@ -196,10 +209,8 @@ def _stamped_in_datahub(
     )
 
 
+# The evaluate methods only read, so they are safe on worker threads.
 class MicroStrategyChangeDetector:
-    """Decides whether objects are unchanged since the last run. The evaluate
-    methods only read, so they are safe to call from worker threads."""
-
     def __init__(
         self,
         config: MicroStrategyConfig,
@@ -217,9 +228,7 @@ class MicroStrategyChangeDetector:
         source_warehouses: Sequence[Datasource],
         predefined_folders: PredefinedFolderResolution,
     ) -> None:
-        # The recipe, the warehouses lineage resolves against and the folder
-        # labels shape every object's output, and a new connector version may
-        # emit differently, so any change re-reads the whole project.
+        # Anything shaping every object's output re-reads the whole project.
         self._salts[project_id] = json.dumps(
             {
                 "version": __version__,
@@ -331,9 +340,12 @@ class MicroStrategyChangeDetector:
         stamped_urn: str,
         stamped_aspect: _StampedAspect,
     ) -> ChangeCheckResult:
-        if previous is None or not previous.urns or previous.fingerprint is None:
-            return ChangeCheckResult(unchanged=False, previous=previous)
-        if graph is None:
+        if (
+            previous is None
+            or not previous.urns
+            or previous.fingerprint is None
+            or graph is None
+        ):
             return ChangeCheckResult(unchanged=False, previous=previous)
         try:
             fingerprint = self.object_fingerprint(
@@ -343,8 +355,7 @@ class MicroStrategyChangeDetector:
                 previous.dependency_report_ids,
                 lookup,
             )
-            # Checkpoints are committed even when the sink failed, so only
-            # trust one whose metadata reached DataHub and was not deleted.
+            # Checkpoints are committed even when the sink failed.
             unchanged = (
                 fingerprint == previous.fingerprint
                 and _stamped_in_datahub(graph, stamped_urn, stamped_aspect, fingerprint)
@@ -375,8 +386,6 @@ class MicroStrategyChangeDetector:
         lookup_report_object: ObjectLookup,
         graph: Optional[DataHubGraph],
     ) -> ReportDatasetCheckResult:
-        """Whether the report dataset the last run emitted still stands, given
-        the fingerprints its embedding dashboards have this run."""
         if not previous.urns or previous.fingerprint is None or graph is None:
             return ReportDatasetCheckResult(unchanged=False, previous=previous)
         try:
@@ -387,7 +396,11 @@ class MicroStrategyChangeDetector:
                 previous.from_report_pass,
             )
             dataset_urn = next(
-                (urn for urn in previous.urns if guess_entity_type(urn) == "dataset"),
+                (
+                    urn
+                    for urn in previous.urns
+                    if guess_entity_type(urn) == DatasetUrn.ENTITY_TYPE
+                ),
                 None,
             )
             unchanged = (

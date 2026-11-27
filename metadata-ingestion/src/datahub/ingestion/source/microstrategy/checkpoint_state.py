@@ -1,11 +1,14 @@
 import threading
-from typing import Dict, List, Optional, TypeVar
+from typing import Callable, Dict, List, Optional, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
-from datahub.ingestion.source.microstrategy.models import normalize_object_id
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_UNCHANGED_OBJECTS_JOB_ID,
+)
+from datahub.ingestion.source.microstrategy.spill_cache import object_cache_key
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -17,14 +20,15 @@ from datahub.ingestion.source.state.use_case_handler import (
 
 
 class RecordedUsageTarget(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     object_id: str
     kind: str
     urn: str
 
 
+# Mutable: filled in while the object's workunits are generated.
 class ObjectCheckpoint(BaseModel):
-    """A dashboard or standalone report as the last run read it."""
-
     # None makes the next run read the object again.
     fingerprint: Optional[str] = None
     urns: List[str] = Field(default_factory=list)
@@ -37,8 +41,6 @@ class ObjectCheckpoint(BaseModel):
 
 
 class ReportDatasetCheckpoint(BaseModel):
-    """A dataset_identity=per_report report dataset as the last run emitted it."""
-
     fingerprint: Optional[str] = None
     urns: List[str] = Field(default_factory=list)
     usage_targets: List[RecordedUsageTarget] = Field(default_factory=list)
@@ -49,17 +51,28 @@ class ReportDatasetCheckpoint(BaseModel):
 
 
 class MicroStrategyCheckpointState(CheckpointStateBase):
-    # Keyed by checkpoint_key(project_id, object_id).
+    # Keyed by object_cache_key(project_id, object_id).
     dashboards: Dict[str, ObjectCheckpoint] = Field(default_factory=dict)
     reports: Dict[str, ObjectCheckpoint] = Field(default_factory=dict)
     report_datasets: Dict[str, ReportDatasetCheckpoint] = Field(default_factory=dict)
 
 
-def checkpoint_key(project_id: str, object_id: str) -> str:
-    return f"{project_id}:{normalize_object_id(object_id)}"
-
-
 _Entry = TypeVar("_Entry", ObjectCheckpoint, ReportDatasetCheckpoint)
+_Section = Callable[[MicroStrategyCheckpointState], Dict[str, _Entry]]
+
+
+def _dashboards(state: MicroStrategyCheckpointState) -> Dict[str, ObjectCheckpoint]:
+    return state.dashboards
+
+
+def _reports(state: MicroStrategyCheckpointState) -> Dict[str, ObjectCheckpoint]:
+    return state.reports
+
+
+def _report_datasets(
+    state: MicroStrategyCheckpointState,
+) -> Dict[str, ReportDatasetCheckpoint]:
+    return state.report_datasets
 
 
 def _in_project(entries: Dict[str, _Entry], project_id: str) -> Dict[str, _Entry]:
@@ -74,9 +87,6 @@ def _in_project(entries: Dict[str, _Entry], project_id: str) -> Dict[str, _Entry
 class MicroStrategyStateHandler(
     StatefulIngestionUsecaseHandlerBase[MicroStrategyCheckpointState]
 ):
-    """Remembers, per dashboard, report and per_report dataset, what it looked
-    like and which entities it produced."""
-
     def __init__(
         self,
         state_provider: StateProviderWrapper,
@@ -86,17 +96,14 @@ class MicroStrategyStateHandler(
         stale_job_id: Optional[JobId],
     ) -> None:
         self.state_provider = state_provider
-        # A run without skip_unchanged_objects commits the stale entity removal
-        # state but no object checkpoints, so an object checkpoint from before
-        # it misses entities created since. Object checkpoints are only trusted
-        # when they come from the same run as the last stale entity removal state.
+        # Only trusted from the run that wrote the last stale-entity state, or
+        # it may miss entities a run without skip_unchanged_objects created.
         self.stale_job_id = stale_job_id
         self.config = config
         self.pipeline_name = pipeline_name
         self.run_id = run_id
-        self._job_id = JobId("microstrategy_unchanged_objects")
-        # Change checks may run on worker threads; the checkpoints are loaded
-        # once and written under the same lock.
+        self._job_id = JobId(MSTR_UNCHANGED_OBJECTS_JOB_ID)
+        # Change checks may run on worker threads.
         self._lock = threading.RLock()
         self.state_provider.register_stateful_ingestion_usecase_handler(self)
 
@@ -105,15 +112,12 @@ class MicroStrategyStateHandler(
         return self._job_id
 
     def is_checkpointing_enabled(self) -> bool:
-        # Kept whenever stale entity removal runs, so an object that fails to
-        # read keeps what its last read produced, and for skipping.
+        # Also kept for stale removal, so a failed read keeps its last entities.
         return (
             self.stale_job_id is not None or self.config.skip_unchanged_objects
         ) and self.state_provider.is_stateful_ingestion_configured()
 
     def is_too_large(self) -> bool:
-        """Whether this run's checkpoint is over the state size limit, in which
-        case it is not saved and the next run finds no usable checkpoint."""
         stateful = self.state_provider.stateful_ingestion_config
         current = self._current()
         if current is None or stateful is None:
@@ -144,66 +148,38 @@ class MicroStrategyStateHandler(
     def previous_dashboard(
         self, project_id: str, dashboard_id: str
     ) -> Optional[ObjectCheckpoint]:
-        last = self._trusted_last()
-        if last is None:
-            return None
-        return last.dashboards.get(checkpoint_key(project_id, dashboard_id))
+        return self._previous(_dashboards, project_id, dashboard_id)
 
     def previous_report(
         self, project_id: str, report_id: str
     ) -> Optional[ObjectCheckpoint]:
-        last = self._trusted_last()
-        if last is None:
-            return None
-        return last.reports.get(checkpoint_key(project_id, report_id))
+        return self._previous(_reports, project_id, report_id)
 
     def previous_dashboards(self, project_id: str) -> Dict[str, ObjectCheckpoint]:
-        """The project's dashboards the last run recorded, by normalized id."""
-        last = self._trusted_last()
-        return _in_project(last.dashboards, project_id) if last is not None else {}
+        return self._previous_in_project(_dashboards, project_id)
 
     def previous_report_datasets(
         self, project_id: str
     ) -> Dict[str, ReportDatasetCheckpoint]:
-        """The project's per_report datasets the last run recorded, by
-        normalized report id."""
-        last = self._trusted_last()
-        return _in_project(last.report_datasets, project_id) if last is not None else {}
+        return self._previous_in_project(_report_datasets, project_id)
 
     def record_dashboard(
         self, project_id: str, dashboard_id: str, checkpoint: ObjectCheckpoint
     ) -> None:
-        current = self._current()
-        if current is not None:
-            with self._lock:
-                current.state.dashboards[checkpoint_key(project_id, dashboard_id)] = (
-                    checkpoint
-                )
+        self._record(_dashboards, project_id, dashboard_id, checkpoint)
 
     def record_report(
         self, project_id: str, report_id: str, checkpoint: ObjectCheckpoint
     ) -> None:
-        current = self._current()
-        if current is not None:
-            with self._lock:
-                current.state.reports[checkpoint_key(project_id, report_id)] = (
-                    checkpoint
-                )
+        self._record(_reports, project_id, report_id, checkpoint)
 
     def record_report_dataset(
         self, project_id: str, report_id: str, checkpoint: ReportDatasetCheckpoint
     ) -> None:
-        current = self._current()
-        if current is not None:
-            with self._lock:
-                current.state.report_datasets[checkpoint_key(project_id, report_id)] = (
-                    checkpoint
-                )
+        self._record(_report_datasets, project_id, report_id, checkpoint)
 
     def keep_unrecorded(self) -> None:
-        """Carries the last read of every object this run did not record into
-        its checkpoint. A failed run may not reach every object, and without
-        this its checkpoint would drop them."""
+        # A failed run may not reach every object; keep their last read.
         current = self._current()
         last = self._trusted_last()
         if current is None or last is None:
@@ -215,6 +191,34 @@ class MicroStrategyStateHandler(
                 current.state.reports.setdefault(key, entry)
             for key, dataset in last.report_datasets.items():
                 current.state.report_datasets.setdefault(key, dataset)
+
+    def _previous(
+        self, section: _Section[_Entry], project_id: str, object_id: str
+    ) -> Optional[_Entry]:
+        last = self._trusted_last()
+        if last is None:
+            return None
+        return section(last).get(object_cache_key(project_id, object_id))
+
+    def _previous_in_project(
+        self, section: _Section[_Entry], project_id: str
+    ) -> Dict[str, _Entry]:
+        last = self._trusted_last()
+        return _in_project(section(last), project_id) if last is not None else {}
+
+    def _record(
+        self,
+        section: _Section[_Entry],
+        project_id: str,
+        object_id: str,
+        checkpoint: _Entry,
+    ) -> None:
+        current = self._current()
+        if current is not None:
+            with self._lock:
+                section(current.state)[object_cache_key(project_id, object_id)] = (
+                    checkpoint
+                )
 
     def _current(self) -> Optional[Checkpoint[MicroStrategyCheckpointState]]:
         if not self.is_checkpointing_enabled():

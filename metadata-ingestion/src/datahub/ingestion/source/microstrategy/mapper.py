@@ -15,6 +15,8 @@ from typing import (
     Union,
 )
 
+from pydantic import BaseModel, ConfigDict
+
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
@@ -138,6 +140,13 @@ class DatasetSchemaFields:
     fields: List[SchemaFieldClass]
     by_object_id: Dict[str, List[SchemaFieldClass]]
     object_names: Dict[str, str]
+
+
+class _FolderLevel(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    key: FolderKey
 
 
 class MicroStrategyMapper:
@@ -412,18 +421,16 @@ class MicroStrategyMapper:
         predefined_folders: Optional[PredefinedFolderResolution] = None,
     ) -> Iterable[MetadataWorkUnit]:
         parent_key: Optional[ProjectKey] = self.project_key(project_id)
-        current_path = ""
-        for name in self.folder_path_names(dashboard_object, predefined_folders):
-            if not self.config.folder_pattern.allowed(name):
-                continue
-            current_path = f"{current_path}/{name}" if current_path else name
-            folder_key = self.folder_key(project_id, current_path)
+        for level in self._folder_levels(
+            project_id, dashboard_object, predefined_folders
+        ):
+            folder_key = level.key
             if folder_key.guid() not in self._emitted_folder_keys:
                 self.report.report_folder_scanned()
                 yield from gen_containers(
                     container_key=folder_key,
                     parent_container_key=parent_key,
-                    name=name,
+                    name=level.name,
                     sub_types=[BIContainerSubTypes.MICROSTRATEGY_FOLDER],
                 )
                 self._emitted_folder_keys.add(folder_key.guid())
@@ -435,16 +442,29 @@ class MicroStrategyMapper:
         mstr_object: MicroStrategyObject,
         predefined_folders: Optional[PredefinedFolderResolution] = None,
     ) -> List[str]:
-        """The folder containers `gen_folder_containers` places the object
-        under, whether or not this run already emitted them."""
-        urns: List[str] = []
+        return [
+            level.key.as_urn()
+            for level in self._folder_levels(
+                project_id, mstr_object, predefined_folders
+            )
+        ]
+
+    def _folder_levels(
+        self,
+        project_id: str,
+        mstr_object: MicroStrategyObject,
+        predefined_folders: Optional[PredefinedFolderResolution],
+    ) -> List[_FolderLevel]:
+        levels: List[_FolderLevel] = []
         current_path = ""
         for name in self.folder_path_names(mstr_object, predefined_folders):
             if not self.config.folder_pattern.allowed(name):
                 continue
             current_path = f"{current_path}/{name}" if current_path else name
-            urns.append(self.folder_key(project_id, current_path).as_urn())
-        return urns
+            levels.append(
+                _FolderLevel(name=name, key=self.folder_key(project_id, current_path))
+            )
+        return levels
 
     def folder_container_for_dashboard(
         self,

@@ -184,8 +184,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     # per_report: extra sightings of a report already counted, and datasets emitted.
     reports_deduplicated: int = 0
     report_datasets_emitted: int = 0
-    # skip_unchanged_objects: objects kept from the previous run without being
-    # read, and change checks that errored (the object is read instead).
+    # skip_unchanged_objects; an errored change check reads the object instead.
     dashboards_skipped_unchanged: int = 0
     reports_skipped_unchanged: int = 0
     report_datasets_skipped_unchanged: int = 0

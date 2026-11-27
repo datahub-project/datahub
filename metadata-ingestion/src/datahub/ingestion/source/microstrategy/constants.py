@@ -110,11 +110,10 @@ USAGE_TARGET_DASHBOARD = "dashboard"
 USAGE_TARGET_CHART = "chart"
 USAGE_TARGET_DATASET = "dataset"
 
-# skip_unchanged_objects: custom property stamped on the dashboard, report
-# chart and per_report dataset properties, so a skip is only trusted when
-# DataHub still holds what the checkpointed run wrote.
+# Stamped on emitted properties so a skip is trusted only if DataHub still has it.
 MSTR_PROP_FINGERPRINT = "microstrategyFingerprint"
 ENTITY_CHECK_BATCH_SIZE = 100
+MSTR_UNCHANGED_OBJECTS_JOB_ID = "microstrategy_unchanged_objects"
 
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.
