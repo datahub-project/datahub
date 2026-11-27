@@ -1317,6 +1317,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # Its storage is known now, so the file is the storage file a full
             # read links, not the Qlik dataset named by its connection.
             if storage_file.urn is not None:
+                self._note_storage_qvd(storage_file.urn, _is_stored_qvd(store))
                 tables = self._kept_storage_file_stores.setdefault(storage_file.urn, [])
                 tables.extend(urn for urn in store.table_urns if urn not in tables)
                 if storage_file.urn not in stored_file_urns:
