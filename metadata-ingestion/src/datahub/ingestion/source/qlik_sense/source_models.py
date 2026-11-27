@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Union
 
 from pydantic import BaseModel, ConfigDict
 
@@ -19,14 +19,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamLineage,
 )
 from datahub.utilities.str_enum import StrEnum
-
-
-class ResolvedSource(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    urn: Optional[str]
-    # Why the source could not be told this run, if so.
-    unknown_reason: Optional[str]
 
 
 class GraphNamedPath(BaseModel):
@@ -121,6 +113,15 @@ class IncompleteLineageReason(StrEnum):
     RELOAD_SQL_UNREAD = "the SQL of the app's last reload could not be read"
     DATABASE_TABLE_UNLABELLED = "a database table in the lineage graph has no label"
     FIELD_NAME_UNREAD = "a source field's name was not read"
+
+
+class ResolvedSource(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    urn: Optional[str]
+    # Why the source could not be told this run, if so. Reasons that name an
+    # app are text, formatted where they arise.
+    unknown_reason: Optional[Union[IncompleteLineageReason, str]]
 
 
 class PartialRead(StrEnum):

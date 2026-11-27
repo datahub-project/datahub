@@ -113,7 +113,7 @@ def test_failed_request_is_recorded_as_unread(
 
     list(getattr(api, call)(*([["space-1"]] if call == "get_items" else [])))
 
-    assert api.unread_items == [UnreadItem(name=unread, cause="down")]
+    assert api.unread_items == [UnreadItem(name=unread, cause="ConnectionError: down")]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_api.App")

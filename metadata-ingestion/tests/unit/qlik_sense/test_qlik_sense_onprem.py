@@ -363,7 +363,7 @@ def test_onprem_unexpected_app_error_records_app_id(
     with patch.object(api, "_read_app", side_effect=RuntimeError("boom")):
         assert list(api.get_items(["stream-1"])) == []
 
-    assert api.unread_items == [UnreadItem(name=APP["id"], cause="boom")]
+    assert api.unread_items == [UnreadItem(name=APP["id"], cause="RuntimeError: boom")]
 
 
 def test_chart_keeps_dimension_in_error_state() -> None:
@@ -1244,6 +1244,21 @@ def test_onprem_source_uses_onprem_client(
     mock_cloud.assert_not_called()
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_source_raises_when_qrs_cannot_be_reached(
+    mock_session_cls: MagicMock,
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = requests.ConnectionError("qrs unreachable")
+
+    with pytest.raises(requests.ConnectionError):
+        QlikSenseSource(
+            QlikSourceConfig.model_validate(ONPREM_CONFIG),
+            PipelineContext(run_id="test-onprem-connect"),
+        )
+
+
 def _script_tables(
     mock_onprem: MagicMock,
     extra_config: Dict,
@@ -1674,7 +1689,9 @@ def test_cloud_app_read_failure_closes_engine_session(
         is None
     )
     websocket.close_websocket.assert_called_once()
-    assert api.unread_items == [UnreadItem(name="app-1", cause="Access denied")]
+    assert api.unread_items == [
+        UnreadItem(name="app-1", cause="RuntimeError: Access denied")
+    ]
 
 
 def _open_onprem_engine(refusals: RefusedConnectionBudget) -> WebsocketConnection:

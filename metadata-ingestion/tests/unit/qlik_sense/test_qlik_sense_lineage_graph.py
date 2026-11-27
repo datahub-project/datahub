@@ -30,6 +30,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 )
 from datahub.ingestion.source.qlik_sense.field_lineage import (
     refs_of_field_sources,
+    schema_field_parent,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import qri_part_id
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
@@ -4272,3 +4273,10 @@ def test_lib_path_spellings_follow_a_replaced_spelling(
     assert source._script_spelling("lib://finance:lake/orders.qvd").startswith(
         "lib://Finance:Lake/"
     )
+
+
+def test_schema_field_parent_returns_none_for_a_malformed_urn() -> None:
+    # Lineage another tool wrote may hold a URN DataHub cannot parse.
+    dataset = make_dataset_urn("qlik-sense", "orders", "PROD")
+    assert schema_field_parent(make_schema_field_urn(dataset, "id")) == dataset
+    assert schema_field_parent("urn:li:schemaField:(not-a-dataset") is None

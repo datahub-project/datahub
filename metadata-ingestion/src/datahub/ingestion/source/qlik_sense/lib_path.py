@@ -2,7 +2,7 @@ import re
 from collections import Counter
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from datahub.ingestion.source.qlik_sense.constants import DATA_FILES_CONNECTION
 from datahub.ingestion.source.qlik_sense.script_lineage import (
@@ -83,31 +83,45 @@ def path_key(path: str) -> str:
     return path.lower().replace("[", "").replace("]", "")
 
 
-def lib_path_segments(path: str) -> Optional[List[str]]:
-    """The space, connection, folders and file of a `lib://` path. The space
-    is empty when the path doesn't name one."""
+class LibPathSegments(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    # "" when the path doesn't name a space.
+    space: str
+    connection: str
+    # Folders, then the file name.
+    path: List[str]
+
+    def parts(self) -> List[str]:
+        return [self.space, self.connection, *self.path]
+
+
+def lib_path_segments(path: str) -> Optional[LibPathSegments]:
     match = LIB_PATH_RE.match(path)
     if not match or "$(" in path or is_ambiguous_connection(match.group("connection")):
         return None
     connection = parse_lib_connection(match.group("connection"))
-    return [
-        # Optional brackets are kept as the script spelled them.
-        f"[{name}]" if name and f"[{name}]" in match.group("connection") else name
-        for name in (connection.space, connection.name)
-    ] + lib_path_parts(match.group("path"))
+    # Optional brackets are kept as the script spelled them.
+    space, name = (
+        f"[{part}]" if part and f"[{part}]" in match.group("connection") else part
+        for part in (connection.space, connection.name)
+    )
+    return LibPathSegments(
+        space=space, connection=name, path=lib_path_parts(match.group("path"))
+    )
 
 
 def lib_path_parts(path: str) -> List[str]:
     return [part for part in re.split(r"[/\\]", path) if part]
 
 
-def build_lib_path(segments: List[str]) -> str:
-    space, connection, *rest = segments
+def build_lib_path(segments: LibPathSegments) -> str:
     space, connection = (
-        name if name.startswith("[") else lib_name(name) for name in (space, connection)
+        name if name.startswith("[") else lib_name(name)
+        for name in (segments.space, segments.connection)
     )
     qualified = f"{space}{SPACE_SEPARATOR}{connection}" if space else connection
-    return "/".join([f"lib://{qualified}", *rest])
+    return "/".join([f"lib://{qualified}", *segments.path])
 
 
 def _path_key_parts(path: str) -> List[str]:
@@ -125,7 +139,7 @@ def path_has_label(path: str, label: str) -> bool:
 
 def voted_segments(
     path: str, spellings: Dict[str, Counter[str]]
-) -> Optional[List[str]]:
+) -> Optional[LibPathSegments]:
     """The segments of a path whose space and connection can't be told
     apart, when exactly one way of splitting them is spelled elsewhere."""
     match = LIB_PATH_RE.match(path)
@@ -133,11 +147,14 @@ def voted_segments(
         return None
     connection = match.group("connection")
     splits = [
-        [connection[:i].strip(), connection[i + 1 :].strip()]
+        (connection[:i].strip(), connection[i + 1 :].strip())
         for i, char in enumerate(connection)
         if char == SPACE_SEPARATOR
     ]
     known = [split for split in splits if path_key("/".join(split)) in spellings]
     if len(known) != 1:
         return None
-    return [*known[0], *lib_path_parts(match.group("path"))]
+    space, name = known[0]
+    return LibPathSegments(
+        space=space, connection=name, path=lib_path_parts(match.group("path"))
+    )

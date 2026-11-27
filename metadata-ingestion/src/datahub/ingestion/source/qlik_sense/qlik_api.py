@@ -34,6 +34,7 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     ReadErrors,
     log_read_error,
 )
+from datahub.ingestion.source.qlik_sense.report_text import describe_error
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     SPACE_SEPARATOR,
     DataConnectionInfo,
@@ -278,7 +279,7 @@ class QlikAPI(QlikBaseAPI):
             # Only lineage needs the list, and it falls back to adding edges,
             # so this is not a failed read of the run's entities.
             log_read_error(f"Unable to list datasets. Exception: {e}")
-            self.dataset_listing_error = str(e)
+            self.dataset_listing_error = describe_error(e)
             return None
         return datasets
 
@@ -488,11 +489,11 @@ class QlikAPI(QlikBaseAPI):
                 method="GetIncludeFileContent", params={"qPath": path}
             ).get("qContent")
         except EngineError as e:
-            result = IncludeRead(error=str(e))
+            result = IncludeRead(error=describe_error(e))
         except Exception as e:
             # Not cached for the run, as a dropped websocket may read it for
             # the next app.
-            transient[path] = IncludeRead(error=str(e))
+            transient[path] = IncludeRead(error=describe_error(e))
             return transient[path]
         else:
             result = (

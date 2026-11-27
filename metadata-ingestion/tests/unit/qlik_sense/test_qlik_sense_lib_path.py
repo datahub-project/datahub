@@ -1,8 +1,9 @@
-from typing import List, Optional
+from typing import Optional
 
 import pytest
 
 from datahub.ingestion.source.qlik_sense.lib_path import (
+    LibPathSegments,
     build_lib_path,
     lib_path_segments,
     named_space,
@@ -39,17 +40,27 @@ def test_named_space_is_unknown_when_the_separator_is_ambiguous() -> None:
 @pytest.mark.parametrize(
     "path, segments",
     [
-        ("lib://Lake/raw/orders.qvd", ["", "Lake", "raw", "orders.qvd"]),
-        ("lib://Team:Lake/orders.qvd", ["Team", "Lake", "orders.qvd"]),
+        (
+            "lib://Lake/raw/orders.qvd",
+            LibPathSegments(space="", connection="Lake", path=["raw", "orders.qvd"]),
+        ),
+        (
+            "lib://Team:Lake/orders.qvd",
+            LibPathSegments(space="Team", connection="Lake", path=["orders.qvd"]),
+        ),
         (
             "lib://[Team: Sales]:Lake/raw\\orders.qvd",
-            ["[Team: Sales]", "Lake", "raw", "orders.qvd"],
+            LibPathSegments(
+                space="[Team: Sales]", connection="Lake", path=["raw", "orders.qvd"]
+            ),
         ),
         ("lib://Lake/$(vFolder)/orders.qvd", None),
         ("lib://team: sales:lake/orders.qvd", None),
     ],
 )
-def test_lib_path_segments_round_trip(path: str, segments: Optional[List[str]]) -> None:
+def test_lib_path_segments_round_trip(
+    path: str, segments: Optional[LibPathSegments]
+) -> None:
     assert lib_path_segments(path) == segments
     if segments is not None:
         assert lib_path_segments(build_lib_path(segments)) == segments

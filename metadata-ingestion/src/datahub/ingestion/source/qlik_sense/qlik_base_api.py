@@ -31,6 +31,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     UnchangedApp,
     UnreadItem,
 )
+from datahub.ingestion.source.qlik_sense.report_text import describe_error
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     DataConnectionInfo,
     infer_data_connection,
@@ -129,14 +130,14 @@ class QlikBaseAPI(ABC):
 
     def _record_failed_user_lookup(self, user_id: str, e: Exception) -> None:
         log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
-        self.failed_user_lookups[user_id] = str(e)
+        self.failed_user_lookups[user_id] = describe_error(e)
 
     # Why the datasets of every space could not be listed, if they couldn't.
     dataset_listing_error: Optional[str] = None
 
     def _record_unread(self, name: str, message: str, e: Exception) -> None:
         log_read_error(message)
-        self.unread_items.append(UnreadItem(name=name, cause=str(e)))
+        self.unread_items.append(UnreadItem(name=name, cause=describe_error(e)))
 
     @abstractmethod
     def get_spaces(self) -> List[Space]: ...

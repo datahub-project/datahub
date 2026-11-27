@@ -14,6 +14,7 @@ from datahub.ingestion.source.qlik_sense.dataset_naming import (
     file_display_name,
 )
 from datahub.ingestion.source.qlik_sense.lib_path import (
+    LibPathSegments,
     build_lib_path,
     is_ambiguous_connection,
     lib_path_segments,
@@ -76,14 +77,17 @@ class FileEntitiesMixin(StoreLineageMixin):
         segments = lib_path_segments(path) or voted_segments(path, spellings)
         if segments is None:
             return path
+        parts = segments.parts()
         spelled = []
-        for i, segment in enumerate(segments):
-            votes = spellings.get(path_key("/".join(segments[: i + 1])))
+        for i, segment in enumerate(parts):
+            votes = spellings.get(path_key("/".join(parts[: i + 1])))
             # The most used spelling, and the same one every run on a tie.
             spelled.append(
                 min(votes, key=lambda name: (-votes[name], name)) if votes else segment
             )
-        return build_lib_path(spelled)
+        return build_lib_path(
+            LibPathSegments(space=spelled[0], connection=spelled[1], path=spelled[2:])
+        )
 
     def _lib_path_spellings(self) -> Dict[str, Counter[str]]:
         paths = [
@@ -106,9 +110,10 @@ class FileEntitiesMixin(StoreLineageMixin):
         if paths != self._script_spellings_built_from:
             spellings: Dict[str, Counter[str]] = defaultdict(Counter)
             for path in paths:
-                segments = lib_path_segments(path) or []
-                for i, segment in enumerate(segments):
-                    spellings[path_key("/".join(segments[: i + 1]))][segment] += 1
+                segments = lib_path_segments(path)
+                parts = segments.parts() if segments is not None else []
+                for i, segment in enumerate(parts):
+                    spellings[path_key("/".join(parts[: i + 1]))][segment] += 1
             self._script_spellings = spellings
             self._script_spellings_built_from = paths
         return self._script_spellings
