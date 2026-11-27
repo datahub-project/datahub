@@ -1,0 +1,109 @@
+{
+    "query_type": "MERGE",
+    "query_type_props": {},
+    "query_fingerprint": "337f400e6327391d7dc39ae2d4a803084495bbf0ca278364f860a45575f3cd58",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.orders,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.customer_totals,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.customer_totals,PROD)",
+                "column": "lifetime_total",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(38, 0)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.customer_totals,PROD)",
+                    "column": "lifetime_total"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.orders,PROD)",
+                    "column": "order_total"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "COALESCE(\"T\".\"LIFETIME_TOTAL\" + \"S\".\"ORDER_TOTAL\", \"S\".\"ORDER_TOTAL\") AS \"LIFETIME_TOTAL\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.customer_totals,PROD)",
+                "column": "last_order_ts",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                    }
+                },
+                "native_column_type": "TIMESTAMPNTZ"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.orders,PROD)",
+                    "column": "order_ts"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ORDERS\".\"ORDER_TS\" AS \"ORDER_TS\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.customer_totals,PROD)",
+                "column": "customer_id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(38, 0)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.orders,PROD)",
+                    "column": "customer_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ORDERS\".\"CUSTOMER_ID\" AS \"CUSTOMER_ID\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "FULL OUTER JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.orders,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.customer_totals,PROD)"
+            ],
+            "on_clause": "\"T\".\"CUSTOMER_ID\" = \"S\".\"CUSTOMER_ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.customer_totals,PROD)",
+                    "column": "CUSTOMER_ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.orders,PROD)",
+                    "column": "CUSTOMER_ID"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "MERGE INTO db.sch.customer_totals AS t USING (SELECT customer_id, order_total, order_ts FROM db.sch.orders WHERE order_total > ?) AS s ON t.customer_id = s.customer_id WHEN MATCHED THEN UPDATE SET t.lifetime_total = t.lifetime_total + s.order_total, t.last_order_ts = s.order_ts WHEN NOT MATCHED THEN INSERT (customer_id, lifetime_total, last_order_ts) VALUES (s.customer_id, s.order_total, s.order_ts)"
+    }
+}
