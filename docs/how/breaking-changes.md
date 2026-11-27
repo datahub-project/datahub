@@ -15,6 +15,14 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Policies that aren't active no longer grant privileges in `getGrantedPrivileges` ([#21664](https://github.com/datahub-project/datahub/pull/21664))
+
+`getGrantedPrivileges`, which the UI uses to decide which actions to offer, counted every policy
+whose state wasn't `INACTIVE`. A policy in another state, such as `DRAFT`, or a state only a newer
+version defines after a rollback, made the UI offer actions that authorization then refused with a
+`403`, because authorization only applies `ACTIVE` policies. Such a policy now grants nothing there
+either. What authorization allows is unchanged.
+
 ### `tags_to_term` transformer matches full tag names and maps column tags to columns
 
 The `tags_to_term` ingestion transformer has changed in four ways ([PR #21479](https://github.com/datahub-project/datahub/pull/21479)):

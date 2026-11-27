@@ -137,6 +137,42 @@ public class PolicyEngineTest {
   }
 
   @Test
+  public void testGetGrantedPrivilegesCountsOnlyActivePolicies() {
+    // Authorization evaluates only active policies, so the privileges shown for an action must not
+    // come from any other state: DRAFT, or a state only a newer version defines.
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    for (String state : List.of("ACTIVE", "INACTIVE", "DRAFT", "STATE_FROM_NEWER_BUILD")) {
+      final DataHubPolicyInfo policy = new DataHubPolicyInfo();
+      policy.setType(METADATA_POLICY_TYPE);
+      policy.setState(state);
+      policy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+      policy.setDisplayName("My Test Display");
+      policy.setEditable(true);
+      final DataHubActorFilter actorFilter = new DataHubActorFilter();
+      actorFilter.setResourceOwners(false);
+      actorFilter.setAllUsers(true);
+      actorFilter.setAllGroups(true);
+      policy.setActors(actorFilter);
+      final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+      resourceFilter.setAllResources(true);
+      resourceFilter.setType("dataset");
+      policy.setResources(resourceFilter);
+
+      assertEquals(
+          _policyEngine
+              .getGrantedPrivileges(
+                  systemOperationContext,
+                  List.of(policy),
+                  resolvedAuthorizedUserSpec,
+                  Optional.of(resourceSpec),
+                  Collections.emptyList())
+              .getPrivileges(),
+          state.equals("ACTIVE") ? List.of("EDIT_ENTITY_TAGS") : List.of(),
+          state);
+    }
+  }
+
+  @Test
   public void testEvaluatePolicyInactivePolicyState() {
 
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();

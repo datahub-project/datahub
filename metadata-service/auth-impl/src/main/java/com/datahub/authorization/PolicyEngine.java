@@ -187,9 +187,11 @@ public class PolicyEngine {
       final PolicyEvaluationContext context,
       final List<ResolvedEntitySpec> subResources) {
 
-    // If policy is inactive, simply return DENY.
-    if (PoliciesConfig.INACTIVE_POLICY_STATE.equals(policy.getState())) {
-      return new PolicyEvaluationResult(policy.getDisplayName(), false, "Inactive Policy");
+    // Only an active policy applies, as authorization only evaluates active ones: any other state
+    // (INACTIVE, DRAFT, or one only a newer version defines) denies, so getGrantedPrivileges
+    // doesn't report what authorization refuses.
+    if (!PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState())) {
+      return new PolicyEvaluationResult(policy.getDisplayName(), false, "Policy is not active");
     }
 
     final DataHubActorFilter actorFilter = policy.getActors();
