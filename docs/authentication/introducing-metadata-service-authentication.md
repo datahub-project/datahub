@@ -60,9 +60,38 @@ OR
 - change the Metadata Service `application.yaml` configuration file to set `authentication.enabled` to "true" AND
 - change the Frontend Proxy Service `application.config` configuration file to set `metadataService.auth.enabled` to "true"
 
+> **Using the local Docker quickstart?** Quickstart ships with Metadata Service Authentication forced off (unlike other deployments, where it's enabled by default), and it overrides the environment variable — follow [Enabling on Local Docker Quickstart](#enabling-on-local-docker-quickstart) below instead of setting the variable.
+
 :::note
-It is recommended that users provide their own values for `authentication.tokenService.signingKey` and `authentication.tokenService.salt` by updating `application.yaml` in Metadata Service or setting the corresponding environment variables `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `DATAHUB_TOKEN_SERVICE_SALT`
+For production, self-managed, or Kubernetes deployments, provide your own values for `authentication.tokenService.signingKey` and `authentication.tokenService.salt` by updating `application.yaml` in Metadata Service or setting the corresponding environment variables `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `DATAHUB_TOKEN_SERVICE_SALT`. The local Docker quickstart generates unique values for these automatically, so you don't need to set them there.
 :::
+
+### Enabling on Local Docker Quickstart
+
+If you're using the local `datahub docker quickstart`, setting the environment variable alone won't work — the quickstart forces Metadata Service Authentication off, and it re-downloads its Docker Compose file on every run. To enable it, edit a local copy of the Compose file and launch quickstart with that file.
+
+1. Make your own copy of the quickstart Compose file (quickstart overwrites the original on each run):
+
+   ```bash
+   cp ~/.datahub/quickstart/docker-compose.yml ~/datahub-auth-compose.yml
+   ```
+
+2. In `~/datahub-auth-compose.yml`, under the `datahub-gms-quickstart` service, change `METADATA_SERVICE_AUTH_ENABLED` from `'false'` to `'true'` (the line is already there).
+3. In the same file, under the `frontend-quickstart` service's `environment:` block, add a new line (it isn't there by default):
+
+   ```
+   METADATA_SERVICE_AUTH_ENABLED: 'true'
+   ```
+
+4. Use a literal `'true'` in both places — do not use a `${...}` variable, because quickstart would override it back to `false`.
+5. Restart quickstart using your edited file:
+
+   ```bash
+   datahub docker quickstart --stop
+   datahub docker quickstart -f ~/datahub-auth-compose.yml
+   ```
+
+From now on, always launch with `-f ~/datahub-auth-compose.yml` — a plain `datahub docker quickstart` re-downloads the default Compose file and your change is lost.
 
 After setting the configuration flag, simply restart the Metadata Service to start enforcing Authentication.
 
@@ -121,9 +150,10 @@ These changes represent the first milestone in Metadata Service Authentication. 
 
 ### What if I don't want to use Metadata Service Authentication?
 
-That's perfectly fine, for now. Metadata Service Authentication is disabled by default, only enabled if you provide the
-environment variable `METADATA_SERVICE_AUTH_ENABLED` to the `datahub-gms` container or change the `authentication.enabled` to "true"
-inside your DataHub Metadata Service configuration (`application.yaml`).
+That's perfectly fine, for now. The Metadata Service enables Authentication by default, but you can turn it off by setting the
+environment variable `METADATA_SERVICE_AUTH_ENABLED` to "false" for the `datahub-gms` container or changing `authentication.enabled` to "false"
+inside your DataHub Metadata Service configuration (`application.yaml`). The local Docker quickstart is the exception — it ships with
+Authentication disabled.
 
 That being said, we will be recommending that you enable Authentication for production use cases, to prevent
 arbitrary actors from ingesting metadata into DataHub.
