@@ -1026,6 +1026,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         ) or report_object.description
         fresh = _report_dataset_object(report_object, available_objects, description)
         entry = self._report_datasets.get(cache_key)
+        lineage_resolved = False
         if entry is None:
             entry = _ReportDatasetEntry(dataset=fresh)
         elif available_objects:
@@ -1033,15 +1034,31 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             entry.dataset.object_ids = fresh.object_ids
             if description:
                 entry.dataset.description = description
+            stale_field_lineage = self._drop_stale_field_lineage(entry.dataset)
+            lineage_resolved = entry.lineage_resolved and not stale_field_lineage
+        else:
+            lineage_resolved = entry.lineage_resolved
         entry = entry.model_copy(
             update={
                 "report_object": report_object,
                 "report_definition": report_definition,
                 "from_report_pass": True,
+                "lineage_resolved": lineage_resolved,
             }
         )
         self._report_datasets[cache_key] = entry
         return entry
+
+    def _drop_stale_field_lineage(self, dataset: DatasetObject) -> bool:
+        field_paths = set(self.mapper.dataset_field_paths(dataset))
+        stale_paths = [
+            path
+            for path in dataset.field_warehouse_upstreams
+            if path not in field_paths
+        ]
+        for path in stale_paths:
+            del dataset.field_warehouse_upstreams[path]
+        return bool(stale_paths)
 
     def _gen_report_dataset_workunits(
         self, project_id: str

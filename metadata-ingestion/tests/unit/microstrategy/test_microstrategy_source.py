@@ -4452,6 +4452,28 @@ def test_per_report_later_dashboard_warehouse_settles_lineage_the_first_skipped(
     assert _field_lineage_downstream_paths(lineage[_SHARED_URN]) == ["net_dossier_amt"]
 
 
+def test_per_report_report_pass_drops_field_lineage_for_replaced_fields() -> None:
+    source = _per_report_source(
+        {
+            "extract_warehouse_lineage": True,
+            "extract_report_sql_lineage": True,
+            "extract_source_warehouses": True,
+            "extract_reports": True,
+            "extract_independent_reports": True,
+        }
+    )
+    source.client = _DivergingReportClient()  # type: ignore[assignment]
+
+    workunits = list(source._process_project(_PROJECT))
+
+    schema = _aspects_by_urn(workunits, SchemaMetadataClass)[_SHARED_URN]
+    schema_paths = {field.fieldPath for field in schema.fields}
+    lineage = _aspects_by_urn(workunits, UpstreamLineageClass)[_SHARED_URN]
+    downstream_paths = _field_lineage_downstream_paths(lineage)
+    assert downstream_paths == ["net_report_amt"]
+    assert set(downstream_paths) <= schema_paths
+
+
 def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
     source = _source()
     sqlglot_logger = logging.getLogger("sqlglot")
