@@ -1157,6 +1157,7 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
       long retryInterval,
       int numRetries,
       int threadCount) {
+    this.metricUtils = metricUtils;
     Function<BulkProcessorCompletionTracker, BulkProcessor> processorFactory =
         completionTracker ->
             BulkProcessor.builder(
@@ -1189,6 +1190,7 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
       long retryInterval,
       int numRetries,
       int threadCount) {
+    this.metricUtils = metricUtils;
     Function<BulkProcessorCompletionTracker, BulkProcessor> processorFactory =
         completionTracker ->
             BulkProcessor.builder(
