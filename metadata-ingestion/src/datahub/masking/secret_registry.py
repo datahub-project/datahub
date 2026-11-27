@@ -1,7 +1,8 @@
+import json
 import os
 import re
 import threading
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from urllib.parse import quote, quote_plus
 
 from datahub.masking.constants import (
@@ -21,7 +22,6 @@ MAX_SECRET_VERSIONS = 3
 LARGE_SECRET_RENDERING_COUNT = 200
 
 _UNMASKABLE_LITERALS = frozenset({"true", "false", "yes", "no", "none", "null"})
-_ESCAPABLE_CHARACTERS = ("\n", "\r", "\t", "\\", '"', "'")
 _PERCENT_ESCAPE = re.compile(r"%[0-9A-F]{2}")
 
 
@@ -44,11 +44,21 @@ def _unprotectable_reason(value: str) -> Optional[str]:
     return None
 
 
-def _escaped_rendering(value: str) -> Optional[str]:
-    if not any(c in value for c in _ESCAPABLE_CHARACTERS):
-        return None
-    escaped = repr(value)[1:-1]
-    return escaped if escaped != value else None
+_ESCAPES: Tuple[Callable[[str], str], ...] = (
+    lambda text: repr(text)[1:-1],
+    # The repr of a string that also holds a double quote escapes ' as \'.
+    lambda text: repr(text + '"')[1:-2],
+    lambda text: json.dumps(text)[1:-1],
+    lambda text: json.dumps(text, ensure_ascii=False)[1:-1],
+)
+
+
+def _escaped_renderings(value: str) -> List[str]:
+    """The value as written inside a Python repr or a JSON string, up to two
+    levels deep (e.g. a list's repr inside a JSON log line)."""
+    once = [escape(value) for escape in _ESCAPES]
+    twice = [escape(form) for form in once for escape in _ESCAPES]
+    return [form for form in dict.fromkeys(once + twice) if form != value]
 
 
 def _url_encoded_renderings(value: str) -> List[str]:
@@ -112,9 +122,9 @@ def maskable_renderings(value: str) -> List[str]:
     fragments = _line_fragments(value)
     if fragments:
         for text in (value, *fragments):
-            add(text, _escaped_rendering(text), _legacy_url_encoded(text))
+            add(text, *_escaped_renderings(text), _legacy_url_encoded(text))
     else:
-        add(value, _escaped_rendering(value), *_url_encoded_renderings(value))
+        add(value, *_escaped_renderings(value), *_url_encoded_renderings(value))
     return renderings
 
 
