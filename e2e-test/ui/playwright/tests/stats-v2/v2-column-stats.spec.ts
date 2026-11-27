@@ -15,6 +15,7 @@ import { test } from '../../fixtures/base-test';
 import { StatsTabPage } from '../../pages/stats-v2/stats-tab.page';
 import { getFullDatasetMock, getExpectedColumnStats, getSchemaMetadata } from '../../factories/mock-responses/stats';
 import { TEST_DATASET_URN, COLUMN_NAMES } from '../../pages/stats-v2/stats.constants';
+import { DomainTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'stats-v2' });
 
@@ -39,14 +40,14 @@ test.describe('Column Statistics Table', () => {
     await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
   });
 
-  test('should show column stats in the table', async () => {
+  test('should show column stats in the table', { tag: [DomainTag.Catalog] }, async () => {
     // Verify all 7 columns with field values extracted from mock data
     for (const [, columnName] of Object.entries(COLUMN_NAMES)) {
       await statsPage.verifyColumnFields(columnName, expectedStats[columnName]);
     }
   });
 
-  test('should open the column drawer by clicking on row', async () => {
+  test('should open the column drawer by clicking on row', { tag: [DomainTag.Catalog] }, async () => {
     await statsPage.clickColumnRow(COLUMN_NAMES.USER_ID);
     await statsPage.verifySchemaFieldDrawerOpen();
   });

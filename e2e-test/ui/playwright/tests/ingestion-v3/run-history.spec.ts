@@ -26,7 +26,7 @@ test.describe('run history tab in manage data sources', () => {
     await ingestionPage.goto();
   });
 
-  test('navigate to run history tab from last run column of sources tab', async () => {
+  test('navigate to run history tab from last run column of sources tab', { tag: [DomainTag.Ingestion] }, async () => {
     await ingestionPage.sourcesTab.search(RUN_HISTORY_SOURCE);
     await ingestionPage.sourcesTab.expectSourceVisible(RUN_HISTORY_SOURCE);
 
@@ -35,14 +35,18 @@ test.describe('run history tab in manage data sources', () => {
     await ingestionPage.runHistoryTab.expectTabActive();
   });
 
-  test('navigate to run history tab from View run history option in dropdown of sources', async () => {
-    await ingestionPage.sourcesTab.search(RUN_HISTORY_SOURCE);
-    await ingestionPage.sourcesTab.expectSourceVisible(RUN_HISTORY_SOURCE);
+  test(
+    'navigate to run history tab from View run history option in dropdown of sources',
+    { tag: [DomainTag.Ingestion] },
+    async () => {
+      await ingestionPage.sourcesTab.search(RUN_HISTORY_SOURCE);
+      await ingestionPage.sourcesTab.expectSourceVisible(RUN_HISTORY_SOURCE);
 
-    await ingestionPage.sourcesTab.selectMoreOption(RUN_HISTORY_SOURCE, 'View Run History');
+      await ingestionPage.sourcesTab.selectMoreOption(RUN_HISTORY_SOURCE, 'View Run History');
 
-    await ingestionPage.runHistoryTab.expectTabActive();
-  });
+      await ingestionPage.runHistoryTab.expectTabActive();
+    },
+  );
 
   test('view past executions in run history tab', { tag: [TestTag.P0, DomainTag.Ingestion] }, async () => {
     await ingestionPage.runHistoryTab.open();
@@ -51,7 +55,7 @@ test.describe('run history tab in manage data sources', () => {
     await ingestionPage.runHistoryTab.expectExecutionRowVisible(RUN_HISTORY_EXEC_URN);
   });
 
-  test('navigate to sources tab from source name in run history tab', async () => {
+  test('navigate to sources tab from source name in run history tab', { tag: [DomainTag.Ingestion] }, async () => {
     await ingestionPage.runHistoryTab.open();
     await ingestionPage.runHistoryTab.filterBySource(RUN_HISTORY_SOURCE);
 
@@ -60,7 +64,7 @@ test.describe('run history tab in manage data sources', () => {
     await ingestionPage.sourcesTab.expectTabActive();
   });
 
-  test('filter execution requests by source name', async () => {
+  test('filter execution requests by source name', { tag: [DomainTag.Ingestion] }, async () => {
     await ingestionPage.runHistoryTab.open();
     await ingestionPage.runHistoryTab.filterBySource(FILTER_SOURCE_1);
 
@@ -68,18 +72,22 @@ test.describe('run history tab in manage data sources', () => {
     await ingestionPage.runHistoryTab.expectExecutionRowHidden(FILTER_EXEC_2_URN);
   });
 
-  test('keep the run history filters after returning from run details', async ({ page }) => {
-    await ingestionPage.runHistoryTab.open();
-    await ingestionPage.runHistoryTab.filterBySource(FILTER_SOURCE_1);
-    await ingestionPage.runHistoryTab.expectExecutionRowHidden(FILTER_EXEC_2_URN);
-    const filteredUrl = page.url();
+  test(
+    'keep the run history filters after returning from run details',
+    { tag: [DomainTag.Ingestion] },
+    async ({ page }) => {
+      await ingestionPage.runHistoryTab.open();
+      await ingestionPage.runHistoryTab.filterBySource(FILTER_SOURCE_1);
+      await ingestionPage.runHistoryTab.expectExecutionRowHidden(FILTER_EXEC_2_URN);
+      const filteredUrl = page.url();
 
-    await ingestionPage.runHistoryTab.openRunDetails(FILTER_EXEC_1_URN);
-    await expect(ingestionPage.runHistoryTab.backBreadcrumb).toHaveText('Run history');
-    await ingestionPage.runHistoryTab.backBreadcrumb.click();
+      await ingestionPage.runHistoryTab.openRunDetails(FILTER_EXEC_1_URN);
+      await expect(ingestionPage.runHistoryTab.backBreadcrumb).toHaveText('Run history');
+      await ingestionPage.runHistoryTab.backBreadcrumb.click();
 
-    await expect(page).toHaveURL(filteredUrl);
-    await ingestionPage.runHistoryTab.expectExecutionRowVisible(FILTER_EXEC_1_URN);
-    await ingestionPage.runHistoryTab.expectExecutionRowHidden(FILTER_EXEC_2_URN);
-  });
+      await expect(page).toHaveURL(filteredUrl);
+      await ingestionPage.runHistoryTab.expectExecutionRowVisible(FILTER_EXEC_1_URN);
+      await ingestionPage.runHistoryTab.expectExecutionRowHidden(FILTER_EXEC_2_URN);
+    },
+  );
 });

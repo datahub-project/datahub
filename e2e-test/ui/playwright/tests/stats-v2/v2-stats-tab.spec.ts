@@ -21,6 +21,7 @@ import {
   getDatasetMockWithProfile,
 } from '../../factories/mock-responses/stats';
 import { TEST_DATASET_URN } from '../../pages/stats-v2/stats.constants';
+import { DomainTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'stats-v2' });
 
@@ -31,40 +32,50 @@ test.describe('Stats Tab V2 - Tab Enable/Disable State', () => {
     statsPage = new StatsTabPage(page, logger, logDir);
   });
 
-  test('should be disabled when entity has no latestFullTableProfile, latestPartitionProfile or usageStats', async ({
-    apiMock,
-  }) => {
-    await apiMock.mockGraphQL('getDataset', { dataset: getMinimalDatasetMock(TEST_DATASET_URN) });
-    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
+  test(
+    'should be disabled when entity has no latestFullTableProfile, latestPartitionProfile or usageStats',
+    { tag: [DomainTag.Catalog] },
+    async ({ apiMock }) => {
+      await apiMock.mockGraphQL('getDataset', { dataset: getMinimalDatasetMock(TEST_DATASET_URN) });
+      await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
-    await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'true');
-  });
+      await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'true');
+    },
+  );
 
-  test('should be enabled when entity has latestFullTableProfile', async ({ apiMock }) => {
-    const timestamp = Date.now();
-    await apiMock.mockGraphQL('getDataset', {
-      dataset: getDatasetMockWithProfile(TEST_DATASET_URN, timestamp),
-    });
+  test(
+    'should be enabled when entity has latestFullTableProfile',
+    { tag: [DomainTag.Catalog] },
+    async ({ apiMock }) => {
+      const timestamp = Date.now();
+      await apiMock.mockGraphQL('getDataset', {
+        dataset: getDatasetMockWithProfile(TEST_DATASET_URN, timestamp),
+      });
 
-    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
-    await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'false');
-  });
+      await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
+      await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'false');
+    },
+  );
 
-  test('should be enabled when entity has latestPartitionProfile', async ({ apiMock }) => {
-    const timestamp = Date.now();
-    const profile = getSampleProfile(timestamp);
-    await apiMock.mockGraphQL('getDataset', {
-      dataset: {
-        ...getMinimalDatasetMock(TEST_DATASET_URN),
-        latestPartitionProfile: [profile],
-      },
-    });
+  test(
+    'should be enabled when entity has latestPartitionProfile',
+    { tag: [DomainTag.Catalog] },
+    async ({ apiMock }) => {
+      const timestamp = Date.now();
+      const profile = getSampleProfile(timestamp);
+      await apiMock.mockGraphQL('getDataset', {
+        dataset: {
+          ...getMinimalDatasetMock(TEST_DATASET_URN),
+          latestPartitionProfile: [profile],
+        },
+      });
 
-    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
-    await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'false');
-  });
+      await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
+      await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'false');
+    },
+  );
 
-  test('should be enabled when entity has usageStats', async ({ apiMock }) => {
+  test('should be enabled when entity has usageStats', { tag: [DomainTag.Catalog] }, async ({ apiMock }) => {
     const timestamp = Date.now();
     const usageStats = getSampleUsageStats(timestamp);
     await apiMock.mockGraphQL('getDataset', {
@@ -92,7 +103,7 @@ test.describe('Stats Tab V2 - Tab Interaction', () => {
     });
   });
 
-  test('should be clickable', async () => {
+  test('should be clickable', { tag: [DomainTag.Catalog] }, async () => {
     await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
     await statsPage.clickStatsTab();
 

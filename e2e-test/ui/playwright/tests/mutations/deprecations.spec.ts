@@ -11,12 +11,13 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
+import { DomainTag } from '../../utils/test-tags';
 
 const URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)';
 const DATASET_NAME = 'cypress_logging_events';
 
 test.describe.skip('dataset deprecation', () => {
-  test('go to dataset and check deprecation works', async ({ page, logger }) => {
+  test('go to dataset and check deprecation works', { tag: [DomainTag.Catalog] }, async ({ page, logger }) => {
     logger.step('navigate to dataset', { urn: URN });
     await page.goto(`/dataset/${encodeURIComponent(URN)}/`);
     await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
