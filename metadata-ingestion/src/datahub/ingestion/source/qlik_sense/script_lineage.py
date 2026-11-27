@@ -72,7 +72,7 @@ VARIABLE_RE = re.compile(
     r"^(?P<kind>SET|LET)\s+(?P<name>[^\s=]+)\s*=(?P<value>.*)$",
     re.IGNORECASE | re.DOTALL,
 )
-EXPRESSION_NAME_RE = re.compile(r"[^\W\d]\w*")
+BARE_NAME_RE = re.compile(r"[^\W\d]\w*")
 STRING_LITERAL_RE = re.compile(r"'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"")
 VARIABLE_REFERENCE_RE = re.compile(r"\$\((?P<name>[^()=]+)\)")
 # A label can be a variable the parser can't expand, kept as `$(name)`.
@@ -884,7 +884,7 @@ class _ControlFlowTracker(BaseModel):
         }
         if is_expression:
             # A LET expression can read a variable by its bare name.
-            names.update(EXPRESSION_NAME_RE.findall(STRING_LITERAL_RE.sub("", value)))
+            names.update(BARE_NAME_RE.findall(STRING_LITERAL_RE.sub("", value)))
         return not names.isdisjoint(self.state.unknown)
 
 
