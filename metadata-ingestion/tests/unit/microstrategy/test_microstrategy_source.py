@@ -4465,6 +4465,7 @@ class _MetricModelClient:
 
 class _SemanticModelLineageContext:
     warehouse_context = None
+    table_context_resolver = None
 
     def model_tables_retrying_failure(self) -> List[Dict[str, object]]:
         return [
