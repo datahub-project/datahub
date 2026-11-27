@@ -42,6 +42,10 @@ If you read these children through the API, request them in pages and keep going
 
 - **(Ingestion / Snowflake)** The Snowflake source now includes `'INTERACTIVE TABLE'` in the default `table_types` set, so interactive tables are discovered and ingested as datasets with subtype `Interactive Table` on a default recipe. Recipes that set `table_types` explicitly are unchanged. **Action:** none required. To keep interactive tables out of ingestion, set `table_types` to a set that omits `'INTERACTIVE TABLE'` (for example `BASE TABLE` and `EXTERNAL TABLE` only).
 
+### dbt Cloud test results carry the time the test ran ([#21688](https://github.com/datahub-project/datahub/pull/21688))
+
+- **(Ingestion / dbt)** The dbt Cloud source now stamps each assertion result with the time the dbt test ran (the Discovery API's `executeStartedAt`, or `runGeneratedAt` when that is missing), as the dbt Core source already does. Before, it used the ingestion time, so every ingestion of the same dbt Cloud run added another result to each assertion's history. A test result for which the Discovery API returns neither time is no longer emitted; it is listed under `test_results_missing_execution_time` in the ingestion report, with a warning. **Action:** none for most users. Results already ingested keep their ingestion-time stamps, including the duplicates.
+
 ### Remote executor logs ingestion run output ([#21529](https://github.com/datahub-project/datahub/pull/21529))
 
 The remote executor copies each run's output into its container log (`DATAHUB_EXECUTOR_PRINT_SUBPROCESS_LOGS`, default `true`). To turn it off, set:

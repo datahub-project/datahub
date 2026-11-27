@@ -5773,9 +5773,6 @@ def _ingest_dbt_cloud_test_result(
     }
 
     def graphql_response(query: str, **kwargs: Any) -> Dict[str, Any]:
-        if "DatahubMetadataQuery_tests(" in query:
-            # The timing fields only reach the source if the query selects them.
-            assert "executeStartedAt" in query and "runGeneratedAt" in query
         for node_type in dbt_cloud._DBT_FIELDS_BY_TYPE:
             if f"DatahubMetadataQuery_{node_type}(" in query:
                 return {"job": {node_type: nodes_by_type.get(node_type, [])}}
@@ -5800,7 +5797,7 @@ def _ingest_dbt_cloud_test_result(
     with (
         mock.patch.object(
             DBTCloudSource, "_send_graphql_query", side_effect=graphql_response
-        ),
+        ) as mock_send,
         mock.patch.object(dbt_cloud, "datetime", _FrozenDatetime),
     ):
         run_events = [
@@ -5809,6 +5806,15 @@ def _ingest_dbt_cloud_test_result(
             if isinstance(wu.metadata, MetadataChangeProposalWrapper)
             and isinstance(wu.metadata.aspect, AssertionRunEventClass)
         ]
+
+    # The timing fields only reach the source if the tests query selects them.
+    (tests_query,) = [
+        call.kwargs["query"]
+        for call in mock_send.call_args_list
+        if "DatahubMetadataQuery_tests(" in call.kwargs["query"]
+    ]
+    assert "executeStartedAt" in tests_query
+    assert "runGeneratedAt" in tests_query
     return run_events, source.report
 
 
