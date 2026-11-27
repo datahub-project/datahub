@@ -11,6 +11,7 @@ import requests
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.emit_mode import EmitMode
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.microstrategy import spill_cache
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
     MicroStrategyAuthError,
@@ -1186,8 +1187,7 @@ def test_fetch_project_model_tables_requests_logical_table_information() -> None
 
 
 def test_fetch_project_model_tables_unrecognized_payload_is_a_failed_fetch() -> None:
-    # An empty list would read as a project with no logical tables and let
-    # stale-entity removal soft-delete the semantic model.
+    # [] would let stale removal soft-delete the semantic model.
     source = _source({"extract_model_lineage": True})
 
     class FakeClient:
@@ -1310,8 +1310,7 @@ class _FlakyModelTablesClient:
 
 
 def test_semantic_model_retries_a_failed_model_tables_fetch() -> None:
-    # The first fetch happens when the first dashboard needs lineage; one
-    # slow answer there used to drop the whole semantic model hours later.
+    # The first fetch is hours earlier; one failure used to drop the semantic model.
     source = _source({"emit_semantic_model_entities": True})
     client = _FlakyModelTablesClient()
     source.client = client  # type: ignore[assignment]
@@ -1323,18 +1322,23 @@ def test_semantic_model_retries_a_failed_model_tables_fetch() -> None:
 
     assert tables is not None and len(tables) == 1
     assert client.model_table_calls == 2
-    # A successful fetch is not repeated.
     assert lineage_context.model_tables_retrying_failure() == tables
     assert client.model_table_calls == 2
 
 
-def test_semantic_model_runs_after_the_project_caches_are_released() -> None:
+def test_semantic_model_keeps_metric_models_but_not_report_caches() -> None:
     source = _source({"emit_semantic_model_entities": True})
-    source._metric_model_cache[("project-1", "metric-1")] = {}
-    caches_at_emit: List[int] = []
+    source._metric_model_cache.put("project-1:METRIC-1", {"id": "metric-1"})
+    source._report_sql_cache.put("project-1:REPORT-1", "select 1")
+    caches_at_emit: List[Tuple[bool, bool]] = []
 
     def fake_emit(**kwargs: Any) -> Iterator[Any]:
-        caches_at_emit.append(len(source._metric_model_cache))
+        caches_at_emit.append(
+            (
+                "project-1:METRIC-1" in source._metric_model_cache,
+                "project-1:REPORT-1" in source._report_sql_cache,
+            )
+        )
         return iter([])
 
     class FakeLineageContext:
@@ -1342,6 +1346,7 @@ def test_semantic_model_runs_after_the_project_caches_are_released() -> None:
             return [{"physicalTable": {"tableName": "T1"}}]
 
         warehouse_context = None
+        table_context_resolver = None
 
     with mock.patch(
         "datahub.ingestion.source.microstrategy.source."
@@ -1354,21 +1359,18 @@ def test_semantic_model_runs_after_the_project_caches_are_released() -> None:
                 FakeLineageContext(),  # type: ignore[arg-type]
             )
         )
-    # The project boundary releases again; that must not count twice.
     source._reset_project_caches()
 
-    assert caches_at_emit == [0]
+    assert caches_at_emit == [(True, False)]
+    assert "project-1:METRIC-1" not in source._metric_model_cache
     assert source.report.cache_project_resets == 1
 
 
 @pytest.mark.parametrize(
     "model_tables, expect_failure",
     [
-        # The fetch failed: reported as a failure so stateful ingestion skips
-        # stale-entity removal instead of soft-deleting the previous run's
-        # semantic model, logical datasets and metrics.
+        # A warning here lets stale removal soft-delete the semantic model.
         (None, True),
-        # A project with no logical tables is not an error.
         ([], False),
     ],
 )
@@ -2331,8 +2333,7 @@ def test_every_sql_view_failing_raises_one_loud_warning(
 def test_all_failed_warning_counts_reused_failed_sql_views(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # One report shared by two documents: its SQL fails once and the second
-    # document reuses the cached failure, which must still count as failed.
+    # A cached failure must still count as failed for the second document.
     source = _source()
     _fail_parses(monkeypatch, fail_first_n=2)
     for _ in range(2):
@@ -3631,7 +3632,6 @@ def test_shared_report_sql_is_parsed_once_and_dashboards_are_timed() -> None:
     _run_dashboards(source)
 
     report = source.report
-    # One fetch, one parse; the second document is served from both caches.
     assert report.report_sql_fetched == 1
     assert report.sql_parses_executed == 1
     assert report.sql_parse_cache_hits == 1
@@ -3649,16 +3649,16 @@ def test_project_caches_are_dropped_at_the_project_boundary() -> None:
     client = _DocumentClient(documents={"doc-1": ["rep-1"]})
     source.client = client  # type: ignore[assignment]
     _run_dashboards(source)
-    source._metric_model_cache[("project-1", "metric-1")] = {}
+    source._metric_model_cache.put("project-1:METRIC-1", {})
 
     source._reset_project_caches()
     _run_dashboards(source)
 
-    # The report is read and parsed again for the next project, not served
-    # from the previous one.
+    # Caches are per project.
     assert client.report_instances_created == ["rep-1", "rep-1"]
     assert source.report.sql_parses_executed == 2
-    assert source._metric_model_cache == {}
+    assert source._metric_model_cache.entry_count == 0
+    assert source.report.cache_entries_peak["metric_model"] == 1
     assert source.report.cache_project_resets == 1
     assert source.report.cache_entries_peak["report_sql"] == 1
     assert source.report.cache_entries_peak["sql_parse"] == 1
@@ -3952,12 +3952,8 @@ def test_chapter_page_structured_property_definitions_sync_through_graph() -> No
     assert len(_structured_property_values(workunits)) == 2
 
 
+# A dossier and a document (or second dossier) share report "ds-shared"; one more report is unused.
 class _SharedReportClient:
-    """Two dashboards that both embed one grid report ("ds-shared"): a dossier
-    whose visualization reads it and, by default, a Report Services document
-    (else a second dossier, for the SQL-view path). The report library holds
-    that report plus one no dashboard uses."""
-
     def __init__(self, second: str = "document", with_sql: bool = False) -> None:
         self.second = second
         self.with_sql = with_sql
@@ -4179,8 +4175,6 @@ def _per_report_source(
 ) -> MicroStrategySource:
     config: Dict[str, Any] = {
         "dataset_identity": "per_report",
-        # The fake clients serve no predefined folders; folder labels are
-        # covered by their own tests.
         "use_predefined_folder_names": False,
         "extract_warehouse_lineage": False,
         "extract_visualization_details": False,
@@ -4229,7 +4223,6 @@ def test_per_report_shared_report_is_one_dataset_linked_from_both_dashboards() -
     assert shared.externalUrl == (
         "https://mstr.example.com/MicroStrategyLibrary/app/project-1/ds-shared"
     )
-    # The dossier's visualization and the document both link to that one entity.
     charts = _aspects_by_urn(workunits, ChartInfoClass)
     assert [chart.inputs for chart in charts.values()] == [[_SHARED_URN]]
     dashboards = _aspects_by_urn(workunits, DashboardInfoClass)
@@ -4238,7 +4231,6 @@ def test_per_report_shared_report_is_one_dataset_linked_from_both_dashboards() -
     assert [edge.destinationUrn for edge in document.datasetEdges] == [_SHARED_URN]
     dossier = dashboards[source.mapper.dashboard_urn("project-1", "dash-1")]
     assert dossier.datasetEdges is None
-    # Filed under the report's own folder, owned by the report's owner.
     own_folder = source.mapper.folder_key(
         "project-1", "Shared Reports/Salon Retail Sales"
     ).as_urn()
@@ -4248,7 +4240,7 @@ def test_per_report_shared_report_is_one_dataset_linked_from_both_dashboards() -
     assert source.report.reports_deduplicated == 1
     assert source.report.report_datasets_emitted == 1
     assert source.report.datasets_scanned == 1
-    # One object lookup serves both dashboards and the emission.
+    # One object lookup serves both dashboards.
     assert source.report.dataset_object_lookups == 1
 
 
@@ -4291,8 +4283,7 @@ def test_per_report_report_pass_upgrades_schema_and_emits_no_chart() -> None:
     )
     properties = _aspects_by_urn(workunits, DatasetPropertiesClass)
     assert sorted(properties) == [_SHARED_URN, solo_urn]
-    # The shared report keeps its one entity; its schema and description now
-    # come from the report's own definition rather than the dossier's copy.
+    # The report's own definition replaces the dossier's copy of the schema.
     schemas = _aspects_by_urn(workunits, SchemaMetadataClass)
     assert [f.fieldPath for f in schemas[_SHARED_URN].fields] == [
         "Gross Sales Amt",
@@ -4304,7 +4295,6 @@ def test_per_report_report_pass_upgrades_schema_and_emits_no_chart() -> None:
     assert shared.customProperties["microstrategyReportPromptCount"] == "1"
     assert shared.customProperties["microstrategyReportSourceId"] == "cube-1"
     assert shared.customProperties["microstrategyReportSourceName"] == "Sales Cube"
-    # The independent report is the same kind of entity, under its own folder.
     solo = properties[solo_urn]
     assert solo.customProperties["microstrategyDashboardCount"] == "0"
     assert "microstrategyDashboardIds" not in solo.customProperties
@@ -4315,8 +4305,7 @@ def test_per_report_report_pass_upgrades_schema_and_emits_no_chart() -> None:
         _dataset_container_parents(workunits)[solo_urn]
         == source.mapper.folder_key("project-1", "Shared Reports/Ad Hoc").as_urn()
     )
-    # No `Report` chart, and no report-scoped source dataset: the only chart
-    # is the dossier's visualization.
+    # The Report chart was a second copy of the report.
     assert list(_aspects_by_urn(workunits, ChartInfoClass)) == [
         source.mapper.chart_urn("project-1", "dash-1", "viz-dash-1")
     ]
@@ -4342,8 +4331,7 @@ def test_per_report_extract_cubes_off_still_emits_report_pass_datasets() -> None
 
     workunits = list(source._process_project(_PROJECT))
 
-    # Both reports were seen by the report pass, so both are emitted; the
-    # visualization still points at the shared one.
+    # The report pass emits both, including the one no dashboard embeds.
     assert len(_aspects_by_urn(workunits, DatasetPropertiesClass)) == 2
     source = _per_report_source({"extract_cubes": False})
     source.client = _SharedReportClient()  # type: ignore[assignment]
@@ -4365,8 +4353,7 @@ def test_per_report_parses_a_shared_report_sql_view_once() -> None:
     ) as parse:
         workunits = list(source._process_project(_PROJECT))
 
-    # Each dossier execution still yields its SQL view, but the shared
-    # report's SQL is parsed for the first dossier only.
+    # The shared report's SQL is parsed for the first dossier only.
     assert client.sql_view_reads == ["dash-1", "dash-2"]
     assert parse.call_count == 1
     lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
@@ -4397,8 +4384,7 @@ def test_per_report_report_pass_does_not_execute_a_report_a_dossier_settled() ->
     ) as parse:
         workunits = list(source._process_project(_PROJECT))
 
-    # The dossier's SQL view settled ds-shared, so the report pass opens an
-    # instance (an execution) only for the report no dashboard embeds.
+    # The report pass executes only the report no dashboard already settled.
     assert client.report_instances == ["report-solo"]
     assert parse.call_count == 2
     lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
@@ -4431,3 +4417,314 @@ def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
     assert seen_during_run == [len(filters_before) + 1]
     assert sqlglot_logger.filters == filters_before
     assert source.report.peak_rss_mb is not None
+
+
+# One metric's model endpoint always fails.
+class _MetricModelClient:
+    def __init__(self) -> None:
+        self.metric_model_calls: List[str] = []
+
+    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        self.metric_model_calls.append(metric_id)
+        if metric_id.upper() == "M-BROKEN":
+            raise MicroStrategyAPIError("404 Not Found", status_code=404)
+        return {"expression": {"text": f"Sum({metric_id})"}}
+
+    def search_metrics(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            MicroStrategyObject.model_validate({"id": metric_id, "name": metric_id})
+            for metric_id in ("m-net", "M-BROKEN", "M-CATALOG")
+        )
+
+
+class _SemanticModelLineageContext:
+    warehouse_context = None
+    table_context_resolver = None
+
+    def model_tables_retrying_failure(self) -> List[Dict[str, object]]:
+        return [
+            {
+                "physicalTable": {"tableName": "T1"},
+                "facts": [{"information": {"objectId": "F1", "name": "Revenue"}}],
+            }
+        ]
+
+
+def test_semantic_model_reuses_metric_models_from_dashboard_enrichment() -> None:
+    source = _source({"emit_semantic_model_entities": True})
+    client = _MetricModelClient()
+    source.client = client  # type: ignore[assignment]
+    dataset = DatasetObject.model_validate(
+        {
+            "id": "ds-1",
+            "name": "Sales Cube",
+            "availableObjects": {
+                "metrics": [
+                    {"id": "M-NET", "name": "Net Sales"},
+                    {"id": "M-BROKEN", "name": "Broken"},
+                ]
+            },
+        }
+    )
+
+    source._enrich_dataset_metric_expressions("project-1", dataset)
+    source._enrich_dataset_metric_expressions("project-1", dataset)
+    workunits = list(
+        source._process_project_semantic_model(
+            _PROJECT,
+            _SemanticModelLineageContext(),  # type: ignore[arg-type]
+        )
+    )
+
+    # M-NET is fetched once for both passes; the failed M-BROKEN is retried by
+    # the semantic model and still emitted without a model, and only the metric
+    # the dashboards never saw is new.
+    assert client.metric_model_calls == ["M-NET", "M-BROKEN", "M-BROKEN", "M-CATALOG"]
+    assert not source.report.failures
+    assert "MicroStrategy Metric Model Unavailable" in {
+        warning.title for warning in source.report.warnings
+    }
+    assert source.report.semantic_model_metrics_emitted == 3
+    metric_urns = {
+        workunit.get_urn()
+        for workunit in workunits
+        if workunit.get_urn().startswith("urn:li:metric:")
+    }
+    assert metric_urns == {
+        "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,M-NET)",
+        "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,M-BROKEN)",
+        "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,M-CATALOG)",
+    }
+
+
+class _ObjectInfoClient(_ReportSearchClient):
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> MicroStrategyObject:
+        self.object_info_calls.append(object_id)
+        return MicroStrategyObject.model_validate(
+            {"id": object_id, "name": object_id, "type": "3", "subtype": "768"}
+        )
+
+    def get_report_object(self, project_id: str, report_id: str) -> MicroStrategyObject:
+        return self.get_object_info(project_id, report_id, 3)
+
+
+def test_report_object_lookups_are_shared_across_datasets_links_and_search() -> None:
+    source = _report_scope_source({"extract_independent_reports": True})
+    client = _ObjectInfoClient()
+    source.client = client  # type: ignore[assignment]
+
+    dataset_object = source._dataset_object_info("project-1", "report-9")
+    linked_object = source._linked_report_object("project-1", "REPORT-9")
+    list(
+        source._process_project_reports(
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+    searched_link = source._linked_report_object("project-1", "report-1")
+    searched_dataset = source._dataset_object_info("project-1", "REPORT-2")
+
+    # One lookup for the dataset and its link; searched reports need none.
+    assert client.object_info_calls == ["report-9"]
+    assert linked_object == dataset_object
+    assert searched_link is not None and searched_link.name == "Linked Report"
+    assert searched_dataset is not None and searched_dataset.name == "Unlinked Report"
+    assert source.report.dataset_object_lookups == 1
+
+
+def test_report_v2_definition_is_fetched_once_for_derived_metrics_and_reports() -> None:
+    source = _source(
+        {
+            "extract_warehouse_lineage": False,
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": False,
+            "extract_model_lineage": False,
+            "extract_reports": True,
+        }
+    )
+    client = _ModelEmptyClient()
+    source.client = client  # type: ignore[assignment]
+
+    _run_dashboards(source)
+    shared = source._get_report_definition(
+        "project-1",
+        MicroStrategyObject.model_validate(
+            {"id": "DS-SHARED", "name": "Retail Sales Yesterday"}
+        ),
+    )
+    other = source._get_report_definition(
+        "project-1",
+        MicroStrategyObject.model_validate({"id": "rep-2", "name": "Other"}),
+    )
+
+    # The derived-metric fallback's v2 payload serves the report pass too.
+    assert client.v2_calls == ["ds-shared", "rep-2"]
+    assert shared is not None and shared.available_objects
+    assert other is not None
+    assert source.report.report_definition_api_failures == 0
+
+
+def test_project_failure_still_closes_every_spill_cache() -> None:
+    source = _source()
+    created: List[Any] = []
+    real_factory = spill_cache.FileBackedDict
+
+    def recording_factory(*args: Any, **kwargs: Any) -> Any:
+        store = real_factory(*args, **kwargs)
+        created.append(store)
+        return store
+
+    def failing_project(project: Project) -> Iterator[Any]:
+        source._metric_model_cache.put("project-1:M-1", {})
+        source._report_object_cache.put("project-1:R-1", None)
+        source._report_sql_cache.put("project-1:R-1", "select 1")
+        source._report_v2_payload_cache.put("project-1:R-1", {})
+        source._report_derived_metric_cache.put("project-1:R-1", [])
+        source.lineage.warehouse_lineage_from_sql(
+            "select * from fact_sales",
+            WarehouseLineageContext(platform="snowflake", env="PROD"),
+            [],
+        )
+        raise RuntimeError("project blew up")
+        yield
+
+    with (
+        mock.patch.object(spill_cache, "FileBackedDict", side_effect=recording_factory),
+        mock.patch.object(source.client, "login"),
+        mock.patch.object(source.client, "close"),
+        mock.patch.object(source.client, "list_projects", return_value=[_PROJECT]),
+        mock.patch.object(source, "_process_project", side_effect=failing_project),
+    ):
+        assert list(source.get_workunits_internal()) == []
+
+    assert len(created) == 6
+    assert all(store.closed for store in created)
+    assert [failure.title for failure in source.report.failures] == [
+        "Failed to Process Project"
+    ]
+    assert source.report.cache_project_resets == 1
+    assert source.report.cache_entries_peak == {
+        "report_sql": 1,
+        "dataset_object": 1,
+        "report_derived_metric": 1,
+        "report_definition": 1,
+        "sql_parse": 1,
+        "metric_model": 1,
+    }
+
+
+def _mixed_warehouse_datasources() -> List[Datasource]:
+    return [
+        Datasource.model_validate(
+            {
+                "id": "AAA111",
+                "name": "oracle_ds",
+                "database": {"type": "oracle", "name": "ORA_DB", "schema": "ORA"},
+            }
+        ),
+        Datasource.model_validate(
+            {
+                "id": "BBB222",
+                "name": "snowflake_ds",
+                "database": {"type": "snow_flake", "name": "SNOW_DB", "schema": "SNOW"},
+            }
+        ),
+    ]
+
+
+def _model_table(name: str, fact_id: str, datasource_id: Optional[str]) -> dict:
+    table: dict = {
+        "information": {"objectId": f"logical-{fact_id}", "name": name},
+        "physicalTable": {"tableName": name},
+        "facts": [
+            {"information": {"objectId": fact_id}, "expression": {"text": "AMOUNT"}}
+        ],
+        "attributes": [],
+    }
+    if datasource_id:
+        table["primaryDataSource"] = {"objectId": datasource_id, "name": "ignored"}
+    return table
+
+
+class _ModelTablesClient:
+    def __init__(self, tables: List[dict]) -> None:
+        self.tables = tables
+        self.fields_requested: List[str] = []
+
+    def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
+        self.fields_requested.append(kwargs.get("fields", ""))
+        return ModelTablesResponse(tables=self.tables, total=len(self.tables))
+
+
+def test_mixed_warehouse_project_resolves_model_lineage_per_table() -> None:
+    source = _source({"extract_model_lineage": True})
+    client = _ModelTablesClient(
+        [
+            _model_table("ora_orders", "fact-1", "aaa111"),
+            _model_table("snow_orders", "fact-2", "BBB222"),
+            _model_table("unlinked_orders", "fact-3", None),
+            _model_table("unknown_orders", "fact-4", "ZZZ999"),
+        ]
+    )
+    source.client = client  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", _mixed_warehouse_datasources()
+    )
+
+    index = lineage_context.model_lineage_index
+
+    assert index is not None
+    assert lineage_context.warehouse_context is None
+    assert "primaryDataSource" in client.fields_requested[0]
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,"
+        "ora_db.ora.ora_orders,PROD),amount)"
+    ]
+    assert index.fact_field_urns(["fact-2"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "snow_db.snow.snow_orders,PROD),amount)"
+    ]
+    assert index.fact_field_urns(["fact-3", "fact-4"]) == []
+    assert source.report.model_tables_resolved_by_datasource == 2
+    assert source.report.model_tables_without_warehouse_context == 2
+
+
+def test_mixed_warehouse_project_warning_names_platforms_and_mapping() -> None:
+    source = _source({"extract_model_lineage": True})
+    source.client = _ModelTablesClient([])  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", _mixed_warehouse_datasources()
+    )
+
+    assert lineage_context.warehouse_context is None
+
+    warning = next(
+        w for w in source.report.warnings if "Several Source Warehouses" in str(w.title)
+    )
+    context = str(warning.context)
+    assert "project_id=project-1" in context
+    assert "oracle:1" in context
+    assert "snow_flake:1" in context
+    assert "datasource_platform_mapping" in str(warning.message)
+
+
+def test_single_warehouse_project_keeps_project_level_context() -> None:
+    source = _source({"extract_model_lineage": True})
+    client = _ModelTablesClient([_model_table("orders", "fact-1", None)])
+    source.client = client  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", _mixed_warehouse_datasources()[:1]
+    )
+
+    index = lineage_context.model_lineage_index
+
+    assert index is not None
+    assert lineage_context.table_context_resolver is None
+    assert client.fields_requested == ["information,physicalTable,attributes,facts"]
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,"
+        "ora_db.ora.orders,PROD),amount)"
+    ]
+    assert source.report.model_tables_without_warehouse_context == 0

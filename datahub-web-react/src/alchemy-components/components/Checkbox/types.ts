@@ -14,7 +14,7 @@ export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement
     onCheckboxChange?: (isChecked: boolean) => void;
     size?: SizeOptions;
     dataTestId?: string;
-    justifyContent?: 'center' | 'flex-start';
+    justifyContent?: 'center' | 'flex-start' | 'space-between';
     gap?: string;
     shouldHandleLabelClicks?: boolean;
 }

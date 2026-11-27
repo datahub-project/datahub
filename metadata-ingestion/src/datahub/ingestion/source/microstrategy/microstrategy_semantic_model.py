@@ -14,6 +14,7 @@ from datahub.ingestion.source.microstrategy.constants import MICROSTRATEGY_PLATF
 from datahub.ingestion.source.microstrategy.lineage import (
     AttributeRelationship,
     MicroStrategyLineageExtractor,
+    TableContextResolver,
     WarehouseLineageContext,
     coerce_dicts,
     consolidation_attribute_ids,
@@ -24,9 +25,14 @@ from datahub.ingestion.source.microstrategy.lineage import (
     object_id,
     parse_attribute_relationships,
     physical_table_name,
+    resolve_table_context,
 )
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import (
+    SpillCache,
+    object_cache_key,
+)
 from datahub.ingestion.source.microstrategy.telemetry import peak_rss_mb
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -65,17 +71,12 @@ _INVERT_CARDINALITY: Dict[str, str] = {
 
 _SEMANTIC_MODEL_ID = "schema"
 
-# Log semantic-model metric progress at least this often, by count, as well
-# as every progress_log_interval_seconds.
 _METRIC_PROGRESS_EVERY = 1000
 
 logger = logging.getLogger(__name__)
 
 
 class _MetricProgress:
-    """Progress lines for the per-metric model fetches, which in a large
-    project run for over an hour and otherwise log nothing at all."""
-
     def __init__(
         self,
         *,
@@ -94,7 +95,6 @@ class _MetricProgress:
         self.failed = 0
 
     def step(self) -> None:
-        """Count one metric as started, logging when an interval is due."""
         if self.done and (
             self.done % _METRIC_PROGRESS_EVERY == 0
             or time.perf_counter() - self._last_logged >= self._every_seconds
@@ -157,11 +157,14 @@ class MicroStrategySemanticModelMapper:
         report: MicroStrategyReport,
         client: MicroStrategyClient,
         lineage: MicroStrategyLineageExtractor,
+        metric_model_cache: Optional[SpillCache[Optional[Dict[str, object]]]] = None,
     ) -> None:
         self.config = config
         self.report = report
         self.client = client
         self.lineage = lineage
+        # A cached None is retried here, so the failure is reported against the metric.
+        self.metric_model_cache = metric_model_cache
 
     def emit(
         self,
@@ -171,6 +174,7 @@ class MicroStrategySemanticModelMapper:
         model_tables: List[Dict[str, object]],
         warehouse_context: Optional[WarehouseLineageContext],
         project_container_key: ContainerKey,
+        table_context_resolver: Optional[TableContextResolver] = None,
     ) -> Iterable[MetadataWorkUnit]:
         model_urn = str(
             SemanticModelUrn(
@@ -181,7 +185,7 @@ class MicroStrategySemanticModelMapper:
         )
 
         tables, fact_table_aliases, attribute_table_aliases = self._build_table_index(
-            model_tables, warehouse_context
+            model_tables, warehouse_context, table_context_resolver
         )
         if not tables:
             self.report.warning(
@@ -213,9 +217,7 @@ class MicroStrategySemanticModelMapper:
         yield from model.as_workunits()
         for dataset in datasets:
             yield from dataset.as_workunits()
-        # Metrics stream straight to the sink: a large project has tens of
-        # thousands, and holding them all until the last one is built kept
-        # every one of them in memory at once.
+        # Holding every metric until the last one doubled peak memory.
         metrics_emitted = 0
         for metric in self._metrics(
             project_id=project_id,
@@ -276,6 +278,7 @@ class MicroStrategySemanticModelMapper:
         self,
         model_tables: List[Dict[str, object]],
         warehouse_context: Optional[WarehouseLineageContext],
+        table_context_resolver: Optional[TableContextResolver] = None,
     ) -> Tuple[List[_TableInfo], Dict[str, Set[str]], Dict[str, Set[str]]]:
         tables: List[_TableInfo] = []
         fact_table_aliases: Dict[str, Set[str]] = {}
@@ -285,7 +288,10 @@ class MicroStrategySemanticModelMapper:
             physical_table = table.get("physicalTable")
             if not isinstance(physical_table, dict):
                 continue
-            physical_alias = self._table_alias(physical_table, warehouse_context)
+            table_context = resolve_table_context(
+                table, warehouse_context, table_context_resolver
+            )
+            physical_alias = self._table_alias(physical_table, table_context)
             if not physical_alias:
                 continue
             # The logical table (this `table` entry's own "information" block,
@@ -302,8 +308,8 @@ class MicroStrategySemanticModelMapper:
             )
             alias = self._dataset_alias(logical_information, physical_alias)
             warehouse_urn = (
-                self.lineage.warehouse_dataset_urn(warehouse_context, physical_alias)
-                if warehouse_context is not None
+                self.lineage.warehouse_dataset_urn(table_context, physical_alias)
+                if table_context is not None
                 else None
             )
 
@@ -634,14 +640,7 @@ class MicroStrategySemanticModelMapper:
         try:
             metric_objects = list(self.client.search_metrics(project_id))
         except MicroStrategyAPIError as error:
-            # Metric discovery is a separate API call from the tables fetch
-            # that already succeeded by the time this runs; losing it must
-            # not take the structural semantic-model entities (the model and
-            # its logical datasets, already built by the caller) down with
-            # it, so this degrades to "no metrics" rather than propagating.
-            # It is reported as a failure, not a warning: stateful ingestion
-            # skips stale-entity removal only on a source failure, and would
-            # otherwise soft-delete every metric the previous run emitted.
+            # A warning would let stale removal delete every metric.
             self.report.report_semantic_model_metric_search_api_failure()
             self.report.failure(
                 title="MicroStrategy Metric Search Unavailable",
@@ -664,24 +663,23 @@ class MicroStrategySemanticModelMapper:
             progress.step()
             metric_id = normalize_object_id(metric_object.id)
             try:
-                model = self.client.get_metric_model(project_id, metric_object.id)
+                model = self._metric_model(project_id, metric_object.id)
             except MicroStrategyAPIError as error:
                 progress.failed += 1
                 self.report.report_metric_expression_api_failure()
                 self.report.report_failed_metric_model(metric_object.id)
-                # A failure, not a warning: a skipped metric is soft-deleted by
-                # stale-entity removal unless the run is marked failed.
-                self.report.failure(
+                # Deterministic 500s; failing the run skips stale removal forever.
+                self.report.warning(
                     title="MicroStrategy Metric Model Unavailable",
                     message=(
-                        "Skipping this metric for the semantic model; its "
-                        "expression could not be fetched. Stale-entity removal "
-                        "is skipped for this run so the previous metric is kept."
+                        "Emitting this metric without an expression or upstream "
+                        "lineage; its model could not be fetched."
                     ),
                     context=f"project_id={project_id}, metric_id={metric_object.id}",
                     exc=error,
+                    log=False,
                 )
-                continue
+                model = {}
 
             upstream_aliases: Set[str] = set()
             for fact_id in metric_fact_ids_from_model(model):
@@ -737,6 +735,16 @@ class MicroStrategySemanticModelMapper:
                 derived_from=derived_from,
             )
         progress.log()
+
+    def _metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
+        # Last pass to need a model, so a fetch here is not written back.
+        if self.metric_model_cache is not None:
+            cached = self.metric_model_cache.get(
+                object_cache_key(project_id, metric_id)
+            )
+            if cached is not None:
+                return cached
+        return self.client.get_metric_model(project_id, metric_id)
 
     def _resolve_consolidation(
         self,

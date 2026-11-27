@@ -22,7 +22,7 @@ function createTestId() {
 }
 
 test.describe('create and manage group', () => {
-  test('create a simple group', async ({ page, cleanup }) => {
+  test('create a simple group', { tag: [DomainTag.Catalog] }, async ({ page, cleanup }) => {
     const testId = createTestId();
     const groupName = `Test Group ${testId}`;
 
@@ -32,7 +32,7 @@ test.describe('create and manage group', () => {
     await groupsPage.deleteGroup(groupName);
   });
 
-  test('create group and update group info', async ({ page, cleanup }) => {
+  test('create group and update group info', { tag: [DomainTag.Catalog] }, async ({ page, cleanup }) => {
     const testId = createTestId();
     const groupName = `Test Group ${testId}`;
     const newName = `Updated Group ${testId}`;
@@ -51,7 +51,7 @@ test.describe('create and manage group', () => {
     await groupsPage.deleteGroup(newName);
   });
 
-  test('create group and edit description', async ({ page, cleanup }) => {
+  test('create group and edit description', { tag: [DomainTag.Catalog] }, async ({ page, cleanup }) => {
     const testId = createTestId();
     const groupName = `Test Group ${testId}`;
     const description = 'Initial description';
@@ -69,7 +69,7 @@ test.describe('create and manage group', () => {
     await groupsPage.deleteGroup(groupName);
   });
 
-  test('create group and add owner', async ({ page, cleanup }) => {
+  test('create group and add owner', { tag: [DomainTag.Catalog] }, async ({ page, cleanup }) => {
     const testId = createTestId();
     const groupName = `Test Group ${testId}`;
 

@@ -589,11 +589,6 @@ class MicroStrategyMapper:
         report_definition: Optional[ReportDefinition] = None,
         fingerprint: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """The one dataset entity a MicroStrategy report is under
-        dataset_identity=per_report: the report object itself, however many
-        dashboards embed it and whether or not the report pass saw it. The
-        first dashboard that used it is the fallback a cube's URL links to.
-        The report's owner lands here, since no `Report` chart carries it."""
         first_dashboard_id = dashboard_ids[0] if dashboard_ids else None
         custom_properties = self._report_dataset_custom_properties(
             project_id=project_id,
@@ -612,15 +607,13 @@ class MicroStrategyMapper:
             dataset=dataset,
             parent_key=parent_key,
             custom_properties=custom_properties,
-            include_coarse_lineage=(
-                self.config.extract_warehouse_lineage
-                or self.config.extract_report_sql_lineage
-            ),
+            include_coarse_lineage=self._report_dataset_lineage_enabled(),
             external_url=self.dataset_external_url(
                 project_id, first_dashboard_id, dataset, dataset_object
             ),
             sub_type=self.dataset_sub_type(dataset_object),
         )
+        # No `Report` chart carries the report's owner under per_report.
         if self.config.ingest_owner and dataset_object and dataset_object.owner:
             yield self._ownership_workunit(
                 self.lineage.dataset_urn(project_id, first_dashboard_id, dataset),
@@ -1409,8 +1402,7 @@ class MicroStrategyMapper:
             DatasetUsageStatisticsClass,
         ]
         if entity_kind == USAGE_TARGET_DATASET:
-            # A report dataset (dataset_identity=per_report): the Platform
-            # Analytics execution count is the closest thing to a query count.
+            # per_report has no query log; the execution count is the closest query count.
             aspect = DatasetUsageStatisticsClass(
                 timestampMillis=bucket.bucket_start_ms,
                 eventGranularity=granularity,
@@ -1676,10 +1668,6 @@ class MicroStrategyMapper:
         dashboard_ids: Sequence[str],
         report_definition: Optional[ReportDefinition],
     ) -> Dict[str, str]:
-        """Properties of a per-report dataset: which dashboards use it (in the
-        order seen), what the report pass learned from its definition when it
-        fetched one, and the same semantic, lineage and warehouse summaries a
-        dashboard-scoped dataset carries."""
         properties = {
             "microstrategyProjectId": project_id,
             "microstrategyReportId": dataset.id,
@@ -1701,16 +1689,19 @@ class MicroStrategyMapper:
                     report_definition.source_name
                 )
         properties.update(_dataset_semantic_count_properties(dataset))
-        if (
-            self.config.extract_warehouse_lineage
-            or self.config.extract_report_sql_lineage
-        ) and dataset.warehouse_upstream_urns:
+        if self._report_dataset_lineage_enabled() and dataset.warehouse_upstream_urns:
             properties.update(
                 _warehouse_upstream_properties(dataset.warehouse_upstream_urns)
             )
         properties.update(_model_lineage_properties(dataset))
         properties.update(self._source_warehouse_properties(dataset.source_warehouse))
         return properties
+
+    def _report_dataset_lineage_enabled(self) -> bool:
+        return (
+            self.config.extract_warehouse_lineage
+            or self.config.extract_report_sql_lineage
+        )
 
     def _report_source_dataset_custom_properties(
         self,
@@ -2444,8 +2435,6 @@ def _dataset_semantic_count_properties(dataset: DatasetObject) -> Dict[str, str]
 
 
 def _model_lineage_properties(dataset: DatasetObject) -> Dict[str, str]:
-    """Field-level lineage summary: how many fields have warehouse upstreams
-    and how many upstream fields and tables feed them. Empty without any."""
     if not dataset.field_warehouse_upstreams:
         return {}
     upstream_field_urns = {

@@ -158,6 +158,9 @@
     "users.ssoTitle": "シングルサインオン（SSO）の設定",
     "welcome.docsLink": "DataHubドキュメント",
     "welcome.getStarted": "始める",
+    "welcome.githubRepoDescription": "データとAIスタックのためのメタデータプラットフォーム",
+    "welcome.githubStargazers": "DataHubにスターを付けた{{stars}}人の開発者に加わりましょう",
+    "welcome.githubStargazersNoCount": "GitHubでDataHubにスターを付けてみませんか？",
     "welcome.loadingVideo": "動画を読み込み中...",
     "welcome.modalTitle": "DataHubへようこそ",
     "welcome.slideDocsDescription": "発見しやすさを高めながら、手作業の時間を大幅に削減できます",
@@ -168,6 +171,8 @@
     "welcome.slideImpactTitle": "破壊的変更を安心して管理",
     "welcome.slideLineageDescription": "データがどのように作成・変換されたかを完全に把握できます",
     "welcome.slideLineageTitle": "データの起源を理解する",
+    "welcome.slideGithubDescription": "DataHubがチームの役に立っているなら、GitHubでスターを付けると、他のデータチームにもDataHubを見つけてもらいやすくなります。",
+    "welcome.slideGithubTitle": "気に入っていただけましたか?",
     "welcome.slideReadyDescription": "充実したドキュメントを確認するか、すぐにデータの探索を始められます",
     "welcome.slideReadyTitle": "始める準備はできましたか?"
 }

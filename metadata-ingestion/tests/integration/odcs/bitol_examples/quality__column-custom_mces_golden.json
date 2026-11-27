@@ -118,6 +118,7 @@
                 {
                     "fieldPath": "UniqueID",
                     "nullable": true,
+                    "description": "**Business name:** Unique identifier",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -244,6 +245,7 @@
                         {
                             "fieldPath": "UniqueID",
                             "nullable": true,
+                            "description": "**Business name:** Unique identifier",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.NumberType": {}

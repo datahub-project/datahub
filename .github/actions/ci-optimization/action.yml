@@ -52,7 +52,7 @@ outputs:
     description: "Playwright E2E test code has changed"
     value: ${{ steps.filter.outputs.playwright-test == 'true' || steps.trigger.outputs.trigger == 'manual' }}
   pytest-workflow-change:
-    description: "Pytest job wiring has changed (docker-unified.yml or an action pytest_tests uses)"
+    description: "Pytest job wiring has changed (e2e-tests.yml, docker-unified.yml or an action pytest_tests uses)"
     value: ${{ steps.filter.outputs.pytest-workflow == 'true' }}
   embedding-ai-change:
     description: "Local embedding provider / semantic search code has changed"
@@ -150,7 +150,10 @@ runs:
           # Wiring for the pytest smoke jobs. smoke_test_matrix opens the
           # active-mode canary on this; it is not a product change.
           pytest-workflow:
+            - ".github/workflows/e2e-tests.yml"
             - ".github/workflows/docker-unified.yml"
+            - ".github/workflows/docker-free-e2e.yml"
+            - ".github/actions/docker-free-stack/**"
             - ".github/actions/ci-optimization/**"
             - ".github/actions/smoke-test-retry/**"
             - ".github/actions/restore-dependency-caches/**"

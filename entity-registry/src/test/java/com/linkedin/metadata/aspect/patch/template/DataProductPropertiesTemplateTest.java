@@ -66,4 +66,38 @@ public class DataProductPropertiesTemplateTest {
     Assert.assertTrue(assetOf(result, DATASET_A).isOutputPort(), "patched asset is an output port");
     Assert.assertFalse(assetOf(result, DATASET_B).isOutputPort(), "other asset is untouched");
   }
+
+  /** The patch DataProductPatchBuilder.remove_parent_data_product() emits. */
+  private static final JsonPatch REMOVE_PARENT =
+      Json.createPatch(
+          Json.createArrayBuilder()
+              .add(
+                  Json.createObjectBuilder()
+                      .add("op", "remove")
+                      .add("path", "/parentDataProduct")
+                      .add("value", Json.createObjectBuilder()))
+              .build());
+
+  @Test
+  public void testRemoveParentDataProduct() throws Exception {
+    DataProductProperties initial =
+        new DataProductProperties()
+            .setName("child")
+            .setParentDataProduct(UrnUtils.getUrn("urn:li:dataProduct:parent"));
+
+    DataProductProperties result = TEMPLATE.applyPatch(initial, REMOVE_PARENT);
+
+    Assert.assertFalse(result.hasParentDataProduct());
+    Assert.assertEquals(result.getName(), "child");
+  }
+
+  @Test
+  public void testRemoveParentDataProductFromRootIsNoOp() throws Exception {
+    DataProductProperties initial = new DataProductProperties().setName("root");
+
+    DataProductProperties result = TEMPLATE.applyPatch(initial, REMOVE_PARENT);
+
+    Assert.assertFalse(result.hasParentDataProduct());
+    Assert.assertEquals(result.getName(), "root");
+  }
 }

@@ -50,33 +50,29 @@ class TestPickSlot:
     def test_local_full_raises(self, monkeypatch):
         _patch_config(monkeypatch, max_local=2)
         registry = {"instances": {"a": {"slot": 0}, "b": {"slot": 1}}}
-        with pytest.raises(RuntimeError, match="local"):
+        # The limit counts running stacks: both registered GMS ports answer.
+        monkeypatch.setattr(datahub_dev, "_is_port_free", lambda port: False)
+        with pytest.raises(RuntimeError, match="Docker"):
             datahub_dev._pick_slot(registry, remote=False)
 
     def test_remote_starts_after_local_slots(self, monkeypatch):
         _patch_config(monkeypatch, max_local=2, max_remote=10)
-        # Local slots 0,1 occupied; remote should start at 2.
+        # Each kind searches 3 slots per instance (some are unusable), so the local
+        # range for max_local=2 is slots 0-5 and remote starts at 6.
         registry = {"instances": {"a": {"slot": 0}, "b": {"slot": 1}}}
         slot = datahub_dev._pick_slot(registry, remote=True)
-        assert slot == 2
+        assert slot == 6
 
     def test_remote_skips_occupied_remote_slots(self, monkeypatch):
         _patch_config(monkeypatch, max_local=2, max_remote=10)
-        # Slot 2 taken; next remote is 3.
-        registry = {"instances": {"a": {"slot": 0}, "b": {"slot": 1}, "c": {"slot": 2}}}
+        registry = {"instances": {"a": {"slot": 0}, "b": {"slot": 1}, "c": {"slot": 6}}}
         slot = datahub_dev._pick_slot(registry, remote=True)
-        assert slot == 3
+        assert slot == 7
 
     def test_remote_full_raises(self, monkeypatch):
         _patch_config(monkeypatch, max_local=2, max_remote=2)
-        registry = {
-            "instances": {
-                "a": {"slot": 0},
-                "b": {"slot": 1},
-                "c": {"slot": 2},  # remote slot 0
-                "d": {"slot": 3},  # remote slot 1
-            }
-        }
+        # max_remote=2 searches remote slots 6-11; all of them are taken.
+        registry = {"instances": {f"r{slot}": {"slot": slot} for slot in range(6, 12)}}
         with pytest.raises(RuntimeError, match="remote"):
             datahub_dev._pick_slot(registry, remote=True)
 
@@ -291,10 +287,10 @@ class TestCmdStartRemote:
         calls = self._setup(tmp_path, monkeypatch)
         datahub_dev._cmd_start_remote(self._make_args())
         tunnel_call = next(c for c in calls if c[1] == "tunnel")
-        # First remote slot = 2 (after 2 local slots), SLOT_OFFSET=1000
-        # local 10080 → remote 8080,  local 11002 → remote 9002
-        assert "10080:8080" in tunnel_call
-        assert "11002:9002" in tunnel_call
+        # First remote slot = 6 (after max_local=2 × 3 local slots), SLOT_OFFSET=1000
+        # local 14080 → remote 8080,  local 15002 → remote 9002
+        assert "14080:8080" in tunnel_call
+        assert "15002:9002" in tunnel_call
 
     def test_local_registry_written_before_sync(self, tmp_path, monkeypatch):
         """Registry must exist before sync (so shell-env works even if start fails)."""

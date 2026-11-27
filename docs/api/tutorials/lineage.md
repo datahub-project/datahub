@@ -89,7 +89,7 @@ You can infer lineage directly from a SQL query using `infer_lineage_from_sql()`
 Check out more information on how we handle SQL parsing below.
 
 - [The DataHub SQL Parser Documentation](../../lineage/sql_parsing.md)
-- [Blog Post: Extracting Column-Level Lineage from SQL](https://medium.com/datahub-project/extracting-column-level-lineage-from-sql-779b8ce17567)
+- [Blog Post: Extracting Column-Level Lineage from SQL](https://datahub.com/blog/extracting-column-level-lineage-from-sql/)
 
 :::
 

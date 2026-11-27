@@ -10,6 +10,9 @@ Two steps, both in docker-unified:
 * ``compose``: run by ``comment_smart_testing`` with the pytest section and the
   Playwright tier plan (either may be absent) to write the whole comment to
   ``COMMENT_FILE``, which that job upserts onto the PR, found by ``MARKER``.
+
+Another lane (docker-free-e2e.yml) runs both steps too; ``compose --lane`` gives
+its comment its own marker (``lane_marker``) so each lane keeps one comment.
 """
 
 import argparse
@@ -28,6 +31,12 @@ from smart_testing_constants import (
 )
 
 MARKER = "<!-- smart-testing-selection -->"
+
+
+def lane_marker(lane: Optional[str]) -> str:
+    """The Docker lane keeps the plain MARKER; any other lane gets its own."""
+    return f"<!-- smart-testing-selection:{lane} -->" if lane else MARKER
+
 REASONING_MAX_CHARS = 300
 MAX_LISTED_SCOPES = 100
 
@@ -273,11 +282,13 @@ def compose(
     pytest_section: str,
     playwright_plan: Optional[Dict[str, Any]],
     env: Mapping[str, str],
+    lane: Optional[str] = None,
 ) -> str:
     sections = [pytest_section] if pytest_section.strip() else []
     if playwright_plan:
         sections.append(render_playwright_section(playwright_plan))
-    body = [MARKER, "## Smart test selection", ""]
+    title = "## Smart test selection" + (f" ({lane} lane)" if lane else "")
+    body = [lane_marker(lane), title, ""]
     body.append(
         "\n".join(sections)
         if sections
@@ -310,6 +321,7 @@ def main() -> None:
     compose_parser = sub.add_parser("compose")
     compose_parser.add_argument("--pytest-section")
     compose_parser.add_argument("--playwright-plan")
+    compose_parser.add_argument("--lane", help="Lane name for its own comment marker")
     args = parser.parse_args()
 
     if args.command == "pytest":
@@ -320,7 +332,7 @@ def main() -> None:
                 f.write(body)
     else:
         plan = load_plan(args.playwright_plan)
-        body = compose(read_text(args.pytest_section), plan, os.environ)
+        body = compose(read_text(args.pytest_section), plan, os.environ, args.lane)
 
     out = os.environ.get("COMMENT_FILE")
     if out:

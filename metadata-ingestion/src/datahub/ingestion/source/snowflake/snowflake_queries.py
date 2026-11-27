@@ -28,7 +28,12 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.constants import (
+    INTERACTIVE_TABLE_CREATE_RE,
+    SnowflakeObjectDomain,
+    has_target_lag_property,
+    rewrite_interactive_table_create,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
     QueryDedupStrategyType,
@@ -90,6 +95,7 @@ _SYS_VIEW_PLACEHOLDER_PREFIX = "$SYS_VIEW_"
 # Snowflake's per-refresh bookkeeping statement for a dynamic table
 # (`alter dynamic table /* NAME */ identifier(<id>) refresh at <ts>`), as tagged in QUERY_HISTORY.
 REFRESH_DYNAMIC_TABLE_QUERY_TYPE = "REFRESH_DYNAMIC_TABLE_AT_REFRESH_VERSION"
+CREATE_TABLE_AS_SELECT_QUERY_TYPE = "CREATE_TABLE_AS_SELECT"
 
 
 @dataclass(frozen=True)
@@ -228,6 +234,7 @@ class SnowflakeQueriesExtractorReport(Report):
         default_factory=dict
     )
     num_create_temp_view_queries_observed: int = 0
+    num_interactive_table_ctas_observed: int = 0
     num_audit_rows_missing_object_name: int = 0
     num_audit_rows_unknown_dollar_prefix: int = 0
     num_query_type_counts: Dict[str, int] = dataclasses.field(default_factory=dict)
@@ -624,6 +631,29 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             or re.search(r"\bTEMPORARY\b", query_text, re.IGNORECASE) is not None
         )
 
+    def _interactive_table_ctas_query(
+        self,
+        snowflake_query_type: str,
+        objects_modified: List[Dict[str, Any]],
+        query_text: str,
+    ) -> Optional[str]:
+        """Parseable text for a CTAS into an interactive table, else None.
+
+        ACCESS_HISTORY leaves objects_modified empty for CREATE INTERACTIVE TABLE ... AS SELECT
+        (observed live), so the target is only recoverable by parsing the query text. A
+        TARGET_LAG create is skipped: that table's lineage comes from its definition, and the
+        dynamic-table refresh suppression cannot match a row with no objects_modified.
+        """
+        if (
+            snowflake_query_type != CREATE_TABLE_AS_SELECT_QUERY_TYPE
+            or objects_modified
+            or INTERACTIVE_TABLE_CREATE_RE.search(query_text) is None
+            or has_target_lag_property(query_text)
+        ):
+            return None
+        self.report.num_interactive_table_ctas_observed += 1
+        return rewrite_interactive_table_create(query_text)
+
     @staticmethod
     def _classify_audit_log_objects(
         audit_log_objects: List[Dict[str, Any]],
@@ -774,6 +804,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         is_multi_target: bool = len(objects_modified) > 1
         is_create_view = query_type == QueryType.CREATE_VIEW
         is_create_temp_view = is_create_view and self._has_temp_keyword(query_text)
+        interactive_ctas_query = self._interactive_table_ctas_query(
+            snowflake_query_type, objects_modified, query_text
+        )
+        query_text = interactive_ctas_query or query_text
 
         stream_clean: bool = (
             has_stream_objects
@@ -788,7 +822,11 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         # proceed to the PreparsedQuery path to preserve native CLL from directSources.
         # CREATE TEMPORARY VIEW takes the bypass regardless of stream presence because
         # sqlglot resolves temp-view references correctly without audit-log metadata.
-        if (has_stream_objects and not stream_clean) or is_create_temp_view:
+        if (
+            (has_stream_objects and not stream_clean)
+            or is_create_temp_view
+            or interactive_ctas_query is not None
+        ):
             if has_stream_objects:
                 self.report.num_stream_queries_observed += 1
                 self.report.num_stream_bypass_by_query_type[snowflake_query_type] = (

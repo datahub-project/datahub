@@ -89,7 +89,7 @@ test.describe('MLFlow Models', () => {
       mlEntitiesPage = new MLEntitiesPage(page, logger, logDir);
     });
 
-    test('displays summary tab with model metadata', async ({ logger }) => {
+    test('displays summary tab with model metadata', { tag: [DomainTag.Catalog] }, async ({ logger }) => {
       logger.step('Navigate to MLFlow model');
       await mlEntitiesPage.navigateToMLModel(TEST_DATA.MLFLOW_MODEL_URN);
 
@@ -103,7 +103,7 @@ test.describe('MLFlow Models', () => {
       await mlEntitiesPage.expectTextVisible(MLFLOW_STRINGS.MODEL_DESCRIPTION);
     });
 
-    test('displays metrics and hyperparameters on summary tab', async ({ logger }) => {
+    test('displays metrics and hyperparameters on summary tab', { tag: [DomainTag.Catalog] }, async ({ logger }) => {
       logger.step('Navigate to MLFlow model');
       await mlEntitiesPage.navigateToMLModel(TEST_DATA.MLFLOW_MODEL_URN);
 
@@ -116,7 +116,7 @@ test.describe('MLFlow Models', () => {
       await mlEntitiesPage.expectHyperparameterVisible(MLFLOW_STRINGS.HYPERPARAM_NAME);
     });
 
-    test('displays properties on properties tab', async ({ logger }) => {
+    test('displays properties on properties tab', { tag: [DomainTag.Catalog] }, async ({ logger }) => {
       logger.step('Navigate to MLFlow model');
       await mlEntitiesPage.navigateToMLModel(TEST_DATA.MLFLOW_MODEL_URN);
 
@@ -127,7 +127,7 @@ test.describe('MLFlow Models', () => {
       await mlEntitiesPage.expectTextVisible(MLFLOW_STRINGS.TEAM_PROPERTY);
     });
 
-    test('displays group information on group tab', async ({ logger }) => {
+    test('displays group information on group tab', { tag: [DomainTag.Catalog] }, async ({ logger }) => {
       logger.step('Navigate to MLFlow model');
       await mlEntitiesPage.navigateToMLModel(TEST_DATA.MLFLOW_MODEL_URN);
 
@@ -138,7 +138,7 @@ test.describe('MLFlow Models', () => {
       await mlEntitiesPage.expectTextVisible(MLFLOW_STRINGS.GROUP_DESCRIPTION);
     });
 
-    test('can navigate to model group from model page', async ({ logger }) => {
+    test('can navigate to model group from model page', { tag: [DomainTag.Catalog] }, async ({ logger }) => {
       logger.step('Navigate to MLFlow model');
       await mlEntitiesPage.navigateToMLModel(TEST_DATA.MLFLOW_MODEL_URN);
 

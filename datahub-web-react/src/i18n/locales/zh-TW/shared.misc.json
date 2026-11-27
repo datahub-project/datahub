@@ -3,6 +3,8 @@
     "confirmationModal.areYouSure": "確定嗎？",
     "copyUrn.tooltip": "複製 URN。URN 可在 DataHub 上唯一識別一個實體。",
     "customIcon.alt": "圖示",
+    "githubStar.ariaLabel": "在 GitHub 上為 DataHub 加上星號",
+    "githubStar.label": "加星號",
     "entityCountCard.viewCountTooltip": "檢視 {{formattedCount}} 個{{tooltipDescriptor}}",
     "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
     "multiStepForm.disabledNextTooltip": "請先填妥所有必填欄位，再前往下一步",

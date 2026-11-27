@@ -241,6 +241,14 @@ def test_compose_handles_missing_sections() -> None:
     assert "No test selection was computed" in neither
 
 
+def test_lane_comment_has_its_own_marker() -> None:
+    lane = render.compose("### pytest smoke tests\n", None, {}, lane="docker-free")
+    assert lane.startswith(render.lane_marker("docker-free"))
+    # The Docker lane's upsert finds its comment by MARKER; it must not match this one.
+    assert render.MARKER not in lane
+    assert "(docker-free lane)" in lane
+
+
 def test_playwright_baseline_only_plan_has_no_table() -> None:
     plan = {**P0_PLAN, "specs": [P0_PLAN["specs"][1]]}
     body = render.render_playwright_section(plan)

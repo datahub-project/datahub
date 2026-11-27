@@ -22,21 +22,34 @@ import shutil
 import signal
 import socket
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TextIO, TypedDict, cast
 
+from _boot_timings import BootTimings, dir_size_mb
+from _env_layers import (
+    JOB_DIRS,
+    MODES,
+    SCOPES,
+    EnvFile,
+    EnvLayerError,
+    EnvValue,
+    resolve,
+)
 from _opensearch_manager import (
+    OPENSEARCH_READY_TIMEOUT_ENV,
     SharedOpenSearchManager,
     default_shared_dir,
     delete_prefixes,
     distribution_script,
     ensure_data_major,
+    env_seconds,
     index_names,
     index_prefix,
     selected_major,
@@ -46,6 +59,16 @@ from _opensearch_manager import (
 from _system_update_checker import SystemUpdateChecker
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO_ROOT / "scripts/dev"))
+from extensions.datahub_local_extension import (  # noqa: E402
+    Description,
+    EnvAlias,
+    LocalExtension,
+    context,
+    load,
+    ports_for,
+)
+
 WAR = REPO_ROOT / "metadata-service/war/build/libs/war.war"
 UPGRADE_JAR = REPO_ROOT / "datahub-upgrade/build/libs/datahub-upgrade.jar"
 DEFAULT_DATA_DIR = REPO_ROOT / "metadata-service/gms-lite/build/stack"
@@ -85,6 +108,9 @@ class StackInfo(TypedDict):
     systemClientSecret: str | None
     adminTokens: dict[str, str]
     adminTokenExpiresAt: dict[str, str]
+    services: dict[str, dict[str, str]]
+    serviceHealth: dict[str, dict[str, dict[str, object]]]
+    servicePids: dict[str, dict[str, int]]
 
 
 def log(message: str) -> None:
@@ -219,18 +245,28 @@ def http_ok(url: str) -> bool:
 class Processes:
     """Own a separate process group per service, including any grandchildren."""
 
-    def __init__(self) -> None:
+    def __init__(self, data_dir: Path | None = None) -> None:
+        self.data_dir = data_dir
         self.children: list[subprocess.Popen[str]] = []
         self.logs: list[TextIO] = []
+        self.optional: set[int] = set()
+        self.identities: dict[str, str] = {}
 
     def start(
-        self, command: list[str], env: dict[str, str], path: Path, *, pipe: bool = False
+        self,
+        command: list[str],
+        env: dict[str, str],
+        path: Path,
+        *,
+        pipe: bool = False,
+        cwd: Path = REPO_ROOT,
+        required: bool = True,
     ) -> subprocess.Popen[str]:
         output = path.open("w")
         self.logs.append(output)
         process = subprocess.Popen(
             command,
-            cwd=REPO_ROOT,
+            cwd=cwd,
             env=env,
             stdout=subprocess.PIPE if pipe else output,
             stderr=output if pipe else subprocess.STDOUT,
@@ -238,32 +274,59 @@ class Processes:
             start_new_session=True,
         )
         self.children.append(process)
+        identity = subprocess.run(
+            ["ps", "-ww", "-p", str(process.pid), "-o", "lstart=,command="],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+        if identity:
+            self.identities[str(process.pid)] = identity
+            if self.data_dir is not None:
+                write_private(
+                    self.data_dir / "processes.json", json.dumps(self.identities)
+                )
+        if not required:
+            self.optional.add(process.pid)
         return process
 
     def check(self) -> None:
-        for child in self.children:
+        for child in list(self.children):
             if child.poll() is not None:
+                if child.pid in self.optional:
+                    log(
+                        f"optional service PID {child.pid} exited with {child.returncode}; see logs"
+                    )
+                    # Retire failed groups now, before the leader PID can be reused on a long run.
+                    self.stop_group(child)
+                    self.children.remove(child)
+                    self.optional.discard(child.pid)
+                    continue
                 raise SystemExit(
                     f"service PID {child.pid} exited with {child.returncode}; see logs"
                 )
 
+    @staticmethod
+    def stop_group(child: subprocess.Popen[str]) -> None:
+        try:
+            os.killpg(child.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            return
+        try:
+            child.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            os.killpg(child.pid, signal.SIGKILL)
+            child.wait(timeout=5)
+        # A wrapper may have exited while a grandchild ignored SIGTERM.
+        try:
+            os.killpg(child.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
     def stop(self) -> None:
         # Stop GMS before OpenSearch so the queue spool and final index writes can flush.
         for child in reversed(self.children):
-            try:
-                os.killpg(child.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                continue
-            try:
-                child.wait(timeout=30)
-            except subprocess.TimeoutExpired:
-                os.killpg(child.pid, signal.SIGKILL)
-                child.wait(timeout=5)
-            # A wrapper may have exited while a grandchild ignored SIGTERM.
-            try:
-                os.killpg(child.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+            self.stop_group(child)
         for output in self.logs:
             output.close()
         for child in self.children:
@@ -274,9 +337,21 @@ class Processes:
 def start_opensearch(
     args: argparse.Namespace, processes: Processes, log_dir: Path
 ) -> int:
+    timeout = env_seconds(
+        OPENSEARCH_READY_TIMEOUT_ENV, OPENSEARCH_READY_TIMEOUT_SECONDS
+    )
+    extension = load(getattr(args, "extension", None))
+    description = (
+        extension.describe(json.loads(getattr(args, "extension_options", "{}")))
+        if extension
+        else None
+    )
+    process_env = dict(os.environ)
+    if description and "opensearch-knn" in description.search_plugins:
+        process_env["OPENSEARCH_KNN_ENABLED"] = "true"
     if not args.private_opensearch:
         manager = SharedOpenSearchManager(
-            args.shared_opensearch_dir, major=args.opensearch
+            args.shared_opensearch_dir, major=args.opensearch, env=process_env
         )
         bound = manager.get_or_start()
         log(f"Shared OpenSearch ready on port {bound}; survives stack shutdown")
@@ -305,13 +380,11 @@ def start_opensearch(
             "--data",
             str(private_dir),
         ],
-        dict(os.environ),
+        process_env,
         log_dir / "opensearch.log",
         pipe=True,
     )
-    bound = wait_for_ready(
-        process, processes.logs[-1], OPENSEARCH_READY_TIMEOUT_SECONDS
-    )
+    bound = wait_for_ready(process, processes.logs[-1], timeout)
     if bound is None:
         raise SystemExit(
             f"embedded OpenSearch did not report READY; see {log_dir / 'opensearch.log'}"
@@ -448,11 +521,201 @@ SEARCH_CONNECTION_PROPERTIES: dict[str, tuple[tuple[str, ...], str]] = {
         )
     },
 }
+# Placeholders that other, non-connection settings also read (AWS_REGION feeds the Bedrock embedding
+# region and S3 clients). Blanking them would break those settings, so the connection properties
+# that use them are pinned through their Spring property names only, which win over placeholders.
+SHARED_PLACEHOLDERS = frozenset({"AWS_REGION"})
 SEARCH_CONNECTION_ENV: dict[str, str] = {
     name: value
     for path, (placeholders, value) in SEARCH_CONNECTION_PROPERTIES.items()
-    for name in (*placeholders, spring_env_name(path))
+    for name in (
+        *(name for name in placeholders if name not in SHARED_PLACEHOLDERS),
+        spring_env_name(path),
+    )
 }
+
+
+SECRET_KEY_MARKERS = ("SECRET", "TOKEN", "PASSWORD", "SALT", "SIGNING_KEY", "API_KEY")
+PLACEHOLDER_SECRETS: Credentials = {
+    "system_client_secret": "<per-stack>",
+    "token_signing_key": "<per-stack>",
+    "token_salt": "<per-stack>",
+}
+
+
+def env_mode(requested: str | None) -> str:
+    return (
+        requested if requested is not None else "ci" if "CI" in os.environ else "local"
+    )
+
+
+def stack_context(
+    instance: str,
+    gms_port: int,
+    os_port: int,
+    data_dir: Path,
+    credentials: Credentials,
+    auth: bool,
+    major: str,
+    frontend_port: int | None,
+) -> dict[str, str]:
+    """The ${GMS_LITE_*} placeholders for one isolated instance."""
+    directory = data_dir / instance
+    return {
+        "GMS_LITE_REPO_ROOT": str(REPO_ROOT),
+        "GMS_LITE_INSTANCE": instance,
+        "GMS_LITE_INSTANCE_DIR": str(directory),
+        "GMS_LITE_INSTANCE_DIR_URI": directory.resolve().as_uri(),
+        "GMS_LITE_INDEX_PREFIX": index_prefix(data_dir, instance),
+        "GMS_LITE_GMS_PORT": str(gms_port),
+        "GMS_LITE_OPENSEARCH_PORT": str(os_port),
+        "GMS_LITE_OPENSEARCH_VERSION": major,
+        "GMS_LITE_SCHEMA_FIELD_HASH_ID_ENABLED": str(major == "3").lower(),
+        "GMS_LITE_FRONTEND_PORT": str(frontend_port or 9002),
+        "GMS_LITE_AUTH": str(auth).lower(),
+        "GMS_LITE_SYSTEM_CLIENT_SECRET": credentials["system_client_secret"],
+        "GMS_LITE_TOKEN_SIGNING_KEY": credentials["token_signing_key"],
+        "GMS_LITE_TOKEN_SALT": credentials["token_salt"],
+    }
+
+
+# These file values cannot be replaced by inherited or ad-hoc settings. Search aliases
+# are neutralized separately because Spring accepts both YAML placeholders and relaxed names.
+PROTECTED_KEYS = frozenset(
+    {
+        "EBEAN_DATASOURCE_URL",
+        "EBEAN_DATASOURCE_DRIVER",
+        "EBEAN_DATASOURCE_USERNAME",
+        "EBEAN_DATASOURCE_PASSWORD",
+        "EBEAN_AUTOCREATE",
+        "DATAHUB_SQL_SETUP_ENABLED",
+        "DATAHUB_PGQUEUE_INMEMORY_SPOOL_FILE",
+        "DATAHUB_OBJECT_STORAGE_URI",
+        "ELASTICSEARCH_HOST",
+        "ELASTICSEARCH_PORT",
+        "INDEX_PREFIX",
+        "ELASTICSEARCH_SHIM_ENGINE_TYPE",
+        "ELASTICSEARCH_SHIM_AUTO_DETECT",
+        "ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED",
+        "DATAHUB_SYSTEM_CLIENT_ID",
+        "DATAHUB_SYSTEM_CLIENT_SECRET",
+        "DATAHUB_TOKEN_SERVICE_SIGNING_KEY",
+        "DATAHUB_TOKEN_SERVICE_SALT",
+        "METADATA_SERVICE_AUTH_ENABLED",
+        "SERVER_PORT",
+        "SERVER_ADDRESS",
+        "DATAHUB_GMS_URL",
+        "DATAHUB_GMS_HOST",
+        "DATAHUB_GMS_PORT",
+        "DATAHUB_BASE_URL",
+    }
+)
+
+
+def build_envs(
+    placeholders: Mapping[str, str],
+    *,
+    job: str | None,
+    mode: str,
+    adhoc: list[EnvFile],
+    service_roles: tuple[str, ...] = (),
+    extra_layers: tuple[Path, ...] = (),
+    protected_keys: tuple[str, ...] = (),
+    aliases: tuple[EnvAlias, ...] = (),
+) -> dict[str, dict[str, EnvValue]]:
+    envs = {}
+    for service in ("gms", "system-update", "restore-indices", *service_roles):
+        values = resolve(
+            service,
+            repo_root=REPO_ROOT,
+            job=job,
+            mode=mode,
+            adhoc=adhoc,
+            context=placeholders,
+            shell=os.environ,
+            extra_layers=extra_layers,
+        )
+        for alias in aliases:
+            if alias.service == service:
+                value = values.get(alias.source)
+                if value is None and alias.source in os.environ:
+                    value = EnvValue(os.environ[alias.source], "shell")
+                if value is not None:
+                    values[alias.name] = EnvValue(
+                        value.value, f"{value.source} (via {alias.source})"
+                    )
+        # Resolve pins from the shipped base files, never user/job/extension layers.
+        baseline = resolve(
+            service,
+            repo_root=REPO_ROOT,
+            job=None,
+            mode=mode,
+            adhoc=(),
+            context=placeholders,
+            shell={},
+        )
+        values.update(
+            {
+                key: EnvValue(value.value, "protected")
+                for key, value in baseline.items()
+                if key in PROTECTED_KEYS
+            }
+        )
+        if protected_keys:
+            extra_baseline = resolve(
+                service,
+                repo_root=REPO_ROOT,
+                job=None,
+                mode=mode,
+                adhoc=(),
+                context=placeholders,
+                shell={},
+                extra_layers=extra_layers,
+            )
+            values.update(
+                {
+                    key: EnvValue(value.value, "protected")
+                    for key, value in extra_baseline.items()
+                    if key in protected_keys
+                }
+            )
+        if service in ("gms", "system-update", "restore-indices"):
+            values.update(
+                {
+                    key: EnvValue(value, "protected")
+                    for key, value in SEARCH_CONNECTION_ENV.items()
+                }
+            )
+        if service in ("system-update", "restore-indices"):
+            values["SPRING_PROFILES_ACTIVE"] = EnvValue(
+                with_upgrade_profile(process_env(values)), "launcher"
+            )
+        envs[service] = values
+    return envs
+
+
+def process_env(values: Mapping[str, EnvValue]) -> dict[str, str]:
+    return {**os.environ, **{key: v.value for key, v in values.items()}}
+
+
+def env_report(
+    envs: Mapping[str, Mapping[str, Mapping[str, EnvValue]]],
+) -> dict[str, object]:
+    return {
+        instance: {
+            service: {
+                key: {
+                    "value": "<redacted>"
+                    if v.value and any(marker in key for marker in SECRET_KEY_MARKERS)
+                    else v.value,
+                    "source": v.source,
+                }
+                for key, v in sorted(values.items())
+            }
+            for service, values in services.items()
+        }
+        for instance, services in envs.items()
+    }
 
 
 def instance_env(
@@ -464,62 +727,79 @@ def instance_env(
     credentials: Credentials,
     auth: bool,
     major: str,
+    frontend_port: int | None,
 ) -> dict[str, str]:
-    directory = data_dir / instance
-    directory.mkdir(parents=True, exist_ok=True)
-    storage = directory / "object-storage"
-    storage.mkdir(exist_ok=True)
-    return {
-        **os.environ,
-        **base,
-        # URI, credentials, TLS and proxy overrides must not redirect local search.
-        **SEARCH_CONNECTION_ENV,
-        "EBEAN_DATASOURCE_URL": f"jdbc:h2:file:{directory / 'gms'};MODE=MySQL",
-        "EBEAN_DATASOURCE_DRIVER": "org.h2.Driver",
-        "EBEAN_DATASOURCE_USERNAME": "sa",
-        "EBEAN_DATASOURCE_PASSWORD": "",
-        # Ebean autocreate drops existing tables. Only a new database may enable it.
-        "EBEAN_AUTOCREATE": "false",
-        "DATAHUB_SQL_SETUP_ENABLED": "false",
-        "DATAHUB_MESSAGING_TRANSPORT": "pgqueue",
-        "DATAHUB_PGQUEUE_ENABLED": "true",
-        "DATAHUB_PGQUEUE_STORE": "inmemory",
-        "DATAHUB_PGQUEUE_INMEMORY_SPOOL_FILE": str(directory / "queue-spool.json"),
-        "SCHEMA_REGISTRY_TYPE": "INTERNAL",
-        "KAFKA_SCHEMAREGISTRY_URL": f"http://localhost:{gms_port}/schema-registry/api",
-        "MAE_CONSUMER_ENABLED": "true",
-        "MCE_CONSUMER_ENABLED": "true",
-        "PE_CONSUMER_ENABLED": "true",
-        "DATAHUB_OBJECT_STORAGE_URI": storage.as_uri(),
-        "ELASTICSEARCH_HOST": "localhost",
-        "ELASTICSEARCH_PORT": str(os_port),
-        "ELASTICSEARCH_SHIM_ENGINE_TYPE": f"OPENSEARCH_{major}",
-        "ELASTICSEARCH_SHIM_AUTO_DETECT": "false",
-        # Keep 2.x document IDs compatible with the Docker default.
-        "ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED": str(
-            major == "3"
-        ).lower(),
-        "INDEX_PREFIX": index_prefix(data_dir, instance),
-        "GRAPH_SERVICE_IMPL": "elasticsearch",
-        "ELASTICSEARCH_NUM_SHARDS_PER_INDEX": "1",
-        "ELASTICSEARCH_NUM_REPLICAS_PER_INDEX": "0",
-        # The embedded node has no ISM. Use the shipped mappings without lifecycle settings.
-        "SKIP_CREATE_USAGE_EVENT_INDICES_STEP": "true",
-        "BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE": "false",
-        "METADATA_SERVICE_AUTH_ENABLED": str(auth).lower(),
-        "POLICY_CACHE_REFRESH_INTERVAL_SECONDS": "10",
-        "DATAHUB_SYSTEM_CLIENT_ID": "__datahub_system",
-        "DATAHUB_SYSTEM_CLIENT_SECRET": credentials["system_client_secret"],
-        "DATAHUB_TOKEN_SERVICE_SIGNING_KEY": credentials["token_signing_key"],
-        "DATAHUB_TOKEN_SERVICE_SALT": credentials["token_salt"],
-        "ENTITY_REGISTRY_CONFIG_PATH": str(
-            REPO_ROOT / "metadata-models/src/main/resources/entity-registry.yml"
-        ),
-        "DATAHUB_GMS_HOST": "localhost",
-        "DATAHUB_GMS_PORT": str(gms_port),
-        "SERVER_PORT": str(gms_port),
-        "SERVER_ADDRESS": "127.0.0.1",
-    }
+    """GMS environment; auxiliary processes resolve their own service files."""
+    placeholders = stack_context(
+        instance, gms_port, os_port, data_dir, credentials, auth, major, frontend_port
+    )
+    values = build_envs(placeholders, job=None, mode=env_mode(None), adhoc=[])["gms"]
+    values.update(
+        {
+            key: EnvValue(value, "override")
+            for key, value in base.items()
+            if key not in PROTECTED_KEYS and key not in SEARCH_CONNECTION_ENV
+        }
+    )
+    (data_dir / instance / "object-storage").mkdir(parents=True, exist_ok=True)
+    return process_env(values)
+
+
+def resolved_environments(
+    args: argparse.Namespace,
+    bound: int,
+    credentials: Credentials,
+    extension: LocalExtension | None,
+    description: Description | None,
+) -> dict[str, dict[str, dict[str, EnvValue]]]:
+    options = json.loads(args.extension_options)
+    declared_ports = {f"gms-{i}": args.port_base + i for i in range(args.processes)}
+    if description:
+        declared_ports.update(
+            ports_for(description, args.extension_slot, args.processes)
+        )
+    result = {}
+    for i in range(args.processes):
+        name = f"gms-{i}"
+        ctx = context(REPO_ROOT, args.data_dir, name, declared_ports, options)
+        placeholders = stack_context(
+            name,
+            args.port_base + i,
+            bound,
+            args.data_dir,
+            credentials,
+            args.auth,
+            args.opensearch,
+            args.frontend_port,
+        )
+        if extension:
+            extra = extension.placeholders(ctx)
+            if set(extra).intersection(placeholders):
+                raise EnvLayerError("extension placeholders overlap core placeholders")
+            placeholders.update(extra)
+        # Auxiliary port roles do not describe processes; services() is authoritative.
+        services = extension.services(ctx) if extension else ()
+        roles = tuple(spec.role for spec in services)
+        scopes = SCOPES | frozenset(roles)
+        result[name] = build_envs(
+            placeholders,
+            job=args.job,
+            mode=env_mode(args.mode),
+            adhoc=[EnvFile.parse(spec, scopes) for spec in args.env_files],
+            service_roles=roles,
+            extra_layers=description.layer_dirs if description else (),
+            protected_keys=description.protected_keys if description else (),
+            aliases=description.env_aliases if description else (),
+        )
+        for role in roles:
+            result[name][role]["DATAHUB_GMS_TOKEN"] = EnvValue(
+                "<after-ready>" if args.auth else "", "launcher"
+            )
+        if (args.data_dir / name / "gms.mv.db").exists():
+            result[name]["system-update"]["EBEAN_AUTOCREATE"] = EnvValue(
+                "false", "protected"
+            )
+    return result
 
 
 def with_upgrade_profile(env: dict[str, str]) -> str:
@@ -546,7 +826,16 @@ def run_upgrade(
         "SPRING_PROFILES_ACTIVE": with_upgrade_profile(env),
         "EBEAN_AUTOCREATE": str(create).lower(),
     }
-    command = [JAVA, f"-Xmx{heap}", *JVM_OPENS, "-jar", str(UPGRADE_JAR), "-u", upgrade]
+    command = [
+        JAVA,
+        f"-Xmx{heap}",
+        *shlex.split(env.get("GMS_LITE_UPGRADE_JAVA_OPTS", "")),
+        *JVM_OPENS,
+        "-jar",
+        str(UPGRADE_JAR),
+        "-u",
+        upgrade,
+    ]
     if upgrade == "RestoreIndices":
         command += [
             "-a",
@@ -673,9 +962,15 @@ def wait_admin_access(url: str, token: str, processes: Processes) -> None:
 
 
 def run_stack(args: argparse.Namespace, processes: Processes) -> None:
+    health_timeout = env_seconds("GMS_LITE_GMS_HEALTH_TIMEOUT", 600)
+    env_seconds(OPENSEARCH_READY_TIMEOUT_ENV, OPENSEARCH_READY_TIMEOUT_SECONDS)
+    extension = load(args.extension)
+    options = json.loads(args.extension_options)
+    description = extension.describe(options) if extension else None
     data_dir: Path = args.data_dir
     log_dir = data_dir / "logs"
     log_dir.mkdir(exist_ok=True)
+    timings = BootTimings(data_dir / "timings.json")
     if not args.skip_build:
         subprocess.run(
             [
@@ -684,6 +979,12 @@ def run_stack(args: argparse.Namespace, processes: Processes) -> None:
                 ":datahub-upgrade:bootJar",
                 ":metadata-service:opensearch-embedded:installDist",
                 f"-PopensearchVersion={args.opensearch}",
+                *(
+                    [build.task for build in description.builds if build.required]
+                    if description
+                    else []
+                ),
+                *(description.build_arguments if description else ()),
                 "-x",
                 "test",
             ],
@@ -693,23 +994,30 @@ def run_stack(args: argparse.Namespace, processes: Processes) -> None:
     for path in (WAR, UPGRADE_JAR, distribution_script(REPO_ROOT, args.opensearch)):
         if not path.exists():
             raise SystemExit(f"missing {path}; run without --skip-build")
-    base = read_env_file(args.env_file)
     credentials = load_credentials(data_dir)
-    bound = start_opensearch(args, processes, log_dir)
+    with timings.phase("opensearch"):
+        bound = start_opensearch(args, processes, log_dir)
     names = [f"gms-{i}" for i in range(args.processes)]
-    environments = {
-        name: instance_env(
-            base,
-            name,
-            args.port_base + i,
-            bound,
-            data_dir,
-            credentials,
-            args.auth,
-            args.opensearch,
+    declared_ports = {f"gms-{i}": args.port_base + i for i in range(args.processes)}
+    if description:
+        declared_ports.update(
+            ports_for(description, args.extension_slot, args.processes)
         )
-        for i, name in enumerate(names)
+    resolved = resolved_environments(args, bound, credentials, extension, description)
+    write_private(
+        data_dir / "resolved-env.json",
+        json.dumps(env_report(resolved), indent=2) + "\n",
+    )
+    contexts = {
+        name: context(REPO_ROOT, data_dir, name, declared_ports, options)
+        for name in names
     }
+    args.extension_contexts = contexts
+    environments = {
+        name: process_env(values["gms"]) for name, values in resolved.items()
+    }
+    for name in names:
+        (data_dir / name / "object-storage").mkdir(parents=True, exist_ok=True)
     if args.fresh and not args.private_opensearch:
         prefixes = {env["INDEX_PREFIX"] for env in environments.values()}
         prefixes.update(
@@ -728,50 +1036,137 @@ def run_stack(args: argparse.Namespace, processes: Processes) -> None:
             )
             + "\n",
         )
-        ensure_usage_event_index(bound, env["INDEX_PREFIX"])
+        with timings.phase("usage_event_index"):
+            ensure_usage_event_index(bound, env["INDEX_PREFIX"])
         if checker.is_complete(data_dir, name, env["INDEX_PREFIX"], existing_indices):
             log(f"{name}: warm start, bootstrap already completed")
         else:
-            run_upgrade(
-                processes,
-                env,
-                log_dir,
-                name,
-                args.heap,
-                "SystemUpdate",
-                create=not (data_dir / name / "gms.mv.db").exists(),
-            )
-            run_upgrade(processes, env, log_dir, name, args.heap, "RestoreIndices")
+            timings.warm = False
+            with timings.phase("system_update"):
+                run_upgrade(
+                    processes,
+                    process_env(resolved[name]["system-update"]),
+                    log_dir,
+                    name,
+                    args.heap,
+                    "SystemUpdate",
+                    create=not (data_dir / name / "gms.mv.db").exists(),
+                )
+            with timings.phase("restore_indices"):
+                run_upgrade(
+                    processes,
+                    process_env(resolved[name]["restore-indices"]),
+                    log_dir,
+                    name,
+                    args.heap,
+                    "RestoreIndices",
+                )
             checker.mark_complete(
                 data_dir, name, env["INDEX_PREFIX"], index_names(bound)
             )
-    for name, env in environments.items():
-        processes.start(
-            [JAVA, f"-Xmx{args.heap}", *JVM_OPENS, "-jar", str(WAR)],
-            env,
-            log_dir / f"{name}-gms.log",
+    service_pids: dict[str, dict[str, int]] = {}
+    with timings.phase("gms_boot"):
+        for name, env in environments.items():
+            child = processes.start(
+                [JAVA, f"-Xmx{args.heap}", *JVM_OPENS, "-jar", str(WAR)],
+                env,
+                log_dir / f"{name}-gms.log",
+            )
+            service_pids.setdefault("gms", {})[name] = child.pid
+        urls = {
+            name: f"http://localhost:{args.port_base + i}"
+            for i, name in enumerate(names)
+        }
+        for name, url in urls.items():
+            deadline = time.monotonic() + health_timeout
+            while not http_ok(f"{url}/health"):
+                processes.check()
+                if time.monotonic() >= deadline:
+                    raise SystemExit(
+                        f"{name} did not become healthy; see {log_dir / (name + '-gms.log')}"
+                    )
+                time.sleep(1)
+            log(f"{name} healthy at {url}")
+    with timings.phase("admin_token"):
+        tokens = (
+            {
+                name: mint_admin_token(url, environments[name])
+                for name, url in urls.items()
+            }
+            if args.auth
+            else {}
         )
-    urls = {
-        name: f"http://localhost:{args.port_base + i}" for i, name in enumerate(names)
-    }
-    for name, url in urls.items():
-        deadline = time.monotonic() + 600
-        while not http_ok(f"{url}/health"):
-            processes.check()
-            if time.monotonic() >= deadline:
-                raise SystemExit(
-                    f"{name} did not become healthy; see {log_dir / (name + '-gms.log')}"
-                )
-            time.sleep(1)
-        log(f"{name} healthy at {url}")
-    tokens = (
-        {name: mint_admin_token(url, environments[name]) for name, url in urls.items()}
-        if args.auth
-        else {}
-    )
-    for name, token in tokens.items():
-        wait_admin_access(urls[name], token, processes)
+        for name, token in tokens.items():
+            wait_admin_access(urls[name], token, processes)
+    services: dict[str, dict[str, str]] = {}
+    health: dict[str, dict[str, dict[str, object]]] = {}
+    for name in names:
+        ctx = context(
+            REPO_ROOT,
+            data_dir,
+            name,
+            declared_ports,
+            options,
+            tokens.get(name, ""),
+        )
+        contexts[name] = ctx
+        if extension is None:
+            continue
+        for spec in extension.services(ctx):
+            if (
+                not spec.ports
+                or spec.role not in spec.ports
+                or any(role not in ctx.ports for role in spec.ports)
+            ):
+                raise SystemExit(f"service {spec.role} uses an undeclared port role")
+            resolved[name][spec.role]["DATAHUB_GMS_TOKEN"] = EnvValue(
+                tokens.get(name, ""), "launcher"
+            )
+            path = log_dir / f"{name}-{spec.role}.log"
+            with timings.phase(f"service:{spec.role}"):
+                child = None
+                try:
+                    child = processes.start(
+                        list(spec.argv),
+                        {
+                            **process_env(resolved[name][spec.role]),
+                            "DATAHUB_GMS_TOKEN": tokens.get(name, ""),
+                        },
+                        path,
+                        cwd=spec.cwd,
+                        required=spec.required,
+                    )
+                    deadline = time.monotonic() + spec.timeout
+                    while not http_ok(spec.readiness_url):
+                        processes.check()
+                        if child.poll() is not None or time.monotonic() >= deadline:
+                            raise RuntimeError(
+                                f"{name}/{spec.role} did not become healthy; see {path}"
+                            )
+                        time.sleep(1)
+                    service_pids.setdefault(spec.role, {})[name] = child.pid
+                    services.setdefault(spec.role, {})[name] = (
+                        f"http://localhost:{ctx.ports[spec.role]}"
+                    )
+                    health.setdefault(spec.role, {})[name] = {
+                        "url": spec.readiness_url,
+                        "required": spec.required,
+                    }
+                    log(f"{name}/{spec.role} healthy")
+                except (OSError, RuntimeError) as error:
+                    if spec.required:
+                        raise SystemExit(str(error)) from error
+                    if child is not None:
+                        processes.stop_group(child)
+                        if child in processes.children:
+                            processes.children.remove(child)
+                        processes.optional.discard(child.pid)
+                    log(f"optional service: {error}")
+        extension.after_ready(ctx)
     stack: StackInfo = {
+        "services": services,
+        "serviceHealth": health,
+        "servicePids": service_pids,
         "bootId": secrets.token_hex(16),
         "opensearchVersion": args.opensearch,
         "opensearchPort": bound,
@@ -792,7 +1187,16 @@ def run_stack(args: argparse.Namespace, processes: Processes) -> None:
             name: token_expires_at(token) for name, token in tokens.items()
         },
     }
+    result = timings.save()
+    write_private(
+        data_dir / "resolved-env.json",
+        json.dumps(env_report(resolved), indent=2) + "\n",
+    )
     write_private(data_dir / "stack.json", json.dumps(stack, indent=2) + "\n")
+    split = " ".join(f"{name}={value:.1f}s" for name, value in timings.phases.items())
+    log(
+        f"boot timings: {split} total={result['total_s']:.1f}s warm={timings.warm} data_dir={dir_size_mb(data_dir):.0f} MB"
+    )
     log(f"stack ready: {data_dir / 'stack.json'}")
     while True:
         processes.check()
@@ -833,12 +1237,21 @@ def main() -> None:
         default=None,
         help="frontend port written to stack.json for Vite lite mode",
     )
+    parser.add_argument("--job", choices=tuple(JOB_DIRS))
+    parser.add_argument("--mode", choices=MODES)
+    parser.add_argument(
+        "--print-env",
+        action="store_true",
+        help="show redacted resolved env and boot nothing",
+    )
     parser.add_argument("--opensearch", choices=("2", "3"))
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
     parser.add_argument(
         "--env-file",
-        type=Path,
-        help="optional KEY=VALUE file; connection settings stay isolated",
+        dest="env_files",
+        action="append",
+        default=[],
+        help="ad-hoc [scope:]PATH after env layers; repeatable, later wins",
     )
     parser.add_argument(
         "--heap", default="1g", help="heap cap per GMS/upgrade JVM (default: 1g)"
@@ -857,7 +1270,17 @@ def main() -> None:
         action="store_true",
         help="reuse existing jars and OpenSearch installDist",
     )
+    parser.add_argument(
+        "--extension", help="optional module:attribute service provider"
+    )
+    parser.add_argument("--extension-options", default="{}")
+    parser.add_argument("--extension-slot", type=int, default=0)
     args = parser.parse_args()
+    extension = load(args.extension)
+    description = (
+        extension.describe(json.loads(args.extension_options)) if extension else None
+    )
+    args.extension_contexts = {}
     if args.processes < 1 or not 1 <= args.port_base <= 65536 - args.processes:
         parser.error(
             "--processes must be positive and all GMS ports must be in 1..65535"
@@ -875,7 +1298,15 @@ def main() -> None:
     args.private_opensearch = (
         args.private_opensearch or args.opensearch_port is not None
     )
-    ensure_ports_available(ports)
+    if description:
+        additional = list(
+            ports_for(description, args.extension_slot, args.processes).values()
+        )
+        if set(additional).intersection(
+            ports + ([args.frontend_port] if args.frontend_port else [])
+        ):
+            parser.error("extension ports overlap core ports")
+        ports.extend(additional)
     args.data_dir = args.data_dir.expanduser().resolve()
     version_file = args.data_dir / "opensearch-major"
     recorded = (
@@ -887,7 +1318,17 @@ def main() -> None:
     args.shared_opensearch_dir = args.shared_opensearch_dir or default_shared_dir(
         args.opensearch
     )
-    processes = Processes()
+    try:
+        preview = resolved_environments(
+            args, args.opensearch_port or 0, PLACEHOLDER_SECRETS, extension, description
+        )
+    except EnvLayerError as error:
+        parser.error(str(error))
+    if args.print_env:
+        print(json.dumps(env_report(preview), indent=2))
+        return
+    ensure_ports_available(ports)
+    processes = Processes(args.data_dir)
 
     def interrupted(signum: int, frame: object) -> None:
         # Ignore repeated group signals while finally flushes the spool and stops children.
@@ -909,6 +1350,9 @@ def main() -> None:
             run_stack(args, processes)
         finally:
             processes.stop()
+            if extension:
+                for ctx in reversed(list(args.extension_contexts.values())):
+                    extension.after_stop(ctx)
 
 
 if __name__ == "__main__":

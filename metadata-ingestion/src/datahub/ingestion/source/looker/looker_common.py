@@ -1065,6 +1065,7 @@ class LookerExplore:
     fields: Optional[List[ViewField]] = None  # the fields exposed in this explore
     source_file: Optional[str] = None
     tags: List[str] = dataclasses_field(default_factory=list)
+    hidden: Optional[bool] = None
 
     @field_validator("name", mode="after")
     @classmethod
@@ -1410,6 +1411,7 @@ class LookerExplore:
                 upstream_views_file_path=upstream_views_file_path,
                 source_file=explore.source_file,
                 tags=list(explore.tags) if explore.tags is not None else [],
+                hidden=explore.hidden,
                 join_definitions=join_definitions or None,
             )
             logger.debug(f"Created LookerExplore from API: {looker_explore}")
@@ -1621,6 +1623,9 @@ class LookerExplore:
             "looker.explore.label": self.label,
             "looker.explore.name": self.name,
             "looker.explore.file": self.source_file,
+            "looker.explore.hidden": (
+                str(self.hidden).lower() if self.hidden is not None else None
+            ),
         }
 
         explore_view_logic = self._build_explore_view_logic()

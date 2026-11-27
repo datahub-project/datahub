@@ -135,6 +135,7 @@ def test_metadata_search_uses_quick_search_results_endpoint(
         path: str,
         project_id: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
         nonlocal captured_path
         captured_path = path
@@ -164,6 +165,7 @@ def test_search_reports_uses_report_object_type(
         path: str,
         project_id: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
         nonlocal captured_params
         captured_params = params
@@ -833,6 +835,7 @@ def test_metadata_search_paginates_until_total_items(
         path: str,
         project_id: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
         assert params is not None
         requested_offsets.append(params["offset"])
@@ -893,7 +896,7 @@ def test_search_dashboards_skips_malformed_objects(monkeypatch: MonkeyPatch) -> 
     monkeypatch.setattr(
         client,
         "_get_json",
-        lambda path, project_id=None, params=None: {
+        lambda path, project_id=None, params=None, timeout_seconds=None: {
             "result": [
                 {"id": "dash-1", "name": "Dashboard 1"},
                 {"name": "no id"},
@@ -1090,8 +1093,7 @@ def test_close_without_login_does_not_log_out(monkeypatch: MonkeyPatch) -> None:
 def test_model_tables_timeout_has_a_floor_above_the_default(
     monkeypatch: MonkeyPatch, configured: int, expected: int
 ) -> None:
-    # A busy Modeling service missed four 30-second timeouts on the first
-    # model tables page, which dropped the whole semantic model for the run.
+    # Four missed 30s timeouts here dropped the whole semantic model.
     client, _ = _make_client({"timeout_seconds": configured})
     timeouts: list[Optional[int]] = []
 
@@ -1113,8 +1115,7 @@ def test_model_tables_timeout_has_a_floor_above_the_default(
 def test_metric_search_timeout_has_a_floor_above_the_default(
     monkeypatch: MonkeyPatch, configured: int, expected: int
 ) -> None:
-    # A metric search page over a project with tens of thousands of metrics
-    # missed every 30-second attempt, which dropped all of its metrics.
+    # A large project's metric search missed every 30s attempt and dropped every metric.
     client, _ = _make_client({"timeout_seconds": configured})
     timeouts: list[Optional[int]] = []
 
@@ -1144,3 +1145,27 @@ def test_other_searches_keep_the_configured_timeout(
     list(client.search_reports("project-1"))
 
     assert timeouts == [None, None]
+
+
+def test_get_dossier_visualization_requests_no_result_rows(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, _ = _make_client()
+    captured: Dict[str, Any] = {}
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        captured.update(path=path, project_id=project_id, params=params)
+        return {"definition": {}}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    client.get_dossier_visualization("project-1", "dossier-1", "inst-1", "K1", "K2")
+
+    assert captured["path"] == (
+        "/api/v2/dossiers/dossier-1/instances/inst-1/chapters/K1/visualizations/K2"
+    )
+    assert captured["params"] == {"limit": 0}

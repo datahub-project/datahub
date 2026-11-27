@@ -36,7 +36,7 @@ from great_expectations.validator.validator import Validator
 from sqlalchemy.engine.base import Connection, Engine
 
 import datahub.emitter.mce_builder as builder
-from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.configuration.env_vars import get_debug
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.graph.config import ClientMode
@@ -70,7 +70,7 @@ if TYPE_CHECKING:
 
 assert MARKUPSAFE_PATCHED
 logger = logging.getLogger(__name__)
-if get_boolean_env_variable("DATAHUB_DEBUG", False):
+if get_debug():
     handler = logging.StreamHandler(stream=sys.stdout)
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)

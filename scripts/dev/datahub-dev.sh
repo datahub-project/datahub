@@ -47,7 +47,7 @@ except (OSError, ValueError):
     print("")
 EOF
 )
-if [ "${1:-}" = "start" ]; then
+if [ "${1:-}" = "start" ] || [ "${1:-}" = "frontend" ]; then
   for _dh_arg in "$@"; do
     [ "$_dh_arg" = "--local" ] && _dh_local=1
   done
@@ -60,7 +60,7 @@ fi
 # itself, so they also skip this proxy and reach Python directly.
 if [ -n "$DATAHUB_RUNNER" ] && [ "$DATAHUB_REMOTE_EXEC" != "1" ] && [ "$_dh_local" != "1" ]; then
   case "${1:-}" in
-    instances|shell-env|start|setup|suspend)
+    instances|indices|shell-env|start|setup|suspend)
       # Local-aware commands: let Python handle them (start/setup/suspend have
       # their own runner logic; instances/shell-env read the local registry).
       ;;

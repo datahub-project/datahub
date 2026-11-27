@@ -48,6 +48,27 @@ class PostgresQuery:
         return " AND ".join(filters)
 
     @staticmethod
+    def get_table_partitions() -> TextClause:
+        """List tables in a schema that are partitions of a partitioned table.
+
+        relispartition was added in Postgres 10, alongside declarative
+        partitioning. It is also set on partitions of partitioned indexes, so
+        relkind limits the result to the kinds SQLAlchemy's get_table_names
+        lists: ordinary (r) and partitioned (p) tables. A p row here is a
+        partition that has its own partitions.
+        """
+        return text(
+            """
+        SELECT c.relname AS table_name
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = :schema
+          AND c.relispartition
+          AND c.relkind IN ('r', 'p')
+        """
+        )
+
+    @staticmethod
     def check_pg_stat_statements_enabled() -> TextClause:
         """Check if pg_stat_statements extension is installed."""
         return text(

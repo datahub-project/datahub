@@ -1,0 +1,29 @@
+{
+  "_comment": "GMS GraphQL schemas every packaged .gql is validated against. Pinned to commits for reproducibility. Add the releases just before and at each new #[since] gate. 'master' is the checkout itself.",
+  "schemas": [
+    {
+      "name": "oss-1.7.0",
+      "tag": "v1.7.0",
+      "commit": "7f81ccbfe27b9acc947f5f600fcf9ddb72138a80",
+      "version": "v1.7.0"
+    },
+    {
+      "name": "oss-1.8.0",
+      "tag": "v1.8.0",
+      "commit": "faab576d96cbdb27b8344a755e0bc0f42fdc9c15",
+      "version": "v1.8.0"
+    },
+    {
+      "name": "oss-1.9.0",
+      "tag": "v1.9.0",
+      "commit": "cbce986addb1bf8bb1a37d461ce580b734afed53",
+      "version": "v1.9.0"
+    },
+    {
+      "name": "master",
+      "tag": null,
+      "commit": null,
+      "version": null
+    }
+  ]
+}

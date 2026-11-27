@@ -9,7 +9,7 @@
             "customProperties": {
                 "platform": "qlik-sense",
                 "space": "stream-1",
-                "type": "SpaceType.STREAM"
+                "type": "stream"
             },
             "externalUrl": "https://qlik.example.com/hub/stream/stream-1",
             "name": "Everyone",
@@ -136,7 +136,7 @@
             "customProperties": {
                 "platform": "qlik-sense",
                 "space": "stream-2",
-                "type": "SpaceType.STREAM"
+                "type": "stream"
             },
             "externalUrl": "https://qlik.example.com/hub/stream/stream-2",
             "name": "Finance",

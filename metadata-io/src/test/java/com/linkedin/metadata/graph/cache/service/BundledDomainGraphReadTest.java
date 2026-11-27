@@ -9,6 +9,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.linkedin.metadata.cache.visibility.IndexVisibilityEstimator;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheConfigLoader;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ConfigFile;
@@ -91,7 +92,8 @@ public class BundledDomainGraphReadTest {
             localViews,
             snapshotBuilder,
             systemOperationContext,
-            Executors.newSingleThreadExecutor());
+            Executors.newSingleThreadExecutor(),
+            IndexVisibilityEstimator.DISABLED);
 
     seedActiveSnapshot();
   }

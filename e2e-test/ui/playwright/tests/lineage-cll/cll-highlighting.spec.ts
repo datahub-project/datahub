@@ -115,27 +115,35 @@ test.describe('column-level lineage highlighting', () => {
       },
     );
 
-    test('selecting a column draws persistent arrows to and from the dbt model', async ({ page }) => {
-      await openLineageAndExpandColumns(RAW_URN, [MODEL_URN, MART_URN]);
+    test(
+      'selecting a column draws persistent arrows to and from the dbt model',
+      { tag: [DomainTag.Catalog] },
+      async ({ page }) => {
+        await openLineageAndExpandColumns(RAW_URN, [MODEL_URN, MART_URN]);
 
-      // Hovering first, as a user does on the way to clicking: drawing a column's edges can
-      // re-lay out the graph, which slides the column out from under an immediate click
-      await lineagePage.hoverColumn(RAW_URN, 'metric');
-      await lineagePage.selectColumn(RAW_URN, 'metric');
-      await checkArrowsDrawn(dbtPathEdges());
+        // Hovering first, as a user does on the way to clicking: drawing a column's edges can
+        // re-lay out the graph, which slides the column out from under an immediate click
+        await lineagePage.hoverColumn(RAW_URN, 'metric');
+        await lineagePage.selectColumn(RAW_URN, 'metric');
+        await checkArrowsDrawn(dbtPathEdges());
 
-      // Selection must survive the pointer leaving the column (unlike hover highlighting)
-      await lineagePage.unhoverColumn(RAW_URN, 'metric');
-      await page.mouse.move(0, 0);
-      await checkArrowsDrawn(dbtPathEdges());
-    });
+        // Selection must survive the pointer leaving the column (unlike hover highlighting)
+        await lineagePage.unhoverColumn(RAW_URN, 'metric');
+        await page.mouse.move(0, 0);
+        await checkArrowsDrawn(dbtPathEdges());
+      },
+    );
 
-    test('hovering the downstream column draws the upstream path through the dbt model', async () => {
-      await openLineageAndExpandColumns(MART_URN, [MODEL_URN, RAW_URN]);
+    test(
+      'hovering the downstream column draws the upstream path through the dbt model',
+      { tag: [DomainTag.Catalog] },
+      async () => {
+        await openLineageAndExpandColumns(MART_URN, [MODEL_URN, RAW_URN]);
 
-      await lineagePage.hoverColumn(MART_URN, 'metric');
-      await checkArrowsDrawn(dbtPathEdges());
-    });
+        await lineagePage.hoverColumn(MART_URN, 'metric');
+        await checkArrowsDrawn(dbtPathEdges());
+      },
+    );
   });
 
   test.describe('through a data job', () => {
@@ -146,7 +154,7 @@ test.describe('column-level lineage highlighting', () => {
       lineagePage.getOperationToColumnEdge(JOB_URN, OUTPUT_URN, 'val'),
     ];
 
-    test('hovering a column draws arrows to and from the data job', async ({ page }) => {
+    test('hovering a column draws arrows to and from the data job', { tag: [DomainTag.Catalog] }, async ({ page }) => {
       await openLineageAndExpandColumns(INPUT_URN, [JOB_URN, OUTPUT_URN]);
 
       await lineagePage.hoverColumn(INPUT_URN, 'val');
@@ -157,24 +165,32 @@ test.describe('column-level lineage highlighting', () => {
       await checkArrowsCleared(dataJobPathEdges());
     });
 
-    test('selecting a column draws persistent arrows to and from the data job', async ({ page }) => {
-      await openLineageAndExpandColumns(INPUT_URN, [JOB_URN, OUTPUT_URN]);
+    test(
+      'selecting a column draws persistent arrows to and from the data job',
+      { tag: [DomainTag.Catalog] },
+      async ({ page }) => {
+        await openLineageAndExpandColumns(INPUT_URN, [JOB_URN, OUTPUT_URN]);
 
-      await lineagePage.hoverColumn(INPUT_URN, 'val');
-      await lineagePage.selectColumn(INPUT_URN, 'val');
-      await checkArrowsDrawn(dataJobPathEdges());
+        await lineagePage.hoverColumn(INPUT_URN, 'val');
+        await lineagePage.selectColumn(INPUT_URN, 'val');
+        await checkArrowsDrawn(dataJobPathEdges());
 
-      await lineagePage.unhoverColumn(INPUT_URN, 'val');
-      await page.mouse.move(0, 0);
-      await checkArrowsDrawn(dataJobPathEdges());
-    });
+        await lineagePage.unhoverColumn(INPUT_URN, 'val');
+        await page.mouse.move(0, 0);
+        await checkArrowsDrawn(dataJobPathEdges());
+      },
+    );
 
-    test('hovering the downstream column draws the upstream path through the data job', async () => {
-      await openLineageAndExpandColumns(OUTPUT_URN, [JOB_URN, INPUT_URN]);
+    test(
+      'hovering the downstream column draws the upstream path through the data job',
+      { tag: [DomainTag.Catalog] },
+      async () => {
+        await openLineageAndExpandColumns(OUTPUT_URN, [JOB_URN, INPUT_URN]);
 
-      await lineagePage.hoverColumn(OUTPUT_URN, 'val');
-      await checkArrowsDrawn(dataJobPathEdges());
-    });
+        await lineagePage.hoverColumn(OUTPUT_URN, 'val');
+        await checkArrowsDrawn(dataJobPathEdges());
+      },
+    );
   });
 
   test.describe('through a query missing from the graph', () => {
@@ -182,23 +198,27 @@ test.describe('column-level lineage highlighting', () => {
     // graph never draws a node for it. The arrow must be drawn directly between the columns.
     const directEdge = () => lineagePage.getColumnEdge(MISMATCH_SRC_URN, 'score', MISMATCH_DST_URN, 'score');
 
-    test('hovering a column draws the arrow directly between the columns', async ({ page }) => {
-      await openLineageAndExpandColumns(MISMATCH_SRC_URN, [MISMATCH_DST_URN]);
-      await expect(lineagePage.getReactFlowNode(PHANTOM_QUERY_URN)).not.toBeAttached();
+    test(
+      'hovering a column draws the arrow directly between the columns',
+      { tag: [DomainTag.Catalog] },
+      async ({ page }) => {
+        await openLineageAndExpandColumns(MISMATCH_SRC_URN, [MISMATCH_DST_URN]);
+        await expect(lineagePage.getReactFlowNode(PHANTOM_QUERY_URN)).not.toBeAttached();
 
-      await lineagePage.hoverColumn(MISMATCH_SRC_URN, 'score');
-      await checkArrowsDrawn([directEdge()]);
-      // No segments are drawn to the query, as it has no node to attach to
-      await expect(
-        lineagePage.getColumnToOperationEdge(MISMATCH_SRC_URN, 'score', PHANTOM_QUERY_URN),
-      ).not.toBeAttached();
+        await lineagePage.hoverColumn(MISMATCH_SRC_URN, 'score');
+        await checkArrowsDrawn([directEdge()]);
+        // No segments are drawn to the query, as it has no node to attach to
+        await expect(
+          lineagePage.getColumnToOperationEdge(MISMATCH_SRC_URN, 'score', PHANTOM_QUERY_URN),
+        ).not.toBeAttached();
 
-      await lineagePage.unhoverColumn(MISMATCH_SRC_URN, 'score');
-      await page.mouse.move(0, 0);
-      await checkArrowsCleared([directEdge()]);
-    });
+        await lineagePage.unhoverColumn(MISMATCH_SRC_URN, 'score');
+        await page.mouse.move(0, 0);
+        await checkArrowsCleared([directEdge()]);
+      },
+    );
 
-    test('selecting a column draws the direct arrow persistently', async ({ page }) => {
+    test('selecting a column draws the direct arrow persistently', { tag: [DomainTag.Catalog] }, async ({ page }) => {
       await openLineageAndExpandColumns(MISMATCH_SRC_URN, [MISMATCH_DST_URN]);
 
       await lineagePage.hoverColumn(MISMATCH_SRC_URN, 'score');
@@ -234,51 +254,63 @@ test.describe('column-level lineage highlighting', () => {
       },
     );
 
-    test('hover arrows come back on every hover, not just the first', async ({ page }) => {
-      await openLineageAndExpandColumns(STAGING_URN, [SOURCE_URN, QUERY_URN, FINAL_URN]);
+    test(
+      'hover arrows come back on every hover, not just the first',
+      { tag: [DomainTag.Catalog] },
+      async ({ page }) => {
+        await openLineageAndExpandColumns(STAGING_URN, [SOURCE_URN, QUERY_URN, FINAL_URN]);
 
-      // Regression: hover-drawn arrows raced the graph's own edge updates and intermittently
-      // never appeared (or vanished mid-hover). Cycle hover a few times; each cycle must draw
-      // the full path and clear it again.
-      for (let cycle = 0; cycle < 3; cycle++) {
+        // Regression: hover-drawn arrows raced the graph's own edge updates and intermittently
+        // never appeared (or vanished mid-hover). Cycle hover a few times; each cycle must draw
+        // the full path and clear it again.
+        for (let cycle = 0; cycle < 3; cycle++) {
+          await lineagePage.hoverColumn(STAGING_URN, 'amount');
+          await checkArrowsDrawn(queryPathEdges());
+
+          // Physically move the pointer off the column so the next hover is a real re-entry
+          await lineagePage.unhoverColumn(STAGING_URN, 'amount');
+          await page.mouse.move(0, 0);
+          await checkArrowsCleared(queryPathEdges());
+        }
+      },
+    );
+
+    test(
+      'selecting a column draws persistent arrows to and from the correct entities',
+      { tag: [DomainTag.Catalog] },
+      async ({ page }) => {
+        await openLineageAndExpandColumns(STAGING_URN, [SOURCE_URN, QUERY_URN, FINAL_URN]);
+
         await lineagePage.hoverColumn(STAGING_URN, 'amount');
         await checkArrowsDrawn(queryPathEdges());
+        await lineagePage.selectColumn(STAGING_URN, 'amount');
+        await checkArrowsDrawn(queryPathEdges());
 
-        // Physically move the pointer off the column so the next hover is a real re-entry
+        // Selection must survive the pointer leaving the column (unlike hover highlighting)
         await lineagePage.unhoverColumn(STAGING_URN, 'amount');
         await page.mouse.move(0, 0);
+        await checkArrowsDrawn(queryPathEdges());
+
+        // Deselecting clears the arrows
+        await lineagePage.selectColumn(STAGING_URN, 'amount');
         await checkArrowsCleared(queryPathEdges());
-      }
-    });
+      },
+    );
 
-    test('selecting a column draws persistent arrows to and from the correct entities', async ({ page }) => {
-      await openLineageAndExpandColumns(STAGING_URN, [SOURCE_URN, QUERY_URN, FINAL_URN]);
+    test(
+      'hovering the downstream column draws the upstream path through the query node',
+      { tag: [DomainTag.Catalog] },
+      async () => {
+        await openLineageAndExpandColumns(FINAL_URN, [QUERY_URN, STAGING_URN]);
 
-      await lineagePage.hoverColumn(STAGING_URN, 'amount');
-      await checkArrowsDrawn(queryPathEdges());
-      await lineagePage.selectColumn(STAGING_URN, 'amount');
-      await checkArrowsDrawn(queryPathEdges());
-
-      // Selection must survive the pointer leaving the column (unlike hover highlighting)
-      await lineagePage.unhoverColumn(STAGING_URN, 'amount');
-      await page.mouse.move(0, 0);
-      await checkArrowsDrawn(queryPathEdges());
-
-      // Deselecting clears the arrows
-      await lineagePage.selectColumn(STAGING_URN, 'amount');
-      await checkArrowsCleared(queryPathEdges());
-    });
-
-    test('hovering the downstream column draws the upstream path through the query node', async () => {
-      await openLineageAndExpandColumns(FINAL_URN, [QUERY_URN, STAGING_URN]);
-
-      await lineagePage.hoverColumn(FINAL_URN, 'total');
-      // Only one degree of lineage is drawn by default, so cll_source is not on this graph;
-      // assert the two segments through the query node
-      await checkArrowsDrawn([
-        lineagePage.getColumnToOperationEdge(STAGING_URN, 'amount', QUERY_URN),
-        lineagePage.getOperationToColumnEdge(QUERY_URN, FINAL_URN, 'total'),
-      ]);
-    });
+        await lineagePage.hoverColumn(FINAL_URN, 'total');
+        // Only one degree of lineage is drawn by default, so cll_source is not on this graph;
+        // assert the two segments through the query node
+        await checkArrowsDrawn([
+          lineagePage.getColumnToOperationEdge(STAGING_URN, 'amount', QUERY_URN),
+          lineagePage.getOperationToColumnEdge(QUERY_URN, FINAL_URN, 'total'),
+        ]);
+      },
+    );
   });
 });

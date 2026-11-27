@@ -107,11 +107,18 @@ class SqlAlchemyColumnToAvroConverter:
             }
         if isinstance(column_type, types.ARRAY):
             array_type = column_type.item_type
+            # a multi-dimensional ARRAY is an array of arrays, one level per dimension
+            dimensions = column_type.dimensions or 1
+            if dimensions > 1:
+                array_type = types.ARRAY(
+                    column_type.item_type, dimensions=dimensions - 1
+                )
+            items = cls.get_avro_type(column_type=array_type, nullable=nullable)
 
             return {
                 "type": "array",
-                "items": cls.get_avro_type(column_type=array_type, nullable=nullable),
-                "native_data_type": f"array<{str(column_type.item_type)}>",
+                "items": items,
+                "native_data_type": f"array<{items['native_data_type']}>",
             }
         if isinstance(column_type, MapType):
             try:
