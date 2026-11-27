@@ -15,7 +15,7 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
-### Failed proposals without an entity urn reach the failure topic
+### Failed proposals without an entity urn reach the failure topic ([#21663](https://github.com/datahub-project/datahub/pull/21663))
 
 A proposal can name its entity with only an `entityKeyAspect`, with no `entityUrn`. When such a
 proposal failed before its urn was filled in, for example because its entity type is one this
