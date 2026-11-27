@@ -52,7 +52,9 @@ class PostgresQuery:
         """List tables in a schema that are partitions of a partitioned table.
 
         relispartition was added in Postgres 10, alongside declarative
-        partitioning.
+        partitioning. It is also set on partitions of partitioned indexes, so
+        relkind limits the result to the kinds SQLAlchemy's get_table_names
+        lists: ordinary (r) and partitioned (p, i.e. sub-partitions) tables.
         """
         return text(
             """
@@ -61,6 +63,7 @@ class PostgresQuery:
         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = :schema
           AND c.relispartition
+          AND c.relkind IN ('r', 'p')
         """
         )
 
