@@ -669,19 +669,21 @@ class MicroStrategySemanticModelMapper:
                 progress.failed += 1
                 self.report.report_metric_expression_api_failure()
                 self.report.report_failed_metric_model(metric_object.id)
-                # A failure, not a warning: a skipped metric is soft-deleted by
-                # stale-entity removal unless the run is marked failed.
-                self.report.failure(
+                # The Modeling service returns deterministic 500s for metrics it
+                # cannot model, so this must not fail the run (that would skip
+                # stale-entity removal for good). The metric is still emitted
+                # from the search result, so removal never soft-deletes it.
+                self.report.warning(
                     title="MicroStrategy Metric Model Unavailable",
                     message=(
-                        "Skipping this metric for the semantic model; its "
-                        "expression could not be fetched. Stale-entity removal "
-                        "is skipped for this run so the previous metric is kept."
+                        "Emitting this metric without an expression or upstream "
+                        "lineage; its model could not be fetched."
                     ),
                     context=f"project_id={project_id}, metric_id={metric_object.id}",
                     exc=error,
+                    log=False,
                 )
-                continue
+                model = {}
 
             upstream_aliases: Set[str] = set()
             for fact_id in metric_fact_ids_from_model(model):
