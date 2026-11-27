@@ -35,8 +35,9 @@ _BARE_NAME = re.compile(r"(?<![`\w])[A-Z][A-Z0-9_]{3,}(?![`\w])")
 
 _GROUP_BLURBS: Dict[EnvVarGroup, str] = {
     EnvVarGroup.CONNECTION: (
-        "Where DataHub is and how to authenticate. These take precedence over `~/.datahubenv`, "
-        "and a CLI flag takes precedence over them."
+        "Where DataHub is and how to authenticate. A selected profile (`--profile` or "
+        "`DATAHUB_PROFILE`) is resolved first and beats these; a token set without a server is "
+        "ignored. See Precedence above before combining them."
     ),
     EnvVarGroup.OAUTH: (
         "Set `DATAHUB_AUTH_TYPE` to obtain tokens from an identity provider instead of using a "
@@ -114,6 +115,10 @@ def format_description(spec: EnvVarSpec, known: "frozenset[str]") -> str:
     # Docstrings write an em dash as " -- "; a CLI flag such as --debug has no surrounding
     # spaces, so this does not touch them.
     description = description.replace(" -- ", " — ")
+    # Sentences are joined with a space below, so a description without terminal punctuation
+    # runs straight into "Accepts: ...".
+    if description and description[-1] not in ".!?:":
+        description += "."
     parts.append(description.replace("|", "\\|"))
 
     if spec.choices:

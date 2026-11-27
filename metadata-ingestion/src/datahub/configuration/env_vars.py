@@ -63,8 +63,6 @@ def get_gms_host() -> Optional[str]:
     type=str,
     group=EnvVarGroup.CONNECTION,
     tier=EnvVarTier.BASIC,
-    deprecated=True,
-    replaced_by="DATAHUB_GMS_URL",
     description=(
         "Port of the GMS instance, used with DATAHUB_GMS_HOST. Setting it overrides "
         "DATAHUB_GMS_URL entirely, which is rarely what you want."
@@ -81,8 +79,6 @@ def get_gms_port() -> Optional[str]:
     default="http",
     tier=EnvVarTier.BASIC,
     choices=["http", "https"],
-    deprecated=True,
-    replaced_by="DATAHUB_GMS_URL",
     description="Scheme used with DATAHUB_GMS_HOST and DATAHUB_GMS_PORT.",
 )
 def get_gms_protocol() -> str:
@@ -455,6 +451,7 @@ def get_auth_azure_client_secret() -> Optional[str]:
 @env_var(
     name="DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES",
     type=str,
+    type_label="integer",
     group=EnvVarGroup.EMITTER,
     default="4",
     description="Times a failed request to GMS is retried before the emit fails.",
@@ -578,7 +575,7 @@ def get_emitter_trace() -> bool:
     type=int,
     group=EnvVarGroup.REST_SINK,
     default=15,
-    recipe_field="max_threads",
+    recipe_field="sink.config.max_threads",
     description=(
         "Threads the REST sink uses to emit in parallel. Raise for throughput, lower "
         "to ease load on GMS."
@@ -593,7 +590,7 @@ def get_rest_sink_default_max_threads() -> int:
     type=str,
     group=EnvVarGroup.REST_SINK,
     choices=["SYNC", "ASYNC", "ASYNC_BATCH"],
-    recipe_field="mode",
+    recipe_field="sink.config.mode",
     description=(
         "How the REST sink submits records. Unset means ASYNC_BATCH. Any recipe `mode` takes "
         "precedence over this."
@@ -609,7 +606,7 @@ def get_rest_sink_default_mode() -> Optional[str]:
     group=EnvVarGroup.REST_SINK,
     default=False,
     choices=["true"],
-    recipe_field="tcp_keepalive",
+    recipe_field="sink.config.tcp_keepalive",
     description="Default value for tcp_keepalive on the REST sink / DataHub client",
 )
 def get_rest_sink_default_tcp_keepalive() -> bool:
@@ -624,6 +621,7 @@ def get_rest_sink_default_tcp_keepalive() -> bool:
 @env_var(
     name="DATAHUB_TELEMETRY_TIMEOUT",
     type=str,
+    type_label="integer",
     group=EnvVarGroup.TELEMETRY,
     default="10",
     tier=EnvVarTier.BASIC,
@@ -667,7 +665,7 @@ def get_sentry_environment() -> str:
     type=int,
     group=EnvVarGroup.REPORTING,
     default=10,
-    recipe_field="report_failure_sample_size",
+    recipe_field="flags.report_failure_sample_size",
     description="Maximum number of failure entries to include in the report.",
 )
 def get_report_failure_sample_size() -> int:
@@ -679,7 +677,7 @@ def get_report_failure_sample_size() -> int:
     type=int,
     group=EnvVarGroup.REPORTING,
     default=10,
-    recipe_field="report_warning_sample_size",
+    recipe_field="flags.report_warning_sample_size",
     description="Maximum number of warning entries to include in the report.",
 )
 def get_report_warning_sample_size() -> int:
@@ -691,7 +689,7 @@ def get_report_warning_sample_size() -> int:
     type=int,
     group=EnvVarGroup.REPORTING,
     default=10,
-    recipe_field="report_info_sample_size",
+    recipe_field="flags.report_info_sample_size",
     description="Maximum number of info entries to include in the report.",
 )
 def get_report_info_sample_size() -> int:
@@ -703,7 +701,7 @@ def get_report_info_sample_size() -> int:
     type=int,
     group=EnvVarGroup.REPORTING,
     default=10,
-    recipe_field="progress_report_max_failures",
+    recipe_field="flags.progress_report_max_failures",
     description="Maximum number of failure entries in intermediate progress reports.",
 )
 def get_progress_report_max_failures() -> int:
@@ -715,7 +713,7 @@ def get_progress_report_max_failures() -> int:
     type=int,
     group=EnvVarGroup.REPORTING,
     default=10,
-    recipe_field="progress_report_max_warnings",
+    recipe_field="flags.progress_report_max_warnings",
     description="Maximum number of warning entries in intermediate progress reports.",
 )
 def get_progress_report_max_warnings() -> int:
@@ -727,7 +725,7 @@ def get_progress_report_max_warnings() -> int:
     type=int,
     group=EnvVarGroup.REPORTING,
     default=10,
-    recipe_field="progress_report_max_infos",
+    recipe_field="flags.progress_report_max_infos",
     description="Maximum number of info entries in intermediate progress reports.",
 )
 def get_progress_report_max_infos() -> int:
@@ -842,9 +840,9 @@ def get_disable_agent_probe_raw_access() -> bool:
         "Refuse every `datahub probe run` command, so the probe never opens a connection to "
         "the source. Wider than `DATAHUB_PROBE_DISABLE_RAW_ACCESS`, which blocks only the "
         "caller-supplied `sql` and `api` passthroughs and leaves the typed listings live. "
-        "Scope, stated precisely because a control that promises more than it delivers is "
-        "worse than none: `recipe test-connection` is NOT gated -- it opens a connection and "
-        "authenticates, but it verifies credentials rather than reading metadata. Commands "
+        "Note what is not covered: `recipe test-connection` is NOT gated -- it opens a "
+        "connection and authenticates, but it verifies credentials rather than reading "
+        "metadata. Commands "
         "that need no connection (`recipe describe`, `scaffold`, `validate`, `probe methods`, "
         "`probe filter`) keep working. Set it where the probe runs, the ingestion executor, "
         "not in the recipe: an agent writes the recipe, so a field there would let it grant "

@@ -88,7 +88,8 @@ Two things to know when ingestion runs on the DataHub executor rather than your 
   happens. Read it before changing one of these in an existing deployment.
 - **Detected, not set by you** marks variables DataHub or the surrounding platform sets and the
   SDK only reads. Setting them by hand usually does nothing useful and sometimes breaks things.
-- **Deprecated** rows name their replacement. They still work, for now.
+- **Deprecated** rows name a replacement where there is one; a few are simply on their way
+  out. They still work, for now.
 
 ## Reference
 
