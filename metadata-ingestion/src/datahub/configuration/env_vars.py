@@ -161,8 +161,9 @@ def get_skip_config() -> bool:
     group=EnvVarGroup.CONNECTION,
     default="",
     description=(
-        "Path prefix all GMS API calls are made under, for deployments served from a "
-        "sub-path."
+        "Path prefix inserted when deriving the Kafka schema registry URL from the GMS "
+        "address, for deployments served from a sub-path. It does not prefix GMS API calls "
+        "themselves -- set `DATAHUB_GMS_URL` to the full path for those."
     ),
 )
 def get_gms_base_path() -> str:
@@ -766,7 +767,7 @@ def get_test_mode() -> Optional[str]:
     group=EnvVarGroup.LOGGING,
     default=False,
     tier=EnvVarTier.BASIC,
-    choices=["true"],
+    choices=["true", "1"],
     risky=True,
     description=(
         "Enable debug logging, the same as passing `--debug`. Debug logs expose "
@@ -885,6 +886,22 @@ def get_probe_verbose_logs() -> bool:
 # ============================================================================
 
 
+@env_var(
+    name="DATAHUB_DISABLE_EXECUTOR_TASK_SECRET_SCOPE",
+    type=bool,
+    group=EnvVarGroup.EXECUTOR,
+    default=False,
+    choices=["true", "1"],
+    risky=True,
+    description=(
+        "Turn off per-task secret scopes in the executor, which are on by default. An "
+        "operational rollback, not a tuning knob: with scopes off, every task's secrets go to "
+        "one process-global registry as they did before scopes existed, so masking over-masks "
+        "across tasks -- a later task's output redacted against an earlier task's secret, with "
+        "that task's variable name in the marker -- but never under-masks. Read per task, so a "
+        "restart with it set is enough to switch."
+    ),
+)
 def get_disable_executor_task_secret_scope() -> bool:
     """Turn off per-task secret scopes in the executor (on by default).
 

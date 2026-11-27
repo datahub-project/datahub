@@ -44,7 +44,9 @@ declare_env_var(
     choices=["true", "1", "false", "0"],
     description=(
         "Whether the CLI may send anonymous usage telemetry. Set to false on hosts with no "
-        "outbound internet access. The telemetry config file takes precedence when present."
+        "outbound internet access. It is combined with the telemetry config file rather than "
+        "overriding it, so either can disable telemetry but neither re-enables it alone. The "
+        "presence of any common CI variable also disables it."
     ),
 )
 

@@ -199,6 +199,20 @@ def test_enum_backed_choices_match_the_enum():
     assert not problems, "\n".join(problems)
 
 
+def test_the_pages_boolean_example_is_still_true():
+    """The page names a variable that accepts `true` but not `1`. Keep that example honest.
+
+    It used to name DATAHUB_DEBUG, and master then changed that accessor to accept `1` as
+    well, leaving the page asserting something false.
+    """
+    registry = {spec.name: spec for spec in get_registry(include_undocumented=True)}
+    spec = registry["NO_COLOR"]
+    assert spec.choices == ("true",), (
+        "metadata-ingestion/environment-variables.md says NO_COLOR=1 does not disable colour. "
+        f"NO_COLOR now accepts {spec.choices}; update the page's example and this test."
+    )
+
+
 def test_specs_are_internally_consistent():
     registry = {spec.name: spec for spec in get_registry(include_undocumented=True)}
     problems = []

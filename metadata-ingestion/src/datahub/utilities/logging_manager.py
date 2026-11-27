@@ -34,9 +34,14 @@ declare_env_var(
     name="DATAHUB_LOG_CONFIG_FILE",
     type=str,
     group=EnvVarGroup.LOGGING,
+    risky=True,
     description=(
         "Path to a Python logging fileConfig ini. When set, it replaces DataHub's own logging "
-        "setup entirely -- the escape hatch for fitting CLI output to an existing log pipeline."
+        "setup entirely -- the escape hatch for fitting CLI output to an existing log pipeline. "
+        "Secret masking only covers some configurations: StreamHandler, FileHandler and the "
+        "standard rotating file handlers, with logging.Formatter or python-json-logger. "
+        "Handlers that send records over a socket, HTTP or to a third-party service are not "
+        "covered, so secrets may reach them unmasked."
     ),
 )
 

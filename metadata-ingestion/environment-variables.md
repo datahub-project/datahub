@@ -67,8 +67,8 @@ Two things to know when ingestion runs on the DataHub executor rather than your 
 ## Reading the tables
 
 - **Type** is how the value is parsed. Boolean variables differ in what they accept: some take
-  only `true`, others also accept `1`. The Description column lists the accepted values per
-  variable — `DATAHUB_DEBUG=1` does **not** enable debug logging.
+  only `true`, others also accept `1`. Always check the accepted values in the Description
+  column rather than assuming — `NO_COLOR=1`, for instance, does **not** disable colour.
 - **Default** is what the code falls back to when the variable is unset. `_(unset)_` means there
   is no fallback and the feature stays off or is configured elsewhere.
 - Every row is tagged with its tier, and each section is ordered by it. **_Basic_** comes
