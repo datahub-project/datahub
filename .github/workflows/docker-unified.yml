@@ -671,9 +671,9 @@ jobs:
       actions: read
       pull-requests: read
     outputs:
-      # The Playwright tier's smart testing mode: off, or shadow when the PR is
-      # eligible. smoke_test_matrix resolves the pytest mode (SMART_TESTING_MODE)
-      # itself.
+      # The Playwright tier's smart testing mode: off, or the
+      # PLAYWRIGHT_SMART_TESTING_MODE repo var when the PR is eligible.
+      # smoke_test_matrix resolves the pytest mode (SMART_TESTING_MODE) itself.
       playwright_mode: ${{ steps.resolve-mode.outputs.playwright_mode || 'off' }}
       smart_tags: ${{ steps.smart-testing.outputs.smart_tags }}
       confidence: ${{ steps.smart-testing.outputs.confidence }}
@@ -688,9 +688,8 @@ jobs:
         id: resolve-mode
         continue-on-error: true
         # Each suite has its own mode. pytest's is off | shadow | active from the
-        # SMART_TESTING_MODE repo var (shadow when unset). Playwright's is shadow
-        # only: its selection is reported but never applied until it has a
-        # baseline for untagged specs, so going active is a change here. Forks get
+        # SMART_TESTING_MODE repo var and Playwright's from
+        # PLAYWRIGHT_SMART_TESTING_MODE, both shadow when unset. Forks get
         # no OIDC token or secrets for Claude auth, and the run-all-tests label opts
         # the PR out entirely. Each
         # suite's own label (run-all-tests:pytest, run-all-tests:playwright) opts
@@ -717,7 +716,7 @@ jobs:
           fi
           playwright_mode=off
           if [[ "$eligible" == 'true' && "$PLAYWRIGHT_OPT_OUT" != 'true' && -n "$PLAYWRIGHT_MATRIX" && "$PLAYWRIGHT_MATRIX" != '{"include":[]}' ]]; then
-            playwright_mode=shadow
+            playwright_mode="${{ vars.PLAYWRIGHT_SMART_TESTING_MODE || 'shadow' }}"
           fi
           # Classify when either suite uses the tags (shadow or active).
           run_classifier=false
@@ -910,6 +909,10 @@ jobs:
         env:
           RUN_QUICKSTART: "false"
           TEST_STRATEGY: plan
+          # The stack the batches run on (smoke-test/utilities/backends.py).
+          # The plan records it, and a batch job with a different value stops
+          # rather than running another lane's selection.
+          SMOKE_BACKEND: docker
           SMOKE_SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
           SMOKE_CHANGED_TESTS: ${{ needs.setup.outputs.smoke_changed_tests }}
           SMOKE_DUMP_BATCH_PLAN: ${{ github.workspace }}/pytest-smoke-plan/pytest-smoke-plan.json
@@ -1543,6 +1546,8 @@ jobs:
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           CLEANUP_DATA: "false"
           TEST_STRATEGY: pytests
+          # Must match the plan step in smoke_test_matrix.
+          SMOKE_BACKEND: docker
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
           # 'p0' or 'full' -- decided by smoke_test_matrix.
@@ -1981,10 +1986,10 @@ jobs:
   # Playwright P0 tier on PRs: works out which tests the PR needs (every @p0 test,
   # plus the tests Playwright's --only-changed says the change affects, plus the specs
   # seeding from changed fixture data) with plan_playwright_tier.py, and falls back
-  # to the full suite when a change can't be mapped. Smart testing runs in shadow
-  # (see classify_pr): the plan also records the specs tagged with the PR's
-  # features, which would replace the @p0 tests once active, without running
-  # them. The tier is used when the PLAYWRIGHT_P0_SMOKE repo variable is "true"
+  # to the full suite when a change can't be mapped. With smart testing active
+  # (see classify_pr), the specs tagged with the PR's features replace the @p0
+  # tests; in shadow the plan only records them, without running them. The tier
+  # is used when the PLAYWRIGHT_P0_SMOKE repo variable is "true"
   # and the PR has neither run-all-tests nor run-all-tests:playwright; otherwise
   # the full suite runs and the plan is only reported (shadow mode; the report
   # job checks it for escapes). If this job fails, playwright_test runs the full
@@ -2037,7 +2042,7 @@ jobs:
         id: plan
         env:
           SUITE_MATRIX: ${{ needs.setup.outputs.playwright_matrix }}
-          # off | shadow, from classify_pr, which turns it off for forks and the
+          # off | shadow | active, from classify_pr, which turns it off for forks and the
           # run-all-tests and run-all-tests:playwright labels.
           SMART_MODE: ${{ needs.classify_pr.outputs.playwright_mode || 'off' }}
           SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}

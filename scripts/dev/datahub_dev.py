@@ -20,9 +20,13 @@ Usage:
     python3 scripts/dev/datahub_dev.py env restart
     python3 scripts/dev/datahub_dev.py sync-flags
     python3 scripts/dev/datahub_dev.py reset
-    python3 scripts/dev/datahub_dev.py nuke [--keep-data]
+    python3 scripts/dev/datahub_dev.py nuke [--keep-data] [--no-restart]
     python3 scripts/dev/datahub_dev.py instances list
-    python3 scripts/dev/datahub_dev.py instances clean
+    python3 scripts/dev/datahub_dev.py instances clean [--orphans] [--yes]
+    python3 scripts/dev/datahub_dev.py instances repair [--yes]
+    python3 scripts/dev/datahub_dev.py indices list [--json]
+    python3 scripts/dev/datahub_dev.py indices drop <id> [--yes]
+    python3 scripts/dev/datahub_dev.py indices prune [--yes]
     python3 scripts/dev/datahub_dev.py shell-env
 
 Remote runner (set DATAHUB_RUNNER or 'runner' in ~/.datahub/dev/config.json):
@@ -32,6 +36,7 @@ Remote runner (set DATAHUB_RUNNER or 'runner' in ~/.datahub/dev/config.json):
 
 import argparse
 import copy
+import shlex
 import dataclasses
 import datetime
 import fcntl
@@ -39,16 +44,30 @@ import hashlib
 import json
 import os
 import re
-import shlex
+import shutil
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
+
+from extensions import datahub_local_extension as extensions
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Set, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+    Iterator,
+    Mapping,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -81,6 +100,7 @@ class DevToolingConfig:
     gradle_quickstart_task: str
     gradle_smoke_install_task: str
     gradle_sync_flags_task: str
+    local_extension: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -167,6 +187,18 @@ INSTANCES_FILE: Path = DATAHUB_DEV_DIR / "instances.json"
 CONFIG_FILE: Path = DATAHUB_DEV_DIR / "config.json"
 
 # Default host-port for each mapped service (slot 0).  Slot N adds N * SLOT_OFFSET.
+#
+# Every ${DATAHUB_MAPPED_*_PORT:-<default>} the compose profiles publish must appear here with the
+# same default, and tests/test_datahub_dev.py fails if the two drift. A port missing here is never
+# slot-offset: compose falls back to its own default, so every instance binds the same host port
+# and the second one to start dies with "port is already allocated" -- after its images have built.
+#
+# Note these bases are NOT mutually collision-free under slot offsetting: the debug ports at 50xx
+# sit exactly 4 * SLOT_OFFSET below the service ports at 90xx, so slot N of a service computes the
+# same port as slot N+4 of a debugger (e.g. slot 3's frontend and slot 7's frontend debugger both
+# want 12002). Renumbering would be the tidier fix, but 5001/5002 are documented in
+# docs/docker/development.md down to an IDE screenshot, so _pick_slot skips colliding slots at
+# assignment time instead.
 PORT_BASE: Dict[str, int] = {
     "DATAHUB_MAPPED_GMS_PORT": 8080,
     "DATAHUB_MAPPED_FRONTEND_PORT": 9002,
@@ -187,35 +219,179 @@ PORT_BASE: Dict[str, int] = {
 }
 SLOT_OFFSET: int = 1000
 
+# The WHATWG Fetch spec (enforced by Node's built-in fetch/undici, not by curl or
+# http-proxy-middleware) unconditionally rejects requests to these ports with
+# "TypeError: fetch failed" / "bad port", regardless of what's listening. Slot 2's
+# GMS port (8080 + 2*1000 = 10080, the well-known "amanda" backup-service port) and
+# localstack port (4566 + 2*1000 = 6566) both land here — any fetch()-based code
+# (e.g. the gms-lite-mode devtools proxy's /logIn handler) silently fails against
+# that slot's GMS. List captured empirically from `node --version` == v22.16.0;
+# regenerate by probing every port 1-65535 and checking `e.cause.message ==
+# 'bad port'` on a rejected fetch() if a future Node version changes it.
+FETCH_FORBIDDEN_PORTS: frozenset[int] = frozenset(
+    {
+        1,
+        7,
+        9,
+        11,
+        13,
+        15,
+        17,
+        19,
+        20,
+        21,
+        22,
+        23,
+        25,
+        37,
+        42,
+        43,
+        53,
+        69,
+        77,
+        79,
+        87,
+        95,
+        101,
+        102,
+        103,
+        104,
+        109,
+        110,
+        111,
+        113,
+        115,
+        117,
+        119,
+        123,
+        135,
+        137,
+        139,
+        143,
+        161,
+        179,
+        389,
+        427,
+        465,
+        512,
+        513,
+        514,
+        515,
+        526,
+        530,
+        531,
+        532,
+        540,
+        548,
+        554,
+        556,
+        563,
+        587,
+        601,
+        636,
+        989,
+        990,
+        993,
+        995,
+        1719,
+        1720,
+        1723,
+        2049,
+        3659,
+        4045,
+        4190,
+        5060,
+        5061,
+        6000,
+        6566,
+        6665,
+        6666,
+        6667,
+        6668,
+        6669,
+        6679,
+        6697,
+        10080,
+    }
+)
+
 
 class RegistryError(RuntimeError):
-    """The registry must be repaired before any command can update it."""
+    """The instance registry exists but cannot be read."""
+
+
+_T = TypeVar("_T")
+# Per thread: flock is per open file, so a nested call on one thread would deadlock on
+# itself, while another thread must simply wait for the lock.
+_registry_lock_state = threading.local()
+
+
+def _registry_backup() -> Path:
+    return INSTANCES_FILE.with_name(INSTANCES_FILE.name + ".bak")
 
 
 def _load_registry() -> Dict[str, Any]:
-    """Read ~/.datahub/dev/instances.json; return empty structure if absent."""
+    """Read ~/.datahub/dev/instances.json; return an empty structure if absent.
+
+    An unreadable file raises rather than reading as empty: every worktree shares this
+    file, and saving an "empty" registry would drop all other worktrees' entries.
+    """
     if not INSTANCES_FILE.exists():
         return {"version": 1, "instances": {}}
     try:
         data = json.loads(INSTANCES_FILE.read_text())
-        if not isinstance(data, dict) or not isinstance(
-            data.get("instances", {}), dict
-        ):
-            raise RegistryError(f"Invalid instance registry: {INSTANCES_FILE}")
-        data.setdefault("instances", {})
-        return data
     except (json.JSONDecodeError, OSError) as error:
         raise RegistryError(
-            f"Cannot read instance registry {INSTANCES_FILE}: {error}"
+            f"{INSTANCES_FILE} cannot be read ({error}). Repair the file or restore the previous version "
+            f"with 'cp {_registry_backup()} {INSTANCES_FILE}', or move the file aside "
+            "and run 'datahub-dev.sh instances repair --yes' to rebuild local entries."
         ) from error
+    if not isinstance(data, dict) or not isinstance(data.get("instances", {}), dict):
+        raise RegistryError(
+            f"{INSTANCES_FILE} does not hold an instance registry. Repair the file before retrying."
+        )
+    data.setdefault("instances", {})
+    return data
 
 
 def _save_registry(data: Dict[str, Any]) -> None:
-    """Atomically write the instance registry."""
+    """Atomically write the instance registry, keeping the previous one as a backup.
+
+    Prefer _update_registry, which holds the registry lock from read to write.
+    """
     DATAHUB_DEV_DIR.mkdir(parents=True, exist_ok=True)
+    if INSTANCES_FILE.exists():
+        shutil.copyfile(INSTANCES_FILE, _registry_backup())
     tmp = INSTANCES_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2) + "\n")
     tmp.rename(INSTANCES_FILE)
+
+
+def _update_registry(mutate: Callable[[Dict[str, Any]], _T]) -> _T:
+    """Read, change, and write the registry under an exclusive lock.
+
+    Worktrees start and clean up concurrently; without the lock, two read-modify-write
+    cycles interleave and the later write drops the earlier one's entry.
+    """
+    if getattr(_registry_lock_state, "held", False):
+        raise RuntimeError("_update_registry is not re-entrant")
+    DATAHUB_DEV_DIR.mkdir(parents=True, exist_ok=True)
+    with open(DATAHUB_DEV_DIR / "instances.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        _registry_lock_state.held = True
+        try:
+            registry = _load_registry()
+            result = mutate(registry)
+            _save_registry(registry)
+            return result
+        finally:
+            _registry_lock_state.held = False
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+# Separate running-stack defaults for Docker Compose stacks and Docker-free (local) stacks.
+DEFAULT_MAX_DOCKER_INSTANCES: int = 4
+DEFAULT_MAX_DOCKER_FREE_INSTANCES: int = 4
 
 
 @contextmanager
@@ -231,15 +407,28 @@ def _registry_transaction() -> Iterator[Dict[str, Any]]:
             _save_registry(registry)
 
 
+def _remove_local_registry_entry(expected: Mapping[str, object]) -> None:
+    with _registry_transaction() as registry:
+        if registry["instances"].get(WORKTREE_ID) == expected:
+            del registry["instances"][WORKTREE_ID]
+
+
 def _load_dev_config() -> Dict[str, Any]:
     """Read ~/.datahub/dev/config.json; return defaults if absent.
 
     Keys:
-      max_local_instances   — concurrent local docker slots (default 2)
-      max_remote_instances  — concurrent remote runner slots (default 10)
-      runner                — path to runner executable (read by datahub-dev.sh)
+      max_docker_instances       — concurrent Docker Compose stacks on this machine (default 4)
+      max_docker_free_instances  — concurrent Docker-free `start --local` stacks on this
+                                   machine (default 4)
+      max_remote_instances       — concurrent remote runner slots (default 10)
+      max_local_instances        — deprecated fallback for the two max_docker* keys when
+                                   they are absent. Existing configs that only set this
+                                   key keep their old behaviour: it caps Docker Compose
+                                   and Docker-free stacks separately (up to that many of
+                                   each).
+      runner                     — path to runner executable (read by datahub-dev.sh)
     """
-    defaults: Dict[str, Any] = {"max_local_instances": 2, "max_remote_instances": 10}
+    defaults: Dict[str, Any] = {"max_remote_instances": 10}
     if not CONFIG_FILE.exists():
         return defaults
     try:
@@ -247,6 +436,28 @@ def _load_dev_config() -> Dict[str, Any]:
         return {**defaults, **data}
     except (json.JSONDecodeError, OSError):
         return defaults
+
+
+def _max_docker_instances(dev_config: Mapping[str, Any]) -> int:
+    """Running-stack cap for Docker Compose stacks.
+
+    Precedence: max_docker_instances > deprecated max_local_instances > default.
+    """
+    value = dev_config.get("max_docker_instances")
+    if value is None:
+        value = dev_config.get("max_local_instances", DEFAULT_MAX_DOCKER_INSTANCES)
+    return int(value)
+
+
+def _max_docker_free_instances(dev_config: Mapping[str, Any]) -> int:
+    """Running-stack cap for Docker-free (local) stacks.
+
+    Precedence: max_docker_free_instances > deprecated max_local_instances > default.
+    """
+    value = dev_config.get("max_docker_free_instances")
+    if value is None:
+        value = dev_config.get("max_local_instances", DEFAULT_MAX_DOCKER_FREE_INSTANCES)
+    return int(value)
 
 
 def _get_instance() -> Optional[Dict[str, Any]]:
@@ -261,13 +472,137 @@ def _compute_ports(slot: int) -> Dict[str, int]:
 
 def _is_port_free(port: int) -> bool:
     """Return True when no process is listening on the given port."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(0.5)
-        try:
-            s.connect(("127.0.0.1", port))
+    try:
+        with socket.create_connection(("localhost", port), timeout=0.5):
             return False
-        except (ConnectionRefusedError, OSError):
-            return True
+    except OSError:
+        return True
+
+
+def _pick_docker_or_remote_slot(registry: Dict[str, Any], remote: bool = False) -> int:
+    """Return the lowest available slot for a Docker or remote stack.
+
+    Search extra slot numbers because some are unusable (for example GMS port 10080).
+    The configured instance limit counts running stacks, not reservations.
+    """
+    dev_config = _load_dev_config()
+    max_docker = _max_docker_instances(dev_config)
+    max_remote = int(dev_config.get("max_remote_instances", 10))
+
+    # Remote slots start after the Docker range. Docker-free slots can reach into it, which is
+    # safe: a taken slot or port is skipped below whichever kind took it.
+    slot_start = max_docker * 3 if remote else 0
+    # Reservations for stopped Docker-free stacks do not consume the Docker slot bound.
+    reserved_docker_free = sum(
+        entry.get("mode") == "local" for entry in registry.get("instances", {}).values()
+    )
+    slot_end = (
+        slot_start
+        + (max_remote if remote else max_docker) * 3
+        + reserved_docker_free * 3
+    )
+
+    candidate_ports = _compute_ports
+
+    other_instances = [
+        v
+        for k, v in registry.get("instances", {}).items()
+        if k != WORKTREE_ID and isinstance(v.get("slot"), int)
+    ]
+    if (
+        not remote
+        and sum(
+            v.get("mode") != "local"
+            and not v.get("runner")
+            and not _is_port_free(_instance_service_port(v, "gms"))
+            for v in other_instances
+        )
+        >= max_docker
+    ):
+        raise RuntimeError(f"All {max_docker} Docker instance slots are in use.")
+    used_slots = {v["slot"] for v in other_instances}
+
+    # Ports already spoken for by another instance, whichever slot they came from. Needed because
+    # the bases are not collision-free under offsetting (see PORT_BASE): a free slot number does
+    # not guarantee a free port set, and the clash only surfaces at compose-up, after the images
+    # have been built.
+    claimed_ports = {
+        port
+        for v in other_instances
+        for port in (v.get("ports") or _compute_ports(v["slot"])).values()
+    }
+
+    for slot in range(slot_start, slot_end):
+        if slot in used_slots:
+            continue
+        candidate = candidate_ports(slot)
+        if any(port > 65535 for port in candidate.values()):
+            continue
+        forbidden = sorted(set(candidate.values()) & FETCH_FORBIDDEN_PORTS)
+        if forbidden:
+            _log(
+                f"Slot {slot} is free but its ports {forbidden} are on the WHATWG Fetch "
+                f"forbidden-port list (fetch()-based code, e.g. the gms-lite-mode frontend "
+                f"proxy, would fail against them); trying the next slot."
+            )
+            continue
+        overlap = sorted(set(candidate.values()) & claimed_ports)
+        if overlap:
+            _log(
+                f"Slot {slot} is free but its ports {overlap} are already claimed by another "
+                f"instance; trying the next slot."
+            )
+            continue
+        return slot
+
+    kind = "remote" if remote else "Docker"
+    limit = max_remote if remote else max_docker
+    key = "max_remote_instances" if remote else "max_docker_instances"
+    raise RuntimeError(
+        f"All {limit} {kind} instance slots are in use. "
+        f"Stop an existing instance or increase {key} in "
+        "~/.datahub/dev/config.json."
+    )
+
+
+def _check_local_running_limit(
+    instances: Mapping[str, Mapping[str, object]], limit: int
+) -> None:
+    # Docker commands do not need the local launcher/profile dependencies.
+    import datahub_dev_local as local
+
+    if limit < 1:
+        raise RuntimeError(
+            "max_docker_free_instances must be at least 1 in ~/.datahub/dev/config.json"
+        )
+    running: Dict[str, Mapping[str, object]] = {}
+    for worktree_id, entry in instances.items():
+        # Foreign reservations have no verified process contract. A healthy port or
+        # bare PID cannot establish which stack owns it, so neither counts here.
+        if not local.is_owned_entry(entry) or not re.fullmatch(
+            r"[0-9a-f]{6}", worktree_id
+        ):
+            continue
+        if local.read_instance_record(worktree_id) != entry:
+            continue
+        directory = local.local_data_dir(worktree_id)
+        if local.starting_alive(entry) or any(
+            local._owned_by(pid, directory)
+            for pid in local.recorded_pids(directory).values()
+        ):
+            running[worktree_id] = entry
+    if WORKTREE_ID in running or len(running) < limit:
+        return
+    names = ", ".join(
+        f"{key} ({entry.get('worktree_path', 'unknown worktree')})"
+        for key, entry in sorted(running.items())
+    )
+    raise RuntimeError(
+        f"Running Docker-free stack limit reached ({len(running)}/{limit}): {names}. "
+        "Stop one with 'cd <worktree-path> && scripts/dev/datahub-dev.sh stop', "
+        "or raise max_docker_free_instances in ~/.datahub/dev/config.json. "
+        "Ownership-verified live processes and starting reservations count; foreign entries reserve slots and ports but their liveness is unverified."
+    )
 
 
 def _pick_slot(
@@ -275,56 +610,59 @@ def _pick_slot(
     remote: bool = False,
     local_stack: bool = False,
     processes: int = 1,
+    description: extensions.Description | None = None,
 ) -> int:
-    """Return the lowest available slot for a local or remote instance.
+    """Choose an unreserved slot; local capacity limits live stacks, not reservations."""
+    if not local_stack:
+        return _pick_docker_or_remote_slot(registry, remote=remote)
+    # Keep the local launcher/profile dependencies out of Docker and remote commands.
+    import datahub_dev_local as local
 
-    Local slots:  0 … max_local_instances-1   (ports 8080, 18080, …)
-    Remote slots: max_local … max_local+max_remote-1  (tunnel ports only;
-                  docker on the remote machine always runs on default ports)
-    """
-    dev_config = _load_dev_config()
-    max_local = int(dev_config.get("max_local_instances", 2))
-    max_remote = int(dev_config.get("max_remote_instances", 10))
-
-    slot_start = max_local if remote else 0
-    slot_end = max_local + max_remote if remote else max_local
-
+    _check_local_running_limit(
+        registry.get("instances", {}),
+        _max_docker_free_instances(_load_dev_config()),
+    )
     used_slots = {
         v["slot"]
-        for k, v in registry.get("instances", {}).items()
-        if k != WORKTREE_ID and isinstance(v.get("slot"), int)
+        for v in registry.get("instances", {}).values()
+        if isinstance(v.get("slot"), int)
     }
     claimed_ports = {
         port
-        for key, entry in registry.get("instances", {}).items()
-        if key != WORKTREE_ID
+        for entry in registry.get("instances", {}).values()
         for port in entry.get("ports", {}).values()
     }
-    for slot in range(slot_start, slot_end):
-        candidate = _compute_ports(slot)
-        if local_stack:
-            import datahub_dev_local as local
-
-            candidate = local.local_ports(slot)
-            candidate.update(
-                {f"gms-{i}": candidate["gms"] + i for i in range(processes)}
-            )
-        if slot not in used_slots and not claimed_ports.intersection(
+    # Cover the entire usable TCP range independently of the running limit. This
+    # stays bounded even when many stopped or foreign stacks retain reservations.
+    highest_base = max(
+        *local.LOCAL_PORT_BASE.values(),
+        local.LOCAL_PORT_BASE["gms"] + processes - 1,
+        *(
+            base + processes - 1
+            for base in (description.port_bases.values() if description else ())
+        ),
+    )
+    slot_count = max(0, (65535 - highest_base) // SLOT_OFFSET + 1)
+    for slot in range(slot_count):
+        if slot in used_slots:
+            continue
+        candidate = local.local_ports(slot)
+        candidate.update({f"gms-{i}": candidate["gms"] + i for i in range(processes)})
+        if description:
+            candidate.update(extensions.ports_for(description, slot, processes))
+        if len(set(candidate.values())) != len(candidate) - 1:
+            continue
+        if claimed_ports.intersection(
             candidate.values()
-        ):
-            if local_stack and any(
-                not _is_port_free(port) for port in candidate.values()
-            ):
-                continue
-            return slot
-
-    kind = "remote" if remote else "local"
-    limit = max_remote if remote else max_local
-    key = "max_remote_instances" if remote else "max_local_instances"
+        ) or FETCH_FORBIDDEN_PORTS.intersection(candidate.values()):
+            continue
+        if any(not _is_port_free(port) for port in candidate.values()):
+            continue
+        return slot
     raise RuntimeError(
-        f"All {limit} {kind} instance slots are in use. "
-        f"Stop an existing instance or increase {key} in "
-        "~/.datahub/dev/config.json."
+        "No unreserved Docker-free slot has free, browser-compatible ports in 1..65535. "
+        "Release unused registry reservations or free conflicting ports; "
+        "raising max_docker_free_instances only increases the running-stack limit."
     )
 
 
@@ -345,8 +683,7 @@ def _register_remote_instance(runner: str, slot: int) -> Dict[str, Any]:
         "ports": local_ports,
         "created_at": datetime.datetime.utcnow().isoformat() + "Z",
     }
-    with _registry_transaction() as registry:
-        registry["instances"][WORKTREE_ID] = instance
+    _update_registry(lambda r: r["instances"].__setitem__(WORKTREE_ID, instance))
     return instance
 
 
@@ -374,8 +711,7 @@ def _register_instance(slot: int, ports: Dict[str, int]) -> Dict[str, Any]:
         "ports": ports,
         "created_at": datetime.datetime.utcnow().isoformat() + "Z",
     }
-    with _registry_transaction() as registry:
-        registry["instances"][WORKTREE_ID] = instance
+    _update_registry(lambda r: r["instances"].__setitem__(WORKTREE_ID, instance))
     return instance
 
 
@@ -427,25 +763,28 @@ def _write_ports_to_env_file(ports: Dict[str, int]) -> None:
 def _gms_url() -> str:
     """Return the GMS base URL for this worktree, reading the instance registry."""
     inst = _get_instance()
-    port = (
-        inst["ports"].get("gms", inst["ports"].get("DATAHUB_MAPPED_GMS_PORT", 8080))
-        if inst
-        else 8080
-    )
+    port = _instance_service_port(inst, "gms")
     return os.environ.get("DATAHUB_GMS_URL", f"http://localhost:{port}")
 
 
 def _frontend_url() -> str:
     """Return the frontend base URL for this worktree, reading the instance registry."""
     inst = _get_instance()
-    port = (
-        inst["ports"].get(
-            "frontend", inst["ports"].get("DATAHUB_MAPPED_FRONTEND_PORT", 9002)
-        )
-        if inst
-        else 9002
-    )
+    port = _instance_service_port(inst, "frontend")
     return os.environ.get("DATAHUB_FRONTEND_URL", f"http://localhost:{port}")
+
+
+def _instance_service_port(inst: Optional[Dict[str, Any]], service: str) -> int:
+    defaults = {"gms": 8080, "frontend": 9002}
+    if not inst:
+        return defaults[service]
+    if inst.get("mode") == "local":
+        return inst.get("ports", {}).get(service, defaults[service])
+    docker_keys = {
+        "gms": "DATAHUB_MAPPED_GMS_PORT",
+        "frontend": "DATAHUB_MAPPED_FRONTEND_PORT",
+    }
+    return inst.get("ports", {}).get(docker_keys[service], defaults[service])
 
 
 # ---------------------------------------------------------------------------
@@ -516,7 +855,9 @@ def _load_config() -> DevToolingConfig:
     without modifying this file.
     """
     config = _default_config()
-    ext_path = Path(__file__).parent / "datahub_dev_ext.py"
+    ext_path = Path(__file__).parent / "extensions/datahub_dev_ext.py"
+    if not ext_path.exists():
+        ext_path = Path(__file__).parent / "datahub_dev_ext.py"
     if ext_path.exists():
         try:
             import importlib.util
@@ -537,7 +878,7 @@ def _log(msg: str) -> None:
 
 
 CONFIG: DevToolingConfig
-# CLI configuration reads the registry and must run inside main's error handler.
+# Direct execution initializes CONFIG in main(); imports need it before command calls.
 if __name__ != "__main__":
     CONFIG = _load_config()
 
@@ -1062,10 +1403,8 @@ def _detect_changed_modules(
 def cmd_rebuild(args: argparse.Namespace) -> int:
     """Smart incremental rebuild of changed modules.
 
-    Uses ``./gradlew :docker:reload`` which builds changed modules via its
-    ``prepareAll*`` dependency AND restarts only the affected containers —
-    all in a single Gradle invocation so the task graph correctly detects
-    which ``dockerPrepare`` tasks were not up-to-date.
+    Docker mode: ``./gradlew :docker:reload`` rebuilds + restarts containers.
+    Local mode: rebuilds war.jar + restarts the local stack (warm start).
     """
     instance = _get_instance()
     if instance and instance.get("mode") == "local":
@@ -1112,6 +1451,8 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
     # containers.  The reload task depends on prepareAll* which triggers
     # the build, then inspects which dockerPrepare tasks were not
     # up-to-date to decide which containers to restart.
+    # Note: COMPOSE_PROJECT_NAME is injected via _dev_env() so reload targets
+    # the correct worktree's containers in multi-worktree setups.
     gradle_cmd = [
         "./gradlew",
         CONFIG.gradle_reload_task,
@@ -1160,6 +1501,19 @@ def _smoke_test_env() -> Dict[str, str]:
     """
     env = _dev_env()
     env.pop("DATAHUB_PROFILE", None)
+    instance = _get_instance()
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if local.is_owned_entry(instance):
+            # stack.json is authoritative: a URL exported for another worktree must not win.
+            env.pop("DATAHUB_GMS_TOKEN", None)
+            try:
+                env.update(local.load_test_env(WORKTREE_ID))
+            except (OSError, ValueError, KeyError) as error:
+                raise SystemExit(
+                    f"ERROR: no usable stack.json; is the local stack up? ({error})"
+                ) from error
     gms_base_path = env.get("DATAHUB_GMS_BASE_PATH", "")
     instance_gms_url = _gms_url()
     if gms_base_path == "/" or not gms_base_path:
@@ -1174,6 +1528,10 @@ def _smoke_test_env() -> Dict[str, str]:
             f"{instance_gms_url}{gms_base_path}/schema-registry/api",
         )
         env.setdefault("DATAHUB_GMS_URL", f"{instance_gms_url}{gms_base_path}")
+
+    # Without this, tests fall back to localhost:9002 and can silently log in
+    # to a different worktree's instance (multi-instance port isolation).
+    env.setdefault("DATAHUB_FRONTEND_URL", _frontend_url())
 
     env.setdefault("ADMIN_USERNAME", "datahub")
     env.setdefault("ADMIN_PASSWORD", "datahub")
@@ -1331,6 +1689,34 @@ def cmd_flag_get(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _local_env_file() -> Path:
+    import datahub_dev_local as local
+
+    return local.local_data_dir(WORKTREE_ID) / "env-overrides.env"
+
+
+def _set_env_in_file(env_file: Path, key: str, value: str) -> None:
+    """Update or append KEY=VALUE in an env.sh-style file."""
+    if not env_file.exists():
+        env_file.parent.mkdir(parents=True, exist_ok=True)
+        env_file.touch()
+    lines = env_file.read_text().splitlines()
+    found = False
+    new_lines = []
+    # env.sh lines may have 'export ' prefix
+    for line in lines:
+        stripped = line.strip()
+        bare = stripped.removeprefix("export ").strip()
+        if bare.startswith(f"{key}="):
+            new_lines.append(f'export {key}="{value}"')
+            found = True
+        else:
+            new_lines.append(line)
+    if not found:
+        new_lines.append(f'export {key}="{value}"')
+    env_file.write_text("\n".join(new_lines) + "\n")
+
+
 def cmd_env_set(args: argparse.Namespace) -> int:
     """Set an environment variable for DataHub containers.
 
@@ -1435,7 +1821,7 @@ def cmd_env_list(args: argparse.Namespace) -> int:
 
 
 def cmd_env_restart(args: argparse.Namespace) -> int:
-    """Restart containers to pick up new environment variables."""
+    """Restart to pick up new environment variables."""
     instance = _get_instance()
     if instance and instance.get("mode") == "local":
         import datahub_dev_local as local
@@ -1618,7 +2004,15 @@ def cmd_reset(args: argparse.Namespace) -> int:
 
 
 def cmd_nuke(args: argparse.Namespace) -> int:
-    """Hard reset: remove containers (and optionally volumes) and restart from scratch."""
+    """Hard reset: remove containers (and optionally volumes) and restart from scratch.
+
+    In local mode the stack's processes, its indices in the shared OpenSearch, and its
+    data dir are removed instead, and the stack is not restarted (``--keep-data`` keeps
+    H2 and the indices). ``--no-restart`` applies only to Docker mode, where it stops
+    after the teardown.
+    """
+    keep_data = args.keep_data
+    no_restart = getattr(args, "no_restart", False)
     instance = _get_instance()
     if instance and instance.get("mode") == "local":
         import datahub_dev_local as local
@@ -1632,8 +2026,6 @@ def cmd_nuke(args: argparse.Namespace) -> int:
         if rc == 0 and not args.keep_data:
             _remove_local_registry_entry(instance)
         return rc
-
-    keep_data = args.keep_data
 
     if keep_data:
         _log("Nuking containers (keeping data volumes)...")
@@ -1701,6 +2093,10 @@ def cmd_nuke(args: argparse.Namespace) -> int:
         for nid in network_ids:
             _run(["docker", "network", "rm", nid], capture=False)
 
+    if no_restart:
+        _log("DataHub removed; not restarting (--no-restart).")
+        return 0
+
     # Step 4: Restart from scratch
     _log("Restarting DataHub from scratch via Gradle...")
     start_args = argparse.Namespace(timeout=600)
@@ -1744,15 +2140,17 @@ def cmd_setup(args: argparse.Namespace) -> int:
     module = args.module
 
     if module == "frontend":
-        _log("Running yarn install in datahub-web-react/...")
+        _log(
+            "Installing frontend dependencies with the repository's pinned Node and Yarn..."
+        )
         result = _run(
-            ["yarn", "install"],
+            ["./gradlew", ":datahub-web-react:yarnInstall"],
             capture=False,
-            cwd=REPO_ROOT / "datahub-web-react",
-            timeout=300,
+            cwd=REPO_ROOT,
+            timeout=900,
         )
         if result.returncode != 0:
-            _log("yarn install failed.")
+            _log("Frontend dependency installation failed.")
             return 1
         _log("Frontend dependencies installed.")
         return 0
@@ -1812,17 +2210,166 @@ def _resolve_venv_dir(module: str) -> Optional[Path]:
 
 
 def cmd_frontend(args: argparse.Namespace) -> int:
-    """Start the frontend dev server (yarn start in datahub-web-react/)."""
-    _log("Starting frontend dev server...")
-    try:
-        result = subprocess.run(
-            ["yarn", "start"],
-            cwd=REPO_ROOT / "datahub-web-react",
-            text=True,
+    """Start the frontend dev server.
+
+    Docker mode: ``yarn start`` (Vite dev server proxying to the Play frontend).
+    Local mode (``--local``): ``yarn start`` with ``PREVIEW_MODE=lite`` pointing
+    at the running GMS-lite stack (HMR enabled for fast iteration).
+    Use ``--preview`` for the production bundle (Playwright tests).
+    """
+    preview = getattr(args, "preview", False)
+    build = getattr(args, "build", False)
+    if build and not preview:
+        _log("ERROR: --build requires --preview; HMR does not use a production bundle.")
+        return 1
+    if (
+        preview
+        and not build
+        and not (REPO_ROOT / "datahub-web-react" / "dist" / "index.html").exists()
+    ):
+        _log(
+            "ERROR: no frontend dist/ bundle exists; add --build to create one before preview."
         )
-        return result.returncode
+        return 1
+    if getattr(args, "detach", False):
+        if not getattr(args, "local", False):
+            _log("ERROR: --detach requires --local.")
+            return 1
+        return _detach_local_frontend(preview, build)
+    task = (
+        ":datahub-web-react:yarnPreview" if preview else ":datahub-web-react:yarnServe"
+    )
+    command = ["./gradlew"]
+    if build:
+        command.append(":datahub-web-react:yarnBuild")
+    command.append(task)
+    if getattr(args, "local", False):
+        import datahub_dev_local as local  # noqa: I001
+
+        data_dir = local.local_data_dir(WORKTREE_ID)
+        stack_file = data_dir / "stack.json"
+        if not stack_file.exists():
+            _log(
+                f"ERROR: no local stack running (no {stack_file}). Run 'start --local' first."
+            )
+            return 1
+        try:
+            fe_port = json.loads(stack_file.read_text())["frontendPort"]
+        except (OSError, json.JSONDecodeError, KeyError):
+            _log(
+                f"ERROR: {stack_file} has no valid frontendPort; restart the local stack."
+            )
+            return 1
+        if not isinstance(fe_port, int) or not (1 <= fe_port <= 65535):
+            _log(f"ERROR: {stack_file} has an invalid frontendPort: {fe_port!r}")
+            return 1
+        if not _is_port_free(fe_port):
+            frontend_pid = local._load_pids(data_dir / "pids.json").get("frontend")
+            if (
+                not preview
+                and frontend_pid
+                and local._http_ok(f"http://localhost:{fe_port}")
+            ):
+                _log(
+                    f"Frontend HMR server already running at http://localhost:{fe_port}"
+                )
+                return 0
+            _log(
+                f"ERROR: frontend port {fe_port} is in use; stop the running frontend before switching modes."
+            )
+            return 1
+        command.extend(
+            [
+                f"-PfrontendPort={fe_port}",
+                "-PfrontendMode=lite",
+                f"-PfrontendStackFile={stack_file}",
+            ]
+        )
+        mode_label = "production preview" if preview else "HMR dev server"
+        build_label = "building a fresh bundle, then " if build else ""
+        _log(
+            f"Starting frontend {mode_label} ({build_label}local mode) on http://localhost:{fe_port} ..."
+        )
+        try:
+            result = subprocess.run(command, cwd=REPO_ROOT, text=True)
+            return result.returncode
+        except KeyboardInterrupt:
+            _log("\nFrontend stopped.")
+            return 0
+    else:
+        command.append(f"-Pproxy={_frontend_url()}")
+        mode_label = "production preview" if preview else "HMR dev server"
+        _log(f"Starting frontend {mode_label} with Gradle-managed dependencies...")
+        try:
+            result = subprocess.run(
+                command,
+                cwd=REPO_ROOT,
+                text=True,
+            )
+            return result.returncode
+        except KeyboardInterrupt:
+            _log("\nFrontend dev server stopped.")
+            return 0
+
+
+def _detach_local_frontend(preview: bool, build: bool) -> int:
+    """Run the local frontend in the background; ``stop`` and ``nuke`` end it via pids.json."""
+    instance = _get_instance()
+    if not instance or instance.get("mode") != "local":
+        _log("ERROR: no local stack for this worktree; run 'start --local' first.")
+        return 1
+    import datahub_dev_local as local
+
+    if not local.is_owned_entry(instance):
+        _log("ERROR: refusing to start a frontend for an unmanaged local instance")
+        return 1
+    if not (local.local_data_dir(WORKTREE_ID) / "stack.json").exists():
+        _log(
+            "ERROR: the local stack is not ready (no stack.json); run 'start --local' first."
+        )
+        return 1
+    return local.launch_frontend(
+        WORKTREE_ID,
+        instance["ports"],
+        REPO_ROOT,
+        # A fresh production build alone can take several minutes.
+        timeout=1800 if build else 900,
+        preview=preview,
+        build=build,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Command: logs
+# ---------------------------------------------------------------------------
+
+
+def cmd_logs(args: argparse.Namespace) -> int:
+    """Print a service's log; without a service, list this stack's logs (local mode)."""
+    instance = _get_instance()
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if not local.is_owned_entry(instance):
+            _log("ERROR: refusing to inspect an unmanaged local instance")
+            return 1
+        return local.cmd_logs_local(WORKTREE_ID, args.service, args.lines, args.follow)
+    command = [
+        "docker",
+        "compose",
+        "-p",
+        COMPOSE_PROJECT,
+        "logs",
+        "--tail",
+        str(args.lines),
+    ]
+    if args.follow:
+        command.append("--follow")
+    if args.service:
+        command.append(args.service)
+    try:
+        return subprocess.run(command, cwd=REPO_ROOT).returncode
     except KeyboardInterrupt:
-        _log("\nFrontend dev server stopped.")
         return 0
 
 
@@ -2036,18 +2583,6 @@ def _cmd_start_remote(args: argparse.Namespace) -> int:
     return 0
 
 
-def _local_env_file() -> Path:
-    import datahub_dev_local as local
-
-    return local.local_data_dir(WORKTREE_ID) / "env-overrides.env"
-
-
-def _remove_local_registry_entry(expected: Mapping[str, object]) -> None:
-    with _registry_transaction() as registry:
-        if registry["instances"].get(WORKTREE_ID) == expected:
-            del registry["instances"][WORKTREE_ID]
-
-
 def _restart_local_stack(instance: Mapping[str, object]) -> int:
     import datahub_dev_local as local
 
@@ -2061,6 +2596,9 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
 
     with _registry_transaction() as registry:
         instance = registry["instances"].get(WORKTREE_ID)
+        if instance is not None and local.starting_alive(instance):
+            _log("ERROR: this local stack already has a start in progress")
+            return 1
         if instance is not None and not local.is_owned_entry(instance):
             _log(
                 "ERROR: this worktree has an unmanaged or Docker registry entry; use a different worktree"
@@ -2092,15 +2630,66 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
             if getattr(args, "auth", None) is not None
             else recorded.get("no_auth", False),
         }
+        for key in ("job", "mode"):
+            value = getattr(args, key, None)
+            if value is not None or key in recorded:
+                options[key] = value if value is not None else recorded.get(key)
+        extension = extensions.load(CONFIG.local_extension)
+        previous_extension = instance.get("local_extension", {}) if instance else {}
+        if previous_extension and (
+            extension is None
+            or previous_extension.get("id") != extension.id
+            or previous_extension.get("schema_version") != extension.schema_version
+        ):
+            _log(
+                "ERROR: recorded local extension identity or schema differs from configuration"
+            )
+            return 1
+        extension_options = (
+            extensions.configured_options(
+                extension, args, previous_extension.get("options", {})
+            )
+            if extension
+            else {}
+        )
+        description = (
+            extension.describe(extension_options)
+            if extension
+            else extensions.Description()
+        )
+        extension_record = (
+            {
+                "id": extension.id,
+                "schema_version": extension.schema_version,
+                "module": CONFIG.local_extension,
+                "options": extension_options,
+            }
+            if extension
+            else None
+        )
         processes = options["processes"]
         if not 1 <= processes < SLOT_OFFSET or getattr(args, "processes", None) == 0:
             _log("ERROR: --processes must be between 1 and 999")
             return 1
         if instance and local.stack_running(WORKTREE_ID, instance["ports"]):
-            if options != recorded or getattr(args, "fresh", False) or changing_major:
+            if (
+                options != recorded
+                or previous_extension != extension_record
+                or getattr(args, "fresh", False)
+                or changing_major
+            ):
                 _log(
                     "ERROR: local stack is running or starting; stop it before changing options"
                 )
+                return 1
+        if instance is not None:
+            try:
+                _check_local_running_limit(
+                    registry["instances"],
+                    _max_docker_free_instances(_load_dev_config()),
+                )
+            except RuntimeError as error:
+                _log(f"ERROR: {error}")
                 return 1
         if changing_major:
             # Delete indices on the OLD node before publishing the new engine selection.
@@ -2108,7 +2697,12 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
                 return 1
         if instance is None:
             try:
-                slot = _pick_slot(registry, local_stack=True, processes=processes)
+                slot = _pick_slot(
+                    registry,
+                    local_stack=True,
+                    processes=processes,
+                    description=description,
+                )
             except RuntimeError as error:
                 _log(f"ERROR: {error}")
                 return 1
@@ -2132,22 +2726,43 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
             if key != WORKTREE_ID
             for port in entry.get("ports", {}).values()
         }
-        gms_ports = set(
-            range(instance["ports"]["gms"], instance["ports"]["gms"] + processes)
-        )
+        extension_ports = extensions.ports_for(description, instance["slot"], processes)
+        core_ports = local.local_ports(instance["slot"])
+        gms_ports = set(range(core_ports["gms"], core_ports["gms"] + processes))
+        if set(extension_ports.values()).intersection(
+            gms_ports | {core_ports["frontend"]}
+        ):
+            _log("ERROR: extension port roles overlap core ports")
+            return 1
+        gms_ports.update(extension_ports.values())
         if max(gms_ports) > 65535 or claimed_ports.intersection(gms_ports):
             _log("ERROR: requested GMS ports overlap another instance or exceed 65535")
             return 1
-        if instance.get("local_options") != options:
-            instance = {**instance, "local_options": options}
+        if (
+            instance.get("local_options") != options
+            or previous_extension != extension_record
+        ):
+            instance = {
+                **instance,
+                "local_options": options,
+                "local_extension": extension_record,
+            }
             # Reserve every GMS port, including additional processes, against Docker slots.
             instance["ports"] = {
                 **local.local_ports(instance["slot"]),
+                **extension_ports,
                 **{
                     f"gms-{i}": local.local_ports(instance["slot"])["gms"] + i
                     for i in range(processes)
                 },
             }
+        instance = {
+            **instance,
+            "starting": {
+                "pid": os.getpid(),
+                "identity": local.process_identity(os.getpid()),
+            },
+        }
         try:
             # A refused data directory must not leave a registry reservation behind.
             local.write_instance_record(WORKTREE_ID, instance)
@@ -2155,27 +2770,38 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
             _log(f"ERROR: {error}")
             return 1
         registry["instances"][WORKTREE_ID] = instance
-    result = local.cmd_start_local(
-        slot=instance["slot"],
-        ports=instance["ports"],
-        worktree_id=WORKTREE_ID,
-        repo_root=REPO_ROOT,
-        processes=processes,
-        no_auth=options["no_auth"],
-        no_frontend=options["no_frontend"],
-        skip_build=getattr(args, "skip_build", False),
-        fresh=getattr(args, "fresh", False),
-        registry_instances=registry["instances"],
-        timeout=getattr(args, "timeout", DEFAULT_TIMEOUT),
-    )
-
-    if result or options["no_frontend"]:
+    try:
+        result = local.cmd_start_local(
+            slot=instance["slot"],
+            ports=instance["ports"],
+            worktree_id=WORKTREE_ID,
+            repo_root=REPO_ROOT,
+            processes=processes,
+            no_auth=options["no_auth"],
+            no_frontend=options["no_frontend"],
+            skip_build=getattr(args, "skip_build", False),
+            fresh=getattr(args, "fresh", False),
+            registry_instances=registry["instances"],
+            timeout=getattr(args, "timeout", 1200),
+            verbose=getattr(args, "verbose", False),
+        )
+        if result:
+            return result
+        if not options["no_frontend"]:
+            result = local.launch_frontend(WORKTREE_ID, instance["ports"], REPO_ROOT)
+        local.log_boot_timings(local.local_data_dir(WORKTREE_ID) / local.TIMINGS_FILE)
         return result
-    return local.launch_frontend(WORKTREE_ID, instance["ports"], REPO_ROOT)
+    finally:
+        with _registry_transaction() as current:
+            recorded_entry = current["instances"].get(WORKTREE_ID)
+            if recorded_entry == instance:
+                del recorded_entry["starting"]
+                local.write_instance_record(WORKTREE_ID, recorded_entry)
 
 
 def cmd_start(args: argparse.Namespace) -> int:
     """Start (or restart) DataHub via quickstartDebug, then wait for readiness."""
+    # --- Local (Docker-free) mode ---------------------------------------------
     instance = _get_instance()
     if getattr(args, "local", False) or (instance and instance.get("mode") == "local"):
         return _cmd_start_local(args)
@@ -2183,6 +2809,7 @@ def cmd_start(args: argparse.Namespace) -> int:
     if getattr(args, "opensearch", None) is not None:
         _log("ERROR: --opensearch requires --local")
         return 1
+
     # Proxy to remote machine when a runner is configured.
     if RUNNER:
         return _cmd_start_remote(args)
@@ -2194,14 +2821,14 @@ def cmd_start(args: argparse.Namespace) -> int:
 
     if instance is None:
         # This worktree has never started before — allocate a local slot and ports.
-        max_local = int(dev_config.get("max_local_instances", 2))
+        max_docker = _max_docker_instances(dev_config)
         running_count = _count_running_dh_instances()
-        if running_count >= max_local:
+        if running_count >= max_docker:
             _log(
-                f"ERROR: {max_local} local DataHub instance(s) already running "
-                "(limit: max_local_instances in ~/.datahub/dev/config.json)."
+                f"ERROR: {max_docker} Docker DataHub instance(s) already running "
+                "(limit: max_docker_instances in ~/.datahub/dev/config.json)."
             )
-            _log("  Stop an existing instance first, or increase max_local_instances.")
+            _log("  Stop an existing instance first, or increase max_docker_instances.")
             _log("  Run: datahub-dev.sh instances list")
             return 1
         try:
@@ -2352,7 +2979,7 @@ def cmd_suspend(args: argparse.Namespace) -> int:
     if not RUNNER:
         _log(
             "ERROR: No runner configured — suspend only applies to remote instances. "
-            "Use 'stop' to halt local DataHub containers."
+            "Use 'stop' to halt Docker containers on this machine."
         )
         return 1
     _log("Suspending remote instance (stopping DataHub + halting compute)...")
@@ -2401,7 +3028,7 @@ def _cmd_instances_list(args: argparse.Namespace) -> int:
                 ).returncode
                 running = rc == 0
         else:
-            # Local: query docker compose directly.
+            # Docker: query compose directly.
             ps = _run(
                 ["docker", "compose", "-p", project, "ps", "--format", "json", "-a"]
             )
@@ -2445,39 +3072,40 @@ def _cmd_instances_list(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_instances_clean(args: argparse.Namespace) -> int:
-    """Reclaim missing worktrees, preserving local stacks we do not own."""
-    import datahub_dev_local as local
+def _cmd_instances_repair(args: argparse.Namespace) -> int:
+    from local.inventory import run
 
-    with _registry_transaction() as registry:
-        candidates = {
-            worktree_id: entry
-            for worktree_id, entry in registry["instances"].items()
-            if entry.get("worktree_path")
-            and not Path(entry["worktree_path"]).exists()
-            and (entry.get("mode") != "local" or local.is_owned_entry(entry))
-        }
-    # Local cleanup may need to start the shared search node. Keep reservations
-    # visible while it runs without blocking unrelated registry writers.
-    reclaimed = local.reclaim_stale(candidates)
-    to_remove = [
-        key for key, entry in candidates.items() if entry.get("mode") != "local"
-    ] + reclaimed
-    removed = 0
-    with _registry_transaction() as registry:
-        for worktree_id in to_remove:
-            expected = candidates[worktree_id]
-            if registry["instances"].get(worktree_id) == expected:
-                del registry["instances"][worktree_id]
-                _log(
-                    f"Removed stale instance {worktree_id} ({expected.get('worktree_path', '?')})"
-                )
-                removed += 1
-    if removed:
-        _log(f"Cleaned {removed} stale instance(s).")
-    else:
-        _log("No stale instances found.")
-    return 0
+    return run(args, sys.modules[__name__])
+
+
+def _cmd_instances_clean(args: argparse.Namespace) -> int:
+    """Preview cleanup unless --yes; --orphans includes owned unregistered stale stacks."""
+    from local.inventory import run
+
+    return run(args, sys.modules[__name__])
+
+
+# ---------------------------------------------------------------------------
+# Command: indices
+# ---------------------------------------------------------------------------
+
+
+def _cmd_indices_list(args: argparse.Namespace) -> int:
+    from local.inventory import run
+
+    return run(args, sys.modules[__name__])
+
+
+def _cmd_indices_drop(args: argparse.Namespace) -> int:
+    from local.inventory import run
+
+    return run(args, sys.modules[__name__])
+
+
+def _cmd_indices_prune(args: argparse.Namespace) -> int:
+    from local.inventory import run
+
+    return run(args, sys.modules[__name__])
 
 
 # ---------------------------------------------------------------------------
@@ -2497,6 +3125,17 @@ def cmd_shell_env(args: argparse.Namespace) -> int:
         if not local.is_owned_entry(instance):
             print("# Unmanaged local instance; no environment exported")
             return 1
+        if getattr(args, "tests", False):
+            try:
+                test_env = local.load_test_env(WORKTREE_ID)
+            except (OSError, ValueError, KeyError) as error:
+                _log(f"ERROR: no usable stack.json; is the local stack up? ({error})")
+                return 1
+            # The CLI ranks DATAHUB_PROFILE above DATAHUB_GMS_URL; tests log in for their token.
+            print("unset DATAHUB_PROFILE DATAHUB_GMS_TOKEN")
+            for key, value in test_env.items():
+                print(f"export {key}={shlex.quote(value)}")
+            return 0
         print(f"export DATAHUB_PROFILE={local.profile_name(WORKTREE_ID)}")
         print(
             f"export DATAHUB_GMS_URL={shlex.quote('http://localhost:' + str(instance['ports']['gms']))}"
@@ -2505,6 +3144,9 @@ def cmd_shell_env(args: argparse.Namespace) -> int:
         print("unset DATAHUB_GMS_TOKEN")
         return 0
 
+    if getattr(args, "tests", False):
+        _log("ERROR: --tests needs a local stack ('start --local').")
+        return 1
     gms = _gms_url()
     # The CLI ranks DATAHUB_PROFILE above DATAHUB_GMS_URL; clear it so this shell
     # targets the worktree instance rather than a previously selected profile.
@@ -2561,7 +3203,38 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # frontend
-    subparsers.add_parser("frontend", help="Start the frontend dev server (yarn start)")
+    fe_p = subparsers.add_parser(
+        "frontend", help="Start the Gradle-prepared frontend dev server"
+    )
+    fe_p.add_argument(
+        "--local",
+        action="store_true",
+        help="Local mode: Vite dev server with PREVIEW_MODE=lite (HMR)",
+    )
+    fe_p.add_argument(
+        "--preview",
+        action="store_true",
+        help="Use production bundle (yarn preview) instead of dev mode",
+    )
+    fe_p.add_argument(
+        "--build",
+        action="store_true",
+        help="Build a fresh production bundle before --preview",
+    )
+    fe_p.add_argument(
+        "--detach",
+        action="store_true",
+        help="With --local: run in the background (log: frontend.log), return once /health answers; 'stop' ends it",
+    )
+
+    # logs
+    logs_p = subparsers.add_parser(
+        "logs",
+        help="Show a service log (local: gms, gms-N, system-update, integrations, executor, frontend, launcher, opensearch; no service lists them)",
+    )
+    logs_p.add_argument("service", nargs="?")
+    logs_p.add_argument("-n", "--lines", type=int, default=100)
+    logs_p.add_argument("-f", "--follow", action="store_true")
 
     # docs
     docs_p = subparsers.add_parser(
@@ -2577,21 +3250,24 @@ def build_parser() -> argparse.ArgumentParser:
     start_p = subparsers.add_parser(
         "start", help="Start DataHub (quickstartDebug) and wait for readiness"
     )
+    start_p.add_argument("--job", choices=("smoke-test", "playwright"))
+    start_p.add_argument("--mode", choices=("local", "ci"))
+    start_p.add_argument("--opensearch", choices=("2", "3"))
+    start_p.add_argument("--skip-build", action="store_true")
+    start_p.add_argument(
+        "--local",
+        action="store_true",
+        help=(
+            "Start a Docker-free local stack (GMS + OpenSearch + H2, no containers). "
+            "Data persists in ~/.datahub/local/stacks/<worktree-id>/. "
+            "Warm restart skips bootstrap (~20s vs ~90s)."
+        ),
+    )
     start_p.add_argument(
         "--frontend",
         action=argparse.BooleanOptionalAction,
         default=None,
         help="Enable or disable Vite in local mode (default: recorded value)",
-    )
-    start_p.add_argument(
-        "--local",
-        action="store_true",
-        help="Run GMS locally on H2 and shared OpenSearch, without Docker",
-    )
-    start_p.add_argument(
-        "--opensearch",
-        choices=("2", "3"),
-        help="Embedded OpenSearch major in local mode (default: recorded value or module default)",
     )
     start_p.add_argument(
         "--processes",
@@ -2602,18 +3278,13 @@ def build_parser() -> argparse.ArgumentParser:
     start_p.add_argument(
         "--fresh",
         action="store_true",
-        help="Clear this local stack's H2 and search data before starting",
+        help="Wipe the local data dir and cold-start (--local mode only)",
     )
     start_p.add_argument(
         "--auth",
         action=argparse.BooleanOptionalAction,
         default=None,
         help="Enable or disable authentication in local mode (default: recorded value)",
-    )
-    start_p.add_argument(
-        "--skip-build",
-        action="store_true",
-        help="Reuse built GMS, upgrade and OpenSearch artifacts",
     )
     start_p.add_argument(
         "--ai",
@@ -2660,6 +3331,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=1200,
         help="Timeout in seconds for both the Gradle build and readiness wait (default: 1200)",
+    )
+
+    start_p.add_argument(
+        "--verbose",
+        action="store_true",
+        help="stream launcher.log while waiting in local mode",
     )
 
     # wait
@@ -2731,9 +3408,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     # nuke
     nuke_p = subparsers.add_parser(
-        "nuke", help="Hard reset (remove containers, optionally data)"
+        "nuke",
+        help=(
+            "Hard reset: remove everything (optionally keeping data) and start from "
+            "scratch. In local mode this covers the stack's indices and data dir"
+        ),
     )
-    nuke_p.add_argument("--keep-data", action="store_true", help="Keep data volumes")
+    nuke_p.add_argument(
+        "--keep-data",
+        action="store_true",
+        help="Keep data volumes (local mode: keep H2 and indices, clear stale locks)",
+    )
+    nuke_p.add_argument(
+        "--no-restart",
+        action="store_true",
+        help="Tear down without starting again, e.g. before removing the worktree",
+    )
 
     # suspend
     subparsers.add_parser(
@@ -2753,21 +3443,86 @@ def build_parser() -> argparse.ArgumentParser:
         "list",
         help="List all registered instances with status, ports, and paths",
     )
-    instances_sub.add_parser(
+    instances_repair_p = instances_sub.add_parser(
+        "repair",
+        help=(
+            "Re-register local stacks whose worktree exists but whose registry entry "
+            "was lost, from each stack's own record. Dry run unless --yes."
+        ),
+    )
+    instances_repair_p.add_argument(
+        "--yes", action="store_true", help="Write the registry instead of a dry run"
+    )
+    instances_clean_p = instances_sub.add_parser(
         "clean",
-        help="Remove registry entries for worktrees that no longer exist on disk",
+        help=(
+            "Reclaim instances whose worktree no longer exists: drop their indices "
+            "from the shared OpenSearch, remove their local data dir, and unregister "
+            "them. Dry run unless --yes."
+        ),
+    )
+    instances_clean_p.add_argument(
+        "--orphans",
+        action="store_true",
+        help="Also reclaim owned, stopped Docker-free stacks with missing worktrees and no registry entry",
+    )
+    instances_clean_p.add_argument(
+        "--yes", action="store_true", help="Delete instead of printing a dry run"
+    )
+
+    indices_p = subparsers.add_parser(
+        "indices",
+        help="Inspect and reclaim local stacks' indices in the shared OpenSearch",
+    )
+    indices_sub = indices_p.add_subparsers(dest="indices_command")
+    indices_list_p = indices_sub.add_parser(
+        "list", help="Show each local stack's indices, shards, and data dir"
+    )
+    indices_list_p.add_argument("--json", action="store_true", help="Output JSON")
+    indices_drop_p = indices_sub.add_parser(
+        "drop",
+        help="Drop one stopped stack's indices and data dir. Dry run unless --yes.",
+    )
+    indices_drop_p.add_argument("id", help="Stack id, as shown by 'indices list'")
+    indices_drop_p.add_argument(
+        "--yes", action="store_true", help="Delete instead of printing a dry run"
+    )
+    indices_prune_p = indices_sub.add_parser(
+        "prune",
+        help="Same as 'instances clean --orphans'. Dry run unless --yes.",
+    )
+    indices_prune_p.add_argument(
+        "--yes", action="store_true", help="Delete instead of printing a dry run"
     )
 
     # shell-env
-    subparsers.add_parser(
+    shell_env_p = subparsers.add_parser(
         "shell-env",
         help=(
             "Print shell export statements for this instance's CLI environment. "
             "Usage: eval $(datahub-dev.sh shell-env)"
         ),
     )
+    shell_env_p.add_argument(
+        "--tests",
+        action="store_true",
+        help="Local stacks: print the smoke-test and Playwright environment from stack.json",
+    )
 
+    extension = extensions.load(CONFIG.local_extension)
+    if extension:
+        extension.add_arguments(start_p)
     return parser
+
+
+def main() -> int:
+    global CONFIG
+    try:
+        CONFIG = _load_config()
+        return _main()
+    except (RegistryError, RuntimeError, ValueError) as error:
+        _log(f"ERROR: {error}")
+        return 1
 
 
 def _main() -> int:
@@ -2782,6 +3537,7 @@ def _main() -> int:
         "status": cmd_status,
         "setup": cmd_setup,
         "frontend": cmd_frontend,
+        "logs": cmd_logs,
         "docs": cmd_docs,
         "start": cmd_start,
         "stop": cmd_stop,
@@ -2821,11 +3577,23 @@ def _main() -> int:
         instances_map = {
             "list": _cmd_instances_list,
             "clean": _cmd_instances_clean,
+            "repair": _cmd_instances_repair,
         }
         if not args.instances_command:
             parser.parse_args(["instances", "--help"])
             return 1
         return instances_map[args.instances_command](args)
+
+    if args.command == "indices":
+        indices_map = {
+            "list": _cmd_indices_list,
+            "drop": _cmd_indices_drop,
+            "prune": _cmd_indices_prune,
+        }
+        if not args.indices_command:
+            parser.parse_args(["indices", "--help"])
+            return 1
+        return indices_map[args.indices_command](args)
 
     handler = command_map.get(args.command)
     if handler:
@@ -2833,20 +3601,6 @@ def _main() -> int:
 
     parser.print_help()
     return 1
-
-
-def main() -> int:
-    global CONFIG
-    try:
-        CONFIG = _load_config()
-        return _main()
-    except RegistryError as error:
-        _log(f"ERROR: {error}")
-        _log(
-            f"Repair {INSTANCES_FILE}, or move it aside after backing it up "
-            "and inspecting existing instances, then retry."
-        )
-        return 1
 
 
 if __name__ == "__main__":

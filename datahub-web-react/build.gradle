@@ -117,7 +117,7 @@ task generateLazyIconStubs(type: NodeTask, dependsOn: yarnInstall) {
 }
 
 task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
-  environment.put('REACT_APP_PROXY_TARGET', 'http://localhost:9001')
+  environment.put('REACT_APP_PROXY_TARGET', project.findProperty('proxy') ?: 'http://localhost:9001')
   if (project.hasProperty('frontendMode')) {
     environment.put('PREVIEW_MODE', project.property('frontendMode'))
   }

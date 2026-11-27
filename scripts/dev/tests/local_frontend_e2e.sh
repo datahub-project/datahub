@@ -10,35 +10,14 @@ case "${1:-}" in
     *) echo "Usage: $0 smoke|browser" >&2; exit 2 ;;
 esac
 
-# Use the live status to select this worktree, and the launcher's manifest for credentials and
-# index names. Never infer ports or index prefixes from the worktree name or slot.
-STATUS="$(scripts/dev/datahub-dev.sh status)"
-TEST_ENV="$(python3 - "$STATUS" <<'PY'
-import json
-import pathlib
-import shlex
-import sys
-
-status = json.loads(sys.argv[1])
+scripts/dev/datahub-dev.sh status | python3 -c '
+import json, sys
+status = json.load(sys.stdin)
 assert status["mode"] == "local" and status["ready"], status
 assert status["services"]["frontend"]["healthy"], status
-stack = json.loads((pathlib.Path(status["data_dir"]) / "stack.json").read_text())
-instance = stack["default"]
-values = {
-    "DATAHUB_GMS_URL": stack["instances"][instance],
-    "DATAHUB_GMS_TOKEN": stack["adminTokens"][instance],
-    "DATAHUB_FRONTEND_URL": f'http://localhost:{stack["frontendPort"]}',
-    "ELASTICSEARCH_URL": f'http://localhost:{stack["opensearchPort"]}',
-    "INDEX_PREFIX": stack["indexPrefixes"][instance],
-    "ELASTICSEARCH_INDEX": f'{stack["indexPrefixes"][instance]}_datahub_usage_event',
-}
-for key, value in values.items():
-    print(f"export {key}={shlex.quote(value)}")
-PY
-)"
-eval "$TEST_ENV"
-
-export ADMIN_USERNAME=datahub ADMIN_PASSWORD=datahub DATAHUB_TELEMETRY_ENABLED=false
+'
+# Built from this worktree's stack.json; logs in as datahub/datahub, so no GMS token.
+eval "$(scripts/dev/datahub-dev.sh shell-env --tests)"
 
 case "$1" in
     smoke)
@@ -51,8 +30,6 @@ case "$1" in
         ;;
     browser)
         cd e2e-test/ui/playwright
-        export BASE_URL="$DATAHUB_FRONTEND_URL" \
-            DATAHUB_ADMIN_USERNAME="$ADMIN_USERNAME" DATAHUB_ADMIN_PASSWORD="$ADMIN_PASSWORD"
         login_test() {
             node_modules/.bin/playwright test --config=playwright.no-webserver.config.ts \
                 tests/auth/login.spec.ts --grep 'logs in successfully with valid credentials' "$@"

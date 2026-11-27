@@ -10,9 +10,14 @@ from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres import PostgresConfig
 from datahub.testing.state_helpers import get_current_checkpoint_from_pipeline
 from tests.e2e.utils import get_db_password, get_db_type, get_db_url, get_db_username
+from utilities.backends import Capability
 from utilities.domains import Domain
 
-pytestmark = [pytest.mark.domain(Domain.INGESTION), pytest.mark.p0]
+pytestmark = [
+    pytest.mark.domain(Domain.INGESTION),
+    pytest.mark.p0,
+    pytest.mark.requires(Capability.SQL_DB),
+]
 
 
 def test_stateful_ingestion(auth_session):
