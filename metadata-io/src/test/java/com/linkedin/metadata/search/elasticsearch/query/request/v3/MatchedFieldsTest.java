@@ -97,6 +97,26 @@ public class MatchedFieldsTest {
     assertTrue(new MatchedFields("development", 0).find(source, List.of("name")).isEmpty());
   }
 
+  /** A multi-word synonym matches only as a phrase, so its words alone do not report a field. */
+  @Test
+  public void testMultiWordSynonymWordsDoNotMatchAlone() {
+    // "dataplatform" and "data platform" are one equivalence line in the synonym file
+    assertTrue(
+        new MatchedFields("dataplatform", 3)
+            .find(Map.of("name", "customer_data"), List.of("name"))
+            .isEmpty());
+  }
+
+  /** A value holding a typed word is reported ahead of one that holds only a synonym. */
+  @Test
+  public void testTypedWordsWinOverSynonyms() {
+    List<MatchedField> tags =
+        new MatchedFields("staging", 0)
+            .find(Map.of("tags", List.of("stg", "staging")), List.of("tags"));
+    assertEquals(tags.size(), 1);
+    assertEquals(tags.get(0).getValue(), "staging");
+  }
+
   /**
    * Only the last query word matches as a prefix, as the phrase prefix does; the others match whole
    * words or their stems. Words shorter than the minimum length are dropped, as the analyzers drop

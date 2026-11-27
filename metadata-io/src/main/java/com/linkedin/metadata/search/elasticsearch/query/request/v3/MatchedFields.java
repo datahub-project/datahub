@@ -38,10 +38,11 @@ import org.tartarus.snowball.ext.EnglishStemmer;
  * would cost every write. A field matches when one of its words stems to the same word as a word of
  * the query, as the shared fields' {@code stemmed} subfields do, or starts with the last word of
  * the query, as their phrase prefix does; an identifier such as {@code customer_id} also matches by
- * its parts, as the analyzers index them. A synonym of the query or of one of its words, from the
- * synonym files the analyzers load, matches like the word itself. This is best effort: words are
- * split on what is not a letter, a digit or an underscore even when a main tokenizer is configured,
- * and as on V2 only the first matching value of a field is reported.
+ * its parts, as the analyzers index them. A one-word synonym of the query or of one of its words,
+ * from the equivalence lines of the synonym files, matches like the word, after a typed word. This
+ * is best effort: multi-word synonyms and explicit synonym rules are not applied, words are split
+ * on what is not a letter, a digit or an underscore even when a main tokenizer is configured, and
+ * as on V2 only the first matching value of a field is reported.
  *
  * <p>One instance serves one query, for the hits of one response, from one thread.
  */
@@ -62,6 +63,8 @@ public final class MatchedFields {
   private final int minWordLength;
   private final EnglishStemmer stemmer = new EnglishStemmer();
   private final Set<String> queryStems;
+  // Stems of one-word synonyms of the query or of its words, matched after the typed words
+  private final Set<String> synonymStems;
   // The forms of the query's last word, which match as a prefix
   private final List<String> lastQueryForms;
   private final List<String> queryTokens;
@@ -84,19 +87,24 @@ public final class MatchedFields {
         tokens.add(matcher.group());
       }
     }
-    final Set<String> stems =
-        queryWords.stream()
-            .flatMap(List::stream)
-            .map(this::stem)
-            .collect(Collectors.toCollection(HashSet::new));
-    // The analyzers expand synonyms, so a document that holds a synonym matched the query.
+    this.queryStems =
+        queryWords.stream().flatMap(List::stream).map(this::stem).collect(Collectors.toSet());
+    // The analyzers expand synonyms, so a document that holds a synonym matched the query. A
+    // multi-word synonym matches only as a phrase, which this word scan cannot check, so it is left
+    // out rather than matching each of its words alone.
+    final Set<String> synonymStems = new HashSet<>();
     for (String synonym : SearchTemplateSynonyms.expansions(query)) {
       final Matcher synonymWords = WORD.matcher(synonym);
+      final List<String> words = new ArrayList<>();
       while (synonymWords.find()) {
-        forms(synonymWords.group()).forEach(form -> stems.add(stem(form)));
+        words.add(synonymWords.group());
+      }
+      if (words.size() == 1) {
+        forms(words.get(0)).forEach(form -> synonymStems.add(stem(form)));
       }
     }
-    this.queryStems = Set.copyOf(stems);
+    synonymStems.removeAll(queryStems);
+    this.synonymStems = Set.copyOf(synonymStems);
     this.lastQueryForms = queryWords.isEmpty() ? List.of() : queryWords.get(queryWords.size() - 1);
     this.queryWordForms = List.copyOf(queryWords);
     this.queryTokens = List.copyOf(tokens);
@@ -126,14 +134,26 @@ public final class MatchedFields {
     final List<MatchEvidence> evidence = new ArrayList<>();
     for (String field : fields) {
       final String reported = names.getOrDefault(field, field);
-      for (Object value : values(at(source, field))) {
-        final String text = String.valueOf(value);
-        final int match = firstMatch(text);
-        if (match >= 0) {
-          matchedFields.add(new MatchedField().setName(reported).setValue(fragment(text, match)));
-          if (includeExplain) {
-            evidence.add(evidence(reported, text, match));
+      final List<?> fieldValues = values(at(source, field));
+      // A value that holds a typed word is reported ahead of one that holds only a synonym.
+      for (boolean synonyms : new boolean[] {false, true}) {
+        if (synonyms && synonymStems.isEmpty()) {
+          break;
+        }
+        boolean found = false;
+        for (Object value : fieldValues) {
+          final String text = String.valueOf(value);
+          final int match = synonyms ? firstSynonymMatch(text) : firstMatch(text);
+          if (match >= 0) {
+            matchedFields.add(new MatchedField().setName(reported).setValue(fragment(text, match)));
+            if (includeExplain) {
+              evidence.add(evidence(reported, text, match));
+            }
+            found = true;
+            break;
           }
+        }
+        if (found) {
           break;
         }
       }
@@ -251,6 +271,19 @@ public final class MatchedFields {
     while (matcher.find()) {
       for (String form : forms(matcher.group())) {
         if (lastQueryForms.stream().anyMatch(form::startsWith) || queryStems.contains(stem(form))) {
+          return matcher.start();
+        }
+      }
+    }
+    return -1;
+  }
+
+  /** Where the first word that is a synonym of a query word starts, or -1. */
+  private int firstSynonymMatch(@Nonnull final String text) {
+    final Matcher matcher = WORD.matcher(text);
+    while (matcher.find()) {
+      for (String form : forms(matcher.group())) {
+        if (synonymStems.contains(stem(form))) {
           return matcher.start();
         }
       }
