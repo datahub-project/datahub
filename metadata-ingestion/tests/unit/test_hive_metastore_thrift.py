@@ -7,7 +7,7 @@ These tests verify:
 4. Connection type routing
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -180,6 +180,108 @@ class TestThriftDataFetcher:
         assert fetcher._thrift_config.use_kerberos is True
         assert fetcher._thrift_config.kerberos_service_name == "hive"
         assert fetcher._thrift_config.timeout_seconds == 120
+
+    @staticmethod
+    def _fetcher_with_tables(
+        recipe_overrides: Dict[str, Any], table_types: Dict[str, str]
+    ) -> Tuple[ThriftDataFetcher, MagicMock]:
+        """Fetcher over a mocked metastore holding my_db with the given tables."""
+        config = HiveMetastore.model_validate(
+            {
+                "connection_type": "thrift",
+                "host_port": "localhost:9083",
+                "use_kerberos": False,
+                **recipe_overrides,
+            }
+        )
+        fetcher = ThriftDataFetcher(config)
+
+        def get_table(db_name: str, table_name: str) -> MagicMock:
+            table = MagicMock()
+            table.tableName = table_name
+            table.tableType = table_types[table_name]
+            table.createTime = 1609459200
+            table.partitionKeys = []
+            table.parameters = {"comment": "x"}
+            return table
+
+        mock_field = MagicMock()
+        mock_field.name = "col1"
+        mock_field.type = "string"
+        mock_field.comment = ""
+
+        mock_thrift = MagicMock()
+        mock_thrift.get_all_databases.return_value = ["my_db"]
+        mock_thrift.get_all_tables.return_value = list(table_types)
+        mock_thrift.get_tables_by_type.return_value = [
+            name for name, type_ in table_types.items() if type_ == "VIRTUAL_VIEW"
+        ]
+        mock_thrift.get_table.side_effect = get_table
+        mock_thrift.get_fields.return_value = [mock_field]
+
+        client = HiveMetastoreThriftClient(fetcher._thrift_config)
+        client._client = mock_thrift
+        fetcher._client = client
+        return fetcher, mock_thrift
+
+    def test_denied_tables_and_views_are_not_loaded(self):
+        """table_pattern / view_pattern must apply before get_table.
+
+        Loading a denied table fails for tables the metastore refuses to serve
+        (e.g. ACID tables), which surfaced as warnings for tables the user excluded.
+        """
+        fetcher, mock_thrift = self._fetcher_with_tables(
+            {
+                "table_pattern": {"deny": [r"^my_db\.denied_.*$"]},
+                "view_pattern": {"deny": [r"^my_db\.hidden_.*$"]},
+            },
+            {
+                "events": "EXTERNAL_TABLE",
+                "denied_acid": "MANAGED_TABLE",
+                "summary": "VIRTUAL_VIEW",
+                "hidden_view": "VIRTUAL_VIEW",
+                # Each pattern only applies to its own kind.
+                "hidden_table": "EXTERNAL_TABLE",
+                "denied_view": "VIRTUAL_VIEW",
+            },
+        )
+
+        table_names = {row["table_name"] for row in fetcher.fetch_table_rows()}
+        property_names = {
+            row["table_name"] for row in fetcher.fetch_table_properties_rows()
+        }
+        view_names = {row["table_name"] for row in fetcher.fetch_view_rows()}
+
+        assert table_names == {"events", "hidden_table"}
+        assert property_names == {"events", "hidden_table"}
+        assert view_names == {"summary", "denied_view"}
+        loaded = {call.args[1] for call in mock_thrift.get_table.call_args_list}
+        assert loaded == {"events", "hidden_table", "summary", "denied_view"}
+
+    def test_patterns_apply_when_metastore_cannot_list_views(self):
+        """Without get_tables_by_type, only names no pattern allows are skipped."""
+        fetcher, mock_thrift = self._fetcher_with_tables(
+            {
+                "table_pattern": {"deny": [r"^my_db\.denied_.*$"]},
+                "view_pattern": {"deny": [r"^my_db\.denied_both$"]},
+            },
+            {
+                "events": "EXTERNAL_TABLE",
+                "denied_view": "VIRTUAL_VIEW",
+                "denied_both": "MANAGED_TABLE",
+            },
+        )
+        mock_thrift.get_tables_by_type.side_effect = Exception("Invalid method name")
+
+        table_names = {row["table_name"] for row in fetcher.fetch_table_rows()}
+        view_names = {row["table_name"] for row in fetcher.fetch_view_rows()}
+
+        # denied_view is only denied as a table, so it must still come through.
+        assert table_names == {"events"}
+        assert view_names == {"denied_view"}
+        loaded = {call.args[1] for call in mock_thrift.get_table.call_args_list}
+        assert "denied_both" not in loaded
+        assert fetcher.get_database_failures() == []
 
 
 class TestSaslTransportQopEncoding:
