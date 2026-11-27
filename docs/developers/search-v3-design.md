@@ -45,7 +45,7 @@ A filter, a facet, a clause, a list boost, or a highlight names one indexed fiel
 
 A template is the `searchTemplateProperties` aspect, `urn:li:searchTemplate:<id>`. It holds the query body and the sections around it: clauses, scoring, field weights, a ladder, retrieval, sort, and an ordered route list. A surface and an engine resolve to a seed URN. That seed's routes choose the template from the query text. A deployment customizes by writing a child that replaces the sections it sets, or by pointing a slot at a different URN.
 
-A child inherits a parent. A section left unset stays. An explicit empty section drops the inherited one, so a boost, an exclusion, a rescore, a ranking preset, or the document rerank weights is a small write against a bootstrapped default. The next search renders the new body. There is no redeploy. The sections are in [Customization](#customization).
+A child inherits a parent. A section left unset stays. An explicit empty section drops the inherited one for most sections, and a few merge by key or keep the parent's value, so a boost, an exclusion, a rescore, a ranking preset, or the document rerank weights is a small write against a bootstrapped default. The next search renders the new body. There is no redeploy. The sections are in [Customization](#customization).
 
 ### Query time
 
@@ -435,7 +435,7 @@ The same template URN serves both. On scroll the ladder section is left unread, 
 
 `includeExplain` and `searchType` apply to the query that was served on either API. System filters and view authorization wrap the keyword query on either API. Scroll runs the composed keyword query, including whole-value terms and name-and-value clauses, and still drops rescore, ranking, and knn. See [Name and value](#name-and-value).
 
-An empty query or `*`, with no `SearchFlags.searchTemplate`, selects `listUrn` on the `search` seed and `list` on `searchLight` and `structured`, and runs on the API the caller used. It does not force scroll. That query has no `next`, so a search does not walk, and scroll does not follow `next`. Scroll still drops `rescore`, `ranking`, and `knn`. A caller `sortCriteria` is the list order. An explicit template URN skips that selection. Its merged routes still run, and on a search the ladder runs after routing finishes. See [Selection](#selection).
+An empty query or `*`, with no `SearchFlags.searchTemplate`, selects `listUrn` on the `search` seed and `list` on `searchLight` and `structured`, and runs on the API the caller used. The seed comes from the fulltext flag, so a structured scroll, which sets it false, starts on `structured` and renders `list`, and only a full-text scroll selects `listUrn`. It does not force scroll. That query has no `next`, so a search does not walk, and scroll does not follow `next`. Scroll still drops `rescore`, `ranking`, and `knn`. A caller `sortCriteria` is the list order. An explicit template URN skips that selection. Its merged routes still run, and on a search the ladder runs after routing finishes. See [Selection](#selection).
 
 ### Query sequence
 
