@@ -1003,6 +1003,94 @@ public class DataHubOAuthAuthenticatorTest {
         "sub", staticProvider.getUserIdClaim(), "Static provider should use config userIdClaim");
   }
 
+  // ==================== MAP TO CORPUSER TESTS ====================
+
+  @Test
+  public void testStaticConfigWithMapToCorpUser() {
+    // Arrange - Static config with mapToCorpUser enabled
+    Map<String, Object> config = createValidStaticConfig();
+    config.put("mapToCorpUser", "true");
+    config.put("userIdClaimRegex", "(.*)");
+
+    // Act
+    authenticator.init(config, authenticatorContext);
+
+    // Assert - Verify providers have mapToCorpUser flag set
+    List<OAuthProvider> providers = authenticator.getOAuthProviders();
+    assertNotNull(providers);
+    assertEquals(providers.size(), 1);
+
+    OAuthProvider provider = providers.get(0);
+    assertTrue(provider.isMapToCorpUser(), "mapToCorpUser should be true");
+    assertEquals(provider.getUserIdClaimRegex(), "(.*)", "userIdClaimRegex should match config");
+  }
+
+  @Test
+  public void testStaticConfigDefaultMapToCorpUserIsFalse() {
+    // Arrange - Standard static config without mapToCorpUser
+    Map<String, Object> config = createValidStaticConfig();
+
+    // Act
+    authenticator.init(config, authenticatorContext);
+
+    // Assert - Verify default is false (backwards compatible)
+    List<OAuthProvider> providers = authenticator.getOAuthProviders();
+    assertNotNull(providers);
+    assertEquals(providers.size(), 1);
+
+    OAuthProvider provider = providers.get(0);
+    assertFalse(provider.isMapToCorpUser(), "mapToCorpUser should default to false");
+    assertEquals(provider.getUserIdClaimRegex(), "(.*)", "userIdClaimRegex should default to (.*)");
+  }
+
+  @Test
+  public void testDynamicConfigWithMapToCorpUser() {
+    // Arrange - Dynamic provider with mapToCorpUser enabled
+    Map<String, Object> staticConfig = createValidStaticConfig();
+
+    GlobalSettingsInfo globalSettings = new GlobalSettingsInfo();
+    OAuthSettings oauthSettings = new OAuthSettings();
+    com.linkedin.settings.global.OAuthProviderArray providers =
+        new com.linkedin.settings.global.OAuthProviderArray();
+
+    OAuthProvider corpUserProvider = new OAuthProvider();
+    corpUserProvider.data().put("enabled", Boolean.TRUE);
+    corpUserProvider.setName("entra-corpuser");
+    corpUserProvider.setIssuer("https://login.microsoftonline.com/tenant/v2.0");
+    corpUserProvider.setAudience("api://datahub");
+    corpUserProvider.setJwksUri("https://login.microsoftonline.com/tenant/discovery/v2.0/keys");
+    corpUserProvider.setAlgorithm("RS256");
+    corpUserProvider.setUserIdClaim("email");
+    corpUserProvider.setMapToCorpUser(true);
+    corpUserProvider.setUserIdClaimRegex("(.*)");
+    providers.add(corpUserProvider);
+
+    oauthSettings.setProviders(providers);
+    globalSettings.setOauth(oauthSettings);
+
+    when(mockEntityService.getLatestAspect(
+            eq(mockOperationContext),
+            eq(GLOBAL_SETTINGS_URN),
+            eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
+        .thenReturn(globalSettings);
+
+    // Act
+    authenticator.init(staticConfig, authenticatorContext);
+
+    // Assert
+    List<OAuthProvider> loadedProviders = authenticator.getOAuthProviders();
+    OAuthProvider foundProvider =
+        loadedProviders.stream()
+            .filter(p -> "entra-corpuser".equals(p.getName()))
+            .findFirst()
+            .orElse(null);
+
+    assertNotNull(foundProvider, "Dynamic corpuser provider should be loaded");
+    assertTrue(foundProvider.isMapToCorpUser(), "mapToCorpUser should be true");
+    assertEquals(foundProvider.getUserIdClaim(), "email");
+    assertEquals(foundProvider.getUserIdClaimRegex(), "(.*)");
+  }
+
   // Helper method to create GlobalSettings with OAuth providers
   private GlobalSettingsInfo createGlobalSettingsWithOAuthProviders() {
     GlobalSettingsInfo globalSettings = new GlobalSettingsInfo();
