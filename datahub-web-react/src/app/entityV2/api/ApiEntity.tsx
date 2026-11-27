@@ -8,6 +8,7 @@ import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { getApiPlatform } from '@app/entityV2/api/apiPlatform';
 import { Preview } from '@app/entityV2/api/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
@@ -230,7 +231,7 @@ export class ApiEntity implements Entity<Api> {
             type: EntityType.Api,
             subtype: getFirstSubType(entity),
             icon: undefined,
-            platform: entity?.dataPlatformInstance?.platform ?? undefined,
+            platform: getApiPlatform(entity) ?? undefined,
         };
     };
 
@@ -240,7 +241,7 @@ export class ApiEntity implements Entity<Api> {
         return {
             name,
             externalUrl,
-            platform: data?.dataPlatformInstance?.platform,
+            platform: getApiPlatform(data),
         };
     };
 

@@ -18,7 +18,13 @@ type Api implements EntityWithRelationships & Entity {
   type: EntityType! @noAspects
 
   """
-  The platform (framework/runtime) this API belongs to, e.g. LangChain or MCP
+  The data platform (framework/runtime) this API belongs to, e.g. LangChain or MCP
+  """
+  platform: DataPlatform @aspectMapping(aspects: ["dataPlatformInstance"])
+
+  """
+  The specific instance of the data platform this API belongs to. Null when the
+  API is on a platform but has no instance.
   """
   dataPlatformInstance: DataPlatformInstance
     @aspectMapping(aspects: ["dataPlatformInstance"])

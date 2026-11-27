@@ -29,7 +29,7 @@ describe('ApiSummaryTab', () => {
         renderTab({
             __typename: 'Api',
             subTypes: { typeNames: ['MCP_TOOL'] },
-            dataPlatformInstance: { platform: { name: 'langchain' } },
+            apiPlatform: { name: 'langchain' },
             properties: { externalUrl: 'https://docs.example.com/tool' },
         });
 

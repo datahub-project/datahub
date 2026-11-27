@@ -250,10 +250,8 @@ fragment searchResultCardFields on Entity {
         properties {
             name
         }
-        dataPlatformInstance {
-            platform {
-                ...platformFields
-            }
+        apiPlatform: platform {
+            ...platformFields
         }
     }
     ... on Container {
@@ -1037,10 +1035,8 @@ fragment searchResultsWithoutSchemaField on Entity {
             description
             externalUrl
         }
-        dataPlatformInstance {
-            platform {
-                ...platformFields
-            }
+        apiPlatform: platform {
+            ...platformFields
         }
     }
     ... on ERModelRelationship {

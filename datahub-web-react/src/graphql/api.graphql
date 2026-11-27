@@ -70,10 +70,8 @@ fragment apiSearchFields on Api {
     domain {
         ...entityDomain
     }
-    dataPlatformInstance {
-        platform {
-            ...platformFields
-        }
+    apiPlatform: platform {
+        ...platformFields
     }
     exists
     status {
