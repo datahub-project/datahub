@@ -65,17 +65,12 @@ _INVERT_CARDINALITY: Dict[str, str] = {
 
 _SEMANTIC_MODEL_ID = "schema"
 
-# Log semantic-model metric progress at least this often, by count, as well
-# as every progress_log_interval_seconds.
 _METRIC_PROGRESS_EVERY = 1000
 
 logger = logging.getLogger(__name__)
 
 
 class _MetricProgress:
-    """Progress lines for the per-metric model fetches, which in a large
-    project run for over an hour and otherwise log nothing at all."""
-
     def __init__(
         self,
         *,
@@ -94,7 +89,6 @@ class _MetricProgress:
         self.failed = 0
 
     def step(self) -> None:
-        """Count one metric as started, logging when an interval is due."""
         if self.done and (
             self.done % _METRIC_PROGRESS_EVERY == 0
             or time.perf_counter() - self._last_logged >= self._every_seconds
@@ -213,9 +207,7 @@ class MicroStrategySemanticModelMapper:
         yield from model.as_workunits()
         for dataset in datasets:
             yield from dataset.as_workunits()
-        # Metrics stream straight to the sink: a large project has tens of
-        # thousands, and holding them all until the last one is built kept
-        # every one of them in memory at once.
+        # Holding every metric until the last one doubled peak memory.
         metrics_emitted = 0
         for metric in self._metrics(
             project_id=project_id,
@@ -634,14 +626,7 @@ class MicroStrategySemanticModelMapper:
         try:
             metric_objects = list(self.client.search_metrics(project_id))
         except MicroStrategyAPIError as error:
-            # Metric discovery is a separate API call from the tables fetch
-            # that already succeeded by the time this runs; losing it must
-            # not take the structural semantic-model entities (the model and
-            # its logical datasets, already built by the caller) down with
-            # it, so this degrades to "no metrics" rather than propagating.
-            # It is reported as a failure, not a warning: stateful ingestion
-            # skips stale-entity removal only on a source failure, and would
-            # otherwise soft-delete every metric the previous run emitted.
+            # A warning would let stale removal delete every metric.
             self.report.report_semantic_model_metric_search_api_failure()
             self.report.failure(
                 title="MicroStrategy Metric Search Unavailable",
@@ -669,19 +654,18 @@ class MicroStrategySemanticModelMapper:
                 progress.failed += 1
                 self.report.report_metric_expression_api_failure()
                 self.report.report_failed_metric_model(metric_object.id)
-                # A failure, not a warning: a skipped metric is soft-deleted by
-                # stale-entity removal unless the run is marked failed.
-                self.report.failure(
+                # Deterministic 500s; failing the run skips stale removal forever.
+                self.report.warning(
                     title="MicroStrategy Metric Model Unavailable",
                     message=(
-                        "Skipping this metric for the semantic model; its "
-                        "expression could not be fetched. Stale-entity removal "
-                        "is skipped for this run so the previous metric is kept."
+                        "Emitting this metric without an expression or upstream "
+                        "lineage; its model could not be fetched."
                     ),
                     context=f"project_id={project_id}, metric_id={metric_object.id}",
                     exc=error,
+                    log=False,
                 )
-                continue
+                model = {}
 
             upstream_aliases: Set[str] = set()
             for fact_id in metric_fact_ids_from_model(model):
