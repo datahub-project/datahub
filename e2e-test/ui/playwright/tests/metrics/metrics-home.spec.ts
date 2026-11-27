@@ -19,6 +19,7 @@ import {
   CHILD_REVENUE_URN,
   PAYMENT_VOLUME_URN,
 } from './constants';
+import { DomainTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'metrics' });
 
@@ -30,7 +31,7 @@ test.describe('Metrics home and sidebar', () => {
     metricsPage = new MetricsPage(page, logger, logDir);
   });
 
-  test('hides Metrics nav and route when flag is off', async ({ page, apiMock }) => {
+  test('hides Metrics nav and route when flag is off', { tag: [DomainTag.Catalog] }, async ({ page, apiMock }) => {
     await apiMock.setFeatureFlags(METRICS_FEATURE_FLAGS_OFF);
     await page.goto('/');
     // Wait for the app shell before toBeHidden checks; otherwise absent Metrics
@@ -44,7 +45,7 @@ test.describe('Metrics home and sidebar', () => {
     await expect(metricsPage.sidebar).toBeHidden({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('shows Metrics nav and populated home when flag is on', async ({ page }) => {
+  test('shows Metrics nav and populated home when flag is on', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await page.goto('/');
     await expect(metricsPage.navMetricsItem).toBeVisible({ timeout: TIMEOUTS.LONG });
 
@@ -65,7 +66,7 @@ test.describe('Metrics home and sidebar', () => {
     await metricsPage.clearSidebarSearch();
   });
 
-  test('navigates from recent semantic model to detail profile', async ({ page }) => {
+  test('navigates from recent semantic model to detail profile', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await metricsPage.navigateToHome();
     // Prefer the seeded model when it appears in Recent; otherwise any recent row.
     const seededRecent = metricsPage.recentModel(SEMANTIC_MODEL_ORDERS_URN);
@@ -79,7 +80,7 @@ test.describe('Metrics home and sidebar', () => {
     await expect(metricsPage.sidebar).toBeVisible();
   });
 
-  test('expands model → metric → child metric and selects rows', async ({ page }) => {
+  test('expands model → metric → child metric and selects rows', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     // Navigating to a model-backed metric injects the owning model into the sidebar tree.
     await metricsPage.navigateToMetric(TOTAL_REVENUE_URN);
     await expect(metricsPage.sidebarMetric(TOTAL_REVENUE_URN)).toBeVisible({
@@ -99,7 +100,7 @@ test.describe('Metrics home and sidebar', () => {
     await metricsPage.expectEntityNamed(NAMES.CHILD_REVENUE);
   });
 
-  test('sidebar search finds a metric and clear restores the tree', async () => {
+  test('sidebar search finds a metric and clear restores the tree', { tag: [DomainTag.Catalog] }, async () => {
     await metricsPage.navigateToHome();
     await metricsPage.searchSidebar(NAMES.PAYMENT_VOLUME);
     await expect(metricsPage.sidebarSearchMetric(PAYMENT_VOLUME_URN)).toBeVisible({
@@ -109,7 +110,7 @@ test.describe('Metrics home and sidebar', () => {
     await expect(metricsPage.sidebarTree).toBeVisible({ timeout: TIMEOUTS.LONG });
   });
 
-  test('groups sidebar by platform and domain', async () => {
+  test('groups sidebar by platform and domain', { tag: [DomainTag.Catalog] }, async () => {
     await metricsPage.navigateToHome();
 
     await metricsPage.setGroupBy('platform');
@@ -155,7 +156,7 @@ test.describe('Metrics home and sidebar', () => {
     await expect(metricsPage.modelsSection).toBeVisible({ timeout: TIMEOUTS.LONG });
   });
 
-  test('sidebar home link returns to Metrics landing', async () => {
+  test('sidebar home link returns to Metrics landing', { tag: [DomainTag.Catalog] }, async () => {
     await metricsPage.navigateToMetric(TOTAL_REVENUE_URN);
     await metricsPage.expectEntityNamed(NAMES.TOTAL_REVENUE);
     await metricsPage.clickSidebarHome();

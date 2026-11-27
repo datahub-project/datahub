@@ -40,7 +40,7 @@ test.describe('Login with Welcome Modal', () => {
     },
   );
 
-  test('logs in and closes welcome modal via Get Started button', async ({ page }) => {
+  test('logs in and closes welcome modal via Get Started button', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await welcomeModalPage.expectModalVisible();
     await welcomeModalPage.clickLastCarouselDot();
     await welcomeModalPage.expectFinalSlideVisible();
@@ -49,7 +49,7 @@ test.describe('Login with Welcome Modal', () => {
     await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible();
   });
 
-  test('logs in and closes welcome modal via Escape key', async ({ page }) => {
+  test('logs in and closes welcome modal via Escape key', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await welcomeModalPage.expectModalVisible();
     await welcomeModalPage.closeViaEscape();
 

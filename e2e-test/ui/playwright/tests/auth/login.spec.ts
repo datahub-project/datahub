@@ -30,7 +30,7 @@ test.describe('Login', () => {
     },
   );
 
-  test('displays login form elements', async ({ loginPage }) => {
+  test('displays login form elements', { tag: [DomainTag.Catalog] }, async ({ loginPage }) => {
     await loginPage.navigateToLogin();
     await expect(loginPage.usernameInput).toBeVisible();
     await expect(loginPage.passwordInput).toBeVisible();
@@ -45,21 +45,21 @@ test.describe('Login', () => {
     await expect(page.getByText(/Invalid credentials|Login failed/i)).toBeVisible({ timeout: 5000 });
   });
 
-  test('disables login button when username is empty', async ({ page, loginPage }) => {
+  test('disables login button when username is empty', { tag: [DomainTag.Catalog] }, async ({ page, loginPage }) => {
     await loginPage.navigateToLogin();
     await loginPage.passwordInput.fill('datahub');
     await expect(loginPage.loginButton).toBeDisabled();
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test('disables login button when password is empty', async ({ page, loginPage }) => {
+  test('disables login button when password is empty', { tag: [DomainTag.Catalog] }, async ({ page, loginPage }) => {
     await loginPage.navigateToLogin();
     await loginPage.usernameInput.fill('datahub');
     await expect(loginPage.loginButton).toBeDisabled();
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test('redirects to home page after successful login', async ({ page, loginPage }) => {
+  test('redirects to home page after successful login', { tag: [DomainTag.Catalog] }, async ({ page, loginPage }) => {
     const { username, password } = users.admin;
     await loginPage.navigateToLogin();
     await loginPage.login(username, password);

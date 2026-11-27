@@ -59,13 +59,17 @@ test.describe('task runs', () => {
     },
   );
 
-  test('can visit task with runs aspect and verify the task run is present', async () => {
-    await taskRunsPage.navigateToTaskRuns(SAMPLE_TASK_URN);
+  test(
+    'can visit task with runs aspect and verify the task run is present',
+    { tag: [DomainTag.Ingestion] },
+    async () => {
+      await taskRunsPage.navigateToTaskRuns(SAMPLE_TASK_URN);
 
-    await taskRunsPage.verifyRunId(RUN_TIMESTAMP, RUN_TIMESTAMP);
-    await taskRunsPage.verifyRunStatus(RUN_TIMESTAMP, RUN_STATUS);
-    await taskRunsPage.assertInputDatasetLinkVisible(INPUT_DATASET_URN, INPUT_DATASET_NAME);
-    await taskRunsPage.assertOutputDatasetLinkVisible(OUTPUT_DATASET_URN_1, OUTPUT_DATASET_NAME_1);
-    await taskRunsPage.assertOutputDatasetLinkVisible(OUTPUT_DATASET_URN_2, OUTPUT_DATASET_NAME_2);
-  });
+      await taskRunsPage.verifyRunId(RUN_TIMESTAMP, RUN_TIMESTAMP);
+      await taskRunsPage.verifyRunStatus(RUN_TIMESTAMP, RUN_STATUS);
+      await taskRunsPage.assertInputDatasetLinkVisible(INPUT_DATASET_URN, INPUT_DATASET_NAME);
+      await taskRunsPage.assertOutputDatasetLinkVisible(OUTPUT_DATASET_URN_1, OUTPUT_DATASET_NAME_1);
+      await taskRunsPage.assertOutputDatasetLinkVisible(OUTPUT_DATASET_URN_2, OUTPUT_DATASET_NAME_2);
+    },
+  );
 });

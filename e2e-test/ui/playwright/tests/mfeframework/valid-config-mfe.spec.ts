@@ -1,6 +1,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { MFEFrameworkPage } from '../../pages/mfe-framework.page';
 import { TIMEOUTS } from '../../utils/constants';
+import { DomainTag } from '../../utils/test-tags';
 
 const MFE_CONFIG_YAML = `subNavigationMode: false
 microFrontends:
@@ -42,7 +43,7 @@ test.describe('MFE Framework Configuration', () => {
     await mfePage.setupMFEFramework(MFE_CONFIG_YAML);
   });
 
-  test('shows all MFE items from YAML in the sidebar', async ({ page }) => {
+  test('shows all MFE items from YAML in the sidebar', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const mfePage = new MFEFrameworkPage(page);
 
     await mfePage.waitForSidebar();
@@ -50,24 +51,32 @@ test.describe('MFE Framework Configuration', () => {
     await expect(mfePage.mfeItemByName(MFE_NAME)).toBeVisible({ timeout: TIMEOUTS.LONG });
   });
 
-  test('navigates to MFE route when sidebar item is clicked and shows error if mounting fails', async ({ page }) => {
-    const mfePage = new MFEFrameworkPage(page);
+  test(
+    'navigates to MFE route when sidebar item is clicked and shows error if mounting fails',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      const mfePage = new MFEFrameworkPage(page);
 
-    await mfePage.mockRemoteEntry(503, 'Service Unavailable');
-    await mfePage.waitForSidebar();
-    await mfePage.clickMFEItem(MFE_NAME);
-    await mfePage.waitForMFENavigation(MFE_PATH);
-    await expect(mfePage.errorMessage(MFE_NAME)).toBeVisible({ timeout: TIMEOUTS.LONG });
-  });
+      await mfePage.mockRemoteEntry(503, 'Service Unavailable');
+      await mfePage.waitForSidebar();
+      await mfePage.clickMFEItem(MFE_NAME);
+      await mfePage.waitForMFENavigation(MFE_PATH);
+      await expect(mfePage.errorMessage(MFE_NAME)).toBeVisible({ timeout: TIMEOUTS.LONG });
+    },
+  );
 
-  test('navigates to MFE route when sidebar item is clicked and shows MFE container on success', async ({ page }) => {
-    const mfePage = new MFEFrameworkPage(page);
+  test(
+    'navigates to MFE route when sidebar item is clicked and shows MFE container on success',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      const mfePage = new MFEFrameworkPage(page);
 
-    await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_SUCCESS);
-    await mfePage.waitForSidebar();
-    await mfePage.clickMFEItem(MFE_NAME);
-    await mfePage.waitForMFENavigation(MFE_PATH);
-    await expect(mfePage.mfeContainer()).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(mfePage.mfeContainer().getByText(MFE_CONTENT)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-  });
+      await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_SUCCESS);
+      await mfePage.waitForSidebar();
+      await mfePage.clickMFEItem(MFE_NAME);
+      await mfePage.waitForMFENavigation(MFE_PATH);
+      await expect(mfePage.mfeContainer()).toBeVisible({ timeout: TIMEOUTS.LONG });
+      await expect(mfePage.mfeContainer().getByText(MFE_CONTENT)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    },
+  );
 });

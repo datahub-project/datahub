@@ -95,48 +95,54 @@ test.describe('ING-2174: nested BigQuery field stats in Columns tab', () => {
     },
   );
 
-  test('lowercased schema path (ING-2174 case-fold) shows sample values in About tab from Columns tab', async ({
-    page,
-  }) => {
-    // The schema path is lowercased by convert_column_urns_to_lowercase=true while the profiler
-    // retains the original camelCase. The field is top-level so no struct expansion is needed.
-    await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}/Schema`);
-    await page.waitForLoadState('networkidle');
+  test(
+    'lowercased schema path (ING-2174 case-fold) shows sample values in About tab from Columns tab',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      // The schema path is lowercased by convert_column_urns_to_lowercase=true while the profiler
+      // retains the original camelCase. The field is top-level so no struct expansion is needed.
+      await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}/Schema`);
+      await page.waitForLoadState('networkidle');
 
-    // eslint-disable-next-line playwright/no-raw-locators -- test-id-prefix attribute selector has no semantic equivalent
-    await expect(page.getByTestId('schema-table').locator('tr[data-testid^="schema-field-"]').first()).toBeVisible({
-      timeout: 30000,
-    });
+      // eslint-disable-next-line playwright/no-raw-locators -- test-id-prefix attribute selector has no semantic equivalent
+      await expect(page.getByTestId('schema-table').locator('tr[data-testid^="schema-field-"]').first()).toBeVisible({
+        timeout: 30000,
+      });
 
-    // Click the lowercased top-level field — opens the drawer on the About tab (default).
-    // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match data-testid containing reserved characters ([], =, .)
-    const rawCounterpartyRow = page.locator(
-      'xpath=//tr[@data-testid="schema-field-[version=2.0].[type=string].rawcounterpartyid"]',
-    );
-    await expect(rawCounterpartyRow).toBeVisible({ timeout: 10000 });
-    await rawCounterpartyRow.click();
+      // Click the lowercased top-level field — opens the drawer on the About tab (default).
+      // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match data-testid containing reserved characters ([], =, .)
+      const rawCounterpartyRow = page.locator(
+        'xpath=//tr[@data-testid="schema-field-[version=2.0].[type=string].rawcounterpartyid"]',
+      );
+      await expect(rawCounterpartyRow).toBeVisible({ timeout: 10000 });
+      await rawCounterpartyRow.click();
 
-    // About tab is the default — no tab click needed.
-    // Pre-fix: pathMatchesInsensitiveToV2 was case-sensitive, so fieldProfile was undefined
-    //          and the About section showed "No column statistics found".
-    // Post-fix: case-folded match resolves fieldProfile correctly and sample values render.
-    await expect(page.getByText('No column statistics found')).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('RAW-001')).toBeVisible({ timeout: 10000 });
-  });
+      // About tab is the default — no tab click needed.
+      // Pre-fix: pathMatchesInsensitiveToV2 was case-sensitive, so fieldProfile was undefined
+      //          and the About section showed "No column statistics found".
+      // Post-fix: case-folded match resolves fieldProfile correctly and sample values render.
+      await expect(page.getByText('No column statistics found')).not.toBeVisible({ timeout: 10000 });
+      await expect(page.getByText('RAW-001')).toBeVisible({ timeout: 10000 });
+    },
+  );
 
-  test('top-level field still shows stats correctly (regression guard)', async ({ page }) => {
-    await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}/Schema`);
-    await page.waitForLoadState('networkidle');
+  test(
+    'top-level field still shows stats correctly (regression guard)',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}/Schema`);
+      await page.waitForLoadState('networkidle');
 
-    // eslint-disable-next-line playwright/no-raw-locators -- test-id-prefix attribute selector has no semantic equivalent
-    await expect(page.getByTestId('schema-table').locator('tr[data-testid^="schema-field-"]').first()).toBeVisible({
-      timeout: 30000,
-    });
+      // eslint-disable-next-line playwright/no-raw-locators -- test-id-prefix attribute selector has no semantic equivalent
+      await expect(page.getByTestId('schema-table').locator('tr[data-testid^="schema-field-"]').first()).toBeVisible({
+        timeout: 30000,
+      });
 
-    await page.getByTestId(`schema-field-${TOP_LEVEL_FIELD}`).click();
-    await page.getByTestId('Statistics-field-drawer-tab-header').click();
+      await page.getByTestId(`schema-field-${TOP_LEVEL_FIELD}`).click();
+      await page.getByTestId('Statistics-field-drawer-tab-header').click();
 
-    await expect(page.getByText('No column statistics found')).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Sample Values')).toBeVisible({ timeout: 10000 });
-  });
+      await expect(page.getByText('No column statistics found')).not.toBeVisible({ timeout: 10000 });
+      await expect(page.getByText('Sample Values')).toBeVisible({ timeout: 10000 });
+    },
+  );
 });

@@ -37,7 +37,7 @@ test.describe('secrets tab in manage data sources', () => {
     await ingestionPage.secretsTab.expectSecretDescriptionNotVisible(secretDescription);
   });
 
-  test('create ingestion source using a secret', async ({ cleanup }) => {
+  test('create ingestion source using a secret', { tag: [DomainTag.Ingestion] }, async ({ cleanup }) => {
     test.slow();
 
     const suffix = generateRandomString();
@@ -70,7 +70,7 @@ test.describe('secrets tab in manage data sources', () => {
     await ingestionPage.sourcesTab.expectSourceStatusPending(sourceName);
   });
 
-  test('deleted secret is absent from password dropdown', async () => {
+  test('deleted secret is absent from password dropdown', { tag: [DomainTag.Ingestion] }, async () => {
     const suffix = generateRandomString();
     const secretName = `playwright_deleted_secret_${suffix}`;
     const secretValue = `secret-value-${suffix}`;
@@ -88,7 +88,7 @@ test.describe('secrets tab in manage data sources', () => {
     await ingestionPage.sourcesTab.cancelCreateSourceModal();
   });
 
-  test('create secret inline during source creation', async ({ cleanup }) => {
+  test('create secret inline during source creation', { tag: [DomainTag.Ingestion] }, async ({ cleanup }) => {
     test.slow();
 
     const suffix = generateRandomString();

@@ -55,7 +55,7 @@ test.describe('Data product lineage bounding box', () => {
     await waitForGraphSettled(page);
   });
 
-  test('draws the product members inside the home bounding box', async ({ page }) => {
+  test('draws the product members inside the home bounding box', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await expect(node(page, DATA_PRODUCT_URN)).toBeVisible();
     await expect(firstMemberNode(page)).toBeVisible();
   });

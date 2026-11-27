@@ -8,6 +8,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { GlossaryPage } from '../../pages/glossary.page';
+import { DomainTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'glossary' });
 
@@ -27,7 +28,7 @@ test.describe('glossary node profile tags', () => {
     });
   });
 
-  test('should allow assigning and unassigning a tag on a glossary node', async () => {
+  test('should allow assigning and unassigning a tag on a glossary node', { tag: [DomainTag.Catalog] }, async () => {
     test.setTimeout(120000);
 
     await glossaryPage.navigateToGlossaryNodeByUrn(TAGGABLE_NODE_URN);
