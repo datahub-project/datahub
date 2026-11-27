@@ -4,7 +4,6 @@ import logging
 import re
 import sys
 import time
-from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -16,7 +15,16 @@ from typing import (
     cast,
 )
 
+from pydantic import BaseModel, ConfigDict
 from typing_extensions import ParamSpec
+
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS,
+    MSTR_ENDPOINT_ID_PLACEHOLDER,
+    MSTR_ENDPOINT_KEY_REPLACEMENT,
+    MSTR_SQLGLOT_SUPPRESSED_PREFIXES,
+    MicroStrategyPhase,
+)
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -32,11 +40,6 @@ P = ParamSpec("P")
 R = TypeVar("R")
 T = TypeVar("T")
 
-PHASE_DASHBOARD = "dashboard"
-PHASE_DASHBOARD_SEARCH = "dashboard_search"
-PHASE_SQL_PARSE = "sql_parse"
-PHASE_WAREHOUSE_FIELD_LOOKUP = "warehouse_field_lookup"
-
 # 32-hex object ids and UUIDs, so one endpoint is one row.
 _OBJECT_ID_SEGMENT_RE = re.compile(r"/[0-9A-Fa-f]{32}(?=/|$)")
 _UUID_SEGMENT_RE = re.compile(
@@ -45,11 +48,6 @@ _UUID_SEGMENT_RE = re.compile(
 # Not 32-hex object ids, so a literal match would make one row per visualization.
 _DOSSIER_KEY_SEGMENT_RE = re.compile(r"/(chapters|pages|visualizations)/[^/]+")
 
-_DASHBOARD_SECONDS_BUCKETS = (10, 30, 60, 120, 300, 600, 1800)
-
-# One warning per generated statement; they fill the executor's bounded log.
-_SQLGLOT_SUPPRESSED_PREFIXES = ("Unsupported property",)
-
 
 class _HasReport(Protocol):
     report: "MicroStrategyReport"
@@ -57,9 +55,9 @@ class _HasReport(Protocol):
 
 def endpoint_template(method: str, path: str) -> str:
     path = path.split("?", 1)[0]
-    path = _OBJECT_ID_SEGMENT_RE.sub("/{id}", path)
-    path = _UUID_SEGMENT_RE.sub("/{id}", path)
-    path = _DOSSIER_KEY_SEGMENT_RE.sub(r"/\1/{key}", path)
+    path = _OBJECT_ID_SEGMENT_RE.sub(MSTR_ENDPOINT_ID_PLACEHOLDER, path)
+    path = _UUID_SEGMENT_RE.sub(MSTR_ENDPOINT_ID_PLACEHOLDER, path)
+    path = _DOSSIER_KEY_SEGMENT_RE.sub(MSTR_ENDPOINT_KEY_REPLACEMENT, path)
     return f"{method.upper()} {path}"
 
 
@@ -74,7 +72,7 @@ def peak_rss_mb() -> Optional[float]:
 
 def dashboard_seconds_bucket(seconds: float) -> str:
     lower = 0
-    for upper in _DASHBOARD_SECONDS_BUCKETS:
+    for upper in MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS:
         if seconds < upper:
             return f"{lower}-{upper}s"
         lower = upper
@@ -141,15 +139,16 @@ class SqlglotWarningFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         message = record.getMessage()
-        for prefix in _SQLGLOT_SUPPRESSED_PREFIXES:
+        for prefix in MSTR_SQLGLOT_SUPPRESSED_PREFIXES:
             if message.startswith(prefix):
                 self._report.sqlglot_warnings_suppressed[message] += 1
                 return False
         return True
 
 
-@dataclass(frozen=True)
-class TelemetrySnapshot:
+class TelemetrySnapshot(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     seconds: float
     api_calls: int
     api_seconds: float
@@ -176,7 +175,7 @@ class RunProgress:
     def snapshot(self) -> TelemetrySnapshot:
         report = self._report
         return TelemetrySnapshot(
-            seconds=report.phase_seconds.get(PHASE_DASHBOARD, 0.0),
+            seconds=report.phase_seconds.get(MicroStrategyPhase.DASHBOARD, 0.0),
             api_calls=report.api_calls,
             api_seconds=report.api_call_seconds,
             sql_parses=report.sql_parses_executed,

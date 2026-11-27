@@ -135,6 +135,7 @@ def test_metadata_search_uses_quick_search_results_endpoint(
         path: str,
         project_id: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
         nonlocal captured_path
         captured_path = path
@@ -164,6 +165,7 @@ def test_search_reports_uses_report_object_type(
         path: str,
         project_id: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
         nonlocal captured_params
         captured_params = params
@@ -833,6 +835,7 @@ def test_metadata_search_paginates_until_total_items(
         path: str,
         project_id: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
         assert params is not None
         requested_offsets.append(params["offset"])
@@ -893,7 +896,7 @@ def test_search_dashboards_skips_malformed_objects(monkeypatch: MonkeyPatch) -> 
     monkeypatch.setattr(
         client,
         "_get_json",
-        lambda path, project_id=None, params=None: {
+        lambda path, project_id=None, params=None, timeout_seconds=None: {
             "result": [
                 {"id": "dash-1", "name": "Dashboard 1"},
                 {"name": "no id"},

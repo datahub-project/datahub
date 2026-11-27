@@ -13,6 +13,8 @@ from typing import (
     TypeVar,
 )
 
+from pydantic import BaseModel, ConfigDict, Field
+
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
@@ -37,6 +39,8 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_SQL_IDENTIFIER_RE,
     MSTR_SQL_VIEW_OUTPUT_SENTINEL,
     MSTR_WHITESPACE_RE,
+    MicroStrategyCache,
+    MicroStrategyPhase,
 )
 from datahub.ingestion.source.microstrategy.models import (
     ColumnSet,
@@ -49,10 +53,6 @@ from datahub.ingestion.source.microstrategy.models import (
     normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-from datahub.ingestion.source.microstrategy.telemetry import (
-    PHASE_SQL_PARSE,
-    PHASE_WAREHOUSE_FIELD_LOOKUP,
-)
 from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
@@ -90,12 +90,21 @@ class SqlViewLineage:
     field_upstreams: Dict[str, List[str]]
 
 
-@dataclass(frozen=True)
-class _ParsedSqlView:
+class _ParsedSqlView(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     has_statements: bool
     failed: bool = False
-    upstream_urns: Tuple[str, ...] = ()
+    upstream_urns: List[str] = Field(default_factory=list)
     column_upstreams: Optional[Dict[str, List[str]]] = None
+
+
+class _WarehouseKey(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    platform: str
+    platform_instance: Optional[str]
+    env: str
 
 
 _NO_STATEMENTS = _ParsedSqlView(has_statements=False)
@@ -206,12 +215,12 @@ class MicroStrategyLineageExtractor:
         # Counted on insert: FileBackedDict.__len__ binds one SQL variable per key.
         self._parse_cache_entries = 0
         # One resolver per warehouse, so each table schema is fetched once per run.
-        self._schema_resolvers: Dict[
-            Tuple[str, Optional[str], str], _TimedSchemaResolver
-        ] = {}
+        self._schema_resolvers: Dict[_WarehouseKey, _TimedSchemaResolver] = {}
 
     def reset_project_caches(self) -> None:
-        self.report.report_cache_entries("sql_parse", self._parse_cache_entries)
+        self.report.report_cache_entries(
+            MicroStrategyCache.SQL_PARSE, self._parse_cache_entries
+        )
         self._parse_cache.close()
         self._parse_cache = new_spill_cache(self.config.cache_memory_entries)
         self._parse_cache_entries = 0
@@ -225,7 +234,11 @@ class MicroStrategyLineageExtractor:
     def _schema_resolver(
         self, context: "WarehouseLineageContext", graph: DataHubGraph
     ) -> _TimedSchemaResolver:
-        key = (context.platform, context.platform_instance, context.env)
+        key = _WarehouseKey(
+            platform=context.platform,
+            platform_instance=context.platform_instance,
+            env=context.env,
+        )
         resolver = self._schema_resolvers.get(key)
         if resolver is None:
             resolver = _TimedSchemaResolver(
@@ -362,11 +375,6 @@ class MicroStrategyLineageExtractor:
         projection becomes a concrete downstream we can read column lineage from,
         and each output column is matched back to a dataset field
         (case-insensitively; best effort).
-
-        The parse itself does not depend on the dataset, so it is cached per
-        distinct SQL (and context); only the field matching runs per dataset.
-        ``label`` names the SQL view (e.g. its report id) in the slowest-parse
-        telemetry.
         """
         field_path_by_name = {path.lower(): path for path in dataset_field_paths}
         if not sql.strip():
@@ -406,12 +414,7 @@ class MicroStrategyLineageExtractor:
     ) -> _ParsedSqlView:
         cache_key = hashlib.sha256(
             "\0".join(
-                (
-                    repr(context),
-                    str(want_field_columns),
-                    str(graph is not None),
-                    sql,
-                )
+                [repr(context), str(want_field_columns), str(graph is not None), sql]
             ).encode("utf-8")
         ).hexdigest()
         cached = self._parse_cache.get(cache_key)
@@ -446,7 +449,7 @@ class MicroStrategyLineageExtractor:
             raise _sql_lineage_dependency_error(error) from error
 
         started = time.perf_counter()
-        with self.report.phase(PHASE_SQL_PARSE):
+        with self.report.phase(MicroStrategyPhase.SQL_PARSE):
             dialect = get_dialect_str(context.platform)
             statements = [
                 statement
@@ -509,7 +512,7 @@ class MicroStrategyLineageExtractor:
 
             return _ParsedSqlView(
                 has_statements=True,
-                upstream_urns=tuple(_dedupe_sorted(result.in_tables)),
+                upstream_urns=_dedupe_sorted(result.in_tables),
                 column_upstreams=column_upstreams,
             )
 
@@ -668,7 +671,7 @@ class MicroStrategyLineageExtractor:
 
         field_map: Optional[Dict[str, str]] = None
         try:
-            with self.report.phase(PHASE_WAREHOUSE_FIELD_LOOKUP):
+            with self.report.phase(MicroStrategyPhase.WAREHOUSE_FIELD_LOOKUP):
                 schema = graph.get_schema_metadata(upstream_dataset_urn)
         except Exception as error:
             self.report.warning(

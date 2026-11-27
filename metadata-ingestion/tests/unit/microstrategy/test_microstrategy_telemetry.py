@@ -7,6 +7,10 @@ from pytest import MonkeyPatch
 
 from datahub.ingestion.source.microstrategy.client import MicroStrategyClient
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.constants import (
+    MicroStrategyCache,
+    MicroStrategyPhase,
+)
 from datahub.ingestion.source.microstrategy.lineage import (
     MicroStrategyLineageExtractor,
     WarehouseLineageContext,
@@ -416,6 +420,19 @@ def test_report_serializes_telemetry_rounded() -> None:
     assert serialized["api_call_seconds"] == 0.123
     assert serialized["api_seconds_by_phase"] == {"x": 0.123}
     assert "_phase_stack" not in serialized
+
+
+def test_enum_phase_and_cache_names_serialize_by_value() -> None:
+    report = MicroStrategyReport()
+    with report.phase(MicroStrategyPhase.DASHBOARD):
+        report.report_api_call("GET", "/api/projects", 200, 1.0)
+    report.report_cache_entries(MicroStrategyCache.REPORT_SQL, 3)
+
+    serialized = report.as_obj()
+
+    assert serialized["phase_calls"] == {"dashboard": 1}
+    assert serialized["api_seconds_by_phase"] == {"dashboard": 1.0}
+    assert serialized["cache_entries_peak"] == {"report_sql": 3}
 
 
 def test_endpoint_template_replaces_dossier_chapter_and_visualization_keys() -> None:

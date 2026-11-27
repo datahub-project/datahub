@@ -287,9 +287,7 @@ class MicroStrategyClient:
             project_id,
             MSTR_OBJECT_TYPE_METRIC,
             "metric search",
-            timeout_seconds=max(
-                self.config.timeout_seconds, _METRIC_SEARCH_MIN_TIMEOUT_SECONDS
-            ),
+            timeout_seconds=self._timeout_at_least(_METRIC_SEARCH_MIN_TIMEOUT_SECONDS),
         )
 
     def get_report_object(
@@ -469,9 +467,7 @@ class MicroStrategyClient:
             "/api/model/tables",
             project_id=project_id,
             params=params,
-            timeout_seconds=max(
-                self.config.timeout_seconds, _MODEL_TABLES_MIN_TIMEOUT_SECONDS
-            ),
+            timeout_seconds=self._timeout_at_least(_MODEL_TABLES_MIN_TIMEOUT_SECONDS),
         )
         return ModelTablesResponse.model_validate(
             payload if isinstance(payload, dict) else {}
@@ -799,14 +795,11 @@ class MicroStrategyClient:
             if name:
                 payload["name"] = name
 
-            timeout_override: Dict[str, Any] = (
-                {"timeout_seconds": timeout_seconds} if timeout_seconds else {}
-            )
             result = self._get_json(
                 MSTR_API_SEARCHES,
                 project_id=project_id,
                 params=payload,
-                **timeout_override,
+                timeout_seconds=timeout_seconds,
             )
             items = self._extract_search_results(result)
             if total is None:
@@ -1023,9 +1016,9 @@ class MicroStrategyClient:
                 # non-retryable 4xx responses fail fast.
                 last_error = error
                 if attempt < attempts - 1:
-                    delay = float(min(2**attempt, _MAX_RETRY_DELAY_SECONDS))
-                    self.report.report_api_retry(delay)
-                    time.sleep(delay)
+                    self._sleep_before_retry(
+                        float(min(2**attempt, _MAX_RETRY_DELAY_SECONDS))
+                    )
                     attempt += 1
                     continue
                 self.report.report_api_error()
@@ -1051,9 +1044,7 @@ class MicroStrategyClient:
                 reauth_attempted = True
                 continue
             if response.status_code in retry_statuses and attempt < attempts - 1:
-                delay = self._retry_delay(response, attempt)
-                self.report.report_api_retry(delay)
-                time.sleep(delay)
+                self._sleep_before_retry(self._retry_delay(response, attempt))
                 attempt += 1
                 continue
             try:
@@ -1101,6 +1092,13 @@ class MicroStrategyClient:
                 f"{method} {path}: {error}"
             ) from error
         self.report.report_session_reauthenticated()
+
+    def _sleep_before_retry(self, delay: float) -> None:
+        self.report.report_api_retry(delay)
+        time.sleep(delay)
+
+    def _timeout_at_least(self, floor_seconds: int) -> int:
+        return max(self.config.timeout_seconds, floor_seconds)
 
     @staticmethod
     def _retry_delay(response: requests.Response, attempt: int) -> float:

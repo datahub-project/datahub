@@ -3,6 +3,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Dict, Iterator, List, Optional
 
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_TELEMETRY_ERROR_STATUS,
+    MSTR_TELEMETRY_NO_PHASE,
+)
 from datahub.ingestion.source.microstrategy.telemetry import (
     dashboard_seconds_bucket,
     endpoint_template,
@@ -17,6 +21,16 @@ from datahub.utilities.stats_collections import TopKDict
 
 _TELEMETRY_TOP_K = 40
 _SLOWEST_TOP_K = 25
+_SQLGLOT_WARNINGS_TOP_K = 10
+_SECONDS_PRECISION = 3
+_ROUNDED_SECONDS_FIELDS: List[str] = [
+    "api_call_seconds",
+    "api_retry_sleep_seconds",
+    "dashboard_seconds_total",
+    "sql_parse_seconds",
+    "sql_parse_max_seconds",
+    "schema_resolution_seconds",
+]
 
 
 def _float_top_k(top_k: int = _TELEMETRY_TOP_K) -> "TopKDict[str, float]":
@@ -215,7 +229,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     cache_entries_peak: Dict[str, int] = field(default_factory=dict)
     cache_project_resets: int = 0
     sqlglot_warnings_suppressed: TopKDict[str, int] = field(
-        default_factory=lambda: _int_top_k(10)
+        default_factory=lambda: _int_top_k(_SQLGLOT_WARNINGS_TOP_K)
     )
     peak_rss_mb: Optional[float] = None
     _phase_stack: List[str] = field(default_factory=list)
@@ -494,6 +508,8 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     @contextmanager
     def phase(self, name: str, count: bool = True) -> Iterator[None]:
+        # Report serializes Enum keys by member name, so keep plain-string keys.
+        name = str(name)
         self._phase_stack.append(name)
         start = time.perf_counter()
         try:
@@ -518,9 +534,11 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         self.api_seconds_by_endpoint[endpoint] += seconds
         if seconds > self.api_max_seconds_by_endpoint.get(endpoint, 0.0):
             self.api_max_seconds_by_endpoint[endpoint] = seconds
-        status_label = str(status) if status is not None else "error"
+        status_label = (
+            str(status) if status is not None else MSTR_TELEMETRY_ERROR_STATUS
+        )
         self.api_responses_by_endpoint_status[f"{endpoint} {status_label}"] += 1
-        phase = self._phase_stack[-1] if self._phase_stack else "(no phase)"
+        phase = self._phase_stack[-1] if self._phase_stack else MSTR_TELEMETRY_NO_PHASE
         self.api_seconds_by_phase[phase] += seconds
 
     def report_api_retry(self, sleep_seconds: float) -> None:
@@ -567,6 +585,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         self.schema_resolution_seconds += seconds
 
     def report_cache_entries(self, name: str, entries: int) -> None:
+        name = str(name)
         self.cache_entries_peak[name] = max(
             self.cache_entries_peak.get(name, 0), entries
         )
@@ -583,22 +602,15 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         current_rss = peak_rss_mb()
         if current_rss is not None:
             self.peak_rss_mb = current_rss
-        for name in (
-            "api_call_seconds",
-            "api_retry_sleep_seconds",
-            "dashboard_seconds_total",
-            "sql_parse_seconds",
-            "sql_parse_max_seconds",
-            "schema_resolution_seconds",
-        ):
-            setattr(self, name, round(getattr(self, name), 3))
-        for table in (
+        for name in _ROUNDED_SECONDS_FIELDS:
+            setattr(self, name, round(getattr(self, name), _SECONDS_PRECISION))
+        for table in [
             self.api_seconds_by_endpoint,
             self.api_max_seconds_by_endpoint,
             self.api_seconds_by_phase,
             self.phase_seconds,
             self.slowest_dashboards,
             self.slowest_sql_parses,
-        ):
+        ]:
             for key in table:
-                table[key] = round(table[key], 3)
+                table[key] = round(table[key], _SECONDS_PRECISION)
