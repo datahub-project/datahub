@@ -8,12 +8,17 @@ import com.linkedin.datahub.graphql.generated.IncidentState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
+import java.util.List;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class UnknownEnumValuesTest {
+
+  private static final UnknownDataGuard GUARD =
+      UnknownDataGuard.forSite(UnknownEnumValuesTest.class, "test");
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
@@ -81,5 +86,45 @@ public class UnknownEnumValuesTest {
     assertEquals(
         UnknownEnumValues.fromString(PolicyType.class, "PLATFORM", PolicyType.METADATA),
         PolicyType.PLATFORM);
+  }
+
+  @Test
+  public void testTolerantLeavesOutWhatHoldsAnUnrepresentableValue() {
+    assertNull(
+        UnknownEnumValues.leaveOutIfUnrepresentable(
+            GUARD, "state", () -> requireState(com.linkedin.incident.IncidentState.$UNKNOWN)));
+    assertEquals(
+        UnknownEnumValues.mapRepresentable(
+            GUARD,
+            "state",
+            List.of(
+                com.linkedin.incident.IncidentState.ACTIVE,
+                com.linkedin.incident.IncidentState.$UNKNOWN,
+                com.linkedin.incident.IncidentState.RESOLVED),
+            UnknownEnumValuesTest::requireState),
+        List.of(IncidentState.ACTIVE, IncidentState.RESOLVED));
+  }
+
+  @Test
+  public void testStrictStillFailsWhatHoldsAnUnknownValue() {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            UnknownEnumValues.leaveOutIfUnrepresentable(
+                GUARD, "state", () -> requireState(com.linkedin.incident.IncidentState.$UNKNOWN)));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            UnknownEnumValues.mapRepresentable(
+                GUARD,
+                "state",
+                List.of(com.linkedin.incident.IncidentState.$UNKNOWN),
+                UnknownEnumValuesTest::requireState));
+  }
+
+  private static IncidentState requireState(com.linkedin.incident.IncidentState stored) {
+    return UnknownEnumValues.require(IncidentState.class, stored);
   }
 }

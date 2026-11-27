@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.template;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PageTemplateScope;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.template.DataHubPageTemplateVisibility;
 import javax.annotation.Nonnull;
@@ -27,7 +28,7 @@ public class PageTemplateVisibilityMapper
         new com.linkedin.datahub.graphql.generated.DataHubPageTemplateVisibility();
 
     if (visibility.hasScope()) {
-      result.setScope(PageTemplateScope.valueOf(visibility.getScope().toString()));
+      result.setScope(UnknownEnumValues.mapOrNull(PageTemplateScope.class, visibility.getScope()));
     }
 
     return result;

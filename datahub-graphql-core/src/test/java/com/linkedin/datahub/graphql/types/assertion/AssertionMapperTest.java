@@ -1,8 +1,15 @@
 package com.linkedin.datahub.graphql.types.assertion;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.assertion.AssertionAction;
+import com.linkedin.assertion.AssertionActionArray;
+import com.linkedin.assertion.AssertionActionType;
+import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionNote;
 import com.linkedin.assertion.AssertionSource;
@@ -21,8 +28,11 @@ import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionScheduleType;
 import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.FreshnessCronSchedule;
+import com.linkedin.assertion.RowCountTotal;
 import com.linkedin.assertion.SchemaAssertionCompatibility;
 import com.linkedin.assertion.SchemaAssertionInfo;
+import com.linkedin.assertion.VolumeAssertionInfo;
+import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
@@ -40,6 +50,9 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.schema.MySqlDDL;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
@@ -210,6 +223,107 @@ public class AssertionMapperTest {
     Assert.assertNotNull(output);
     Assert.assertNotNull(output.getInfo());
     Assert.assertNull(output.getDataset());
+  }
+
+  @Test
+  public void testValuesFromNewerVersionLeaveOutTheirParent() {
+    // Read after a rollback: a required value only a newer version defines leaves out the nearest
+    // optional object holding it, an optional one maps to null, and the assertion is still
+    // returned.
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+    try {
+      AssertionInfo newerType = createDatasetAssertionInfoWithoutNullableFields();
+      newerType.data().put("type", "ASSERTION_TYPE_FROM_NEWER_BUILD");
+      Assertion assertion = AssertionMapper.map(null, createAssertionInfoEntityResponse(newerType));
+      assertNotNull(assertion);
+      assertNull(assertion.getInfo());
+
+      AssertionInfo newerOperator = createDatasetAssertionInfoWithNullableFields();
+      newerOperator.getDatasetAssertion().data().put("operator", "OPERATOR_FROM_NEWER_BUILD");
+      assertion = AssertionMapper.map(null, createAssertionInfoEntityResponse(newerOperator));
+      assertNull(assertion.getInfo().getDatasetAssertion());
+      assertNotNull(assertion.getInfo().getSource());
+
+      AssertionInfo newerScope = createDatasetAssertionInfoWithoutNullableFields();
+      newerScope.getDatasetAssertion().data().put("scope", "SCOPE_FROM_NEWER_BUILD");
+      assertion = AssertionMapper.map(null, createAssertionInfoEntityResponse(newerScope));
+      assertEquals(
+          assertion.getInfo().getDatasetAssertion().getScope(),
+          com.linkedin.datahub.graphql.generated.DatasetAssertionScope.UNKNOWN);
+
+      AssertionInfo volume = createVolumeAssertionInfo();
+      volume.getVolumeAssertion().getRowCountTotal().data().put("operator", "OPERATOR_FROM_NEWER");
+      assertion = AssertionMapper.map(null, createAssertionInfoEntityResponse(volume));
+      assertNotNull(assertion.getInfo().getVolumeAssertion());
+      assertNull(assertion.getInfo().getVolumeAssertion().getRowCountTotal());
+
+      AssertionInfo newerFilter = createVolumeAssertionInfo();
+      newerFilter
+          .getVolumeAssertion()
+          .setFilter(
+              new com.linkedin.dataset.DatasetFilter()
+                  .setType(com.linkedin.dataset.DatasetFilterType.SQL)
+                  .setSql("x > 0"));
+      newerFilter.getVolumeAssertion().getFilter().data().put("type", "FILTER_FROM_NEWER_BUILD");
+      assertion = AssertionMapper.map(null, createAssertionInfoEntityResponse(newerFilter));
+      assertNotNull(assertion.getInfo().getVolumeAssertion().getRowCountTotal());
+      assertNull(assertion.getInfo().getVolumeAssertion().getFilter());
+
+      AssertionAction newerAction =
+          new AssertionAction().setType(AssertionActionType.RAISE_INCIDENT);
+      newerAction.data().put("type", "ACTION_FROM_NEWER_BUILD");
+      AssertionActions actions =
+          new AssertionActions()
+              .setOnFailure(
+                  new AssertionActionArray(
+                      new AssertionAction().setType(AssertionActionType.RESOLVE_INCIDENT),
+                      newerAction))
+              .setOnSuccess(new AssertionActionArray());
+      Map<String, EnvelopedAspect> aspects = new HashMap<>();
+      aspects.put(
+          Constants.ASSERTION_INFO_ASPECT_NAME,
+          createEnvelopedAspect(createDatasetAssertionInfoWithoutNullableFields().data()));
+      aspects.put(Constants.ASSERTION_ACTIONS_ASPECT_NAME, createEnvelopedAspect(actions.data()));
+      assertion = AssertionMapper.map(null, createEntityResponse(aspects));
+      assertEquals(assertion.getActions().getOnFailure().size(), 1);
+      assertEquals(
+          assertion.getActions().getOnFailure().get(0).getType(),
+          com.linkedin.datahub.graphql.generated.AssertionActionType.RESOLVE_INCIDENT);
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
+  }
+
+  @Test
+  public void testValuesFromNewerVersionStrictHandlingFails() {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    try {
+      AssertionInfo newerType = createDatasetAssertionInfoWithoutNullableFields();
+      newerType.data().put("type", "ASSERTION_TYPE_FROM_NEWER_BUILD");
+      EntityResponse typeResponse = createAssertionInfoEntityResponse(newerType);
+      assertThrows(IllegalArgumentException.class, () -> AssertionMapper.map(null, typeResponse));
+
+      AssertionInfo volume = createVolumeAssertionInfo();
+      volume.getVolumeAssertion().getRowCountTotal().data().put("operator", "OPERATOR_FROM_NEWER");
+      EntityResponse volumeResponse = createAssertionInfoEntityResponse(volume);
+      assertThrows(IllegalArgumentException.class, () -> AssertionMapper.map(null, volumeResponse));
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
+  }
+
+  private AssertionInfo createVolumeAssertionInfo() {
+    AssertionInfo info = new AssertionInfo();
+    info.setType(AssertionType.VOLUME);
+    info.setVolumeAssertion(
+        new VolumeAssertionInfo()
+            .setType(VolumeAssertionType.ROW_COUNT_TOTAL)
+            .setEntity(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"))
+            .setRowCountTotal(
+                new RowCountTotal()
+                    .setOperator(AssertionStdOperator.GREATER_THAN)
+                    .setParameters(createAssertionStdParameters())));
+    return info;
   }
 
   private void verifyAssertionInfo(AssertionInfo input, Assertion output) {

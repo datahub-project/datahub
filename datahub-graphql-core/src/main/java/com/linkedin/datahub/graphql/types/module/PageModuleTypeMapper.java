@@ -23,7 +23,9 @@ public class PageModuleTypeMapper
   public com.linkedin.datahub.graphql.generated.DataHubPageModuleType apply(
       @Nullable final QueryContext context, @Nonnull final DataHubPageModuleType type) {
     try {
-      return com.linkedin.datahub.graphql.generated.DataHubPageModuleType.valueOf(type.toString());
+      // Already falls back to UNKNOWN whatever the flags; written this way for the lint.
+      return Enum.valueOf(
+          com.linkedin.datahub.graphql.generated.DataHubPageModuleType.class, type.toString());
     } catch (IllegalArgumentException e) {
       log.warn("Encountered unexpected DataHub Page Module type", e);
       return com.linkedin.datahub.graphql.generated.DataHubPageModuleType.UNKNOWN;

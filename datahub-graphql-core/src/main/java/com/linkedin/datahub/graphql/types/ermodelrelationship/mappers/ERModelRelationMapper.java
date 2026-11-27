@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -29,6 +30,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.ermodelrelation.ERModelRelationshipProperties;
 import com.linkedin.ermodelrelation.EditableERModelRelationshipProperties;
 import com.linkedin.metadata.key.ERModelRelationshipKey;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -41,6 +43,9 @@ import javax.annotation.Nullable;
  * <p>To be replaced by auto-generated mappers implementations
  */
 public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERModelRelationship> {
+
+  private static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(ERModelRelationMapper.class, "er model relationship");
 
   public static final ERModelRelationMapper INSTANCE = new ERModelRelationMapper();
 
@@ -128,6 +133,19 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
       @Nonnull DataMap dataMap) {
     final ERModelRelationshipProperties ermodelrelationProperties =
         new ERModelRelationshipProperties(dataMap);
+    // The cardinality is required, so one only a newer version defines (read after a rollback)
+    // leaves the properties out.
+    final ERModelRelationshipCardinality cardinality =
+        UnknownEnumValues.leaveOutIfUnrepresentable(
+            UNREPRESENTABLE,
+            "er model relationship properties",
+            () ->
+                UnknownEnumValues.require(
+                    ERModelRelationshipCardinality.class,
+                    ermodelrelationProperties.getCardinality()));
+    if (cardinality == null) {
+      return;
+    }
     ermodelrelation.setProperties(
         com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties.builder()
             .setName(ermodelrelationProperties.getName())
@@ -142,9 +160,7 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
                 ermodelrelationProperties.hasRelationshipFieldMappings()
                     ? this.mapERModelRelationFieldMappings(ermodelrelationProperties)
                     : null)
-            .setCardinality(
-                ERModelRelationshipCardinality.valueOf(
-                    ermodelrelationProperties.getCardinality().name()))
+            .setCardinality(cardinality)
             .build());
 
     if (ermodelrelationProperties.hasCreated()

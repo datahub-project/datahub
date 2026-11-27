@@ -3,13 +3,17 @@ package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.IntendedUse;
 import com.linkedin.datahub.graphql.generated.IntendedUserType;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-import java.util.stream.Collectors;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import javax.annotation.Nullable;
 import lombok.NonNull;
 
 public class IntendedUseMapper
     implements ModelMapper<com.linkedin.ml.metadata.IntendedUse, IntendedUse> {
+
+  private static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(IntendedUseMapper.class, "intended use");
 
   public static final IntendedUseMapper INSTANCE = new IntendedUseMapper();
 
@@ -28,9 +32,11 @@ public class IntendedUseMapper
     result.setPrimaryUses(intendedUse.getPrimaryUses());
     if (intendedUse.getPrimaryUsers() != null) {
       result.setPrimaryUsers(
-          intendedUse.getPrimaryUsers().stream()
-              .map(v -> IntendedUserType.valueOf(v.toString()))
-              .collect(Collectors.toList()));
+          UnknownEnumValues.mapRepresentable(
+              UNREPRESENTABLE,
+              "intended user type",
+              intendedUse.getPrimaryUsers(),
+              v -> UnknownEnumValues.require(IntendedUserType.class, v)));
     }
     return result;
   }

@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.generated.FieldAssertionType;
 import com.linkedin.datahub.graphql.generated.FieldMetricType;
 import com.linkedin.datahub.graphql.generated.FieldTransformType;
 import com.linkedin.datahub.graphql.generated.FieldValuesFailThresholdType;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetFilterMapper;
 import javax.annotation.Nullable;
 
@@ -17,17 +18,28 @@ public class FieldAssertionMapper extends AssertionMapper {
     final com.linkedin.datahub.graphql.generated.FieldAssertionInfo result =
         new com.linkedin.datahub.graphql.generated.FieldAssertionInfo();
     result.setEntityUrn(gmsFieldAssertionInfo.getEntity().toString());
-    result.setType(FieldAssertionType.valueOf(gmsFieldAssertionInfo.getType().name()));
+    result.setType(
+        UnknownEnumValues.require(FieldAssertionType.class, gmsFieldAssertionInfo.getType()));
     if (gmsFieldAssertionInfo.hasFilter()) {
-      result.setFilter(DatasetFilterMapper.map(context, gmsFieldAssertionInfo.getFilter()));
+      result.setFilter(
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "dataset filter",
+              () -> DatasetFilterMapper.map(context, gmsFieldAssertionInfo.getFilter())));
     }
     if (gmsFieldAssertionInfo.hasFieldValuesAssertion()) {
       result.setFieldValuesAssertion(
-          mapFieldValuesAssertion(gmsFieldAssertionInfo.getFieldValuesAssertion()));
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "field values assertion",
+              () -> mapFieldValuesAssertion(gmsFieldAssertionInfo.getFieldValuesAssertion())));
     }
     if (gmsFieldAssertionInfo.hasFieldMetricAssertion()) {
       result.setFieldMetricAssertion(
-          mapFieldMetricAssertion(gmsFieldAssertionInfo.getFieldMetricAssertion()));
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "field metric assertion",
+              () -> mapFieldMetricAssertion(gmsFieldAssertionInfo.getFieldMetricAssertion())));
     }
     return result;
   }
@@ -38,13 +50,19 @@ public class FieldAssertionMapper extends AssertionMapper {
     final com.linkedin.datahub.graphql.generated.FieldValuesAssertion result =
         new com.linkedin.datahub.graphql.generated.FieldValuesAssertion();
     result.setField(mapSchemaFieldSpec(gmsFieldValuesAssertion.getField()));
-    result.setOperator(AssertionStdOperator.valueOf(gmsFieldValuesAssertion.getOperator().name()));
+    result.setOperator(
+        UnknownEnumValues.require(
+            AssertionStdOperator.class, gmsFieldValuesAssertion.getOperator()));
     result.setFailThreshold(
         mapFieldValuesFailThreshold(gmsFieldValuesAssertion.getFailThreshold()));
     result.setExcludeNulls(gmsFieldValuesAssertion.isExcludeNulls());
 
     if (gmsFieldValuesAssertion.hasTransform()) {
-      result.setTransform(mapFieldTransform(gmsFieldValuesAssertion.getTransform()));
+      result.setTransform(
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "field transform",
+              () -> mapFieldTransform(gmsFieldValuesAssertion.getTransform())));
     }
 
     if (gmsFieldValuesAssertion.hasParameters()) {
@@ -59,8 +77,11 @@ public class FieldAssertionMapper extends AssertionMapper {
     final com.linkedin.datahub.graphql.generated.FieldMetricAssertion result =
         new com.linkedin.datahub.graphql.generated.FieldMetricAssertion();
     result.setField(mapSchemaFieldSpec(gmsFieldMetricAssertion.getField()));
-    result.setMetric(FieldMetricType.valueOf(gmsFieldMetricAssertion.getMetric().name()));
-    result.setOperator(AssertionStdOperator.valueOf(gmsFieldMetricAssertion.getOperator().name()));
+    result.setMetric(
+        UnknownEnumValues.require(FieldMetricType.class, gmsFieldMetricAssertion.getMetric()));
+    result.setOperator(
+        UnknownEnumValues.require(
+            AssertionStdOperator.class, gmsFieldMetricAssertion.getOperator()));
 
     if (gmsFieldMetricAssertion.hasParameters()) {
       result.setParameters(mapParameters(gmsFieldMetricAssertion.getParameters()));
@@ -73,7 +94,8 @@ public class FieldAssertionMapper extends AssertionMapper {
       final com.linkedin.assertion.FieldTransform gmsFieldTransform) {
     final com.linkedin.datahub.graphql.generated.FieldTransform result =
         new com.linkedin.datahub.graphql.generated.FieldTransform();
-    result.setType(FieldTransformType.valueOf(gmsFieldTransform.getType().name()));
+    result.setType(
+        UnknownEnumValues.require(FieldTransformType.class, gmsFieldTransform.getType()));
     return result;
   }
 
@@ -83,7 +105,8 @@ public class FieldAssertionMapper extends AssertionMapper {
     final com.linkedin.datahub.graphql.generated.FieldValuesFailThreshold result =
         new com.linkedin.datahub.graphql.generated.FieldValuesFailThreshold();
     result.setType(
-        FieldValuesFailThresholdType.valueOf(gmsFieldValuesFailThreshold.getType().name()));
+        UnknownEnumValues.require(
+            FieldValuesFailThresholdType.class, gmsFieldValuesFailThreshold.getType()));
     result.setValue(gmsFieldValuesFailThreshold.getValue());
     return result;
   }

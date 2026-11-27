@@ -42,6 +42,7 @@ import com.linkedin.datahub.graphql.generated.VolumeAssertionInfo;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaFieldMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaMetadataMapper;
 import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
@@ -51,6 +52,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.utils.AssertionUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.schema.SchemaField;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -62,6 +64,11 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class AssertionMapper {
+
+  // Assertion objects that hold, in a required field, a value only a newer version defines (read
+  // after a rollback) are left out where their parent allows it, instead of failing the request.
+  static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(AssertionMapper.class, "assertion");
 
   public static Assertion map(@Nullable QueryContext context, final EntityResponse entityResponse) {
     final Assertion result = new Assertion();
@@ -82,7 +89,11 @@ public class AssertionMapper {
           envelopedAssertionNote != null
               ? new AssertionNote(envelopedAssertionNote.getValue().data()).getContent()
               : null;
-      result.setInfo(mapAssertionInfo(context, assertionInfo, entityUrn, note));
+      result.setInfo(
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "assertion info",
+              () -> mapAssertionInfo(context, assertionInfo, entityUrn, note)));
       try {
         final Urn datasetUrn =
             Optional.ofNullable(assertionInfo.getEntityUrn())
@@ -162,7 +173,8 @@ public class AssertionMapper {
       @Nullable final String note) {
     final com.linkedin.datahub.graphql.generated.AssertionInfo assertionInfo =
         new com.linkedin.datahub.graphql.generated.AssertionInfo();
-    assertionInfo.setType(AssertionType.valueOf(gmsAssertionInfo.getType().name()));
+    assertionInfo.setType(
+        UnknownEnumValues.require(AssertionType.class, gmsAssertionInfo.getType()));
 
     if (gmsAssertionInfo.hasLastUpdated()) {
       assertionInfo.setLastUpdated(
@@ -176,7 +188,10 @@ public class AssertionMapper {
     }
     if (gmsAssertionInfo.hasDatasetAssertion()) {
       DatasetAssertionInfo datasetAssertion =
-          mapDatasetAssertionInfo(context, gmsAssertionInfo.getDatasetAssertion());
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "dataset assertion",
+              () -> mapDatasetAssertionInfo(context, gmsAssertionInfo.getDatasetAssertion()));
       assertionInfo.setDatasetAssertion(datasetAssertion);
     }
     // Description
@@ -191,33 +206,52 @@ public class AssertionMapper {
     // FRESHNESS Assertions
     if (gmsAssertionInfo.hasFreshnessAssertion()) {
       FreshnessAssertionInfo freshnessAssertionInfo =
-          FreshnessAssertionMapper.mapFreshnessAssertionInfo(
-              context, gmsAssertionInfo.getFreshnessAssertion());
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "freshness assertion",
+              () ->
+                  FreshnessAssertionMapper.mapFreshnessAssertionInfo(
+                      context, gmsAssertionInfo.getFreshnessAssertion()));
       assertionInfo.setFreshnessAssertion(freshnessAssertionInfo);
     }
     // VOLUME Assertions
     if (gmsAssertionInfo.hasVolumeAssertion()) {
       VolumeAssertionInfo volumeAssertionInfo =
-          VolumeAssertionMapper.mapVolumeAssertionInfo(
-              context, gmsAssertionInfo.getVolumeAssertion());
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "volume assertion",
+              () ->
+                  VolumeAssertionMapper.mapVolumeAssertionInfo(
+                      context, gmsAssertionInfo.getVolumeAssertion()));
       assertionInfo.setVolumeAssertion(volumeAssertionInfo);
     }
     // SQL Assertions
     if (gmsAssertionInfo.hasSqlAssertion()) {
       SqlAssertionInfo sqlAssertionInfo =
-          SqlAssertionMapper.mapSqlAssertionInfo(gmsAssertionInfo.getSqlAssertion());
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "sql assertion",
+              () -> SqlAssertionMapper.mapSqlAssertionInfo(gmsAssertionInfo.getSqlAssertion()));
       assertionInfo.setSqlAssertion(sqlAssertionInfo);
     }
     // FIELD Assertions
     if (gmsAssertionInfo.hasFieldAssertion()) {
       FieldAssertionInfo fieldAssertionInfo =
-          FieldAssertionMapper.mapFieldAssertionInfo(context, gmsAssertionInfo.getFieldAssertion());
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "field assertion",
+              () ->
+                  FieldAssertionMapper.mapFieldAssertionInfo(
+                      context, gmsAssertionInfo.getFieldAssertion()));
       assertionInfo.setFieldAssertion(fieldAssertionInfo);
     }
     // SCHEMA Assertions
     if (gmsAssertionInfo.hasSchemaAssertion()) {
       SchemaAssertionInfo schemaAssertionInfo =
-          mapSchemaAssertionInfo(context, gmsAssertionInfo.getSchemaAssertion());
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "schema assertion",
+              () -> mapSchemaAssertionInfo(context, gmsAssertionInfo.getSchemaAssertion()));
       assertionInfo.setSchemaAssertion(schemaAssertionInfo);
     }
     if (gmsAssertionInfo.hasCustomAssertion()) {
@@ -228,7 +262,9 @@ public class AssertionMapper {
 
     // Source Type
     if (gmsAssertionInfo.hasSource()) {
-      assertionInfo.setSource(mapSource(gmsAssertionInfo.getSource()));
+      assertionInfo.setSource(
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE, "assertion source", () -> mapSource(gmsAssertionInfo.getSource())));
     }
 
     if (gmsAssertionInfo.hasExternalUrl()) {
@@ -243,15 +279,19 @@ public class AssertionMapper {
         new com.linkedin.datahub.graphql.generated.AssertionActions();
     if (gmsAssertionActions.hasOnFailure()) {
       result.setOnFailure(
-          gmsAssertionActions.getOnFailure().stream()
-              .map(AssertionMapper::mapAssertionAction)
-              .collect(Collectors.toList()));
+          UnknownEnumValues.mapRepresentable(
+              UNREPRESENTABLE,
+              "assertion action",
+              gmsAssertionActions.getOnFailure(),
+              AssertionMapper::mapAssertionAction));
     }
     if (gmsAssertionActions.hasOnSuccess()) {
       result.setOnSuccess(
-          gmsAssertionActions.getOnSuccess().stream()
-              .map(AssertionMapper::mapAssertionAction)
-              .collect(Collectors.toList()));
+          UnknownEnumValues.mapRepresentable(
+              UNREPRESENTABLE,
+              "assertion action",
+              gmsAssertionActions.getOnSuccess(),
+              AssertionMapper::mapAssertionAction));
     }
     return result;
   }
@@ -260,7 +300,8 @@ public class AssertionMapper {
       final AssertionAction gmsAssertionAction) {
     final com.linkedin.datahub.graphql.generated.AssertionAction result =
         new com.linkedin.datahub.graphql.generated.AssertionAction();
-    result.setType(AssertionActionType.valueOf(gmsAssertionAction.getType().toString()));
+    result.setType(
+        UnknownEnumValues.require(AssertionActionType.class, gmsAssertionAction.getType()));
     return result;
   }
 
@@ -269,7 +310,11 @@ public class AssertionMapper {
       final com.linkedin.assertion.DatasetAssertionInfo gmsDatasetAssertion) {
     DatasetAssertionInfo datasetAssertion = new DatasetAssertionInfo();
     datasetAssertion.setDatasetUrn(gmsDatasetAssertion.getDataset().toString());
-    datasetAssertion.setScope(DatasetAssertionScope.valueOf(gmsDatasetAssertion.getScope().name()));
+    datasetAssertion.setScope(
+        UnknownEnumValues.map(
+            DatasetAssertionScope.class,
+            gmsDatasetAssertion.getScope(),
+            DatasetAssertionScope.UNKNOWN));
     if (gmsDatasetAssertion.hasFields()) {
       datasetAssertion.setFields(
           gmsDatasetAssertion.getFields().stream()
@@ -281,12 +326,13 @@ public class AssertionMapper {
     // Agg
     if (gmsDatasetAssertion.hasAggregation()) {
       datasetAssertion.setAggregation(
-          AssertionStdAggregation.valueOf(gmsDatasetAssertion.getAggregation().name()));
+          UnknownEnumValues.mapOrNull(
+              AssertionStdAggregation.class, gmsDatasetAssertion.getAggregation()));
     }
 
     // Op
     datasetAssertion.setOperator(
-        AssertionStdOperator.valueOf(gmsDatasetAssertion.getOperator().name()));
+        UnknownEnumValues.require(AssertionStdOperator.class, gmsDatasetAssertion.getOperator()));
 
     // Params
     if (gmsDatasetAssertion.hasParameters()) {
@@ -345,14 +391,15 @@ public class AssertionMapper {
   protected static FixedIntervalSchedule mapFixedIntervalSchedule(
       com.linkedin.assertion.FixedIntervalSchedule gmsFixedIntervalSchedule) {
     FixedIntervalSchedule fixedIntervalSchedule = new FixedIntervalSchedule();
-    fixedIntervalSchedule.setUnit(DateInterval.valueOf(gmsFixedIntervalSchedule.getUnit().name()));
+    fixedIntervalSchedule.setUnit(
+        UnknownEnumValues.require(DateInterval.class, gmsFixedIntervalSchedule.getUnit()));
     fixedIntervalSchedule.setMultiple(gmsFixedIntervalSchedule.getMultiple());
     return fixedIntervalSchedule;
   }
 
   private static AssertionSource mapSource(final com.linkedin.assertion.AssertionSource gmsSource) {
     AssertionSource result = new AssertionSource();
-    result.setType(AssertionSourceType.valueOf(gmsSource.getType().toString()));
+    result.setType(UnknownEnumValues.require(AssertionSourceType.class, gmsSource.getType()));
     if (gmsSource.hasCreated()) {
       result.setCreated(
           new AuditStamp(
@@ -376,7 +423,8 @@ public class AssertionMapper {
       final com.linkedin.assertion.SchemaAssertionInfo gmsSchemaAssertionInfo) {
     SchemaAssertionInfo result = new SchemaAssertionInfo();
     result.setCompatibility(
-        SchemaAssertionCompatibility.valueOf(gmsSchemaAssertionInfo.getCompatibility().name()));
+        UnknownEnumValues.require(
+            SchemaAssertionCompatibility.class, gmsSchemaAssertionInfo.getCompatibility()));
     result.setEntityUrn(gmsSchemaAssertionInfo.getEntity().toString());
     result.setSchema(
         SchemaMetadataMapper.INSTANCE.apply(

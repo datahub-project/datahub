@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.datacontract;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +25,9 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import java.util.Collections;
 import org.testng.annotations.Test;
 
@@ -176,5 +180,50 @@ public class DataContractMapperTest {
     assertNull(dataContract.getProperties().getDataQuality());
     assertNull(dataContract.getProperties().getSchema());
     assertNull(dataContract.getProperties().getFreshness());
+  }
+
+  @Test
+  public void testStateFromNewerVersionLeavesOutStatus() throws Exception {
+    // Read after a rollback: the state is required, so a state only a newer version defines
+    // leaves out the status; the contract is still returned.
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+    try {
+      DataContract dataContract = DataContractMapper.mapContract(null, contractWithNewerState());
+      assertNotNull(dataContract);
+      assertNull(dataContract.getStatus());
+      assertNotNull(dataContract.getProperties());
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
+  }
+
+  @Test
+  public void testStateFromNewerVersionStrictHandlingFails() throws Exception {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    try {
+      EntityResponse response = contractWithNewerState();
+      assertThrows(
+          IllegalArgumentException.class, () -> DataContractMapper.mapContract(null, response));
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
+  }
+
+  private static EntityResponse contractWithNewerState() throws Exception {
+    DataContractProperties properties =
+        new DataContractProperties()
+            .setEntity(
+                Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)"));
+    DataContractStatus status = new DataContractStatus().setState(DataContractState.ACTIVE);
+    status.data().put("state", "STATE_FROM_NEWER_BUILD");
+    return new EntityResponse()
+        .setUrn(Urn.createFromString("urn:li:dataContract:1"))
+        .setAspects(
+            new EnvelopedAspectMap(
+                ImmutableMap.of(
+                    Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(properties.data())),
+                    Constants.DATA_CONTRACT_STATUS_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(status.data())))));
   }
 }

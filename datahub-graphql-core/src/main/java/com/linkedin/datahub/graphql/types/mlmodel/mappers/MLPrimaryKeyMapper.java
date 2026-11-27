@@ -27,6 +27,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -143,7 +144,10 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
     mlPrimaryKey.setDescription(primaryKeyProperties.getDescription());
     if (primaryKeyProperties.getDataType() != null) {
       mlPrimaryKey.setDataType(
-          MLFeatureDataType.valueOf(primaryKeyProperties.getDataType().toString()));
+          UnknownEnumValues.map(
+              MLFeatureDataType.class,
+              primaryKeyProperties.getDataType(),
+              MLFeatureDataType.UNKNOWN));
     }
   }
 

@@ -35,6 +35,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -46,6 +47,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLModelKey;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.ml.metadata.CaveatsAndRecommendations;
 import com.linkedin.ml.metadata.EditableMLModelProperties;
 import com.linkedin.ml.metadata.EthicalConsiderations;
@@ -64,6 +66,9 @@ import javax.annotation.Nullable;
 
 /** Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema. */
 public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
+
+  private static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(MLModelMapper.class, "ml model");
 
   public static final MLModelMapper INSTANCE = new MLModelMapper();
 
@@ -152,7 +157,10 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
         (mlModel, dataMap) -> mlModel.setStatus(StatusMapper.map(context, new Status(dataMap))));
     mappingHelper.mapToResult(
         COST_ASPECT_NAME,
-        (mlModel, dataMap) -> mlModel.setCost(CostMapper.map(context, new Cost(dataMap))));
+        (mlModel, dataMap) ->
+            mlModel.setCost(
+                UnknownEnumValues.leaveOutIfUnrepresentable(
+                    UNREPRESENTABLE, "cost", () -> CostMapper.map(context, new Cost(dataMap)))));
     mappingHelper.mapToResult(
         DEPRECATION_ASPECT_NAME,
         (mlModel, dataMap) ->
@@ -233,9 +241,11 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
     com.linkedin.datahub.graphql.generated.SourceCode graphQlSourceCode =
         new com.linkedin.datahub.graphql.generated.SourceCode();
     graphQlSourceCode.setSourceCode(
-        sourceCode.getSourceCode().stream()
-            .map(c -> SourceCodeUrlMapper.map(context, c))
-            .collect(Collectors.toList()));
+        UnknownEnumValues.mapRepresentable(
+            UNREPRESENTABLE,
+            "source code url",
+            sourceCode.getSourceCode(),
+            c -> SourceCodeUrlMapper.map(context, c)));
     mlModel.setSourceCode(graphQlSourceCode);
   }
 

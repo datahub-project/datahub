@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.types.form;
 
 import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -26,6 +25,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -33,6 +33,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class FormMapper implements ModelMapper<EntityResponse, Form> {
+
+  private static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(FormMapper.class, "form");
 
   public static final FormMapper INSTANCE = new FormMapper();
 
@@ -78,17 +81,13 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
       @Nonnull com.linkedin.form.FormInfo gmsFormInfo, @Nonnull String formUrn) {
     List<FormPrompt> formPrompts = new ArrayList<>();
     if (gmsFormInfo.hasPrompts()) {
-      gmsFormInfo
-          .getPrompts()
-          .forEach(
-              FormPrompt -> {
-                // Prompt types only a newer version knows (e.g. after a rollback) are skipped.
-                if (!handling().toleratesUnknownEnum()
-                    || UnknownEnumValues.mapOrNull(FormPromptType.class, FormPrompt.getType())
-                        != null) {
-                  formPrompts.add(mapFormPrompt(FormPrompt, formUrn));
-                }
-              });
+      // A prompt holding a value only a newer version knows (e.g. after a rollback) is skipped.
+      formPrompts.addAll(
+          UnknownEnumValues.mapRepresentable(
+              UNREPRESENTABLE,
+              "form prompt",
+              gmsFormInfo.getPrompts(),
+              prompt -> mapFormPrompt(prompt, formUrn)));
     }
     return formPrompts;
   }
@@ -98,7 +97,7 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     final FormPrompt formPrompt = new FormPrompt();
     formPrompt.setId(gmsFormPrompt.getId());
     formPrompt.setTitle(gmsFormPrompt.getTitle());
-    formPrompt.setType(FormPromptType.valueOf(gmsFormPrompt.getType().toString()));
+    formPrompt.setType(UnknownEnumValues.require(FormPromptType.class, gmsFormPrompt.getType()));
     formPrompt.setRequired(gmsFormPrompt.isRequired());
     formPrompt.setFormUrn(formUrn);
     if (gmsFormPrompt.hasDescription()) {

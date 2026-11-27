@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.AssertionStdOperator;
 import com.linkedin.datahub.graphql.generated.AssertionValueChangeType;
 import com.linkedin.datahub.graphql.generated.IncrementingSegmentFieldTransformerType;
 import com.linkedin.datahub.graphql.generated.VolumeAssertionType;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetFilterMapper;
 import javax.annotation.Nullable;
 
@@ -16,25 +17,46 @@ public class VolumeAssertionMapper extends AssertionMapper {
     final com.linkedin.datahub.graphql.generated.VolumeAssertionInfo result =
         new com.linkedin.datahub.graphql.generated.VolumeAssertionInfo();
     result.setEntityUrn(gmsVolumeAssertionInfo.getEntity().toString());
-    result.setType(VolumeAssertionType.valueOf(gmsVolumeAssertionInfo.getType().name()));
+    result.setType(
+        UnknownEnumValues.require(VolumeAssertionType.class, gmsVolumeAssertionInfo.getType()));
     if (gmsVolumeAssertionInfo.hasFilter()) {
-      result.setFilter(DatasetFilterMapper.map(context, gmsVolumeAssertionInfo.getFilter()));
+      result.setFilter(
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "dataset filter",
+              () -> DatasetFilterMapper.map(context, gmsVolumeAssertionInfo.getFilter())));
     }
     if (gmsVolumeAssertionInfo.hasRowCountTotal()) {
-      result.setRowCountTotal(mapRowCountTotal(gmsVolumeAssertionInfo.getRowCountTotal()));
+      result.setRowCountTotal(
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "row count total",
+              () -> mapRowCountTotal(gmsVolumeAssertionInfo.getRowCountTotal())));
     }
     if (gmsVolumeAssertionInfo.hasRowCountChange()) {
-      result.setRowCountChange(mapRowCountChange(gmsVolumeAssertionInfo.getRowCountChange()));
+      result.setRowCountChange(
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "row count change",
+              () -> mapRowCountChange(gmsVolumeAssertionInfo.getRowCountChange())));
     }
     if (gmsVolumeAssertionInfo.hasIncrementingSegmentRowCountTotal()) {
       result.setIncrementingSegmentRowCountTotal(
-          mapIncrementingSegmentRowCountTotal(
-              gmsVolumeAssertionInfo.getIncrementingSegmentRowCountTotal()));
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "incrementing segment row count total",
+              () ->
+                  mapIncrementingSegmentRowCountTotal(
+                      gmsVolumeAssertionInfo.getIncrementingSegmentRowCountTotal())));
     }
     if (gmsVolumeAssertionInfo.hasIncrementingSegmentRowCountChange()) {
       result.setIncrementingSegmentRowCountChange(
-          mapIncrementingSegmentRowCountChange(
-              gmsVolumeAssertionInfo.getIncrementingSegmentRowCountChange()));
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "incrementing segment row count change",
+              () ->
+                  mapIncrementingSegmentRowCountChange(
+                      gmsVolumeAssertionInfo.getIncrementingSegmentRowCountChange())));
     }
     return result;
   }
@@ -43,7 +65,8 @@ public class VolumeAssertionMapper extends AssertionMapper {
       final com.linkedin.assertion.RowCountTotal gmsRowCountTotal) {
     final com.linkedin.datahub.graphql.generated.RowCountTotal result =
         new com.linkedin.datahub.graphql.generated.RowCountTotal();
-    result.setOperator(AssertionStdOperator.valueOf(gmsRowCountTotal.getOperator().name()));
+    result.setOperator(
+        UnknownEnumValues.require(AssertionStdOperator.class, gmsRowCountTotal.getOperator()));
     result.setParameters(mapParameters(gmsRowCountTotal.getParameters()));
     return result;
   }
@@ -52,9 +75,11 @@ public class VolumeAssertionMapper extends AssertionMapper {
       final com.linkedin.assertion.RowCountChange gmsRowCountChange) {
     final com.linkedin.datahub.graphql.generated.RowCountChange result =
         new com.linkedin.datahub.graphql.generated.RowCountChange();
-    result.setOperator(AssertionStdOperator.valueOf(gmsRowCountChange.getOperator().name()));
+    result.setOperator(
+        UnknownEnumValues.require(AssertionStdOperator.class, gmsRowCountChange.getOperator()));
     result.setParameters(mapParameters(gmsRowCountChange.getParameters()));
-    result.setType(AssertionValueChangeType.valueOf(gmsRowCountChange.getType().name()));
+    result.setType(
+        UnknownEnumValues.require(AssertionValueChangeType.class, gmsRowCountChange.getType()));
     return result;
   }
 
@@ -65,7 +90,8 @@ public class VolumeAssertionMapper extends AssertionMapper {
     final com.linkedin.datahub.graphql.generated.IncrementingSegmentRowCountTotal result =
         new com.linkedin.datahub.graphql.generated.IncrementingSegmentRowCountTotal();
     result.setOperator(
-        AssertionStdOperator.valueOf(gmsIncrementingSegmentRowCountTotal.getOperator().name()));
+        UnknownEnumValues.require(
+            AssertionStdOperator.class, gmsIncrementingSegmentRowCountTotal.getOperator()));
     result.setParameters(mapParameters(gmsIncrementingSegmentRowCountTotal.getParameters()));
     result.setSegment(mapIncrementingSegmentSpec(gmsIncrementingSegmentRowCountTotal.getSegment()));
     return result;
@@ -78,12 +104,14 @@ public class VolumeAssertionMapper extends AssertionMapper {
     final com.linkedin.datahub.graphql.generated.IncrementingSegmentRowCountChange result =
         new com.linkedin.datahub.graphql.generated.IncrementingSegmentRowCountChange();
     result.setOperator(
-        AssertionStdOperator.valueOf(gmsIncrementingSegmentRowCountChange.getOperator().name()));
+        UnknownEnumValues.require(
+            AssertionStdOperator.class, gmsIncrementingSegmentRowCountChange.getOperator()));
     result.setParameters(mapParameters(gmsIncrementingSegmentRowCountChange.getParameters()));
     result.setSegment(
         mapIncrementingSegmentSpec(gmsIncrementingSegmentRowCountChange.getSegment()));
     result.setType(
-        AssertionValueChangeType.valueOf(gmsIncrementingSegmentRowCountChange.getType().name()));
+        UnknownEnumValues.require(
+            AssertionValueChangeType.class, gmsIncrementingSegmentRowCountChange.getType()));
     return result;
   }
 
@@ -93,7 +121,11 @@ public class VolumeAssertionMapper extends AssertionMapper {
         new com.linkedin.datahub.graphql.generated.IncrementingSegmentSpec();
     result.setField(mapSchemaFieldSpec(gmsSegment.getField()));
     if (gmsSegment.hasTransformer()) {
-      result.setTransformer(mapIncrementingSegmentFieldTransformer(gmsSegment.getTransformer()));
+      result.setTransformer(
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "incrementing segment transformer",
+              () -> mapIncrementingSegmentFieldTransformer(gmsSegment.getTransformer())));
     }
     return result;
   }
@@ -104,7 +136,8 @@ public class VolumeAssertionMapper extends AssertionMapper {
     final com.linkedin.datahub.graphql.generated.IncrementingSegmentFieldTransformer result =
         new com.linkedin.datahub.graphql.generated.IncrementingSegmentFieldTransformer();
     result.setType(
-        IncrementingSegmentFieldTransformerType.valueOf(gmsTransformer.getType().name()));
+        UnknownEnumValues.require(
+            IncrementingSegmentFieldTransformerType.class, gmsTransformer.getType()));
     if (gmsTransformer.hasNativeType()) {
       result.setNativeType(gmsTransformer.getNativeType());
     }

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataprocessinst.mappers;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
 import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
@@ -36,8 +37,9 @@ public class DataProcessInstanceRunEventMapper
     result.setAttempt(runEvent.getAttempt());
     if (runEvent.hasStatus()) {
       result.setStatus(
-          com.linkedin.datahub.graphql.generated.DataProcessRunStatus.valueOf(
-              runEvent.getStatus().toString()));
+          UnknownEnumValues.mapOrNull(
+              com.linkedin.datahub.graphql.generated.DataProcessRunStatus.class,
+              runEvent.getStatus()));
     }
     if (runEvent.hasResult()) {
       result.setResult(DataProcessInstanceRunResultMapper.map(context, runEvent.getResult()));

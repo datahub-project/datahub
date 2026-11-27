@@ -6,6 +6,7 @@ import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.OperationSourceType;
 import com.linkedin.datahub.graphql.generated.OperationType;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -42,10 +43,12 @@ public class OperationMapper
       result.setActor(gmsProfile.getActor().toString());
     }
     result.setOperationType(
-        OperationType.valueOf(OperationType.class, gmsProfile.getOperationType().toString()));
+        UnknownEnumValues.map(
+            OperationType.class, gmsProfile.getOperationType(), OperationType.UNKNOWN));
     result.setCustomOperationType(gmsProfile.getCustomOperationType(GetMode.NULL));
     if (gmsProfile.hasSourceType()) {
-      result.setSourceType(OperationSourceType.valueOf(gmsProfile.getSourceType().toString()));
+      result.setSourceType(
+          UnknownEnumValues.mapOrNull(OperationSourceType.class, gmsProfile.getSourceType()));
     }
     if (gmsProfile.hasPartitionSpec()) {
       result.setPartition(gmsProfile.getPartitionSpec().getPartition(GetMode.NULL));

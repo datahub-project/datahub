@@ -10,17 +10,22 @@ import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.SchemaContract;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class DataContractMapper {
+
+  private static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(DataContractMapper.class, "data contract");
 
   public static DataContract mapContract(
       @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
@@ -56,9 +61,13 @@ public class DataContractMapper {
         aspects.get(Constants.DATA_CONTRACT_STATUS_ASPECT_NAME);
     if (dataContractStatus != null) {
       result.setStatus(
-          mapStatus(
-              new com.linkedin.datacontract.DataContractStatus(
-                  dataContractStatus.getValue().data())));
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "data contract status",
+              () ->
+                  mapStatus(
+                      new com.linkedin.datacontract.DataContractStatus(
+                          dataContractStatus.getValue().data()))));
     }
 
     return result;
@@ -92,7 +101,7 @@ public class DataContractMapper {
   private static DataContractStatus mapStatus(
       final com.linkedin.datacontract.DataContractStatus status) {
     final DataContractStatus result = new DataContractStatus();
-    result.setState(DataContractState.valueOf(status.getState().toString()));
+    result.setState(UnknownEnumValues.require(DataContractState.class, status.getState()));
     return result;
   }
 

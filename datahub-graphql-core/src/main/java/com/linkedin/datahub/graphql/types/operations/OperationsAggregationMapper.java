@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.operations;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.OperationsAggregation;
 import com.linkedin.datahub.graphql.generated.WindowDuration;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -26,7 +27,8 @@ public class OperationsAggregationMapper
     result.setBucket(pdlUsageAggregation.getBucket());
 
     if (pdlUsageAggregation.hasDuration()) {
-      result.setDuration(WindowDuration.valueOf(pdlUsageAggregation.getDuration().toString()));
+      result.setDuration(
+          UnknownEnumValues.mapOrNull(WindowDuration.class, pdlUsageAggregation.getDuration()));
     }
     if (pdlUsageAggregation.hasResource()) {
       result.setResource(pdlUsageAggregation.getResource().toString());

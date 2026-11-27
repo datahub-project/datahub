@@ -15,6 +15,21 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### More GraphQL types show enum values from a newer version during a rollback
+
+This only applies with enum tolerance on (`UNKNOWN_DATA_TOLERANCE_ENABLED` or
+`UNKNOWN_ENUM_TOLERANCE_ENABLED`, off by default; see
+[#20280](https://github.com/datahub-project/datahub/pull/20280)). With it off nothing changes.
+
+After a rollback, a stored value can hold an enum symbol only the newer version defines. More
+GraphQL mappers now handle that value instead of failing the request: an optional field falls back
+to an existing value or is left unset, and an object that can't be shown without the value (a post,
+a view, an assertion run event, a form prompt, a chart query and similar) is left out of its list
+or resolves to null. This covers charts, dashboards, assertions and their run events, posts, views,
+forms, ML models and features, notebooks, data contracts, data platforms, ER model relationships,
+ingestion sources, page templates and modules, and usage, operation and timeline results.
+**Action:** none.
+
 ### `tags_to_term` transformer matches full tag names and maps column tags to columns
 
 The `tags_to_term` ingestion transformer has changed in four ways ([PR #21479](https://github.com/datahub-project/datahub/pull/21479)):

@@ -13,15 +13,19 @@ import com.linkedin.datahub.graphql.generated.FacetFilter;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.LogicalOperator;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnrepresentableValueException;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.view.DataHubViewInfo;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,9 +37,30 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
   private static final String KEYWORD_FILTER_SUFFIX = ".keyword";
   public static final DataHubViewMapper INSTANCE = new DataHubViewMapper();
 
+  private static final UnknownDataGuard UNREPRESENTABLE =
+      UnknownDataGuard.forSite(DataHubViewMapper.class, "view");
+
   public static DataHubView map(
       @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     return INSTANCE.apply(context, entityResponse);
+  }
+
+  /**
+   * As {@link #map}, or null for a view whose type or a filter condition only a newer version
+   * defines (read after a rollback). The type is required, and the view editor would save a guessed
+   * condition back, so the view is left out (and logged) instead of failing every view in the
+   * request.
+   */
+  @Nullable
+  public static DataHubView mapIfRepresentable(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    try {
+      return map(context, entityResponse);
+    } catch (UnrepresentableValueException e) {
+      UNREPRESENTABLE.skippedBecause(
+          Optional.empty(), "view", e.getMessage(), entityResponse.getUrn());
+      return null;
+    }
   }
 
   @Override
@@ -53,7 +78,7 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
   private void mapDataHubViewInfo(@Nonnull final DataHubView view, @Nonnull final DataMap dataMap) {
     DataHubViewInfo viewInfo = new DataHubViewInfo(dataMap);
     view.setDescription(viewInfo.getDescription());
-    view.setViewType(DataHubViewType.valueOf(viewInfo.getType().toString()));
+    view.setViewType(UnknownEnumValues.require(DataHubViewType.class, viewInfo.getType()));
     view.setName(viewInfo.getName());
     view.setDescription(viewInfo.getDescription());
     view.setDefinition(mapViewDefinition(viewInfo.getDefinition()));
@@ -141,7 +166,8 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
     result.setField(stripKeyword(andFilter.getField()));
     result.setValues(andFilter.getValues());
     if (andFilter.hasCondition()) {
-      result.setCondition(FilterOperator.valueOf(andFilter.getCondition().toString()));
+      result.setCondition(
+          UnknownEnumValues.require(FilterOperator.class, andFilter.getCondition()));
     }
     if (andFilter.hasNegated()) {
       result.setNegated(andFilter.isNegated());

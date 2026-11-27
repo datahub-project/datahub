@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -18,6 +19,9 @@ import com.linkedin.common.DataTransformLogic;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.query.QueryLanguage;
 import com.linkedin.query.QueryStatement;
 import io.datahubproject.metadata.context.OperationContext;
@@ -189,5 +193,43 @@ public class DataTransformLogicMapperTest {
     when(mockContext.getActorUrn()).thenReturn(actorUrn);
     when(mockContext.getOperationContext()).thenReturn(operationContext);
     return mockContext;
+  }
+
+  @Test
+  public void testLanguageFromNewerVersionLeavesOutStatement() {
+    // Read after a rollback: the language is required, so a statement in a language only a newer
+    // version defines is left out; the transform is still returned.
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+    try {
+      com.linkedin.datahub.graphql.generated.DataTransformLogic result =
+          DataTransformLogicMapper.map(null, logicWithNewerLanguage(), TEST_DATA_JOB_URN);
+      assertEquals(result.getTransforms().size(), 1);
+      assertNull(result.getTransforms().get(0).getQueryStatement());
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
+  }
+
+  @Test
+  public void testLanguageFromNewerVersionStrictHandlingFails() {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    try {
+      DataTransformLogic input = logicWithNewerLanguage();
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> DataTransformLogicMapper.map(null, input, TEST_DATA_JOB_URN));
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
+  }
+
+  private static DataTransformLogic logicWithNewerLanguage() {
+    QueryStatement statement =
+        new QueryStatement().setValue("SELECT 1").setLanguage(QueryLanguage.SQL);
+    statement.data().put("language", "LANGUAGE_FROM_NEWER_BUILD");
+    return new DataTransformLogic()
+        .setTransforms(
+            new DataTransformArray(
+                Arrays.asList(new DataTransform().setQueryStatement(statement))));
   }
 }

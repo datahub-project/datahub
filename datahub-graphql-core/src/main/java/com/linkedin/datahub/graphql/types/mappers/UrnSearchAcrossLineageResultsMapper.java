@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
 import com.linkedin.datahub.graphql.generated.SystemFreshness;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.KnownEntities;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.metadata.search.LineageSearchEntity;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
@@ -65,7 +66,8 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
       result.setFreshness(outputFreshness);
     }
     if (input.getLineageSearchPath() != null) {
-      result.setLineageSearchPath(LineageSearchPath.valueOf(input.getLineageSearchPath().name()));
+      result.setLineageSearchPath(
+          UnknownEnumValues.mapOrNull(LineageSearchPath.class, input.getLineageSearchPath()));
     }
     if (input.hasIsPartial()) {
       result.setIsPartial(input.isIsPartial());

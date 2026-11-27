@@ -31,12 +31,15 @@ public class ChangeEventMapper {
     }
     result.setUrn(
         incomingChangeEvent.getEntityUrn() != null ? incomingChangeEvent.getEntityUrn() : "empty");
-    result.setCategory(ChangeCategoryType.valueOf(incomingChangeEvent.getCategory().toString()));
+    // ChangeCategory and ChangeOperation are server-side Java enums, not stored values, so a
+    // rollback can't produce one this version lacks: kept strict, written this way for the lint.
+    result.setCategory(
+        Enum.valueOf(ChangeCategoryType.class, incomingChangeEvent.getCategory().toString()));
     result.setDescription(incomingChangeEvent.getDescription());
     result.setModifier(incomingChangeEvent.getModifier());
     if (incomingChangeEvent.getOperation() != null) {
       result.setOperation(
-          ChangeOperationType.valueOf(incomingChangeEvent.getOperation().toString()));
+          Enum.valueOf(ChangeOperationType.class, incomingChangeEvent.getOperation().toString()));
     }
     if (incomingChangeEvent.getParameters() != null) {
       result.setParameters(

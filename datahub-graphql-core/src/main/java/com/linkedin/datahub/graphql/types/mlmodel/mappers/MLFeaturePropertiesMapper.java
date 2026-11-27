@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.MLFeatureDataType;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.EmbeddedModelMapper;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -33,7 +34,11 @@ public class MLFeaturePropertiesMapper
 
     result.setDescription(mlFeatureProperties.getDescription());
     if (mlFeatureProperties.getDataType() != null) {
-      result.setDataType(MLFeatureDataType.valueOf(mlFeatureProperties.getDataType().toString()));
+      result.setDataType(
+          UnknownEnumValues.map(
+              MLFeatureDataType.class,
+              mlFeatureProperties.getDataType(),
+              MLFeatureDataType.UNKNOWN));
     }
     if (mlFeatureProperties.getVersion() != null) {
       result.setVersion(VersionTagMapper.map(context, mlFeatureProperties.getVersion()));

@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.generated.FreshnessAssertionSchedule;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionScheduleType;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionType;
 import com.linkedin.datahub.graphql.generated.FreshnessCronSchedule;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetFilterMapper;
 import javax.annotation.Nullable;
 
@@ -18,14 +19,21 @@ public class FreshnessAssertionMapper extends AssertionMapper {
     FreshnessAssertionInfo freshnessAssertionInfo = new FreshnessAssertionInfo();
     freshnessAssertionInfo.setEntityUrn(gmsFreshnessAssertionInfo.getEntity().toString());
     freshnessAssertionInfo.setType(
-        FreshnessAssertionType.valueOf(gmsFreshnessAssertionInfo.getType().name()));
+        UnknownEnumValues.require(
+            FreshnessAssertionType.class, gmsFreshnessAssertionInfo.getType()));
     if (gmsFreshnessAssertionInfo.hasSchedule()) {
       freshnessAssertionInfo.setSchedule(
-          mapFreshnessAssertionSchedule(gmsFreshnessAssertionInfo.getSchedule()));
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "freshness schedule",
+              () -> mapFreshnessAssertionSchedule(gmsFreshnessAssertionInfo.getSchedule())));
     }
     if (gmsFreshnessAssertionInfo.hasFilter()) {
       freshnessAssertionInfo.setFilter(
-          DatasetFilterMapper.map(context, gmsFreshnessAssertionInfo.getFilter()));
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "dataset filter",
+              () -> DatasetFilterMapper.map(context, gmsFreshnessAssertionInfo.getFilter())));
     }
     return freshnessAssertionInfo;
   }
@@ -43,14 +51,18 @@ public class FreshnessAssertionMapper extends AssertionMapper {
       final com.linkedin.assertion.FreshnessAssertionSchedule gmsFreshnessAssertionSchedule) {
     FreshnessAssertionSchedule freshnessAssertionSchedule = new FreshnessAssertionSchedule();
     freshnessAssertionSchedule.setType(
-        FreshnessAssertionScheduleType.valueOf(gmsFreshnessAssertionSchedule.getType().name()));
+        UnknownEnumValues.require(
+            FreshnessAssertionScheduleType.class, gmsFreshnessAssertionSchedule.getType()));
     if (gmsFreshnessAssertionSchedule.hasCron()) {
       freshnessAssertionSchedule.setCron(
           mapFreshnessCronSchedule(gmsFreshnessAssertionSchedule.getCron()));
     }
     if (gmsFreshnessAssertionSchedule.hasFixedInterval()) {
       freshnessAssertionSchedule.setFixedInterval(
-          mapFixedIntervalSchedule(gmsFreshnessAssertionSchedule.getFixedInterval()));
+          UnknownEnumValues.leaveOutIfUnrepresentable(
+              UNREPRESENTABLE,
+              "fixed interval schedule",
+              () -> mapFixedIntervalSchedule(gmsFreshnessAssertionSchedule.getFixedInterval())));
     }
     return freshnessAssertionSchedule;
   }

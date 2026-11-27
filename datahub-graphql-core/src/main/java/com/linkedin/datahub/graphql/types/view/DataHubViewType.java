@@ -70,12 +70,16 @@ public class DataHubViewType
       }
       return gmsResults.stream()
           .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<DataHubView>newResult()
-                          .data(DataHubViewMapper.map(context, gmsResult))
-                          .build())
+              gmsResult -> {
+                // A View holding a value only a newer version defines resolves to null.
+                final DataHubView view =
+                    gmsResult == null
+                        ? null
+                        : DataHubViewMapper.mapIfRepresentable(context, gmsResult);
+                return view == null
+                    ? null
+                    : DataFetcherResult.<DataHubView>newResult().data(view).build();
+              })
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Views", e);

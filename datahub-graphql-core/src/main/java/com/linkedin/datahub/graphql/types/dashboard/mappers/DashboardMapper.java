@@ -45,6 +45,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -224,7 +225,7 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
       result.setCustomProperties(CustomPropertiesMapper.map(info.getCustomProperties(), entityUrn));
     }
     if (info.hasAccess()) {
-      result.setAccess(AccessLevel.valueOf(info.getAccess().toString()));
+      result.setAccess(UnknownEnumValues.mapOrNull(AccessLevel.class, info.getAccess()));
     }
     result.setLastModified(AuditStampMapper.map(context, info.getLastModified().getLastModified()));
     result.setCreated(AuditStampMapper.map(context, info.getLastModified().getCreated()));
@@ -257,7 +258,7 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
       result.setCustomProperties(CustomPropertiesMapper.map(info.getCustomProperties(), entityUrn));
     }
     if (info.hasAccess()) {
-      result.setAccess(AccessLevel.valueOf(info.getAccess().toString()));
+      result.setAccess(UnknownEnumValues.mapOrNull(AccessLevel.class, info.getAccess()));
     }
     result.setLastModified(AuditStampMapper.map(context, info.getLastModified().getLastModified()));
     result.setCreated(AuditStampMapper.map(context, info.getLastModified().getCreated()));
