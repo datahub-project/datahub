@@ -9,6 +9,7 @@ from datahub.ingestion.source.fabric.common.models import (
     FabricJobInstance,
     FabricSparkSession,
     ItemJobStatus,
+    SparkSqlExecution,
 )
 from datahub.ingestion.source.fabric.onelake.notebook_jobs import (
     NotebookProcessEmitter,
@@ -24,6 +25,11 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
+
+
+def _executions(plans: list) -> list:
+    return [SparkSqlExecution(plan=plan) for plan in plans]
+
 
 WS = "11111111-1111-1111-1111-111111111111"
 LH = "22222222-2222-2222-2222-222222222222"
@@ -65,7 +71,7 @@ def _emit() -> list:
     client.list_notebook_spark_sessions.return_value = [
         FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
     ]
-    client.get_spark_sql_plans.return_value = [_PLAN_MID, _PLAN_FINAL]
+    client.get_spark_sql_executions.return_value = _executions([_PLAN_MID, _PLAN_FINAL])
     client.get_notebook_runs.return_value = [
         FabricJobInstance(
             id="run-1",
@@ -143,7 +149,9 @@ def _emit_case_variants() -> list:
     client.list_notebook_spark_sessions.return_value = [
         FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
     ]
-    client.get_spark_sql_plans.return_value = [_PLAN_UPPER, _PLAN_LOWER]
+    client.get_spark_sql_executions.return_value = _executions(
+        [_PLAN_UPPER, _PLAN_LOWER]
+    )
     client.get_notebook_runs.return_value = []
 
     emitter = NotebookProcessEmitter(
@@ -241,7 +249,7 @@ def _plans_client() -> MagicMock:
     client.list_notebook_spark_sessions.return_value = [
         FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
     ]
-    client.get_spark_sql_plans.return_value = [_PLAN_MID, _PLAN_FINAL]
+    client.get_spark_sql_executions.return_value = _executions([_PLAN_MID, _PLAN_FINAL])
     client.get_notebook_runs.return_value = []
     return client
 
@@ -302,14 +310,16 @@ def test_output_not_in_catalog_produces_no_job() -> None:
     client.list_notebook_spark_sessions.return_value = [
         FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
     ]
-    client.get_spark_sql_plans.return_value = [
-        f"""== Physical Plan ==
+    client.get_spark_sql_executions.return_value = _executions(
+        [
+            f"""== Physical Plan ==
 (1) SaveIntoDataSourceCommand
 Arguments: [path={_onelake("Tables/gold/orphan")}], Overwrite
 (2) Scan json
 Location: InMemoryFileIndex[{_onelake("Tables/gold/gold_mid/_delta_log/0.json")}]
 """
-    ]
+        ]
+    )
     client.get_notebook_runs.return_value = []
 
     emitted, _report = _emit_with(client)
@@ -337,7 +347,7 @@ def test_schemaless_output_job_id_matches_the_dbo_dataset_urn() -> None:
     client.list_notebook_spark_sessions.return_value = [
         FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
     ]
-    client.get_spark_sql_plans.return_value = [_PLAN_SCHEMALESS]
+    client.get_spark_sql_executions.return_value = _executions([_PLAN_SCHEMALESS])
     client.get_notebook_runs.return_value = []
 
     emitted, _report = _emit_with(client, known=known)
@@ -411,7 +421,7 @@ def test_runs_fall_back_to_the_dataflow_when_no_lineage_resolves() -> None:
     client.list_notebook_spark_sessions.return_value = [
         FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
     ]
-    client.get_spark_sql_plans.side_effect = RuntimeError("history expired")
+    client.get_spark_sql_executions.side_effect = RuntimeError("history expired")
     client.get_notebook_runs.return_value = [
         FabricJobInstance(
             id="run-1",
@@ -435,3 +445,55 @@ def test_runs_fall_back_to_the_dataflow_when_no_lineage_resolves() -> None:
         and isinstance(wu.metadata.aspect, DataProcessInstanceRelationshipsClass)
     }
     assert templates == {str(flow.urn)}
+
+
+_FINAL_CELL = "gold_final_df = spark.read.format('delta').load(gold_mid_path)"
+
+
+def test_other_notebooks_executions_in_a_shared_session_are_dropped() -> None:
+    # Both notebooks ran in one Spark application. The first execution is another
+    # notebook's cell, so its read of silver_a must not reach gold_final's write.
+    client = MagicMock()
+    client.list_notebook_spark_sessions.return_value = [
+        FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
+    ]
+    client.get_spark_sql_executions.return_value = [
+        SparkSqlExecution(
+            plan=_PLAN_MID,
+            description="Job group for statement 1: silver_only = load_silver()",
+        ),
+        SparkSqlExecution(
+            plan=_PLAN_FINAL,
+            description=f"Job group for statement 2: {_FINAL_CELL}",
+        ),
+    ]
+    client.get_notebook_runs.return_value = []
+
+    emitted, report = _emit_with(client, content=_FINAL_CELL + "\n")
+
+    jobs = {dj.urn.job_id: dj for dj in emitted if isinstance(dj, DataJob)}
+    assert set(jobs) == {f"{LH}.gold.gold_final"}
+    io = jobs[f"{LH}.gold.gold_final"]._get_aspect(DataJobInputOutputClass)
+    assert io is not None
+    assert all("silver_a" not in urn for urn in io.inputDatasets)
+    assert report.notebook_spark_executions_skipped == 1
+
+
+def test_executions_without_a_cell_description_are_kept() -> None:
+    client = MagicMock()
+    client.list_notebook_spark_sessions.return_value = [
+        FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
+    ]
+    client.get_spark_sql_executions.return_value = [
+        SparkSqlExecution(plan=_PLAN_MID),
+        SparkSqlExecution(plan=_PLAN_FINAL),
+    ]
+    client.get_notebook_runs.return_value = []
+
+    emitted, report = _emit_with(client, content=_FINAL_CELL + "\n")
+
+    assert {dj.urn.job_id for dj in emitted if isinstance(dj, DataJob)} == {
+        f"{LH}.gold.gold_mid",
+        f"{LH}.gold.gold_final",
+    }
+    assert report.notebook_spark_executions_skipped == 0

@@ -22,7 +22,17 @@ import ast
 import copy
 import logging
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 from datahub.ingestion.source.fabric.onelake.notebook_spark_lineage import (
     SparkTableRef,
@@ -43,12 +53,26 @@ class CodeTable:
 ColumnLineage = Dict[str, Set[Tuple[CodeTable, str]]]
 
 
+@dataclass(frozen=True)
+class PassthroughSource:
+    """A write that copies ``table`` without a select.
+
+    Every column keeps its name, except the ones the notebook dropped or
+    renamed. The code cannot list those columns, so the caller pairs them up
+    from the ingested schemas.
+    """
+
+    table: CodeTable
+    dropped: FrozenSet[str] = frozenset()
+
+
 @dataclass
 class NotebookCodeAnalysis:
     """Table edges and column renames recovered from one notebook."""
 
     tables: Dict[CodeTable, Set[CodeTable]]
     columns: Dict[CodeTable, ColumnLineage]
+    passthrough: Dict[CodeTable, PassthroughSource] = field(default_factory=dict)
 
 
 class NotebookCodeExtractionError(Exception):
@@ -92,7 +116,11 @@ def analyze_notebook_code(
             }
             if kept:
                 columns[target] = kept
-        return NotebookCodeAnalysis(tables=extractor.lineage, columns=columns)
+        return NotebookCodeAnalysis(
+            tables=extractor.lineage,
+            columns=columns,
+            passthrough=extractor.passthrough_sources(),
+        )
     except Exception as exc:
         raise NotebookCodeExtractionError(
             "Failed to extract notebook code lineage"
@@ -182,6 +210,26 @@ def reconcile_column_lineage(
                             resolved.add((ref, column))
                 if resolved:
                     colmap.setdefault(downstream, set()).update(resolved)
+    return reconciled
+
+
+def reconcile_passthrough(
+    passthrough: Dict[CodeTable, PassthroughSource],
+    execution: Dict[SparkTableRef, Set[SparkTableRef]],
+    normalize: Callable[[str], str],
+) -> Dict[SparkTableRef, Tuple[SparkTableRef, FrozenSet[str]]]:
+    """Resolve each copied table to the Spark ref the plans recorded.
+
+    Kept only when the copy's source is one of the write's executed inputs and
+    names exactly one table, so a name two lakehouses share is never guessed.
+    """
+    reconciled: Dict[SparkTableRef, Tuple[SparkTableRef, FrozenSet[str]]] = {}
+    for target, copy_of in passthrough.items():
+        for output in _resolve(target, execution, normalize):
+            sources = _resolve(copy_of.table, execution.get(output, set()), normalize)
+            sources = [ref for ref in sources if ref != output]
+            if len(sources) == 1:
+                reconciled[output] = (sources[0], copy_of.dropped)
     return reconciled
 
 
@@ -278,6 +326,16 @@ def _eval_tail(
             return None
         left = _eval_tail(expr.left, env, records)
         return right if left is None else left + right
+    if isinstance(expr, ast.Call) and isinstance(expr.func, ast.Name):
+        # Path helpers take (workspace, lakehouse, schema, table) and are often
+        # defined in a notebook pulled in with %run, so the body is unavailable.
+        # When the last two arguments resolve to names, the call addresses
+        # Tables/<schema>/<table>.
+        if len(expr.args) >= 3:
+            schema = _eval_tail(expr.args[-2], env, records)
+            table = _eval_tail(expr.args[-1], env, records)
+            if schema and table and "/" not in schema and "/" not in table:
+                return f"Tables/{schema}/{table}"
     return None
 
 
@@ -503,6 +561,9 @@ class _Extractor:
         self._case_sensitive_columns = case_sensitive_columns
         self.lineage: Dict[CodeTable, Set[CodeTable]] = {}
         self.column_lineage: Dict[CodeTable, Dict[str, Set[_ColRef]]] = {}
+        self._passthrough: Dict[CodeTable, PassthroughSource] = {}
+        # Targets written from different sources: no single source to pair with.
+        self._passthrough_conflicts: Set[CodeTable] = set()
         self._frames: Dict[str, Set[CodeTable]] = {}
         self._produced: Dict[str, Set[CodeTable]] = {}
         self._strings: Dict[str, str] = {}
@@ -737,8 +798,30 @@ class _Extractor:
         root = _root_name(df_expr)
         if root is not None:
             self._produced.setdefault(root, set()).add(target)
-        if proj is not None:
+        if proj is None:
+            self._passthrough_conflicts.add(target)
+        else:
             self._record_columns(target, proj)
+            self._record_passthrough(target, proj)
+
+    def passthrough_sources(self) -> Dict[CodeTable, PassthroughSource]:
+        return {
+            target: source
+            for target, source in self._passthrough.items()
+            if target not in self._passthrough_conflicts
+        }
+
+    def _record_passthrough(self, target: CodeTable, proj: _Projection) -> None:
+        if proj.projected or proj.passthrough is None:
+            self._passthrough_conflicts.add(target)
+            return
+        if _same_table(proj.passthrough, target):
+            return
+        source = PassthroughSource(
+            table=proj.passthrough, dropped=frozenset(proj.dropped)
+        )
+        if self._passthrough.setdefault(target, source) != source:
+            self._passthrough_conflicts.add(target)
 
     def _record_columns(self, target: CodeTable, proj: _Projection) -> None:
         bucket = self.column_lineage.setdefault(target, {})

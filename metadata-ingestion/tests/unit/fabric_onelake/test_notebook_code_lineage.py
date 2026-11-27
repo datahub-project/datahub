@@ -5,7 +5,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.emitter.mce_builder import make_schema_field_urn
-from datahub.ingestion.source.fabric.common.models import FabricSparkSession
+from datahub.ingestion.source.fabric.common.models import (
+    FabricSparkSession,
+    SparkSqlExecution,
+)
 from datahub.ingestion.source.fabric.onelake.notebook_code_lineage import (
     CodeTable,
     NotebookCodeExtractionError,
@@ -24,6 +27,11 @@ from datahub.ingestion.source.fabric.onelake.notebook_spark_lineage import (
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.sdk.datajob import DataJob
+
+
+def _executions(plans: list) -> list:
+    return [SparkSqlExecution(plan=plan) for plan in plans]
+
 
 WS = "11111111-1111-1111-1111-111111111111"
 LH = "22222222-2222-2222-2222-222222222222"
@@ -254,16 +262,18 @@ def _emit_dim_user(
     client.list_notebook_spark_sessions.return_value = [
         FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
     ]
-    client.get_spark_sql_plans.return_value = [
-        _plan(
-            "Tables/gold/dim_user",
-            [
-                "Tables/silver/orders/_delta_log/0.json",
-                "Tables/silver/customers/_delta_log/0.json",
-                "Tables/silver/products/_delta_log/0.json",
-            ],
-        )
-    ]
+    client.get_spark_sql_executions.return_value = _executions(
+        [
+            _plan(
+                "Tables/gold/dim_user",
+                [
+                    "Tables/silver/orders/_delta_log/0.json",
+                    "Tables/silver/customers/_delta_log/0.json",
+                    "Tables/silver/products/_delta_log/0.json",
+                ],
+            )
+        ]
+    )
     client.get_notebook_runs.return_value = []
     emitter = NotebookProcessEmitter(
         platform_instance=None,
@@ -616,12 +626,14 @@ def test_reconciled_job_carries_column_lineage() -> None:
     client.list_notebook_spark_sessions.return_value = [
         FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
     ]
-    client.get_spark_sql_plans.return_value = [
-        _plan(
-            "Tables/silver/silver_customers",
-            ["Tables/dbo/customers/_delta_log/0.json"],
-        )
-    ]
+    client.get_spark_sql_executions.return_value = _executions(
+        [
+            _plan(
+                "Tables/silver/silver_customers",
+                ["Tables/dbo/customers/_delta_log/0.json"],
+            )
+        ]
+    )
     client.get_notebook_runs.return_value = []
     emitter = NotebookProcessEmitter(
         platform_instance=None,
@@ -670,3 +682,164 @@ def test_reconciled_job_carries_column_lineage() -> None:
             (make_schema_field_urn(upstream, "NAME"),),
         ),
     }
+
+
+# Paths come from a helper defined in a notebook pulled in with %run, so the
+# analyzer cannot read its body. The last two arguments name the table.
+_HELPER_PATH_WRITE = """
+%run common_helpers
+
+workspace_id = env.getVariable('workspace_id')
+lakehouse_id = env.getVariable('silver_lakehouse_id')
+target_schema = 'dbo'
+target_table = 'orders'
+source_path = build_path(workspace_id, lakehouse_id, 'raw', 'orders_feed')
+target_path = build_path(workspace_id, lakehouse_id, target_schema, target_table)
+df = spark.read.format('delta').load(source_path)
+df.write.format('delta').mode('overwrite').save(target_path)
+"""
+
+
+def test_helper_built_path_resolves_to_schema_and_table() -> None:
+    analysis = analyze_notebook_code(_HELPER_PATH_WRITE)
+    assert analysis is not None
+    assert analysis.tables == {
+        CodeTable(table="orders", schema="dbo"): {
+            CodeTable(table="orders_feed", schema="raw")
+        }
+    }
+
+
+def test_reconcile_drops_outputs_the_helper_path_does_not_write() -> None:
+    # Spark plans from a shared session also report another notebook's write to
+    # dim.orders. This notebook writes only dbo.orders, so that edge is dropped.
+    analysis = analyze_notebook_code(_HELPER_PATH_WRITE)
+    assert analysis is not None
+    execution = {
+        SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="dbo"): {
+            SparkTableRef(
+                workspace_id=WS, item_id=LH, table="orders_feed", schema="raw"
+            )
+        },
+        SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="dim"): {
+            SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="dbo")
+        },
+    }
+    reconciled = reconcile_spark_lineage(analysis.tables, execution, str.lower)
+    assert list(reconciled) == [
+        SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="dbo")
+    ]
+
+
+_COPY = """
+src = spark.read.format('delta').load('Tables/silver/orders')
+src.write.format('delta').mode('overwrite').save('Tables/gold/orders_copy')
+"""
+_COPY_DROPPING = """
+src = spark.read.format('delta').load('Tables/silver/orders')
+src.drop('legacy').write.format('delta').mode('overwrite').save('Tables/gold/orders_copy')
+"""
+_COPY_SELECTING = """
+src = spark.read.format('delta').load('Tables/silver/orders')
+src.select('id').write.format('delta').mode('overwrite').save('Tables/gold/orders_copy')
+"""
+_SILVER_ORDERS = CodeTable(table="orders", schema="silver")
+_GOLD_COPY = CodeTable(table="orders_copy", schema="gold")
+
+
+def test_unprojected_write_is_recorded_as_a_copy() -> None:
+    analysis = analyze_notebook_code(_COPY)
+    assert analysis is not None
+    copied = analysis.passthrough[_GOLD_COPY]
+    assert copied.table == _SILVER_ORDERS
+    assert not copied.dropped
+
+
+def test_dropped_columns_are_not_part_of_the_copy() -> None:
+    analysis = analyze_notebook_code(_COPY_DROPPING)
+    assert analysis is not None
+    assert analysis.passthrough[_GOLD_COPY].dropped == {"legacy"}
+
+
+def test_select_is_not_a_copy() -> None:
+    analysis = analyze_notebook_code(_COPY_SELECTING)
+    assert analysis is not None
+    assert _GOLD_COPY not in analysis.passthrough
+
+
+def _emit_copy(
+    content: str, table_columns: dict[str, list[str]]
+) -> tuple[str, str, list]:
+    source = SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="silver")
+    target = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="orders_copy", schema="gold"
+    )
+    source_urn, target_urn = source.to_urn("PROD", None), target.to_urn("PROD", None)
+    client = MagicMock()
+    client.list_notebook_spark_sessions.return_value = [
+        FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
+    ]
+    client.get_spark_sql_executions.return_value = _executions(
+        [_plan("Tables/gold/orders_copy", ["Tables/silver/orders/_delta_log/0.json"])]
+    )
+    client.get_notebook_runs.return_value = []
+    emitter = NotebookProcessEmitter(
+        platform_instance=None,
+        env="PROD",
+        execution_history_days=30,
+        report=FabricOneLakeSourceReport(),
+        client=client,
+        known_table_urns={source_urn, target_urn},
+        normalize_name=lambda name: name,
+        owners_fn=lambda _upn: None,
+        reconcile_code=True,
+        table_columns={
+            source_urn: table_columns["source"],
+            target_urn: table_columns["target"],
+        },
+    )
+    emitted = list(
+        emitter.emit(
+            [
+                PendingNotebook(
+                    workspace_id=WS,
+                    workspace_name="analytics",
+                    notebook_id=NB,
+                    display_name="copy",
+                    description=None,
+                    owner_user_principal_name=None,
+                    content=content,
+                    language="python",
+                )
+            ]
+        )
+    )
+    io = next(job for job in emitted if isinstance(job, DataJob))._get_aspect(
+        DataJobInputOutputClass
+    )
+    assert io is not None
+    return source_urn, target_urn, io.fineGrainedLineages or []
+
+
+def test_copied_table_gets_same_name_column_lineage() -> None:
+    source_urn, target_urn, fine_grained = _emit_copy(
+        _COPY_DROPPING,
+        {"source": ["id", "Name", "legacy"], "target": ["id", "name", "load_ts"]},
+    )
+    # Names match without regard to case, the dropped column is left out, and a
+    # target column the source lacks stays unmapped.
+    assert {
+        (tuple(entry.upstreams or []), tuple(entry.downstreams or []))
+        for entry in fine_grained
+    } == {
+        (
+            (make_schema_field_urn(source_urn, column),),
+            (make_schema_field_urn(target_urn, target),),
+        )
+        for column, target in (("id", "id"), ("Name", "name"))
+    }
+
+
+def test_copy_without_ingested_schemas_has_no_column_lineage() -> None:
+    _, _, fine_grained = _emit_copy(_COPY, {"source": ["id"], "target": []})
+    assert fine_grained == []

@@ -55,6 +55,7 @@ class FabricOneLakeSourceReport(
     notebooks_scanned: int = 0
     notebook_runs_scanned: int = 0
     notebook_spark_sessions_scanned: int = 0
+    notebook_spark_executions_skipped: int = 0
     notebook_spark_lineage_extracted: int = 0
     notebook_code_lineage_extraction_failures: int = 0
     entities_profiled: int = 0
@@ -166,6 +167,10 @@ class FabricOneLakeSourceReport(
     def report_notebook_spark_session_scanned(self) -> None:
         """Increment Spark sessions inspected for plan-based lineage."""
         self.notebook_spark_sessions_scanned += 1
+
+    def report_notebook_spark_execution_skipped(self) -> None:
+        """Count a Spark SQL execution that ran another notebook's cell."""
+        self.notebook_spark_executions_skipped += 1
 
     def report_notebook_spark_lineage_extracted(self) -> None:
         """Record a notebook that produced lineage from its Spark plans."""

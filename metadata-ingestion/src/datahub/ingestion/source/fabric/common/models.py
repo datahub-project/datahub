@@ -226,6 +226,19 @@ class FabricJobInstance:
     failure_reason: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class SparkSqlExecution:
+    """One SQL execution in a Spark run, from the Spark History Server SQL API.
+
+    ``description`` is the Spark job group, which holds the code of the notebook
+    cell that ran the statement. Notebooks that share one Spark application are
+    only told apart by this text.
+    """
+
+    plan: str
+    description: Optional[str] = None
+
+
 @dataclass
 class FabricSparkSession:
     """A Spark (Livy) session for a notebook run, from the Spark monitoring API.

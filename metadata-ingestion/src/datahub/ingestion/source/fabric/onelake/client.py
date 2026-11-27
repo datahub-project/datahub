@@ -16,6 +16,7 @@ from datahub.ingestion.source.fabric.common.models import (
     FabricJobInstance,
     FabricSparkSession,
     FabricWorkspace,
+    SparkSqlExecution,
     item_owner_user_principal_name,
     sensitivity_label_id,
 )
@@ -387,27 +388,43 @@ class OneLakeClient(BaseFabricClient):
         livy_id: str,
         application_id: str,
     ) -> List[str]:
-        """Return the physical plan text of each SQL execution in a Spark run.
+        """Return the physical plan text of each SQL execution in a Spark run."""
+        return [
+            execution.plan
+            for execution in self.get_spark_sql_executions(
+                workspace_id, notebook_id, livy_id, application_id
+            )
+        ]
+
+    def get_spark_sql_executions(
+        self,
+        workspace_id: str,
+        notebook_id: str,
+        livy_id: str,
+        application_id: str,
+    ) -> List[SparkSqlExecution]:
+        """Return each SQL execution in a Spark run, with the cell that ran it.
 
         Proxies the Spark History Server SQL API, whose executions carry a
         ``planDescription`` listing the resolved ``abfss://`` paths read and
-        written. The endpoint returns a bare JSON array, not a paged envelope,
-        and defaults to only the first 20 executions - so it must be paged
-        explicitly via ``offset``/``length``. Table writes typically run late
-        in a notebook, so a truncated fetch sees the reads but misses the
-        writes (hence lineage with inputs but no outputs).
+        written, and a ``description`` holding the statement's job group. The
+        endpoint returns a bare JSON array, not a paged envelope, and defaults to
+        only the first 20 executions - so it must be paged explicitly via
+        ``offset``/``length``. Table writes typically run late in a notebook, so
+        a truncated fetch sees the reads but misses the writes (hence lineage
+        with inputs but no outputs).
 
-        Plans are returned in chronological execution order (ascending SQL
-        execution ``id``). Lineage attribution is order-aware - a write is
-        credited with the tables read earlier in the same run - so the API's
-        own ordering (newest-first, and sliced across pages) must be normalized
-        here before the plans are consumed.
+        Executions are returned in chronological order (ascending SQL execution
+        ``id``). Lineage attribution is order-aware - a write is credited with
+        the tables read earlier in the same run - so the API's own ordering
+        (newest-first, and sliced across pages) must be normalized here before
+        the executions are consumed.
         """
         endpoint = (
             f"workspaces/{workspace_id}/notebooks/{notebook_id}"
             f"/livySessions/{livy_id}/applications/{application_id}/sql"
         )
-        executions: List[Tuple[int, str]] = []
+        executions: List[Tuple[int, SparkSqlExecution]] = []
         offset = 0
         while True:
             data = self.get(
@@ -428,12 +445,23 @@ class OneLakeClient(BaseFabricClient):
                 # order when absent so a plan is never silently dropped.
                 exec_id = execution.get("id")
                 order = exec_id if isinstance(exec_id, int) else len(executions)
-                executions.append((order, execution["planDescription"]))
+                description = execution.get("description")
+                executions.append(
+                    (
+                        order,
+                        SparkSqlExecution(
+                            plan=execution["planDescription"],
+                            description=description
+                            if isinstance(description, str)
+                            else None,
+                        ),
+                    )
+                )
             if len(data) < _SPARK_SQL_PAGE_SIZE:
                 break
             offset += _SPARK_SQL_PAGE_SIZE
         executions.sort(key=lambda item: item[0])
-        return [plan for _, plan in executions]
+        return [execution for _, execution in executions]
 
     def _is_lakehouse_schemas_enabled(
         self, workspace_id: str, lakehouse_id: str
