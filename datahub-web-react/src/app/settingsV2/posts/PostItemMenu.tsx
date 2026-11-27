@@ -4,6 +4,7 @@ import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Button, Menu, toast } from '@src/alchemy-components';
@@ -22,6 +23,7 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
     const { t: tc } = useTranslation('common.actions');
     const [deletePostMutation] = useDeletePostMutation();
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+    const showPinnedLinks = !useShowHomePageRedesign();
 
     const deletePost = () => {
         deletePostMutation({
@@ -31,15 +33,15 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    toast.success(t('deleteSuccess'));
+                    toast.success(t(showPinnedLinks ? 'deleteSuccess' : 'announcement.deleteSuccess'));
                     onDelete?.();
                 }
             })
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: t('deleteError'),
-                    permissionMessage: t('deleteUnauthorized'),
+                    defaultMessage: t(showPinnedLinks ? 'deleteError' : 'announcement.deleteError'),
+                    permissionMessage: t(showPinnedLinks ? 'deleteUnauthorized' : 'announcement.deleteUnauthorized'),
                 });
             });
     };
@@ -77,8 +79,8 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
                 isOpen={showConfirmDelete}
                 handleClose={() => setShowConfirmDelete(false)}
                 handleConfirm={deletePost}
-                modalTitle={t('deleteConfirmTitle', { title })}
-                modalText={t('deleteConfirmText')}
+                modalTitle={t(showPinnedLinks ? 'deleteConfirmTitle' : 'announcement.deleteConfirmTitle', { title })}
+                modalText={t(showPinnedLinks ? 'deleteConfirmText' : 'announcement.deleteConfirmText')}
             />
         </>
     );

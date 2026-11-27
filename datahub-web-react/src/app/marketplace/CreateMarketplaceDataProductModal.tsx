@@ -47,12 +47,12 @@ export default function CreateMarketplaceDataProductModal({ open, onClose, onCre
     }, [open]);
 
     function createDataProduct() {
-        if (!domainUrn || isCreating) return;
+        if (isCreating) return;
 
         createDataProductMutation({
             variables: {
                 input: {
-                    domainUrn,
+                    domainUrn: domainUrn || undefined,
                     properties: {
                         name: builderState.name,
                         description: builderState.description || undefined,
@@ -92,7 +92,7 @@ export default function CreateMarketplaceDataProductModal({ open, onClose, onCre
                     text: tc('create'),
                     onClick: createDataProduct,
                     variant: 'filled',
-                    disabled: !builderState.name || !domainUrn || isCreating,
+                    disabled: !builderState.name || isCreating,
                     isLoading: isCreating,
                     buttonDataTestId: 'submit-button',
                 },
@@ -106,7 +106,6 @@ export default function CreateMarketplaceDataProductModal({ open, onClose, onCre
                         selectedDomains={selectedDomainUrns}
                         onDomainsChange={(urns) => setSelectedDomainUrns(urns.length ? [urns[0]] : [])}
                         isMultiSelect={false}
-                        isRequired
                     />
                     <DataProductBuilderForm builderState={builderState} updateBuilderState={updateBuilderState} />
                 </FormFields>

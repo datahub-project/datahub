@@ -13,6 +13,7 @@ import { test, expect } from '../../fixtures/login-test';
 import { WelcomeModalPage } from '../../pages/welcome-modal.page';
 import { users } from '../../data/users';
 import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag } from '../../utils/test-tags';
 
 test.describe('Welcome to DataHub Modal', () => {
   let welcomeModalPage: WelcomeModalPage;
@@ -27,20 +28,20 @@ test.describe('Welcome to DataHub Modal', () => {
   });
 
   test.describe('First-Time User Experience', () => {
-    test('should display modal automatically on first visit to homepage', async () => {
+    test('should display modal automatically on first visit to homepage', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await expect(welcomeModalPage.modalTitle).toBeVisible();
       await welcomeModalPage.expectSlide1Visible();
     });
 
-    test('should not display modal when skipWelcomeModal is set', async () => {
+    test('should not display modal when skipWelcomeModal is set', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.setSkipWelcomeModal();
       await welcomeModalPage.navigateToHome();
       await expect(welcomeModalPage.modal).toBeHidden();
     });
 
-    test('should set skipWelcomeModal in localStorage after closing', async () => {
+    test('should set skipWelcomeModal in localStorage after closing', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaButton();
@@ -50,13 +51,13 @@ test.describe('Welcome to DataHub Modal', () => {
   });
 
   test.describe('Carousel Navigation', () => {
-    test('should display first slide by default', async () => {
+    test('should display first slide by default', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.expectSlide1Visible();
     });
 
-    test('should navigate to slides via carousel dots', async () => {
+    test('should navigate to slides via carousel dots', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickCarouselDot(1);
@@ -65,7 +66,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.expectSlide3Visible();
     });
 
-    test('should navigate to final slide and display CTA elements', async () => {
+    test('should navigate to final slide and display CTA elements', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickLastCarouselDot();
@@ -74,7 +75,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await expect(welcomeModalPage.docsLink).toBeVisible();
     });
 
-    test('should advance to next slide via ArrowRight key', async () => {
+    test('should advance to next slide via ArrowRight key', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.expectSlide1Visible();
@@ -82,7 +83,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.expectSlide2Visible();
     });
 
-    test('should go back to previous slide via ArrowLeft key', async () => {
+    test('should go back to previous slide via ArrowLeft key', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickCarouselDot(1);
@@ -91,7 +92,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.expectSlide1Visible();
     });
 
-    test.skip('should auto-advance slides after 10 seconds', async () => {
+    test.skip('should auto-advance slides after 10 seconds', { tag: [DomainTag.Catalog] }, async () => {
       // Skipped in CI: react-slick autoplay is paused in headless Chromium
       // (window focus / visibilityState is not reliable), causing the 10-second
       // timer to never fire.  Covered by manual / headed local runs.
@@ -104,14 +105,14 @@ test.describe('Welcome to DataHub Modal', () => {
   });
 
   test.describe('Close Interactions', () => {
-    test('should close modal via close button', async () => {
+    test('should close modal via close button', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaButton();
       await expect(welcomeModalPage.modal).toBeHidden();
     });
 
-    test('should close modal via Get Started button', async () => {
+    test('should close modal via Get Started button', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickLastCarouselDot();
@@ -120,14 +121,14 @@ test.describe('Welcome to DataHub Modal', () => {
       await expect(welcomeModalPage.modal).toBeHidden();
     });
 
-    test('should close modal via ESC key', async () => {
+    test('should close modal via ESC key', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaEscape();
       await expect(welcomeModalPage.modal).toBeHidden();
     });
 
-    test('should close modal by clicking outside', async () => {
+    test('should close modal by clicking outside', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaOutsideClick();
@@ -136,7 +137,7 @@ test.describe('Welcome to DataHub Modal', () => {
   });
 
   test.describe('LocalStorage Persistence', () => {
-    test('should persist skipWelcomeModal after closing via close button', async () => {
+    test('should persist skipWelcomeModal after closing via close button', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaButton();
@@ -144,7 +145,7 @@ test.describe('Welcome to DataHub Modal', () => {
       expect(skipValue).toBe('true');
     });
 
-    test('should persist skipWelcomeModal after closing via Get Started', async () => {
+    test('should persist skipWelcomeModal after closing via Get Started', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickLastCarouselDot();
@@ -153,7 +154,7 @@ test.describe('Welcome to DataHub Modal', () => {
       expect(skipValue).toBe('true');
     });
 
-    test('should not show modal again after localStorage flag is set', async () => {
+    test('should not show modal again after localStorage flag is set', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaButton();
@@ -163,7 +164,7 @@ test.describe('Welcome to DataHub Modal', () => {
   });
 
   test.describe('Documentation Link', () => {
-    test('should display DataHub Docs link on final slide', async () => {
+    test('should display DataHub Docs link on final slide', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickLastCarouselDot();
@@ -175,7 +176,7 @@ test.describe('Welcome to DataHub Modal', () => {
       );
     });
 
-    test('should open DataHub Docs in new tab', async () => {
+    test('should open DataHub Docs in new tab', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickLastCarouselDot();
@@ -186,7 +187,7 @@ test.describe('Welcome to DataHub Modal', () => {
   });
 
   test.describe('Analytics Tracking', () => {
-    test('should track modal view event on open', async ({ page }) => {
+    test('should track modal view event on open', { tag: [DomainTag.Catalog] }, async ({ page }) => {
       const trackRequests: Record<string, unknown>[] = [];
       await page.route('**/track', (route) => {
         const postData = route.request().postData();
@@ -198,7 +199,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await expect.poll(() => trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalViewEvent')).toBeDefined();
     });
 
-    test('should track interact event on slide change', async ({ page }) => {
+    test('should track interact event on slide change', { tag: [DomainTag.Catalog] }, async ({ page }) => {
       const trackRequests: Record<string, unknown>[] = [];
       await page.route('**/track', (route) => {
         const postData = route.request().postData();
@@ -213,7 +214,7 @@ test.describe('Welcome to DataHub Modal', () => {
         .toBeGreaterThan(0);
     });
 
-    test('should track exit event with correct exit method', async ({ page }) => {
+    test('should track exit event with correct exit method', { tag: [DomainTag.Catalog] }, async ({ page }) => {
       const trackRequests: Record<string, unknown>[] = [];
       await page.route('**/track', (route) => {
         const postData = route.request().postData();
@@ -228,22 +229,26 @@ test.describe('Welcome to DataHub Modal', () => {
         .toBe('close_button');
     });
 
-    test('should track exit event with escape_key method when Esc is pressed', async ({ page }) => {
-      const trackRequests: Record<string, unknown>[] = [];
-      await page.route('**/track', (route) => {
-        const postData = route.request().postData();
-        if (postData) trackRequests.push(JSON.parse(postData) as Record<string, unknown>);
-        void route.continue();
-      });
-      await welcomeModalPage.navigateToHome();
-      await welcomeModalPage.expectModalVisible();
-      await welcomeModalPage.closeViaEscape();
-      await expect
-        .poll(() => trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalExitEvent')?.['exitMethod'])
-        .toBe('escape_key');
-    });
+    test(
+      'should track exit event with escape_key method when Esc is pressed',
+      { tag: [DomainTag.Catalog] },
+      async ({ page }) => {
+        const trackRequests: Record<string, unknown>[] = [];
+        await page.route('**/track', (route) => {
+          const postData = route.request().postData();
+          if (postData) trackRequests.push(JSON.parse(postData) as Record<string, unknown>);
+          void route.continue();
+        });
+        await welcomeModalPage.navigateToHome();
+        await welcomeModalPage.expectModalVisible();
+        await welcomeModalPage.closeViaEscape();
+        await expect
+          .poll(() => trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalExitEvent')?.['exitMethod'])
+          .toBe('escape_key');
+      },
+    );
 
-    test('should track documentation link click event', async ({ page }) => {
+    test('should track documentation link click event', { tag: [DomainTag.Catalog] }, async ({ page }) => {
       const trackRequests: Record<string, unknown>[] = [];
       await page.route('**/track', (route) => {
         const postData = route.request().postData();
@@ -264,7 +269,7 @@ test.describe('Welcome to DataHub Modal', () => {
   });
 
   test.describe('Edge Cases', () => {
-    test('should handle rapid carousel navigation', async () => {
+    test('should handle rapid carousel navigation', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickCarouselDot(1);
@@ -273,7 +278,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.expectSlide1Visible();
     });
 
-    test('should reset carousel to first slide when reopened', async () => {
+    test('should reset carousel to first slide when reopened', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickCarouselDot(2);
@@ -285,7 +290,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.expectSlide1Visible();
     });
 
-    test('should handle closing modal mid-carousel', async () => {
+    test('should handle closing modal mid-carousel', { tag: [DomainTag.Catalog] }, async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickCarouselDot(1);

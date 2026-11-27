@@ -143,7 +143,7 @@ def _database_rows(db: str) -> Dict[str, QueryResult]:
             }
         ],
         SnowflakeQuery.tables_for_database(
-            db, table_types={"BASE TABLE", "EXTERNAL TABLE"}
+            db, table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"}
         ): [],
         SnowflakeQuery.show_objects_for_database(
             SnowflakeShowKind.DYNAMIC_TABLES, db
@@ -177,7 +177,7 @@ QUERY_ROWS: Dict[str, QueryResult] = {
         }
     ],
     SnowflakeQuery.tables_for_database(
-        DB, table_types={"BASE TABLE", "EXTERNAL TABLE"}
+        DB, table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"}
     ): [
         {
             "TABLE_SCHEMA": SCHEMA,

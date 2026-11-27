@@ -35,7 +35,8 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p>Retry behaviour: up to {@value #MAX_ATTEMPTS} attempts for transient failures. Transient is
  * defined as: network {@link IOException}/{@link InterruptedException}, HTTP 429, or HTTP 5xx. HTTP
- * 4xx (other than 429) is not retried.
+ * 4xx (other than 429) is not retried. A 429 on the last attempt is an {@link
+ * EmbeddingThrottledException}.
  */
 @Slf4j
 public class VertexAiEmbeddingProvider implements EmbeddingProvider {
@@ -193,10 +194,13 @@ public class VertexAiEmbeddingProvider implements EmbeddingProvider {
                   status, effectiveModel, attempt, maxAttempts);
           if (attempt >= maxAttempts) {
             // Preserve last response body so debugging context isn't lost on retry exhaustion.
-            throw new RuntimeException(
+            final String exhausted =
                 String.format(
                     "Vertex AI call failed after %d attempts: %s, body=%.500s",
-                    maxAttempts, msg, body != null ? body : "(no body)"));
+                    maxAttempts, msg, body != null ? body : "(no body)");
+            throw status == 429
+                ? new EmbeddingThrottledException(exhausted)
+                : new RuntimeException(exhausted);
           }
           log.warn("{}, retrying", msg);
           lastException = new RuntimeException(msg);

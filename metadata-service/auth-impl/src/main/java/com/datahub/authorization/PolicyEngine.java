@@ -331,20 +331,33 @@ public class PolicyEngine {
       log.debug("No resource defined on the policy.");
       return true;
     }
+    // A list filters the sub-resources the action names. An action that names none is not filtered.
     if (subResources.isEmpty()) {
       log.debug("No subresources to evaluate.");
       return true;
     }
-    if (policyResourceFilter.getPrivilegeConstraints() != null) {
-      PolicyMatchFilter filter = policyResourceFilter.getPrivilegeConstraints();
-      return subResources.stream()
-          .allMatch(
-              subResource ->
-                  WILDCARD_URN.toString().equals(subResource.getSpec().getEntity())
-                      || checkFilter(filter, subResource));
+    if (!hasPrivilegeConstraints(policyResourceFilter)) {
+      log.debug("No modification constraints specified.");
+      return true;
     }
-    log.debug("No modification constraints specified.");
-    return true;
+    // A wildcard sub-resource is the coarse check used by the ingest gate and privilege flags;
+    // the validator then evaluates the real URNs.
+    PolicyMatchFilter filter = policyResourceFilter.getPrivilegeConstraints();
+    return subResources.stream()
+        .allMatch(
+            subResource ->
+                WILDCARD_URN.toString().equals(subResource.getSpec().getEntity())
+                    || checkFilter(filter, subResource));
+  }
+
+  private static boolean hasPrivilegeConstraints(
+      @Nonnull final DataHubResourceFilter policyResourceFilter) {
+    if (!policyResourceFilter.hasPrivilegeConstraints()
+        || policyResourceFilter.getPrivilegeConstraints() == null) {
+      return false;
+    }
+    PolicyMatchFilter filter = policyResourceFilter.getPrivilegeConstraints();
+    return filter.hasCriteria() && !filter.getCriteria().isEmpty();
   }
 
   /**

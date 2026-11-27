@@ -78,6 +78,17 @@ DEFAULT_PROFILE: str = "debug"
 # there is no dual-write target regardless.
 ZDU_NEW_REVISION: str = "1"
 
+# Every Search V3 entity alias. Matched against alias names, so timestamped
+# backing indices (including ones a reindex retired) are excluded. OSS keeps
+# one index per entity type (datasetindex_v3); a build that sets
+# ``searchGroup`` in entity-registry.yml groups types (primaryindex_v3).
+# Searching the pattern finds an entity's doc under either layout.
+ENTITY_INDEX_PATTERN: str = "*index_v3"
+
+# TC-103's settings-only upgrade runs under its own revision so it does not
+# inherit revision 1's COMPLETED state and skip the pass.
+ZDU_SETTINGS_ONLY_REVISION: str = "2"
+
 GMS_SERVICE: str = PROFILE_SERVICES[DEFAULT_PROFILE].gms
 UPGRADE_SERVICE: str = PROFILE_SERVICES[DEFAULT_PROFILE].upgrade
 

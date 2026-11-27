@@ -45,6 +45,7 @@
     "inviteToken.copyTooltip": "Copier le lien d'invitation.",
     "inviteToken.createError": "Échec de la création du jeton d'invitation pour le rôle {{roleName}}: \n {{error}}",
     "inviteToken.footerText": "Copier un lien d'invitation à envoyer à vos utilisateurs. Lors de leur inscription, les utilisateurs seront automatiquement affectés au rôle sélectionné.",
+    "inviteToken.footerTextNoRole": "Copier un lien d'invitation à envoyer à vos utilisateurs. Ils pourront créer un compte, mais aucun rôle ne leur sera attribué.",
     "inviteToken.generateNewLinkTooltip": "Générer un nouveau lien. Les anciens liens ne seront plus valides.",
     "inviteToken.generateSuccess": "Nouveau lien d'invitation généré",
     "inviteToken.modalTitle": "Partager le lien d'invitation",

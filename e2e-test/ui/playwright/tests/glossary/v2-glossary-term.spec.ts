@@ -50,7 +50,7 @@ test.describe('glossary term entity operations', () => {
     await glossaryPage.expectPreviewEntityByUrn(SEARCH_DATASET_URN);
   });
 
-  test('can apply filters on related entities', async () => {
+  test('can apply filters on related entities', { tag: [DomainTag.Catalog] }, async () => {
     test.setTimeout(90000);
     await glossaryPage.navigateToGlossaryTermByUrn(FILTER_TERM_URN);
     await glossaryPage.openRelatedAssetsTab();
@@ -58,13 +58,17 @@ test.describe('glossary term entity operations', () => {
     await glossaryPage.expectPreviewEntityByUrn(FILTER_DATASET_URN);
   });
 
-  test('can search related entities by a specific tag using advanced search', async () => {
-    test.setTimeout(90000);
-    await glossaryPage.navigateToGlossaryTermByUrn(TAGGED_TERM_URN);
-    await glossaryPage.openRelatedAssetsTab();
-    await glossaryPage.filterRelatedAssetsByTag(GLOSSARY_TAG);
-    await glossaryPage.expectPreviewEntityByUrn(TAGGED_DATASET_URN);
-    await glossaryPage.searchWithinEntityPage(TAGGED_DATASET);
-    await glossaryPage.expectPreviewEntityByUrn(TAGGED_DATASET_URN);
-  });
+  test(
+    'can search related entities by a specific tag using advanced search',
+    { tag: [DomainTag.Catalog] },
+    async () => {
+      test.setTimeout(90000);
+      await glossaryPage.navigateToGlossaryTermByUrn(TAGGED_TERM_URN);
+      await glossaryPage.openRelatedAssetsTab();
+      await glossaryPage.filterRelatedAssetsByTag(GLOSSARY_TAG);
+      await glossaryPage.expectPreviewEntityByUrn(TAGGED_DATASET_URN);
+      await glossaryPage.searchWithinEntityPage(TAGGED_DATASET);
+      await glossaryPage.expectPreviewEntityByUrn(TAGGED_DATASET_URN);
+    },
+  );
 });

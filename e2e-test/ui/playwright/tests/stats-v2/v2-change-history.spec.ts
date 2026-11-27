@@ -36,6 +36,7 @@ import {
   CUSTOM_OPERATION_DISPLAY,
   CHART_IDS,
 } from '../../pages/stats-v2/stats.constants';
+import { DomainTag } from '../../utils/test-tags';
 
 const TEST_DATA = {
   DATASET_URN: TEST_DATASET_URN,
@@ -54,7 +55,7 @@ test.describe('Change History Calendar', () => {
     await historyHelper.forceCloseDrawer();
   });
 
-  test('should be available when there is some data', async ({ apiMock }) => {
+  test('should be available when there is some data', { tag: [DomainTag.Catalog] }, async ({ apiMock }) => {
     const timestamp = Date.now();
     await setupChangeHistoryWithData(apiMock, timestamp, TEST_DATA.DATASET_URN, DEFAULT_PRIVILEGES);
 
@@ -62,14 +63,14 @@ test.describe('Change History Calendar', () => {
     await statsPage.verifyChangeHistoryChartIsVisible();
   });
 
-  test('should be empty when there is no data', async ({ apiMock }) => {
+  test('should be empty when there is no data', { tag: [DomainTag.Catalog] }, async ({ apiMock }) => {
     await setupChangeHistoryEmpty(apiMock, TEST_DATA.DATASET_URN, DEFAULT_PRIVILEGES);
 
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
     await statsPage.verifyChangeHistoryChartIsEmpty();
   });
 
-  test('should not be available when user has no permissions', async ({ apiMock }) => {
+  test('should not be available when user has no permissions', { tag: [DomainTag.Catalog] }, async ({ apiMock }) => {
     await setupChangeHistoryNoPermissions(apiMock, TEST_DATA.DATASET_URN);
 
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
@@ -77,7 +78,7 @@ test.describe('Change History Calendar', () => {
     await statsPage.verifyNoPermissionsForChart(CHART_IDS.CHANGE_HISTORY);
   });
 
-  test('should show popover with correct information', async ({ apiMock, page }) => {
+  test('should show popover with correct information', { tag: [DomainTag.Catalog] }, async ({ apiMock, page }) => {
     const today = getStartOfDay(0);
 
     const aggregations = {
@@ -140,7 +141,7 @@ test.describe('Change History Calendar', () => {
     await historyHelper.verifyNoDataReported();
   });
 
-  test('should allow to filter changes by types select', async ({ apiMock, page }) => {
+  test('should allow to filter changes by types select', { tag: [DomainTag.Catalog] }, async ({ apiMock, page }) => {
     const today = getStartOfDay(0);
     const oldestDay = getStartOfDay(7);
 
@@ -243,7 +244,7 @@ test.describe('Change History Calendar', () => {
     await historyHelper.verifyNoDataReported();
   });
 
-  test('should allow to filter changes by pills', async ({ apiMock, page }) => {
+  test('should allow to filter changes by pills', { tag: [DomainTag.Catalog] }, async ({ apiMock, page }) => {
     const today = getStartOfDay(0);
     const oldestDay = getStartOfDay(7);
 
@@ -336,7 +337,7 @@ test.describe('Change History Calendar', () => {
     await historyHelper.verifyNoDataReported();
   });
 
-  test('should allow to open the day drawer', async ({ apiMock, page }) => {
+  test('should allow to open the day drawer', { tag: [DomainTag.Catalog] }, async ({ apiMock, page }) => {
     const today = getStartOfDay(0);
 
     const aggregations = {

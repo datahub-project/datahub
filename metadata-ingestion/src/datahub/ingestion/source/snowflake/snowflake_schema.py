@@ -19,6 +19,7 @@ from typing import (
     TypeVar,
 )
 
+import snowflake.connector.errors as snowflake_connector_errors
 import sqlglot
 from sqlglot.tokens import Token, TokenType
 
@@ -72,8 +73,29 @@ def _needs_definition(table: "SnowflakeTable") -> TypeGuard["SnowflakeDynamicTab
     return isinstance(table, SnowflakeDynamicTable) and table.definition is None
 
 
+def _needs_interactive_show_definition(
+    table: "SnowflakeTable",
+) -> TypeGuard["SnowflakeInteractiveTable"]:
+    return isinstance(table, SnowflakeInteractiveTable) and table.definition is None
+
+
+def _dict_has_interactive_table(
+    tables: Dict[str, List["SnowflakeTable"]],
+) -> bool:
+    return any(
+        isinstance(table, SnowflakeInteractiveTable)
+        for table_list in tables.values()
+        for table in table_list
+    )
+
+
+def _list_has_interactive_table(tables: List["SnowflakeTable"]) -> bool:
+    return any(isinstance(table, SnowflakeInteractiveTable) for table in tables)
+
+
 # Row type produced by a database-wide SHOW mapper (a view, stream or dynamic table).
 _ShowRowT = TypeVar("_ShowRowT")
+_ShowTableRowT = TypeVar("_ShowTableRowT", bound="SnowflakeTable")
 
 SCHEMA_PARALLELISM = get_snowflake_schema_parallelism()
 
@@ -275,6 +297,24 @@ class SnowflakeDynamicTable(SnowflakeTable):
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.DYNAMIC_TABLE
+
+
+@dataclass
+class SnowflakeInteractiveTable(SnowflakeTable):
+    definition: Optional[str] = None
+    target_lag: Optional[str] = None
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.INTERACTIVE_TABLE
+
+
+def _table_class_for_information_schema_row(
+    row: Dict[str, Any],
+) -> type[SnowflakeTable]:
+    if row.get("TABLE_TYPE") == "INTERACTIVE TABLE":
+        return SnowflakeInteractiveTable
+    is_dynamic = row.get("IS_DYNAMIC", "NO").upper() == "YES"
+    return SnowflakeDynamicTable if is_dynamic else SnowflakeTable
 
 
 @dataclass
@@ -968,7 +1008,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 tables[table["TABLE_SCHEMA"]] = []
 
             is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
-            table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
+            table_cls = _table_class_for_information_schema_row(table)
 
             tables[table["TABLE_SCHEMA"]].append(
                 table_cls(
@@ -990,6 +1030,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # Populate dynamic table definitions only if dynamic tables are not excluded
         if not exclude_dynamic_tables:
             self.populate_dynamic_table_definitions(tables, db_name)
+        if _dict_has_interactive_table(tables):
+            self.populate_interactive_table_definitions(tables, db_name)
 
         return tables
 
@@ -1015,7 +1057,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         for table in cur:
             is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
-            table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
+            table_cls = _table_class_for_information_schema_row(table)
 
             tables.append(
                 table_cls(
@@ -1038,6 +1080,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
         if not exclude_dynamic_tables:
             schema_tables = {schema_name: tables}
             self.populate_dynamic_table_definitions(schema_tables, db_name)
+        if _list_has_interactive_table(tables):
+            self.populate_interactive_table_definitions({schema_name: tables}, db_name)
 
         return tables
 
@@ -2829,45 +2873,195 @@ class SnowflakeDataDictionary(SupportsAsObj):
             type="DYNAMIC TABLE",
         )
 
-    def populate_dynamic_table_definitions(
-        self, tables: Dict[str, List[SnowflakeTable]], db_name: str
-    ) -> None:
-        """Populate dynamic table definitions for tables that are marked as dynamic."""
-        try:
-            # Get dynamic tables with definitions from SHOW command
-            dt_with_definitions = self.get_dynamic_tables_with_definitions(db_name)
+    def _map_show_interactive_table(
+        self, row: Dict[str, Any]
+    ) -> SnowflakeInteractiveTable:
+        return SnowflakeInteractiveTable(
+            name=row["name"],
+            created=row.get("created_on"),
+            last_altered=row.get("created_on"),
+            size_in_bytes=row.get("bytes", 0),
+            rows_count=row.get("rows", 0),
+            comment=row.get("comment"),
+            # SHOW returns text='' (not NULL) to non-owner roles; None sends it to GET_DDL.
+            definition=row.get("text") or None,
+            target_lag=row.get("target_lag"),
+            type="INTERACTIVE TABLE",
+        )
 
-            if dt_with_definitions is None:
-                # The database-wide SHOW filled its page and cannot be paged safely, so
-                # page per schema instead - but only for schemas that actually hold a
-                # dynamic table still missing its definition, since that is all the loop
-                # below consumes. Visiting every schema in the database would cost one
-                # query per schema to answer a question about a handful of them.
-                dt_with_definitions = {
-                    schema_name: self.get_dynamic_tables_for_schema_using_show(
-                        db_name=db_name, schema_name=schema_name
-                    )
+    @serialized_lru_cache(maxsize=1)
+    def get_interactive_tables_with_definitions(
+        self, db_name: str
+    ) -> Optional[Dict[str, List[SnowflakeInteractiveTable]]]:
+        return self._probe_database_wide_show(
+            object_kind=SnowflakeShowKind.INTERACTIVE_TABLES,
+            db_name=db_name,
+            page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
+            mapper=self._map_show_interactive_table,
+        )
+
+    def get_interactive_tables_for_schema_using_show(
+        self, *, db_name: str, schema_name: str
+    ) -> List[SnowflakeInteractiveTable]:
+        return [
+            self._map_show_interactive_table(row)
+            for row in self._iter_show_rows_for_schema(
+                object_kind=SnowflakeShowKind.INTERACTIVE_TABLES,
+                db_name=db_name,
+                schema_name=schema_name,
+                page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
+            )
+        ]
+
+    def _populate_table_definitions_from_show(
+        self,
+        tables: Dict[str, List[SnowflakeTable]],
+        db_name: str,
+        *,
+        get_database_wide: Callable[[str], Optional[Dict[str, List[_ShowTableRowT]]]],
+        get_per_schema: Callable[[str, str], List[_ShowTableRowT]],
+        needs_definition: Callable[[SnowflakeTable], bool],
+        apply_show_row: Callable[[SnowflakeTable, _ShowTableRowT], None],
+        count_missing_from_show: bool,
+        failure_message: str,
+    ) -> None:
+        try:
+            with_definitions = get_database_wide(db_name)
+
+            if with_definitions is None:
+                with_definitions = {
+                    schema_name: get_per_schema(db_name, schema_name)
                     for schema_name, table_list in tables.items()
-                    if any(_needs_definition(table) for table in table_list)
+                    if any(needs_definition(table) for table in table_list)
                 }
 
             for schema_name, table_list in tables.items():
                 for table in table_list:
-                    if _needs_definition(table):
-                        # Find matching dynamic table from SHOW results
-                        show_dt_list = dt_with_definitions.get(schema_name, [])
-                        for show_dt in show_dt_list:
-                            if show_dt.name == table.name:
-                                table.definition = show_dt.definition
-                                table.target_lag = show_dt.target_lag
-                                table.upstream_tables = show_dt.upstream_tables
-                                break
+                    if not needs_definition(table):
+                        continue
+                    show_list = with_definitions.get(schema_name, [])
+                    matched = False
+                    for show_row in show_list:
+                        if show_row.name == table.name:
+                            apply_show_row(table, show_row)
+                            matched = True
+                            break
+                    if count_missing_from_show and not matched:
+                        self.report.num_interactive_tables_missing_from_show += 1
         except Exception as e:
             self.report.warning(
-                message="Failed to populate dynamic table definitions",
+                message=failure_message,
                 context=db_name,
                 exc=e,
             )
+
+    def populate_dynamic_table_definitions(
+        self, tables: Dict[str, List[SnowflakeTable]], db_name: str
+    ) -> None:
+        """Populate dynamic table definitions for tables that are marked as dynamic."""
+
+        def apply_show_row(table: SnowflakeTable, show_dt: SnowflakeTable) -> None:
+            if not isinstance(table, SnowflakeDynamicTable) or not isinstance(
+                show_dt, SnowflakeDynamicTable
+            ):
+                return
+            table.definition = show_dt.definition
+            table.target_lag = show_dt.target_lag
+            table.upstream_tables = show_dt.upstream_tables
+
+        self._populate_table_definitions_from_show(
+            tables,
+            db_name,
+            get_database_wide=self.get_dynamic_tables_with_definitions,
+            get_per_schema=lambda db, schema: (
+                self.get_dynamic_tables_for_schema_using_show(
+                    db_name=db, schema_name=schema
+                )
+            ),
+            needs_definition=_needs_definition,
+            apply_show_row=apply_show_row,
+            count_missing_from_show=False,
+            failure_message="Failed to populate dynamic table definitions",
+        )
+
+    def _fetch_interactive_table_ddl(
+        self, db_name: str, schema_name: str, table: SnowflakeInteractiveTable
+    ) -> None:
+        context = f"{db_name}.{schema_name}.{table.name}"
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.get_table_ddl(db_name, schema_name, table.name)
+            )
+            if hasattr(cur, "fetchone"):
+                row = cur.fetchone()
+            else:
+                row = cur[0] if cur else None
+            if row is None and cur:
+                row = next(iter(cur), None)
+            ddl: Optional[str] = None
+            if row:
+                ddl = row.get("DDL") or row.get("ddl")
+            if ddl:
+                table.definition = ddl
+            else:
+                self.report.warning(
+                    message="GET_DDL returned no definition for interactive table",
+                    context=context,
+                )
+                self.report.num_interactive_tables_failed_get_ddl += 1
+        except SnowflakePermissionError as e:
+            self.report.warning(
+                message="Failed to fetch DDL for interactive table",
+                context=context,
+                exc=e,
+            )
+            self.report.num_interactive_tables_failed_get_ddl += 1
+        except snowflake_connector_errors.Error as e:
+            self.report.warning(
+                message="Failed to fetch DDL for interactive table",
+                context=context,
+                exc=e,
+            )
+            self.report.num_interactive_tables_failed_get_ddl += 1
+
+    def populate_interactive_table_definitions(
+        self, tables: Dict[str, List[SnowflakeTable]], db_name: str
+    ) -> None:
+        """Populate interactive table definitions from SHOW, with GET_DDL for the rest."""
+
+        def apply_show_row(table: SnowflakeTable, show_it: SnowflakeTable) -> None:
+            if not isinstance(table, SnowflakeInteractiveTable) or not isinstance(
+                show_it, SnowflakeInteractiveTable
+            ):
+                return
+            table.definition = show_it.definition
+            table.target_lag = show_it.target_lag
+
+        self._populate_table_definitions_from_show(
+            tables,
+            db_name,
+            get_database_wide=self.get_interactive_tables_with_definitions,
+            get_per_schema=lambda db, schema: (
+                self.get_interactive_tables_for_schema_using_show(
+                    db_name=db, schema_name=schema
+                )
+            ),
+            needs_definition=_needs_interactive_show_definition,
+            apply_show_row=apply_show_row,
+            count_missing_from_show=True,
+            failure_message="Failed to populate interactive table definitions",
+        )
+
+        for schema_name, table_list in tables.items():
+            for table in table_list:
+                # GET_DDL of a static interactive table has only the column list, no AS SELECT,
+                # so it cannot yield lineage; static upstreams come from the query log CTAS.
+                if (
+                    isinstance(table, SnowflakeInteractiveTable)
+                    and table.definition is None
+                    and (table.is_dynamic or table.target_lag)
+                ):
+                    self._fetch_interactive_table_ddl(db_name, schema_name, table)
 
     def get_stages_for_schema(
         self, db_name: str, schema_name: str

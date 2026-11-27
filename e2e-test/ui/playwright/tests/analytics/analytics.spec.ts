@@ -35,7 +35,7 @@ test.describe('Analytics', () => {
     },
   );
 
-  test('can track tab interactions and see them in analytics', async () => {
+  test('can track tab interactions and see them in analytics', { tag: [DomainTag.Catalog] }, async () => {
     await analyticsPage.goToChart(CHART_URN);
     await analyticsPage.verifyChartTitle(CHART_TITLE);
     await analyticsPage.clickTab('Dashboards');

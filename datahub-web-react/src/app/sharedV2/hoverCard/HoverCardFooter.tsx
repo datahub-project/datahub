@@ -82,7 +82,7 @@ function getLastUpdatedMs(entity: Entity): DatasetLastUpdatedMs | DashboardLastU
     switch (entity.type) {
         case EntityType.Dataset: {
             const dataset = entity as Dataset & { lastOperation?: Operation[] | null };
-            return getDatasetLastUpdatedMs(dataset.properties, dataset.lastOperation);
+            return getDatasetLastUpdatedMs(dataset.properties, dataset.lastOperation, dataset);
         }
         case EntityType.Dashboard:
         case EntityType.Chart:
@@ -147,7 +147,12 @@ export default function HoverCardFooter({ entity, properties }: Props) {
         items.push({
             key: 'freshness',
             node: (
-                <Freshness time={lastUpdatedMs.lastUpdatedMs} timeProperty={lastUpdatedMs.property} showDate={false} />
+                <Freshness
+                    time={lastUpdatedMs.lastUpdatedMs}
+                    timeProperty={lastUpdatedMs.property}
+                    showDate={false}
+                    neutral={'definitionTime' in lastUpdatedMs && lastUpdatedMs.definitionTime}
+                />
             ),
         });
     }

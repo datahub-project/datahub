@@ -15,7 +15,7 @@ Rules:
   - If a non-aspect record A is referenced as a field type in aspect B
     (e.g. `schedule: optional A`) and A changes, B is bumped
   - The check is skipped entirely (exit 0, no bump) when the base is a
-    release (releases/*) or hotfix (hotfixes/*) branch. CI classifies the
+    release (releases/*) branch. CI classifies the
     explicit --base-branch; the local pre-commit hook infers the nearest
     ancestor branch. OSS repos have no such branches, so this never fires there.
 
@@ -71,18 +71,17 @@ def detect_default_branch() -> str:
     return "master"
 
 
-# Branch-name prefixes for release and hotfix branches. A branch whose base is
-# one of these represents a targeted release/hotfix line, not trunk — the
-# schemaVersion bump check must not run against it (it would demand pulling
-# unrelated trunk schema churn into the release). Matches the convention in
-# .github/workflows/post-workflow-actions.yml.
-RELEASE_BRANCH_PREFIXES = ("releases/", "hotfixes/")
+# Branch-name prefix for release branches. A branch whose base is one of these
+# represents a targeted release line, not trunk — the schemaVersion bump check
+# must not run against it (it would demand pulling unrelated trunk schema churn
+# into the release). Matches the convention in .github/workflows/post-workflow-actions.yml.
+RELEASE_BRANCH_PREFIX = "releases/"
 
 _REMOTE_REF_PREFIXES = ("refs/remotes/origin/", "origin/")
 
 
-def is_release_or_hotfix_branch(name: str) -> bool:
-    """Return True if name refers to a releases/* or hotfixes/* branch.
+def is_release_branch(name: str) -> bool:
+    """Return True if name refers to a releases/* branch.
 
     Accepts bare names ('releases/x'), remote-tracking short names
     ('origin/releases/x'), and full refs ('refs/remotes/origin/releases/x').
@@ -93,11 +92,11 @@ def is_release_or_hotfix_branch(name: str) -> bool:
         if name.startswith(prefix):
             name = name[len(prefix):]
             break
-    return name.startswith(RELEASE_BRANCH_PREFIXES)
+    return name.startswith(RELEASE_BRANCH_PREFIX)
 
 
-def _list_release_hotfix_refs() -> list[str]:
-    """Return short names of all local/remote releases/* and hotfixes/* refs.
+def _list_release_refs() -> list[str]:
+    """Return short names of all local/remote releases/* refs.
 
     Empty on git failure or when none exist (e.g. OSS DataHub).
     """
@@ -107,9 +106,7 @@ def _list_release_hotfix_refs() -> list[str]:
             "for-each-ref",
             "--format=%(refname:short)",
             "refs/remotes/*/releases/*",
-            "refs/remotes/*/hotfixes/*",
             "refs/heads/releases/*",
-            "refs/heads/hotfixes/*",
         ],
         capture_output=True,
         text=True,
@@ -144,16 +141,16 @@ def _merge_base_distance(ref: str) -> int | None:
 
 
 def find_nearest_ancestor_release_branch(default_branch: str) -> str | None:
-    """Return the releases/*|hotfixes/* branch that is the nearest ancestor of
-    HEAD, or None if the default branch is a nearer ancestor, none exist, or
-    the default branch cannot be resolved.
+    """Return the releases/* branch that is the nearest ancestor of HEAD, or
+    None if the default branch is a nearer ancestor, none exist, or the default
+    branch cannot be resolved.
 
     "Nearest" = fewest commits from the merge-base to HEAD. On a tie with the
     default branch, the default branch wins (a tie means HEAD shares the
     same fork point with both, i.e. a trunk branch). Fails safe toward None
     so the check runs when in doubt.
     """
-    candidates = _list_release_hotfix_refs()
+    candidates = _list_release_refs()
     if not candidates:
         return None
 
@@ -179,7 +176,7 @@ def find_nearest_ancestor_release_branch(default_branch: str) -> str | None:
 
     if nearest_ref is None:
         return None
-    # Only a strictly-nearer release/hotfix branch wins. A tie means HEAD shares
+    # Only a strictly-nearer release branch wins. A tie means HEAD shares
     # the same fork point with both (e.g. a feature branch off trunk and a
     # release cut from trunk afterward) — that is a trunk branch, so run the check.
     return nearest_ref if nearest_distance < default_distance else None
@@ -1378,8 +1375,7 @@ def main() -> int:
         "--base-branch",
         default=None,
         help="Branch to compare against. Defaults to the auto-detected default "
-        "branch. The check is skipped entirely when the base is a releases/* or "
-        "hotfixes/* branch.",
+        "branch. The check is skipped entirely when the base is a releases/* branch.",
     )
     parser.add_argument(
         "--dry-run",
@@ -1400,15 +1396,15 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    # Skip on release/hotfix lines: the version-bump check compares against
-    # trunk and would demand pulling unrelated trunk schema churn into a
-    # release/hotfix. When an explicit base is given (CI passes the PR target),
-    # classify it directly; otherwise (local pre-commit hook) infer the nearest
-    # ancestor branch from git topology.
+    # Skip on release lines: the version-bump check compares against trunk and
+    # would demand pulling unrelated trunk schema churn into a release. When an
+    # explicit base is given (CI passes the PR target), classify it directly;
+    # otherwise (local pre-commit hook) infer the nearest ancestor branch from
+    # git topology.
     if args.base_branch is not None:
-        if is_release_or_hotfix_branch(args.base_branch):
+        if is_release_branch(args.base_branch):
             print(
-                f"Base branch '{args.base_branch}' is a release/hotfix branch; "
+                f"Base branch '{args.base_branch}' is a release branch; "
                 "skipping schema version check."
             )
             return 0
@@ -1418,7 +1414,7 @@ def main() -> int:
         nearest = find_nearest_ancestor_release_branch(default_branch)
         if nearest:
             print(
-                f"Nearest base branch '{nearest}' is a release/hotfix branch; "
+                f"Nearest base branch '{nearest}' is a release branch; "
                 "skipping schema version check."
             )
             return 0

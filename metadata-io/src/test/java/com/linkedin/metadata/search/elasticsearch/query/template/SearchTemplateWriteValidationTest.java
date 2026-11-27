@@ -49,9 +49,9 @@ import org.testng.annotations.Test;
 
 public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
   /**
-   * System update writes the shipped templates as one batch as the system actor, then the revert
-   * seed the same way over them. The write validator accepts both in each phase, so the blocking
-   * bootstrap step that writes them does not fail.
+   * System update writes the shipped templates as one batch as the system actor, then a revert seed
+   * the same way over them. The write validator accepts each, so the blocking bootstrap step that
+   * writes them does not fail.
    */
   @Test
   public void testValidatorAcceptsTheShippedAndRevertSeeds() {
@@ -63,12 +63,14 @@ public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
     assertTrue(shippedErrors.isEmpty(), String.valueOf(shippedErrors));
 
     shipped.forEach(this::store);
-    List<AspectValidationException> revertErrors =
-        validateBatch(
-            validator,
-            retrieverContext,
-            SearchTemplateFixtures.readSeed("/bootstrap_mcps/search-templates-revert.yaml"));
-    assertTrue(revertErrors.isEmpty(), String.valueOf(revertErrors));
+    for (String revert :
+        List.of(
+            "/bootstrap_mcps/search-templates-revert.yaml",
+            "/bootstrap_mcps/search-templates-semantic-revert.yaml")) {
+      List<AspectValidationException> revertErrors =
+          validateBatch(validator, retrieverContext, SearchTemplateFixtures.readSeed(revert));
+      assertTrue(revertErrors.isEmpty(), revert + " " + revertErrors);
+    }
   }
 
   /**
@@ -160,6 +162,36 @@ public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
     sortedLegacy.setSort("[{ \"urn\": { \"order\": \"asc\" } }]");
     assertFalse(
         validate(validator, retrieverContext, write("sortedLegacy", sortedLegacy)).isEmpty());
+  }
+
+  /**
+   * A child inherits its parent's retrieval, so a parent stored with a retrieval value no build
+   * defines fails the child's write, while the stored parent still loads.
+   */
+  @Test
+  public void testAnInheritedUnknownRetrievalValueFailsTheChildsWrite() {
+    SearchTemplateValidator validator = templateValidator();
+    RetrieverContext retrieverContext = holeContext();
+    store("urn:li:searchTemplate:plainParent", body("Plain", "{ \"match_all\": {} }", null));
+    assertTrue(
+        validate(
+                validator,
+                retrieverContext,
+                write("plainChild", parentOf("PlainChild", "urn:li:searchTemplate:plainParent")))
+            .isEmpty());
+
+    SearchTemplateProperties paged = body("Paged", "{ \"match_all\": {} }", null);
+    paged.setRetrieval(new SearchTemplateRetrieval().setPage("cursor"));
+    store("urn:li:searchTemplate:pagedParent", paged);
+    assertEquals(
+        loader.load(opContext, "urn:li:searchTemplate:pagedParent").getRetrieval().getPage(),
+        "cursor");
+    assertFalse(
+        validate(
+                validator,
+                retrieverContext,
+                write("pagedChild", parentOf("PagedChild", "urn:li:searchTemplate:pagedParent")))
+            .isEmpty());
   }
 
   private static ChangeMCP write(String id, SearchTemplateProperties properties) {

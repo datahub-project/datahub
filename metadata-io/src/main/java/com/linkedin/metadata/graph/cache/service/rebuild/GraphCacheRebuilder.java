@@ -95,7 +95,7 @@ public class GraphCacheRebuilder {
     if (status == CacheStatus.ACTIVE) {
       EntityGraphSnapshot snapshot = distributedStore.getSnapshot(cacheKey);
       if (snapshot != null
-          && !SnapshotFreshnessEvaluator.isStale(snapshot, definition)
+          && !SnapshotFreshnessEvaluator.isStaleOrSuperseded(distributedStore, snapshot, definition)
           && SnapshotFreshnessEvaluator.coverageSatisfies(
               definition, snapshot.getTraversalCoverage(), direction)) {
         return;
@@ -363,15 +363,22 @@ public class GraphCacheRebuilder {
     }
 
     if (distributedStore.shouldSkipPublish(publishKey, snapshot)) {
+      // When the rebuild confirmed the stored topology, move its build time forward; otherwise a
+      // snapshot older than a visibility watermark would be rebuilt again on every read.
+      distributedStore.refreshBuiltAt(publishKey, snapshot);
       distributedStore.releaseRebuildClaim(claimKey);
       distributedStore.clearRebuildSuppression(publishKey);
       hydrateLocalView(definition, publishKey, snapshot);
       return;
     }
 
-    distributedStore.publish(snapshot, CacheStatus.ACTIVE);
+    boolean published = distributedStore.publish(snapshot, CacheStatus.ACTIVE);
     distributedStore.clearRebuildSuppression(publishKey);
     distributedStore.releaseRebuildClaim(claimKey);
+    if (!published) {
+      // A build that read its source later is already stored; this one finished late.
+      return;
+    }
     if (definition.getScope().getMode() == ScopeMode.PARTIAL && seeds != null && !seeds.isEmpty()) {
       distributedStore.dropFailureMarkerKeysForRoots(
           definition.getGraphId(), definition.getBuildSource(), seeds);

@@ -20,6 +20,7 @@ import {
   OWNER_URN,
   MODULE_TYPES,
 } from '../../../pages/entity/summary-tab/constants';
+import { DomainTag } from '../../../utils/test-tags';
 
 const FEATURE_FLAGS = {
   showNavBarRedesign: true,
@@ -41,7 +42,7 @@ test.describe('Glossary Node Summary Tab', () => {
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   });
 
-  test('summary tab - properties, about, and modules', async () => {
+  test('summary tab - properties, about, and modules', { tag: [DomainTag.Catalog] }, async () => {
     await summaryTabPage.ensurePropertiesSectionVisible();
     await summaryTabPage.expectPropertyExists(PROPERTY_KEYS.CREATED);
     await summaryTabPage.expectPropertyExists(PROPERTY_KEYS.OWNERS);

@@ -120,6 +120,17 @@ Reference Links:
 | `ENTITY_SERVICE_ENABLE_RETENTION`          | `true`  | Enable entity retention       | GMS, MCE Consumer |
 | `ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP` | `false` | Apply retention on bootstrap  | GMS, MCE Consumer |
 
+### Hard Delete Configuration
+
+Controls how a hard delete handles the graph relationships that point at the entity being deleted.
+
+| Environment Variable                                | Default | Description                                                                                                                                                                                                                                                                          | Components |
+| --------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| `DATAHUB_HARD_DELETE_GRAPH_REFERENCE_CLEANUP_LIMIT` | `100`   | Number of graph relationships to an entity above which a hard delete is over the limit.                                                                                                                                                                                              | GMS        |
+| `DATAHUB_HARD_DELETE_GRAPH_REFERENCE_OVER_LIMIT`    | `SKIP`  | What a hard delete over the limit does. `SKIP` deletes the entity and leaves the graph relationships to it in place, logging a warning and incrementing `datahub.hard_delete.graph_references_skipped`. `REFUSE` deletes nothing and fails the request with a 400. Case-insensitive. | GMS        |
+
+After a `SKIP`, the entities that pointed at the deleted one keep pointers to it. To repair them, restore the indices of those entities, then run `datahub delete references`. See [Breaking Changes](../how/breaking-changes.md) for the full behavior.
+
 ### Aspect Size Validation
 
 Protects against aspects exceeding deserialization limits. **Debugging flags - enable only when troubleshooting service crashes or memory pressure from oversized aspects.**
@@ -1089,6 +1100,7 @@ Reference Links:
 | `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                                                                   | GMS        |
 | `MULTIPLE_DATA_PRODUCTS_PER_ASSET`      | `true`  | Allow assets to belong to multiple Data Products simultaneously                                                 | GMS        |
 | `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                                                                      | GMS        |
+| `SHOW_GITHUB_STAR_PROMPT`               | `true`  | Show "Star us on GitHub" asks                                                                                   | GMS        |
 | `VIEWS_ENABLED`                         | `true`  | Enable views feature                                                                                            | GMS        |
 
 ## System Updates
@@ -1139,6 +1151,15 @@ Reference Links:
 | `BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_BATCH_SIZE` | `1000`  | Dashboard info batch size            | System Update |
 | `BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_DELAY_MS`   | `30000` | Dashboard info delay in milliseconds | System Update |
 | `BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_CLL_LIMIT`  | `0`     | Dashboard info CLL limit             | System Update |
+
+### Post Info Configuration
+
+| Environment Variable                           | Default | Description                                       | Components    |
+| ---------------------------------------------- | ------- | ------------------------------------------------- | ------------- |
+| `BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_ENABLED`    | `true`  | Enable reindexing posts to add the content type   | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_BATCH_SIZE` | `1000`  | Post info batch size                              | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_DELAY_MS`   | `1000`  | Post info delay in milliseconds                   | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_LIMIT`      | `0`     | Maximum number of posts to reindex (0 = no limit) | System Update |
 
 ### Browse Paths V2 Configuration
 
@@ -1402,23 +1423,24 @@ See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api
 
 ### Cache Configuration
 
-| Environment Variable                                | Default     | Description                                              | Components                     |
-| --------------------------------------------------- | ----------- | -------------------------------------------------------- | ------------------------------ |
-| `CACHE_TTL_SECONDS`                                 | `600`       | Default cache time to live                               | GMS                            |
-| `CACHE_MAX_SIZE`                                    | `10000`     | Maximum number of items to cache                         | GMS                            |
-| `CACHE_ENTITY_COUNTS_TTL_SECONDS`                   | `600`       | Homepage entity count time to live                       | GMS                            |
-| `CACHE_SEARCH_LINEAGE_TTL_SECONDS`                  | `86400`     | Search lineage cache time to live                        | GMS                            |
-| `CACHE_SEARCH_LINEAGE_LIGHTNING_THRESHOLD`          | `300`       | Lineage graphs exceeding this limit will use local cache | GMS                            |
-| `CACHE_CLIENT_USAGE_CLIENT_ENABLED`                 | `true`      | Enable usage client cache                                | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_USAGE_CLIENT_STATS_ENABLED`           | `true`      | Enable usage client cache stats                          | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_USAGE_CLIENT_STATS_INTERVAL_SECONDS`  | `120`       | Usage client cache stats interval                        | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_USAGE_CLIENT_TTL_SECONDS`             | `86400`     | Usage client cache TTL                                   | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_USAGE_CLIENT_MAX_BYTES`               | `52428800`  | Usage client cache max bytes (50MB)                      | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_ENTITY_CLIENT_ENABLED`                | `true`      | Enable entity client cache                               | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_ENTITY_CLIENT_STATS_ENABLED`          | `true`      | Enable entity client cache stats                         | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_ENTITY_CLIENT_STATS_INTERVAL_SECONDS` | `120`       | Entity client cache stats interval                       | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_ENTITY_CLIENT_TTL_SECONDS`            | `0`         | Entity client cache TTL (0 = no cache)                   | GMS, MAE Consumer, PE Consumer |
-| `CACHE_CLIENT_ENTITY_CLIENT_MAX_BYTES`              | `104857600` | Entity client cache max bytes (100MB)                    | GMS, MAE Consumer, PE Consumer |
+| Environment Variable                                | Default     | Description                                                                                | Components                     |
+| --------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------ | ------------------------------ |
+| `CACHE_TTL_SECONDS`                                 | `600`       | Default cache time to live                                                                 | GMS                            |
+| `CACHE_MAX_SIZE`                                    | `10000`     | Maximum number of items to cache                                                           | GMS                            |
+| `CACHE_ENTITY_COUNTS_TTL_SECONDS`                   | `600`       | Homepage entity count time to live                                                         | GMS                            |
+| `CACHE_SEARCH_LINEAGE_TTL_SECONDS`                  | `86400`     | Search lineage cache time to live                                                          | GMS                            |
+| `CACHE_SEARCH_LINEAGE_LIGHTNING_THRESHOLD`          | `300`       | Lineage graphs exceeding this limit will use local cache                                   | GMS                            |
+| `CACHE_SEARCH_LINEAGE_PARTIAL_TTL_SECONDS`          | `300`       | Cache time to live for lineage left partial by timeouts or failures; `0` disables caching. | GMS                            |
+| `CACHE_CLIENT_USAGE_CLIENT_ENABLED`                 | `true`      | Enable usage client cache                                                                  | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_USAGE_CLIENT_STATS_ENABLED`           | `true`      | Enable usage client cache stats                                                            | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_USAGE_CLIENT_STATS_INTERVAL_SECONDS`  | `120`       | Usage client cache stats interval                                                          | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_USAGE_CLIENT_TTL_SECONDS`             | `86400`     | Usage client cache TTL                                                                     | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_USAGE_CLIENT_MAX_BYTES`               | `52428800`  | Usage client cache max bytes (50MB)                                                        | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_ENTITY_CLIENT_ENABLED`                | `true`      | Enable entity client cache                                                                 | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_ENTITY_CLIENT_STATS_ENABLED`          | `true`      | Enable entity client cache stats                                                           | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_ENTITY_CLIENT_STATS_INTERVAL_SECONDS` | `120`       | Entity client cache stats interval                                                         | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_ENTITY_CLIENT_TTL_SECONDS`            | `0`         | Entity client cache TTL (0 = no cache)                                                     | GMS, MAE Consumer, PE Consumer |
+| `CACHE_CLIENT_ENTITY_CLIENT_MAX_BYTES`              | `104857600` | Entity client cache max bytes (100MB)                                                      | GMS, MAE Consumer, PE Consumer |
 
 ### GraphQL Configuration
 
@@ -1435,6 +1457,8 @@ See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api
 | `GRAPHQL_DOCUMENT_CACHE_MAX_BYTES`                    | `26214400`                                                 | Maximum GraphQL document cache weight in bytes (25MB, estimated as 5x query text size)                                                                                                                                                                                                                                                                                                                                                                                                                   | GMS        |
 | `GRAPHQL_QUERY_COMPLEXITY_LIMIT`                      | `2010`                                                     | GraphQL query complexity limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | GMS        |
 | `GRAPHQL_QUERY_DEPTH_LIMIT`                           | `50`                                                       | GraphQL query depth limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | GMS        |
+| `GRAPHQL_QUERY_DIRECT_CHILD_DEFAULT_COUNT`            | `100`                                                      | Page size for a domain or glossary child listing (`relationships` IsPartOf) when the caller omits `count`. Each returned child costs a view check when view authorization is on                                                                                                                                                                                                                                                                                                                          | GMS        |
+| `GRAPHQL_QUERY_DIRECT_CHILD_MAX_COUNT`                | `1000`                                                     | Most children one domain or glossary child listing request may return; larger `count` values are capped to this                                                                                                                                                                                                                                                                                                                                                                                          | GMS        |
 | `GRAPHQL_QUERY_INTROSPECTION_ENABLED`                 | `true`                                                     | Enable GraphQL introspection                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | GMS        |
 | `GRAPHQL_QUERY_MAX_PARENT_DEPTH`                      | `50`                                                       | Max parent-chain depth traversed (glossary, domains, containers)                                                                                                                                                                                                                                                                                                                                                                                                                                         | GMS        |
 | `GRAPHQL_QUERY_MAX_VISITED_URNS`                      | `20000`                                                    | Relationship resolution cap per request (cycle protection)                                                                                                                                                                                                                                                                                                                                                                                                                                               | GMS        |

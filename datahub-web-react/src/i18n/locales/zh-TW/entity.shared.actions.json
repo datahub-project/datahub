@@ -6,6 +6,7 @@
     "addDataProductError": "無法將資料資產加入資料產品。發生不明錯誤。",
     "addDataProductModalTitle": "將資料資產加入資料產品",
     "addDataProductTooltip": "將資料資產加入資料產品",
+    "addDataProductUnauthorized": "你沒有權限將資料資產新增至此資料產品",
     "addDomainError": "無法將資料資產加入資料領域：{{error}}",
     "addDomainModalTitle": "將資料資產加入資料領域",
     "addDomainTooltip": "將資料資產加入資料領域",

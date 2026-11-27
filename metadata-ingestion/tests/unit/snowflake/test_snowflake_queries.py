@@ -2257,6 +2257,70 @@ class TestStreamUpstreamMultiTableInsert:
         assert isinstance(results[0], ObservedQuery)
         assert extractor.report.num_create_temp_view_queries_observed == 1
 
+    @pytest.mark.parametrize(
+        "prefix, select_list",
+        [
+            ("", "id"),
+            ("-- refresh the interactive table nightly\n", "id"),
+            ("-- create interactive table for daily sums\n", "id"),
+            ("", "id as target_lag"),
+        ],
+    )
+    def test_interactive_table_ctas_falls_back_with_rewritten_text(
+        self, prefix, select_list
+    ):
+        """ACCESS_HISTORY omits the CTAS target of an interactive table -> parse the text."""
+        extractor = self._create_mock_extractor()
+        row = self._audit_row(
+            query_text=(
+                f"{prefix}create or replace interactive table db.s.it cluster by (id) "
+                f"as select {select_list} from db.s.src"
+            ),
+            direct_objects_accessed=[
+                {
+                    "objectName": "DB.S.SRC",
+                    "objectDomain": "Table",
+                    "columns": [{"columnName": "ID"}],
+                }
+            ],
+            objects_modified=[],
+        )
+        row["QUERY_TYPE"] = "CREATE_TABLE_AS_SELECT"
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert f"{prefix}create or replace table db.s.it" in results[0].query
+        assert extractor.report.num_interactive_table_ctas_observed == 1
+
+    @pytest.mark.parametrize(
+        "columns", ["", "(id int comment 'built as select from src') "]
+    )
+    def test_dynamic_interactive_table_ctas_is_not_parsed(self, columns):
+        """A TARGET_LAG create gets lineage from its definition, not the query log."""
+        extractor = self._create_mock_extractor()
+        row = self._audit_row(
+            query_text=(
+                f"create or replace interactive table db.s.it {columns}cluster by (id) "
+                "target_lag = '1 minute' warehouse = wh as select id from db.s.src"
+            ),
+            direct_objects_accessed=[
+                {
+                    "objectName": "DB.S.SRC",
+                    "objectDomain": "Table",
+                    "columns": [{"columnName": "ID"}],
+                }
+            ],
+            objects_modified=[],
+        )
+        row["QUERY_TYPE"] = "CREATE_TABLE_AS_SELECT"
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert not any(isinstance(r, ObservedQuery) for r in results)
+        assert extractor.report.num_interactive_table_ctas_observed == 0
+
     def test_single_target_clean_stream_uses_preparsed_path(self):
         """Single-target stream INSERT with clean metadata -> PreparsedQuery with CLL."""
         extractor = self._create_mock_extractor()
@@ -3002,7 +3066,7 @@ class TestTablesForDatabaseQueryWithFilter:
     def test_tables_for_database_no_filter(self):
         """Test tables_for_database generates valid SQL without filter."""
         query = SnowflakeQuery.tables_for_database(
-            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"}
         )
 
         # Should be parseable by sqlglot
@@ -3022,7 +3086,7 @@ class TestTablesForDatabaseQueryWithFilter:
         )
         query = SnowflakeQuery.tables_for_database(
             "TEST_DB",
-            table_types={"BASE TABLE", "EXTERNAL TABLE"},
+            table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"},
             table_filter=table_filter,
         )
 
@@ -3038,28 +3102,30 @@ class TestTablesForDatabaseQueryWithFilter:
 
     def test_tables_for_database_with_table_types(self):
         """Test tables_for_database correctly applies table_types filtering."""
-        # Default includes both BASE TABLE and EXTERNAL TABLE
         query_default = SnowflakeQuery.tables_for_database(
-            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"}
         )
         assert "'BASE TABLE'" in query_default
         assert "'EXTERNAL TABLE'" in query_default
+        assert "'INTERACTIVE TABLE'" in query_default
         assert "COALESCE(is_dynamic" not in query_default
 
-        # Only BASE TABLE (excludes external tables)
         query_base_only = SnowflakeQuery.tables_for_database(
             "TEST_DB", table_types={"BASE TABLE"}
         )
         assert "'BASE TABLE'" in query_base_only
         assert "'EXTERNAL TABLE'" not in query_base_only
+        assert "'INTERACTIVE TABLE'" not in query_base_only
 
         # Exclude dynamic tables (uses COALESCE to handle NULL values)
         query_no_dynamic = SnowflakeQuery.tables_for_database(
             "TEST_DB",
-            table_types={"BASE TABLE", "EXTERNAL TABLE"},
+            table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"},
             exclude_dynamic_tables=True,
         )
         assert "COALESCE(is_dynamic, 'NO') = 'NO'" in query_no_dynamic
+        # Lag-refreshing interactive tables report IS_DYNAMIC='YES' but stay in.
+        assert "OR table_type = 'INTERACTIVE TABLE'" in query_no_dynamic
 
         # Only BASE TABLE and exclude dynamic tables
         query_base_no_dynamic = SnowflakeQuery.tables_for_database(

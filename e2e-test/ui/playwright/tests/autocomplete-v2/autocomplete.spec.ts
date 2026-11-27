@@ -37,7 +37,7 @@ test.describe('Autocomplete Search Bar', () => {
     await autocompletePage.navigateToHome();
   });
 
-  test('should see auto-complete results after typing in a search query', async () => {
+  test('should see auto-complete results after typing in a search query', { tag: [DomainTag.Catalog] }, async () => {
     // Test 1: Search for dataset — verify autocomplete appears with results
     await autocompletePage.searchAndVerifyResult(SAMPLE_DATASET_NAME, SAMPLE_DATASET_URN);
     await autocompletePage.clearSearchInput();

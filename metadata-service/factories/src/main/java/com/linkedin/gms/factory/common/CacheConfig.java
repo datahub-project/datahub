@@ -288,6 +288,26 @@ public class CacheConfig {
             effectiveEntityGraphCacheProperties.getEviction().getHazelcast().getBackupCount());
   }
 
+  @Bean
+  @ConditionalOnProperty(name = "datahub.gms.entityGraphCache.enabled", havingValue = "true")
+  @ConditionalOnBean(name = "effectiveEntityGraphCacheProperties")
+  public MapConfig entityGraphVisibilityWatermarkMapConfig(
+      EntityGraphCacheProperties effectiveEntityGraphCacheProperties) {
+    // A watermark must outlive the snapshots it supersedes, so it is not size-evicted and takes
+    // the snapshot TTL. Without this config it would inherit the search-cache default TTL, which
+    // can expire it while the snapshots it guards are still served.
+    EntityGraphCacheProperties.HazelcastEviction hazelcastEviction =
+        effectiveEntityGraphCacheProperties.getEviction().getHazelcast();
+    MapConfig mapConfig =
+        new MapConfig()
+            .setName(EntityGraphCacheProperties.VISIBILITY_WATERMARK_MAP)
+            .setBackupCount(hazelcastEviction.getBackupCount());
+    if (hazelcastEviction.getTtlSeconds() > 0) {
+      mapConfig.setTimeToLiveSeconds(hazelcastEviction.getTtlSeconds());
+    }
+    return mapConfig;
+  }
+
   private static MapConfig buildEntityGraphFullSnapshotMapConfig(
       @Nonnull EntityGraphCacheProperties properties) {
     return buildEntityGraphSnapshotMapConfig(

@@ -6,12 +6,14 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import com.linkedin.metadata.graph.LineagePartialReason;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.testng.annotations.Test;
 
@@ -115,10 +117,14 @@ public class SharedRelationshipBudgetTest {
     // An exhausted budget means the hop was truncated at maxRelations; the fetch must be reported
     // partial directly, because the outer unique-entity limit check can miss the truncation when
     // cross-slice duplicates merge to fewer unique entities than relationships were retained.
-    LineageSliceFetchResult fetch = new LineageSliceFetchResult(List.of(), false);
+    LineageSliceFetchResult fetch = new LineageSliceFetchResult(List.of(), null);
     assertTrue(
         GraphQueryBaseDAO.markPartialIfSharedBudgetExhausted(fetch, new AtomicInteger(0), true)
             .isPartial());
+    assertEquals(
+        GraphQueryBaseDAO.markPartialIfSharedBudgetExhausted(fetch, new AtomicInteger(0), true)
+            .getPartialReason(),
+        LineagePartialReason.MAX_RELATIONS);
     // Budget remaining, unlimited, or strict mode (a slice rejects instead): unchanged.
     assertFalse(
         GraphQueryBaseDAO.markPartialIfSharedBudgetExhausted(fetch, new AtomicInteger(3), true)
@@ -128,5 +134,20 @@ public class SharedRelationshipBudgetTest {
     assertFalse(
         GraphQueryBaseDAO.markPartialIfSharedBudgetExhausted(fetch, new AtomicInteger(0), false)
             .isPartial());
+  }
+
+  @Test
+  public void testIncompleteSliceOutranksLimitTruncation() {
+    // A hop that hit the limit and also lost a slice can still return more on a re-walk.
+    LineageSliceFetchResult truncated =
+        new LineageSliceFetchResult(List.of(), LineagePartialReason.MAX_RELATIONS);
+    assertEquals(
+        GraphQueryBaseDAO.markPartialIfSliceIncomplete(truncated, new AtomicBoolean(true), true)
+            .getPartialReason(),
+        LineagePartialReason.INCOMPLETE_FETCH);
+    assertEquals(
+        GraphQueryBaseDAO.markPartialIfSliceIncomplete(truncated, new AtomicBoolean(false), true)
+            .getPartialReason(),
+        LineagePartialReason.MAX_RELATIONS);
   }
 }

@@ -8,7 +8,7 @@ import com.linkedin.common.AuditStamp
  */
 @Aspect = {
   "name": "postInfo",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record PostInfo {
   /**

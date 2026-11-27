@@ -9,11 +9,13 @@ from typing import Any, Dict, List
 
 import pytest
 
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
     SnowflakeDynamicTable,
     SnowflakeFK,
+    SnowflakeInteractiveTable,
     SnowflakeStageType,
     SnowflakeTable,
     SnowflakeTaskState,
@@ -123,6 +125,32 @@ def test_tables_for_database_groups_by_schema_and_detects_dynamic_tables() -> No
     assert isinstance(by_name["DYN"], SnowflakeDynamicTable)
     assert not isinstance(by_name["PLAIN"], SnowflakeDynamicTable)
     assert tables["S2"][0].is_hybrid
+
+
+def test_tables_for_database_detects_interactive_tables() -> None:
+    rows = [
+        _table_row(
+            "INT1",
+            TABLE_TYPE="INTERACTIVE TABLE",
+            CLUSTERING_KEY="LINEAR(ID)",
+        ),
+    ]
+
+    def dispatch(sql: str) -> List[dict]:
+        if "SHOW DYNAMIC" in sql.upper():
+            return []
+        return rows
+
+    tables = _make_dictionary(dispatch).get_tables_for_database(
+        DB,
+        table_types=frozenset({"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"}),
+        exclude_dynamic_tables=False,
+    )
+    assert tables is not None
+    table = tables[SCHEMA][0]
+    assert isinstance(table, SnowflakeInteractiveTable)
+    assert table.get_subtype() == DatasetSubTypes.INTERACTIVE_TABLE
+    assert table.clustering_key == "LINEAR(ID)"
 
 
 def test_tables_for_database_returns_none_when_query_fails() -> None:

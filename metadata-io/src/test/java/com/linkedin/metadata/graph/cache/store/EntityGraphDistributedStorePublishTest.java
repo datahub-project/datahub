@@ -593,6 +593,32 @@ public class EntityGraphDistributedStorePublishTest {
         .build();
   }
 
+  @Test
+  public void rejectedPublishClearsTheClaimStatusOfTheCaller() {
+    String cacheKey = EntityGraphCacheKeys.fullCacheKey("domain", GraphSnapshotSource.SEARCH);
+    long now = System.currentTimeMillis();
+    assertTrue(store.publish(snapshotBuiltAt(cacheKey, now), CacheStatus.ACTIVE));
+    assertTrue(store.tryClaimRebuild(cacheKey, 60_000L));
+
+    assertFalse(store.publish(snapshotBuiltAt(cacheKey, now - 1_000L), CacheStatus.ACTIVE));
+    assertFalse(store.getStatus(cacheKey) == CacheStatus.BUILDING);
+  }
+
+  private static EntityGraphSnapshot snapshotBuiltAt(String cacheKey, long builtAtMillis) {
+    return EntityGraphSnapshot.builder()
+        .graphId("domain")
+        .cacheKey(cacheKey)
+        .generation(0L)
+        .buildSource("search")
+        .builtAtMillis(builtAtMillis)
+        .vertexCount(1)
+        .edgeCount(0)
+        .topologyFingerprint("fp")
+        .traversalCoverage(TraversalCoverage.fullComplete())
+        .edges(List.of())
+        .build();
+  }
+
   private static EntityGraphSnapshot sampleSnapshot(String cacheKey, long generation) {
     return EntityGraphSnapshot.builder()
         .graphId("domain")

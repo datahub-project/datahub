@@ -1,3 +1,4 @@
+from typing import Dict
 from unittest import mock
 
 import boto3
@@ -13,6 +14,7 @@ from datahub.ingestion.source.common.object_store_files import (
     expand_local_glob,
     expand_object_store_glob,
     has_glob_characters,
+    http_url_secrets,
     is_http_uri,
     read_file_as_bytes,
 )
@@ -435,3 +437,42 @@ def test_read_file_as_bytes_s3_capped_read_when_size_undeclared():
         )
     # bounded read: pulls at most max_bytes+1, not the whole body.
     body.read.assert_called_once_with(11)
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        pytest.param("https://host.example/dbt/manifest.json", {}, id="no_credentials"),
+        pytest.param(
+            "https://my_user@host.example/dbt/manifest.json", {}, id="user_only"
+        ),
+        pytest.param(
+            "https://my_user:my%40password@host.example:8443/dbt/manifest.json",
+            {
+                "f.userinfo_password.verbatim": "my%40password",
+                "f.userinfo_password": "my@password",
+            },
+            id="userinfo_password_verbatim_and_decoded",
+        ),
+        pytest.param(
+            "https://host.example/manifest.json?X-Amz-Credential=a%2Fb&X-Amz-Signature=sig#frag",
+            {
+                "f.query.verbatim": "X-Amz-Credential=a%2Fb&X-Amz-Signature=sig",
+                "f.query": "X-Amz-Credential=a/b&X-Amz-Signature=sig",
+            },
+            id="whole_query_without_fragment",
+        ),
+        pytest.param(
+            # urlparse rejects the unbalanced bracket; the raw read still finds it.
+            "https://my_user:my_password@[2001:db8::1/manifest.json",
+            {
+                "f.userinfo_password.verbatim": "my_password",
+                "f.userinfo_password": "my_password",
+            },
+            id="unparseable_url",
+        ),
+        pytest.param("s3://bucket/manifest.json?a=b", {}, id="not_http"),
+    ],
+)
+def test_http_url_secrets(url: str, expected: Dict[str, str]) -> None:
+    assert http_url_secrets("f", url) == expected

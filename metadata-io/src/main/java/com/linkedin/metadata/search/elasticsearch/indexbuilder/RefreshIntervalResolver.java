@@ -109,13 +109,29 @@ public final class RefreshIntervalResolver {
               stemBeforeSuffix(convention, operation, component, indexName, V3_SUFFIX);
           default -> null;
         };
-    if (stem != null) {
-      Integer override = intervals.entityOverrides().get(stem.toLowerCase(Locale.ROOT));
+    return entityIndexSeconds(intervals, stem, indexName);
+  }
+
+  /**
+   * Refresh interval of an entity search index: the entity override, then {@code entitySeconds}.
+   * For callers that know the entity name but not the physical index name.
+   */
+  public static int entityIndexSeconds(
+      @Nonnull RefreshIntervals intervals,
+      @Nullable String entityName,
+      @Nonnull String indexLabel) {
+    if (entityName != null) {
+      Integer override = intervals.entityOverrides().get(entityName.toLowerCase(Locale.ROOT));
       if (override != null) {
         return override;
       }
     }
-    return require(intervals.getEntitySeconds(), "entitySeconds", indexName);
+    return require(intervals.getEntitySeconds(), "entitySeconds", indexLabel);
+  }
+
+  /** Refresh interval of the graph index ({@code graphSeconds}). */
+  public static int graphIndexSeconds(@Nonnull RefreshIntervals intervals) {
+    return require(intervals.getGraphSeconds(), "graphSeconds", "graph index");
   }
 
   private static int timeseriesSeconds(

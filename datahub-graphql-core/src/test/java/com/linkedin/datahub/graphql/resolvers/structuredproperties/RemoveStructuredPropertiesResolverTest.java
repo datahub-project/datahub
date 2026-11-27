@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.TestUtils.getMockContextDenyingSubRes
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -71,6 +72,53 @@ public class RemoveStructuredPropertiesResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
     // Validate that we did NOT call ingest
+    Mockito.verify(mockEntityClient, Mockito.times(0))
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
+  }
+
+  /** An empty list used to pass authorization and submit a patch that changes nothing. */
+  @Test
+  public void testEmptyInputDoesNotWrite() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient();
+    RemoveStructuredPropertiesResolver resolver =
+        new RemoveStructuredPropertiesResolver(mockEntityClient);
+    RemoveStructuredPropertiesInput empty =
+        new RemoveStructuredPropertiesInput(TEST_DATASET_URN, ImmutableList.of());
+
+    QueryContext denyContext = getMockDenyContext();
+    DataFetchingEnvironment denied = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(denied.getArgument(Mockito.eq("input"))).thenReturn(empty);
+    Mockito.when(denied.getContext()).thenReturn(denyContext);
+    assertThrows(CompletionException.class, () -> resolver.get(denied).join());
+
+    QueryContext allowContext = getMockAllowContext();
+    DataFetchingEnvironment allowed = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(allowed.getArgument(Mockito.eq("input"))).thenReturn(empty);
+    Mockito.when(allowed.getContext()).thenReturn(allowContext);
+    assertEquals(resolver.get(allowed).get().getProperties().size(), 0);
+
+    Mockito.verify(mockEntityClient, Mockito.times(0))
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
+  }
+
+  /** An asset that never had structured properties has no aspect to read back. */
+  @Test
+  public void testEmptyInputWithNoExistingAspectReturnsEmpty() throws Exception {
+    EntityClient mockEntityClient = Mockito.mock(EntityClient.class);
+    Mockito.when(mockEntityClient.exists(any(), any())).thenReturn(true);
+    EntityResponse response = new EntityResponse();
+    response.setAspects(new EnvelopedAspectMap());
+    Mockito.when(mockEntityClient.getV2(any(), any(), any(), any())).thenReturn(response);
+    RemoveStructuredPropertiesResolver resolver =
+        new RemoveStructuredPropertiesResolver(mockEntityClient);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(new RemoveStructuredPropertiesInput(TEST_DATASET_URN, ImmutableList.of()));
+    QueryContext allowContext = getMockAllowContext();
+    Mockito.when(mockEnv.getContext()).thenReturn(allowContext);
+
+    assertEquals(resolver.get(mockEnv).get().getProperties().size(), 0);
     Mockito.verify(mockEntityClient, Mockito.times(0))
         .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
   }
