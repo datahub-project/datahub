@@ -21,6 +21,7 @@ on:
       - "Docker Build, Scan, Test"
       - "Docker-free E2E"
       - "documentation"
+      - "E2E Tests"
       - "Frontend Preview"
       - "GMS-lite Local Stack"
       - "GX Plugin"
@@ -72,7 +73,7 @@ on:
         default: false
       escape_check:
         description: "Run the smart selection escape check (run_id must be a
-          post-merge Docker Build, Scan, Test run)"
+          post-merge E2E Tests run)"
         required: false
         type: boolean
         default: false
@@ -164,6 +165,7 @@ jobs:
       github.event_name == 'workflow_run' &&
       (
         github.event.workflow_run.name == 'Docker Build, Scan, Test' ||
+        github.event.workflow_run.name == 'E2E Tests' ||
         github.event.workflow_run.name == 'metadata-io' ||
         github.event.workflow_run.name == 'Nightly Docker Test'
       ) &&
@@ -209,7 +211,8 @@ jobs:
       thread_ts_file: ${{ github.event.workflow_run.event != 'schedule' && '.slack-thread-ts.json' || '' }}
       channel: ${{ vars.BUILD_STATUS_NOTIFICATION_SLACK_CHANNEL }}
 
-  # Notify Slack when the Docker build succeeds on a push or release event.
+  # Notify Slack when the Docker build succeeds: E2E Tests on a post-commit
+  # push, Docker Build, Scan, Test on a release.
   # Posts a standalone message (not threaded) so it's visible as a positive signal
   # separate from any failure thread on the same commit.
   notify-slack-docker-success:
@@ -217,8 +220,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_run'
       && github.event.workflow_run.conclusion == 'success'
-      && github.event.workflow_run.name == 'Docker Build, Scan, Test'
-      && contains(fromJSON('["push","release"]'), github.event.workflow_run.event)
+      && ((github.event.workflow_run.name == 'E2E Tests' && github.event.workflow_run.event == 'push')
+          || (github.event.workflow_run.name == 'Docker Build, Scan, Test' && github.event.workflow_run.event == 'release'))
     uses: ./.github/workflows/notify-slack-status.yml
     secrets: inherit
     with:
@@ -238,7 +241,7 @@ jobs:
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.escape_check == true)
       || (github.event_name == 'workflow_run'
-          && github.event.workflow_run.name == 'Docker Build, Scan, Test'
+          && github.event.workflow_run.name == 'E2E Tests'
           && github.event.workflow_run.event == 'push'
           && github.event.workflow_run.head_branch == github.event.repository.default_branch
           && (github.event.workflow_run.conclusion == 'success'
@@ -276,7 +279,7 @@ jobs:
             exit 0
           fi
           pr_head=$(jq -r .head.sha <<<"$pr")
-          pr_run=$(gh run list -R "$REPOSITORY" --workflow docker-unified.yml \
+          pr_run=$(gh run list -R "$REPOSITORY" --workflow e2e-tests.yml \
             --event pull_request --commit "$pr_head" --status completed -L 1 \
             --json databaseId --jq '.[0].databaseId // empty')
           if [[ -z "$pr_run" ]]; then

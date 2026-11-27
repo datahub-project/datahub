@@ -33,6 +33,8 @@ IGNORED_WORKFLOWS = {
 # schedule or workflow_dispatch triggers (not push/PR), so the validator should not
 # flag them as stale extras.
 ALLOWED_NON_PR_WORKFLOWS = {
+    # docker-unified.yml: release and dispatch runs; PRs and pushes go through E2E Tests.
+    "Docker Build, Scan, Test",
     "Nightly Docker Test",
     "Release Tests",
     "Release Validation",

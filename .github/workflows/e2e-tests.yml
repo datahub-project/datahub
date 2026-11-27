@@ -1,0 +1,271 @@
+# Parent of the end-to-end test lanes. Owns the pull_request and push
+# triggers, classifies the PR once for smart testing, and calls each lane as a
+# reusable workflow. Release and manual runs still start docker-unified.yml
+# directly.
+name: E2E Tests
+on:
+  push:
+    branches:
+      - master
+      - releases/**
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/e2e-tests.yml"
+      - ".github/workflows/docker-unified.yml"
+      - ".github/scripts/send_failed_tests_to_posthog.py"
+      - ".github/scripts/send_smart_selection_to_posthog.py"
+      # Smart-testing classifier, selection and batch planning (pytest wiring).
+      - ".github/smart-testing/**"
+      - "!.github/smart-testing/**.md"
+      - ".github/scripts/docker_helpers.sh"
+      - ".github/scripts/resolve_image_builds.sh"
+      - ".github/scripts/test_resolve_image_builds.sh"
+      - ".github/workflows/resusable-playwright-tests.yml"
+      - ".github/workflows/reusable-playwright-report.yml"
+      - ".github/scripts/plan_playwright_tier.py"
+      - ".github/scripts/split_playwright_tests.py"
+      - ".github/actions/ci-optimization"
+      - ".github/actions/restore-dependency-caches"
+      - ".github/actions/configure-fast-apt-mirror"
+      - ".github/scripts/check_python_package.py"
+      - ".github/scripts/parse_failed_pytest_tests.py"
+      - ".github/scripts/docker_logs.sh"
+      - ".github/actions/smoke-test-retry"
+      - ".github/actions/report-test-results/**"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - "**"
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/e2e-tests.yml"
+      - ".github/workflows/docker-unified.yml"
+      - ".github/scripts/send_failed_tests_to_posthog.py"
+      - ".github/scripts/send_smart_selection_to_posthog.py"
+      # Smart-testing classifier, selection and batch planning (pytest wiring).
+      - ".github/smart-testing/**"
+      - "!.github/smart-testing/**.md"
+      - ".github/scripts/docker_helpers.sh"
+      - ".github/scripts/resolve_image_builds.sh"
+      - ".github/scripts/test_resolve_image_builds.sh"
+      - ".github/workflows/resusable-playwright-tests.yml"
+      - ".github/workflows/reusable-playwright-report.yml"
+      - ".github/scripts/plan_playwright_tier.py"
+      - ".github/scripts/split_playwright_tests.py"
+      - ".github/actions/ci-optimization"
+      - ".github/actions/restore-dependency-caches"
+      - ".github/actions/configure-fast-apt-mirror"
+      - ".github/scripts/check_python_package.py"
+      - ".github/scripts/parse_failed_pytest_tests.py"
+      - ".github/scripts/docker_logs.sh"
+      - ".github/actions/smoke-test-retry"
+      - ".github/actions/report-test-results/**"
+
+concurrency:
+  # Using `github.run_id` (unique val) instead of `github.ref` here
+  # because we don't want to cancel this workflow on master only for PRs
+  #   as that makes reproducing issues easier
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+
+permissions:
+  contents: read
+
+jobs:
+  # Only what classify_pr reads. Each lane computes its own change flags.
+  setup:
+    runs-on: depot-ubuntu-24.04-small
+    if: ${{ github.event_name == 'pull_request' }}
+    outputs:
+      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' }}
+      ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
+      smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
+      pytest_workflow_change: ${{ steps.ci-optimize.outputs.pytest-workflow-change == 'true' }}
+      # True when docker-unified's setup builds a non-empty Playwright matrix on a PR.
+      playwright_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
+      test_runner_type_small: ${{ env.IS_FORK == 'true' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-small' }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+        with:
+          checkout-head-only: true
+
+      - uses: ./.github/actions/ci-optimization
+        id: ci-optimize
+
+  # Classifies the PR into taxonomy tags (smart testing) once, for both suites:
+  # smoke_test_matrix plans pytest batches from them and playwright_plan the
+  # Playwright tier. Every step is continue-on-error because pytest_tests gates on
+  # !failure(), which counts every ancestor job: a failure here must never turn
+  # into skipped tests. No smart_tags output means each suite's fail-safe.
+  classify_pr:
+    name: Classify PR for smart testing
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: [setup]
+    if: ${{ always() && needs.setup.result == 'success' && github.event_name == 'pull_request' }}
+    # Job-level permissions replace the workflow's, so restate them and add
+    # pull-requests: read for classify_pr.py's compare API call.
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+      pull-requests: read
+    outputs:
+      # The Playwright tier's smart testing mode: off, or the
+      # PLAYWRIGHT_SMART_TESTING_MODE repo var when the PR is eligible.
+      # smoke_test_matrix resolves the pytest mode (SMART_TESTING_MODE) itself.
+      playwright_mode: ${{ steps.resolve-mode.outputs.playwright_mode || 'off' }}
+      smart_tags: ${{ steps.smart-testing.outputs.smart_tags }}
+      confidence: ${{ steps.smart-testing.outputs.confidence }}
+      failsafe_reason: ${{ steps.smart-testing.outputs.failsafe_reason }}
+      reasoning: ${{ steps.smart-testing.outputs.reasoning }}
+      changed_files: ${{ steps.smart-testing.outputs.changed_files }}
+      proposed_tags: ${{ steps.smart-testing.outputs.proposed_tags }}
+      model: ${{ steps.smart-testing.outputs.model }}
+      classifier_duration_s: ${{ steps.smart-testing.outputs.classifier_duration_s }}
+    steps:
+      - name: Resolve smart testing mode
+        id: resolve-mode
+        continue-on-error: true
+        # Each suite has its own mode. pytest's is off | shadow | active from the
+        # SMART_TESTING_MODE repo var and Playwright's from
+        # PLAYWRIGHT_SMART_TESTING_MODE, both shadow when unset. Forks get
+        # no OIDC token or secrets for Claude auth, and the run-all-tests label opts
+        # the PR out entirely. Each
+        # suite's own label (run-all-tests:pytest, run-all-tests:playwright) opts
+        # out only that suite, and a PR is classified only when some suite's mode
+        # is on. The pytest condition is a superset of smoke_test_matrix's
+        # run_pytest, so a PR whose pytest batches use tags always has them.
+        env:
+          PYTEST_OPT_OUT: ${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests:pytest') }}
+          PLAYWRIGHT_OPT_OUT: ${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests:playwright') }}
+          PLAYWRIGHT_CHANGE: ${{ needs.setup.outputs.playwright_change }}
+        run: |
+          eligible=false
+          if [[ "${{ env.IS_FORK }}" != 'true' \
+                && "${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}" != 'true' ]]; then
+            eligible=true
+          fi
+
+          pytest_mode=off
+          if [[ "$eligible" == 'true' && "$PYTEST_OPT_OUT" != 'true' ]] && [[ "${{ needs.setup.outputs.backend_change }}" == 'true' \
+                || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' \
+                || "${{ needs.setup.outputs.ingestion_only }}" == 'true' \
+                || "${{ needs.setup.outputs.pytest_workflow_change }}" == 'true' ]]; then
+            pytest_mode="${{ vars.SMART_TESTING_MODE || 'shadow' }}"
+          fi
+          playwright_mode=off
+          if [[ "$eligible" == 'true' && "$PLAYWRIGHT_OPT_OUT" != 'true' && "$PLAYWRIGHT_CHANGE" == 'true' ]]; then
+            playwright_mode="${{ vars.PLAYWRIGHT_SMART_TESTING_MODE || 'shadow' }}"
+          fi
+          # Classify when either suite uses the tags (shadow or active).
+          run_classifier=false
+          if [[ "$pytest_mode" != 'off' || "$playwright_mode" != 'off' ]]; then
+            run_classifier=true
+          fi
+
+          echo "Smart testing: run_classifier=$run_classifier pytest=$pytest_mode playwright=$playwright_mode"
+          {
+            echo "run_classifier=$run_classifier"
+            echo "pytest_mode=$pytest_mode"
+            echo "playwright_mode=$playwright_mode"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check out the repo
+        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
+        continue-on-error: true
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-toolchain
+        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
+        continue-on-error: true
+        with:
+          java: false
+          gradle: false
+
+      # Claude Workload Identity Federation: the SDK exchanges this GitHub OIDC
+      # JWT for a short-lived token, so no static API key is stored. The JWT
+      # expires ~5 minutes after issuance, so fetch it right before the
+      # classifier runs.
+      - name: Fetch Claude identity token
+        id: claude-identity
+        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
+        continue-on-error: true
+        uses: ./.github/actions/claude-identity-token
+
+      - name: Smart Testing Selection
+        id: smart-testing
+        if: ${{ steps.resolve-mode.outputs.run_classifier == 'true' }}
+        # No smart_tags output means each suite's fail-safe (active) or no
+        # shadow comparison (shadow).
+        continue-on-error: true
+        env:
+          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
+          # SDK's credential resolution and would silently shadow WIF.
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity.outputs.token_file }}
+          # The classifier reads the PR's own changes (merge-base diff) from
+          # the compare API, not ci-optimize's changed-files-path: that is a
+          # two-dot diff against the base tip and grows as the base moves on.
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          pip install --quiet -r .github/smart-testing/requirements.txt
+          python .github/smart-testing/classify_pr.py 2>&1 | tee /tmp/smart-testing-log.txt
+          {
+            echo "## Smart Testing Selection (pytest: ${{ steps.resolve-mode.outputs.pytest_mode }}, Playwright: ${{ steps.resolve-mode.outputs.playwright_mode }})"
+            echo ""
+            echo '```'
+            grep '^\[smart-testing\]' /tmp/smart-testing-log.txt || echo "No output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload smart testing selection artifact
+        # Upload on failure too: that is when the log matters most.
+        if: ${{ steps.smart-testing.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        continue-on-error: true
+        with:
+          name: smart-testing-selection
+          path: /tmp/smart-testing-log.txt
+          retention-days: 7
+
+  # Runs on push and when classify_pr is skipped or fails: the lane treats
+  # empty classifier inputs as smart testing off.
+  docker:
+    needs: [classify_pr]
+    if: ${{ !cancelled() }}
+    # A called workflow cannot raise its caller's permissions: this is the
+    # union of what docker-unified's jobs and its reusable workflows request.
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+      pull-requests: write
+    uses: ./.github/workflows/docker-unified.yml
+    with:
+      playwright_mode: ${{ needs.classify_pr.outputs.playwright_mode }}
+      smart_tags: ${{ needs.classify_pr.outputs.smart_tags }}
+      confidence: ${{ needs.classify_pr.outputs.confidence }}
+      failsafe_reason: ${{ needs.classify_pr.outputs.failsafe_reason }}
+      reasoning: ${{ needs.classify_pr.outputs.reasoning }}
+      changed_files: ${{ needs.classify_pr.outputs.changed_files }}
+      proposed_tags: ${{ needs.classify_pr.outputs.proposed_tags }}
+      model: ${{ needs.classify_pr.outputs.model }}
+      classifier_duration_s: ${{ needs.classify_pr.outputs.classifier_duration_s }}
+    secrets: inherit
