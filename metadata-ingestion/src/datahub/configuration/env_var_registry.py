@@ -110,6 +110,7 @@ class EnvVarSpec:
 
 _REGISTRY: Dict[str, EnvVarSpec] = {}
 _ACCESSORS: Dict[str, Callable[[], object]] = {}
+_CONFLICTS: Dict[str, List[EnvVarSpec]] = {}
 
 F = TypeVar("F", bound=Callable[..., object])
 
@@ -120,15 +121,18 @@ def register_env_var(spec: EnvVarSpec) -> EnvVarSpec:
     For module-level reads that happen at import time, and for
     ``DATAHUB_SQLGLOT_DISABLE_C``, whose read site runs from a ``.pth`` file before this
     module is importable.
+
+    A conflicting re-declaration keeps the first and is recorded in ``get_conflicts()``, which
+    the unit tests and the docs generator check. It deliberately does not raise: the registry
+    is inert at runtime -- nothing but the generator reads it, and the env var reads themselves
+    go straight to ``os.getenv`` -- so a conflict is an authoring mistake, and raising here
+    would fail every process that imported both modules over a docs detail.
     """
     existing = _REGISTRY.get(spec.name)
-    if existing is not None and existing != spec:
-        raise ValueError(
-            f"Environment variable {spec.name} is declared twice with different metadata. "
-            f"Declare it once and import the accessor, or make the two declarations identical.\n"
-            f"  existing: {existing}\n"
-            f"  new:      {spec}"
-        )
+    if existing is not None:
+        if existing != spec:
+            _CONFLICTS.setdefault(spec.name, []).append(spec)
+        return existing
     _REGISTRY[spec.name] = spec
     return spec
 
@@ -253,6 +257,11 @@ def get_registry(*, include_undocumented: bool = False) -> List[EnvVarSpec]:
     return sorted(
         specs, key=lambda spec: (spec.group.order, spec.tier.order, spec.name)
     )
+
+
+def get_conflicts() -> Dict[str, List[EnvVarSpec]]:
+    """Declarations that lost to an earlier, differing one for the same variable."""
+    return dict(_CONFLICTS)
 
 
 def get_accessor(name: str) -> Optional[Callable[[], object]]:

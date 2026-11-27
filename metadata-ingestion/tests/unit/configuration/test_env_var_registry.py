@@ -10,6 +10,7 @@ from datahub.configuration.env_var_registry import (
     EnvVarAudience,
     EnvVarSpec,
     get_accessor,
+    get_conflicts,
     get_registry,
 )
 
@@ -93,8 +94,12 @@ def test_allowlist_has_no_stale_entries(scan):
 def test_declared_defaults_match_the_code(monkeypatch):
     """The declared default must be what the accessor actually falls back to.
 
-    The decorator restates a default that lives in an os.getenv call a few lines below it.
-    Nothing but this test stops the two drifting apart.
+    Scope: this covers the variables declared with @env_var, which have an accessor to call.
+    The ~26 declared with declare_env_var have no function to invoke, so their defaults are
+    NOT checked here -- for nine of those the declared default is a second copy of a literal
+    at the read site and could drift unnoticed. Narrowing a default-checking test to the
+    declaration style that happens to be testable is a gap, not a design; see the registry
+    module's TODO.
     """
     mismatches = []
     for spec in get_registry(include_undocumented=True):
@@ -213,27 +218,46 @@ def test_specs_are_internally_consistent():
     assert not problems, "\n".join(problems)
 
 
-def test_duplicate_declaration_with_different_metadata_is_rejected():
+def test_conflicting_declaration_keeps_the_first_without_raising():
+    """A conflict must not break an import.
+
+    Raising here would fail any process importing both declaring modules, over metadata that
+    nothing reads at runtime. The first declaration wins and the conflict is recorded for
+    test_no_declaration_conflicts below.
+    """
     from datahub.configuration.env_var_registry import EnvVarGroup, register_env_var
 
-    base = EnvVarSpec(
-        name="DATAHUB_TEST_DUPLICATE_DECLARATION",
-        type=str,
-        description="First declaration.",
-        group=EnvVarGroup.MISC,
+    name = "DATAHUB_TEST_DUPLICATE_DECLARATION"
+    first = EnvVarSpec(
+        name=name, type=str, description="First declaration.", group=EnvVarGroup.MISC
     )
-    register_env_var(base)
-    register_env_var(base)  # identical re-registration is fine
+    register_env_var(first)
+    register_env_var(first)  # identical re-registration is a no-op
 
-    with pytest.raises(ValueError, match="declared twice"):
-        register_env_var(
-            EnvVarSpec(
-                name="DATAHUB_TEST_DUPLICATE_DECLARATION",
-                type=str,
-                description="Conflicting declaration.",
-                group=EnvVarGroup.MISC,
-            )
+    kept = register_env_var(
+        EnvVarSpec(
+            name=name,
+            type=str,
+            description="Conflicting declaration.",
+            group=EnvVarGroup.MISC,
         )
+    )
+    assert kept == first, "the first declaration must win"
+    assert name in get_conflicts()
+    _CONFLICTS_FROM_THIS_TEST.add(name)
+
+
+_CONFLICTS_FROM_THIS_TEST: set = set()
+
+
+def test_no_declaration_conflicts():
+    """No two modules may declare the same variable differently."""
+    real = {
+        name: specs
+        for name, specs in get_conflicts().items()
+        if name not in _CONFLICTS_FROM_THIS_TEST
+    }
+    assert not real, f"Conflicting declarations for: {sorted(real)}"
 
 
 # Variables whose caveat the reference page is the single source of truth for. Each was
