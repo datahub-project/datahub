@@ -36,8 +36,11 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+    // `range` is nullable in the schema; fall back to its declared default instead of failing
+    // with "Name is null" when a client passes an explicit null.
+    final String rangeArgument = environment.getArgument(Constants.RANGE_INPUT_FIELD);
     final UsageTimeRange range =
-        UsageTimeRange.valueOf(environment.getArgument(Constants.RANGE_INPUT_FIELD));
+        rangeArgument == null ? UsageTimeRange.MONTH : UsageTimeRange.valueOf(rangeArgument);
     final Long startTimeMillis =
         environment.getArgumentOrDefault(Constants.START_TIME_MILLIS_INPUT_FIELD, null);
     final String timeZone = environment.getArgument(Constants.TIME_ZONE_INPUT_FIELD);

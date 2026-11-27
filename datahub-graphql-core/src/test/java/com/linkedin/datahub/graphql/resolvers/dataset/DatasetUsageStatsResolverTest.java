@@ -98,6 +98,22 @@ public class DatasetUsageStatsResolverTest {
         "safety net: SQL must never be present in a restricted result");
   }
 
+  /** An omitted or null `range` falls back to MONTH instead of failing with "Name is null". */
+  @Test
+  public void testNullRangeDefaultsToMonth() throws Exception {
+    DatasetUsageStatsResolver resolver = new DatasetUsageStatsResolver(mockUsageClient());
+    DataFetchingEnvironment mockEnv =
+        mockEnvironment(usageStatsAuthorizer(false), null, /* selectsTopSqlQueries= */ false);
+    Mockito.when(
+            mockEnv.getArgument(
+                Mockito.eq(com.linkedin.datahub.graphql.Constants.RANGE_INPUT_FIELD)))
+        .thenReturn(null);
+
+    UsageQueryResult result = resolver.get(mockEnv).get();
+
+    assertEquals((int) result.getBuckets().get(0).getMetrics().getTotalSqlQueries(), 5);
+  }
+
   /**
    * Strict-mode limitation: the stored statements have no recorded dataset associations, so under
    * requireAllSubjects SQL selections are always denied — even for an actor holding the privilege
