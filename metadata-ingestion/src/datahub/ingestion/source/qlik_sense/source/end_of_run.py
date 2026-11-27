@@ -33,11 +33,13 @@ class EndOfRunMixin(ItemsMixin):
     def _report_checkpoint_load_failures(self) -> None:
         if not self._checkpoint_load_failures:
             return
-        self.reporter.warning(
+        # A failure stops stale entity removal and keeps the last read of an app
+        # this run did not record.
+        self.reporter.failure(
             title=CHECKPOINT_LOAD_FAILURES_TITLE,
-            message="Lineage that these apps' last reads recorded is left out of "
-            "this run and of the checkpoint it saves, so it may not be removed "
-            "once it goes stale.",
+            message="Lineage that these apps' last reads recorded may be left out "
+            "of this run. Stale metadata removal is skipped, and an app whose "
+            "checkpoint could not be loaded keeps its last one.",
             # Every lookup of an app that fails adds the same entry.
             context=bounded_list(list(dict.fromkeys(self._checkpoint_load_failures))),
         )

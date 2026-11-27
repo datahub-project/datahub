@@ -1,5 +1,3 @@
-import logging
-
 import pytest
 
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
@@ -128,20 +126,3 @@ def test_binary_file_to_app_rejects_one_file_mapped_to_two_apps():
                 }
             }
         )
-
-
-@pytest.mark.parametrize("read_data_model, warned", [(False, True), (True, False)])
-def test_binary_file_to_app_without_read_data_model_warns(
-    caplog: pytest.LogCaptureFixture, read_data_model: bool, warned: bool
-) -> None:
-    with caplog.at_level(logging.WARNING):
-        QlikSourceConfig.model_validate(
-            {
-                "on_prem": {
-                    **ON_PREM,
-                    "read_data_model": read_data_model,
-                    "binary_file_to_app": {"lib://Apps/Sales.qvf": "app-1"},
-                }
-            }
-        )
-    assert ("binary_file_to_app" in caplog.text) is warned

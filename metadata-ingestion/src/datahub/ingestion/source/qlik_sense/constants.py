@@ -25,6 +25,7 @@ UNQUALIFIED_TABLES_SKIPPED: Final = (
 )
 
 CHECKPOINT_LOAD_FAILED_TITLE: Final = "Unable to load the last checkpoint of a Qlik app"
+CHECKPOINT_KEEP_FAILED_TITLE: Final = "Unable to keep the last read of Qlik apps"
 CHECKPOINT_LOAD_FAILURES_TITLE: Final = (
     "Unable to load Qlik app checkpoints for lineage"
 )

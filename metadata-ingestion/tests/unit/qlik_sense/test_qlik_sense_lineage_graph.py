@@ -420,8 +420,8 @@ def test_app_table_lineage_is_only_added_to_when_the_app_it_loads_may_be_unread(
         if w.title == "Lineage of Qlik app tables only added to"
     ]
     assert context == [
-        "app=report-app, reason=the tables of source app other-app are not known "
-        "this run, tables=Curves, Prices"
+        "app=report-app, reason=the tables of a source app are not known "
+        "this run (other-app), tables=Curves, Prices"
     ]
 
 

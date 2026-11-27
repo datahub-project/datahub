@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional, Union
 
@@ -26,8 +25,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities.lossy_collections import LossyList
-
-logger = logging.getLogger(__name__)
 
 QLIK_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -387,24 +384,6 @@ class QlikOnPremConfig(ConfigModel):
                 )
             apps[canonical] = app_id
         return apps
-
-    @model_validator(mode="after")
-    def warn_unused_binary_file_to_app(self) -> "QlikOnPremConfig":
-        if self.binary_file_to_app and not self.read_data_model:
-            logger.warning(
-                "binary_file_to_app needs read_data_model: the tables a BINARY "
-                "load brings in are only known from the app's data model."
-            )
-        return self
-
-    @model_validator(mode="after")
-    def warn_unused_server_cert_hostname(self) -> "QlikOnPremConfig":
-        if self.server_cert_hostname and not self.verify_server_hostname:
-            logger.warning(
-                "server_cert_hostname is ignored for TLS hostname verification because "
-                "verify_server_hostname is false. It is still used for Qlik UI URLs."
-            )
-        return self
 
     def ui_hostname(self) -> str:
         return self.server_cert_hostname or self.server

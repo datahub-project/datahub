@@ -85,7 +85,9 @@ class FileEntitiesMixin(StoreLineageMixin):
             spelled.append(
                 min(votes, key=lambda name: (-votes[name], name)) if votes else segment
             )
-        return build_lib_path(LibPathSegments.from_parts(spelled))
+        return build_lib_path(
+            LibPathSegments(space=spelled[0], connection=spelled[1], path=spelled[2:])
+        )
 
     def _lib_path_spellings(self) -> Dict[str, Counter[str]]:
         paths = [

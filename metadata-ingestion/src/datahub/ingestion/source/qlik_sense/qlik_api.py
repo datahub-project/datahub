@@ -465,6 +465,8 @@ class QlikAPI(QlikBaseAPI):
                 f"Unable to fetch data connections. Exception: {e}",
                 e,
             )
+            # A partial listing can't show that a bare name is unique.
+            return connections
         for name, infos in by_name.items():
             if len(infos) == 1:
                 connections.setdefault(name, infos[0])

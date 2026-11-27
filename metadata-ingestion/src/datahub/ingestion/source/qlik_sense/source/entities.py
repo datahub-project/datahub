@@ -63,8 +63,10 @@ class EntityEmitMixin(QlikSourceBase):
         )
 
     def _get_audit_stamp(
-        self, date: datetime, username: Optional[str]
+        self, date: datetime, owner_id: Optional[str]
     ) -> AuditStampClass:
+        # The actor is the user the owner aspect names, not the raw Qlik id.
+        username = self._get_owner_name(owner_id)
         return AuditStampClass(
             time=builder.make_ts_millis(date),
             actor=builder.make_user_urn(username) if username else builder.UNKNOWN_USER,

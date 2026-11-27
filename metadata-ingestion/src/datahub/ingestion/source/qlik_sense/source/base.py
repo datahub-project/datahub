@@ -190,6 +190,7 @@ class QlikSourceBase:
     # Filled from worker threads, so only copied to the report at the end.
     _change_check_failures: List[str]
     _checkpoint_load_failures: List[str]
+    _checkpoint_unread_apps: Set[str]
 
     @property
     def _on_cloud(self) -> bool:

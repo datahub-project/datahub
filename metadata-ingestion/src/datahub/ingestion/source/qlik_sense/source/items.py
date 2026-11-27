@@ -258,10 +258,12 @@ class ItemsMixin(OnPremBinaryMixin):
             if guess_entity_type(urn) not in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES:
                 urns[urn] = None
             yield wu
-        if not app.read_complete:
-            # Only reached without a usable last read, and reported as a failure.
+        if not app.read_complete or app.id in self._checkpoint_unread_apps:
+            # Without a usable last read, which is reported as a failure.
             # Recording the partial entity list as the app's last read would let
-            # a later partial read keep only those entities.
+            # a later partial read keep only those entities. An app whose last
+            # read could not be loaded would drop what that read recorded, such
+            # as stored files that are no longer written, so it keeps that read.
             return
         # A complete read records only what it produced, so entities removed in
         # Qlik are soft-deleted even when the change check keeps failing. No

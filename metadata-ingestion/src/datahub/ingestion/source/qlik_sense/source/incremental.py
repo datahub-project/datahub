@@ -72,9 +72,14 @@ class IncrementalMixin(DataConnectionMixin):
             logger.debug(
                 f"Unable to load the last checkpoint of app {app_id}", exc_info=True
             )
-            (self._checkpoint_load_failures if failures is None else failures).append(
+            failure = (
                 f"{app_id}: unable to load the last checkpoint: {describe_error(e)}"
             )
+            if failures is None:
+                self._checkpoint_load_failures.append(failure)
+                self._checkpoint_unread_apps.add(app_id)
+            else:
+                failures.append(failure)
             return None
 
     def _usable_checkpoint(

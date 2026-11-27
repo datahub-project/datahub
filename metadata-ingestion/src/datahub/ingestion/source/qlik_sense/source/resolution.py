@@ -58,7 +58,7 @@ class SourceResolutionMixin(FileIdentityMixin):
         resolved = ResolvedSources()
         for source_qri in source_qris:
             source = self._resolve_source(source_qri, dataset_urn, own_app_id)
-            urn, unknown = source.urn, source.unknown_reason
+            urn, unknown = source.urn, source.reason_text
             if unknown and unknown not in resolved.unknown_reasons:
                 resolved.unknown_reasons.append(unknown)
             if urn and urn not in resolved.urns:
@@ -85,13 +85,14 @@ class SourceResolutionMixin(FileIdentityMixin):
                 # app's other tables are unknown.
                 return ResolvedSource(
                     urn=urn if urn != dataset_urn else None,
-                    unknown_reason=f"the tables of source app {app_id} are not known this run",
+                    unknown_reason=IncompleteLineageReason.SOURCE_APP_TABLES_UNKNOWN,
+                    app_id=app_id,
                 )
             if urn is None and app_id in self._apps_graph_tables_unresolved:
                 return ResolvedSource(
                     urn=None,
-                    unknown_reason=f"source app {app_id} has lineage graph tables matched to "
-                    "none of its tables",
+                    unknown_reason=IncompleteLineageReason.SOURCE_APP_GRAPH_TABLES_UNMATCHED,
+                    app_id=app_id,
                 )
         else:
             # Data files, and files Qlik catalogued on a data connection such

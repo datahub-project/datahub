@@ -1560,6 +1560,36 @@ def test_onprem_qrs_rejecting_the_connection_check_fails_fast(
         QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
 
 
+def _on_prem_warnings(**on_prem: object) -> List[Optional[str]]:
+    with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI"):
+        source = QlikSenseSource(
+            QlikSourceConfig.model_validate({"on_prem": {**ON_PREM, **on_prem}}),
+            PipelineContext(run_id="test-onprem"),
+        )
+    return [warning.title for warning in source.reporter.warnings]
+
+
+@pytest.mark.parametrize("read_data_model, warned", [(False, True), (True, False)])
+def test_binary_file_to_app_without_read_data_model_warns(
+    read_data_model: bool, warned: bool
+) -> None:
+    titles = _on_prem_warnings(
+        read_data_model=read_data_model,
+        binary_file_to_app={"lib://Apps/Sales.qvf": "app-1"},
+    )
+    assert ("binary_file_to_app is ignored" in titles) is warned
+
+
+@pytest.mark.parametrize("verify, warned", [(False, True), (True, False)])
+def test_server_cert_hostname_without_hostname_check_warns(
+    verify: bool, warned: bool
+) -> None:
+    titles = _on_prem_warnings(
+        server_cert_hostname="qlik.example.com", verify_server_hostname=verify
+    )
+    assert ("server_cert_hostname is not used for TLS" in titles) is warned
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api._presented_certificate")
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_onprem_logs_presented_certificate_when_tls_fails(

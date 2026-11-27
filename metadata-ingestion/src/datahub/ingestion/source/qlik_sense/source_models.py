@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set
 
 from pydantic import BaseModel, ConfigDict
 
@@ -97,8 +97,7 @@ class QvdsUnknownReason(StrEnum):
 
 
 class IncompleteLineageReason(StrEnum):
-    """Why a table's lineage is only added to this run. Reasons that name an
-    app are formatted where they arise instead."""
+    """Why a table's lineage is only added to this run."""
 
     DATASETS_UNLISTED = "the Qlik datasets could not be listed"
     DATASET_WITHOUT_QRI = "a listed Qlik dataset has no QRI to match"
@@ -113,15 +112,28 @@ class IncompleteLineageReason(StrEnum):
     RELOAD_SQL_UNREAD = "the SQL of the app's last reload could not be read"
     DATABASE_TABLE_UNLABELLED = "a database table in the lineage graph has no label"
     FIELD_NAME_UNREAD = "a source field's name was not read"
+    SOURCE_APP_TABLES_UNKNOWN = "the tables of a source app are not known this run"
+    SOURCE_APP_GRAPH_TABLES_UNMATCHED = (
+        "a source app has lineage graph tables matched to none of its tables"
+    )
 
 
 class ResolvedSource(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     urn: Optional[str]
-    # Why the source could not be told this run, if so. Reasons that name an
-    # app are text, formatted where they arise.
-    unknown_reason: Optional[Union[IncompleteLineageReason, str]]
+    # Why the source could not be told this run, if so.
+    unknown_reason: Optional[IncompleteLineageReason]
+    # The source app a reason is about, if it names one.
+    app_id: Optional[str] = None
+
+    @property
+    def reason_text(self) -> Optional[str]:
+        if self.unknown_reason is None:
+            return None
+        if self.app_id is None:
+            return self.unknown_reason.value
+        return f"{self.unknown_reason.value} ({self.app_id})"
 
 
 class PartialRead(StrEnum):

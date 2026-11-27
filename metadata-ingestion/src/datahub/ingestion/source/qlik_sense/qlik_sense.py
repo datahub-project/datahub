@@ -30,7 +30,10 @@ from datahub.ingestion.source.qlik_sense.config import (
     QlikSourceConfig,
     QlikSourceReport,
 )
-from datahub.ingestion.source.qlik_sense.constants import CHECKPOINT_TOO_LARGE_TITLE
+from datahub.ingestion.source.qlik_sense.constants import (
+    CHECKPOINT_KEEP_FAILED_TITLE,
+    CHECKPOINT_TOO_LARGE_TITLE,
+)
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import QlikBaseAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
@@ -189,13 +192,32 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
         self._fingerprint_salt = None
         self._change_check_failures = []
         self._checkpoint_load_failures = []
+        self._checkpoint_unread_apps = set()
         if config.skips_unchanged_apps() and not self._skips_unchanged_apps():
             self.reporter.warning(
                 title="skip_unchanged_apps is ignored",
                 message="Skipping unchanged apps needs stateful ingestion, so every "
                 "app is read.",
             )
+        self._warn_unused_on_prem_options()
         self.qlik_api = self._create_api(self.config)
+
+    def _warn_unused_on_prem_options(self) -> None:
+        on_prem = self.config.on_prem
+        if on_prem is None:
+            return
+        if on_prem.binary_file_to_app and not on_prem.read_data_model:
+            self.reporter.warning(
+                title="binary_file_to_app is ignored",
+                message="It needs read_data_model: the tables a BINARY load brings "
+                "in are only known from the app's data model.",
+            )
+        if on_prem.server_cert_hostname and not on_prem.verify_server_hostname:
+            self.reporter.warning(
+                title="server_cert_hostname is not used for TLS",
+                message="verify_server_hostname is false, so it is only used for "
+                "Qlik UI URLs.",
+            )
 
     @staticmethod
     def _create_api(config: QlikSourceConfig) -> QlikBaseAPI:
@@ -277,7 +299,15 @@ class QlikSenseSource(EndOfRunMixin, StatefulIngestionSourceBase, TestableSource
         if self.reporter.failures:
             # Like the stale entity removal state, a failed run keeps the last
             # read of the apps it did not reach.
-            self.app_state.keep_unrecorded_apps()
+            try:
+                self.app_state.keep_unrecorded_apps()
+            except Exception as e:
+                self.reporter.failure(
+                    title=CHECKPOINT_KEEP_FAILED_TITLE,
+                    message="The last read of apps this run did not record could "
+                    "not be kept, so the next run reads them again.",
+                    exc=e,
+                )
         if self.app_state.is_too_large():
             self.reporter.warning(
                 title=CHECKPOINT_TOO_LARGE_TITLE,
