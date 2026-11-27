@@ -631,6 +631,49 @@ def test_request_raises_after_exhausting_retries_on_persistent_503(
     assert report.api_errors == 1
 
 
+def test_request_retries_network_error_then_succeeds(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, report = _make_client()
+    outcomes: List[Any] = [requests.ConnectionError("reset"), StatusResponse(200)]
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    with mock.patch("time.sleep") as fake_sleep:
+        response = client._request("GET", "/api/projects")
+
+    assert response.status_code == 200
+    assert fake_sleep.call_count == 1
+    assert report.api_errors == 0
+
+
+def test_request_raises_after_exhausting_retries_on_network_errors(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, report = _make_client({"max_retries": 2})
+    call_count = 0
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        nonlocal call_count
+        call_count += 1
+        raise requests.Timeout("timed out")
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    with mock.patch("time.sleep"), pytest.raises(MicroStrategyAPIError) as error:
+        client._request("GET", "/api/projects")
+
+    assert call_count == 3
+    assert error.value.status_code is None
+    assert report.api_errors == 1
+
+
 def test_sql_view_and_instance_calls_use_a_single_attempt(
     monkeypatch: MonkeyPatch,
 ) -> None:
