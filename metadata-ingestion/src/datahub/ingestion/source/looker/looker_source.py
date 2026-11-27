@@ -971,6 +971,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             and explore_dataset_entity is not None
             and looker_explore is not None
             and looker_explore.project_name
+            and self._project_git_refs.get(looker_explore.project_name, unset)
+            is not None
             # shortcut: explores defined in an imported project get no link, since their
             # repo is the imported project's; resolve that project if users ask for it.
             and looker_explore.lookml_file_path

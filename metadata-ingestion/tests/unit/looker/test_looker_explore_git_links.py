@@ -448,6 +448,21 @@ def test_project_without_usable_remote_gets_no_link(
     assert client.project.call_count == 1
 
 
+def test_no_link_read_once_project_is_known_unusable(
+    looker_source_factory: SourceFactory,
+) -> None:
+    source = with_graph(
+        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True)
+    )
+    # As left by an earlier Explore of the project whose lookup failed.
+    source._project_git_refs["proj"] = None
+
+    assert link_patches(source) == []
+    graph = source.ctx.graph
+    assert isinstance(graph, mock.MagicMock)
+    graph.get_aspect.assert_not_called()
+
+
 def test_no_link_when_flag_is_off(looker_source_factory: SourceFactory) -> None:
     client = client_with(ORDERS_LINK)
     source = looker_source_factory(client)
