@@ -1,7 +1,7 @@
 import logging
 import random
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, List
+from typing import Iterable
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -159,15 +159,6 @@ def query_view_1_and_table_1(timestamp: datetime = TS_1, actor: str = ACTOR_1) -
             FieldAccess("name", TABLE_1),
         ],
     )
-
-
-def _datahub_log_records(
-    caplog: pytest.LogCaptureFixture,
-) -> List[logging.LogRecord]:
-    # caplog also captures records from threads that other tests left running,
-    # e.g. a REST sink retrying against a fake GMS host. Only DataHub's own
-    # warnings say anything about the usage extractor.
-    return [r for r in caplog.records if r.name.startswith("datahub")]
 
 
 def make_usage_workunit(
@@ -830,7 +821,7 @@ def test_usage_counts_no_query_event(
             ).as_workunit()
         ]
         compare_workunits(workunits, expected)
-        assert not _datahub_log_records(caplog)
+        assert not caplog.records
 
 
 def test_usage_counts_no_columns(
@@ -898,7 +889,7 @@ def test_usage_counts_no_columns(
             )
         ]
         compare_workunits(workunits, expected)
-        assert not _datahub_log_records(caplog)
+        assert not caplog.records
 
 
 def test_usage_counts_no_columns_and_top_n_limit_hit(
@@ -1018,7 +1009,7 @@ def test_usage_counts_no_columns_and_top_n_limit_hit(
             )
         ]
         compare_workunits(workunits, expected)
-        assert not _datahub_log_records(caplog)
+        assert not caplog.records
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

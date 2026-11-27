@@ -73,7 +73,8 @@ class TestPipeline:
                     "config": {"connection": {"bootstrap": "fake-dns-name:9092"}},
                 },
                 "sink": {"type": "console"},
-            }
+            },
+            report_to=None,
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -98,7 +99,8 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            report_to=None,
         )
         # assert that the default sink is a DatahubRestSink
         assert isinstance(pipeline.sink, DatahubRestSink)
@@ -138,7 +140,8 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            report_to=None,
         )
         assert isinstance(pipeline.sink, DatahubKafkaSink)
         assert pipeline.sink_type == "datahub-kafka"
@@ -198,7 +201,8 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            report_to=None,
         )
         assert isinstance(pipeline.sink, DatahubKafkaSink)
         pc = pipeline.sink.config.connection.producer_config
@@ -231,7 +235,8 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            report_to=None,
         )
         assert isinstance(pipeline.sink, DatahubRestSink)
         # On degrade, sink_type must reflect the sink actually built, not the
@@ -267,7 +272,8 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            report_to=None,
         )
         assert isinstance(pipeline.sink, DatahubRestSink)
         assert pipeline.sink_type == "datahub-rest"
@@ -305,7 +311,8 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            report_to=None,
         )
         assert isinstance(pipeline.sink, DatahubRestSink)
         assert pipeline.sink_type == "datahub-rest"
@@ -335,7 +342,8 @@ class TestPipeline:
                         "type": "file",
                         "config": {"path": "test_file.json"},
                     },
-                }
+                },
+                report_to=None,
             )
         assert isinstance(pipeline.sink, DatahubRestSink)
         assert pipeline.sink_type == "datahub-rest"
@@ -367,7 +375,8 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            report_to=None,
         )
         assert isinstance(pipeline.sink, DatahubRestSink)
         assert pipeline.sink_type == "datahub-rest"
@@ -419,7 +428,8 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            report_to=None,
         )
         # assert that the default sink is a DatahubRestSink
         assert isinstance(pipeline.sink, DatahubRestSink)
@@ -485,7 +495,8 @@ class TestPipeline:
                         "mode": "sync",
                     },
                 },
-            }
+            },
+            report_to=None,
         )
         # assert that the default sink config is for a DatahubRestSink
         assert isinstance(pipeline.config.sink, DynamicTypedConfig)
@@ -516,7 +527,8 @@ class TestPipeline:
                         "filename": str(tmp_path / "test.json"),
                     },
                 },
-            }
+            },
+            report_to=None,
         )
         # assert that the default sink config is for a DatahubRestSink
         assert isinstance(pipeline.config.sink, DynamicTypedConfig)
@@ -534,7 +546,8 @@ class TestPipeline:
                 ],
                 "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
                 "run_id": "pipeline_test",
-            }
+            },
+            report_to=None,
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -568,7 +581,8 @@ class TestPipeline:
                     }
                 ],
                 "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
-            }
+            },
+            report_to=None,
         )
         assert pipeline
 
@@ -686,7 +700,8 @@ sink:
                 "source": {"type": f"tests.unit.api.test_pipeline.{source}"},
                 "sink": {"type": "console"},
                 "run_id": "pipeline_test",
-            }
+            },
+            report_to=None,
         )
 
         class FakeCommittable(Committable):
@@ -731,7 +746,8 @@ sink:
                         "token": "foo",
                     },
                 },
-            }
+            },
+            report_to=None,
         )
 
         # Assert that the DataHubGraph is initialized with expected properties
@@ -776,7 +792,8 @@ sink:
                         "server": "http://datahub-gms:8080",
                         "token": "test_token",
                     },
-                }
+                },
+                report_to=None,
             )
 
             # Verify DataHubGraph was called with the correct parameters
@@ -1022,7 +1039,8 @@ class TestSinkReportTimingOnClose:
                     "sink": {
                         "type": "console"
                     },  # Use console sink to avoid network issues
-                }
+                },
+                report_to=None,
             )
 
         # Replace the sink with our realistic sink and register it with the exit_stack
