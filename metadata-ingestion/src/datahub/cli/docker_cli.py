@@ -60,22 +60,29 @@ declare_env_var(
     type=str,
     group=EnvVarGroup.DOCKER,
     default="acryldata",
-    description="Docker registry namespace quickstart pulls its images from.",
+    description=(
+        "Docker registry namespace the compose profiles pull images from. Read by the "
+        "docker/profiles stack used for development, not by `datahub docker quickstart`."
+    ),
 )
 declare_env_var(
     name="DATAHUB_ACTIONS_IMAGE",
     type=str,
     group=EnvVarGroup.DOCKER,
     default="acryldata/datahub-actions",
-    description="Image used for the quickstart actions container. Overrides the `DATAHUB_REPO` default.",
+    description=(
+        "Image for the actions container in the docker/profiles development stack, overriding "
+        "the DATAHUB_REPO default. Not read by `datahub docker quickstart`."
+    ),
 )
 declare_env_var(
     name="DATAHUB_ACTIONS_VERSION",
     type=str,
     group=EnvVarGroup.DOCKER,
     description=(
-        "Tag for the quickstart actions image. Defaults to `DATAHUB_VERSION` with a `-slim` "
-        "suffix, which omits the pyspark and deequ features."
+        "Tag for the actions image in the docker/profiles development stack. Defaults to "
+        "DATAHUB_VERSION with a -slim suffix, which omits the pyspark and deequ features. Not "
+        "read by `datahub docker quickstart`."
     ),
 )
 

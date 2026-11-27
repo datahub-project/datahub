@@ -29,14 +29,20 @@ There are two separate chains, depending on what the variable configures.
 
 **Connection settings** — where DataHub is and how to authenticate. The first one set wins:
 
-1. **An explicit CLI argument**, such as `datahub init --token <token>`
-2. **An environment variable** — `DATAHUB_GMS_URL`, `DATAHUB_GMS_TOKEN`
-3. **`~/.datahubenv`** — written by `datahub init`
+1. **A selected profile** — `--profile`, or `DATAHUB_PROFILE`. This is resolved before the
+   environment is consulted, so a selected profile beats `DATAHUB_GMS_URL`.
+2. **An explicit CLI argument**, such as `datahub init --token <token>`
+3. **A server environment variable** — `DATAHUB_GMS_URL`, or the `DATAHUB_GMS_HOST` /
+   `DATAHUB_GMS_PORT` pair
+4. **The saved connection files** — written by `datahub init`
 
-Setting `DATAHUB_GMS_URL` short-circuits the config file entirely, so a value left over from an
-old `datahub init` cannot override it. `DATAHUB_SKIP_CONFIG=true` makes that explicit: the config
-file is not read at all, and a missing environment variable becomes an error rather than a
-silent fallback.
+Two traps worth knowing. `DATAHUB_GMS_TOKEN` on its own does **not** take effect: the
+environment is only used when it supplies a server, so a token with no `DATAHUB_GMS_URL` is
+ignored and the saved file is used instead, token and all. And `DATAHUB_GMS_PORT` overrides
+`DATAHUB_GMS_URL` rather than supplementing it.
+
+`DATAHUB_SKIP_CONFIG=true` skips the saved files entirely, so a missing environment variable
+becomes an error rather than a silent fallback.
 
 **Defaults for recipe fields** — the opposite order, because the recipe is more specific:
 

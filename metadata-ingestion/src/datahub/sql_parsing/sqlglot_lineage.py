@@ -127,7 +127,11 @@ declare_env_var(
     group=EnvVarGroup.SQL,
     default=False,
     choices=["true", "1", "false", "0"],
-    description="Log the full sqlglot parse tree for every statement. Very verbose; for debugging lineage gaps.",
+    description=(
+        "Add debug logging to SQL parsing: each statement before case normalization, and how "
+        "each table name resolved to a schema. Requires debug logging to be on to be visible. "
+        "Very verbose; for diagnosing why lineage is missing."
+    ),
 )
 
 assert SQLGLOT_PATCHED

@@ -111,7 +111,9 @@ declare_env_var(
     description=(
         "Path to a PEM file holding the client certificate to present when GMS sits behind a "
         "proxy that requires mutual TLS. May be a combined cert+key PEM when "
-        "DATAHUB_CLIENT_KEY_PATH is unset. Applies to all outbound HTTPS from the CLI and SDK."
+        "DATAHUB_CLIENT_KEY_PATH is unset. It is applied to the HTTP session the REST emitter "
+        "and DataHubGraph clients use, so it covers calls to GMS -- not connections a "
+        "connector makes to its own source, nor Kafka."
     ),
 )
 declare_env_var(

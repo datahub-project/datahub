@@ -333,6 +333,11 @@ def test_known_risk_caveats_are_not_lost():
             missing.append(f"{name}: no longer declared")
         elif needle.lower() not in spec.description.lower():
             missing.append(f"{name}: description no longer mentions {needle!r}")
+        elif not spec.risky:
+            missing.append(
+                f"{name}: carries a caveat but is no longer marked risky, so the page shows "
+                "no warning against it"
+            )
     assert not missing, (
         "Risk caveats dropped from the reference page:\n"
         + "\n".join(f"  {m}" for m in missing)

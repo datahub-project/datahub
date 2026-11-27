@@ -74,8 +74,12 @@ def scan_tree(root: pathlib.Path, package: str = "datahub") -> ScanResult:
     for path in sorted(root.rglob("*.py")):
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
-        except (SyntaxError, UnicodeDecodeError):
-            continue
+        except (SyntaxError, UnicodeDecodeError) as exc:
+            # Skipping silently would quietly shrink the completeness check: a file that
+            # cannot be parsed is a file whose env var reads nobody is checking.
+            raise RuntimeError(
+                f"Could not parse {path} while scanning for env vars"
+            ) from exc
 
         rel = path.relative_to(root.parent)
         module = ".".join(rel.with_suffix("").parts)

@@ -1320,7 +1320,11 @@ def get_mapped_elastic_port() -> Optional[str]:
     group=EnvVarGroup.DOCKER,
     default="false",
     choices=["true", "false"],
-    description="Enable/disable auth in Docker.",
+    description=(
+        "Whether the Metadata Service requires authentication. `datahub docker quickstart` "
+        "overwrites it with false on every run, so setting it has no effect there -- it "
+        "matters only for a compose stack you drive yourself."
+    ),
 )
 def get_metadata_service_auth_enabled() -> str:
     return os.getenv("METADATA_SERVICE_AUTH_ENABLED", "false")
