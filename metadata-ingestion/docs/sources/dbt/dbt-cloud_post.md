@@ -6,7 +6,7 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
-Semantic models and the `metrics:` block are ingested from dbt Cloud. Measures with `create_metric: true` are also emitted as metrics.
+Semantic models and the `metrics:` block are ingested from dbt Cloud. Measures with `create_metric: true` are also emitted as metrics. They are read from one environment: `environment_id` if set, otherwise the production environment found by auto-discovery, otherwise the environment most of the ingested job runs belong to.
 
 ### Troubleshooting
 

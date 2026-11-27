@@ -23,7 +23,6 @@ from datahub.ingestion.source.dbt.dbt_core import (
 )
 from datahub.ingestion.source.dbt.dbt_semantic_model import (
     DbtSemanticModelMapper,
-    _MeasureIndex,
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
@@ -992,6 +991,9 @@ def test_metric_filter_is_folded_into_the_expression():
         _expression_of(info[big].expression).expression
         == "sum(orders.order_total) FILTER (WHERE amount > 100)"
     )
+    # A filter in neither the string nor the where_filters shape is not read.
+    assert parse_dbt_metric_filter({"unexpected": True}) is None
+    assert parse_dbt_metric_filter(None) is None
 
 
 def test_two_predicates_are_parenthesised_so_or_keeps_its_scope():
@@ -1546,51 +1548,3 @@ def test_an_author_written_expr_keeps_the_accumulation_note():
     assert _expression_of(info.expression).expression == (
         "order_count * 2 /* cumulative over 7 day */"
     )
-
-
-def test_a_metric_filter_in_dbt_cloud_object_shape_reaches_the_expression():
-    # dbt Cloud's Discovery API returns a metric filter as an object, not a string.
-    filter_sql = parse_dbt_metric_filter(
-        {
-            "where_filters": [
-                {
-                    "where_sql_template": "{{ Dimension('customer_week__is_onboarded_in_week') }} = true"
-                }
-            ]
-        }
-    )
-    metric = DBTMetric(
-        name="weekly_ai_context_queries",
-        unique_id="metric.weekly_ai_context_queries",
-        type="simple",
-        expr="ai_context_queries",
-        filter=filter_sql,
-    )
-    mapper = _mapper()
-    expression = mapper._metric_definition_expression(metric, _MeasureIndex())
-
-    assert expression is not None
-    assert expression.expression == (
-        "ai_context_queries /* filtered: "
-        "{{ Dimension('customer_week__is_onboarded_in_week') }} = true */"
-    )
-
-
-def test_parse_dbt_metric_filter_keeps_the_predicates_of_each_where_filter_together():
-    assert parse_dbt_metric_filter("a = 1") == "a = 1"
-    assert (
-        parse_dbt_metric_filter({"where_filters": [{"where_sql_template": "a"}]}) == "a"
-    )
-    assert (
-        parse_dbt_metric_filter(
-            {
-                "where_filters": [
-                    {"where_sql_template": "a OR b"},
-                    {"where_sql_template": "c"},
-                ]
-            }
-        )
-        == "(a OR b) AND (c)"
-    )
-    assert parse_dbt_metric_filter({"unexpected": True}) is None
-    assert parse_dbt_metric_filter(None) is None

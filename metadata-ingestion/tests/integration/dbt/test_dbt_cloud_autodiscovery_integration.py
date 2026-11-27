@@ -24,6 +24,7 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
     DBTCloudEnvironment,
     DBTCloudJob,
 )
+from datahub.ingestion.source.dbt.dbt_semantic_model import DbtSemanticModelMapper
 
 
 @pytest.fixture
@@ -104,7 +105,14 @@ def mock_graphql_response() -> Dict[str, Any]:
                                         "description": "",
                                         "expr": "*",
                                         "createMetric": False,
-                                    }
+                                    },
+                                    {
+                                        "name": "order_count",
+                                        "agg": "count",
+                                        "description": "",
+                                        "expr": "id",
+                                        "createMetric": True,
+                                    },
                                 ],
                             }
                         }
@@ -140,7 +148,39 @@ def mock_graphql_response() -> Dict[str, Any]:
                                     }
                                 ],
                             }
-                        }
+                        },
+                        {
+                            # dbt's echo of the create_metric measure, as current
+                            # dbt versions return it: no measure, no formula, and
+                            # the aggregation in metric_aggregation_params.
+                            "node": {
+                                "uniqueId": "metric.test_project.order_count",
+                                "name": "order_count",
+                                "packageName": "test_project",
+                                "label": "order_count",
+                                "description": "",
+                                "type": "SIMPLE",
+                                "typeParams": {
+                                    "measure": None,
+                                    "expr": "id",
+                                    "metric_aggregation_params": {
+                                        "semantic_model": "test_metrics",
+                                        "agg": "count",
+                                        "expr": "id",
+                                    },
+                                },
+                                "formula": None,
+                                "filter": None,
+                                "meta": {},
+                                "tags": [],
+                                "parents": [
+                                    {
+                                        "name": "test_metrics",
+                                        "resourceType": "semantic_model",
+                                    }
+                                ],
+                            }
+                        },
                     ],
                     "pageInfo": {"hasNextPage": False, "endCursor": None},
                 },
@@ -299,7 +339,10 @@ class TestAutoDiscoveryEndToEnd:
         # Verify semantic models were parsed correctly
         semantic_models = [n for n in nodes if n.node_type == "semantic_model"]
         assert len(semantic_models) == 1
-        assert len(project.metrics.metrics) == 1
+        assert [m.name for m in project.metrics.metrics] == [
+            "revenue",
+            "order_count",
+        ]
         assert project.metrics.metrics[0].name == "revenue"
         assert project.metrics.metrics[0].label == "Revenue (Booked)"
         assert project.metrics.metrics[0].type == "simple"
@@ -309,6 +352,17 @@ class TestAutoDiscoveryEndToEnd:
         assert [m.name for m in project.metrics.metrics[0].measures] == ["revenue"]
         assert project.metrics.metrics[0].depends_on == [
             "semantic_model.test_project.test_metrics"
+        ]
+        # The create_metric echo is pointed at its measure, so it renders the
+        # measure's aggregation and is not reported as shadowing the measure.
+        echo = project.metrics.metrics[1]
+        assert [m.name for m in echo.measures] == ["order_count"]
+        assert echo.expr is None
+        assert DbtSemanticModelMapper._is_dbt_generated_measure_metric(echo)
+        assert not [
+            warning
+            for warning in source.report.warnings
+            if warning.title and "metric" in warning.title.lower()
         ]
 
         for sm in semantic_models:
