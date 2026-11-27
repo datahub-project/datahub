@@ -25,6 +25,7 @@ from datahub.configuration.env_var_registry import (
     EnvVarAudience,
     EnvVarGroup,
     EnvVarSpec,
+    get_conflicts,
     get_registry,
 )
 
@@ -173,6 +174,14 @@ def load_declaring_modules(verbose: bool) -> List[str]:
             failed.append(f"{module}: {exc}")
             if verbose:
                 click.echo(f"  ! could not import {module}: {exc}", err=True)
+
+    conflicts = get_conflicts()
+    if conflicts:
+        raise click.ClickException(
+            "The same variable is declared twice with different metadata, so the page would "
+            "show whichever module imported first:\n"
+            + "\n".join(f"  {name}" for name in sorted(conflicts))
+        )
 
     missing = sorted(
         set(scan.declared) - {s.name for s in get_registry(include_undocumented=True)}
