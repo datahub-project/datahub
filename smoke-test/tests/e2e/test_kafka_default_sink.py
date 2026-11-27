@@ -12,6 +12,7 @@ from tests.e2e.utils import (
     get_kafka_schema_registry,
     unique_dataset_urn,
 )
+from utilities.backends import Capability
 from utilities.consistency_utils import wait_for_writes_to_sync
 from utilities.domains import Domain
 from utilities.messaging_transport import (
@@ -88,7 +89,14 @@ def _create_default_sink_pipeline(auth_session, monkeypatch, default_sink, data_
 @pytest.mark.p0
 @pytest.mark.parametrize(
     "default_sink,expected_sink_type",
-    [("rest", "datahub-rest"), ("kafka", "datahub-kafka")],
+    [
+        ("rest", "datahub-rest"),
+        pytest.param(
+            "kafka",
+            "datahub-kafka",
+            marks=pytest.mark.requires(Capability.KAFKA),
+        ),
+    ],
 )
 def test_default_sink_ingests_end_to_end(
     auth_session,
@@ -129,6 +137,7 @@ def test_default_sink_ingests_end_to_end(
     assert graph_client.exists(dataset_urn)
 
 
+@pytest.mark.requires(Capability.SQL_DB)
 def test_pgqueue_sink_ingests_end_to_end(auth_session, graph_client, sample_dataset):
     """On pgQueue stacks (no Kafka broker), exercise the same file recipe over
     the explicit datahub-pg-queue sink so async transport + GMS landing is still

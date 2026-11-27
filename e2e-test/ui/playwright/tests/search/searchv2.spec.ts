@@ -8,6 +8,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
 import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'search' });
 
@@ -20,23 +21,23 @@ test.describe('SearchV2 Features', () => {
     await searchPage.navigateToHome();
   });
 
-  test('should display SearchV2 interface by default', async () => {
+  test('should display SearchV2 interface by default', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('*');
     await searchPage.expectFiltersV2Visible();
     await searchPage.expectFiltersV1NotVisible();
   });
 
-  test('should perform autocomplete search', async () => {
+  test('should perform autocomplete search', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.searchInput.fill('playwright');
     await expect(searchPage.autocompleteDropdown).toBeVisible();
   });
 
-  test('should show no results message when search returns empty', async () => {
+  test('should show no results message when search returns empty', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('zzznonexistentqueryyy');
     await searchPage.expectNoResults();
   });
 
-  test('should clear search input using clear button', async () => {
+  test('should clear search input using clear button', { tag: [DomainTag.Catalog] }, async () => {
     // Click to focus first — the clear button only renders when the input is focused
     await searchPage.searchInput.click();
     await searchPage.searchInput.fill('test query');
@@ -45,7 +46,7 @@ test.describe('SearchV2 Features', () => {
     await expect(searchPage.searchInput).toHaveValue('');
   });
 
-  test('should navigate through filter dropdowns', async ({ page }) => {
+  test('should navigate through filter dropdowns', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await searchPage.search('*');
     const typeFilterDropdown = page.getByTestId('filter-dropdown-Type');
     await typeFilterDropdown.click();
@@ -53,14 +54,14 @@ test.describe('SearchV2 Features', () => {
     await expect(searchPage.filterOptions.first()).toBeVisible();
   });
 
-  test('should toggle filters using More Filters dropdown', async () => {
+  test('should toggle filters using More Filters dropdown', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('*');
     await expect(searchPage.moreFiltersDropdown).toBeVisible({ timeout: 10000 });
     // Fails unless at least one more-filter option becomes visible
     await searchPage.openMoreFilters();
   });
 
-  test('should display active filters with correct test IDs', async ({ page }) => {
+  test('should display active filters with correct test IDs', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Datasets');
     const activeFilter = page.getByTestId('active-filter-_entityType␞typeNames');
@@ -69,7 +70,7 @@ test.describe('SearchV2 Features', () => {
     await expect(activeFilterValue).toBeVisible();
   });
 
-  test('should remove individual filters using remove button', async ({ page }) => {
+  test('should remove individual filters using remove button', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Datasets');
     await searchPage.selectFilterOption('Platform', 'Hive');
@@ -82,7 +83,7 @@ test.describe('SearchV2 Features', () => {
     await searchPage.expectActiveFilter('Hive');
   });
 
-  test('should clear all filters using Clear All button', async () => {
+  test('should clear all filters using Clear All button', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Datasets');
     await searchPage.selectFilterOption('Platform', 'Hive');
@@ -93,12 +94,12 @@ test.describe('SearchV2 Features', () => {
     await searchPage.expectActiveFilterNotVisible('Hive');
   });
 
-  test('should persist search query in URL', async ({ page }) => {
+  test('should persist search query in URL', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await searchPage.search('playwright');
     await expect(page).toHaveURL(/.*query=playwright.*/);
   });
 
-  test('should expand and collapse filter facets', async ({ page }) => {
+  test('should expand and collapse filter facets', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await searchPage.search('*');
     // eslint-disable-next-line playwright/no-raw-locators -- data-testid prefix selector (^=); getByTestId requires exact match
     const expandFacetIcon = page.locator('[data-testid^="expand-facet-"]').first();
@@ -109,7 +110,7 @@ test.describe('SearchV2 Features', () => {
     }
   });
 
-  test('should display search results with pagination', async ({ page }) => {
+  test('should display search results with pagination', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await searchPage.search('*');
     await searchPage.expectHasResults();
     await searchPage.expectPaginationVisible();
@@ -117,28 +118,32 @@ test.describe('SearchV2 Features', () => {
     await expect(page.getByText(/of [0-9][0-9,.]*\+? result/)).toBeVisible();
   });
 
-  test('should handle filter option selection with checkboxes', async () => {
+  test('should handle filter option selection with checkboxes', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Datasets');
     await searchPage.expectActiveFilter('Datasets');
     await searchPage.expectUrlContains('filter__entityType');
   });
 
-  test('should filter search within filter dropdown', async () => {
+  test('should filter search within filter dropdown', { tag: [DomainTag.Catalog] }, async () => {
     await searchPage.search('*');
     await searchPage.selectFilterOption('Platform', 'Hive');
     await searchPage.expectActiveFilter('Hive');
   });
 
-  test('should maintain search state when clicking entity result and navigating back', async ({ page }) => {
-    await searchPage.search('playwright');
-    await searchPage.selectFilterOption('Type', 'Datasets');
-    const searchUrl = page.url();
-    await searchPage.clickEntityResult();
-    await page.waitForLoadState('networkidle');
-    await page.goBack();
-    await page.waitForLoadState('networkidle');
-    await expect(page).toHaveURL(searchUrl);
-    await searchPage.expectActiveFilter('Datasets');
-  });
+  test(
+    'should maintain search state when clicking entity result and navigating back',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await searchPage.search('playwright');
+      await searchPage.selectFilterOption('Type', 'Datasets');
+      const searchUrl = page.url();
+      await searchPage.clickEntityResult();
+      await page.waitForLoadState('networkidle');
+      await page.goBack();
+      await page.waitForLoadState('networkidle');
+      await expect(page).toHaveURL(searchUrl);
+      await searchPage.expectActiveFilter('Datasets');
+    },
+  );
 });

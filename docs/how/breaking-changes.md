@@ -15,6 +15,17 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### `tags_to_term` transformer matches full tag names and maps column tags to columns
+
+The `tags_to_term` ingestion transformer has changed in four ways ([PR #21479](https://github.com/datahub-project/datahub/pull/21479)):
+
+- **Tags must be configured by their full name.** Before, the transformer matched only part of a tag's name: the text after the last `.` and before the first `:`. A tag such as `pii.email` matched a configured `email`, and `sensitivity:high` matched `sensitivity`. Now `tags` must list the name exactly as it appears after `urn:li:tag:`, for example `pii.email` or `sensitivity:high`.
+- **Terms take the full tag name.** The tag `pii.email` now becomes the term `pii.email`, not `email`. Terms added under the old short names are not removed automatically.
+- **Column tags become column terms.** Before, a tag on a column added the term to the whole dataset and left the tag on the column. Now the term is added to that column and the tag is removed from it. Terms already set in the same ingestion run, for example by dbt `meta_mapping`, are no longer dropped.
+- **Column tags are mapped only when the source emits the schema.** Column tags are now read from the `schemaMetadata` the source sends in the same run, not from DataHub. A run that does not emit a table's schema no longer maps that table's column tags.
+
+To update a recipe, replace each short name in `tags` with the tag's full name. For example, for the Snowflake tag `urn:li:tag:snowflakedb.snowflakeschema.tag_name:tag_value`, change `tag_name` to `snowflakedb.snowflakeschema.tag_name:tag_value`.
+
 ### Domain and glossary child listings are paged, and totals no longer hide restricted children
 
 The GraphQL `relationships` field for `IsPartOf` (the children of a domain, glossary term group or glossary term) now pages its results and limits the work it does per request, whether or not search access controls are enabled:

@@ -111,6 +111,8 @@ celerybeat.pid
 env/
 venv/
 ENV/
+# The smoke job's env layer (--job smoke-test), not a virtualenv.
+!/env/
 env.bak/
 venv.bak/
 

@@ -24,11 +24,15 @@ from datahub.configuration.env_vars import (
     get_sentry_environment,
     get_telemetry_timeout,
 )
+from datahub.masking.masking_filter import SecretMaskingFilter
+from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import _custom_package_path
 from datahub.utilities.caller_context import identify_caller
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
+    from sentry_sdk.types import Event, Hint
+
     from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
@@ -111,6 +115,29 @@ MIXPANEL_ENDPOINT = "track.datahubproject.io/mp"
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 SENTRY_DSN: Optional[str] = get_sentry_dsn()
 SENTRY_ENVIRONMENT: str = get_sentry_environment()
+
+
+def _mask_sentry_event(event: "Event", hint: "Hint") -> Optional["Event"]:
+    """Mask registered secrets in a Sentry event; drop it while masking fails closed."""
+    registry = SecretRegistry.get_instance()
+    if registry.suppression_message() is not None:
+        return None
+    return SecretMaskingFilter(registry).mask_structure(event)
+
+
+def _init_sentry() -> None:
+    # sentry_sdk is imported only when Sentry is enabled.
+    import sentry_sdk
+    from sentry_sdk.scope import add_global_event_processor
+
+    add_global_event_processor(_mask_sentry_event)
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=SENTRY_ENVIRONMENT,
+        release=__version__,
+        include_local_variables=False,
+        before_send=_mask_sentry_event,
+    )
 
 
 def _default_global_properties() -> Dict[str, Any]:
@@ -225,13 +252,7 @@ class Telemetry:
         if SENTRY_DSN:
             self.sentry_enabled = True
             try:
-                import sentry_sdk
-
-                sentry_sdk.init(
-                    dsn=SENTRY_DSN,
-                    environment=SENTRY_ENVIRONMENT,
-                    release=__version__,
-                )
+                _init_sentry()
             except Exception as e:
                 # We need to print initialization errors to stderr, since logger is not initialized yet
                 print(f"Error initializing Sentry: {e}", file=sys.stderr)

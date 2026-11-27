@@ -61,7 +61,7 @@ test.describe('lineage graph filters', () => {
       await lineagePage.checkEdgeExists(MODEL_DBT_URN, MART_URN);
     });
 
-    test('keeps drawing column lineage through the hidden transformation', async () => {
+    test('keeps drawing column lineage through the hidden transformation', { tag: [DomainTag.Catalog] }, async () => {
       await openLineageAndExpandColumns(RAW_URN);
 
       // With the model shown, the column path is drawn in two hops, through it
@@ -88,35 +88,43 @@ test.describe('lineage graph filters', () => {
   });
 
   test.describe('show hidden edges', () => {
-    test('keeps a soft-deleted downstream off the graph until the toggle puts it back', async () => {
-      await lineagePage.navigateToDatasetLineage(GHOST_SRC_URN);
-      await lineagePage.waitForGraphToRender();
-      await lineagePage.checkNodeExists(GHOST_SRC_URN);
-      await lineagePage.checkNodeNotExists(GHOST_DST_URN);
+    test(
+      'keeps a soft-deleted downstream off the graph until the toggle puts it back',
+      { tag: [DomainTag.Catalog] },
+      async () => {
+        await lineagePage.navigateToDatasetLineage(GHOST_SRC_URN);
+        await lineagePage.waitForGraphToRender();
+        await lineagePage.checkNodeExists(GHOST_SRC_URN);
+        await lineagePage.checkNodeNotExists(GHOST_DST_URN);
 
-      await lineagePage.setFilter('show-ghost-entities', true);
-      await lineagePage.checkNodeExists(GHOST_DST_URN);
-      await lineagePage.checkEdgeExists(GHOST_SRC_URN, GHOST_DST_URN);
+        await lineagePage.setFilter('show-ghost-entities', true);
+        await lineagePage.checkNodeExists(GHOST_DST_URN);
+        await lineagePage.checkEdgeExists(GHOST_SRC_URN, GHOST_DST_URN);
 
-      await lineagePage.setFilter('show-ghost-entities', false);
-      await lineagePage.checkNodeNotExists(GHOST_DST_URN);
-    });
+        await lineagePage.setFilter('show-ghost-entities', false);
+        await lineagePage.checkNodeNotExists(GHOST_DST_URN);
+      },
+    );
 
-    test('draws column lineage into a soft-deleted downstream once it is shown', async () => {
-      await lineagePage.navigateToDatasetLineage(GHOST_SRC_URN);
-      await lineagePage.waitForGraphToRender();
-      await lineagePage.setFilter('show-ghost-entities', true);
-      await lineagePage.checkNodeExists(GHOST_DST_URN);
+    test(
+      'draws column lineage into a soft-deleted downstream once it is shown',
+      { tag: [DomainTag.Catalog] },
+      async () => {
+        await lineagePage.navigateToDatasetLineage(GHOST_SRC_URN);
+        await lineagePage.waitForGraphToRender();
+        await lineagePage.setFilter('show-ghost-entities', true);
+        await lineagePage.checkNodeExists(GHOST_DST_URN);
 
-      await lineagePage.page.addStyleTag({ content: '.react-flow__minimap { pointer-events: none !important; }' });
-      await lineagePage.expandContractColumns(GHOST_SRC_URN);
-      await lineagePage.waitForViewportToSettle();
+        await lineagePage.page.addStyleTag({ content: '.react-flow__minimap { pointer-events: none !important; }' });
+        await lineagePage.expandContractColumns(GHOST_SRC_URN);
+        await lineagePage.waitForViewportToSettle();
 
-      const ghostEdge = lineagePage.getColumnEdge(GHOST_SRC_URN, 'value', GHOST_DST_URN, 'value');
-      await expect(async () => {
-        await lineagePage.hoverColumn(GHOST_SRC_URN, 'value');
-        await expect(ghostEdge).toBeAttached({ timeout: TIMEOUTS.SHORT });
-      }).toPass({ timeout: TIMEOUTS.EXTRA_LONG });
-    });
+        const ghostEdge = lineagePage.getColumnEdge(GHOST_SRC_URN, 'value', GHOST_DST_URN, 'value');
+        await expect(async () => {
+          await lineagePage.hoverColumn(GHOST_SRC_URN, 'value');
+          await expect(ghostEdge).toBeAttached({ timeout: TIMEOUTS.SHORT });
+        }).toPass({ timeout: TIMEOUTS.EXTRA_LONG });
+      },
+    );
   });
 });

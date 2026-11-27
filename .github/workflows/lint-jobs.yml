@@ -301,6 +301,9 @@ jobs:
       - name: Check p0 test dependencies
         run: python ./.github/scripts/check_p0_dependencies.py
 
+      - name: Check smoke test backend markers
+        run: python ./.github/scripts/check_backend_markers.py
+
       # Restore-only: this workflow is pull_request-only, so a save here would be
       # ref-scoped to the PR and never shared. The entry is written by
       # ci-cache-warmup.yml (push to master) on both cache backends under this exact key.
@@ -517,6 +520,13 @@ jobs:
       - name: Install dependencies
         working-directory: e2e-test/ui/playwright
         run: yarn install --frozen-lockfile
+      # Every test must carry a DomainTag. Playwright's own listing (no browser, no
+      # server) sees tests declared in loops too, which a static scan cannot.
+      - name: Check every Playwright test has a domain tag
+        working-directory: e2e-test/ui/playwright
+        run: |
+          npx playwright test --list --reporter=json > "$RUNNER_TEMP/playwright-list.json"
+          python3 ../../../.github/scripts/check_playwright_p0.py --playwright-list "$RUNNER_TEMP/playwright-list.json"
       - name: Prettier format check
         working-directory: e2e-test/ui/playwright
         run: yarn format:check

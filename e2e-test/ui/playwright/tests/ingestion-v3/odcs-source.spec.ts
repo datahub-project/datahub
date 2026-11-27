@@ -39,19 +39,23 @@ test.describe('odcs ingestion source', () => {
     },
   );
 
-  test('accepts a remote object-store URI as the path', async ({ page, logger, logDir }) => {
-    const odcs = new OdcsSource(page, logger, logDir);
+  test(
+    'accepts a remote object-store URI as the path',
+    { tag: [DomainTag.Ingestion] },
+    async ({ page, logger, logDir }) => {
+      const odcs = new OdcsSource(page, logger, logDir);
 
-    await ingestionPage.sourcesTab.openCreateSourceModal();
-    await ingestionPage.sourcesTab.selectSourceType('Open Data Contract Standard');
+      await ingestionPage.sourcesTab.openCreateSourceModal();
+      await ingestionPage.sourcesTab.selectSourceType('Open Data Contract Standard');
 
-    // The Path field now documents and accepts remote sources; an s3:// glob must
-    // survive into the generated recipe unchanged. yamljs single-quotes scalars
-    // containing YAML-special characters (the `:` and `*` here), so the recipe
-    // renders the value quoted.
-    await odcs.fillPath('s3://my-bucket/contracts/*.odcs.yaml');
-    await odcs.expectYamlRecipe(['type: odcs', "path: 's3://my-bucket/contracts/*.odcs.yaml'"]);
+      // The Path field now documents and accepts remote sources; an s3:// glob must
+      // survive into the generated recipe unchanged. yamljs single-quotes scalars
+      // containing YAML-special characters (the `:` and `*` here), so the recipe
+      // renders the value quoted.
+      await odcs.fillPath('s3://my-bucket/contracts/*.odcs.yaml');
+      await odcs.expectYamlRecipe(['type: odcs', "path: 's3://my-bucket/contracts/*.odcs.yaml'"]);
 
-    await ingestionPage.sourcesTab.cancelCreateSourceModal();
-  });
+      await ingestionPage.sourcesTab.cancelCreateSourceModal();
+    },
+  );
 });

@@ -42,6 +42,7 @@ from tests.e2e.utils import (
     get_gms_url,
     login_as,
 )
+from utilities.backends import Capability
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
@@ -205,6 +206,7 @@ def test_graphql_endpoint_valid_token(auth_session):
     logger.info(f"✅ GraphQL with valid session: {response.status_code}")
 
 
+@pytest.mark.requires(Capability.PLAY_FRONTEND)
 def test_graphql_endpoint_via_frontend_uses_gzip(auth_session):
     """GraphQL via frontend proxy should return gzip-compressed responses (GzipFilter)."""
     query = {"query": "{ me { corpUser { username } } }"}
@@ -435,6 +437,7 @@ def test_malformed_auth_headers(auth_header: str) -> None:
     )
 
 
+@pytest.mark.requires(Capability.PLAY_FRONTEND)
 def test_api_token_authentication(auth_session: TestSessionWrapper) -> None:
     """Test API token-based authentication behavior.
 
@@ -481,6 +484,7 @@ def test_api_token_authentication(auth_session: TestSessionWrapper) -> None:
             revoke_api_token(auth_session, token_id)
 
 
+@pytest.mark.requires(Capability.PLAY_FRONTEND)
 def test_session_vs_token_authentication(auth_session: TestSessionWrapper) -> None:
     """Test the different authentication methods work as designed.
 

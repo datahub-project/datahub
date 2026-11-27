@@ -97,7 +97,7 @@ test.describe('impact analysis', () => {
     });
   });
 
-  test('can see 1 hop of lineage by default', async () => {
+  test('can see 1 hop of lineage by default', { tag: [DomainTag.Catalog] }, async () => {
     await lineagePage.goToDatasetLineage(DATASET_URN, DATASET_NAME);
 
     // Multi-hop datasets should not be visible at 1-hop depth
@@ -115,7 +115,7 @@ test.describe('impact analysis', () => {
     await lineagePage.expectResultTextVisible(UI_TEXT.USER_DELETIONS, TIMEOUTS.LONG);
   });
 
-  test('can filter the lineage results', async () => {
+  test('can filter the lineage results', { tag: [DomainTag.Catalog] }, async () => {
     await lineagePage.goToDatasetLineage(DATASET_URN, DATASET_NAME);
 
     await lineagePage.clickImpactAnalysis();
@@ -155,7 +155,7 @@ test.describe('impact analysis', () => {
     },
   );
 
-  test('can filter lineage edges by time', async ({ page }) => {
+  test('can filter lineage edges by time', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     // The absence checks below pass vacuously before results load, so wait for the
     // time-bounded lineage response first. Registered before goto: the list view may
     // request it on load.
@@ -187,7 +187,7 @@ test.describe('impact analysis', () => {
   // matched by URN: the text "transactions" is on the page before any lineage response arrives.
   // user_profile comes in the same upstream response as transactions, so the absence check runs
   // only after the transactions node is rendered.
-  test('can see when the inputs to a data job change', async () => {
+  test('can see when the inputs to a data job change', { tag: [DomainTag.Catalog] }, async () => {
     test.setTimeout(90000);
 
     // Between 14 days ago and 7 days ago, only transactions was an input
@@ -216,7 +216,7 @@ test.describe('impact analysis', () => {
   // The Impact Analysis list in the main Lineage tab (lineageView=impact) also applies the time range.
   // Each absence check follows a visible check on an entity from the same response; without it the
   // check passes against a list still loading.
-  test('can see when a data job is replaced', async ({ page }) => {
+  test('can see when a data job is replaced', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     // Between 14 days ago and 7 days ago, temperature_etl_1 is the input
     await page.goto(
       `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&lineageView=impact&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
@@ -236,7 +236,7 @@ test.describe('impact analysis', () => {
 
   // The sidebar Lineage tab lists direct lineage for the default time range and ignores
   // start_time_millis/end_time_millis by design, so this test sets no time range.
-  test('can see data job lineage in the sidebar', async ({ page }) => {
+  test('can see data job lineage in the sidebar', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await page.goto(`/tasks/${TRANSACTION_ETL_URN}`);
     await lineagePage.clickSidebarLineageTab();
 
@@ -249,27 +249,35 @@ test.describe('impact analysis', () => {
     await lineagePage.expectSidebarLineageResultAbsent(AGGREGATED_URN);
   });
 
-  test('editing upstream lineage will redirect to visual view with edit modal open', async ({ page }) => {
-    await page.goto(`/dataset/${DATASET_URN}/Lineage?is_lineage_mode=false&lineageView=impact`);
-    await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+  test(
+    'editing upstream lineage will redirect to visual view with edit modal open',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await page.goto(`/dataset/${DATASET_URN}/Lineage?is_lineage_mode=false&lineageView=impact`);
+      await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
 
-    await lineagePage.expectResultTextVisible(DATASET_NAME, TIMEOUTS.LONG);
+      await lineagePage.expectResultTextVisible(DATASET_NAME, TIMEOUTS.LONG);
 
-    await lineagePage.clickLineageEditMenuButton();
-    await lineagePage.clickEditUpstreamLineage();
+      await lineagePage.clickLineageEditMenuButton();
+      await lineagePage.clickEditUpstreamLineage();
 
-    await lineagePage.expectResultTextVisible(`Select the Upstreams to add to ${DATASET_NAME}`, TIMEOUTS.MEDIUM);
-  });
+      await lineagePage.expectResultTextVisible(`Select the Upstreams to add to ${DATASET_NAME}`, TIMEOUTS.MEDIUM);
+    },
+  );
 
-  test('editing downstream lineage will redirect to visual view with edit modal open', async ({ page }) => {
-    await page.goto(`/dataset/${DATASET_URN}/Lineage?is_lineage_mode=false&lineageView=impact`);
-    await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+  test(
+    'editing downstream lineage will redirect to visual view with edit modal open',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await page.goto(`/dataset/${DATASET_URN}/Lineage?is_lineage_mode=false&lineageView=impact`);
+      await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
 
-    await lineagePage.expectResultTextVisible(DATASET_NAME, TIMEOUTS.LONG);
+      await lineagePage.expectResultTextVisible(DATASET_NAME, TIMEOUTS.LONG);
 
-    await lineagePage.clickLineageEditMenuButton();
-    await lineagePage.clickEditDownstreamLineage();
+      await lineagePage.clickLineageEditMenuButton();
+      await lineagePage.clickEditDownstreamLineage();
 
-    await lineagePage.expectResultTextVisible(`Select the Downstreams to add to ${DATASET_NAME}`, TIMEOUTS.MEDIUM);
-  });
+      await lineagePage.expectResultTextVisible(`Select the Downstreams to add to ${DATASET_NAME}`, TIMEOUTS.MEDIUM);
+    },
+  );
 });
