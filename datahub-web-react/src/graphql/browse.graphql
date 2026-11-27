@@ -1,9 +1,3 @@
-query getBrowsePaths($input: BrowsePathsInput!) {
-    browsePaths(input: $input) {
-        path
-    }
-}
-
 query getBrowseResults($input: BrowseInput!) {
     browse(input: $input) {
         entities {
