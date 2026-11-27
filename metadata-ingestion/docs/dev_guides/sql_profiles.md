@@ -154,7 +154,7 @@ The error reaches further than `rowCount`. `nullCount` is `rowCount` minus an ex
 The estimate is approximate by design, not only when it is stale:
 
 - **MySQL.** For InnoDB, `TABLE_ROWS` is a sampled estimate that MySQL documents as varying from the true count by up to 40–50%. On 8.0 and later it is additionally served from a cache refreshed by `ANALYZE TABLE` or after `information_schema_stats_expiry` (24 hours by default), so a table that has grown since also under-reports. Views report `TABLE_ROWS` as `0` or `NULL`.
-- **Postgres.** On 14 and later, `reltuples` is `-1` for a table that has never been analyzed, and stays `-1` for a partitioned parent until someone runs `ANALYZE` on the parent, because autovacuum does not. That `-1` is carried through as `rowCount`. On 13 and earlier the sentinel is `0`, which is indistinguishable from an empty table.
+- **Postgres.** On 14 and later, `reltuples` is `-1` for a table that has never been analyzed, and stays `-1` for a partitioned parent until someone runs `ANALYZE` on the parent, because autovacuum does not. That `-1` means unknown, so it is reported like a failed lookup, as `0`. On 13 and earlier the sentinel is `0` itself, which is indistinguishable from an empty table.
 - **Redshift.** `tbl_rows` counts rows deleted but not yet vacuumed, so it over-reports after deletes. `SVV_TABLE_INFO` is also visible only to superusers unless you grant it: without `GRANT SELECT ON SVV_TABLE_INFO TO <user>`, the profiling user sees no rows and **every table reads as 0**, which clamps every column's `nullCount` to zero.
 - A lookup that fails, or that finds no row, is reported as `0`.
 
