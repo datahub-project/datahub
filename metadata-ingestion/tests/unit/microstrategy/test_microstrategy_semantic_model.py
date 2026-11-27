@@ -11,6 +11,7 @@ from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.lineage import MicroStrategyLineageExtractor
 from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import (
     MicroStrategySemanticModelMapper,
+    _MetricProgress,
 )
 from datahub.ingestion.source.microstrategy.models import MicroStrategyObject
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -813,3 +814,22 @@ def test_metrics_are_emitted_as_they_are_fetched(
     assert fetched == ["METRIC1", "METRIC2"]
     assert mapper.report.semantic_model_metrics_emitted == 2
     assert "Semantic model metrics: 2/2" in caplog.text
+
+
+def test_metric_progress_logs_once_the_interval_has_elapsed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    progress = _MetricProgress(
+        project_id="project-1",
+        total=10,
+        every_seconds=0,
+        report=MicroStrategyReport(),
+    )
+
+    with caplog.at_level(logging.INFO):
+        progress.step()
+        assert not caplog.records
+        progress.step()
+
+    assert len(caplog.records) == 1
+    assert "1/10" in caplog.records[0].getMessage()

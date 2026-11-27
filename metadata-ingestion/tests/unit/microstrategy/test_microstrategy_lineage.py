@@ -31,6 +31,7 @@ from datahub.ingestion.source.microstrategy.models import (
     Visualization,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingDebugInfo, SqlParsingResult
 
 
 def _extractor() -> MicroStrategyLineageExtractor:
@@ -254,6 +255,34 @@ def test_warehouse_upstream_urns_from_sql_reports_parse_failures() -> None:
         "".join(warning.context or []) for warning in extractor.report.warnings
     )
     assert len(warning_contexts) < 500
+
+
+def test_warehouse_lineage_reports_error_carried_in_parse_result() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="SALES_DB",
+        schema="SALES",
+    )
+    parsed = SqlParsingResult(
+        in_tables=[],
+        out_tables=[],
+        debug_info=SqlParsingDebugInfo(table_error=ValueError("cannot parse")),
+    )
+
+    with mock.patch(
+        "datahub.sql_parsing.sqlglot_lineage.create_lineage_from_sql_statements",
+        return_value=parsed,
+    ):
+        upstreams = extractor.warehouse_lineage_from_sql(
+            "select * from fact_sales",
+            context,
+            [],
+        ).upstream_urns
+
+    assert upstreams == []
+    assert len(extractor.report.sql_parse_failures) == 1
 
 
 def test_warehouse_upstream_urns_from_multipass_sql_excludes_intermediates() -> None:
