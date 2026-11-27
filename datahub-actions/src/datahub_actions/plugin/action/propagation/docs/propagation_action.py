@@ -73,7 +73,7 @@ class DocPropagationConfig(PropagationConfig):
     Attributes:
         enabled (bool): Indicates whether documentation propagation is enabled or not. Default is True.
         columns_enabled (bool): Indicates whether column documentation propagation is enabled or not. Default is True.
-        datasets_enabled (bool): Indicates whether dataset level documentation propagation is enabled or not. Default is False.
+        datasets_enabled (bool): Currently has no effect. Dataset-level documentation propagation is not supported. Default is False.
 
     Example:
         config = DocPropagationConfig(enabled=True)
@@ -90,7 +90,7 @@ class DocPropagationConfig(PropagationConfig):
     # TODO: Currently this flag does nothing. Datasets are NOT supported for docs propagation.
     datasets_enabled: bool = Field(
         False,
-        description="Indicates whether dataset level documentation propagation is enabled or not.",
+        description="Currently has no effect. Dataset-level documentation propagation is not supported.",
     )
     column_propagation_relationships: List[ColumnPropagationRelationships] = Field(
         [

@@ -10,6 +10,7 @@ import send_smart_selection_to_posthog as sender
 
 BASE_ENV = {
     "TEST_FRAMEWORK": "pytest",
+    "TEST_LANE": "docker-free",
     "GITHUB_REPOSITORY": "org/repo",
     "GITHUB_RUN_ID": "123",
     "GITHUB_RUN_ATTEMPT": "2",
@@ -41,7 +42,7 @@ PLAN = {
 
 def test_properties_from_successful_plan() -> None:
     props = sender.build_properties(BASE_ENV, PLAN)
-    assert props["framework"] == "pytest"
+    assert props["framework"] == "pytest" and props["lane"] == "docker-free"
     assert props["tests_selected"] == 40 and props["tests_total"] == 400
     assert props["modules_selected"] == 3 and props["modules_total"] == 30
     assert props["batch_count"] == 2 and props["plan_ok"] is True
@@ -81,9 +82,11 @@ def test_missing_classifier_outputs_default_to_empty() -> None:
     env = {
         k: v
         for k, v in BASE_ENV.items()
-        if k not in ("FAILSAFE_REASON", "PROPOSED_TAGS", "CLASSIFIER_DURATION_S")
+        if k
+        not in ("FAILSAFE_REASON", "PROPOSED_TAGS", "CLASSIFIER_DURATION_S", "TEST_LANE")
     }
     props = sender.build_properties(env, None)
+    assert props["lane"] == ""
     assert props["failsafe_reason"] == ""
     assert props["proposed_tags"] == ""
     assert props["classifier_duration_s"] is None

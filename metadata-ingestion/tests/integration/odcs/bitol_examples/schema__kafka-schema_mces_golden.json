@@ -64,6 +64,7 @@
                         {
                             "fieldPath": "cust_id",
                             "nullable": false,
+                            "description": "**Business name:** Customer ID",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.StringType": {}
@@ -76,6 +77,7 @@
                         {
                             "fieldPath": "prod_id",
                             "nullable": false,
+                            "description": "**Business name:** Product ID",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.StringType": {}
@@ -88,6 +90,7 @@
                         {
                             "fieldPath": "qty",
                             "nullable": false,
+                            "description": "**Business name:** Quantity",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.NumberType": {}
@@ -145,6 +148,7 @@
                 {
                     "fieldPath": "cust_id",
                     "nullable": false,
+                    "description": "**Business name:** Customer ID",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -157,6 +161,7 @@
                 {
                     "fieldPath": "prod_id",
                     "nullable": false,
+                    "description": "**Business name:** Product ID",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -169,6 +174,7 @@
                 {
                     "fieldPath": "qty",
                     "nullable": false,
+                    "description": "**Business name:** Quantity",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
