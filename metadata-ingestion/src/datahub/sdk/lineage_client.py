@@ -164,6 +164,7 @@ class LineageClient:
             bool, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
         ] = False,
         transformation_text: Optional[str] = None,
+        audit_stamp: Optional[models.AuditStampClass] = None,
     ) -> None:
         """Add dataset-to-dataset lineage with column-level mapping."""
 
@@ -217,6 +218,7 @@ class LineageClient:
             bool, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
         ] = False,
         transformation_text: Optional[str] = None,
+        audit_stamp: Optional[models.AuditStampClass] = None,
     ) -> None:
         """Add lineage between two entities.
 
@@ -236,6 +238,9 @@ class LineageClient:
             column_lineage: Optional boolean to indicate if column-level lineage should be added or a lineage mapping type (auto_fuzzy, auto_strict, or a mapping of column-level lineage)
             transformation_text: Optional SQL query text that defines the transformation
                     (only applicable for dataset-to-dataset lineage)
+            audit_stamp: Optional audit stamp (actor + time) to record on the lineage edge
+                    (only applicable for dataset-to-dataset lineage). Defaults to the
+                    zero-time/unknown-actor stamp DataHub uses when none is provided.
 
         Raises:
             InvalidUrnError: If the URNs provided are invalid
@@ -251,6 +256,11 @@ class LineageClient:
         if key != ("dataset", "dataset") and (column_lineage or transformation_text):
             raise SdkUsageError(
                 "Column lineage and query text are only applicable for dataset-to-dataset lineage"
+            )
+
+        if key != ("dataset", "dataset") and audit_stamp is not None:
+            raise SdkUsageError(
+                "audit_stamp is only applicable for dataset-to-dataset lineage"
             )
 
         lineage_handlers: dict[tuple[str, str], Callable] = {
@@ -272,6 +282,7 @@ class LineageClient:
                 upstream_type=upstream_entity_type,
                 column_lineage=column_lineage,
                 transformation_text=transformation_text,
+                audit_stamp=audit_stamp,
             )
         except KeyError:
             raise SdkUsageError(
@@ -285,6 +296,7 @@ class LineageClient:
         downstream,
         column_lineage,
         transformation_text,
+        audit_stamp=None,
         **_,
     ):
         upstream_urn = DatasetUrn.from_string(upstream)
@@ -302,7 +314,11 @@ class LineageClient:
 
         if transformation_text:
             self._process_transformation_lineage(
-                transformation_text, upstream_urn, downstream_urn, cll
+                transformation_text,
+                upstream_urn,
+                downstream_urn,
+                cll,
+                audit_stamp=audit_stamp,
             )
         else:
             updater = DatasetPatchBuilder(str(downstream_urn))
@@ -310,6 +326,7 @@ class LineageClient:
                 models.UpstreamClass(
                     dataset=str(upstream_urn),
                     type=models.DatasetLineageTypeClass.COPY,
+                    auditStamp=audit_stamp,
                 )
             )
             for cl in cll or []:
@@ -385,7 +402,7 @@ class LineageClient:
         return cll
 
     def _process_transformation_lineage(
-        self, transformation_text, upstream_urn, downstream_urn, cll
+        self, transformation_text, upstream_urn, downstream_urn, cll, audit_stamp=None
     ):
         fields_involved = OrderedSet([str(upstream_urn), str(downstream_urn)])
         if cll is not None:
@@ -424,6 +441,7 @@ class LineageClient:
                 dataset=str(upstream_urn),
                 type=models.DatasetLineageTypeClass.TRANSFORMED,
                 query=query_urn,
+                auditStamp=audit_stamp,
             )
         )
 
