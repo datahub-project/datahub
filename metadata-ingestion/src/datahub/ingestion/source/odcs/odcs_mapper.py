@@ -1262,8 +1262,13 @@ def _sla_applies(
             return True
         # A table name may itself contain dots (`sales.orders`), so match it
         # as a whole and as a prefix rather than splitting at the first dot.
-        if any(part == n or part.startswith(n + ".") for n in names):
-            return True
+        # When several tables match (`sales` and `sales.orders`), the element
+        # belongs to the longest name only.
+        named = [n for n in tables | names if part == n or part.startswith(n + ".")]
+        if named:
+            if max(named, key=len) in names:
+                return True
+            continue
         table, _, column = part.partition(".")
         if column and table not in tables and column in columns:
             return True
