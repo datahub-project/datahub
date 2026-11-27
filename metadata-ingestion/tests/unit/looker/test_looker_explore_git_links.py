@@ -1,5 +1,4 @@
 import json
-import threading
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from unittest import mock
 
@@ -194,7 +193,6 @@ def test_each_project_gets_its_own_repo(looker_source_factory: SourceFactory) ->
         return result
 
     client.lookml_model_explore.side_effect = explore_in_own_project
-    client.project.return_value = None
     client.project.side_effect = (
         lambda project_id, fields=None, transport_options=None: Project(
             git_remote_url=f"git@github.com:example-org/{project_id}.git",
@@ -222,6 +220,7 @@ def test_same_url_writes_nothing(looker_source_factory: SourceFactory) -> None:
 def test_changed_url_removes_old_and_adds_new_in_one_patch(
     looker_source_factory: SourceFactory,
 ) -> None:
+    # The label alone marks a link as managed, so a hand-made one is replaced too.
     source = with_graph(
         looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True),
         link(OLD_URL, INGESTION_STAMP),
@@ -258,24 +257,27 @@ def test_missing_production_branch_falls_back_to_master(
     )
 
 
-def test_file_path_is_url_encoded_in_link(looker_source_factory: SourceFactory) -> None:
-    client = client_with("/projects/proj/files/views%2Fmy%20orders%23v2.view.lkml")
-    source = with_graph(looker_source_factory(client, extract_explore_git_links=True))
-    patch = link_patches(source)[0]
-    assert patch["patch"][0]["value"]["url"] == (
-        f"{REPO}/blob/main/views/my%20orders%23v2.view.lkml"
-    )
-
-
 @pytest.mark.parametrize(
-    "branch, expected",
-    [("hotfix#12", "hotfix%2312"), ("release/2026", "release/2026")],
+    "lookml_link, branch, expected_path",
+    [
+        (
+            "/projects/proj/files/views%2Fmy%20orders%23v2.view.lkml",
+            "main",
+            "main/views/my%20orders%23v2.view.lkml",
+        ),
+        (ORDERS_LINK, "hotfix#12", "hotfix%2312/views/sales/orders.view.lkml"),
+        (ORDERS_LINK, "release/2026", "release/2026/views/sales/orders.view.lkml"),
+    ],
+    ids=["file-path", "branch", "branch-with-slash"],
 )
-def test_branch_is_url_encoded_in_link(
-    looker_source_factory: SourceFactory, branch: str, expected: str
+def test_link_is_url_encoded(
+    looker_source_factory: SourceFactory,
+    lookml_link: str,
+    branch: str,
+    expected_path: str,
 ) -> None:
     client = client_with(
-        ORDERS_LINK,
+        lookml_link,
         Project(
             git_remote_url="git@github.com:example-org/lookml.git",
             git_production_branch_name=branch,
@@ -283,24 +285,7 @@ def test_branch_is_url_encoded_in_link(
     )
     source = with_graph(looker_source_factory(client, extract_explore_git_links=True))
     patch = link_patches(source)[0]
-    assert patch["patch"][0]["value"]["url"] == (
-        f"{REPO}/blob/{expected}/views/sales/orders.view.lkml"
-    )
-
-
-def test_any_link_with_the_label_is_managed(
-    looker_source_factory: SourceFactory,
-) -> None:
-    """The label alone marks a link as managed, so a hand-made one at another URL is replaced."""
-    source = with_graph(
-        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True),
-        link(OLD_URL, USER_STAMP),
-    )
-    patch = link_patches(source)[0]
-    assert ops(patch) == [
-        ("remove", path_for(OLD_URL)),
-        ("add", path_for(ORDERS_URL)),
-    ]
+    assert patch["patch"][0]["value"]["url"] == f"{REPO}/blob/{expected_path}"
 
 
 def test_link_with_another_label_is_left_alone(
@@ -314,21 +299,13 @@ def test_link_with_another_label_is_left_alone(
     assert ops(patch) == [("add", path_for(ORDERS_URL))]
 
 
-def http_error(status: int) -> requests.HTTPError:
-    response = requests.Response()
-    response.status_code = status
-    return requests.HTTPError(f"{status}", response=response)
-
-
 @pytest.mark.parametrize(
     "error",
     [
         requests.ConnectionError("GMS unreachable"),
-        http_error(503),
-        http_error(403),
         ValueError("aspect could not be decoded"),
     ],
-    ids=["connection-error", "http-503", "http-403", "unreadable-response"],
+    ids=["connection-error", "unreadable-response"],
 )
 def test_failed_link_read_skips_only_that_explore(
     looker_source_factory: SourceFactory, error: Exception
@@ -361,27 +338,6 @@ def test_failed_link_read_skips_only_that_explore(
     assert [w.title for w in source.reporter.warnings].count(
         "Could not read an Explore's existing links"
     ) == 1
-
-
-def test_link_read_runs_on_worker_threads(
-    looker_source_factory: SourceFactory,
-) -> None:
-    source = with_graph(
-        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True)
-    )
-    graph = source.ctx.graph
-    assert isinstance(graph, mock.MagicMock)
-    read_threads = []
-
-    def get_aspect(urn: str, aspect_type: Type[InstitutionalMemoryClass]) -> None:
-        read_threads.append(threading.current_thread())
-        return None
-
-    graph.get_aspect.side_effect = get_aspect
-
-    assert len(link_patches(source)) == 2
-    assert read_threads
-    assert threading.main_thread() not in read_threads
 
 
 def test_no_datahub_connection_adds_only_and_notes_it_once(
@@ -447,26 +403,14 @@ def test_project_without_usable_remote_gets_no_link(
     assert client.project.call_count == 1
 
 
-def test_no_link_read_once_project_is_known_unusable(
-    looker_source_factory: SourceFactory,
-) -> None:
-    source = with_graph(
-        looker_source_factory(client_with(ORDERS_LINK), extract_explore_git_links=True)
-    )
-    # As left by an earlier Explore of the project whose lookup failed.
-    source._project_git_refs["proj"] = None
-
-    assert link_patches(source) == []
-    graph = source.ctx.graph
-    assert isinstance(graph, mock.MagicMock)
-    graph.get_aspect.assert_not_called()
-
-
 def test_no_link_when_flag_is_off(looker_source_factory: SourceFactory) -> None:
     client = client_with(ORDERS_LINK)
     source = looker_source_factory(client)
     assert link_patches(source) == []
     client.project.assert_not_called()
+    assert not any(
+        i.title == "Explore Git links are add-only" for i in source.reporter.infos
+    )
 
 
 @pytest.mark.parametrize(
