@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 
+from datahub.ingestion.source.microstrategy.constants import MicroStrategyCache
 from datahub.ingestion.source.microstrategy.models import MicroStrategyObject
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.spill_cache import (
@@ -44,7 +45,7 @@ def test_values_spill_to_disk_without_loss_and_none_is_a_cached_value() -> None:
         missing = cache.get_entry("missing")
         assert "failed" in cache
         report = MicroStrategyReport()
-        cache.reset(report, "dataset_object")
+        cache.reset(report, MicroStrategyCache.DATASET_OBJECT)
 
     assert failed.found and failed.value is None
     assert not missing.found and "missing" not in cache

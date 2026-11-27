@@ -3,11 +3,16 @@ from typing import Callable, Dict, Generic, Optional, TypeVar, Union
 
 from pydantic import BaseModel, ConfigDict
 
+from datahub.ingestion.source.microstrategy.constants import MicroStrategyCache
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.utilities.file_backed_collections import FileBackedDict
 
 _V = TypeVar("_V")
+
+_TABLE_NAME = "cache"
+_MAX_EVICTION_BATCH = 150
+_EVICTION_BATCH_DIVISOR = 4
 
 
 class _Missing:
@@ -63,16 +68,13 @@ class SpillCache(Generic[_V]):
 
     def put(self, key: str, value: _V) -> None:
         with self._lock:
-            if isinstance(self._lookup(key), _Missing):
-                self._entry_count += 1
-            self._open()[key] = value
+            self._write(key, value)
 
     def put_if_absent(self, key: str, value: _V) -> bool:
         with self._lock:
             if not isinstance(self._lookup(key), _Missing):
                 return False
-            self._entry_count += 1
-            self._open()[key] = value
+            self._write(key, value)
             return True
 
     def get_or_load(self, key: str, loader: Callable[[], _V]) -> _V:
@@ -96,9 +98,7 @@ class SpillCache(Generic[_V]):
             pending.set()
             raise
         with self._lock:
-            if isinstance(self._lookup(key), _Missing):
-                self._entry_count += 1
-            self._open()[key] = loaded
+            self._write(key, loaded)
             del self._loading[key]
         pending.set()
         return loaded
@@ -106,11 +106,11 @@ class SpillCache(Generic[_V]):
     def reset(
         self,
         report: Optional[MicroStrategyReport] = None,
-        metric_name: Optional[str] = None,
+        cache_name: Optional[MicroStrategyCache] = None,
     ) -> None:
         with self._lock:
-            if report is not None and metric_name is not None:
-                report.report_cache_entries(metric_name, self._entry_count)
+            if report is not None and cache_name is not None:
+                report.report_cache_entries(cache_name, self._entry_count)
             self._close_store()
             self._entry_count = 0
 
@@ -126,12 +126,23 @@ class SpillCache(Generic[_V]):
         except KeyError:
             return _MISSING
 
+    def _write(self, key: str, value: _V) -> None:
+        if isinstance(self._lookup(key), _Missing):
+            self._entry_count += 1
+        self._open()[key] = value
+
     def _open(self) -> FileBackedDict[_V]:
         if self._store is None:
             self._store = FileBackedDict(
-                tablename="cache",
+                tablename=_TABLE_NAME,
                 cache_max_size=self._memory_entries,
-                cache_eviction_batch_size=max(1, min(150, self._memory_entries // 4)),
+                cache_eviction_batch_size=max(
+                    1,
+                    min(
+                        _MAX_EVICTION_BATCH,
+                        self._memory_entries // _EVICTION_BATCH_DIVISOR,
+                    ),
+                ),
                 should_compress_value=self._compress,
             )
         return self._store

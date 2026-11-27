@@ -1449,9 +1449,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         return result
 
     def _report_v2_payload(self, project_id: str, report_id: str) -> Dict[str, object]:
-        """GET /api/v2/reports/{id}, memoized on success so report derived
-        metrics and the report pass share one call. A failure is not cached;
-        each caller reports it its own way."""
+        # Failures are not cached; each caller reports them its own way.
         return self._report_v2_payload_cache.get_or_load(
             object_cache_key(project_id, report_id),
             lambda: self.client.get_report_definition(project_id, report_id),
@@ -1596,9 +1594,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _remember_searched_report(
         self, project_id: str, report_object: MicroStrategyObject
     ) -> None:
-        """A report search result carries the subtype and folder ancestors an
-        object lookup returns, so a searched report is never looked up again
-        (and replaces a remembered failed lookup)."""
+        # A search result carries what an object lookup returns, so it replaces a failed one.
         cache_key = object_cache_key(project_id, report_object.id)
         if self._report_object_cache.get(cache_key) is None:
             self._report_object_cache.put(cache_key, report_object)
@@ -2166,7 +2162,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _fetch_metric_model(
         self, project_id: str, metric_id: str
     ) -> Optional[Dict[str, object]]:
-        """The metric model, or None once its fetch failed (warned and counted)."""
+        # None marks a failed fetch, already warned and counted.
         try:
             model = self.client.get_metric_model(project_id, metric_id)
         except MicroStrategyAPIError as error:

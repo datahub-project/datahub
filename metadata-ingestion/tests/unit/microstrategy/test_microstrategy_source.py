@@ -4419,10 +4419,8 @@ def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
     assert source.report.peak_rss_mb is not None
 
 
+# One metric's model endpoint always fails.
 class _MetricModelClient:
-    """Metric models for dashboard enrichment and the semantic model; one
-    metric's model endpoint always fails."""
-
     def __init__(self) -> None:
         self.metric_model_calls: List[str] = []
 
@@ -4500,8 +4498,6 @@ def test_semantic_model_reuses_metric_models_from_dashboard_enrichment() -> None
 
 
 class _ObjectInfoClient(_ReportSearchClient):
-    """Report search plus both object-info entry points, recorded together."""
-
     def get_object_info(
         self, project_id: str, object_id: str, object_type: int
     ) -> MicroStrategyObject:
