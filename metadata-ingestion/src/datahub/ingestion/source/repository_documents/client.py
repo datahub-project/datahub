@@ -1,7 +1,14 @@
 from dataclasses import dataclass
 from typing import List, Optional, Protocol, Set, Tuple
 
+from pydantic import BaseModel
+
 MAX_FILE_SIZE_BYTES = 1_000_000
+
+
+class RepositoryTarget(BaseModel, frozen=True):
+    repository: str
+    branch: str
 
 
 @dataclass(frozen=True)

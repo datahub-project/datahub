@@ -14,6 +14,8 @@ Store the token in a DataHub secret and reference it from your ingestion recipe.
 
 Set `repository` to the project's full path, including any subgroups (`group/subgroup/project`), or paste the project URL. For self-managed GitLab, set `base_url` to the instance URL, or use a project URL and the instance is inferred from it.
 
+To ingest several projects with one source, set `repositories` to a list of project paths, set `group` to ingest every project in a group, or use both. A project access token only reaches its own project, so use a group access token with at least the Reporter role to cover a group. See [Several projects from one source](#several-projects-from-one-source).
+
 #### Supported imports
 
 - Import `.md`, `.txt`, and other configured extensions

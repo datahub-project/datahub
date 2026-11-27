@@ -5,6 +5,11 @@ source:
     # Omit base_url for GitLab.com.
     base_url: https://gitlab.example.com
     repository: acme/handbook
+    # To ingest several projects instead, use repositories or group:
+    # repositories:
+    #   - acme/handbook
+    #   - acme/runbooks
+    # group: acme/data
     branch: main
     path_prefix: docs
     file_extensions:

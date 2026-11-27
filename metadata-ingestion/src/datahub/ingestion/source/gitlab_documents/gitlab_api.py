@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import quote, urlparse, urlsplit
 
 import requests
+from pydantic import BaseModel
 from tenacity import (
     RetryCallState,
     retry,
@@ -46,6 +47,17 @@ class _Failed:
 
 
 _RawFileResult = Union[_RawFile, _TooLarge, _Failed]
+
+
+class GitLabProject(BaseModel, frozen=True):
+    path: str
+    default_branch: Optional[str] = None
+
+
+class GroupProjects(BaseModel, frozen=True):
+    projects: List[GitLabProject]
+    # More projects matched than max_projects allowed, so the list is partial.
+    truncated: bool
 
 
 class _RetryableResponse(Exception):
@@ -157,6 +169,72 @@ class GitLabApiClient:
         self._record_unexpected_shape(response, "a branch with a commit id")
         return None
 
+    def get_default_branch(self, owner_repo: str) -> Optional[str]:
+        response = self._get(self._project_url(owner_repo))
+        node = self._json_or_none(response)
+        if response is None or node is None:
+            return None
+        branch = node.get("default_branch") if isinstance(node, dict) else None
+        return branch if isinstance(branch, str) and branch else None
+
+    def list_group_projects(
+        self,
+        group: str,
+        *,
+        include_subgroups: bool,
+        include_archived: bool,
+        max_projects: int,
+    ) -> GroupProjects:
+        url: Optional[str] = f"{self._api_base}/groups/{quote(group, safe='')}/projects"
+        first_page_params: Dict[str, Union[str, int]] = {
+            "include_subgroups": str(include_subgroups).lower(),
+            # Projects shared into the group live under another path.
+            "with_shared": "false",
+            # A stable order keeps pages from shifting if a project is created
+            # while the listing is read.
+            "order_by": "id",
+            "sort": "asc",
+            "per_page": TREE_PAGE_SIZE,
+        }
+        if not include_archived:
+            first_page_params["archived"] = "false"
+        params: Optional[Dict[str, Union[str, int]]] = first_page_params
+
+        projects: List[GitLabProject] = []
+        while url:
+            response = self._get(url, params=params)
+            items = self._json_or_none(response)
+            if (
+                response is not None
+                and items is not None
+                and not isinstance(items, list)
+            ):
+                self._record_unexpected_shape(response, "a list of projects")
+            if response is None or not isinstance(items, list):
+                # A partial list would make stale removal treat the projects on
+                # the unread pages as deleted, so fail the run instead.
+                detail = self._last_api_error or "GitLab API request failed"
+                raise RuntimeError(
+                    f"Could not list the projects in group '{group}': {detail}"
+                )
+            for item in items:
+                path = (
+                    item.get("path_with_namespace") if isinstance(item, dict) else None
+                )
+                if not isinstance(path, str) or not path:
+                    continue
+                branch = item.get("default_branch")
+                projects.append(
+                    GitLabProject(
+                        path=path,
+                        default_branch=branch if isinstance(branch, str) else None,
+                    )
+                )
+            if len(projects) > max_projects:
+                return GroupProjects(projects=projects[:max_projects], truncated=True)
+            url, params = self._next_page(response, url, params)
+        return GroupProjects(projects=projects, truncated=False)
+
     def list_matching_files(
         self,
         owner_repo: str,
@@ -210,7 +288,7 @@ class GitLabApiClient:
             if "Link" in response.headers or "X-Next-Page" in response.headers:
                 saw_pagination_header = True
             last_page_full = len(items) >= TREE_PAGE_SIZE
-            url, params = self._next_tree_page(response, url, params)
+            url, params = self._next_page(response, url, params)
 
         # Keyset responses only send a Link header while more pages remain, and
         # never X-Next-Page, so a complete tree can end on a full page with no
@@ -245,7 +323,7 @@ class GitLabApiClient:
             return True
         return len(items) > 0
 
-    def _next_tree_page(
+    def _next_page(
         self,
         response: requests.Response,
         url: str,
