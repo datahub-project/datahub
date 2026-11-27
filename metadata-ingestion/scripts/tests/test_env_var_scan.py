@@ -34,6 +34,7 @@ def reads() -> None:
     os.getenv(NAME_IN_CONST)
     get_boolean_env_variable("VIA_HELPER", False)
     os.environ.setdefault("VIA_SETDEFAULT", "x")
+    os.environ.pop("VIA_POP", None)
     if "VIA_MEMBERSHIP" in os.environ:
         pass
 
@@ -52,6 +53,7 @@ EXPECTED_READS = {
     "VIA_MODULE_CONSTANT",
     "VIA_HELPER",
     "VIA_SETDEFAULT",
+    "VIA_POP",
     "VIA_MEMBERSHIP",
 }
 

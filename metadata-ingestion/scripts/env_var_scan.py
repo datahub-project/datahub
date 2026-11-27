@@ -109,8 +109,9 @@ def _is_env_read(node: ast.Call, aliases: Dict[str, str]) -> bool:
             return True
         if func.attr == "getenv":
             return isinstance(func.value, ast.Name) and func.value.id == "os"
-        # environ.get(...) and environ.setdefault(...), with or without the os. prefix.
-        if func.attr in ("get", "setdefault"):
+        # environ.get/setdefault/pop(...), with or without the os. prefix. pop removes the
+        # variable, but it returns the value first, so the code still depends on it.
+        if func.attr in ("get", "setdefault", "pop"):
             return _is_environ(func.value, aliases)
     return False
 
