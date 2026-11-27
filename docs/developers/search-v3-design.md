@@ -827,7 +827,8 @@ The builder rewrites the query before any clause sees it. The service computes t
 | `unquoted`          | `raw` with one pair of surrounding quotes removed.                                                              |
 | `shortened`         | `normalized` cut on a word boundary.                                                                            |
 | `lastSegment`       | The last `.` / `_` / `-` / `/` segment of `raw`.                                                                |
-| `synonyms`          | The synonym list for the whole query.                                                                           |
+| `synonyms`          | The synonyms of the whole query and of each of its words.                                                       |
+| `exactSynonyms`     | The synonyms of the whole query only. An exact-name clause reads it: a word's synonym is not a longer query's.  |
 
 Shape flags are computed by the service and referenced from the body:
 

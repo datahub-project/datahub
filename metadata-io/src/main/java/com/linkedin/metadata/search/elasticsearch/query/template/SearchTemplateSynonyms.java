@@ -61,6 +61,23 @@ public final class SearchTemplateSynonyms {
     return List.copyOf(found);
   }
 
+  /**
+   * Other members of the equivalence class for the whole query only. A word's synonym is not a
+   * synonym of a longer query, so an exact-name clause reads this list rather than {@link
+   * #expansions}.
+   */
+  @Nonnull
+  public static List<String> wholeQuery(@Nonnull String query) {
+    String text = query.toLowerCase(Locale.ROOT).trim();
+    if (text.isEmpty()) {
+      return List.of();
+    }
+    Set<String> found = new LinkedHashSet<>();
+    addOthers(found, text);
+    found.remove(text);
+    return List.copyOf(found);
+  }
+
   private static void addOthers(Set<String> found, String term) {
     List<String> others = current().get(term);
     if (others != null) {

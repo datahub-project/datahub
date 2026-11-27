@@ -91,6 +91,13 @@ public final class SearchTemplateContextVariables {
    */
   public static final String SYNONYM = "synonym";
 
+  /**
+   * Synonyms of the whole query only, as {@link #SYNONYM} elements. {@link #SYNONYMS} also holds
+   * each word's synonyms, which are not synonyms of a longer query, so an exact-name clause reads
+   * this list.
+   */
+  public static final String EXACT_SYNONYMS = "exactSynonyms";
+
   public static final String MULTI_WORD = "multiWord";
   public static final String NAME_ONLY = "nameOnly";
   public static final String LONG_QUERY = "longQuery";
@@ -203,6 +210,7 @@ public final class SearchTemplateContextVariables {
           STRUCTURED_QUERY,
           FLAGS,
           SYNONYMS,
+          EXACT_SYNONYMS,
           MULTI_WORD,
           NAME_ONLY,
           LONG_QUERY,
