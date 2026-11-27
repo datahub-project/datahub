@@ -46,6 +46,11 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     metric_expression_api_failures: int = 0
     model_tables_scanned: int = 0
     model_lineage_api_failures: int = 0
+    # Projects with several source warehouses resolve a logical table's
+    # warehouse from its own primary datasource; tables that name none that
+    # matches get no warehouse lineage.
+    model_tables_resolved_by_datasource: int = 0
+    model_tables_without_warehouse_context: int = 0
     model_lineage_edges: int = 0
     warehouse_lineage_sql_views_scanned: int = 0
     warehouse_lineage_edges: int = 0
@@ -281,6 +286,12 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_model_tables_scanned(self, count: int) -> None:
         self.model_tables_scanned += count
+
+    def report_model_table_resolved_by_datasource(self) -> None:
+        self.model_tables_resolved_by_datasource += 1
+
+    def report_model_table_without_warehouse_context(self) -> None:
+        self.model_tables_without_warehouse_context += 1
 
     def report_model_lineage_api_failure(self) -> None:
         self.model_lineage_api_failures += 1

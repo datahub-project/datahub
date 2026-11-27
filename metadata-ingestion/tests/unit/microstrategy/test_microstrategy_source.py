@@ -1342,6 +1342,7 @@ def test_semantic_model_runs_after_the_project_caches_are_released() -> None:
             return [{"physicalTable": {"tableName": "T1"}}]
 
         warehouse_context = None
+        table_context_resolver = None
 
     with mock.patch(
         "datahub.ingestion.source.microstrategy.source."
@@ -4431,3 +4432,118 @@ def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
     assert seen_during_run == [len(filters_before) + 1]
     assert sqlglot_logger.filters == filters_before
     assert source.report.peak_rss_mb is not None
+
+
+def _mixed_warehouse_datasources() -> List[Datasource]:
+    return [
+        Datasource.model_validate(
+            {
+                "id": "AAA111",
+                "name": "oracle_ds",
+                "database": {"type": "oracle", "name": "ORA_DB", "schema": "ORA"},
+            }
+        ),
+        Datasource.model_validate(
+            {
+                "id": "BBB222",
+                "name": "snowflake_ds",
+                "database": {"type": "snow_flake", "name": "SNOW_DB", "schema": "SNOW"},
+            }
+        ),
+    ]
+
+
+def _model_table(name: str, fact_id: str, datasource_id: Optional[str]) -> dict:
+    table: dict = {
+        "information": {"objectId": f"logical-{fact_id}", "name": name},
+        "physicalTable": {"tableName": name},
+        "facts": [
+            {"information": {"objectId": fact_id}, "expression": {"text": "AMOUNT"}}
+        ],
+        "attributes": [],
+    }
+    if datasource_id:
+        table["primaryDataSource"] = {"objectId": datasource_id, "name": "ignored"}
+    return table
+
+
+class _ModelTablesClient:
+    def __init__(self, tables: List[dict]) -> None:
+        self.tables = tables
+        self.fields_requested: List[str] = []
+
+    def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
+        self.fields_requested.append(kwargs.get("fields", ""))
+        return ModelTablesResponse(tables=self.tables, total=len(self.tables))
+
+
+def test_mixed_warehouse_project_resolves_model_lineage_per_table() -> None:
+    source = _source({"extract_model_lineage": True})
+    client = _ModelTablesClient(
+        [
+            _model_table("ora_orders", "fact-1", "aaa111"),
+            _model_table("snow_orders", "fact-2", "BBB222"),
+            _model_table("unlinked_orders", "fact-3", None),
+            _model_table("unknown_orders", "fact-4", "ZZZ999"),
+        ]
+    )
+    source.client = client  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", _mixed_warehouse_datasources()
+    )
+
+    index = lineage_context.model_lineage_index
+
+    assert index is not None
+    assert lineage_context.warehouse_context is None
+    assert "primaryDataSource" in client.fields_requested[0]
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,"
+        "ora_db.ora.ora_orders,PROD),amount)"
+    ]
+    assert index.fact_field_urns(["fact-2"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "snow_db.snow.snow_orders,PROD),amount)"
+    ]
+    assert index.fact_field_urns(["fact-3", "fact-4"]) == []
+    assert source.report.model_tables_resolved_by_datasource == 2
+    assert source.report.model_tables_without_warehouse_context == 2
+
+
+def test_mixed_warehouse_project_warning_names_platforms_and_mapping() -> None:
+    source = _source({"extract_model_lineage": True})
+    source.client = _ModelTablesClient([])  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", _mixed_warehouse_datasources()
+    )
+
+    assert lineage_context.warehouse_context is None
+
+    warning = next(
+        w for w in source.report.warnings if "Several Source Warehouses" in str(w.title)
+    )
+    context = str(warning.context)
+    assert "project_id=project-1" in context
+    assert "oracle:1" in context
+    assert "snow_flake:1" in context
+    assert "datasource_platform_mapping" in str(warning.message)
+
+
+def test_single_warehouse_project_keeps_project_level_context() -> None:
+    source = _source({"extract_model_lineage": True})
+    client = _ModelTablesClient([_model_table("orders", "fact-1", None)])
+    source.client = client  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", _mixed_warehouse_datasources()[:1]
+    )
+
+    index = lineage_context.model_lineage_index
+
+    assert index is not None
+    assert lineage_context.table_context_resolver is None
+    assert client.fields_requested == ["information,physicalTable,attributes,facts"]
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,"
+        "ora_db.ora.orders,PROD),amount)"
+    ]
+    assert source.report.model_tables_without_warehouse_context == 0

@@ -14,6 +14,7 @@ from datahub.ingestion.source.microstrategy.constants import MICROSTRATEGY_PLATF
 from datahub.ingestion.source.microstrategy.lineage import (
     AttributeRelationship,
     MicroStrategyLineageExtractor,
+    TableContextResolver,
     WarehouseLineageContext,
     coerce_dicts,
     consolidation_attribute_ids,
@@ -171,6 +172,7 @@ class MicroStrategySemanticModelMapper:
         model_tables: List[Dict[str, object]],
         warehouse_context: Optional[WarehouseLineageContext],
         project_container_key: ContainerKey,
+        table_context_resolver: Optional[TableContextResolver] = None,
     ) -> Iterable[MetadataWorkUnit]:
         model_urn = str(
             SemanticModelUrn(
@@ -181,7 +183,7 @@ class MicroStrategySemanticModelMapper:
         )
 
         tables, fact_table_aliases, attribute_table_aliases = self._build_table_index(
-            model_tables, warehouse_context
+            model_tables, warehouse_context, table_context_resolver
         )
         if not tables:
             self.report.warning(
@@ -276,6 +278,7 @@ class MicroStrategySemanticModelMapper:
         self,
         model_tables: List[Dict[str, object]],
         warehouse_context: Optional[WarehouseLineageContext],
+        table_context_resolver: Optional[TableContextResolver] = None,
     ) -> Tuple[List[_TableInfo], Dict[str, Set[str]], Dict[str, Set[str]]]:
         tables: List[_TableInfo] = []
         fact_table_aliases: Dict[str, Set[str]] = {}
@@ -285,7 +288,12 @@ class MicroStrategySemanticModelMapper:
             physical_table = table.get("physicalTable")
             if not isinstance(physical_table, dict):
                 continue
-            physical_alias = self._table_alias(physical_table, warehouse_context)
+            table_context = (
+                table_context_resolver(table)
+                if table_context_resolver
+                else warehouse_context
+            )
+            physical_alias = self._table_alias(physical_table, table_context)
             if not physical_alias:
                 continue
             # The logical table (this `table` entry's own "information" block,
@@ -302,8 +310,8 @@ class MicroStrategySemanticModelMapper:
             )
             alias = self._dataset_alias(logical_information, physical_alias)
             warehouse_urn = (
-                self.lineage.warehouse_dataset_urn(warehouse_context, physical_alias)
-                if warehouse_context is not None
+                self.lineage.warehouse_dataset_urn(table_context, physical_alias)
+                if table_context is not None
                 else None
             )
 

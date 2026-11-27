@@ -528,3 +528,8 @@ MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] =
         "1-based position of the visualization's page within its chapter.",
     ),
 )
+
+MSTR_MODEL_TABLE_FIELDS = "information,physicalTable,attributes,facts"
+# Requested only for projects with several source warehouses, where it is the
+# one link from a logical table to the datasource it reads from.
+MSTR_MODEL_TABLE_DATASOURCE_FIELD = "primaryDataSource"

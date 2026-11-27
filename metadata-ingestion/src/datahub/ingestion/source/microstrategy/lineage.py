@@ -3,6 +3,7 @@ import logging
 import time
 from dataclasses import dataclass
 from typing import (
+    Callable,
     Dict,
     Iterable,
     List,
@@ -107,6 +108,8 @@ class _ParsedSqlView:
 
 
 _NO_STATEMENTS = _ParsedSqlView(has_statements=False)
+
+TableContextResolver = Callable[[Dict[str, object]], Optional[WarehouseLineageContext]]
 
 
 class _TimedSchemaResolver(SchemaResolver):
@@ -586,8 +589,9 @@ class MicroStrategyLineageExtractor:
     def model_lineage_index_from_tables(
         self,
         model_tables: List[Dict[str, object]],
-        context: WarehouseLineageContext,
+        context: Optional[WarehouseLineageContext],
         graph: Optional[DataHubGraph] = None,
+        table_context_resolver: Optional[TableContextResolver] = None,
     ) -> ModelLineageIndex:
         fact_upstreams: Dict[str, List[ModelFieldLineage]] = {}
         attribute_upstreams: Dict[str, List[ModelFieldLineage]] = {}
@@ -599,11 +603,16 @@ class MicroStrategyLineageExtractor:
             physical_table = table.get("physicalTable")
             if not isinstance(physical_table, dict):
                 continue
-            physical_table_name = _physical_table_name(physical_table, context)
+            table_context = (
+                table_context_resolver(table) if table_context_resolver else context
+            )
+            if table_context is None:
+                continue
+            physical_table_name = _physical_table_name(physical_table, table_context)
             if not physical_table_name:
                 continue
             upstream_dataset_urn = self.warehouse_dataset_urn(
-                context,
+                table_context,
                 physical_table_name,
             )
 
@@ -614,7 +623,7 @@ class MicroStrategyLineageExtractor:
                 field_urns = self._upstream_field_urns(
                     _model_expression_field_names(fact),
                     upstream_dataset_urn,
-                    context.convert_urns_to_lowercase,
+                    table_context.convert_urns_to_lowercase,
                     graph,
                 )
                 if field_urns:
@@ -633,7 +642,7 @@ class MicroStrategyLineageExtractor:
                     field_urns = self._upstream_field_urns(
                         _model_expression_field_names(form),
                         upstream_dataset_urn,
-                        context.convert_urns_to_lowercase,
+                        table_context.convert_urns_to_lowercase,
                         graph,
                     )
                     if not field_urns:
@@ -859,13 +868,45 @@ def warehouse_context_from_datasources(
     env: str,
     mapping: DatasourcePlatformMapping = None,
 ) -> Optional[WarehouseLineageContext]:
+    contexts = distinct_warehouse_contexts(datasources, env, mapping)
+    if len(contexts) == 1:
+        return next(iter(contexts))
+    return None
+
+
+def distinct_warehouse_contexts(
+    datasources: List[Datasource],
+    env: str,
+    mapping: DatasourcePlatformMapping = None,
+) -> Set[WarehouseLineageContext]:
     resolved = (
         warehouse_context_from_datasource(datasource, env, mapping)
         for datasource in datasources
     )
-    contexts = {context for context in resolved if context is not None}
-    if len(contexts) == 1:
-        return next(iter(contexts))
+    return {context for context in resolved if context is not None}
+
+
+def datasource_for_model_table(
+    table: Dict[str, object],
+    datasources: List[Datasource],
+) -> Optional[Datasource]:
+    """The project datasource a logical table names as its primaryDataSource,
+    by exact id (or exact name when the id matches nothing). None when the
+    table names none, or the reference matches no datasource or several."""
+    reference = table.get("primaryDataSource")
+    if not isinstance(reference, dict):
+        return None
+    reference_id = reference.get("objectId") or reference.get("id")
+    if reference_id:
+        wanted = normalize_object_id(reference_id)
+        by_id = [d for d in datasources if normalize_object_id(d.id) == wanted]
+        if by_id:
+            return by_id[0] if len(by_id) == 1 else None
+    reference_name = reference.get("name")
+    if isinstance(reference_name, str) and reference_name:
+        by_name = [d for d in datasources if d.name == reference_name]
+        if len(by_name) == 1:
+            return by_name[0]
     return None
 
 
