@@ -1,7 +1,7 @@
 import json
 import sys
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Set, Tuple
 
 import avro.schema
 import pytest
@@ -17,11 +17,19 @@ from modeldocgen import (
     Relationship,
     RelationshipAdjacency,
     RelationshipGraph,
+    _check_incident_graphql_types,
+    _graphql_defined_types,
+    _incident_graphql_type,
+    _incident_graphql_types,
+    _incident_resolver_types,
+    _incident_summary_entities,
+    _incident_write_gate,
     aspect_registry,
     capitalize_first,
     entity_registry,
     extract_lineage_fields,
     extract_lineage_fields_from_schema,
+    generate_incident_support_table,
     generate_lineage_json,
     generate_stitched_record,
     get_sorted_entity_names,
@@ -1104,3 +1112,272 @@ class TestLineageGeneration:
         assert field.name == "upstreams"
         assert field.path == "upstreams"
         assert field.isLineage is True
+
+
+_INCIDENT_PDL_FIXTURE = """
+record IncidentInfo {
+  @Relationship = {
+    "/*": {
+      "name": "IncidentAssignedTo",
+      "entityTypes": [ "corpUser" ]
+    }
+  }
+  assignees: array[Urn]
+
+  // "entityTypes": [ "commentedOut" ]
+  @Relationship = {
+    "/*": {
+      "name": "IncidentOn",
+      "entityTypes": [ "dataset", "mlModel", "schemaField", "service", "aiAgent" ]
+    }
+  }
+  entities: array[Urn]
+}
+"""
+
+_INCIDENT_REGISTRY_FIXTURE = """
+entities:
+  - name: dataset
+    keyAspect: datasetKey
+    aspects:
+      - datasetProperties
+      - incidentsSummary
+  - name: mlModel
+    aspects:
+      - mlModelProperties
+      - incidentsSummary
+  - name: schemaField
+    aspects:
+      - schemaFieldKey
+      # - incidentsSummary
+  - name: service
+    aspects:
+      - incidentsSummary
+  - name: aiAgent
+    aspects:
+      - incidentsSummary
+events:
+  - name: incidentsSummary
+"""
+
+_INCIDENT_SDL_FIXTURE = """
+extend type Dataset {
+  "The incidents"
+  incidents(start: Int): EntityIncidentsResult
+}
+extend type MLModel {
+  incidents(start: Int): EntityIncidentsResult
+}
+extend type Chart {
+  health: Health
+}
+# extend type Dashboard { incidents(start: Int): EntityIncidentsResult }
+"""
+
+_ENTITY_SDL_FIXTURE = '''
+type Dataset implements Entity {
+  urn: String!
+}
+"""
+type Service is what a description might say, and it defines nothing.
+"""
+type MLModel implements Entity {
+  urn: String!
+}
+type SchemaFieldEntity implements Entity {
+  urn: String!
+}
+extend type AIAgent {
+  urn: String!
+}
+'''
+
+_INCIDENT_ENGINE_FIXTURE = """
+    final List<String> entitiesWithIncidents =
+        ImmutableList.of(
+            "Dataset",
+            // "Dashboard",
+            "MLModel");
+    for (String entity : entitiesWithIncidents) {
+      builder.type(entity, wiring -> wiring.dataFetcher("incidents", fetcher));
+    }
+"""
+
+
+class TestIncidentSupportTable:
+    @pytest.fixture
+    def sources(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        files = {
+            "IncidentInfo.pdl": _INCIDENT_PDL_FIXTURE,
+            "entity-registry.yml": _INCIDENT_REGISTRY_FIXTURE,
+            "incident.graphql": _INCIDENT_SDL_FIXTURE,
+            "entity.graphql": _ENTITY_SDL_FIXTURE,
+            "Engine.java": _INCIDENT_ENGINE_FIXTURE,
+        }
+        for name, text in files.items():
+            (tmp_path / name).write_text(text)
+        monkeypatch.setattr("modeldocgen._INCIDENT_PDL", tmp_path / "IncidentInfo.pdl")
+        monkeypatch.setattr("modeldocgen._INCIDENT_SDL", tmp_path / "incident.graphql")
+        monkeypatch.setattr("modeldocgen._INCIDENT_ENGINE", tmp_path / "Engine.java")
+        monkeypatch.setattr("modeldocgen._GRAPHQL_RESOURCES", tmp_path)
+        return tmp_path
+
+    def test_write_gate_reads_incident_on_not_the_first_relationship(
+        self, sources: Path
+    ) -> None:
+        assert _incident_write_gate() == [
+            "dataset",
+            "mlModel",
+            "schemaField",
+            "service",
+            "aiAgent",
+        ]
+
+    def test_write_gate_does_not_depend_on_key_order(self, sources: Path) -> None:
+        (sources / "IncidentInfo.pdl").write_text(
+            '@Relationship = { "/*": { "entityTypes": [ "dataset" ], '
+            '"name": "IncidentOn" } }'
+        )
+        assert _incident_write_gate() == ["dataset"]
+
+    @pytest.mark.parametrize(
+        "pdl",
+        [
+            '@Relationship = { "/*": { "name": "Other", "entityTypes": ["dataset"] } }',
+            '@Relationship = { "/*": { "name": "IncidentOn" } }',
+            '@Relationship = { "/*": { "name": "IncidentOn", "entityTypes": [] } }',
+        ],
+    )
+    def test_write_gate_raises_rather_than_returning_nothing(
+        self, sources: Path, pdl: str
+    ) -> None:
+        (sources / "IncidentInfo.pdl").write_text(pdl)
+        with pytest.raises(ValueError, match="IncidentOn entityTypes"):
+            _incident_write_gate()
+
+    def test_summary_entities_reads_only_real_aspect_entries(self) -> None:
+        assert _incident_summary_entities(_INCIDENT_REGISTRY_FIXTURE) == {
+            "dataset",
+            "mlModel",
+            "service",
+            "aiAgent",
+        }
+
+    def test_graphql_types_needs_an_incidents_field_in_an_extend_block(
+        self, sources: Path
+    ) -> None:
+        assert _incident_graphql_types() == {"Dataset", "MLModel"}
+
+    def test_graphql_types_raises_when_nothing_declares_the_field(
+        self, sources: Path
+    ) -> None:
+        (sources / "incident.graphql").write_text("extend type Chart { health: H }")
+        with pytest.raises(ValueError, match="incidents fields"):
+            _incident_graphql_types()
+
+    def test_resolver_types_reads_the_literal(self, sources: Path) -> None:
+        assert _incident_resolver_types() == {"Dataset", "MLModel"}
+
+    @pytest.mark.parametrize(
+        "engine",
+        [
+            'final List<String> renamedList = ImmutableList.of("Dataset");',
+            "final List<String> entitiesWithIncidents = ImmutableList.of();",
+        ],
+    )
+    def test_resolver_types_raises_rather_than_flipping_the_column(
+        self, sources: Path, engine: str
+    ) -> None:
+        (sources / "Engine.java").write_text(engine)
+        with pytest.raises(ValueError, match="entitiesWithIncidents"):
+            _incident_resolver_types()
+
+    def test_defined_types_ignores_extend_blocks_and_descriptions(
+        self, sources: Path
+    ) -> None:
+        assert _graphql_defined_types() == {"Dataset", "MLModel", "SchemaFieldEntity"}
+
+    @pytest.mark.parametrize(
+        "entity,expected",
+        [
+            ("dataset", "Dataset"),
+            ("dataFlow", "DataFlow"),
+            ("mlModel", "MLModel"),
+            ("mlFeatureTable", "MLFeatureTable"),
+            ("schemaField", "SchemaFieldEntity"),
+        ],
+    )
+    def test_graphql_type_name(self, entity: str, expected: str) -> None:
+        assert _incident_graphql_type(entity) == expected
+
+    def test_guard_rejects_a_name_that_resolves_to_nothing(self, sources: Path) -> None:
+        with pytest.raises(ValueError, match="dataProduct maps to .*DataProduct"):
+            _check_incident_graphql_types(
+                ["dataProduct", "service", "aiAgent"], {"service", "aiAgent"}
+            )
+
+    @pytest.mark.parametrize(
+        "entity,sdl_type",
+        [
+            ("service", "Service"),
+            ("aiAgent", "AIAgent"),
+            ("aiAgent", "AiAgent"),
+            ("service", "ServiceEntity"),
+        ],
+    )
+    def test_guard_rejects_a_stale_no_type_claim(
+        self, sources: Path, entity: str, sdl_type: str
+    ) -> None:
+        (sources / "new.graphql").write_text(f"type {sdl_type} {{ urn: String! }}")
+        with pytest.raises(ValueError, match=f"{entity} now has .*{sdl_type}"):
+            _check_incident_graphql_types(
+                ["service", "aiAgent"], {"service", "aiAgent"}
+            )
+
+    @pytest.mark.parametrize(
+        "entities,summaries",
+        [
+            (["service"], {"service", "aiAgent"}),
+            (["service", "aiAgent"], {"service"}),
+        ],
+    )
+    def test_guard_rejects_when_the_page_no_longer_describes_these_types(
+        self, sources: Path, entities: List[str], summaries: Set[str]
+    ) -> None:
+        with pytest.raises(ValueError, match="aiAgent is on IncidentOn"):
+            _check_incident_graphql_types(entities, summaries)
+
+    def test_table_from_fixtures(self, sources: Path) -> None:
+        table = generate_incident_support_table(str(sources / "entity-registry.yml"))
+        assert table.splitlines()[2:] == [
+            "| `dataset` | Yes | Yes | Yes | Yes |",
+            "| `mlModel` | Yes | Yes | Yes | Yes |",
+            "| `schemaField` | Yes | No | No | No |",
+            "| `service` | Yes | Yes | No | No |",
+            "| `aiAgent` | Yes | Yes | No | No |",
+        ]
+
+    def test_table_fails_on_a_name_the_guard_rejects(self, sources: Path) -> None:
+        (sources / "IncidentInfo.pdl").write_text(
+            '@Relationship = { "/*": { "name": "IncidentOn", '
+            '"entityTypes": [ "dataProduct", "service", "aiAgent" ] } }'
+        )
+        with pytest.raises(ValueError, match="dataProduct maps to .*DataProduct"):
+            generate_incident_support_table(str(sources / "entity-registry.yml"))
+
+    def test_table_raises_when_the_registry_has_no_summaries(
+        self, sources: Path
+    ) -> None:
+        registry = sources / "entity-registry.yml"
+        registry.write_text("entities:\n  - name: dataset\n    aspects:\n      - a\n")
+        with pytest.raises(ValueError, match="incidentsSummary aspects"):
+            generate_incident_support_table(str(registry))
+
+    def test_table_against_the_real_sources(self) -> None:
+        """Fixtures only prove the parsers match the fixtures. This reads the repo."""
+        registry = (
+            Path(__file__).parents[3]
+            / "metadata-models/src/main/resources/entity-registry.yml"
+        )
+        rows = generate_incident_support_table(str(registry)).splitlines()
+        assert "| `dataset` | Yes | Yes | Yes | Yes |" in rows
