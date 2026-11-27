@@ -380,6 +380,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # warehouse table name rather than the element name, and a column with an
     # empty formula.
     data_model_element_fgl_warehouse_resolved: int = 0
+    # FGL emitted for a ref naming a warehouse table the element reads, for a
+    # column with no inode-<url_id>/<COL> columnId.
+    data_model_element_fgl_warehouse_table_name_resolved: int = 0
+    # Such refs left without that edge, once per column and ref: the name
+    # may mean something else (or a Data Model the element reads was not
+    # loaded), the ref has three parts, the connection is unmappable, or the
+    # column would be a guess on a case-preserving platform or no plain
+    # identifier. A declined ref may also count in cross_dm_deferred.
+    data_model_element_fgl_warehouse_table_name_declined: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
     # /lineage, whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl) found
     # no match, and that orphan recovery declined (see
