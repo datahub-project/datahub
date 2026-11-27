@@ -18,12 +18,10 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.StructuredPropertyUtil
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder;
 import com.linkedin.metadata.utils.AuditStampUtils;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
-import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import graphql.com.google.common.collect.ImmutableSet;
 import graphql.schema.DataFetcher;
@@ -96,28 +94,45 @@ public class UpsertStructuredPropertiesResolver
                   assetUrn);
             }
 
-            // get or default the structured properties aspect
-            StructuredProperties structuredProperties =
-                getStructuredProperties(context.getOperationContext(), assetUrn);
+            // Write only the given properties, as a patch. GMS applies it to the latest aspect
+            // inside the write transaction, so a concurrent write to another property of the same
+            // entity is kept. Upserting the whole aspect from an earlier read would overwrite it.
+            final StructuredPropertiesPatchBuilder patchBuilder =
+                new StructuredPropertiesPatchBuilder().urn(assetUrn);
 
-            // update the existing properties based on new value
-            StructuredPropertyValueAssignmentArray properties =
-                updateExistingProperties(structuredProperties, updateMap, auditStamp);
+            // A manual value replaces the attributed values of that property (for example
+            // propagated ones), as the whole-aspect upsert did. The patch keys assignments by
+            // property and attribution source, so remove them in the same patch: a second
+            // assignment for the property would fail StructuredPropertiesValidator.
+            getStructuredProperties(context.getOperationContext(), assetUrn)
+                .getProperties()
+                .stream()
+                .filter(assignment -> updateMap.containsKey(assignment.getPropertyUrn().toString()))
+                .filter(
+                    assignment ->
+                        assignment.hasAttribution() && assignment.getAttribution().hasSource())
+                .forEach(
+                    assignment ->
+                        patchBuilder.removeProperty(
+                            assignment.getPropertyUrn(), assignment.getAttribution().getSource()));
 
-            // append any new properties from our input
-            addNewProperties(properties, updateMap, auditStamp);
-
-            structuredProperties.setProperties(properties);
-
-            // ingest change proposal
-            final MetadataChangeProposal structuredPropertiesProposal =
-                AspectUtils.buildMetadataChangeProposal(
-                    assetUrn, STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties);
+            updateMap.forEach(
+                (propertyUrn, values) ->
+                    patchBuilder.setProperty(
+                        UrnUtils.getUrn(propertyUrn),
+                        new PrimitivePropertyValueArray(
+                            values.stream()
+                                .map(StructuredPropertyUtils::mapPropertyValueInput)
+                                .collect(Collectors.toList())),
+                        auditStamp));
 
             _entityClient.ingestProposal(
-                context.getOperationContext(), structuredPropertiesProposal, false);
+                context.getOperationContext(), patchBuilder.build(), false);
 
-            return StructuredPropertiesMapper.map(context, structuredProperties, assetUrn);
+            return StructuredPropertiesMapper.map(
+                context,
+                getStructuredProperties(context.getOperationContext(), assetUrn),
+                assetUrn);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
@@ -145,53 +160,5 @@ public class UpsertStructuredPropertiesResolver
               response.getAspects().get(STRUCTURED_PROPERTIES_ASPECT_NAME).getValue().data());
     }
     return structuredProperties;
-  }
-
-  private StructuredPropertyValueAssignmentArray updateExistingProperties(
-      StructuredProperties structuredProperties,
-      Map<String, List<PropertyValueInput>> updateMap,
-      AuditStamp auditStamp) {
-    return new StructuredPropertyValueAssignmentArray(
-        structuredProperties.getProperties().stream()
-            .map(
-                propAssignment -> {
-                  String propUrnString = propAssignment.getPropertyUrn().toString();
-                  if (updateMap.containsKey(propUrnString)) {
-                    List<PropertyValueInput> valueList = updateMap.get(propUrnString);
-                    PrimitivePropertyValueArray values =
-                        new PrimitivePropertyValueArray(
-                            valueList.stream()
-                                .map(StructuredPropertyUtils::mapPropertyValueInput)
-                                .collect(Collectors.toList()));
-                    propAssignment.setValues(values);
-                    propAssignment.setLastModified(auditStamp);
-                    propAssignment.removeAttribution();
-                  }
-                  return propAssignment;
-                })
-            .collect(Collectors.toList()));
-  }
-
-  private void addNewProperties(
-      StructuredPropertyValueAssignmentArray properties,
-      Map<String, List<PropertyValueInput>> updateMap,
-      AuditStamp auditStamp) {
-    // first remove existing properties from updateMap so that we append only new properties
-    properties.forEach(prop -> updateMap.remove(prop.getPropertyUrn().toString()));
-
-    updateMap.forEach(
-        (structuredPropUrn, values) -> {
-          StructuredPropertyValueAssignment valueAssignment =
-              new StructuredPropertyValueAssignment();
-          valueAssignment.setPropertyUrn(UrnUtils.getUrn(structuredPropUrn));
-          valueAssignment.setValues(
-              new PrimitivePropertyValueArray(
-                  values.stream()
-                      .map(StructuredPropertyUtils::mapPropertyValueInput)
-                      .collect(Collectors.toList())));
-          valueAssignment.setCreated(auditStamp);
-          valueAssignment.setLastModified(auditStamp);
-          properties.add(valueAssignment);
-        });
   }
 }
