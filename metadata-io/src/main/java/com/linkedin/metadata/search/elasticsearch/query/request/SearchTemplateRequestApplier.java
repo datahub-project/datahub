@@ -295,8 +295,8 @@ public final class SearchTemplateRequestApplier {
     Map<String, Set<String>> matched = new LinkedHashMap<>();
     List<MatchEvidence> ordinary = new ArrayList<>();
     if (source != null) {
-      scanFields(source, matcher, queriedFields, matched, ordinary, explain);
-      scanFields(source, matcher, highlightFields, matched, ordinary, explain);
+      scanFields(
+          source, matcher, List.of(queriedFields, highlightFields), matched, ordinary, explain);
     }
     if (template.matchedFields()) {
       for (String queryName : matchedQueries) {
@@ -327,36 +327,43 @@ public final class SearchTemplateRequestApplier {
   }
 
   /**
-   * Scans each label's key together with the stored paths fetched for it, so a typed match on any
-   * of them is reported ahead of a synonym-only one, then the structured-property paths. A label
-   * key keeps its own name when it is also a stored path of another label. {@link #addFirst} keeps
-   * one value per field, so a label hit does not hide a different label's stored source and does
-   * not report the same label twice.
+   * Scans each label's key together with the stored paths fetched for it in any of {@code sources},
+   * so a typed match on any of them is reported ahead of a synonym-only one, then the
+   * structured-property paths. A label key keeps its own name when it is also a stored path of
+   * another label. {@link #addFirst} keeps one value per field, so a label hit does not hide a
+   * different label's stored source and does not report the same label twice.
    */
   private static void scanFields(
       @Nonnull Map<String, Object> source,
       @Nonnull MatchedFields matcher,
-      @Nonnull FieldSources fields,
+      @Nonnull List<FieldSources> sources,
       @Nonnull Map<String, Set<String>> matched,
       @Nonnull List<MatchEvidence> ordinary,
       boolean explain) {
-    if (!fields.labelKeys().isEmpty() || !fields.fallbackPaths().isEmpty()) {
-      Map<String, List<String>> pathsByName = new LinkedHashMap<>();
+    Map<String, List<String>> pathsByName = new LinkedHashMap<>();
+    List<String> direct = new ArrayList<>();
+    for (FieldSources fields : sources) {
       for (String key : fields.labelKeys()) {
-        pathsByName.putIfAbsent(key, new ArrayList<>(List.of(key)));
+        addPath(pathsByName, key, key);
       }
       for (String path : fields.fallbackPaths()) {
-        List<String> paths =
-            pathsByName.computeIfAbsent(
-                fields.fallbackLabels().getOrDefault(path, path), ignored -> new ArrayList<>());
-        if (!paths.contains(path)) {
-          paths.add(path);
-        }
+        addPath(pathsByName, fields.fallbackLabels().getOrDefault(path, path), path);
       }
+      fields.direct().stream().filter(path -> !direct.contains(path)).forEach(direct::add);
+    }
+    if (!pathsByName.isEmpty()) {
       addFirst(matched, ordinary, matcher.firstPerName(source, pathsByName, explain));
     }
-    if (!fields.direct().isEmpty()) {
-      addFirst(matched, ordinary, matcher.matches(source, fields.direct(), Map.of(), explain));
+    if (!direct.isEmpty()) {
+      addFirst(matched, ordinary, matcher.matches(source, direct, Map.of(), explain));
+    }
+  }
+
+  private static void addPath(
+      @Nonnull Map<String, List<String>> pathsByName, @Nonnull String name, @Nonnull String path) {
+    List<String> paths = pathsByName.computeIfAbsent(name, ignored -> new ArrayList<>());
+    if (!paths.contains(path)) {
+      paths.add(path);
     }
   }
 

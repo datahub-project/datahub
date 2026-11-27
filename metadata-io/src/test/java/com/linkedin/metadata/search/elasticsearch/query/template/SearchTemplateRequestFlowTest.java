@@ -1614,6 +1614,72 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testATypedStoredPathWinsOverASynonymOnTheLabelKey() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"stg_orders\",\"editedName\":\"Staging Orders\"}");
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    sources.put("name", List.of("name", "editedName"));
+    List<MatchedField> matched =
+        matched(
+            new RenderedSearchTemplate(
+                QueryBuilders.matchAllQuery(),
+                null,
+                null,
+                null,
+                List.of("name"),
+                true,
+                List.of("name"),
+                "staging",
+                Map.of(),
+                1,
+                List.of(),
+                List.of(),
+                sources,
+                null),
+            hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()), List.of("name"));
+    assertEquals(matched.get(0).getValue(), "Staging Orders");
+  }
+
+  @Test
+  public void testAHighlightedPathCountsWithTheQueriedPathsOfALabel() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"unrelated\",\"description\":\"stg notes\","
+                + "\"alias\":\"staging copy\"}");
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    sources.put("name", List.of("name", "alias"));
+    sources.put("description", List.of("description", "alias"));
+    List<MatchedField> matched =
+        matched(
+            new RenderedSearchTemplate(
+                QueryBuilders.matchAllQuery(),
+                null,
+                null,
+                null,
+                List.of("description"),
+                true,
+                List.of("name", "description"),
+                "staging",
+                Map.of(),
+                1,
+                List.of(),
+                List.of(),
+                sources,
+                null),
+            hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()),
+        List.of("name", "description"));
+    // The queried label set gives alias to name only; the highlighted set gives it to description
+    assertEquals(matched.get(1).getValue(), "staging copy");
+  }
+
+  @Test
   public void testCopyToOtherHasNoStoredMatchedField() {
     SearchHit hit =
         sourceHit(

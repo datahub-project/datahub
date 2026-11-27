@@ -5,6 +5,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.search.MatchedField;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -96,6 +97,24 @@ public class MatchedFieldsTest {
         names(new MatchedFields("staging events", 0).find(source, List.of("name"))),
         List.of("name"));
     assertTrue(new MatchedFields("development", 0).find(source, List.of("name")).isEmpty());
+  }
+
+  /**
+   * Synonyms are looked up on the folded words of the query, before short words are dropped, as the
+   * analyzers expand them. A synonym match is a word match on the stemmed subfield.
+   */
+  @Test
+  public void testSynonymsOfShortAndQuotedWordsMatch() {
+    // s3 and s_3 are one equivalence line; s3 is shorter than the minimum word length
+    MatchedFields shortWord = new MatchedFields("s3", 3);
+    assertTrue(shortWord.hasQueryWords());
+    assertEquals(names(shortWord.find(Map.of("name", "s_3"), List.of("name"))), List.of("name"));
+    MatchedFields quoted = new MatchedFields("\"STG\"", 0);
+    List<MatchEvidence> evidence =
+        quoted.explain(Map.of("name", "staging"), List.of("name"), Map.of());
+    assertEquals(evidence.size(), 1);
+    assertEquals(evidence.get(0).mode(), MatchEvidence.WORD);
+    assertEquals(evidence.get(0).subfield(), "name" + V3SearchFields.STEMMED_SUFFIX);
   }
 
   /** A multi-word synonym matches only as a phrase, so its words alone do not report a field. */

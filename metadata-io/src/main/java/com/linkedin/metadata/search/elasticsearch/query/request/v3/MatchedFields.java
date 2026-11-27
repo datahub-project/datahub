@@ -39,11 +39,11 @@ import org.tartarus.snowball.ext.EnglishStemmer;
  * the query, as the shared fields' {@code stemmed} subfields do, or starts with the last word of
  * the query, as their phrase prefix does; an identifier such as {@code customer_id} also matches by
  * its parts, as the analyzers index them. A one-word synonym of the query or of one of its words,
- * from the equivalence lines of the synonym files, matches like the word, but a field reports it
- * only when no typed word matched that field. This is best effort: multi-word synonyms and explicit
- * synonym rules are not applied, words are split on what is not a letter, a digit or an underscore
- * even when a main tokenizer is configured, and as on V2 only the first matching value of a field
- * is reported.
+ * from the equivalence lines of the synonym files, matches a word with the same stem, but a field
+ * reports it only when no typed word matched that field. This is best effort: multi-word synonyms
+ * and explicit synonym rules are not applied, words are split on what is not a letter, a digit or
+ * an underscore even when a main tokenizer is configured, and as on V2 only the first matching
+ * value of a field is reported.
  *
  * <p>One instance serves one query, for the hits of one response, from one thread.
  */
@@ -80,8 +80,12 @@ public final class MatchedFields {
     this.minWordLength = minWordLength;
     final List<List<String>> queryWords = new ArrayList<>();
     final List<String> tokens = new ArrayList<>();
+    // The analyzers fold each word and expand its synonyms before they drop short words, so the
+    // lookup reads every folded word, without quotes or punctuation
+    final List<String> foldedWords = new ArrayList<>();
     final Matcher matcher = WORD.matcher(query);
     while (matcher.find()) {
+      foldedWords.add(fold(matcher.group()));
       final List<String> wordForms = forms(matcher.group());
       if (!wordForms.isEmpty()) {
         queryWords.add(wordForms);
@@ -94,7 +98,7 @@ public final class MatchedFields {
     // multi-word synonym matches only as a phrase, which this word scan cannot check, so it is left
     // out rather than matching each of its words alone.
     final Set<String> synonymStems = new HashSet<>();
-    for (String synonym : SearchTemplateSynonyms.expansions(query)) {
+    for (String synonym : SearchTemplateSynonyms.expansions(String.join(" ", foldedWords))) {
       final Matcher synonymWords = WORD.matcher(synonym);
       final List<String> words = new ArrayList<>();
       while (synonymWords.find()) {
@@ -157,7 +161,7 @@ public final class MatchedFields {
       @Nonnull final Map<String, Object> source,
       @Nonnull final List<Map.Entry<String, List<String>>> groups,
       final boolean includeExplain) {
-    if (lastQueryForms.isEmpty()) {
+    if (!hasQueryWords()) {
       return SearchHitMatches.EMPTY;
     }
     final List<ValueMatch> found = new ArrayList<>();
@@ -254,7 +258,10 @@ public final class MatchedFields {
     return MatchEvidence.WORD.equals(mode) ? field + V3SearchFields.STEMMED_SUFFIX : field;
   }
 
-  /** The query token whose stem or prefix matched, or the whole query when none is found. */
+  /**
+   * The query token whose stem or prefix matched, or the whole query when none is found, as for a
+   * synonym.
+   */
   @Nonnull
   private String queryWord(@Nonnull final String text) {
     final Matcher matcher = WORD.matcher(text);
@@ -304,9 +311,9 @@ public final class MatchedFields {
     return current;
   }
 
-  /** Whether the query has a word a field could match. */
+  /** Whether the query has a word, or a synonym of one, that a field could match. */
   public boolean hasQueryWords() {
-    return !lastQueryForms.isEmpty();
+    return !lastQueryForms.isEmpty() || !synonymStems.isEmpty();
   }
 
   /**

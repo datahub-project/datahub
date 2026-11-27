@@ -828,7 +828,7 @@ The builder rewrites the query before any clause sees it. The service computes t
 | `shortened`         | `normalized` cut on a word boundary.                                                                            |
 | `lastSegment`       | The last `.` / `_` / `-` / `/` segment of `raw`.                                                                |
 | `synonyms`          | The synonyms of the whole query and of each of its words.                                                       |
-| `exactSynonyms`     | Synonyms of the whole query only, for a clause that must not use a word's synonym, such as an exact name.       |
+| `exactSynonyms`     | Synonyms of the whole query only, capped like `synonyms`, for a clause that must not use a word's synonym.      |
 
 Shape flags are computed by the service and referenced from the body:
 
