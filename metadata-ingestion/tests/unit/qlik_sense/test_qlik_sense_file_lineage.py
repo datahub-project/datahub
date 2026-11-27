@@ -1722,6 +1722,44 @@ def test_kept_writer_links_a_file_whose_storage_is_mapped_since_on_storage(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_writer_types_and_places_a_share_qvd_mapped_since(
+    mock_api_cls: MagicMock,
+) -> None:
+    mock_api_cls.return_value.list_datasets.return_value = []
+    source = _source(
+        {
+            "Sales Space:Share": {
+                "storage_uri": SHARE,
+                "platform_instance": "qlik_onprem",
+            }
+        },
+        {},
+    )
+    source._fingerprint_salt = "salt"
+    stored = make_dataset_urn("qlik-sense", "app-2.orders")
+    previous = AppCheckpoint(
+        urns=[stored],
+        unmapped_file_stores={
+            "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,sales_space:share/out/orders.qvd,PROD)": UnmappedFileStore(
+                path="lib://Sales Space:Share/Out/Orders.qvd", table_urns=[stored]
+            )
+        },
+    )
+    with (
+        patch.object(source.app_state, "previous", return_value=previous),
+        patch.object(source.app_state, "record"),
+    ):
+        source._keep_unchanged_app(UnchangedApp(id="app-2", fingerprint="f"))
+
+    # No app read this run loads the file, yet its kept store links it.
+    workunits = [
+        wu for wu in source._gen_storage_qvd_types() if wu.get_urn() == SHARE_OUT_QVD
+    ]
+    assert any(wu.get_aspect_of_type(SubTypesClass) for wu in workunits)
+    assert any(wu.get_aspect_of_type(DataPlatformInstanceClass) for wu in workunits)
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_kept_writer_keeps_its_unmapped_store_when_datasets_cannot_be_listed(
     mock_api_cls: MagicMock,
 ) -> None:
