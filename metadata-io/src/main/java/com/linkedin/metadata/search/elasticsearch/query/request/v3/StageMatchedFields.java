@@ -84,7 +84,7 @@ public final class StageMatchedFields {
         names.put(path, field);
       }
     }
-    SearchHitMatches scanned = stash.matcher.matches(stash.source, paths, names, false);
+    SearchHitMatches scanned = stash.matcher.firstPerName(stash.source, paths, names, false);
     List<MatchedField> first = new ArrayList<>();
     Set<String> seen = new LinkedHashSet<>();
     for (MatchedField field : scanned.matched()) {

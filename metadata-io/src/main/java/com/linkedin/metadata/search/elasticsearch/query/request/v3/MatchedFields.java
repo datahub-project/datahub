@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -127,34 +128,65 @@ public final class MatchedFields {
       @Nonnull final Collection<String> fields,
       @Nonnull final Map<String, String> names,
       final boolean includeExplain) {
+    final List<List<String>> groups = new ArrayList<>();
+    for (String field : fields) {
+      groups.add(List.of(field));
+    }
+    return scan(source, groups, names, includeExplain);
+  }
+
+  /**
+   * One value per reported name, where several fetched paths report the same name: the first value
+   * that holds a typed word across those paths, else the first that holds only a synonym. Paths
+   * keep their order within a name.
+   */
+  @Nonnull
+  public SearchHitMatches firstPerName(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final Collection<String> fields,
+      @Nonnull final Map<String, String> names,
+      final boolean includeExplain) {
+    final Map<String, List<String>> byName = new LinkedHashMap<>();
+    for (String field : fields) {
+      byName
+          .computeIfAbsent(names.getOrDefault(field, field), ignored -> new ArrayList<>())
+          .add(field);
+    }
+    return scan(source, List.copyOf(byName.values()), names, includeExplain);
+  }
+
+  @Nonnull
+  private SearchHitMatches scan(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final List<List<String>> groups,
+      @Nonnull final Map<String, String> names,
+      final boolean includeExplain) {
     if (lastQueryForms.isEmpty()) {
       return SearchHitMatches.EMPTY;
     }
     final List<MatchedField> matchedFields = new ArrayList<>();
     final List<MatchEvidence> evidence = new ArrayList<>();
-    for (String field : fields) {
-      final String reported = names.getOrDefault(field, field);
-      final List<?> fieldValues = values(at(source, field));
+    for (List<String> group : groups) {
       // A value that holds a typed word is reported ahead of one that holds only a synonym.
+      scanGroup:
       for (boolean synonyms : new boolean[] {false, true}) {
         if (synonyms && synonymStems.isEmpty()) {
           break;
         }
-        boolean found = false;
-        for (Object value : fieldValues) {
-          final String text = String.valueOf(value);
-          final int match = synonyms ? firstSynonymMatch(text) : firstMatch(text);
-          if (match >= 0) {
-            matchedFields.add(new MatchedField().setName(reported).setValue(fragment(text, match)));
-            if (includeExplain) {
-              evidence.add(evidence(reported, text, match));
+        for (String field : group) {
+          final String reported = names.getOrDefault(field, field);
+          for (Object value : values(at(source, field))) {
+            final String text = String.valueOf(value);
+            final int match = synonyms ? firstSynonymMatch(text) : firstMatch(text);
+            if (match >= 0) {
+              matchedFields.add(
+                  new MatchedField().setName(reported).setValue(fragment(text, match)));
+              if (includeExplain) {
+                evidence.add(evidence(reported, text, match));
+              }
+              break scanGroup;
             }
-            found = true;
-            break;
           }
-        }
-        if (found) {
-          break;
         }
       }
     }

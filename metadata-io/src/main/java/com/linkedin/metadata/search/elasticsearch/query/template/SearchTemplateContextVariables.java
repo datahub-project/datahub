@@ -93,8 +93,8 @@ public final class SearchTemplateContextVariables {
 
   /**
    * Synonyms of the whole query only, as {@link #SYNONYM} elements. {@link #SYNONYMS} also holds
-   * each word's synonyms, which are not synonyms of a longer query, so an exact-name clause reads
-   * this list.
+   * each word's synonyms, which are not synonyms of a longer query, so a clause that must not treat
+   * them as the query's, such as an exact-name term, can read this list.
    */
   public static final String EXACT_SYNONYMS = "exactSynonyms";
 

@@ -107,6 +107,25 @@ public class MatchedFieldsTest {
             .isEmpty());
   }
 
+  /**
+   * Across the paths that report one name, a typed match is reported ahead of a synonym-only one.
+   */
+  @Test
+  public void testTypedWordsWinAcrossThePathsOfOneName() {
+    Map<String, Object> source = new HashMap<>();
+    source.put("name", "stg_orders");
+    source.put("editedName", "Staging Orders");
+    List<String> paths = List.of("name", "editedName");
+    Map<String, String> names = Map.of("editedName", "name");
+    List<MatchedField> perPath = new MatchedFields("staging", 0).find(source, paths, names);
+    assertEquals(perPath.size(), 2);
+    List<MatchedField> perName =
+        new MatchedFields("staging", 0).firstPerName(source, paths, names, false).matched();
+    assertEquals(perName.size(), 1);
+    assertEquals(perName.get(0).getName(), "name");
+    assertEquals(perName.get(0).getValue(), "Staging Orders");
+  }
+
   /** A value holding a typed word is reported ahead of one that holds only a synonym. */
   @Test
   public void testTypedWordsWinOverSynonyms() {

@@ -338,14 +338,17 @@ public final class SearchTemplateRequestApplier {
       @Nonnull Map<String, Set<String>> matched,
       @Nonnull List<MatchEvidence> ordinary,
       boolean explain) {
-    if (!fields.labelKeys().isEmpty()) {
-      addFirst(matched, ordinary, matcher.matches(source, fields.labelKeys(), Map.of(), explain));
-    }
-    if (!fields.fallbackPaths().isEmpty()) {
+    if (!fields.labelKeys().isEmpty() || !fields.fallbackPaths().isEmpty()) {
+      // One scan over a label's key and its fallback paths, so a typed match on any of them is
+      // reported ahead of a synonym-only one.
+      List<String> labelPaths = new ArrayList<>(fields.labelKeys());
+      fields.fallbackPaths().stream()
+          .filter(path -> !labelPaths.contains(path))
+          .forEach(labelPaths::add);
       addFirst(
           matched,
           ordinary,
-          matcher.matches(source, fields.fallbackPaths(), fields.fallbackLabels(), explain));
+          matcher.firstPerName(source, labelPaths, fields.fallbackLabels(), explain));
     }
     if (!fields.direct().isEmpty()) {
       addFirst(matched, ordinary, matcher.matches(source, fields.direct(), Map.of(), explain));

@@ -63,8 +63,8 @@ public final class SearchTemplateSynonyms {
 
   /**
    * Other members of the equivalence class for the whole query only. A word's synonym is not a
-   * synonym of a longer query, so an exact-name clause reads this list rather than {@link
-   * #expansions}.
+   * synonym of a longer query, so a clause that must not treat it as one, such as an exact-name
+   * term, can read this list rather than {@link #expansions}.
    */
   @Nonnull
   public static List<String> wholeQuery(@Nonnull String query) {
