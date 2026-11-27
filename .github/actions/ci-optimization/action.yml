@@ -152,6 +152,8 @@ runs:
           pytest-workflow:
             - ".github/workflows/e2e-tests.yml"
             - ".github/workflows/docker-unified.yml"
+            - ".github/workflows/docker-free-e2e.yml"
+            - ".github/actions/docker-free-stack/**"
             - ".github/actions/ci-optimization/**"
             - ".github/actions/smoke-test-retry/**"
             - ".github/actions/restore-dependency-caches/**"

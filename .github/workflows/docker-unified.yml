@@ -161,6 +161,8 @@ jobs:
       #
       # This is the default tier only: smoke_test_matrix owns the final tier
       # (its smoke_tier output) and replaces it under active smart testing.
+      # e2e-tests.yml's setup copies this and smoke_changed_tests for the
+      # Docker-free lane; keep them in step.
       smoke_tier: >-
         ${{
           (github.event_name == 'pull_request'
@@ -657,6 +659,8 @@ jobs:
             mode="${{ vars.SMART_TESTING_MODE || 'shadow' }}"
           fi
 
+          # e2e-tests.yml's setup copies this run_pytest (PR values) to start the
+          # Docker-free lane; keep them in step.
           run_pytest=false
           if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
             run_pytest=true
@@ -881,6 +885,7 @@ jobs:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
           TEST_FRAMEWORK: pytest
+          TEST_LANE: docker
           HEAD_BRANCH: ${{ github.head_ref }}
           BASE_BRANCH: ${{ github.base_ref }}
           # The PR head, not github.sha (the merge ref): the post-merge check
@@ -1907,6 +1912,7 @@ jobs:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
           TEST_FRAMEWORK: playwright
+          TEST_LANE: docker
           HEAD_BRANCH: ${{ github.head_ref }}
           BASE_BRANCH: ${{ github.base_ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}

@@ -79,12 +79,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # The Docker-free lane (docker-free-e2e.yml) packs its batches on its own weights
-          # file. Soft-skip when master has no recent lane runs: the committed file stays.
+          # The Docker-free lane (docker-free-e2e.yml, called by e2e-tests.yml) packs its
+          # batches on its own weights file. Soft-skip when master has no recent lane
+          # runs: the committed file stays.
           DOWNLOAD_OUTPUT=$(bash .github/scripts/download_test_artifacts.sh \
             --output-dir ./test-artifacts-docker-free \
             --run-count ${{ github.event.inputs.run_count || '3' }} \
-            --workflow docker-free-e2e.yml \
+            --workflow e2e-tests.yml \
             --artifact-prefix "Test Results (docker-free smoke tests)" \
             --repository ${{ github.repository }} \
             --no-fail-on-empty)
@@ -193,9 +194,9 @@ jobs:
             --stats-out ./weight-stats/smoke-docker-free.json \
             --file smoke-test/pytest_test_weights_docker_free.json \
             --framework "Smoke pytest (Docker-free)" \
-            --workflow docker-free-e2e.yml \
+            --workflow e2e-tests.yml \
             --entry-noun tests \
-            --batch-hint "FULL_BATCH_COUNT in docker-free-e2e.yml (9)" \
+            --batch-hint "FULL_BATCH_COUNT / P0_BATCH_COUNT in docker-free-e2e.yml (full=9; p0=3)" \
             --test-id-key testId \
             --threshold 5.0 \
             --pr-gate threshold \

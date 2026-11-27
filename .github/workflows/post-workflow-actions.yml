@@ -211,17 +211,63 @@ jobs:
       thread_ts_file: ${{ github.event.workflow_run.event != 'schedule' && '.slack-thread-ts.json' || '' }}
       channel: ${{ vars.BUILD_STATUS_NOTIFICATION_SLACK_CHANNEL }}
 
-  # Notify Slack when the Docker build succeeds: E2E Tests on a post-commit
-  # push, Docker Build, Scan, Test on a release.
+  # Whether the Docker lane of an E2E Tests push run passed. The run also holds
+  # the Docker-free lane, so its conclusion can't say that. A run that fails only
+  # in the Docker-free lane still reports the Docker build as successful.
+  docker-lane-result:
+    name: Docker lane result
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.name == 'E2E Tests'
+      && github.event.workflow_run.event == 'push'
+      && contains(fromJSON('["success","failure"]'), github.event.workflow_run.conclusion)
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+    outputs:
+      success: ${{ steps.check.outputs.success }}
+    steps:
+      - name: Check the run's docker / * jobs
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: |
+          conclusions=$(gh api --paginate \
+            "repos/$REPOSITORY/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs?per_page=100" \
+            --jq '.jobs[] | select(.name | startswith("docker / ")) | .conclusion')
+          total=$(grep -c . <<<"$conclusions" || true)
+          bad=$(grep -cvxE 'success|skipped' <<<"$conclusions" || true)
+          echo "docker / * jobs: $total, not success or skipped: $bad"
+          success=false
+          if (( total > 0 && bad == 0 )); then
+            success=true
+          fi
+          echo "success=$success" >> "$GITHUB_OUTPUT"
+
+  # Notify Slack when the Docker build succeeds: the Docker lane of an E2E Tests
+  # post-commit push, or Docker Build, Scan, Test on a release (or a push from a
+  # release branch cut before E2E Tests existed).
   # Posts a standalone message (not threaded) so it's visible as a positive signal
   # separate from any failure thread on the same commit.
   notify-slack-docker-success:
     name: Notify Slack on Docker build success
+    needs: [docker-lane-result]
+    # An E2E Tests run that failed on attempt 1 waits for retry-on-failure's
+    # rerun, so a Docker-free failure does not notify twice.
     if: >-
-      github.event_name == 'workflow_run'
-      && github.event.workflow_run.conclusion == 'success'
-      && ((github.event.workflow_run.name == 'E2E Tests' && github.event.workflow_run.event == 'push')
-          || (github.event.workflow_run.name == 'Docker Build, Scan, Test' && github.event.workflow_run.event == 'release'))
+      always()
+      && github.event_name == 'workflow_run'
+      && ((github.event.workflow_run.name == 'E2E Tests'
+           && github.event.workflow_run.event == 'push'
+           && needs.docker-lane-result.outputs.success == 'true'
+           && (github.event.workflow_run.conclusion == 'success'
+               || github.event.workflow_run.run_attempt > 1))
+          || (github.event.workflow_run.name == 'Docker Build, Scan, Test'
+              && github.event.workflow_run.conclusion == 'success'
+              && contains(fromJSON('["push","release"]'), github.event.workflow_run.event)))
     uses: ./.github/workflows/notify-slack-status.yml
     secrets: inherit
     with:
@@ -298,13 +344,14 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       # The pattern avoids the parentheses in "Test Results (smoke tests)
-      # pytests N"; only the pytest batch artifacts contain "pytests ".
+      # pytests N" (? matches them) and leaves out the Docker-free lane's
+      # "Test Results (docker-free smoke tests) pytests N" in the same run.
       - name: Download post-merge pytest results
         if: steps.resolve.outputs.pr_run_id != ''
         continue-on-error: true
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: "*pytests *"
+          pattern: "Test Results ?smoke tests? pytests *"
           path: post-merge-junit
           run-id: ${{ steps.resolve.outputs.run_id }}
           github-token: ${{ github.token }}
@@ -325,7 +372,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: "*pytests *"
+          pattern: "Test Results ?smoke tests? pytests *"
           path: pr-junit
           run-id: ${{ steps.resolve.outputs.pr_run_id }}
           github-token: ${{ github.token }}
