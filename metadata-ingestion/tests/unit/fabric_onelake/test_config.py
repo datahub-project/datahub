@@ -89,6 +89,7 @@ class TestFabricOneLakeSourceConfig:
         assert config.notebook_execution.enabled
         assert config.notebook_execution.history_days == 7
         assert not config.notebook_execution.reconcile_code
+        assert not config.notebook_execution.case_sensitive_columns
 
     def test_notebook_code_reconciliation_requires_execution(self) -> None:
         """Code reconciliation requires notebook execution to be enabled."""

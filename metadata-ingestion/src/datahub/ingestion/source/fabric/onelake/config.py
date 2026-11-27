@@ -107,9 +107,24 @@ class NotebookExecutionConfig(ConfigModel):
         description=(
             "Narrow Spark-plan lineage using the notebook source. Each write "
             "keeps only the tables its dataframe actually uses, and a write that "
-            "exists only in a commented-out cell is dropped. The plans still "
-            "supply the resolved OneLake path. Off by default, so plan lineage "
-            "is emitted unchanged. Requires `enabled=True`."
+            "exists only in a commented-out cell is dropped. Column renames in "
+            "that dataframe (`col(src).alias(dst)`, a `{source: target}` mapping, "
+            '`alias.*`, and `df["column"]`) are emitted as column-level lineage '
+            "on the job, as is a table copied without a select, for the columns "
+            "both tables share. The plans still supply the resolved OneLake path. Off "
+            "by default, so plan lineage is emitted unchanged. Requires "
+            "`enabled=True`."
+        ),
+    )
+    case_sensitive_columns: bool = Field(
+        default=False,
+        description=(
+            "Resolve notebook column names the way a case-sensitive Spark "
+            'session does. Off by default, so `select("name")` finds a column '
+            'stored as `NAME` and keeps that spelling, and `drop("name")` '
+            "removes it. Set true only when the Spark session has "
+            "`spark.sql.caseSensitive` enabled and `Name` and `NAME` are "
+            "different columns. Used when `reconcile_code=True`."
         ),
     )
 
@@ -337,7 +352,9 @@ class FabricOneLakeSourceConfig(
         default=False,
         description=(
             "Emit each notebook's source on the View Definition tab "
-            "(`viewProperties.viewLogic`). Off by default because notebooks often "
+            "(`viewProperties.viewLogic`) and, when `notebook_execution` is "
+            "enabled, on each notebook job's Logic section "
+            "(`dataTransformLogic`). Off by default because notebooks often "
             "hold connection strings, SAS tokens or keys. When on, common "
             "credential patterns (`password=`, `AccountKey=`, `sig=`, bearer "
             "tokens, URL user info, private keys) are masked before emitting; "

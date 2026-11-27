@@ -89,6 +89,7 @@ source:
     # notebook_execution:
     #   enabled: true
     #   reconcile_code: false
+    #   case_sensitive_columns: false
     #   history_days: 7
     # notebook_pattern:
     #   allow:

@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
+from datahub.ingestion.source.fabric.common.models import SparkSqlExecution
 from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
 from datahub.ingestion.source.fabric.onelake.client import (
     _SPARK_SQL_PAGE_SIZE,
@@ -280,6 +281,29 @@ def test_get_spark_sql_plans_extracts_plan_descriptions() -> None:
     plans = client.get_spark_sql_plans("ws-1", "nb-1", "livy-1", "app-1")
 
     assert plans == ["== Physical Plan ==\nA", "== Physical Plan ==\nB"]
+
+
+def test_get_spark_sql_executions_keeps_the_cell_description() -> None:
+    client = OneLakeClient.__new__(OneLakeClient)
+    client.get = MagicMock(  # type: ignore[method-assign]
+        return_value=_response(
+            [
+                {
+                    "id": 0,
+                    "planDescription": "A",
+                    "description": "Job group for statement 1: x = 1",
+                },
+                {"id": 1, "planDescription": "B"},
+            ]
+        )
+    )
+
+    executions = client.get_spark_sql_executions("ws-1", "nb-1", "livy-1", "app-1")
+
+    assert executions == [
+        SparkSqlExecution(plan="A", description="Job group for statement 1: x = 1"),
+        SparkSqlExecution(plan="B", description=None),
+    ]
 
 
 def test_get_spark_sql_plans_orders_by_execution_id() -> None:

@@ -309,6 +309,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # notebooks deferred until every workspace is scanned, so cross-workspace
         # table references resolve against the full set.
         self._notebook_known_table_urns: set[str] = set()
+        # Column names per ingested table URN, as they appear in schema fields,
+        # so a notebook that copies a table can be given column lineage.
+        self._notebook_table_columns: dict[str, list[str]] = {}
         self._pending_notebooks: list[PendingNotebook] = []
         self.report.sql_aggregator = self.aggregator.report
 
@@ -354,6 +357,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_id: str,
         schema_name: str,
         table_name: str,
+        columns: list[FabricColumn],
     ) -> None:
         # Record the GUID-based URN of every ingested table so a notebook's
         # Spark-plan lineage can validate its GUID-built URNs against the set and
@@ -369,6 +373,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
         )
         self._notebook_known_table_urns.add(urn)
+        if columns:
+            self._notebook_table_columns[urn] = [
+                self._norm(col.name) for col in columns
+            ]
 
     def _owners(
         self,
@@ -1099,6 +1107,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                         item_id,
                         schema_name,
                         table.name,
+                        columns,
                     )
 
         except Exception as e:
@@ -1363,9 +1372,12 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             env=self.config.env,
             execution_history_days=self.config.notebook_execution.history_days,
             reconcile_code=self.config.notebook_execution.reconcile_code,
+            case_sensitive_columns=self.config.notebook_execution.case_sensitive_columns,
+            include_source=self.config.include_notebook_source,
             report=self.report,
             client=self.client,
             known_table_urns=self._notebook_known_table_urns,
+            table_columns=self._notebook_table_columns,
             normalize_name=self._norm,
             owners_fn=self._owners,
         )
@@ -1633,6 +1645,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     item_id,
                     schema_name,
                     view.name,
+                    columns,
                 )
 
     def _create_view_dataset(

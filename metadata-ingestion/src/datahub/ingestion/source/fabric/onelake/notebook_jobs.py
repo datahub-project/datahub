@@ -12,14 +12,27 @@ per-table lineage was resolved).
 """
 
 import logging
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
+import datahub.emitter.mce_builder as builder
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.ingestion.agent.redact import scrub_text
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DataFlowSubTypes,
@@ -29,6 +42,7 @@ from datahub.ingestion.source.fabric.common.constants import FABRIC_APP_BASE_URL
 from datahub.ingestion.source.fabric.common.models import (
     FabricJobInstance,
     ItemJobStatus,
+    SparkSqlExecution,
     WorkspaceKey,
 )
 from datahub.ingestion.source.fabric.common.urn_generator import (
@@ -41,7 +55,11 @@ from datahub.ingestion.source.fabric.common.utils import (
 )
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.notebook_code_lineage import (
-    extract_notebook_code_lineage,
+    NotebookCodeAnalysis,
+    NotebookCodeExtractionError,
+    analyze_notebook_code,
+    reconcile_column_lineage,
+    reconcile_passthrough,
     reconcile_spark_lineage,
 )
 from datahub.ingestion.source.fabric.onelake.notebook_spark_lineage import (
@@ -52,6 +70,13 @@ from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceRe
 from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     DataProcessTypeClass,
+    DataTransformClass,
+    DataTransformLogicClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    QueryLanguageClass,
+    QueryStatementClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DataJobUrn
 from datahub.sdk.dataflow import DataFlow
@@ -75,6 +100,33 @@ _STATUS_TO_RESULT: Dict[str, InstanceRunResult] = {
 
 def _iso_to_millis(iso_str: str) -> int:
     return int(parse_iso_datetime(iso_str).timestamp() * 1000)
+
+
+# Spark prefixes each job group with "Job group for statement N:". The statement
+# number is per application, so it cannot identify a notebook; the code can.
+_JOB_GROUP_PREFIX = re.compile(r"^\s*Job group for statement \d+:\s*")
+# Enough of a cell to be specific, short enough to survive Spark truncating
+# long job groups.
+_CELL_MATCH_CHARS = 40
+
+
+def _normalize_code(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _cell_code(description: Optional[str]) -> Optional[str]:
+    if not description:
+        return None
+    code = _normalize_code(_JOB_GROUP_PREFIX.sub("", description, count=1))
+    return code or None
+
+
+@dataclass
+class _JobLineage:
+    """Resolved upstream datasets, plus column renames when the code names them."""
+
+    input_urns: List[str] = field(default_factory=list)
+    columns: Dict[str, Set[Tuple[str, str]]] = field(default_factory=dict)
 
 
 @dataclass
@@ -106,19 +158,25 @@ class NotebookProcessEmitter:
         env: str,
         execution_history_days: int,
         reconcile_code: bool = False,
+        case_sensitive_columns: bool = False,
+        include_source: bool = False,
         report: FabricOneLakeSourceReport,
         client: OneLakeClient,
         known_table_urns: Set[str],
         normalize_name: Callable[[str], str],
         owners_fn: OwnersFn,
+        table_columns: Optional[Dict[str, List[str]]] = None,
     ) -> None:
         self._platform_instance = platform_instance
         self._env = env
         self._execution_history_days = execution_history_days
         self._reconcile_code = reconcile_code
+        self._case_sensitive_columns = case_sensitive_columns
+        self._include_source = include_source
         self._report = report
         self._client = client
         self._known_table_urns = known_table_urns
+        self._table_columns = table_columns or {}
         # Same name normalization the source applied when registering ingested
         # tables, so Spark-plan URNs match the known set regardless of case.
         self._normalize_name = normalize_name
@@ -182,9 +240,10 @@ class NotebookProcessEmitter:
         dataflow: DataFlow,
         workspace_key: WorkspaceKey,
         output: SparkTableRef,
-        input_urns: List[str],
+        resolved: _JobLineage,
         output_job_urns: Dict[str, str],
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+        input_urns = resolved.input_urns
         output_urn = output.to_urn(
             self._env, self._platform_instance, self._normalize_name
         )
@@ -201,6 +260,7 @@ class NotebookProcessEmitter:
             inputDatasets=input_urns,
             outputDatasets=[output_urn],
             inputDatajobs=input_datajobs or None,
+            fineGrainedLineages=self._fine_grained(output_urn, resolved.columns),
         )
 
         external_url = (
@@ -211,6 +271,12 @@ class NotebookProcessEmitter:
         if nb.language:
             custom_properties["language"] = nb.language
 
+        extra_aspects: List[Union[DataJobInputOutputClass, DataTransformLogicClass]] = [
+            io_aspect
+        ]
+        if self._include_source and nb.content:
+            extra_aspects.append(self._transform_logic(nb.content))
+
         datajob = DataJob(
             name=self._job_id(output),
             flow=dataflow,
@@ -219,13 +285,30 @@ class NotebookProcessEmitter:
             subtype=DataJobSubTypes.FABRIC_SPARK_JOB,
             external_url=external_url,
             custom_properties=custom_properties,
-            extra_aspects=[io_aspect],
+            extra_aspects=extra_aspects,
             # The SDK coerces (userPrincipalName, ownershipType) string tuples
             # into owner URNs at runtime; its stub only advertises urn inputs.
             owners=self._owners_fn(nb.owner_user_principal_name),
         )
         datajob._set_container(workspace_key)
         yield datajob
+
+    @staticmethod
+    def _transform_logic(content: str) -> DataTransformLogicClass:
+        # Same credential masking as the notebook dataset's viewLogic. The language
+        # is always SQL: the GraphQL QueryLanguage enum has no UNKNOWN value, so
+        # emitting it makes every lineage query that touches the job fail. Same
+        # workaround as the stored procedure sources.
+        return DataTransformLogicClass(
+            transforms=[
+                DataTransformClass(
+                    queryStatement=QueryStatementClass(
+                        value=scrub_text(content, set()),
+                        language=QueryLanguageClass.SQL,
+                    )
+                )
+            ]
+        )
 
     @staticmethod
     def _output_label(output: SparkTableRef) -> str:
@@ -248,7 +331,89 @@ class NotebookProcessEmitter:
         )
         return f"{output.item_id}.{schema}.{table}"
 
-    def _spark_lineage(self, nb: PendingNotebook) -> Dict[SparkTableRef, List[str]]:
+    def _add_copied_columns(
+        self,
+        output_urn: str,
+        copied: Tuple[SparkTableRef, FrozenSet[str]],
+        columns: Dict[str, Set[Tuple[str, str]]],
+    ) -> None:
+        """Pair the columns a notebook copies unchanged, by name.
+
+        The code only says the table was copied, so the names come from the
+        schemas ingested for both tables. Columns the code already traced
+        (renamed or computed) keep that lineage.
+        """
+        source, dropped = copied
+        source_urn = source.to_urn(
+            self._env, self._platform_instance, self._normalize_name
+        )
+        source_columns = self._table_columns.get(source_urn)
+        output_columns = self._table_columns.get(output_urn)
+        if not source_columns or not output_columns:
+            return
+        fold = (
+            (lambda name: name)
+            if self._case_sensitive_columns
+            else (lambda name: name.casefold())
+        )
+        source_by_name = {fold(name): name for name in source_columns}
+        skipped = {fold(self._normalize_name(name)) for name in dropped}
+        traced = {fold(name) for name in columns}
+        for column in output_columns:
+            key = fold(column)
+            if key in skipped or key in traced or key not in source_by_name:
+                continue
+            columns[column] = {(source_urn, source_by_name[key])}
+
+    def _fine_grained(
+        self, output_urn: str, columns: Dict[str, Set[Tuple[str, str]]]
+    ) -> Optional[List[FineGrainedLineageClass]]:
+        entries: List[FineGrainedLineageClass] = []
+        for downstream, upstreams in sorted(columns.items()):
+            upstream_urns = sorted(
+                {
+                    builder.make_schema_field_urn(dataset_urn, column)
+                    for dataset_urn, column in upstreams
+                }
+            )
+            if not upstream_urns:
+                continue
+            entries.append(
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    upstreams=upstream_urns,
+                    downstreams=[builder.make_schema_field_urn(output_urn, downstream)],
+                )
+            )
+        return entries or None
+
+    def _own_executions(
+        self, nb: PendingNotebook, executions: List[SparkSqlExecution]
+    ) -> List[SparkSqlExecution]:
+        """Keep the executions that ran this notebook's cells.
+
+        Notebooks run in one Spark application (for example a pipeline run) share
+        a single SQL sequence, and lineage credits each write with the reads before
+        it. Without this filter, one notebook's write inherits every other
+        notebook's reads and writes. Each execution's job group holds the code of
+        the cell that ran it, so an execution is this notebook's when that code
+        appears in the notebook. Executions without a job group cannot be placed,
+        so they are kept as before.
+        """
+        if not nb.content:
+            return executions
+        notebook_text = _normalize_code(nb.content)
+        own: List[SparkSqlExecution] = []
+        for execution in executions:
+            code = _cell_code(execution.description)
+            if code is None or code[:_CELL_MATCH_CHARS] in notebook_text:
+                own.append(execution)
+            else:
+                self._report.report_notebook_spark_execution_skipped()
+        return own
+
+    def _spark_lineage(self, nb: PendingNotebook) -> Dict[SparkTableRef, _JobLineage]:
         """Resolve per-output-table lineage from the executed Spark plans.
 
         Returns each written table (that was itself ingested in this run) mapped
@@ -279,7 +444,7 @@ class NotebookProcessEmitter:
         for session in sessions:
             self._report.report_notebook_spark_session_scanned()
             try:
-                plans = self._client.get_spark_sql_plans(
+                executions = self._client.get_spark_sql_executions(
                     nb.workspace_id,
                     nb.notebook_id,
                     session.livy_id,
@@ -294,16 +459,39 @@ class NotebookProcessEmitter:
                     log=False,
                 )
                 continue
-            for output, inputs in extract_spark_lineage(plans).items():
+            own = self._own_executions(nb, executions)
+            for output, inputs in extract_spark_lineage([e.plan for e in own]).items():
                 raw.setdefault(output, set()).update(inputs)
 
         # Plans credit every earlier read to the next write. The notebook
-        # source says which of those reads each write actually uses.
+        # source says which of those reads each write actually uses, and which
+        # source column each output column was renamed from.
+        code_columns: Dict[
+            SparkTableRef, Dict[str, Set[Tuple[SparkTableRef, str]]]
+        ] = {}
+        code_copies: Dict[SparkTableRef, Tuple[SparkTableRef, FrozenSet[str]]] = {}
         if self._reconcile_code and nb.content and nb.language in (None, "python"):
-            code_lineage = extract_notebook_code_lineage(nb.content)
-            if code_lineage:
+            code: Optional[NotebookCodeAnalysis] = None
+            try:
+                code = analyze_notebook_code(
+                    nb.content,
+                    case_sensitive_columns=self._case_sensitive_columns,
+                )
+            except NotebookCodeExtractionError as exc:
+                self._report.report_notebook_code_lineage_failed()
+                self._report.warning(
+                    title="Failed to Extract Notebook Code Lineage",
+                    message=(
+                        "Could not read the notebook source for lineage. "
+                        "Keeping Spark-plan table lineage."
+                    ),
+                    context=f"notebook={nb.display_name}",
+                    exc=exc,
+                    log=False,
+                )
+            if code is not None and code.tables:
                 reconciled = reconcile_spark_lineage(
-                    code_lineage, raw, self._normalize_name
+                    code.tables, raw, self._normalize_name
                 )
                 if reconciled:
                     logger.debug(
@@ -312,29 +500,66 @@ class NotebookProcessEmitter:
                         len(reconciled),
                     )
                     raw = reconciled
+                    code_columns = reconcile_column_lineage(
+                        code.columns, raw, self._normalize_name
+                    )
+                    code_copies = reconcile_passthrough(
+                        code.passthrough, raw, self._normalize_name
+                    )
 
         known = self._known_table_urns
         # Case/space variants of one output table normalize to a single URN and
         # job id, so merge their input sets by that URN. Otherwise each variant
         # emits the same job and the later emission overwrites the earlier,
         # dropping the inputs that were only seen under the other casing.
-        merged: Dict[str, Tuple[SparkTableRef, Set[SparkTableRef]]] = {}
+        merged: Dict[
+            str,
+            Tuple[SparkTableRef, Set[SparkTableRef], Dict[str, Set[Tuple[str, str]]]],
+        ] = {}
         for output, inputs in raw.items():
             output_urn = output.to_urn(
                 self._env, self._platform_instance, self._normalize_name
             )
-            _, acc = merged.setdefault(output_urn, (output, set()))
+            _, acc, cols = merged.setdefault(output_urn, (output, set(), {}))
             acc.update(inputs)
+            for downstream, upstreams in code_columns.get(output, {}).items():
+                # Same normalization as schema fields, so a code name
+                # ``person_PersonParty`` matches the ingested ``person_personparty``.
+                resolved = cols.setdefault(self._normalize_name(downstream), set())
+                for ref, column in upstreams:
+                    dataset_urn = ref.to_urn(
+                        self._env, self._platform_instance, self._normalize_name
+                    )
+                    resolved.add((dataset_urn, self._normalize_name(column)))
+            copied = code_copies.get(output)
+            if copied is not None:
+                self._add_copied_columns(output_urn, copied, cols)
 
-        lineage: Dict[SparkTableRef, List[str]] = {}
-        for output_urn, (output, inputs) in merged.items():
+        lineage: Dict[SparkTableRef, _JobLineage] = {}
+        for output_urn, (output, inputs, columns) in merged.items():
             if output_urn not in known:
                 continue
             input_urns = {
                 ref.to_urn(self._env, self._platform_instance, self._normalize_name)
                 for ref in inputs
             }
-            lineage[output] = sorted(input_urns & known - {output_urn})
+            kept_inputs = input_urns & known - {output_urn}
+            kept_columns = {
+                downstream: {
+                    (dataset_urn, column)
+                    for dataset_urn, column in upstreams
+                    if dataset_urn in kept_inputs
+                }
+                for downstream, upstreams in columns.items()
+            }
+            lineage[output] = _JobLineage(
+                input_urns=sorted(kept_inputs),
+                columns={
+                    downstream: refs
+                    for downstream, refs in kept_columns.items()
+                    if refs
+                },
+            )
         return lineage
 
     def _emit_runs(
