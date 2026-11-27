@@ -46,14 +46,15 @@ public enum AttributionType {
   }
 
   /**
-   * Default attribution from {@link AgentClass}. explicitly. {@link #AGENT_MEDIATED} is never
-   * inferred here — it must be set when an AI agent path is known (e.g. GraphQL MCP, Ask DataHub).
+   * Default attribution from {@link AgentClass}. {@link #AGENT_MEDIATED} is inferred only for
+   * {@link AgentClass#MCP}; other AI agent paths (e.g. Ask DataHub) must set it explicitly.
    */
   public static AttributionType fromAgentClass(AgentClass agentClass) {
     return switch (agentClass) {
       case BROWSER, MOBILE_APP, EMAIL_CLIENT, CLI -> HUMAN;
       case INGESTION, SDK, LIBRARY, SYSTEM -> AUTOMATED;
       case ROBOT, CRAWLER -> BOT;
+      case MCP -> AGENT_MEDIATED;
       case HACKER, UNKNOWN -> UNKNOWN;
     };
   }

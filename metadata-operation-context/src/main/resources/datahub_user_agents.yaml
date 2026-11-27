@@ -59,6 +59,13 @@ config:
         AgentName: 'datahub/unknown'
   - test:
       input:
+        user_agent_string: 'DataHub-Client/1.0 (mcp; mcp-server-datahub/hosted; 1.0.1) python-requests/2.32.3'
+      expected:
+        DeviceClass: 'Desktop'
+        AgentClass: 'mcp'
+        AgentName: 'mcp-server-datahub/hosted'
+  - test:
+      input:
         user_agent_string: 'DataHub-Client/1.0 (ingestion; airflow-plugin/github-actions; 1.0.1)'
       expected:
         DeviceClass: 'Desktop'
