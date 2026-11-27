@@ -22,6 +22,7 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 LIST_OBJECTS_PAGE_SIZE = 1000
+OBJECT_TAGGING_NOT_IMPLEMENTED = "NotImplemented"
 
 
 @dataclass(frozen=True)
@@ -103,10 +104,13 @@ def get_s3_tags(
     if use_s3_object_tags and key_name is not None:
         try:
             tag_set = get_object_tag_set(bucket_name, key_name, aws_config)
-        # S3-compatible stores may not implement GetObjectTagging.
         except ClientError as e:
+            # Some S3-compatible stores do not implement GetObjectTagging; any
+            # other error (e.g. AccessDenied) still fails the run.
+            if aws_error_code(e) != OBJECT_TAGGING_NOT_IMPLEMENTED:
+                raise
             logger.warning(
-                f"No tags found for bucket={bucket_name} key={key_name} ({aws_error_code(e)})"
+                f"Object tagging not supported for bucket={bucket_name} key={key_name}"
             )
             tag_set = []
         if tag_set:

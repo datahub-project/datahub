@@ -11,6 +11,7 @@ from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig, aws_error_code
 from datahub.ingestion.source.aws.s3_boto_utils import (
+    OBJECT_TAGGING_NOT_IMPLEMENTED,
     get_bucket_tag_set,
     get_object_tag_set,
 )
@@ -144,9 +145,18 @@ class S3MetadataProbe(S3CompatibleMetadataProbe):
                     tag_set = []
                 found["bucket"] = [f"{t['Key']}:{t['Value']}" for t in tag_set]
         if key:
-            with self._storage_errors(f"reading the tags of object '{key}'"):
-                found["object"] = [
-                    f"{t['Key']}:{t['Value']}"
-                    for t in get_object_tag_set(bucket, key, self._aws_config)
-                ]
+            context = f"reading the tags of object '{key}'"
+            with self._storage_errors(context):
+                try:
+                    object_tag_set = get_object_tag_set(bucket, key, self._aws_config)
+                except ClientError as exc:
+                    # get_s3_tags skips only this code; it re-raises the rest.
+                    if aws_error_code(exc) != OBJECT_TAGGING_NOT_IMPLEMENTED:
+                        raise
+                    self.warnings.append(
+                        f"{context} is not supported by this store; ingestion "
+                        f"logs this and attaches no object tags"
+                    )
+                    object_tag_set = []
+                found["object"] = [f"{t['Key']}:{t['Value']}" for t in object_tag_set]
         return found

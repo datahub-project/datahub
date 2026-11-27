@@ -225,6 +225,26 @@ def test_a_denied_object_tag_read_is_a_failure(tagged: None) -> None:
     assert result.failures
 
 
+def test_unsupported_object_tagging_warns_as_ingestion_carries_on(
+    tagged: None,
+) -> None:
+    not_implemented = client_error(
+        code="NotImplemented", status=501, operation="GetObjectTagging"
+    )
+    with mock.patch(
+        "datahub.ingestion.source.s3.s3_probe.get_object_tag_set",
+        side_effect=not_implemented,
+    ):
+        result = run_probe_method(
+            "s3",
+            _tag_recipe(use_s3_object_tags=True),
+            "tags",
+            {"bucket": "my-bucket", "key": "raw/a.csv"},
+        )
+    assert not result.failures
+    assert result.result == {"bucket": [], "object": []}
+
+
 def test_a_denied_bucket_tag_read_warns_as_ingestion_carries_on(
     tagged: None,
 ) -> None:

@@ -65,3 +65,24 @@ def test_object_tagging_not_implemented_is_skipped() -> None:
             use_s3_object_tags=True,
         )
     assert tags is None
+
+
+def test_a_denied_object_tag_read_still_fails() -> None:
+    denied = ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "denied"}}, "GetObjectTagging"
+    )
+    with (
+        patch(
+            "datahub.ingestion.source.aws.s3_boto_utils.get_object_tag_set",
+            side_effect=denied,
+        ),
+        pytest.raises(ClientError),
+    ):
+        get_s3_tags(
+            "my-bucket",
+            "raw/a.csv",
+            "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/raw,PROD)",
+            _aws(),
+            PipelineContext(run_id="test"),
+            use_s3_object_tags=True,
+        )
