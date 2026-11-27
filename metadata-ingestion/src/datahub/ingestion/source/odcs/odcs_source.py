@@ -43,6 +43,7 @@ from datahub.ingestion.source.odcs.odcs_constants import VARIABLE_MARKER
 from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
     RefusalKind,
+    duplicate_latency_slas,
     has_object_placeholder,
     has_object_reference,
     iter_schema_rules,
@@ -56,8 +57,14 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
+    odcs_to_sla_freshness_assertion_mcps,
     substitute_object_placeholder,
+    unconvertible_latency_slas,
+    unlinked_support_channels,
     unmapped_owner_roles,
+    unmapped_sla_properties,
+    unplaced_sla_entries,
+    unresolved_term_references,
     unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
@@ -68,6 +75,8 @@ from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_QUALITY_FIELDS,
     KNOWN_UNMAPPED_SCHEMA_FIELDS,
     KNOWN_UNMAPPED_SERVER_FIELDS,
+    KNOWN_UNMAPPED_SLA_FIELDS,
+    KNOWN_UNMAPPED_SUPPORT_FIELDS,
     KNOWN_UNMAPPED_TEAM_FIELDS,
     KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
     LENIENT_FIELDS_BY_MODEL,
@@ -86,6 +95,8 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSQualityRule,
     ODCSSchemaObject,
     ODCSServer,
+    ODCSSlaProperty,
+    ODCSSupportItem,
     ODCSTeam,
     ODCSTeamMember,
     ODCSVerifiedStatement,
@@ -107,8 +118,10 @@ from datahub.metadata.schema_classes import (
     DataProductPropertiesClass,
     DomainPropertiesClass,
     DomainsClass,
+    GlossaryTermKeyClass,
     LogicalParentClass,
     OwnershipClass,
+    SchemaMetadataClass,
     StatusClass,
 )
 from datahub.metadata.urns import DataProductUrn, DomainUrn
@@ -149,6 +162,8 @@ _KNOWN_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
     ODCSQualityRule: KNOWN_UNMAPPED_QUALITY_FIELDS,
     ODCSServer: KNOWN_UNMAPPED_SERVER_FIELDS,
     ODCSTeam: KNOWN_UNMAPPED_TEAM_FIELDS,
+    ODCSSlaProperty: KNOWN_UNMAPPED_SLA_FIELDS,
+    ODCSSupportItem: KNOWN_UNMAPPED_SUPPORT_FIELDS,
     ODCSTeamMember: KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition: KNOWN_UNMAPPED_AUTHDEF_FIELDS,
     ODCSContextConstraint: KNOWN_UNMAPPED_ENTRY_FIELDS,
@@ -205,6 +220,8 @@ _CHILD_MODEL_BY_KEY: Dict[type, Dict[str, type]] = {
         "schema": ODCSSchemaObject,
         "servers": ODCSServer,
         "team": ODCSTeamMember,
+        "slaProperties": ODCSSlaProperty,
+        "support": ODCSSupportItem,
     },
     ODCSTeam: {"members": ODCSTeamMember},
     ODCSSchemaObject: {
@@ -221,6 +238,20 @@ _CHILD_MODEL_BY_KEY: Dict[type, Dict[str, type]] = {
         "verifiedStatements": ODCSVerifiedStatement,
     },
 }
+
+
+def _drop_glossary_term_keys(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """Drop the key aspects the framework adds for every referenced glossary term.
+
+    A key aspect would create the term (and put it in the stale-removal
+    checkpoint, to be soft-deleted later); ODCS only references terms. The
+    source itself never emits a term key.
+    """
+    for wu in stream:
+        if not isinstance(getattr(wu.metadata, "aspect", None), GlossaryTermKeyClass):
+            yield wu
 
 
 def _model_field_keys(model_cls: type[BaseModel]) -> Set[str]:
@@ -395,6 +426,8 @@ class ODCSSource(StatefulIngestionSourceBase):
         self._urn_verify_failed: Set[str] = set()
         # Owner URNs already warned about (report-only resolution check).
         self._owners_warned: Set[str] = set()
+        # Glossary term URNs already warned about (report-only, like owners).
+        self._terms_warned: Set[str] = set()
         self._data_product_ports: Dict[str, _DataProductMembership] = {}
         # `dataProduct` value -> resolution; cached so a value shared by many
         # contracts resolves and warns once. Whether the product is new is folded
@@ -428,6 +461,7 @@ class ODCSSource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            _drop_glossary_term_keys,
             partial(auto_stale_entity_removal, self.stale_entity_removal_handler),
         ]
 
@@ -869,8 +903,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                 title="ODCS contract uses spec fields DataHub does not map",
                 message=(
                     "These fields are valid ODCS but are not mapped to DataHub "
-                    "aspects by this source (e.g. SLA, support, pricing, "
-                    "relationships). They are ignored."
+                    "aspects by this source (e.g. pricing, relationships). They "
+                    "are ignored."
                 ),
                 context=f"{source_uri}: {', '.join(spec_ignored)}",
             )
@@ -985,6 +1019,36 @@ class ODCSSource(StatefulIngestionSourceBase):
                         context=f"file={source_uri} owner={owner.owner}",
                     )
 
+    def _check_term_resolution(
+        self, mcps: List[MetadataChangeProposalWrapper], source_uri: str
+    ) -> None:
+        """Report-only: warn once per field glossary term that does not exist.
+
+        ODCS never creates terms; the reference resolves once the term exists.
+        """
+        for mcp in mcps:
+            if not isinstance(mcp.aspect, SchemaMetadataClass):
+                continue
+            for schema_field in mcp.aspect.fields:
+                terms = schema_field.glossaryTerms
+                for term in terms.terms if terms else []:
+                    if term.urn in self._terms_warned:
+                        continue
+                    if self._urn_exists_in_graph(term.urn) is False:
+                        self._terms_warned.add(term.urn)
+                        self.report.warning(
+                            title="Glossary term not found in DataHub",
+                            message=(
+                                "The field's term reference was emitted anyway and "
+                                "will resolve once the term exists; ODCS does not "
+                                "create terms."
+                            ),
+                            context=(
+                                f"file={source_uri} field={schema_field.fieldPath} "
+                                f"term={term.urn}"
+                            ),
+                        )
+
     def _process_file(self, file_path: pathlib.Path) -> Iterable[MetadataWorkUnit]:
         self.report.contracts_scanned += 1
         loaded = self._load_yaml(file_path)
@@ -1052,6 +1116,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 ),
                 context=f"{source_uri}: {', '.join(unstorable_urls)}",
             )
+        self._report_sla_and_support(contract, source_uri)
         self._report_lossy_mappings(raw_dict, contract, source_uri)
 
         overrides = self.config.physical_urn_overrides.get(contract.id)
@@ -1106,10 +1171,14 @@ class ODCSSource(StatefulIngestionSourceBase):
                 or self._physical_urn_exists(binding.physical_urn)
             )
             assertion_urns: List[str] = []
+            freshness_urns: List[str] = []
             schema_assertion_urn: Optional[str] = None
             if self.config.emit_assertions:
                 assertion_urns = yield from self._emit_assertions(
                     contract, binding, source_uri, physical_usable
+                )
+                freshness_urns = yield from self._emit_freshness_assertions(
+                    contract, binding
                 )
             if self.config.emit_schema_assertion:
                 schema_assertion_urn = yield from self._emit_schema_assertion(
@@ -1120,6 +1189,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 binding.logical_urn,
                 schema_assertion_urn,
                 assertion_urns,
+                freshness_urns,
             )
             physical_urn = yield from self._emit_logical_parent(
                 contract, binding, source_uri, physical_usable
@@ -1130,6 +1200,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                     physical_urn,
                     schema_assertion_urn,
                     assertion_urns,
+                    freshness_urns,
                 )
             self._record_data_product_asset(contract, binding, source_uri)
             # Best-effort, opt-in feature: a failure here must not drop the rest
@@ -1183,6 +1254,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             owner_email_domain=self.config.owner_email_domain,
         )
         self._check_owner_resolution(logical_mcps, source_uri)
+        self._check_term_resolution(logical_mcps, source_uri)
         for mcp in logical_mcps:
             is_field = guess_entity_type(mcp.entityUrn or "") == "schemaField"
             if is_field and isinstance(mcp.aspect, AiContextClass):
@@ -1199,6 +1271,77 @@ class ODCSSource(StatefulIngestionSourceBase):
         for unmapped in unmapped_types:
             self.report.schema_type_fallbacks.append(
                 f"{contract.id}/{schema_entry.name}: {unmapped}"
+            )
+
+    def _report_sla_and_support(self, contract: ODCSContract, source_uri: str) -> None:
+        unmapped_slas = unmapped_sla_properties(contract)
+        if unmapped_slas:
+            self.report.spec_fields_ignored.extend(
+                f"<root>.slaProperties[property={p}]" for p in unmapped_slas
+            )
+            self.report.info(
+                title="ODCS SLA properties DataHub does not map",
+                message=(
+                    "Only `latency` SLAs are mapped (to freshness assertions); "
+                    "these SLA properties are ignored."
+                ),
+                context=f"{source_uri}: {', '.join(unmapped_slas)}",
+            )
+        if self.config.emit_assertions:
+            self._report_latency_slas(contract, source_uri)
+        unresolved_terms = unresolved_term_references(contract)
+        if unresolved_terms:
+            self.report.warning(
+                title="ODCS glossary term references skipped",
+                message=(
+                    "A term reference may hold only letters, digits, whitespace, "
+                    "`_`, `-`, `.` and `:` (with text on both sides of each `:`), "
+                    "so these were not mapped to glossary terms."
+                ),
+                context=f"{source_uri}: {', '.join(unresolved_terms)}",
+            )
+        unlinked = unlinked_support_channels(contract)
+        if unlinked:
+            self.report.info(
+                title="ODCS support channels without a link",
+                message=(
+                    "Support channels are added as links; these have no URL DataHub "
+                    "can store, so they were not added."
+                ),
+                context=f"{source_uri}: {', '.join(unlinked)}",
+            )
+
+    def _report_latency_slas(self, contract: ODCSContract, source_uri: str) -> None:
+        # Once per contract: a contract-wide SLA applies to every table.
+        unconvertible = unconvertible_latency_slas(contract)
+        if unconvertible:
+            self.report.warning(
+                title="ODCS latency SLA not converted to a freshness assertion",
+                message=(
+                    "A freshness assertion needs a whole, positive `value` and a "
+                    "`unit` of min, h, d, w, mo or y (or their spelled-out forms)."
+                ),
+                context=f"{source_uri}: {'; '.join(unconvertible)}",
+            )
+        duplicates = duplicate_latency_slas(contract)
+        if duplicates:
+            self.report.warning(
+                title="Duplicate ODCS latency SLA skipped",
+                message=(
+                    "These latency SLAs share an `id`, or an element and driver, "
+                    "with an earlier one on the same table; only the first became an assertion there."
+                ),
+                context=f"{source_uri}: {'; '.join(duplicates)}",
+            )
+        unplaced = unplaced_sla_entries(contract)
+        if unplaced:
+            self.report.warning(
+                title="ODCS latency SLA matches no table",
+                message=(
+                    "The SLA's element names no table or column of the contract, "
+                    "so no freshness assertion was created for it."
+                ),
+                context=f"{source_uri}: {'; '.join(unplaced)}",
             )
 
     def _report_lossy_mappings(
@@ -1421,6 +1564,17 @@ class ODCSSource(StatefulIngestionSourceBase):
             yield mcp.as_workunit()
         return assertion_urns
 
+    def _emit_freshness_assertions(
+        self, contract: ODCSContract, binding: PhysicalBinding
+    ) -> Generator[MetadataWorkUnit, None, List[str]]:
+        result = odcs_to_sla_freshness_assertion_mcps(
+            contract, binding.schema_entry, binding.logical_urn
+        )
+        self.report.assertions_emitted += len(result.assertion_urns)
+        for mcp in result.mcps:
+            yield mcp.as_workunit()
+        return result.assertion_urns
+
     def _emit_schema_assertion(
         self,
         contract: ODCSContract,
@@ -1561,6 +1715,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         logical_urn: str,
         schema_assertion_urn: Optional[str],
         assertion_urns: List[str],
+        freshness_urns: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         # The logical dataset is the self-consistent contract home: the assertions
         # target it, so contract.entity == assertion.entity and results resolve
@@ -1568,7 +1723,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         if not self.config.emit_data_contract:
             return
         # A contract only means something if it pins at least one assertion.
-        if schema_assertion_urn is None and not assertion_urns:
+        if schema_assertion_urn is None and not assertion_urns and not freshness_urns:
             self.report.data_contracts_skipped_no_assertions += 1
             return
         yield from self._emit_data_contract(
@@ -1576,6 +1731,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             logical_urn,
             schema_assertion_urn,
             assertion_urns,
+            freshness_urns,
             is_primary_source=True,
         )
 
@@ -1585,6 +1741,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         physical_urn: str,
         schema_assertion_urn: Optional[str],
         assertion_urns: List[str],
+        freshness_urns: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         # Opt-in: also surface the contract on the physical table consumers
         # browse. Off by default and always non-primary — the contract URN
@@ -1601,7 +1758,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.config.emit_physical_data_contract and self.config.emit_logical_parent
         ):
             return
-        if schema_assertion_urn is None and not assertion_urns:
+        if schema_assertion_urn is None and not assertion_urns and not freshness_urns:
             self.report.data_contracts_skipped_no_assertions += 1
             return
         yield from self._emit_data_contract(
@@ -1609,6 +1766,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             physical_urn,
             schema_assertion_urn,
             assertion_urns,
+            freshness_urns,
             is_primary_source=False,
         )
 
@@ -1618,6 +1776,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         entity_urn: str,
         schema_assertion_urn: Optional[str],
         assertion_urns: List[str],
+        freshness_urns: List[str],
         is_primary_source: bool,
     ) -> Iterable[MetadataWorkUnit]:
         # is_primary_source drives stale removal. The logical contract is ODCS's
@@ -1630,6 +1789,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             entity_urn=entity_urn,
             schema_assertion_urn=schema_assertion_urn,
             data_quality_assertion_urns=assertion_urns,
+            freshness_assertion_urns=freshness_urns,
         )
         if contract_urn is None:
             return

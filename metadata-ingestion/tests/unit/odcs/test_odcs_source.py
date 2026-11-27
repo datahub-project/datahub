@@ -35,6 +35,7 @@ from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
     DomainsClass,
     EdgeClass,
+    GlossaryTermKeyClass,
     InstitutionalMemoryClass,
     LogicalParentClass,
     OwnershipClass,
@@ -337,23 +338,27 @@ def test_unknown_field_increments_counter_and_warns(tmp_path: pathlib.Path) -> N
 
 
 def test_spec_valid_unmapped_field_is_info_not_warning(tmp_path: pathlib.Path) -> None:
-    """`support` / `slaProperties` etc. are valid ODCS the source deliberately
+    """`price`, `relationships` etc. are valid ODCS the source deliberately
     does not map — they produce ONE info per file, never a 'check spelling'
-    warning."""
+    warning. Unmapped keys inside mapped sections are classified the same way."""
     src = _make_source(tmp_path)
     raw_dict: dict = {
         "apiVersion": "v3.1.0",
         "id": "x",
-        "support": [{"channel": "slack", "url": "https://x.example/slack"}],
-        "slaProperties": [{"property": "latency", "value": 4}],
+        "price": {"priceAmount": 1},
+        "support": [{"channel": "slack", "invitationUrl": "https://x.example/join"}],
+        "slaProperties": [{"property": "latency", "value": 4, "valueExt": 4}],
         "schema": [{"name": "t", "relationships": []}],
     }
     src._warn_unknown_fields(raw_dict, str(tmp_path / "f.yaml"))
     assert src.report.unknown_fields_count == 0
     assert not src.report.warnings
-    assert any("support" in entry for entry in src.report.spec_fields_ignored)
-    assert any("slaProperties" in entry for entry in src.report.spec_fields_ignored)
-    assert any("relationships" in entry for entry in src.report.spec_fields_ignored)
+    assert src.report.spec_fields_ignored == [
+        "<root>.price",
+        "<root>.support[*].invitationUrl",
+        "<root>.slaProperties[*].valueExt",
+        "<root>.schema[*].relationships",
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -2501,8 +2506,7 @@ schema:
         mustBeLessThan: 10
     properties:
       - name: col_a
-        criticalDataElement: true
-        classification: confidential
+        unique: true
         semanticType: 5
         transformLogic: [a, b]
 """
@@ -2517,8 +2521,7 @@ def test_lossy_fields_are_reported(tmp_path: pathlib.Path) -> None:
     list(src.get_workunits_internal())
     ignored = " ".join(src.report.spec_fields_ignored)
     # Read by the model but not mapped.
-    assert "<root>.schema[*].properties[*].criticalDataElement" in ignored
-    assert "<root>.schema[*].properties[*].classification" in ignored
+    assert "<root>.schema[*].properties[*].unique" in ignored
     warnings = _messages(src.report.warnings)
     # Off-spec values dropped by the model.
     assert "schema[0].deprecated" in warnings
@@ -2970,3 +2973,115 @@ def test_unknown_keys_inside_context_and_enum_warn(tmp_path: pathlib.Path) -> No
     assert "<root>.context.constraints[*].id" in ignored
     assert "<root>.context.verifiedStatements[*].id" in ignored
     assert "<root>.schema[*].properties[*].enum[*].id" in ignored
+
+
+_SLA_SUPPORT_TERMS_BODY = """\
+apiVersion: v3.1.0
+kind: DataContract
+id: sla
+version: 1.0.0
+status: active
+schema:
+  - name: orders
+    properties:
+      - name: updated_at
+        classification: confidential
+        authoritativeDefinitions:
+          - type: businessDefinition
+            url: "term:order_timestamp"
+slaProperties:
+  - property: latency
+    value: 30
+    unit: s
+    element: orders.updated_at
+  - property: latency
+    value: 4
+    unit: d
+    element: staging.col_a
+  - property: retention
+    value: 3
+    unit: y
+support:
+  - channel: "#data-help"
+    tool: slack
+"""
+
+
+def test_sla_support_and_term_lossy_cases_are_reported(
+    tmp_path: pathlib.Path,
+) -> None:
+    contract_file = _write(tmp_path / "c.odcs.yaml", _SLA_SUPPORT_TERMS_BODY)
+    graph = MagicMock()
+    graph.exists.side_effect = lambda urn: not urn.startswith("urn:li:glossaryTerm:")
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    list(src.get_workunits_internal())
+    warnings = _messages(src.report.warnings)
+    assert "latency: 30 s (element: orders.updated_at)" in warnings
+    assert "latency: 4 d (element: staging.col_a)" in warnings
+    assert "term=urn:li:glossaryTerm:term-order_timestamp" in warnings
+    assert "term=urn:li:glossaryTerm:classification-confidential" in warnings
+    infos = _messages(src.report.infos)
+    assert "#data-help" in infos
+    assert "<root>.slaProperties[property=retention]" in src.report.spec_fields_ignored
+
+
+def test_referenced_glossary_terms_are_never_created(tmp_path: pathlib.Path) -> None:
+    contract_file = _write(tmp_path / "c.odcs.yaml", _SLA_SUPPORT_TERMS_BODY)
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits())
+    schema = _aspects_of(workunits, SchemaMetadataClass)[0]
+    assert schema.fields[0].glossaryTerms is not None
+    # The framework materializes a key aspect for every referenced term, which
+    # would create it; the source only references terms.
+    assert not _aspects_of(workunits, GlossaryTermKeyClass)
+
+
+_FRESHNESS_ONLY_BODY = """\
+apiVersion: v3.1.0
+kind: DataContract
+id: fresh
+version: 1.0.0
+status: active
+schema:
+  - name: orders
+    properties:
+      - name: col_a
+        classification: A+
+  - name: customers
+    properties:
+      - name: col_b
+slaProperties:
+  - property: latency
+    value: 4
+    unit: d
+    element: orders.col_a
+  - property: latency
+    value: 2
+    unit: d
+    element: orders.col_a
+  - property: latency
+    value: 30
+    unit: s
+"""
+
+
+def test_latency_sla_emits_freshness_only_contract(tmp_path: pathlib.Path) -> None:
+    contract_file = _write(tmp_path / "c.odcs.yaml", _FRESHNESS_ONLY_BODY)
+    src = _make_source(tmp_path, path=str(contract_file), emit_schema_assertion=False)
+    workunits = list(src.get_workunits_internal())
+    infos = _aspects_of(workunits, AssertionInfoClass)
+    assert [i.type for i in infos] == ["FRESHNESS"]
+    freshness = infos[0].freshnessAssertion
+    assert freshness is not None and "orders" in freshness.entity
+    contracts = _aspects_of(workunits, DataContractPropertiesClass)
+    # Only the orders table has an assertion, so only it gets a contract.
+    assert len(contracts) == 1
+    assert contracts[0].freshness is not None
+    assert contracts[0].schema is None and contracts[0].dataQuality is None
+    warnings = [w for w in src.report.warnings if w.title]
+    titles = [w.title for w in warnings]
+    assert titles.count("Duplicate ODCS latency SLA skipped") == 1
+    # Contract-wide, so it applies to both tables, but it is reported once.
+    assert titles.count("ODCS latency SLA not converted to a freshness assertion") == 1
+    assert "latency: 2 d (element: orders.col_a)" in _messages(warnings)
+    assert "classification:A+" in _messages(warnings)

@@ -79,6 +79,8 @@ def build_properties(
         "head_sha": get("HEAD_SHA"),
         "pr_number": _number(get("PR_NUMBER"), int),
         "framework": get("TEST_FRAMEWORK"),
+        # Which e2e lane planned it (docker, docker-free); empty when unset.
+        "lane": get("TEST_LANE"),
         "mode": get("SMART_MODE"),
         "confidence": get("SMART_CONFIDENCE"),
         "failsafe_reason": failsafe_reason,

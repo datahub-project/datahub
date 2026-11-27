@@ -312,20 +312,24 @@ def default_query_results(  # noqa: C901
     elif (
         query
         == SnowflakeQuery.tables_for_database(
-            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"}
         )
         or query
         == SnowflakeQuery.tables_for_database(
-            "DEMO_DATABASE", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+            "DEMO_DATABASE",
+            table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"},
         )
         or query
         == SnowflakeQuery.tables_for_database(
-            "CUSTOMER_360", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+            "CUSTOMER_360",
+            table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"},
         )
     ):
         raise Exception("Information schema query returned too much data")
     elif query == SnowflakeQuery.tables_for_schema(
-        "PUBLIC", "DEMO_DATABASE", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+        "PUBLIC",
+        "DEMO_DATABASE",
+        table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"},
     ):
         return [
             {
@@ -360,7 +364,9 @@ def default_query_results(  # noqa: C901
             },
         ]
     elif query == SnowflakeQuery.tables_for_schema(
-        "PUBLIC", "CUSTOMER_360", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+        "PUBLIC",
+        "CUSTOMER_360",
+        table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"},
     ):
         return [
             {
@@ -395,13 +401,17 @@ def default_query_results(  # noqa: C901
             },
         ]
     elif query == SnowflakeQuery.tables_for_schema(
-        "TEST_SCHEMA", "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+        "TEST_SCHEMA",
+        "TEST_DB",
+        table_types={"BASE TABLE", "EXTERNAL TABLE", "INTERACTIVE TABLE"},
     ):
         return [
             {
                 "TABLE_SCHEMA": "TEST_SCHEMA",
                 "TABLE_NAME": f"TABLE_{tbl_idx}",
-                "TABLE_TYPE": "BASE TABLE",
+                "TABLE_TYPE": (
+                    "INTERACTIVE TABLE" if tbl_idx in (4, 5) else "BASE TABLE"
+                ),
                 "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "BYTES": 1024,
@@ -1206,6 +1216,42 @@ def default_query_results(  # noqa: C901
         SnowflakeShowKind.DYNAMIC_TABLES, "CUSTOMER_360"
     ):
         return []
+    elif query == SnowflakeQuery.show_objects_for_database(
+        SnowflakeShowKind.INTERACTIVE_TABLES, "TEST_DB"
+    ):
+        return [
+            {
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "name": "TABLE_4",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "owner": "ACCOUNTADMIN",
+                "comment": "Comment for Table",
+                "text": (
+                    "create or replace dynamic table TABLE_4 cluster by (COL_1) "
+                    "target_lag = '1 hour' warehouse = WH as select * from "
+                    "TEST_DB.TEST_SCHEMA.TABLE_1"
+                ),
+                "target_lag": "1 hour",
+                "warehouse": "WH",
+                "bytes": 1024,
+                "rows": 10000,
+                "owner_role_type": "ROLE",
+            },
+            {
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "name": "TABLE_5",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "owner": "ACCOUNTADMIN",
+                "comment": "Comment for Table",
+                "text": None,
+                "target_lag": None,
+                "bytes": 1024,
+                "rows": 10000,
+                "owner_role_type": "ROLE",
+            },
+        ]
     elif query == "SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE":
         # SHOW AVAILABLE LISTINGS returns lowercase column names
         # NOTE: The actual Snowflake output uses 'global_name', not 'listing_global_name'
@@ -1535,5 +1581,4 @@ def default_query_results(  # noqa: C901
                 "DDL": 'CREATE SEMANTIC VIEW SALES_MODEL\n  TABLES ("Orders" AS TEST_DB.TEST_SCHEMA.TABLE_1)'
             }
         ]
-
     raise ValueError(f"Unexpected query: {query}")

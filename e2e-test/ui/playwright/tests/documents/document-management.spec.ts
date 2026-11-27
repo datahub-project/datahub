@@ -42,7 +42,7 @@ test.describe('Document Management', () => {
 
   // ── CRUD Operations ───────────────────────────────────────────────────────
 
-  test('should create a new document via Context Documents page', async ({ cleanup }) => {
+  test('should create a new document via Context Documents page', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     const docTitle = withRandomSuffix('doc');
 
     const docUrn = await documentPage.createDocumentWithTitle(docTitle);
@@ -51,7 +51,7 @@ test.describe('Document Management', () => {
     await documentPage.expectTitleInput(docTitle);
   });
 
-  test('should create multiple documents via different UI paths', async ({ cleanup }) => {
+  test('should create multiple documents via different UI paths', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     const base = withRandomSuffix('doc');
     const doc1Title = `${base}_first`;
     const doc2Title = `${base}_second`;
@@ -92,7 +92,7 @@ test.describe('Document Management', () => {
     },
   );
 
-  test('should update document content', async ({ page, cleanup }) => {
+  test('should update document content', { tag: [DomainTag.Catalog] }, async ({ page, cleanup }) => {
     const docTitle = withRandomSuffix('content-test');
     const testContent = 'Test content';
 
@@ -109,7 +109,7 @@ test.describe('Document Management', () => {
     await cleanup.flush();
   });
 
-  test('should update document status', async ({ page, cleanup }) => {
+  test('should update document status', { tag: [DomainTag.Catalog] }, async ({ page, cleanup }) => {
     const statusTestDoc = withRandomSuffix('status-test');
     const docUrn = await documentPage.createDocumentWithTitle(statusTestDoc);
     cleanup.track(docUrn);
@@ -125,7 +125,7 @@ test.describe('Document Management', () => {
     await cleanup.flush();
   });
 
-  test('should update document type', async ({ page, cleanup }) => {
+  test('should update document type', { tag: [DomainTag.Catalog] }, async ({ page, cleanup }) => {
     const typeTestDoc = withRandomSuffix('type-test');
     const docUrn = await documentPage.createDocumentWithTitle(typeTestDoc);
     cleanup.track(docUrn);
@@ -143,7 +143,7 @@ test.describe('Document Management', () => {
 
   // ── Sidebar Navigation ─────────────────────────────────────────────────────
 
-  test('should collapse and expand the sidebar', async ({ cleanup }) => {
+  test('should collapse and expand the sidebar', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     const docTitle = withRandomSuffix('collapse-test');
     const docUrn = await documentPage.createDocumentWithTitle(docTitle);
     cleanup.track(docUrn);
@@ -161,7 +161,7 @@ test.describe('Document Management', () => {
     await cleanup.flush();
   });
 
-  test('should search for documents using sidebar search', async ({ cleanup }) => {
+  test('should search for documents using sidebar search', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     const searchTitle = withRandomSuffix('doc');
 
     const docUrn = await documentPage.createDocumentWithTitle(searchTitle);
@@ -179,20 +179,24 @@ test.describe('Document Management', () => {
 
   // ── Hierarchy Operations ───────────────────────────────────────────────────
 
-  test('should create two documents, move one to the other, and verify nesting', async ({ cleanup }) => {
-    const base = withRandomSuffix('doc');
-    const parentTitle = `${base}_parent`;
-    const childTitle = `${base}_child`;
+  test(
+    'should create two documents, move one to the other, and verify nesting',
+    { tag: [DomainTag.Catalog] },
+    async ({ cleanup }) => {
+      const base = withRandomSuffix('doc');
+      const parentTitle = `${base}_parent`;
+      const childTitle = `${base}_child`;
 
-    const { parentUrn, childUrn } = await documentPage.createAndMoveChildToParent(parentTitle, childTitle);
-    cleanup.track(parentUrn);
-    cleanup.track(childUrn);
+      const { parentUrn, childUrn } = await documentPage.createAndMoveChildToParent(parentTitle, childTitle);
+      cleanup.track(parentUrn);
+      cleanup.track(childUrn);
 
-    // Verify hierarchy was persisted: child shows parent in breadcrumb
-    await documentPage.navigateToDocument(childUrn);
-    await expect(documentPage.titleInput).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await documentPage.expectParentBreadcrumbVisible(parentTitle);
-  });
+      // Verify hierarchy was persisted: child shows parent in breadcrumb
+      await documentPage.navigateToDocument(childUrn);
+      await expect(documentPage.titleInput).toBeVisible({ timeout: TIMEOUTS.LONG });
+      await documentPage.expectParentBreadcrumbVisible(parentTitle);
+    },
+  );
 
   // ── Deletion Operations ────────────────────────────────────────────────────
 
@@ -209,7 +213,7 @@ test.describe('Document Management', () => {
     await documentPage.expectDocumentsRemovedFromTree([docUrn], keptUrn);
   });
 
-  test('should delete parent document and cascade to children', async ({ cleanup }) => {
+  test('should delete parent document and cascade to children', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     const base = withRandomSuffix('doc');
     const parentTitle = `${base}_parent`;
     const childTitle = `${base}_child`;

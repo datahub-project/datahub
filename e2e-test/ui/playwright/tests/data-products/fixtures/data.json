@@ -1,0 +1,39 @@
+[
+  {
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:pw-data-product-domain",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "json": {
+        "name": "PW Data Product Domain",
+        "description": "Domain that owns the data products created by the data product lifecycle spec"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_data_product_dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "pw_data_product_dataset",
+        "description": "Dataset the data product lifecycle spec attaches to a data product",
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_data_product_dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": ["urn:li:domain:pw-data-product-domain"]
+      }
+    }
+  }
+]

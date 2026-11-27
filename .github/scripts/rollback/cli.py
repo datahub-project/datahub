@@ -20,7 +20,7 @@ _REF_VERSION_RE = re.compile(r"^v?(\d+(?:\.\d+){2,3})")
 def ref_version(ref: str) -> Optional[tuple[int, ...]]:
     """Version from a release tag or branch name (e.g. v1.7.0.1, releases/v1.8.0)."""
     name = ref.removeprefix("refs/tags/").removeprefix("origin/")
-    name = name.removeprefix("releases/").removeprefix("hotfixes/")
+    name = name.removeprefix("releases/")
     m = _REF_VERSION_RE.match(name)
     return tuple(int(p) for p in m.group(1).split(".")) if m else None
 

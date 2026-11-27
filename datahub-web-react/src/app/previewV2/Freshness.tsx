@@ -3,7 +3,7 @@ import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCount
 import i18next from 'i18next';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { getLastIngestedColor } from '@app/entityV2/shared/containers/profile/sidebar/LastIngested';
 import { toLocalDateString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
@@ -29,6 +29,7 @@ type Props = {
     time?: number; // Milliseconds
     showDate?: boolean;
     timeProperty?: 'lastModified' | 'lastRefreshed' | 'lastUpdated';
+    neutral?: boolean;
 };
 
 // Lazy getters so i18next.t is invoked at access time (after i18n is initialized),
@@ -60,8 +61,9 @@ const descriptors = {
     },
 };
 
-const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
+const Freshness = ({ time, timeProperty, showDate = true, neutral = false }: Props) => {
     const { t } = useTranslation('entity.preview');
+    const theme = useTheme();
     const lastUpdatedAgo = toRelativeTimeString(time);
 
     if (!time || time === 0) return null;
@@ -85,7 +87,10 @@ const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
             placement="bottom"
             showArrow={false}
         >
-            <LastUpdatedContainer color={getLastIngestedColor(time)}>
+            <LastUpdatedContainer
+                color={neutral ? theme.colors.icon : getLastIngestedColor(time)}
+                data-testid="freshness"
+            >
                 <ClockCounterClockwise size={16} /> {showDate && toLocalDateString(time)}
             </LastUpdatedContainer>
         </Popover>

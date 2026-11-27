@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import logging
+import time
 import uuid
 from typing import Any, Dict, List
 
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import DatasetProfileClass
+from tests.e2e.utils import delete_urn, unique_dataset_urn, with_test_retry
 from utilities.domains import Domain
+
+logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
@@ -72,10 +79,32 @@ def test_mcl_versioned_consumer_lag_detailed(require_pgqueue) -> None:
 
 
 @pytest.mark.dependency()
-def test_mcl_timeseries_consumer_lag_detailed(require_pgqueue) -> None:
-    _assert_detailed_pgqueue_lag(
-        require_pgqueue, f"{_MESSAGING_BASE}/mcl-timeseries/consumer/lag"
-    )
+def test_mcl_timeseries_consumer_lag_detailed(require_pgqueue, graph_client) -> None:
+    # A store lists a topic's partitions once a consumer group has committed on it. On a
+    # fresh stack nothing may have written a timeseries aspect yet, so write one here.
+    dataset_urn = unique_dataset_urn("pgqueue-timeseries-lag")
+    try:
+        graph_client.emit(
+            MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=DatasetProfileClass(
+                    timestampMillis=int(time.time() * 1000), rowCount=1
+                ),
+            )
+        )
+
+        @with_test_retry(max_attempts=10)
+        def _assert_lag() -> None:
+            _assert_detailed_pgqueue_lag(
+                require_pgqueue, f"{_MESSAGING_BASE}/mcl-timeseries/consumer/lag"
+            )
+
+        _assert_lag()
+    finally:
+        try:
+            delete_urn(graph_client, dataset_urn)
+        except Exception:
+            logger.warning("cleanup failed for %s", dataset_urn, exc_info=True)
 
 
 @pytest.mark.dependency()

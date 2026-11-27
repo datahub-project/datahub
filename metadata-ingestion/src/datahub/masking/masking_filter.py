@@ -12,10 +12,23 @@ Guarantees:
   registered, output is replaced with a fixed marker, never leaked
 """
 
+import builtins
 import logging
 import re
 import sys
-from typing import Any, Dict, Optional, TextIO, Tuple
+import weakref
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    TextIO,
+    Tuple,
+    Type,
+    cast,
+)
 
 from datahub.masking.constants import (
     CIRCUIT_OPEN_MESSAGE,
@@ -31,6 +44,104 @@ from datahub.masking.logging_utils import (
 from datahub.masking.secret_registry import SecretRegistry
 
 logger = get_masking_safe_logger(__name__)
+_FORMATTER = logging.Formatter()
+
+
+class MaskedException(Exception):
+    """Stands in for a logged exception that cannot be shown as is.
+
+    Stand-ins are instances of subclasses named after the original's class,
+    with the masked message and notes, the original's traceback, and
+    stand-ins for its cause, context and group members.
+    """
+
+
+_STAND_IN_TYPES: "weakref.WeakKeyDictionary[type, Type[MaskedException]]" = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _stand_in_type(exc_type: type) -> Type[MaskedException]:
+    """Return the MaskedException subclass named after exc_type, created once;
+    an ExceptionGroup as well when exc_type is an exception group."""
+    stand_in_type = _STAND_IN_TYPES.get(exc_type)
+    if stand_in_type is None:
+        bases: Tuple[type, ...] = (MaskedException,)
+        if sys.version_info >= (3, 11) and issubclass(
+            exc_type, builtins.BaseExceptionGroup
+        ):
+            bases = (MaskedException, builtins.ExceptionGroup)
+        stand_in_type = cast(
+            Type[MaskedException],
+            type(
+                exc_type.__name__,
+                bases,
+                {
+                    "__module__": exc_type.__module__,
+                    "__qualname__": exc_type.__qualname__,
+                },
+            ),
+        )
+        _STAND_IN_TYPES[exc_type] = stand_in_type
+    return stand_in_type
+
+
+def _group_members(exc: BaseException) -> Tuple[BaseException, ...]:
+    if sys.version_info >= (3, 11) and isinstance(exc, builtins.BaseExceptionGroup):
+        return exc.exceptions
+    return ()
+
+
+def _linked_exceptions(exc: BaseException) -> List[BaseException]:
+    """Return exc and the exceptions linked to it by cause, context or group
+    membership, each once."""
+    found: Dict[int, BaseException] = {}
+    pending: List[BaseException] = [exc]
+    while pending:
+        current = pending.pop()
+        if id(current) in found:
+            continue
+        found[id(current)] = current
+        members = getattr(current, "exceptions", None)
+        if not isinstance(members, (list, tuple)):
+            members = ()
+        linked = (current.__cause__, current.__context__, *members)
+        pending.extend(e for e in linked if isinstance(e, BaseException))
+    return list(found.values())
+
+
+def _summary(exc: BaseException) -> str:
+    """Return the last line traceback prints for exc, and its notes, without
+    rendering its cause or context."""
+    exc_type = type(exc)
+    name = exc_type.__qualname__
+    if exc_type.__module__ not in ("__main__", "builtins"):
+        name = f"{exc_type.__module__}.{name}"
+    try:
+        text = str(exc)
+    except Exception:
+        text = "<exception str() failed>"
+    lines = [f"{name}: {text}" if text else name]
+    notes = getattr(exc, "__notes__", None)
+    if notes is not None:
+        for note in notes if isinstance(notes, (list, tuple)) else [notes]:
+            try:
+                lines.append(str(note))
+            except Exception:
+                lines.append("<note str() failed>")
+    return "\n".join(lines)
+
+
+def _linked_exception_texts(exc: BaseException) -> Iterator[str]:
+    """Yield what formatters and Sentry print for exc and its linked exceptions."""
+    for current in _linked_exceptions(exc):
+        for render in (
+            _summary,
+            repr,
+            lambda e: getattr(e, "message", ""),
+            lambda e: getattr(e, "detail", ""),
+        ):
+            yield str(render(current))
 
 
 class SecretMaskingFilter(logging.Filter):
@@ -49,12 +160,34 @@ class SecretMaskingFilter(logging.Filter):
         """
         super().__init__()
 
-        self._registry = secret_registry or SecretRegistry.get_instance()
+        # SECURITY: resolved per call, not captured here, unless a caller
+        # injected a specific registry (tests do).
+        #
+        # These filters are installed once onto process-wide logging
+        # handlers, stdout/stderr and the excepthook, and they outlive the
+        # call that built them. Capturing SecretRegistry.get_instance() at
+        # construction pinned whichever registry was active at that moment
+        # -- and since bootstrap runs at the start of the FIRST task, that
+        # was the first task's scoped registry. Every later task's secrets
+        # then never reached the installed filter, so its own output went
+        # out unmasked while the first task's values went on being redacted
+        # out of it. Under-masking, which is the direction that leaks.
+        self._explicit_registry = secret_registry
         self._max_message_size = max_message_size
 
         self._failure_count = 0
         self._max_failures = 10
         self._circuit_open = False
+
+    @property
+    def _registry(self) -> SecretRegistry:
+        """The registry to mask against right now.
+
+        An injected one when the caller named it; otherwise whatever
+        get_instance() resolves on THIS context -- the active task's scope,
+        or the global registry when there is none.
+        """
+        return self._explicit_registry or SecretRegistry.get_instance()
 
     def mask_text(self, text: str) -> str:
         """Mask secrets in text string.
@@ -75,14 +208,20 @@ class SecretMaskingFilter(logging.Filter):
             if self._circuit_open:
                 return CIRCUIT_OPEN_MESSAGE
 
-            pattern, replacements = self._registry.get_pattern_and_replacements()
+            # Bound once per call. `_registry` resolves a ContextVar now, so
+            # reading it three times could observe three different
+            # registries if a scope opened or closed mid-call -- and the
+            # suppression message would then describe a different registry
+            # than the pattern came from.
+            registry = self._registry
+            pattern, replacements = registry.get_pattern_and_replacements()
 
-            suppression = self._registry.suppression_message()
+            suppression = registry.suppression_message()
             if suppression is not None:
                 return suppression
 
             if pattern is None:
-                if self._registry.get_count() == 0:
+                if registry.get_count() == 0:
                     return text
                 return self._masking_failed("no pattern despite registered secrets")
 
@@ -159,40 +298,78 @@ class SecretMaskingFilter(logging.Filter):
             else:
                 return args
         except Exception as e:
-            # Fail-secure: never return unmasked args on error
-            logger.error(f"CRITICAL: Secret masking failed in args: {e}", exc_info=True)
+            logger.error(
+                "CRITICAL: Secret masking failed in args; output withheld. "
+                f"Cause: {type(e).__name__}"
+            )
             return (MASKING_ERROR_MESSAGE,)
 
-    def _mask_exception(self, exc_info: Optional[Tuple]) -> Optional[Tuple]:
-        """Mask secrets in exception information."""
-        if not exc_info:
-            return exc_info
+    def _stand_in(
+        self, exc: BaseException, stand_ins: Dict[int, MaskedException]
+    ) -> MaskedException:
+        """Return a stand-in for exc with its masked message and notes, its
+        traceback, and the stand-ins of its group members from stand_ins."""
+        stand_in_type = _stand_in_type(type(exc))
+        if sys.version_info >= (3, 11) and isinstance(exc, builtins.BaseExceptionGroup):
+            members = [stand_ins[id(member)] for member in exc.exceptions]
+            stand_in = stand_in_type(self.mask_text(exc.message), members)
+        else:
+            stand_in = stand_in_type(self.mask_text(str(exc)))
+        notes = getattr(exc, "__notes__", None)
+        if notes is not None:
+            if not isinstance(notes, (list, tuple)):
+                notes = [notes]
+            stand_in.__notes__ = [self.mask_text(str(note)) for note in notes]
+        return stand_in.with_traceback(exc.__traceback__)
 
+    def _stand_in_chain(self, exc: BaseException) -> MaskedException:
+        """Return the stand-in for exc, linked to stand-ins for its cause,
+        context and group members as the originals are linked."""
+        originals = _linked_exceptions(exc)
+        stand_ins: Dict[int, MaskedException] = {}
+        while len(stand_ins) < len(originals):
+            ready = [
+                original
+                for original in originals
+                if id(original) not in stand_ins
+                and all(id(m) in stand_ins for m in _group_members(original))
+            ]
+            if not ready:
+                raise ValueError("cannot order exception group members")
+            for original in ready:
+                stand_ins[id(original)] = self._stand_in(original, stand_ins)
+        for original in originals:
+            stand_in = stand_ins[id(original)]
+            if original.__cause__ is not None:
+                stand_in.__cause__ = stand_ins[id(original.__cause__)]
+            if original.__context__ is not None:
+                stand_in.__context__ = stand_ins[id(original.__context__)]
+            stand_in.__suppress_context__ = original.__suppress_context__
+        return stand_ins[id(exc)]
+
+    def _mask_exception(self, record: logging.LogRecord) -> None:
+        """Set an unset exc_text to the masked traceback, and replace an exception
+        whose own texts hold a secret with its MaskedException stand-in, which
+        keeps the traceback and the chain. Never modifies the caller's exception."""
         try:
-            exc_type, exc_value, exc_traceback = exc_info
-
-            # Mask exception message/args
-            if exc_value and hasattr(exc_value, "args") and exc_value.args:
-                masked_args = tuple(
-                    self.mask_text(arg) if isinstance(arg, str) else arg
-                    for arg in exc_value.args
-                )
-                # Create new exception instance with masked args
-                exc_value = type(exc_value)(*masked_args)
-
-            return (exc_type, exc_value, exc_traceback)
-
+            _, exc_value, tb = record.exc_info or (None, None, None)
+            if exc_value is None:
+                return
+            if not record.exc_text:
+                rendered = _FORMATTER.formatException((type(exc_value), exc_value, tb))
+                record.exc_text = self.mask_text(rendered)
+            texts = _linked_exception_texts(exc_value)
+            if all(self.mask_text(text) == text for text in texts):
+                return
+            stand_in = self._stand_in_chain(exc_value)
+            record.exc_info = (type(stand_in), stand_in, stand_in.__traceback__)
         except Exception as e:
-            # Fail-secure: never return unmasked exception on error
             logger.error(
-                f"CRITICAL: Secret masking failed in exception: {e}", exc_info=True
+                "CRITICAL: Secret masking failed in exception; output withheld. "
+                f"Cause: {type(e).__name__}"
             )
-            # Return a sanitized exception
-            return (
-                RuntimeError,
-                RuntimeError(MASKING_ERROR_MESSAGE),
-                None,
-            )
+            stand_in = MaskedException(MASKING_ERROR_MESSAGE)
+            record.exc_info = (MaskedException, stand_in, None)
 
     def _truncate_message(self, message: str) -> str:
         if not isinstance(message, str):
@@ -229,7 +406,7 @@ class SecretMaskingFilter(logging.Filter):
                 record.message = self.mask_text(record.message)
 
             if record.exc_info:
-                record.exc_info = self._mask_exception(record.exc_info)
+                self._mask_exception(record)
 
             if record.exc_text:
                 record.exc_text = self.mask_text(record.exc_text)
@@ -246,7 +423,9 @@ class SecretMaskingFilter(logging.Filter):
             if hasattr(record, "message"):
                 record.message = MASKING_ERROR_MESSAGE
             try:
-                sys.stderr.write(f"WARNING: Secret masking filter failed: {e}\n")
+                sys.stderr.write(
+                    f"WARNING: Secret masking filter failed: {type(e).__name__}\n"
+                )
                 sys.stderr.flush()
             except Exception:
                 pass
@@ -291,6 +470,25 @@ class StreamMaskingWrapper:
     def __getattr__(self, name):
         """Delegate all other attributes to original stream."""
         return getattr(self._original, name)
+
+
+class _MaskedFormat:
+    """A handler's format(), with registered secrets masked in what it returns."""
+
+    def __init__(
+        self,
+        original: Callable[[logging.LogRecord], str],
+        masking_filter: SecretMaskingFilter,
+    ) -> None:
+        self.original = original
+        self._masking_filter = masking_filter
+
+    def __call__(self, record: logging.LogRecord) -> str:
+        formatted = self.original(record)
+        try:
+            return self._masking_filter.mask_text(formatted)
+        except Exception:
+            return MASKING_ERROR_MESSAGE
 
 
 def _covered_loggers() -> "list[logging.Logger]":
@@ -351,7 +549,8 @@ def install_masking_filter(
     max_message_size: int = 5000,
     install_stdout_wrapper: bool = True,
 ) -> SecretMaskingFilter:
-    """Attach a masking filter to every logging handler and wrap stdout/stderr.
+    """Attach a masking filter to every logging handler, mask what each handler
+    formats, and wrap stdout/stderr.
 
     Filters attach to handlers, not loggers: a filter on a logger only applies
     to records emitted directly on it, while propagated records from child
@@ -368,6 +567,8 @@ def install_masking_filter(
         if not any(isinstance(f, SecretMaskingFilter) for f in handler.filters):
             handler.addFilter(masking_filter)
             attached_count += 1
+        if not isinstance(handler.format, _MaskedFormat):
+            handler.format = _MaskedFormat(handler.format, masking_filter)  # type: ignore[method-assign]
     if attached_count:
         logger.debug(f"Attached masking filter to {attached_count} handler(s)")
 
@@ -392,6 +593,8 @@ def uninstall_masking_filter() -> None:
         for existing in list(handler.filters):
             if isinstance(existing, SecretMaskingFilter):
                 handler.removeFilter(existing)
+        if isinstance(handler.format, _MaskedFormat):
+            handler.format = handler.format.original  # type: ignore[assignment]
         if not isinstance(handler, logging.StreamHandler):
             continue
         stream = getattr(handler, "stream", None)

@@ -122,6 +122,15 @@ function RecipeForm({
                 }
             });
 
+            // `allValues` can be a single field's value, so unchanged fields come from the form store.
+            const storedValues = { ...form.getFieldsValue(true), ...allValues };
+            allFields.forEach((recipeField) => {
+                if (!recipeField.migrateOnEveryChange || recipeField.name in changedValues) return;
+                if (recipeField.setValueOnRecipeOverride) {
+                    updatedValues = recipeField.setValueOnRecipeOverride(updatedValues, storedValues[recipeField.name]);
+                }
+            });
+
             // Remove hidden fields from the recipe before converting to YAML
             allFields.forEach((recipeField) => {
                 if (recipeField.hidden) {
@@ -132,7 +141,6 @@ function RecipeForm({
             // again were just cleared above; restore them from the form. `allValues`
             // can't be used alone: a select change passes only its own value, and hidden
             // fields are unmounted, so only the full store (`true`) still holds them.
-            const storedValues = { ...form.getFieldsValue(true), ...allValues };
             updatedValues = writeShownFieldValues(updatedValues, allFields, changedValues, storedValues);
 
             const stagedRecipe = jsonToYaml(JSON.stringify(updatedValues));

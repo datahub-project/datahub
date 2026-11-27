@@ -1,8 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 
 @dataclass
@@ -18,6 +19,8 @@ class RepositoryDocumentsSourceReport(StaleEntityRemovalSourceReport):
     okf_unresolved_values: int = 0
     okf_invalid_values: int = 0
     okf_unversioned_index_files: int = 0
+    repositories_imported: int = 0
+    repositories_failed: LossyList[str] = field(default_factory=LossyList)
     tree_truncated: bool = False
     files_truncated_by_limit: bool = False
     hidden_lifecycle_search_unsupported: bool = False

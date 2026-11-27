@@ -439,3 +439,196 @@ def test_unexpected_response_shape_is_reported(endpoint: str, body: dict) -> Non
             assert client.get_latest_commit_sha("acme/data/docs", "main") is None
     assert client.last_api_error is not None
     assert "unexpected response shape" in client.last_api_error
+
+
+GROUP_API = "https://gitlab.com/api/v4/groups/acme%2Fdata/projects"
+
+
+def test_list_group_projects_pages_and_filters_the_request() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(
+            GROUP_API,
+            [
+                {
+                    "json": [
+                        {"path_with_namespace": "acme/data/a", "default_branch": "main"}
+                    ],
+                    "headers": {"X-Next-Page": "2"},
+                },
+                {
+                    "json": [
+                        {
+                            "path_with_namespace": "acme/data/sub/b",
+                            "default_branch": None,
+                        }
+                    ]
+                },
+            ],
+        )
+        listing = client.list_group_projects(
+            "acme/data", include_subgroups=True, include_archived=False, max_projects=10
+        )
+        first_query = m.request_history[0].qs
+
+    assert [(p.path, p.default_branch) for p in listing.projects] == [
+        ("acme/data/a", "main"),
+        ("acme/data/sub/b", None),
+    ]
+    assert listing.truncated is False
+    assert first_query["include_subgroups"] == ["true"]
+    assert first_query["archived"] == ["false"]
+    assert first_query["with_shared"] == ["false"]
+
+
+def test_list_group_projects_includes_archived_when_asked() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(GROUP_API, json=[])
+        client.list_group_projects(
+            "acme/data", include_subgroups=False, include_archived=True, max_projects=10
+        )
+        query = m.request_history[0].qs
+    assert "archived" not in query
+    assert query["include_subgroups"] == ["false"]
+
+
+def test_list_group_projects_stops_at_max_projects() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(
+            GROUP_API,
+            json=[{"path_with_namespace": f"acme/data/p{i}"} for i in range(3)],
+        )
+        listing = client.list_group_projects(
+            "acme/data", include_subgroups=True, include_archived=False, max_projects=2
+        )
+    assert [p.path for p in listing.projects] == ["acme/data/p0", "acme/data/p1"]
+    assert listing.truncated is True
+
+
+def test_list_group_projects_fails_instead_of_returning_a_partial_list() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(
+            GROUP_API,
+            [
+                {
+                    "json": [{"path_with_namespace": "acme/data/a"}],
+                    "headers": {"X-Next-Page": "2"},
+                },
+                {"status_code": 403},
+            ],
+        )
+        with pytest.raises(RuntimeError):
+            client.list_group_projects(
+                "acme/data",
+                include_subgroups=True,
+                include_archived=False,
+                max_projects=10,
+            )
+
+
+def test_get_default_branch() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(API, json={"default_branch": "trunk"})
+        assert client.get_default_branch("acme/data/docs") == "trunk"
+        # A token that cannot read the repository gets no default branch.
+        m.get(API, json={"default_branch": None})
+        assert client.get_default_branch("acme/data/docs") is None
+
+
+def test_list_group_projects_counts_only_allowed_projects_toward_the_cap() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(
+            GROUP_API,
+            json=[{"path_with_namespace": f"acme/data/p{i}"} for i in range(3)],
+        )
+        listing = client.list_group_projects(
+            "acme/data",
+            include_subgroups=True,
+            include_archived=False,
+            max_projects=1,
+            allowed=lambda path: path.endswith("p2"),
+        )
+    assert [p.path for p in listing.projects] == ["acme/data/p2"]
+    assert listing.truncated is False
+
+
+def test_list_group_projects_exactly_at_max_projects_is_not_truncated() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(
+            GROUP_API,
+            json=[{"path_with_namespace": f"acme/data/p{i}"} for i in range(2)],
+        )
+        listing = client.list_group_projects(
+            "acme/data", include_subgroups=True, include_archived=False, max_projects=2
+        )
+    assert len(listing.projects) == 2
+    assert listing.truncated is False
+
+
+def test_list_group_projects_fails_on_a_project_without_a_path() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(GROUP_API, json=[{"path_with_namespace": "acme/data/a"}, {"id": 7}])
+        with pytest.raises(RuntimeError):
+            client.list_group_projects(
+                "acme/data",
+                include_subgroups=True,
+                include_archived=False,
+                max_projects=10,
+            )
+
+
+def test_get_default_branch_records_the_api_error() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(API, status_code=404)
+        assert client.get_default_branch("acme/data/docs") is None
+    assert client.last_api_error is not None
+
+
+def test_list_group_projects_pages_through_when_pagination_headers_are_missing() -> (
+    None
+):
+    full_page = [{"path_with_namespace": f"acme/data/p{i}"} for i in range(100)]
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(
+            GROUP_API,
+            [{"json": full_page}, {"json": [{"path_with_namespace": "acme/data/x"}]}],
+        )
+        listing = client.list_group_projects(
+            "acme/data",
+            include_subgroups=True,
+            include_archived=False,
+            max_projects=500,
+        )
+    assert len(listing.projects) == 101
+    assert listing.truncated is False
+
+
+def test_list_group_projects_fails_when_a_proxy_repeats_the_first_page() -> None:
+    full_page = [{"path_with_namespace": f"acme/data/p{i}"} for i in range(100)]
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(GROUP_API, json=full_page)
+        with pytest.raises(RuntimeError, match="same projects again"):
+            client.list_group_projects(
+                "acme/data",
+                include_subgroups=True,
+                include_archived=False,
+                max_projects=500,
+            )
+
+
+def test_get_default_branch_reports_an_unexpected_response_shape() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(API, json=["not", "a", "project"])
+        assert client.get_default_branch("acme/data/docs") is None
+    assert client.last_api_error is not None

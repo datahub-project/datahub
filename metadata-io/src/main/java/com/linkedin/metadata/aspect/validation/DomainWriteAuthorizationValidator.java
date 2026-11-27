@@ -97,6 +97,11 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
           DomainWriteAuthorizationUtils.resolveAndAccumulateProposedDomains(
               item, aspectRetriever, proposedSoFar, persistedDomains.get(urn));
 
+      if (DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+          session, urn, afterDomains)) {
+        continue;
+      }
+
       if (ChangeType.PATCH.equals(item.getChangeType())) {
         // Always fail closed if the patch cannot be resolved to a Domains aspect.
         if (afterDomains == null) {
@@ -201,6 +206,11 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
           DomainWriteAuthorizationUtils.existingDomainsOnly(
               operationContext, aspectRetriever, item.getPreviousAspect(Domains.class));
       Domains after = item.getAspect(Domains.class);
+
+      if (DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsWithManageAll(
+          session, urn, after)) {
+        continue;
+      }
 
       if (DomainWriteAuthorizationUtils.hasDomainMembership(before)) {
         // Existing domains: before+after Edit reconciliation (PATCH moves and similar).

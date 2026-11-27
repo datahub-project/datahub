@@ -1,3 +1,4 @@
+import threading
 from functools import lru_cache
 from typing import Any, Dict, Optional
 
@@ -48,10 +49,13 @@ class VertexAIStateHandler(
         )
         self.run_id = source.ctx.run_id
         self.pipeline_name = source.ctx.pipeline_name
-        self._last_state: Optional[VertexAICheckpointState] = None
 
         if self.is_checkpointing_enabled():
             self.state_provider.register_stateful_ingestion_usecase_handler(self)
+        self._prior_state: Optional[VertexAICheckpointState] = None
+        self._running_state: Optional[VertexAICheckpointState] = None
+        # Phase-1 worker threads can make the first read or update together.
+        self._lock = threading.RLock()
 
     @lru_cache(maxsize=1)
     def is_checkpointing_enabled(self) -> bool:
@@ -65,27 +69,33 @@ class VertexAIStateHandler(
                 self.job_id, VertexAICheckpointState
             )
             if last_checkpoint and last_checkpoint.state:
-                self._last_state = last_checkpoint.state
                 return last_checkpoint.state
 
         return VertexAICheckpointState()
 
-    def get_last_update_time(self, resource_type: str) -> Optional[int]:
-        if not self._last_state:
-            self._last_state = self.get_last_checkpoint_state()
+    def _prior(self) -> VertexAICheckpointState:
+        with self._lock:
+            if self._prior_state is None:
+                self._prior_state = self.get_last_checkpoint_state()
+            return self._prior_state
 
-        return self._last_state.last_update_times.get(resource_type)
+    def _running(self) -> VertexAICheckpointState:
+        with self._lock:
+            if self._running_state is None:
+                self._running_state = self._prior().model_copy(deep=True)
+            return self._running_state
+
+    def get_last_update_time(self, resource_type: str) -> Optional[int]:
+        # Reads only the previous run's checkpoint; the running maximum would
+        # make a later project or region drop items an earlier one recorded.
+        return self._prior().last_update_times.get(resource_type)
 
     def update_resource_timestamp(
         self, resource_type: str, update_time_millis: int
     ) -> None:
-        if not self._last_state:
-            self._last_state = VertexAICheckpointState()
-
-        current_max = self._last_state.last_update_times.get(resource_type, 0)
-        self._last_state.last_update_times[resource_type] = max(
-            current_max, update_time_millis
-        )
+        with self._lock:
+            times = self._running().last_update_times
+            times[resource_type] = max(times.get(resource_type, 0), update_time_millis)
 
     def create_checkpoint(self) -> Optional[Checkpoint[VertexAICheckpointState]]:
         if not self.is_checkpointing_enabled() or getattr(
@@ -98,12 +108,9 @@ class VertexAIStateHandler(
                 "Pipeline name must be set to use stateful Vertex AI ingestion"
             )
 
-        if not self._last_state:
-            self._last_state = VertexAICheckpointState()
-
         return Checkpoint(
             job_name=self.job_id,
             pipeline_name=self.pipeline_name,
             run_id=self.run_id,
-            state=self._last_state,
+            state=self._running(),
         )

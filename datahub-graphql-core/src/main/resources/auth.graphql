@@ -446,6 +446,13 @@ type EntityPrivileges {
   canEditSchemaFieldDescription: Boolean
 
   """
+  Whether or not a user can update structured properties on a dataset's schema fields.
+  Edit Entity Properties does not grant this. Edit Dataset Column Properties or Edit Entity does,
+  on the parent dataset or on the schema field.
+  """
+  canEditSchemaFieldProperties: Boolean
+
+  """
   Whether the user can view dataset usage stats
   """
   canViewDatasetUsage: Boolean

@@ -396,10 +396,13 @@ def _poll_aggregate_lag(
             auth.note_denied()
             continue
         auth.note_ok()
+        # The local stack has no Kafka broker (in-memory queue), so the broker
+        # CLI fallback cannot run there.
         if (
             consumer_group
             and api_available
             and not group_found
+            and env_vars.get_smoke_backend() != "local"
             and _wait_for_kafka_consumer_group_lag(
                 consumer_group,
                 max(1, int(max_timeout_in_sec - (time.time() - start_time))),

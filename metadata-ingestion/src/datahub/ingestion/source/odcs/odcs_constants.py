@@ -4,6 +4,7 @@ from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
+    CalendarIntervalClass,
     DateTypeClass,
     EnumTypeClass,
     MapTypeClass,
@@ -52,6 +53,25 @@ SYNONYM_STATUS_DEPRECATED = "deprecated"  # RFC 0041: a former name
 # RFC 0050 variable reference: `${VAR}` / `${VAR:-default}`.
 VARIABLE_MARKER = "${"
 
+# SLA (`slaProperties[]`) vocabulary. `latency` is the one SLA property with a
+# native DataHub counterpart: a freshness assertion.
+SLA_PROPERTY_LATENCY = "latency"
+# ODCS SLA units -> DataHub calendar interval. Bare `m` (minute or month?) is
+# deliberately absent: an ambiguous unit yields no assertion.
+SLA_UNIT_TO_CALENDAR_INTERVAL: Dict[str, str] = {
+    **dict.fromkeys(("min", "mins", "minute", "minutes"), CalendarIntervalClass.MINUTE),
+    **dict.fromkeys(("h", "hr", "hrs", "hour", "hours"), CalendarIntervalClass.HOUR),
+    **dict.fromkeys(("d", "day", "days"), CalendarIntervalClass.DAY),
+    **dict.fromkeys(("w", "wk", "week", "weeks"), CalendarIntervalClass.WEEK),
+    **dict.fromkeys(("mo", "month", "months"), CalendarIntervalClass.MONTH),
+    **dict.fromkeys(("y", "yr", "yrs", "year", "years"), CalendarIntervalClass.YEAR),
+}
+
+# A property's business definition names a glossary term; its classification
+# names the term `classification:<value>` (see odcs_mapper.business_term_urn).
+AUTHDEF_TYPE_BUSINESS_DEFINITION = "businessDefinition"
+CLASSIFICATION_TERM_PREFIX = "classification:"
+
 UNIT_ROWS = "rows"
 UNIT_PERCENT = "percent"
 
@@ -85,6 +105,8 @@ PROP_RULE_DIMENSION = "odcs.rule.dimension"
 PROP_RULE_SEVERITY = "odcs.rule.severity"
 PROP_RULE_BUSINESS_IMPACT = "odcs.rule.businessImpact"
 PROP_RULE_TYPE = "odcs.rule.type"
+PROP_SLA_ELEMENT = "odcs.sla.element"
+PROP_SLA_DRIVER = "odcs.sla.driver"
 
 # Rule/assertion scope: where in the contract the item originates.
 SCOPE_SCHEMA = "schema"
@@ -92,6 +114,8 @@ SCOPE_PROPERTY = "property"
 
 # Marker value written to PROP_ASSERTION for schema-compliance assertions.
 ASSERTION_SCHEMA_COMPLIANCE = "schema-compliance"
+# Marker value written to PROP_ASSERTION for SLA latency (freshness) assertions.
+ASSERTION_SLA_LATENCY = "sla-latency"
 
 # ODCS `logicalType` (and a few common `physicalType` spellings) -> the DataHub
 # SchemaFieldDataType union member. ODCS logical/physical types are free-form

@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DeleteFormInput;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
@@ -38,12 +39,13 @@ public class DeleteFormResolver implements DataFetcher<CompletableFuture<Boolean
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            if (!AuthorizationUtils.canManageForms(context)) {
+            if (!AuthorizationUtils.isEntityType(formUrn, Constants.FORM_ENTITY_NAME)
+                || !AuthorizationUtils.canManageForms(context)) {
               throw new AuthorizationException("Unable to delete form. Please contact your admin.");
             }
             final var references =
-                _entityClient.deleteEntityThenReferences(context.getOperationContext(), formUrn);
-            // Asynchronously Delete all references to the entity (to return quickly)
+                _entityClient.deleteReferencesThenEntity(context.getOperationContext(), formUrn);
+            // The entity is already gone. This removes the remaining references.
             CompletableFuture.runAsync(
                 () -> {
                   try {

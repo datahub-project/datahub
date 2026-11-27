@@ -188,6 +188,61 @@ public class AuthorizationUtilsTest {
   }
 
   @Test
+  public void testCanEditStructuredPropertiesUsesSharedDecision() {
+    assertTrue(
+        AuthorizationUtils.canEditStructuredProperties(
+            TEST_DATASET_URN, getMockAllowContext(), List.of(TEST_STRUCTURED_PROPERTY_URN)));
+    assertFalse(
+        AuthorizationUtils.canEditStructuredProperties(
+            TEST_DATASET_URN, getMockDenyContext(), List.of(TEST_STRUCTURED_PROPERTY_URN)));
+  }
+
+  @Test
+  public void testCanEditStructuredPropertiesFlagUsesWildcardSubResource() {
+    QueryContext context = getMockAllowContext();
+    AuthorizationUtils.canEditStructuredProperties(
+        TEST_DATASET_URN, context, List.of(com.linkedin.metadata.Constants.WILDCARD_URN));
+
+    ArgumentCaptor<AuthorizationRequest> requestCaptor =
+        ArgumentCaptor.forClass(AuthorizationRequest.class);
+    Mockito.verify(context.getAuthorizer(), Mockito.atLeastOnce())
+        .authorize(requestCaptor.capture());
+    assertTrue(
+        requestCaptor.getAllValues().stream()
+            .flatMap(request -> request.getSubResources().stream())
+            .anyMatch(
+                spec ->
+                    com.linkedin.metadata.Constants.WILDCARD_URN
+                        .toString()
+                        .equals(spec.getEntity())));
+  }
+
+  /**
+   * An empty list names no property, so it is not a wildcard and it is not allowed without a
+   * policy. It takes the same entity-level check as {@code canEditProperties}.
+   */
+  @Test
+  public void testCanEditStructuredPropertiesEmptyCollectionIsNotAWildcard() {
+    QueryContext allow = getMockAllowContext();
+    Mockito.clearInvocations(allow.getAuthorizer());
+    assertTrue(
+        AuthorizationUtils.canEditStructuredProperties(
+            TEST_DATASET_URN, allow, Collections.emptyList()));
+    ArgumentCaptor<AuthorizationRequest> requestCaptor =
+        ArgumentCaptor.forClass(AuthorizationRequest.class);
+    Mockito.verify(allow.getAuthorizer(), Mockito.atLeastOnce()).authorize(requestCaptor.capture());
+    assertTrue(
+        requestCaptor.getAllValues().stream()
+            .allMatch(
+                request ->
+                    request.getSubResources() == null || request.getSubResources().isEmpty()));
+
+    assertFalse(
+        AuthorizationUtils.canEditStructuredProperties(
+            TEST_DATASET_URN, getMockDenyContext(), Collections.emptyList()));
+  }
+
+  @Test
   public void testCanCreateLogicalModelsAllowed() {
     QueryContext context = getMockAllowContext();
     assertTrue(AuthorizationUtils.canCreateLogicalModels(context));

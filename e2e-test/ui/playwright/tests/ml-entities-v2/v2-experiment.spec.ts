@@ -16,6 +16,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { MLEntitiesPage } from '../../pages/ml-entities.page';
+import { DomainTag } from '../../utils/test-tags';
 
 // Test Data Constants
 const TEST_DATA = {
@@ -47,7 +48,7 @@ test.describe('Experiment Container and Training Runs', () => {
       mlEntitiesPage = new MLEntitiesPage(page, logger, logDir);
     });
 
-    test('can visit experiment and see training run', async ({ logger }) => {
+    test('can visit experiment and see training run', { tag: [DomainTag.Catalog] }, async ({ logger }) => {
       logger.step('Navigate to experiment container');
       await mlEntitiesPage.navigateToContainer(TEST_DATA.CONTAINER_URN);
       logger.step('Verify experiment title and description');
@@ -59,7 +60,7 @@ test.describe('Experiment Container and Training Runs', () => {
       await mlEntitiesPage.expectTextVisible(EXPERIMENT_STRINGS.TRAINING_RUN_NAME);
     });
 
-    test('can navigate to training run and return to experiment', async ({ logger }) => {
+    test('can navigate to training run and return to experiment', { tag: [DomainTag.Catalog] }, async ({ logger }) => {
       logger.step('Navigate to experiment container');
       await mlEntitiesPage.navigateToContainer(TEST_DATA.CONTAINER_URN);
       logger.step('Verify experiment title visible before navigation');
@@ -85,7 +86,7 @@ test.describe('Experiment Container and Training Runs', () => {
       mlEntitiesPage = new MLEntitiesPage(page, logger, logDir);
     });
 
-    test('can visit container and see training run details', async ({ logger }) => {
+    test('can visit container and see training run details', { tag: [DomainTag.Catalog] }, async ({ logger }) => {
       logger.step('Navigate to training run');
       await mlEntitiesPage.navigateToContainer(TEST_DATA.CONTAINER_URN);
       logger.step('Verify experiment metadata');
@@ -103,7 +104,7 @@ test.describe('Experiment Container and Training Runs', () => {
       await mlEntitiesPage.expectTextVisible(EXPERIMENT_STRINGS.CREATOR_URN);
     });
 
-    test('can view and verify training run metrics', async ({ logger }) => {
+    test('can view and verify training run metrics', { tag: [DomainTag.Catalog] }, async ({ logger }) => {
       logger.step('Navigate to training run');
       await mlEntitiesPage.navigateToContainer(TEST_DATA.CONTAINER_URN);
       logger.step('Open Contents tab and click training run link');

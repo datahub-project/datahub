@@ -215,8 +215,11 @@ class BigQueryQueriesExtractor(Closeable):
         schema_resolver: Optional[SchemaResolver] = None,
         discovered_tables: Optional[Collection[str]] = None,
         discovered_locations: Optional[Collection[str]] = None,
+        skip_project_ids: Optional[Collection[str]] = None,
     ):
         self.connection = connection
+        # Projects schema extraction already reported as having no BigQuery API.
+        self.skip_project_ids = frozenset(skip_project_ids or ())
 
         self.config = config
         self.filters = filters
@@ -389,6 +392,8 @@ class BigQueryQueriesExtractor(Closeable):
                 for project in get_projects(
                     self.schema_api, self.structured_report, self.filters
                 ):
+                    if project.id in self.skip_project_ids:
+                        continue
                     for entry in self.fetch_query_log(project):
                         self.report.num_queries_by_project[project.id] += 1
                         queries.append(entry)
@@ -492,6 +497,20 @@ class BigQueryQueriesExtractor(Closeable):
                     yield entry
             except Exception as exc:
                 errored_regions.add(region)
+                if (
+                    f"The project {project.id} has not enabled BigQuery." in str(exc)
+                    and not self.filters.filter_config.project_ids
+                ):
+                    self.structured_report.warning(
+                        title="BigQuery API not enabled for project",
+                        message="Skipped query history: the BigQuery API is not enabled in this project.",
+                        context=project.id,
+                        exc=exc,
+                    )
+                    # BigQuery is off for the whole project: skip its other regions
+                    # and the empty-regions warning.
+                    errored_regions.update(regions)
+                    break
                 self.structured_report.failure(
                     title="BigQuery query log fetch failed",
                     message="Error fetching query log from BQ project for region",

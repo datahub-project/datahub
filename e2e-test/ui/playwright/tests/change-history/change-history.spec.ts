@@ -109,7 +109,7 @@ test.use({ featureName: 'change-history' });
 // ═════════════════════════════════════════════════════════════════════════════
 
 test.describe('version pill on entity header', () => {
-  test('versioned entity shows a version pill in the header', async ({ page }) => {
+  test('versioned entity shows a version pill in the header', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await gotoDataset(page, VERSIONED_URN);
     await dismissModals(page);
 
@@ -119,7 +119,7 @@ test.describe('version pill on entity header', () => {
     await expect(pill).toContainText('2.1.0');
   });
 
-  test('unversioned entity has no version pill in the header', async ({ page }) => {
+  test('unversioned entity has no version pill in the header', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await gotoDataset(page, UNVERSIONED_URN);
     await dismissModals(page);
 
@@ -135,7 +135,7 @@ test.describe('version pill on entity header', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 test.describe('clock button in version picker popover', () => {
-  test('hovering the version pill opens a popover', async ({ page }) => {
+  test('hovering the version pill opens a popover', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await gotoDataset(page, VERSIONED_URN);
     await dismissModals(page);
 
@@ -149,7 +149,7 @@ test.describe('clock button in version picker popover', () => {
     await expect(popover).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('popover contains the "Versions" heading', async ({ page }) => {
+  test('popover contains the "Versions" heading', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await gotoDataset(page, VERSIONED_URN);
     await dismissModals(page);
 
@@ -159,16 +159,20 @@ test.describe('clock button in version picker popover', () => {
     await expect(popover.getByText('Versions')).toBeVisible({ timeout: TIMEOUTS.SHORT });
   });
 
-  test('popover contains a clock button with title "View change history"', async ({ page }) => {
-    await gotoDataset(page, VERSIONED_URN);
-    await dismissModals(page);
+  test(
+    'popover contains a clock button with title "View change history"',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await gotoDataset(page, VERSIONED_URN);
+      await dismissModals(page);
 
-    await versionPillLocator(page).hover();
-    await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      await versionPillLocator(page).hover();
+      await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
 
-    const clockBtn = clockButtonLocator(page);
-    await expect(clockBtn).toBeVisible({ timeout: TIMEOUTS.SHORT });
-  });
+      const clockBtn = clockButtonLocator(page);
+      await expect(clockBtn).toBeVisible({ timeout: TIMEOUTS.SHORT });
+    },
+  );
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -194,35 +198,43 @@ test.describe('opening the Change History sidebar', () => {
     },
   );
 
-  test('sidebar opened via clock button shows "Change History" heading', async ({ page }) => {
-    await gotoDataset(page, VERSIONED_URN);
-    await dismissModals(page);
+  test(
+    'sidebar opened via clock button shows "Change History" heading',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await gotoDataset(page, VERSIONED_URN);
+      await dismissModals(page);
 
-    await versionPillLocator(page).hover();
-    await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await clockButtonLocator(page).click();
+      await versionPillLocator(page).hover();
+      await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      await clockButtonLocator(page).click();
 
-    const sidebar = historySidebarLocator(page);
-    await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(sidebar.getByText('Change History', { exact: true })).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-  });
+      const sidebar = historySidebarLocator(page);
+      await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
+      await expect(sidebar.getByText('Change History', { exact: true })).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    },
+  );
 
-  test('sidebar opened via clock button starts in "All versions" mode', async ({ page }) => {
-    await gotoDataset(page, VERSIONED_URN);
-    await dismissModals(page);
+  test(
+    'sidebar opened via clock button starts in "All versions" mode',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await gotoDataset(page, VERSIONED_URN);
+      await dismissModals(page);
 
-    await versionPillLocator(page).hover();
-    await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await clockButtonLocator(page).click();
+      await versionPillLocator(page).hover();
+      await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      await clockButtonLocator(page).click();
 
-    const sidebar = historySidebarLocator(page);
-    await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
+      const sidebar = historySidebarLocator(page);
+      await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
 
-    // The scope bar should show "All versions" as the active label
-    await expect(sidebar.getByText('All versions')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-  });
+      // The scope bar should show "All versions" as the active label
+      await expect(sidebar.getByText('All versions')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    },
+  );
 
-  test('sidebar has a search bar and a filter control', async ({ page }) => {
+  test('sidebar has a search bar and a filter control', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await gotoDataset(page, VERSIONED_URN);
     await dismissModals(page);
 
@@ -261,7 +273,7 @@ test.describe('All Versions mode — timeline content', () => {
     return sidebar;
   }
 
-  test('timeline contains at least one entry', async ({ page }) => {
+  test('timeline contains at least one entry', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebarInAllVersionsMode(page);
     // Any timestamp or event text appearing in the transaction list
     // is evidence of at least one entry. The footer says "Complete change history"
@@ -277,14 +289,14 @@ test.describe('All Versions mode — timeline content', () => {
     await expect(sidebar.getByText('Version created').first()).toBeVisible({ timeout: TIMEOUTS.EXTRA_LONG });
   });
 
-  test('version milestone shows the version tag (e.g. "2.1.0")', async ({ page }) => {
+  test('version milestone shows the version tag (e.g. "2.1.0")', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebarInAllVersionsMode(page);
     await expect(sidebar.getByText('Version created').first()).toBeVisible({ timeout: TIMEOUTS.EXTRA_LONG });
     // The tag chip renders the semver label
     await expect(sidebar.getByText('2.1.0').first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('version scope bar toggle is clickable and switches label', async ({ page }) => {
+  test('version scope bar toggle is clickable and switches label', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebarInAllVersionsMode(page);
 
     // Currently "All versions" is active; clicking toggles to "This version"
@@ -350,7 +362,7 @@ test.describe('This Version mode', () => {
     return sidebar;
   }
 
-  test('sidebar can be in "This version" scope', async ({ page }) => {
+  test('sidebar can be in "This version" scope', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebarInThisVersionMode(page);
     // Either "This version" label is shown or the sidebar is in single-version mode
     // (no scope bar when versionSetUrn is absent). Both are valid outcomes.
@@ -362,24 +374,28 @@ test.describe('This Version mode', () => {
     expect(hasThisVersionLabel || !hasScopeBar).toBe(true);
   });
 
-  test('"View all versions" text is present when scope is "This version"', async ({ page }) => {
-    await gotoDataset(page, VERSIONED_URN);
-    await dismissModals(page);
-    await versionPillLocator(page).hover();
-    await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await clockButtonLocator(page).click();
-    const sidebar = historySidebarLocator(page);
-    await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
+  test(
+    '"View all versions" text is present when scope is "This version"',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await gotoDataset(page, VERSIONED_URN);
+      await dismissModals(page);
+      await versionPillLocator(page).hover();
+      await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      await clockButtonLocator(page).click();
+      const sidebar = historySidebarLocator(page);
+      await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
 
-    // In All Versions mode, the action text is "Back to this version"
-    // In This Version mode, the action text is "View all versions"
-    // Toggle to This Version mode
-    const backBtn = sidebar.getByText('Back to this version');
-    if ((await backBtn.count()) > 0) {
-      await backBtn.click();
-      await expect(sidebar.getByText('View all versions')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    }
-  });
+      // In All Versions mode, the action text is "Back to this version"
+      // In This Version mode, the action text is "View all versions"
+      // Toggle to This Version mode
+      const backBtn = sidebar.getByText('Back to this version');
+      if ((await backBtn.count()) > 0) {
+        await backBtn.click();
+        await expect(sidebar.getByText('View all versions')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      }
+    },
+  );
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -399,7 +415,7 @@ test.describe('documentation diff in timeline', () => {
     return sidebar;
   }
 
-  test('documentation change events show a "show diff" link', async ({ page }) => {
+  test('documentation change events show a "show diff" link', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebarAllVersions(page);
     // Wait for timeline to populate
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
@@ -420,7 +436,7 @@ test.describe('documentation diff in timeline', () => {
     }
   });
 
-  test('clicking "show diff" expands and "hide diff" collapses it', async ({ page }) => {
+  test('clicking "show diff" expands and "hide diff" collapses it', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebarAllVersions(page);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
@@ -445,7 +461,7 @@ test.describe('documentation diff in timeline', () => {
     await expect(sidebar.getByText('show diff').first()).toBeVisible({ timeout: TIMEOUTS.SHORT });
   });
 
-  test('expanded diff contains visible text content', async ({ page }) => {
+  test('expanded diff contains visible text content', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebarAllVersions(page);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
@@ -482,7 +498,7 @@ test.describe('sidebar keyboard and close interactions', () => {
     return sidebar;
   }
 
-  test('sidebar closes when the close (X) button is clicked', async ({ page }) => {
+  test('sidebar closes when the close (X) button is clicked', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
 
     const closeBtn = sidebar.getByTestId('history-close-btn');
@@ -495,7 +511,7 @@ test.describe('sidebar keyboard and close interactions', () => {
     await expect(sidebar).not.toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('sidebar search filters the timeline entries', async ({ page }) => {
+  test('sidebar search filters the timeline entries', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
 
     // Wait for timeline to populate
@@ -523,7 +539,7 @@ test.describe('sidebar keyboard and close interactions', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 test.describe('unversioned entity graceful behavior', () => {
-  test('no version pill on an unversioned entity', async ({ page }) => {
+  test('no version pill on an unversioned entity', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await gotoDataset(page, UNVERSIONED_URN);
     await dismissModals(page);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
@@ -533,7 +549,7 @@ test.describe('unversioned entity graceful behavior', () => {
     await expect(pill).toHaveCount(0, { timeout: TIMEOUTS.SHORT });
   });
 
-  test('no clock button popover on unversioned entity', async ({ page }) => {
+  test('no clock button popover on unversioned entity', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await gotoDataset(page, UNVERSIONED_URN);
     await dismissModals(page);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
@@ -542,28 +558,32 @@ test.describe('unversioned entity graceful behavior', () => {
     await expect(clockBtn).toHaveCount(0, { timeout: TIMEOUTS.SHORT });
   });
 
-  test('unversioned entity can still open Change History via the Schema tab blame button', async ({ page }) => {
-    // The schema-blame button is always available for datasets even without versioning.
-    // When opened this way, no version scope bar is shown.
-    await page.goto(`/dataset/${encodeURIComponent(UNVERSIONED_URN)}/Schema`, {
-      waitUntil: 'domcontentloaded',
-    });
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await dismissModals(page);
-
-    const schemaBlameBtn = page.getByTestId('schema-blame-button');
-    if ((await schemaBlameBtn.count()) > 0 && (await schemaBlameBtn.isVisible())) {
-      await schemaBlameBtn.click();
+  test(
+    'unversioned entity can still open Change History via the Schema tab blame button',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      // The schema-blame button is always available for datasets even without versioning.
+      // When opened this way, no version scope bar is shown.
+      await page.goto(`/dataset/${encodeURIComponent(UNVERSIONED_URN)}/Schema`, {
+        waitUntil: 'domcontentloaded',
+      });
       await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-      const sidebar = historySidebarLocator(page);
-      await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
-      // No version scope bar should be rendered (no versionSetUrn)
-      await expect(sidebar.getByText('All versions')).toHaveCount(0, { timeout: TIMEOUTS.SHORT });
-      await expect(sidebar.getByText('This version')).toHaveCount(0, { timeout: TIMEOUTS.SHORT });
-    } else {
-      test.skip(true, 'Schema blame button not found on this entity — expected on schema-blame-seeded dataset');
-    }
-  });
+      await dismissModals(page);
+
+      const schemaBlameBtn = page.getByTestId('schema-blame-button');
+      if ((await schemaBlameBtn.count()) > 0 && (await schemaBlameBtn.isVisible())) {
+        await schemaBlameBtn.click();
+        await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+        const sidebar = historySidebarLocator(page);
+        await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
+        // No version scope bar should be rendered (no versionSetUrn)
+        await expect(sidebar.getByText('All versions')).toHaveCount(0, { timeout: TIMEOUTS.SHORT });
+        await expect(sidebar.getByText('This version')).toHaveCount(0, { timeout: TIMEOUTS.SHORT });
+      } else {
+        test.skip(true, 'Schema blame button not found on this entity — expected on schema-blame-seeded dataset');
+      }
+    },
+  );
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -591,7 +611,7 @@ test.describe('tag change events in timeline', () => {
     return sidebar;
   }
 
-  test('tag ADD event appears as "Added tag" text in the timeline', async ({ page }) => {
+  test('tag ADD event appears as "Added tag" text in the timeline', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const addedTagEntry = sidebar.getByText(/Added tag ".*"\./, { exact: false });
     if ((await addedTagEntry.count()) === 0) {
@@ -601,17 +621,21 @@ test.describe('tag change events in timeline', () => {
     await expect(addedTagEntry.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('tag REMOVE event appears as "Removed tag" text in the timeline', async ({ page }) => {
-    const sidebar = await openSidebar(page);
-    const removedTagEntry = sidebar.getByText(/Removed tag ".*"\./, { exact: false });
-    if ((await removedTagEntry.count()) === 0) {
-      test.skip(true, 'No tag REMOVE events — requires two ingestion passes: first adding, then removing the tag');
-      return;
-    }
-    await expect(removedTagEntry.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-  });
+  test(
+    'tag REMOVE event appears as "Removed tag" text in the timeline',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      const sidebar = await openSidebar(page);
+      const removedTagEntry = sidebar.getByText(/Removed tag ".*"\./, { exact: false });
+      if ((await removedTagEntry.count()) === 0) {
+        test.skip(true, 'No tag REMOVE events — requires two ingestion passes: first adding, then removing the tag');
+        return;
+      }
+      await expect(removedTagEntry.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    },
+  );
 
-  test('field-level tag ADD event shows the field name', async ({ page }) => {
+  test('field-level tag ADD event shows the field name', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     // Field-level tag events contain "to field" in the rendered string
     const fieldTagEntry = sidebar.getByText(/Added tag ".*" to field/, { exact: false });
@@ -622,7 +646,7 @@ test.describe('tag change events in timeline', () => {
     await expect(fieldTagEntry.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('tag events do NOT show a "show diff" button', async ({ page }) => {
+  test('tag events do NOT show a "show diff" button', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const tagEventRows = sidebar.getByTestId('change-event-row').filter({ hasText: /Added tag ".*"|Removed tag ".*"/ });
     if ((await tagEventRows.count()) === 0) {
@@ -632,7 +656,7 @@ test.describe('tag change events in timeline', () => {
     await expect(tagEventRows.getByText('show diff')).toHaveCount(0);
   });
 
-  test('Types filter shows Tag category option', async ({ page }) => {
+  test('Types filter shows Tag category option', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const typesFilter = sidebar.getByText('Types');
     await expect(typesFilter).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
@@ -667,7 +691,7 @@ test.describe('ownership change events in timeline', () => {
     return sidebar;
   }
 
-  test('ownership ADD event appears as "Added owner" text', async ({ page }) => {
+  test('ownership ADD event appears as "Added owner" text', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const addedOwner = sidebar.getByText(/Added owner ".*"/, { exact: false });
     if ((await addedOwner.count()) === 0) {
@@ -677,7 +701,7 @@ test.describe('ownership change events in timeline', () => {
     await expect(addedOwner.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('ownership ADD event includes the owner name', async ({ page }) => {
+  test('ownership ADD event includes the owner name', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const addedOwner = sidebar.getByText(/Added owner ".*"/, { exact: false });
     if ((await addedOwner.count()) === 0) {
@@ -689,18 +713,22 @@ test.describe('ownership change events in timeline', () => {
     expect(text).toMatch(/Added owner "[^"]+"/);
   });
 
-  test('ownership ADD event with a named type shows the type suffix', async ({ page }) => {
-    const sidebar = await openSidebar(page);
-    // Events with a non-uninformative owner type suffix render e.g. "(Business Owner)"
-    const ownerWithType = sidebar.getByText(/Added owner ".*" \(.*\)/, { exact: false });
-    if ((await ownerWithType.count()) === 0) {
-      test.skip(true, 'No ownership events with explicit owner type suffix in this dataset');
-      return;
-    }
-    await expect(ownerWithType.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-  });
+  test(
+    'ownership ADD event with a named type shows the type suffix',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      const sidebar = await openSidebar(page);
+      // Events with a non-uninformative owner type suffix render e.g. "(Business Owner)"
+      const ownerWithType = sidebar.getByText(/Added owner ".*" \(.*\)/, { exact: false });
+      if ((await ownerWithType.count()) === 0) {
+        test.skip(true, 'No ownership events with explicit owner type suffix in this dataset');
+        return;
+      }
+      await expect(ownerWithType.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    },
+  );
 
-  test('ownership REMOVE event appears as "Removed owner" text', async ({ page }) => {
+  test('ownership REMOVE event appears as "Removed owner" text', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const removedOwner = sidebar.getByText(/Removed owner ".*"/, { exact: false });
     if ((await removedOwner.count()) === 0) {
@@ -710,7 +738,7 @@ test.describe('ownership change events in timeline', () => {
     await expect(removedOwner.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('ownership events do NOT show a "show diff" button', async ({ page }) => {
+  test('ownership events do NOT show a "show diff" button', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const ownerEventRows = sidebar
       .getByTestId('change-event-row')
@@ -743,7 +771,7 @@ test.describe('glossary term change events in timeline', () => {
     return sidebar;
   }
 
-  test('glossary term ADD event appears as "Added term" text', async ({ page }) => {
+  test('glossary term ADD event appears as "Added term" text', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const addedTerm = sidebar.getByText(/Added term ".*"\.|Added .* term ".*"\./, { exact: false });
     if ((await addedTerm.count()) === 0) {
@@ -753,7 +781,7 @@ test.describe('glossary term change events in timeline', () => {
     await expect(addedTerm.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('glossary term REMOVE event appears as "Removed term" text', async ({ page }) => {
+  test('glossary term REMOVE event appears as "Removed term" text', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const removedTerm = sidebar.getByText(/Removed term ".*"\.|Removed .* term ".*"\./, { exact: false });
     if ((await removedTerm.count()) === 0) {
@@ -763,7 +791,7 @@ test.describe('glossary term change events in timeline', () => {
     await expect(removedTerm.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('glossary term events do NOT show a "show diff" button', async ({ page }) => {
+  test('glossary term events do NOT show a "show diff" button', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const termEventRows = sidebar
       .getByTestId('change-event-row')
@@ -797,7 +825,7 @@ test.describe('technical schema change events in timeline', () => {
     return sidebar;
   }
 
-  test('schema ADD event appears as "Added column" text', async ({ page }) => {
+  test('schema ADD event appears as "Added column" text', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const addedCol = sidebar.getByText(/Added column /, { exact: false });
     if ((await addedCol.count()) === 0) {
@@ -807,7 +835,7 @@ test.describe('technical schema change events in timeline', () => {
     await expect(addedCol.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('schema REMOVE event appears as "Removed column" text', async ({ page }) => {
+  test('schema REMOVE event appears as "Removed column" text', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const removedCol = sidebar.getByText(/Removed column /, { exact: false });
     if ((await removedCol.count()) === 0) {
@@ -817,7 +845,7 @@ test.describe('technical schema change events in timeline', () => {
     await expect(removedCol.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('schema MODIFY event appears as "Modified column" text', async ({ page }) => {
+  test('schema MODIFY event appears as "Modified column" text', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const modifiedCol = sidebar.getByText(/Modified column /, { exact: false });
     if ((await modifiedCol.count()) === 0) {
@@ -827,7 +855,7 @@ test.describe('technical schema change events in timeline', () => {
     await expect(modifiedCol.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('schema events do NOT show a "show diff" button', async ({ page }) => {
+  test('schema events do NOT show a "show diff" button', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const schemaEventRows = sidebar
       .getByTestId('change-event-row')
@@ -839,7 +867,7 @@ test.describe('technical schema change events in timeline', () => {
     await expect(schemaEventRows.getByText('show diff')).toHaveCount(0);
   });
 
-  test('Types filter shows Schema category option', async ({ page }) => {
+  test('Types filter shows Schema category option', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     await sidebar.getByText('Types').click();
     const schemaOption = page.getByText('Schema').last();
@@ -867,7 +895,7 @@ test.describe('domain change events in timeline', () => {
     return sidebar;
   }
 
-  test('domain ADD event appears as "Added to domain" text', async ({ page }) => {
+  test('domain ADD event appears as "Added to domain" text', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const addedDomain = sidebar.getByText(/Added to domain ".*"/, { exact: false });
     if ((await addedDomain.count()) === 0) {
@@ -877,7 +905,7 @@ test.describe('domain change events in timeline', () => {
     await expect(addedDomain.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('domain REMOVE event appears as "Removed from domain" text', async ({ page }) => {
+  test('domain REMOVE event appears as "Removed from domain" text', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const removedDomain = sidebar.getByText(/Removed from domain ".*"/, { exact: false });
     if ((await removedDomain.count()) === 0) {
@@ -887,7 +915,7 @@ test.describe('domain change events in timeline', () => {
     await expect(removedDomain.first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   });
 
-  test('domain events do NOT show a "show diff" button', async ({ page }) => {
+  test('domain events do NOT show a "show diff" button', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
     const domainEventRows = sidebar
       .getByTestId('change-event-row')
@@ -930,7 +958,7 @@ test.describe('Types filter per category', () => {
     await expect(sidebar).toBeVisible();
   }
 
-  test('filtering to Documentation hides tag and ownership events', async ({ page }) => {
+  test('filtering to Documentation hides tag and ownership events', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
 
     // Record whether tag/owner events exist before filtering
@@ -952,7 +980,7 @@ test.describe('Types filter per category', () => {
     await expect(sidebar.getByText(/Added owner ".*"|Removed owner ".*"/, { exact: false })).toHaveCount(0);
   });
 
-  test('filtering to Ownership hides documentation and tag events', async ({ page }) => {
+  test('filtering to Ownership hides documentation and tag events', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebar(page);
 
     const ownerEvents = sidebar.getByText(/Added owner ".*"|Removed owner ".*"/, { exact: false });
@@ -979,36 +1007,42 @@ test.describe('Types filter per category', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 test.describe('"show diff" is only present on Documentation events', () => {
-  test('tag, ownership, schema, and domain events never render a "show diff" link', async ({ page }) => {
-    await gotoDataset(page, VERSIONED_URN);
-    await dismissModals(page);
-    await versionPillLocator(page).hover();
-    await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await clockButtonLocator(page).click();
-    const sidebar = historySidebarLocator(page);
-    await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+  test(
+    'tag, ownership, schema, and domain events never render a "show diff" link',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await gotoDataset(page, VERSIONED_URN);
+      await dismissModals(page);
+      await versionPillLocator(page).hover();
+      await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      await clockButtonLocator(page).click();
+      const sidebar = historySidebarLocator(page);
+      await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    // Verify no tag, ownership, schema, or domain event rows contain "show diff"
-    const allRows = sidebar.getByTestId('change-event-row');
-    await expect(allRows.filter({ hasText: /Added tag ".*"|Removed tag ".*"/ }).getByText('show diff')).toHaveCount(0);
-    await expect(allRows.filter({ hasText: /Added owner ".*"|Removed owner ".*"/ }).getByText('show diff')).toHaveCount(
-      0,
-    );
-    await expect(
-      allRows.filter({ hasText: /Added column |Removed column |Modified column / }).getByText('show diff'),
-    ).toHaveCount(0);
-    await expect(
-      allRows.filter({ hasText: /Added to domain ".*"|Removed from domain ".*"/ }).getByText('show diff'),
-    ).toHaveCount(0);
-  });
+      // Verify no tag, ownership, schema, or domain event rows contain "show diff"
+      const allRows = sidebar.getByTestId('change-event-row');
+      await expect(allRows.filter({ hasText: /Added tag ".*"|Removed tag ".*"/ }).getByText('show diff')).toHaveCount(
+        0,
+      );
+      await expect(
+        allRows.filter({ hasText: /Added owner ".*"|Removed owner ".*"/ }).getByText('show diff'),
+      ).toHaveCount(0);
+      await expect(
+        allRows.filter({ hasText: /Added column |Removed column |Modified column / }).getByText('show diff'),
+      ).toHaveCount(0);
+      await expect(
+        allRows.filter({ hasText: /Added to domain ".*"|Removed from domain ".*"/ }).getByText('show diff'),
+      ).toHaveCount(0);
+    },
+  );
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Group 17: Edge cases
 // ═════════════════════════════════════════════════════════════════════════════
 test.describe('edge cases', () => {
-  test('sidebar footer shows a status message', async ({ page }) => {
+  test('sidebar footer shows a status message', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await gotoDataset(page, VERSIONED_URN);
     await dismissModals(page);
     await versionPillLocator(page).hover();
@@ -1037,7 +1071,7 @@ test.describe('edge cases', () => {
     expect(found, 'Expected a footer status message in the history sidebar').toBe(true);
   });
 
-  test('sidebar search clears and restores entries', async ({ page }) => {
+  test('sidebar search clears and restores entries', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     await gotoDataset(page, VERSIONED_URN);
     await dismissModals(page);
     await versionPillLocator(page).hover();
@@ -1066,7 +1100,7 @@ test.describe('edge cases', () => {
     await expect(rows).toHaveCount(initialCount);
   });
 
-  test('sidebar handles entities with minimal history gracefully', async ({ page }) => {
+  test('sidebar handles entities with minimal history gracefully', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     // Navigate to the versioned entity but look at a version that might have minimal history
     const olderVersionUrn = 'urn:li:dataset:(urn:li:dataPlatform:agents,text-to-sql-skill-2-0-0,PROD)';
 

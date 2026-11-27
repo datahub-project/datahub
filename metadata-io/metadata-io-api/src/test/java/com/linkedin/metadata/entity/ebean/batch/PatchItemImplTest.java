@@ -156,6 +156,34 @@ public class PatchItemImplTest {
   }
 
   @Test
+  public void testGenericJsonPatchSurvivesMcpRoundTrip() {
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp("remove");
+    patchOp.setPath("/tags/urn:li:tag:tag1");
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder()
+            .patch(List.of(patchOp))
+            .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
+            .build();
+
+    PatchItemImpl built =
+        PatchItemImpl.builder()
+            .urn(urn)
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .auditStamp(auditStamp)
+            .patch(genericJsonPatch)
+            .build(entityRegistry);
+
+    PatchItemImpl roundTripped =
+        PatchItemImpl.builder()
+            .build(built.getMetadataChangeProposal(), auditStamp, entityRegistry);
+
+    assertNotNull(roundTripped.getGenericJsonPatch());
+    assertEquals(
+        roundTripped.getGenericJsonPatch().getArrayPrimaryKeys(), Map.of("tags", List.of("tag")));
+  }
+
+  @Test
   public void testApplyPatchWithExistingRecord() throws Exception {
     // Create a JSON patch
     JsonPatch patch =

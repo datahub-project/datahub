@@ -71,6 +71,11 @@ on:
         required: false
         type: boolean
         default: false
+      workflow_name:
+        description: "Workflow name on PostHog failure events. Empty uses github.workflow, which in a called workflow is the top-level caller's name."
+        required: false
+        type: string
+        default: ""
       workers_per_shard:
         description: "Number of Playwright workers per shard. Defaults to 1; values above 1 share the shard's stack and filesystem."
         required: false
@@ -104,7 +109,11 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
-          gradle: false
+          # Gradle runs only in "Build images (fork — no depot cache)"; keep this
+          # condition in sync with that step. Without the Gradle cache it downloads
+          # the full dependency graph from Maven Central, which returns 429s on
+          # shared GitHub-hosted runner IPs.
+          gradle: ${{ !inputs.pull_from_registry && inputs.depot_build_id == '' && inputs.image_version_env == '' }}
           node: true
 
       # Path 1: Pull images from depot cache (docker-unified non fork trigger).
@@ -319,7 +328,7 @@ jobs:
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
           GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
           GH_REPOSITORY: ${{ github.repository }}
-          GH_WORKFLOW: ${{ github.workflow }}
+          GH_WORKFLOW: ${{ inputs.workflow_name || github.workflow }}
           GH_RUN_ID: ${{ github.run_id }}
           GH_RUN_ATTEMPT: ${{ github.run_attempt }}
           SHARD: ${{ inputs.shard }}

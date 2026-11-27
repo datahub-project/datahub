@@ -780,6 +780,7 @@ in [Selection order](#selection-order).
 - `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
 - `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
 - `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI. This exposes sensitive information in logs, enabling on production instances should be avoided especially if UI ingestion is in use as logs can be made available for runs through the UI.
+- `DATAHUB_LOG_CONFIG_FILE` (default unset) - Path to a Python [`logging.config.fileConfig`](https://docs.python.org/3/library/logging.config.html#logging.config.fileConfig) file. When set, it replaces the CLI's default logging setup, for example to emit JSON logs. Secret masking is only supported for some configurations; see [Custom logging configuration](#custom-logging-configuration).
 - `DATAHUB_VERSION` (default `quickstart`) - Set to a specific version to run quickstart with the particular version of docker images (`quickstart`, a release `v*`, or a commit pin `sha-<short_sha>`).
 - `DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH` (default unset) - Only for cases where column-level lineage aspects grow too large. Set it to N (at least `1`) to cut `transformOperation` in fine-grained lineage to its first N characters followed by `...`; values of at most N + 3 characters are kept unchanged. With `incremental_lineage`, changing the value leaves entries stored under the old value until a run with `incremental_lineage: false`.
 - `ACTIONS_VERSION` (default `quickstart`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
@@ -800,6 +801,43 @@ DATAHUB_DEBUG=false
 DATAHUB_REPORT_FAILURE_SAMPLE_SIZE=10
 DATAHUB_REPORT_WARNING_SAMPLE_SIZE=10
 ```
+
+### Custom logging configuration
+
+Set `DATAHUB_LOG_CONFIG_FILE` to the path of a `fileConfig` file to replace the CLI's default logging setup. The example below writes JSON logs to stderr using `python-json-logger`, which is installed with the CLI:
+
+```ini
+[loggers]
+keys = root
+
+[handlers]
+keys = console
+
+[formatters]
+keys = json
+
+[logger_root]
+level = INFO
+handlers = console
+
+[handler_console]
+class = StreamHandler
+formatter = json
+args = (sys.stderr,)
+
+[formatter_json]
+class = pythonjsonlogger.jsonlogger.JsonFormatter
+format = %(asctime)s %(name)s %(levelname)s %(message)s
+```
+
+#### Secret masking with a custom configuration
+
+DataHub masks registered secrets (recipe secrets and every `${VAR}` a recipe references) in log output. With a custom configuration, masking is supported only for:
+
+- **Handlers** that write formatted text: `StreamHandler`, `FileHandler` and the rotating file handlers from the Python standard library.
+- **Formatters**: the standard `logging.Formatter` and `python-json-logger`.
+
+Other handler classes, such as ones that send log records over a socket, HTTP or to a third-party service, are not supported. They may work, but DataHub does not guarantee that secrets are masked in what they send.
 
 ### container
 

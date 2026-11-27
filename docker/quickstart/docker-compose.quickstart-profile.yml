@@ -102,6 +102,7 @@ services:
       MCE_CONSUMER_ENABLED: 'true'
       MCL_CONSUMER_BATCH_ENABLED: 'true'
       MCP_CONSUMER_BATCH_ENABLED: 'true'
+      MCP_SERVER_ENABLED: ${MCP_SERVER_ENABLED:-false}
       METADATA_SERVICE_AUTH_ENABLED: 'false'
       NEO4J_HOST: http://neo4j:7474
       NEO4J_PASSWORD: datahub

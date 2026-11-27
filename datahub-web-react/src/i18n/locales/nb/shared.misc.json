@@ -3,6 +3,8 @@
     "confirmationModal.areYouSure": "Er du sikker?",
     "copyUrn.tooltip": "Kopier URN. En URN identifiserer en entitet i DataHub entydig.",
     "customIcon.alt": "Ikon",
+    "githubStar.ariaLabel": "Gi DataHub en stjerne på GitHub",
+    "githubStar.label": "Stjerne",
     "entityCountCard.viewCountTooltip": "Vis {{formattedCount}} {{tooltipDescriptor}}",
     "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
     "multiStepForm.disabledNextTooltip": "Fyll ut alle obligatoriske felt før du går videre til neste trinn",

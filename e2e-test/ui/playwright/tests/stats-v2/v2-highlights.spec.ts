@@ -73,7 +73,7 @@ test.describe('Highlight Stats Cards', () => {
     },
   );
 
-  test('should not show values when the data is not available', async ({ apiMock }) => {
+  test('should not show values when the data is not available', { tag: [DomainTag.Catalog] }, async ({ apiMock }) => {
     const timestamp = Date.now();
     await setupEmptyDatasetForStats(apiMock, timestamp, TEST_DATASET_URN, DEFAULT_PRIVILEGES);
 
