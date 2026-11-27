@@ -200,6 +200,14 @@ public final class SearchTemplateJson {
       query = QueryBuilders.boolQuery().must(query);
     }
     BoolQueryBuilder bool = (BoolQueryBuilder) query;
+    // A bool with only should clauses needs one of them to match. A must or filter from the
+    // clauses would make them optional, and the query would match everything in scope.
+    if (!bool.should().isEmpty()
+        && bool.must().isEmpty()
+        && bool.filter().isEmpty()
+        && bool.minimumShouldMatch() == null) {
+      bool.minimumShouldMatch(1);
+    }
     add(bool, "must", clauses.get("must"), bool::must);
     add(bool, "must_not", clauses.get("must_not"), bool::mustNot);
     add(bool, "filter", clauses.get("filter"), bool::filter);
