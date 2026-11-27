@@ -95,6 +95,14 @@ GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATA
    - **Tags & Terms**: You can limit propagation based on specific Tags and Glossary Terms. If none are selected, then ALL Tags or Glossary Terms will be automatically propagated to Snowflake tables and columns.
    - **Descriptions**: Enable description sync to automatically update Snowflake table and column comments with DataHub descriptions.
    - **Sync descriptions from logical models**: Shown when **Descriptions** is selected. Off by default. See [Logical model descriptions](#logical-model-descriptions).
+   - **Structured Properties**: Write the structured properties of Snowflake tables and columns as Snowflake tags, for the properties you pick, or for all of them if you pick none. See [Structured properties](#structured-properties) for which values can be synced.
+   - **Where to create Snowflake tags**: Shown for **Tags & Glossary Terms** and **Structured Properties**. See [Where tags are created](#where-tags-are-created).
+
+   :::note Remote executors
+
+   **Structured Properties** and **Where to create Snowflake tags** add new settings to the automation (`structured_property_sync`, `tag_database` and `tag_schema`). A remote executor older than this release rejects them and the automation fails to start, so upgrade your remote executors before you turn either option on.
+
+   :::
 
    Finally, click 'Save and Run' to start the automation
 
@@ -102,9 +110,38 @@ GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATA
   <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/automation-form.png"/>
 </p>
 
+## Where tags are created
+
+Each DataHub tag, glossary term and structured property becomes a Snowflake tag.
+
+- **In each table's schema** (default): the tag is created in the schema of the table it is applied to. A tag used in many schemas becomes one Snowflake tag per schema.
+- **In one schema**: every tag is created once in the database and schema you enter, and applied to tables in any database. Each classification then has a single Snowflake tag, so a masking or row access policy can be attached to it once.
+
+With one schema, the automation's role needs `CREATE TAG` on that schema:
+
+```sql
+GRANT USAGE ON DATABASE governance TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT USAGE ON SCHEMA governance.tags TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT CREATE TAG ON SCHEMA governance.tags TO ROLE DATAHUB_AUTOMATION_ROLE;
+```
+
+The schema may already hold your own tags. The automation never sets or unsets a tag there that DataHub didn't create: if one of your tags has the same name as a DataHub tag, term or property, that write is skipped and listed in the automation's run report.
+
+If you change where tags are created, the tags DataHub already created in the old location are not dropped. Their assignments move instead: the next time the automation writes or removes a tag, term or property on a table or column, it also unsets DataHub's copy from the old location on that object. Run Initialize to do this for every asset at once. You can then drop the old tags in Snowflake once nothing uses them.
+
+## Structured properties
+
+Each structured property becomes a Snowflake tag named after the property's qualified name, and its value becomes the tag value. A property is synced when:
+
+- it has a single value. Snowflake tags hold one value, so a property with several values is not written and is listed in the run report.
+- the value is at most 256 characters, and the qualified name at most 255 characters (Snowflake's limits). Double quotes and control characters in the name are replaced with `_`.
+- it is set on a table or a top-level column. Nested columns are skipped.
+
+Numbers are written without a trailing `.0` when they are whole. Properties that DataHub defines for its own features, and the `snowflake.*` properties that ingestion creates from Snowflake's own tags, are never synced.
+
 ## Propagating for Existing Assets
 
-You can back-fill existing assets so that their current glossary terms and descriptions reach Snowflake.
+You can back-fill existing assets so that their current tags, glossary terms, structured properties and descriptions reach Snowflake.
 Note that it may take some time to complete the initial back-filling process, depending on the number of Snowflake assets you have.
 
 To do so, navigate to the Automation you created in Step 3 above, click the 3-dot "More" menu
@@ -119,7 +156,7 @@ and then click "Initialize".
   <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-initialize.png"/>
 </p>
 
-This step back-fills existing terms and descriptions. If you only want to propagate changes from now on, you can skip it.
+This step back-fills existing tags, terms, structured properties and descriptions. If you only want to propagate changes from now on, you can skip it.
 
 As of DataHub Cloud v2.3.3, Initialize also fills in Snowflake comments from descriptions written in DataHub:
 
@@ -130,12 +167,6 @@ As of DataHub Cloud v2.3.3, Initialize also fills in Snowflake comments from des
 - Running Initialize again writes only the comments that no longer match.
 - With **Sync descriptions from logical models** turned on, it also writes logical-model descriptions. See [Logical model descriptions](#logical-model-descriptions).
 - On the Automations page, Initialize stays greyed out until the run finishes.
-
-:::info
-
-The back-filling of tags will be available in a future release.
-
-:::
 
 ## Viewing Synced Metadata
 

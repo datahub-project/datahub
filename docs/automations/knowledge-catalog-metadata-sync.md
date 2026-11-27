@@ -125,7 +125,7 @@ Your service account needs these permissions:
 
 ### Step 3: Pick what to sync
 
-Each automation syncs one type of metadata. To sync more than one, create one automation per type.
+The form sets up one type per automation, so to sync more than one type from the form, create one automation per type. An automation can also sync several types at once: see [Syncing several types in one automation](#syncing-several-types-in-one-automation).
 
 | Type                   | What happens                                                                        |
 | ---------------------- | ----------------------------------------------------------------------------------- |
@@ -143,7 +143,7 @@ You can limit Tag and Glossary Term sync to specific Tags or Terms. If you don't
 
 Enter the details from your GCP service account JSON key: project ID, private key ID, private key, client email, and client ID.
 
-The automation creates its custom aspect types and the Business Glossary in the service account's project. The Business Glossary uses the ID `datahub` in the `global` location.
+The automation creates its custom aspect types and the Business Glossary in the service account's project. The Business Glossary uses the ID `datahub` in the `global` location. To change these, or to limit the automation to some projects, see [Settings outside the form](#settings-outside-the-form).
 
 ### Step 5: Save and run
 
@@ -152,6 +152,42 @@ Click **Save and Run**. The automation will:
 1. Create custom aspect types in Google Cloud Knowledge Catalog (Dataplex) (`datahub-tags` and `datahub-properties`) if they don't exist
 2. Start listening for metadata change events in DataHub
 3. Push changes to Google Cloud Knowledge Catalog (Dataplex) in real time
+
+## Settings outside the form
+
+The automation's recipe accepts more settings than the form shows. Set them with the [`upsertActionPipeline` GraphQL mutation](../features/feature-guides/logical-models/centralized-management.md#getting-started), which takes the whole recipe as JSON.
+
+:::caution
+
+Saving the automation from the form rebuilds its recipe from the form's fields and removes the project and glossary settings below. If you edit the automation in the form, set them again afterwards.
+
+:::
+
+### Syncing several types in one automation
+
+The recipe can turn on `tag_propagation`, `term_propagation` and `structured_property_sync` together, each with `enabled: true`. The automation then syncs all of them, and Initialize back-fills both Tags and Glossary Terms. If you open such an automation in the form, it shows **Glossary Terms**; choosing another type there turns the other types off.
+
+### Limiting the sync to some projects
+
+These settings go in the `dataplex` block of the recipe. By default the automation syncs every supported asset its service account can reach.
+
+| Setting              | What it does                                                                                                                                                                                                         | Default    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `project_ids`        | Sync only assets in these GCP projects, matched exactly. When set, `project_id_pattern` is ignored.                                                                                                                  | Empty: all |
+| `project_id_pattern` | `allow` and `deny` lists of regular expressions matched against the project ID.                                                                                                                                      | Allow all  |
+| `dataset_pattern`    | `allow` and `deny` lists of regular expressions matched against `<project_id>.<name>`, where the name is the BigQuery dataset, Cloud SQL or Spanner database, Bigtable instance, Pub/Sub topic or Vertex AI dataset. | Allow all  |
+
+Patterns are matched from the start of the string and ignore case, and a `deny` match wins over `allow`. Because `dataset_pattern` sees the project ID too, use `.*\.analytics$` (not `analytics`) to match a dataset named `analytics` in any project. Assets outside these settings are skipped, including during Initialize.
+
+### Where the glossary and aspect types are created
+
+| Setting                  | What it does                                                                                    | Default                       |
+| ------------------------ | ----------------------------------------------------------------------------------------------- | ----------------------------- |
+| `aspect_type_project_id` | GCP project for the custom aspect types and the Business Glossary.                              | The service account's project |
+| `glossary_id`            | ID of the Google Cloud Knowledge Catalog (Dataplex) Business Glossary the automation writes to. | `datahub`                     |
+| `glossary_location`      | Location of that Business Glossary.                                                             | `global`                      |
+
+If the automation uses a saved connection, put these settings next to `connection_urn` in the `dataplex` block. A setting that the saved connection also has takes the connection's value.
 
 ## Back-filling existing assets
 
