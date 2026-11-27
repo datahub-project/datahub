@@ -2,11 +2,13 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
@@ -29,7 +31,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
-/** Lists all ingestion sources stored within DataHub. Requires the MANAGE_INGESTION privilege. */
+/**
+ * Lists ingestion sources stored within DataHub.
+ *
+ * <p>Listing all sources requires the MANAGE_INGESTION privilege. When the {@code
+ * viewIngestionSourcePrivilegesEnabled} feature flag is on, actors without it may list the sources
+ * they are authorized to read, for example through a policy granting View Entity Page on specific
+ * ingestion sources; every other source is left out of the result.
+ */
 @Slf4j
 public class ListIngestionSourcesResolver
     implements DataFetcher<CompletableFuture<ListIngestionSourcesResult>> {
@@ -40,10 +49,20 @@ public class ListIngestionSourcesResolver
   private static final String FACETS_FIELD_NAME = "facets";
   private static final List<String> FACET_FIELDS = List.of("type");
 
-  private final EntityClient _entityClient;
+  /**
+   * Read authorization is evaluated per source URN, so the page for an actor without
+   * MANAGE_INGESTION is assembled in memory from a bounded scan of the matching sources rather than
+   * from the search engine's own pagination.
+   */
+  static final int AUTHORIZED_SOURCES_SCAN_LIMIT = 1000;
 
-  public ListIngestionSourcesResolver(final EntityClient entityClient) {
+  private final EntityClient _entityClient;
+  private final FeatureFlags _featureFlags;
+
+  public ListIngestionSourcesResolver(
+      final EntityClient entityClient, final FeatureFlags featureFlags) {
     _entityClient = entityClient;
+    _featureFlags = featureFlags;
   }
 
   @Override
@@ -52,7 +71,8 @@ public class ListIngestionSourcesResolver
 
     final QueryContext context = environment.getContext();
 
-    if (!AuthorizationUtils.canManageIngestion(context)) {
+    final boolean canManageIngestion = AuthorizationUtils.canManageIngestion(context);
+    if (!canManageIngestion && !_featureFlags.isViewIngestionSourcePrivilegesEnabled()) {
       throw new AuthorizationException(
           "You are not authorized to list ingestion sources. Please contact your DataHub administrator.");
     }
@@ -77,40 +97,105 @@ public class ListIngestionSourcesResolver
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            // First, get all ingestion sources Urns.
-            final SearchResult gmsResult =
-                _entityClient.searchAcrossEntities(
-                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
-                    List.of(Constants.INGESTION_SOURCE_ENTITY_NAME),
-                    query,
-                    buildFilter(filters, Collections.emptyList()),
-                    start,
-                    count,
-                    sortCriteria,
-                    facetFields);
-
-            // Now that we have entities we can bind this to a result.
-            final ListIngestionSourcesResult result = new ListIngestionSourcesResult();
-            result.setStart(gmsResult.getFrom());
-            result.setCount(gmsResult.getPageSize());
-            result.setTotal(gmsResult.getNumEntities());
-            result.setIngestionSources(mapUnresolvedIngestionSources(gmsResult.getEntities()));
-            if (gmsResult.getMetadata() != null
-                && gmsResult.getMetadata().getAggregations() != null) {
-              result.setFacets(
-                  gmsResult.getMetadata().getAggregations().stream()
-                      .map(facet -> MapperUtils.mapFacet(context, facet))
-                      .collect(Collectors.toList()));
-            } else {
-              result.setFacets(Collections.emptyList());
+            if (canManageIngestion) {
+              return listAllSources(
+                  context, query, filters, start, count, sortCriteria, facetFields);
             }
-            return result;
+            return listAuthorizedSources(context, query, filters, start, count, sortCriteria);
           } catch (Exception e) {
             throw new RuntimeException("Failed to list ingestion sources", e);
           }
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private ListIngestionSourcesResult listAllSources(
+      final QueryContext context,
+      final String query,
+      final List<FacetFilterInput> filters,
+      final int start,
+      final int count,
+      final List<SortCriterion> sortCriteria,
+      final List<String> facetFields)
+      throws Exception {
+    // First, get all ingestion sources Urns.
+    final SearchResult gmsResult =
+        _entityClient.searchAcrossEntities(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            List.of(Constants.INGESTION_SOURCE_ENTITY_NAME),
+            query,
+            buildFilter(filters, Collections.emptyList()),
+            start,
+            count,
+            sortCriteria,
+            facetFields);
+
+    // Now that we have entities we can bind this to a result.
+    final ListIngestionSourcesResult result = new ListIngestionSourcesResult();
+    result.setStart(gmsResult.getFrom());
+    result.setCount(gmsResult.getPageSize());
+    result.setTotal(gmsResult.getNumEntities());
+    result.setIngestionSources(mapUnresolvedIngestionSources(gmsResult.getEntities()));
+    if (gmsResult.getMetadata() != null && gmsResult.getMetadata().getAggregations() != null) {
+      result.setFacets(
+          gmsResult.getMetadata().getAggregations().stream()
+              .map(facet -> MapperUtils.mapFacet(context, facet))
+              .collect(Collectors.toList()));
+    } else {
+      result.setFacets(Collections.emptyList());
+    }
+    return result;
+  }
+
+  /**
+   * Lists only the sources the actor is authorized to read. Facets are not returned: aggregations
+   * are computed by the search engine over every matching source and would reveal sources the actor
+   * cannot see.
+   */
+  private ListIngestionSourcesResult listAuthorizedSources(
+      final QueryContext context,
+      final String query,
+      final List<FacetFilterInput> filters,
+      final int start,
+      final int count,
+      final List<SortCriterion> sortCriteria)
+      throws Exception {
+    final SearchResult gmsResult =
+        _entityClient.searchAcrossEntities(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            List.of(Constants.INGESTION_SOURCE_ENTITY_NAME),
+            query,
+            buildFilter(filters, Collections.emptyList()),
+            0,
+            AUTHORIZED_SOURCES_SCAN_LIMIT,
+            sortCriteria,
+            Collections.emptyList());
+    if (gmsResult.getNumEntities() > AUTHORIZED_SOURCES_SCAN_LIMIT) {
+      log.warn(
+          "Actor {} listed ingestion sources without MANAGE_INGESTION; only the first {} of {} matching sources were checked for read authorization",
+          context.getActorUrn(),
+          AUTHORIZED_SOURCES_SCAN_LIMIT,
+          gmsResult.getNumEntities());
+    }
+
+    final List<SearchEntity> authorizedEntities =
+        gmsResult.getEntities().stream()
+            .filter(
+                entity -> AuthUtil.canViewEntity(context.getOperationContext(), entity.getEntity()))
+            .collect(Collectors.toList());
+
+    final int from = Math.min(start, authorizedEntities.size());
+    final int to = Math.min(start + count, authorizedEntities.size());
+
+    final ListIngestionSourcesResult result = new ListIngestionSourcesResult();
+    result.setStart(start);
+    result.setCount(count);
+    result.setTotal(authorizedEntities.size());
+    result.setIngestionSources(
+        mapUnresolvedIngestionSources(new SearchEntityArray(authorizedEntities.subList(from, to))));
+    result.setFacets(Collections.emptyList());
+    return result;
   }
 
   // This method maps urns returned from the list endpoint into Partial Ingestion source objects
