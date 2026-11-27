@@ -15,6 +15,25 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### `gitlab-documents` takes its projects from `repositories`; `repository` is deprecated
+
+The `gitlab-documents` source now reads a list of projects from `repositories` ([PR #21683](https://github.com/datahub-project/datahub/pull/21683)), and can read every project in a `group`. The single-project `repository` option still works and logs a deprecation warning, but it is no longer documented and will be removed.
+
+To update a recipe, replace `repository: group/project` with a list:
+
+```yaml
+repositories:
+  - group/project
+```
+
+`repositories` differs from `repository` in three ways:
+
+- Each project is read from its own default branch unless `branch` is set. `repository` used `main` unless `branch` was set.
+- Each project gets a root document, even when `parent_document_urn` is set. With `repository` and `parent_document_urn`, files sat directly under the parent. After the move they sit under the project's root document, which sits under the parent.
+- A project that cannot be read is skipped with a warning and the others are still imported. The run fails only when no project could be imported.
+
+Sources created in the UI used to save `repository` and `branch: main`. Editing one in the ingestion form now saves its project to `repositories` and keeps `branch: main`, so it is read as before. If you then add more projects or a group, clear **Branch** so each project is read from its own default branch; otherwise every project must have a `main` branch.
+
 ### `tags_to_term` transformer matches full tag names and maps column tags to columns
 
 The `tags_to_term` ingestion transformer has changed in four ways ([PR #21479](https://github.com/datahub-project/datahub/pull/21479)):
