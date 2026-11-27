@@ -155,6 +155,16 @@ public abstract class EventProducer {
       @Nonnull Set<Throwable> throwables);
 
   /**
+   * The record key of a failed proposal: its urn, or its entity type when it has none. A proposal
+   * may carry only an entityKeyAspect, and validation fills in its urn only for an entity type this
+   * version knows, so one that failed before that still reaches the failure topic.
+   */
+  @Nonnull
+  protected static String failedProposalKey(@Nonnull MetadataChangeProposal mcp) {
+    return mcp.getEntityUrn() != null ? mcp.getEntityUrn().toString() : mcp.getEntityType();
+  }
+
+  /**
    * Produces a generic platform "event".
    *
    * @param opContext per-event operation context.

@@ -178,12 +178,12 @@ public class KafkaEventProducer extends EventProducer {
           "Error while processing FMCP: FailedMetadataChangeProposal - {}",
           failedMetadataChangeProposal);
 
+      final String key = failedProposalKey(mcp);
       ProducerRecord<String, GenericRecord> producerRecord =
-          new ProducerRecord<>(topic, mcp.getEntityUrn().toString(), record);
+          new ProducerRecord<>(topic, key, record);
       outboundContextResolver.apply(producerRecord, opContext);
       return sendProducerRecord(
-          producerRecord,
-          _kafkaHealthChecker.getKafkaCallBack(metricUtils, "FMCP", mcp.getEntityUrn().toString()));
+          producerRecord, _kafkaHealthChecker.getKafkaCallBack(metricUtils, "FMCP", key));
     } catch (IOException e) {
       log.error(
           "Error while sending FailedMetadataChangeProposal: Exception  - {}, FailedMetadataChangeProposal - {}",

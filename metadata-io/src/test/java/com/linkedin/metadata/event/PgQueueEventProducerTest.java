@@ -244,6 +244,46 @@ public class PgQueueEventProducerTest {
   }
 
   @Test
+  public void testProduceFailedMetadataChangeProposalWithoutEntityUrnIsKeyedByEntityType() {
+    // Only an entityKeyAspect, for an entity type this version doesn't know: validation failed
+    // before it could fill in the urn, so the message is keyed by the entity type instead.
+    when(topicConvention.getFailedMetadataChangeProposalTopicName()).thenReturn(FMCP_TOPIC);
+    when(schemaRegistryService.getSchemaIdForTopic(FMCP_TOPIC))
+        .thenReturn(Optional.of(FMCP_SCHEMA_ID));
+    when(queueStore.enqueue(
+            eq(FMCP_TOPIC),
+            any(),
+            any(QueueTopicDefaults.class),
+            anyInt(),
+            any(byte[].class),
+            any(),
+            any(),
+            eq(PgQueuePayloadCompression.NONE)))
+        .thenReturn(mock(QueueMessageHandle.class));
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.traceException(any())).thenReturn("traced error");
+    MetadataChangeProposal mcp =
+        new MetadataChangeProposal()
+            .setEntityType("entityFromNewerBuild")
+            .setAspectName("someAspect")
+            .setChangeType(ChangeType.UPSERT);
+
+    producer.produceFailedMetadataChangeProposalAsync(
+        opContext, mcp, Set.of(new RuntimeException("Unknown entity type")));
+
+    verify(queueStore, times(1))
+        .enqueue(
+            eq(FMCP_TOPIC),
+            eq("entityFromNewerBuild"),
+            any(),
+            anyInt(),
+            any(byte[].class),
+            any(),
+            any(),
+            eq(PgQueuePayloadCompression.NONE));
+  }
+
+  @Test
   public void testProducePlatformEventEnqueuesWithKeyAsRoutingKey() throws Exception {
     when(topicConvention.getPlatformEventTopicName()).thenReturn(PE_TOPIC);
     when(schemaRegistryService.getSchemaIdForTopic(PE_TOPIC)).thenReturn(Optional.of(PE_SCHEMA_ID));

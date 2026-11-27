@@ -15,6 +15,16 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Failed proposals without an entity urn reach the failure topic ([#21663](https://github.com/datahub-project/datahub/pull/21663))
+
+A proposal can name its entity with only an `entityKeyAspect`, with no `entityUrn`. When such a
+proposal failed before its urn was filled in, for example because its entity type is one this
+version doesn't know, sending it to the failure topic (`FailedMetadataChangeProposal`) threw an
+error. In the batch MCP consumer that error also failed the dead-letter of the proposals sent with
+it, and the poll was retried. Such a proposal is now sent to the failure topic keyed by its entity
+type instead of its urn, by both the Kafka and the PostgreSQL queue producers. Failed proposals
+with an urn are keyed by it as before.
+
 ### `tags_to_term` transformer matches full tag names and maps column tags to columns
 
 The `tags_to_term` ingestion transformer has changed in four ways ([PR #21479](https://github.com/datahub-project/datahub/pull/21479)):
