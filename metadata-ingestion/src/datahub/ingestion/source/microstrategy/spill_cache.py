@@ -17,30 +17,32 @@ class SpillConnection(Closeable):
     its own table. Opened on first write and removed by close()."""
 
     def __init__(self) -> None:
-        self._lock = threading.Lock()
+        # Shared with every cache on this connection: ConnectionWrapper only
+        # locks execute(), and FileBackedDict reads the cursor after it returns.
+        self.lock = threading.RLock()
         self._wrapper: Optional[ConnectionWrapper] = None
 
     def get(self) -> ConnectionWrapper:
-        with self._lock:
+        with self.lock:
             if self._wrapper is None:
                 self._wrapper = ConnectionWrapper()
             return self._wrapper
 
     def drop_table(self, tablename: str) -> None:
-        with self._lock:
+        with self.lock:
             if self._wrapper is not None:
                 self._wrapper.execute(f"DROP TABLE IF EXISTS {tablename}")
 
     def close(self) -> None:
-        with self._lock:
+        with self.lock:
             wrapper, self._wrapper = self._wrapper, None
         if wrapper is not None:
             wrapper.close()
 
 
 class SpillCache(Closeable, Generic[_V]):
-    # FileBackedDict is not thread-safe, so every access holds the lock. A
-    # loader runs outside it; concurrent callers of the same key wait for it.
+    # FileBackedDict is not thread-safe, so every access holds the connection's
+    # lock. A loader runs outside it; concurrent callers of the same key wait.
     def __init__(
         self,
         connection: SpillConnection,
@@ -52,7 +54,7 @@ class SpillCache(Closeable, Generic[_V]):
         self._tablename = tablename
         self._memory_entries = max(1, memory_entries)
         self._compress = compress
-        self._lock = threading.RLock()
+        self._lock = connection.lock
         self._store: Optional[FileBackedDict[_V]] = None
         self._loading: Dict[str, threading.Event] = {}
         self._closed = False
