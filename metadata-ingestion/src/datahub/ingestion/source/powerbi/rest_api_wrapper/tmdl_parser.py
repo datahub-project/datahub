@@ -399,13 +399,17 @@ def _parse_partition(node: TmdlNode) -> ParsedPartition:
             if child.keyword == PROP_SOURCE and child.name is None
         ]
         source_props = source_nodes[0].properties if source_nodes else {}
+        # TMDL quotes a name with spaces (`'DirectQuery to AS - Sales'`); the
+        # shared-expression index and the lakehouse table name need the bare name.
+        entity_name = source_props.get(PROP_ENTITY_NAME)
+        expression_source = source_props.get(PROP_EXPRESSION_SOURCE)
         return ParsedPartition(
             kind=kind,
             mode=mode or PARTITION_MODE_DIRECT_LAKE,
             source=None,
-            entity_name=_property_text(source_props.get(PROP_ENTITY_NAME)),
+            entity_name=_property_text(entity_name) or None,
             schema_name=_property_text(source_props.get(PROP_SCHEMA_NAME)),
-            expression_source=_property_text(source_props.get(PROP_EXPRESSION_SOURCE)),
+            expression_source=_property_text(expression_source) or None,
         )
     source = node.property_expression(PROP_SOURCE)
     if source is None and kind == PARTITION_KIND_QUERY:
@@ -450,7 +454,7 @@ def _parse_column(node: TmdlNode) -> Optional[ParsedColumn]:
     return ParsedColumn(
         name=node.name,
         data_type=TMDL_DATA_TYPE_TO_SCAN.get(raw_type, raw_type) if raw_type else None,
-        source_column=node.properties.get(PROP_SOURCE_COLUMN),
+        source_column=_property_text(node.properties.get(PROP_SOURCE_COLUMN)),
         is_hidden=_bool_property(node, FLAG_IS_HIDDEN) is True,
         description=node.description,
         expression=expression,
