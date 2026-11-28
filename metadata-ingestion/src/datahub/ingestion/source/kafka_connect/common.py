@@ -144,6 +144,7 @@ DEBEZIUM_ENVELOPE_AFTER_PREFIX: Final[str] = "after."
 # - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-sink.html
 # - https://docs.confluent.io/cloud/current/connectors/cc-snowflake-sink.html
 # - https://docs.confluent.io/cloud/current/connectors/cc-snowflake-source.html
+# - https://docs.confluent.io/cloud/current/connectors/cc-s3-sink/cc-s3-sink.html
 POSTGRES_CDC_SOURCE_CLOUD: Final[str] = "PostgresCdcSource"
 POSTGRES_CDC_SOURCE_V2_CLOUD: Final[str] = "PostgresCdcSourceV2"
 POSTGRES_SOURCE_CLOUD: Final[str] = "PostgresSource"
@@ -155,6 +156,7 @@ MYSQL_CDC_SOURCE_CLOUD: Final[str] = "MySqlCdcSource"
 MYSQL_CDC_SOURCE_V2_CLOUD: Final[str] = "MySqlCdcSourceV2"
 MYSQL_SINK_CLOUD: Final[str] = "MySqlSink"
 S3_SOURCE_CLOUD: Final[str] = "S3Source"
+S3_SINK_CLOUD: Final[str] = "S3_SINK"
 
 # Cloud CDC source classes routed to DebeziumSourceConnector.
 # PostgresSource is a managed JDBC source (topic.prefix + table), not CDC, so it
@@ -177,6 +179,7 @@ CLOUD_SINK_CLASSES: Final[List[str]] = [
     POSTGRES_SINK_CLOUD,
     SNOWFLAKE_SINK_CLOUD,
     MYSQL_SINK_CLOUD,
+    S3_SINK_CLOUD,
 ]
 
 
