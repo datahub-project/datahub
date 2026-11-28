@@ -28,10 +28,10 @@ from datahub.ingestion.source.microstrategy.lineage import (
     metric_formula_references,
     metric_metric_ids_from_model,
     parse_attribute_relationships,
+    project_warehouse_contexts,
     qualify_table_name,
     unique_derived_object_owners,
     warehouse_context_from_datasource,
-    warehouse_context_from_datasources,
 )
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
@@ -194,48 +194,28 @@ def test_datasource_platform_mapping_unmapped_uses_defaults() -> None:
     assert context.convert_urns_to_lowercase is True
 
 
-def test_warehouse_context_from_datasources_requires_unique_context() -> None:
-    datasources = [
-        Datasource.model_validate(
-            {
-                "id": "source-1",
-                "name": "Sales Warehouse",
-                "database": {
-                    "type": "snow_flake",
-                    "name": "SALES_DB",
-                    "schema": "SALES",
-                },
-            }
-        ),
-        Datasource.model_validate(
-            {
-                "id": "source-2",
-                "name": "Orders Warehouse",
-                "database": {
-                    "type": "snow_flake",
-                    "name": "ORDERS_DB",
-                    "schema": "ORDERS",
-                },
-            }
-        ),
-    ]
+def test_project_warehouse_contexts_single_requires_one_supported_context() -> None:
+    first = WarehouseLineageContext(platform="snowflake", env="PROD", database="A")
+    second = WarehouseLineageContext(platform="snowflake", env="PROD", database="B")
 
-    assert warehouse_context_from_datasources(datasources, "PROD") is None
+    assert project_warehouse_contexts([first, first]).single == first
+    assert project_warehouse_contexts([first, second]).single is None
+    assert project_warehouse_contexts([first, second]).has_several
 
 
-def test_warehouse_context_from_datasources_rejects_an_unmapped_second_datasource() -> (
+def test_project_warehouse_contexts_unsupported_datasource_blocks_a_single_context() -> (
     None
 ):
-    mapped = Datasource.model_validate(
-        {"id": "source-1", "name": "Sales Warehouse", "database": {"type": "oracle"}}
-    )
-    unmapped = Datasource.model_validate(
-        {"id": "source-2", "name": "Legacy DB", "database": {"type": "unknown_db"}}
-    )
+    mapped = WarehouseLineageContext(platform="oracle", env="PROD")
 
-    assert warehouse_context_from_datasources([mapped], "PROD") is not None
-    assert warehouse_context_from_datasources([mapped, unmapped], "PROD") is None
-    assert warehouse_context_from_datasources([unmapped], "PROD") is None
+    both = project_warehouse_contexts([mapped, None])
+    assert both.single is None
+    assert both.has_several
+
+    only_unmapped = project_warehouse_contexts([None])
+    assert only_unmapped.single is None
+    assert not only_unmapped.supported
+    assert not only_unmapped.has_several
 
 
 def test_qualify_table_name_uses_connection_database_and_schema() -> None:
@@ -891,7 +871,7 @@ def test_physical_table_uses_context_database_over_mstr_namespace() -> None:
                 "attributes": [],
             }
         ],
-        context,
+        lambda _: context,
     )
 
     # Field urns must be lowercased to anchor on the warehouse connector's
@@ -930,7 +910,7 @@ def test_convert_urns_to_lowercase_false_preserves_warehouse_case() -> None:
                 "attributes": [],
             }
         ],
-        context,
+        lambda _: context,
     )
 
     assert index.fact_field_urns(["fact-1"]) == [
@@ -996,7 +976,7 @@ def test_model_lineage_anchors_columns_to_graph_field_casing() -> None:
                 "attributes": [],
             }
         ],
-        context,
+        lambda _: context,
         graph=graph,
     )
 
@@ -1042,7 +1022,7 @@ def test_model_lineage_index_maps_facts_and_attribute_forms_to_fields() -> None:
                 ],
             }
         ],
-        context,
+        lambda _: context,
     )
 
     upstream_dataset_urn = (
@@ -1094,7 +1074,7 @@ def test_model_lineage_uses_two_part_names_for_mysql() -> None:
                 "attributes": [],
             }
         ],
-        context,
+        lambda _: context,
     )
 
     assert index.fact_field_urns(["fact-1"]) == [
@@ -1714,6 +1694,19 @@ def test_datasource_for_model_table_rejects_duplicate_names(
     assert datasource_for_model_table(table, [*mixed_datasources, twin]) is None
 
 
+def test_datasource_for_model_table_rejects_duplicate_ids_without_name_fallback(
+    mixed_datasources: List[Datasource],
+) -> None:
+    twin = Datasource.model_validate(
+        {"id": "aaa111", "name": "oracle_ds", "database": {"type": "oracle"}}
+    )
+    table: Dict[str, object] = {
+        "primaryDataSource": {"objectId": "AAA111", "name": "snowflake_ds"}
+    }
+
+    assert datasource_for_model_table(table, [*mixed_datasources, twin]) is None
+
+
 def test_model_lineage_index_resolves_each_table_from_its_own_context() -> None:
     contexts = {
         "oracle_table": WarehouseLineageContext(
@@ -1744,8 +1737,7 @@ def test_model_lineage_index_resolves_each_table_from_its_own_context() -> None:
             table("snowflake_table", "fact-2"),
             table("unmapped_table", "fact-3"),
         ],
-        None,
-        table_context_resolver=resolver,
+        resolver,
     )
 
     assert index.fact_field_urns(["fact-1"]) == [

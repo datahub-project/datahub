@@ -37,6 +37,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     warehouse_lineage_sql_views_scanned: int = 0
     warehouse_lineage_edges: int = 0
     warehouse_lineage_api_failures: int = 0
+    # Datasources whose connection could not be read and that name no database
+    # themselves; they get no warehouse lineage.
+    datasources_skipped_without_database: int = 0
     metric_fields_scanned: int = 0
     attribute_fields_scanned: int = 0
     temporal_fields_scanned: int = 0
@@ -243,6 +246,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_warehouse_lineage_api_failure(self) -> None:
         self.warehouse_lineage_api_failures += 1
+
+    def report_datasource_skipped_without_database(self) -> None:
+        self.datasources_skipped_without_database += 1
 
     def report_metric_field(self) -> None:
         self.metric_fields_scanned += 1

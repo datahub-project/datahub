@@ -35,7 +35,6 @@ from datahub.ingestion.source.microstrategy.lineage import (
     object_id,
     parse_attribute_relationships,
     physical_table_name,
-    resolve_table_context,
 )
 from datahub.ingestion.source.microstrategy.models import (
     MicroStrategyObject,
@@ -152,9 +151,8 @@ class MicroStrategySemanticModelMapper:
         project_id: str,
         project_name: str,
         model_tables: List[Dict[str, object]],
-        warehouse_context: Optional[WarehouseLineageContext],
+        table_context_resolver: TableContextResolver,
         project_container_key: ContainerKey,
-        table_context_resolver: Optional[TableContextResolver] = None,
     ) -> Iterable[MetadataWorkUnit]:
         model_urn = str(
             SemanticModelUrn(
@@ -165,7 +163,7 @@ class MicroStrategySemanticModelMapper:
         )
 
         tables, fact_table_aliases, attribute_table_aliases = self._build_table_index(
-            model_tables, warehouse_context, table_context_resolver
+            model_tables, table_context_resolver
         )
         if not tables:
             self.report.warning(
@@ -252,8 +250,7 @@ class MicroStrategySemanticModelMapper:
     def _build_table_index(
         self,
         model_tables: List[Dict[str, object]],
-        warehouse_context: Optional[WarehouseLineageContext],
-        table_context_resolver: Optional[TableContextResolver] = None,
+        table_context_resolver: TableContextResolver,
     ) -> Tuple[List[_TableInfo], Dict[str, Set[str]], Dict[str, Set[str]]]:
         tables: List[_TableInfo] = []
         fact_table_aliases: Dict[str, Set[str]] = {}
@@ -263,9 +260,7 @@ class MicroStrategySemanticModelMapper:
             physical_table = table.get("physicalTable")
             if not isinstance(physical_table, dict):
                 continue
-            table_context = resolve_table_context(
-                table, warehouse_context, table_context_resolver
-            )
+            table_context = table_context_resolver(table)
             physical_alias = self._table_alias(physical_table, table_context)
             if not physical_alias:
                 continue

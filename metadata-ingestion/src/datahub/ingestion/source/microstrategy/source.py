@@ -52,8 +52,8 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_FOLDER_TYPE_PROFILE_OBJECTS,
     MSTR_FOLDER_TYPE_PROFILE_REPORTS,
-    MSTR_MODEL_TABLE_DATASOURCE_FIELD,
     MSTR_MODEL_TABLE_FIELDS,
+    MSTR_MODEL_TABLE_FIELDS_WITH_DATASOURCE,
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
     MSTR_OBJECT_SUBTYPE_REPORT_GRID,
     MSTR_OBJECT_TYPE_FOLDER,
@@ -68,21 +68,21 @@ from datahub.ingestion.source.microstrategy.constants import (
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
+    ProjectWarehouseContexts,
     SqlViewLineage,
     TableContextResolver,
     WarehouseLineageContext,
     bind_visualizations_by_derived_objects,
     datasource_for_model_table,
-    distinct_warehouse_contexts,
-    matching_datasource_for_context,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
+    object_id,
+    project_warehouse_contexts,
     sql_statement_from_sql_view_entry,
     sql_view_dataset_key,
     sql_view_dataset_name,
     unique_derived_object_owners,
     warehouse_context_from_datasource,
-    warehouse_context_from_datasources,
     warehouse_context_with_connection,
 )
 from datahub.ingestion.source.microstrategy.mapper import MicroStrategyMapper
@@ -246,9 +246,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # Object GUID (upper) -> usage target for entities ingested this run;
         # usage buckets only attach to these.
         self._usage_targets: Dict[str, UsageTarget] = {}
-        # Normalized connection id -> connection, or None once a fetch failed.
-        # Connections are environment-level objects, so this spans projects.
-        self._datasource_connections: Dict[str, Optional[DatasourceConnection]] = {}
+        # (project id, normalized connection id) -> connection, or None once a
+        # fetch failed. Keyed by project because the request is sent under one
+        # project and a later project must report its own failure.
+        self._datasource_connections: Dict[
+            Tuple[str, str], Optional[DatasourceConnection]
+        ] = {}
         self._dashboards_processed = 0
 
     @classmethod
@@ -560,9 +563,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             project_id=project.id,
             project_name=project.name,
             model_tables=model_tables,
-            warehouse_context=lineage_context.warehouse_context,
-            project_container_key=self.mapper.project_key(project.id),
             table_context_resolver=lineage_context.table_context_resolver,
+            project_container_key=self.mapper.project_key(project.id),
         )
 
     def _get_project_source_warehouses(self, project_id: str) -> List[Datasource]:
@@ -598,43 +600,18 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.report.report_source_warehouses_scanned(len(source_warehouses))
         return source_warehouses
 
-    def _warehouse_lineage_enabled(self) -> bool:
+    def warehouse_lineage_enabled(self) -> bool:
         return self.config.extract_lineage and (
             self.config.extract_warehouse_lineage
             or self.config.extract_model_lineage
             or self.config.extract_report_sql_lineage
         )
 
-    def _project_has_several_warehouse_contexts(
-        self, source_warehouses: List[Datasource]
-    ) -> bool:
-        return (
-            self._warehouse_lineage_enabled()
-            and len(
-                distinct_warehouse_contexts(
-                    source_warehouses,
-                    self.config.env,
-                    self.config.datasource_platform_mapping,
-                )
-            )
-            > 1
-        )
-
-    @staticmethod
-    def _source_platform_summary(source_warehouses: List[Datasource]) -> str:
-        types = Counter(
-            datasource.database_type
-            or datasource.datasource_type
-            or datasource.dbms_name
-            or MSTR_UNKNOWN_DATASOURCE_TYPE
-            for datasource in source_warehouses
-        )
-        return "datasource_types=" + ", ".join(
-            f"{name}:{count}" for name, count in sorted(types.items())
-        )
-
-    def _warn_unresolved_project_warehouse(
-        self, project_id: str, source_warehouses: List[Datasource]
+    def warn_unresolved_project_warehouse(
+        self,
+        project_id: str,
+        source_warehouses: List[Datasource],
+        contexts: ProjectWarehouseContexts,
     ) -> None:
         if not source_warehouses:
             if self.config.extract_model_lineage:
@@ -649,58 +626,32 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     context=f"project_id={project_id}",
                 )
             return
-        several = self._project_has_several_warehouse_contexts(source_warehouses)
+        context = (
+            f"project_id={project_id}, "
+            f"{_source_platform_summary(source_warehouses)}, "
+            f"{MSTR_DATASOURCE_MAPPING_HINT}"
+        )
+        if contexts.has_several:
+            self.report.warning(
+                title="MicroStrategy Project Has Several Source Warehouses",
+                message=(
+                    "No single project-level warehouse can be chosen, so "
+                    "warehouse lineage only covers datasets and logical tables "
+                    "whose own datasource maps to a platform."
+                ),
+                context=context,
+            )
+            return
         self.report.warning(
-            title=(
-                "MicroStrategy Project Has Several Source Warehouses"
-                if several
-                else "MicroStrategy Project Has No Supported Source Warehouse"
-            ),
+            title="MicroStrategy Project Has No Supported Source Warehouse",
             message=(
-                "No single project-level warehouse can be chosen, so warehouse "
-                "lineage only covers datasets that name their own source "
-                "warehouse and logical tables whose primary datasource maps "
-                "to a platform. A report's dataset names one only when a "
-                "dashboard embeds it, so other reports get no warehouse "
-                f"lineage. {MSTR_DATASOURCE_MAPPING_HINT}"
-                if several
-                else "None of the project's datasources maps to a supported "
-                "platform, so warehouse lineage is skipped. "
-                f"{MSTR_DATASOURCE_MAPPING_HINT}"
+                "None of the project's datasources maps to a supported "
+                "platform, so warehouse lineage is skipped."
             ),
-            context=(
-                f"project_id={project_id}, "
-                f"{self._source_platform_summary(source_warehouses)}"
-            ),
+            context=context,
         )
 
-    def _get_project_warehouse_context(
-        self,
-        project_id: str,
-        source_warehouses: List[Datasource],
-    ) -> Optional[WarehouseLineageContext]:
-        if not self._warehouse_lineage_enabled():
-            return None
-
-        context = warehouse_context_from_datasources(
-            source_warehouses,
-            self.config.env,
-            self.config.datasource_platform_mapping,
-        )
-        if not context:
-            self._warn_unresolved_project_warehouse(project_id, source_warehouses)
-            return None
-
-        datasource = matching_datasource_for_context(
-            source_warehouses,
-            context,
-            self.config.datasource_platform_mapping,
-        )
-        if datasource:
-            context = self._context_with_connection(project_id, context, datasource)
-        return context
-
-    def _datasource_warehouse_context(
+    def datasource_warehouse_context(
         self,
         project_id: str,
         datasource: DatasourceReference,
@@ -721,12 +672,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         context: WarehouseLineageContext,
         datasource: DatasourceReference,
-    ) -> WarehouseLineageContext:
+    ) -> Optional[WarehouseLineageContext]:
         if not datasource.connection_id:
             return context
         connection = self._datasource_connection(project_id, datasource.connection_id)
         if connection is None:
-            return context
+            if context.database:
+                return context
+            # Without a database the table URNs would be guesses.
+            self.report.report_datasource_skipped_without_database()
+            return None
         return warehouse_context_with_connection(
             context,
             connection,
@@ -736,7 +691,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _datasource_connection(
         self, project_id: str, connection_id: str
     ) -> Optional[DatasourceConnection]:
-        key = normalize_object_id(connection_id)
+        key = (project_id, normalize_object_id(connection_id))
         if key in self._datasource_connections:
             return self._datasource_connections[key]
         connection: Optional[DatasourceConnection] = None
@@ -2081,10 +2036,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report_definition.available_objects,
         )
 
-    def _fetch_project_model_tables(
+    def fetch_project_model_tables(
         self, project_id: str, include_datasource: bool = False
     ) -> Optional[List[Dict[str, object]]]:
-        """Paginate /api/model/tables for a project.
+        """Paginate /api/model/tables for a project, also requesting each table's
+        primary datasource when include_datasource is set.
 
         Returns None on API failure (already reported/warned); an empty list is
         a genuine "no model tables" result, distinct from a failed fetch.
@@ -2095,7 +2051,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         model_tables: List[Dict[str, object]] = []
         offset = 0
         fields = (
-            f"{MSTR_MODEL_TABLE_FIELDS},{MSTR_MODEL_TABLE_DATASOURCE_FIELD}"
+            MSTR_MODEL_TABLE_FIELDS_WITH_DATASOURCE
             if include_datasource
             else MSTR_MODEL_TABLE_FIELDS
         )
@@ -2174,29 +2130,25 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.report.report_model_tables_scanned(len(model_tables))
         return model_tables
 
-    def _get_project_model_lineage_index(
-        self,
-        project_id: str,
-        warehouse_context: Optional[WarehouseLineageContext],
-        model_tables_provider: Callable[[], Optional[List[Dict[str, object]]]],
-        table_context_resolver: Optional[TableContextResolver] = None,
+    def build_project_model_lineage_index(
+        self, lineage_context: "_LazyProjectLineage"
     ) -> Optional[ModelLineageIndex]:
         if not self.config.extract_lineage or not self.config.extract_model_lineage:
             return None
-        if warehouse_context is None and table_context_resolver is None:
-            # Warned once when the project warehouse context was resolved.
+        # The unresolved warehouse was warned about when the contexts resolved;
+        # with no platform there is nothing to resolve the tables against.
+        if not lineage_context.contexts.supported:
             return None
 
         # Deferred until here (not called unconditionally by the caller) so the
         # fetch stays skipped when these flags are off, exactly as before.
-        model_tables = model_tables_provider()
+        model_tables = lineage_context.model_tables
         if not model_tables:
             return None
         return self.lineage.model_lineage_index_from_tables(
             model_tables,
-            warehouse_context,
+            lineage_context.table_context_resolver,
             graph=self.ctx.graph,
-            table_context_resolver=table_context_resolver,
         )
 
     def _enrich_dashboard_dependencies(
@@ -2460,7 +2412,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             for dataset in dashboard.datasets
         }
         self._attach_dataset_warehouse_upstreams(
-            project_id, sql_view_rows, dashboard, context, entries
+            sql_view_rows, dashboard, context, entries, project_id
         )
 
     def _enrich_document_warehouse_lineage(
@@ -2542,18 +2494,18 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         to a platform gives None: the project's warehouse may be a different
         platform and database, and its URNs would not be this dataset's."""
         if dataset.source_warehouse:
-            return self._datasource_warehouse_context(
+            return self.datasource_warehouse_context(
                 project_id, dataset.source_warehouse
             )
         return context
 
     def _attach_dataset_warehouse_upstreams(
         self,
-        project_id: str,
         sql_view_rows: List[Dict[str, object]],
         dashboard: DashboardDefinition,
         context: Optional[WarehouseLineageContext],
         entries: Mapping[str, Optional["_ReportDatasetEntry"]],
+        project_id: str,
     ) -> None:
         dataset_by_id = {
             normalize_object_id(dataset.id): dataset for dataset in dashboard.datasets
@@ -3039,16 +2991,18 @@ class _LazyProjectLineage:
         self._source = source
         self._project_id = project_id
         self._source_warehouses = source_warehouses
-        self._context: Optional[WarehouseLineageContext] = None
-        self._context_resolved = False
+        self._contexts: Optional[ProjectWarehouseContexts] = None
         self._index: Optional[ModelLineageIndex] = None
         self._index_resolved = False
         self._model_tables: Optional[List[Dict[str, object]]] = None
         self._model_tables_resolved = False
-        self._table_context_resolver: Optional[TableContextResolver] = None
-        self._table_context_resolver_resolved = False
-        # Object identity: the cached table list is shared by both passes.
-        self._counted_tables: Set[int] = set()
+        self._context_by_datasource_id: Dict[
+            str, Optional[WarehouseLineageContext]
+        ] = {}
+        self._warned_unresolved_table = False
+        # Logical table ids already counted: the cached table list is read by
+        # both the lineage index and the semantic model, and refetched on retry.
+        self._counted_tables: Set[str] = set()
 
     def _resolve(self, part: str, fetch: Callable[[], _T]) -> Optional[_T]:
         """Run a project-level lookup once. An unexpected error is reported
@@ -3071,62 +3025,82 @@ class _LazyProjectLineage:
             return None
 
     @property
-    def warehouse_context(self) -> Optional[WarehouseLineageContext]:
+    def contexts(self) -> ProjectWarehouseContexts:
         # Resolved once even on failure (functools.cached_property would retry).
-        if not self._context_resolved:
-            self._context_resolved = True
-            self._context = self._resolve(
-                "warehouse_context",
-                lambda: self._source._get_project_warehouse_context(
-                    self._project_id, self._source_warehouses
-                ),
+        if self._contexts is None:
+            self._contexts = self._resolve(
+                "warehouse_context", self._resolve_contexts
+            ) or project_warehouse_contexts([])
+        return self._contexts
+
+    def _resolve_contexts(self) -> ProjectWarehouseContexts:
+        if not self._source.warehouse_lineage_enabled():
+            return project_warehouse_contexts([])
+        contexts = project_warehouse_contexts(
+            self._datasource_context(datasource)
+            for datasource in self._source_warehouses
+        )
+        if contexts.single is None:
+            self._source.warn_unresolved_project_warehouse(
+                self._project_id, self._source_warehouses, contexts
             )
-        return self._context
+        return contexts
+
+    def _datasource_context(
+        self, datasource: Datasource
+    ) -> Optional[WarehouseLineageContext]:
+        key = normalize_object_id(datasource.id)
+        if key not in self._context_by_datasource_id:
+            self._context_by_datasource_id[key] = (
+                self._source.datasource_warehouse_context(self._project_id, datasource)
+            )
+        return self._context_by_datasource_id[key]
 
     @property
-    def table_context_resolver(self) -> Optional[TableContextResolver]:
-        # Only for a project whose several datasources give no single context.
-        if not self._table_context_resolver_resolved:
-            self._table_context_resolver_resolved = True
-            if (
-                self.warehouse_context is None
-                and self._source._project_has_several_warehouse_contexts(
-                    self._source_warehouses
-                )
-            ):
-                self._table_context_resolver = self._table_context
-        return self._table_context_resolver
+    def warehouse_context(self) -> Optional[WarehouseLineageContext]:
+        return self.contexts.single
+
+    @property
+    def table_context_resolver(self) -> TableContextResolver:
+        single = self.contexts.single
+        if single is not None:
+            return lambda _: single
+        if self.contexts.has_several:
+            return self._table_context
+        return lambda _: None
 
     def _table_context(
         self, table: Dict[str, object]
     ) -> Optional[WarehouseLineageContext]:
         datasource = datasource_for_model_table(table, self._source_warehouses)
-        context = (
-            self._source._datasource_warehouse_context(self._project_id, datasource)
-            if datasource
-            else None
-        )
-        if id(table) not in self._counted_tables:
-            self._counted_tables.add(id(table))
-            if context is not None:
+        return self._datasource_context(datasource) if datasource else None
+
+    def _count_table_contexts(self, tables: List[Dict[str, object]]) -> None:
+        for table in tables:
+            table_id = object_id(table.get("information"))
+            if table_id:
+                key = normalize_object_id(table_id)
+                if key in self._counted_tables:
+                    continue
+                self._counted_tables.add(key)
+            if self._table_context(table) is not None:
                 self._source.report.report_model_table_resolved_by_datasource()
             else:
                 self._report_unresolved_table()
-        return context
 
     def _report_unresolved_table(self) -> None:
-        if not self._source.report.model_tables_without_warehouse_context:
+        if not self._warned_unresolved_table:
+            self._warned_unresolved_table = True
             self._source.report.warning(
                 title="MicroStrategy Logical Tables Without Source Warehouse",
                 message=(
-                    "This project has several source warehouses and some "
-                    "logical tables name no matching primary datasource, or "
-                    "one with no supported platform, so they are emitted "
-                    "without warehouse lineage. The run report counts them in "
-                    "model_tables_without_warehouse_context. "
-                    f"{MSTR_DATASOURCE_MAPPING_HINT}"
+                    "Some logical tables name no matching primary datasource, "
+                    "or one with no supported platform, so they are emitted "
+                    "without warehouse lineage."
                 ),
-                context=f"project_id={self._project_id}",
+                context=(
+                    f"project_id={self._project_id}, {MSTR_DATASOURCE_MAPPING_HINT}"
+                ),
             )
         self._source.report.report_model_table_without_warehouse_context()
 
@@ -3139,14 +3113,17 @@ class _LazyProjectLineage:
         """
         if not self._model_tables_resolved:
             self._model_tables_resolved = True
-            self._model_tables = self._resolve(
-                "model_tables",
-                lambda: self._source._fetch_project_model_tables(
-                    self._project_id,
-                    include_datasource=self.table_context_resolver is not None,
-                ),
-            )
+            self._model_tables = self._resolve("model_tables", self._fetch_tables)
         return self._model_tables
+
+    def _fetch_tables(self) -> Optional[List[Dict[str, object]]]:
+        several = self.contexts.has_several
+        tables = self._source.fetch_project_model_tables(
+            self._project_id, include_datasource=several
+        )
+        if tables and several:
+            self._count_table_contexts(tables)
+        return tables
 
     def model_tables_retrying_failure(self) -> Optional[List[Dict[str, object]]]:
         # The first fetch is hours earlier; one failure drops the semantic model.
@@ -3171,12 +3148,7 @@ class _LazyProjectLineage:
             self._index_resolved = True
             self._index = self._resolve(
                 "model_lineage_index",
-                lambda: self._source._get_project_model_lineage_index(
-                    self._project_id,
-                    self.warehouse_context,
-                    lambda: self.model_tables,
-                    self.table_context_resolver,
-                ),
+                lambda: self._source.build_project_model_lineage_index(self),
             )
         return self._index
 
@@ -3203,6 +3175,19 @@ def _is_report_dependency(dependency: MicroStrategyObject) -> bool:
     # Match on the MicroStrategy object type only; a name-substring heuristic
     # would fabricate report chart URNs for anything named "...Report...".
     return (dependency.type or "").strip() == str(MSTR_OBJECT_TYPE_REPORT)
+
+
+def _source_platform_summary(source_warehouses: List[Datasource]) -> str:
+    types = Counter(
+        datasource.database_type
+        or datasource.datasource_type
+        or datasource.dbms_name
+        or MSTR_UNKNOWN_DATASOURCE_TYPE
+        for datasource in source_warehouses
+    )
+    return "datasource_types=" + ", ".join(
+        f"{name}:{count}" for name, count in sorted(types.items())
+    )
 
 
 def _error_summary(error: Exception) -> str:

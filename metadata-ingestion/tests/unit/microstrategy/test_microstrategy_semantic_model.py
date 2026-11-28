@@ -198,7 +198,7 @@ def test_table_becomes_semantic_model_dataset_with_dimension_and_measure_fields(
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -259,7 +259,7 @@ def test_semantic_model_gets_browse_path_under_project_and_no_container_aspect()
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=project_key,
             )
         )
@@ -298,7 +298,7 @@ def test_semantic_model_browse_path_leads_with_platform_instance_when_configured
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=project_key,
             )
         )
@@ -333,7 +333,7 @@ def test_table_with_no_usable_fields_is_skipped_with_warning() -> None:
             project_id="project-1",
             project_name="Project One",
             model_tables=model_tables,
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         )
     )
@@ -374,7 +374,7 @@ def test_role_playing_logical_tables_get_distinct_dataset_identities() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -438,7 +438,7 @@ def test_relationship_emitted_for_attribute_shared_across_two_tables() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -473,7 +473,7 @@ def test_attribute_on_single_table_never_triggers_relationship_fetch() -> None:
             project_id="project-1",
             project_name="Project One",
             model_tables=model_tables,
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         )
     )
@@ -494,7 +494,7 @@ def test_relationship_fetch_failure_warns_and_is_skipped() -> None:
             project_id="project-1",
             project_name="Project One",
             model_tables=model_tables,
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         )
     )
@@ -537,7 +537,7 @@ def test_unrecognized_relationship_type_warns_but_still_emits_relationship() -> 
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -578,7 +578,7 @@ def test_base_metric_gets_upstream_datasets_and_no_derived_from() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -629,7 +629,7 @@ def test_derived_metric_gets_derived_from_referenced_metric() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -693,7 +693,7 @@ def test_consolidated_metric_resolves_upstream_through_consolidation_attributes(
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -721,7 +721,7 @@ def _emit_metrics(mapper: MicroStrategySemanticModelMapper) -> List[MetadataWork
             model_tables=[
                 _table("SALES", attributes=[], facts=[_fact("FACT1", "Revenue")])
             ],
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         )
     )
@@ -921,7 +921,7 @@ def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -971,7 +971,7 @@ def test_metrics_are_emitted_as_they_are_fetched(
             project_id="project-1",
             project_name="Project One",
             model_tables=model_tables,
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         ):
             if fetched_at_first_metric is None and wu.get_urn().startswith(
@@ -1013,7 +1013,6 @@ def test_table_context_resolver_sets_each_dataset_upstream_from_its_own_warehous
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
                 project_container_key=_project_container_key(),
                 table_context_resolver=resolver,
             )

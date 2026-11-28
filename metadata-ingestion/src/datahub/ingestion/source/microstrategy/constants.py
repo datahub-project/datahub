@@ -541,9 +541,15 @@ MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] =
     ),
 )
 
-MSTR_MODEL_TABLE_FIELDS = "information,physicalTable,attributes,facts"
-# Requested only for a project with several warehouses.
 MSTR_MODEL_TABLE_DATASOURCE_FIELD = "primaryDataSource"
+MSTR_MODEL_TABLE_FIELDS = ",".join(
+    ("information", "physicalTable", "attributes", "facts")
+)
+# Only a project with several warehouses needs the primary datasource.
+MSTR_MODEL_TABLE_FIELDS_WITH_DATASOURCE = (
+    f"{MSTR_MODEL_TABLE_FIELDS},{MSTR_MODEL_TABLE_DATASOURCE_FIELD}"
+)
+MSTR_VISUALIZATION_RESULT_ROW_LIMIT = 0
 MSTR_UNKNOWN_DATASOURCE_TYPE = "unknown"
 MSTR_DATASOURCE_MAPPING_HINT = (
     "Set datasource_platform_mapping, keyed by connection or datasource name, "

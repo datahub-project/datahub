@@ -56,6 +56,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_KEYS_VISUALIZATION_KEY,
     MSTR_KEYS_VISUALIZATION_TYPE,
     MSTR_METRIC_DEFINITION_TYPE_WORDS,
+    MSTR_MODEL_TABLE_DATASOURCE_FIELD,
     MSTR_NON_METRIC_DEFINITION_TYPE_WORDS,
     MSTR_NULL_OBJECT_ID,
     MSTR_OBJECT_ID_PARENT_KEYS,
@@ -477,6 +478,25 @@ class DatasourceReference(MicroStrategyBaseModel):
         if isinstance(data, dict):
             return _normalize_datasource_reference(data)
         return data
+
+
+class ModelTableDatasourceRef(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: Optional[str] = None
+    name: Optional[str] = None
+
+    @classmethod
+    def from_table(
+        cls, table: MicroStrategyDict
+    ) -> Optional["ModelTableDatasourceRef"]:
+        reference = table.get(MSTR_MODEL_TABLE_DATASOURCE_FIELD)
+        if not isinstance(reference, dict):
+            return None
+        return cls(
+            id=_first_str(reference, MSTR_KEYS_ID),
+            name=_first_str(reference, MSTR_KEYS_NAME),
+        )
 
 
 class Datasource(DatasourceReference):

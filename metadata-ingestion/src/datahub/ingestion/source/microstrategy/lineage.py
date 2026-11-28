@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import (
     Callable,
     Dict,
+    FrozenSet,
     Iterable,
     Iterator,
     List,
@@ -33,7 +34,6 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE,
     MSTR_LINEAGE_STOP_WORDS,
     MSTR_METRIC_REFERENCE_RE,
-    MSTR_MODEL_TABLE_DATASOURCE_FIELD,
     MSTR_NAME_TOKEN_RE,
     MSTR_NON_ALNUM_RE,
     MSTR_PARSE_LABEL_HASH_CHARS,
@@ -53,6 +53,7 @@ from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     DatasourceConnection,
     DatasourceReference,
+    ModelTableDatasourceRef,
     Visualization,
     normalize_object_id,
 )
@@ -91,6 +92,38 @@ class WarehouseLineageContext:
     database: Optional[str] = None
     schema: Optional[str] = None
     convert_urns_to_lowercase: bool = True
+
+
+TableContextResolver = Callable[[Dict[str, object]], Optional[WarehouseLineageContext]]
+
+
+class ProjectWarehouseContexts(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    supported: FrozenSet[WarehouseLineageContext]
+    # A datasource with no platform makes the project mixed, so its tables must
+    # not inherit another datasource's platform.
+    has_unsupported: bool
+
+    @property
+    def single(self) -> Optional[WarehouseLineageContext]:
+        if self.has_unsupported or len(self.supported) != 1:
+            return None
+        return next(iter(self.supported))
+
+    @property
+    def has_several(self) -> bool:
+        return len(self.supported) + int(self.has_unsupported) > 1
+
+
+def project_warehouse_contexts(
+    datasource_contexts: Iterable[Optional[WarehouseLineageContext]],
+) -> ProjectWarehouseContexts:
+    contexts = list(datasource_contexts)
+    return ProjectWarehouseContexts(
+        supported=frozenset(context for context in contexts if context is not None),
+        has_unsupported=any(context is None for context in contexts),
+    )
 
 
 @dataclass(frozen=True)
@@ -210,17 +243,6 @@ class _EvictingSchemaResolver(SchemaResolver):
             with contextlib.suppress(KeyError):
                 del self._schema_cache[urn]
         return failed
-
-
-TableContextResolver = Callable[[Dict[str, object]], Optional[WarehouseLineageContext]]
-
-
-def resolve_table_context(
-    table: Dict[str, object],
-    context: Optional[WarehouseLineageContext],
-    table_context_resolver: Optional[TableContextResolver],
-) -> Optional[WarehouseLineageContext]:
-    return table_context_resolver(table) if table_context_resolver else context
 
 
 @dataclass(frozen=True)
@@ -668,9 +690,8 @@ class MicroStrategyLineageExtractor:
     def model_lineage_index_from_tables(
         self,
         model_tables: List[Dict[str, object]],
-        context: Optional[WarehouseLineageContext],
+        table_context_resolver: TableContextResolver,
         graph: Optional[DataHubGraph] = None,
-        table_context_resolver: Optional[TableContextResolver] = None,
     ) -> ModelLineageIndex:
         fact_upstreams: Dict[str, List[ModelFieldLineage]] = {}
         attribute_upstreams: Dict[str, List[ModelFieldLineage]] = {}
@@ -682,9 +703,7 @@ class MicroStrategyLineageExtractor:
             physical_table = table.get("physicalTable")
             if not isinstance(physical_table, dict):
                 continue
-            table_context = resolve_table_context(
-                table, context, table_context_resolver
-            )
+            table_context = table_context_resolver(table)
             if table_context is None:
                 continue
             physical_table_name = _physical_table_name(physical_table, table_context)
@@ -938,50 +957,23 @@ def _detail_for_names(
     return None
 
 
-def warehouse_context_from_datasources(
-    datasources: List[Datasource],
-    env: str,
-    mapping: DatasourcePlatformMapping = None,
-) -> Optional[WarehouseLineageContext]:
-    contexts = distinct_warehouse_contexts(datasources, env, mapping)
-    return next(iter(contexts)) if len(contexts) == 1 else None
-
-
-def distinct_warehouse_contexts(
-    datasources: List[Datasource],
-    env: str,
-    mapping: DatasourcePlatformMapping = None,
-) -> Set[Optional[WarehouseLineageContext]]:
-    # None stays in: a datasource with no platform makes the project mixed,
-    # so its tables must not inherit the other datasource's platform.
-    return {
-        warehouse_context_from_datasource(datasource, env, mapping)
-        for datasource in datasources
-    }
-
-
 def datasource_for_model_table(
     table: Dict[str, object],
     datasources: List[Datasource],
 ) -> Optional[Datasource]:
     # Exact id first, else exact name; an ambiguous match resolves to nothing.
-    reference = table.get(MSTR_MODEL_TABLE_DATASOURCE_FIELD)
-    if not isinstance(reference, dict):
+    reference = ModelTableDatasourceRef.from_table(table)
+    if reference is None:
         return None
-    reference_id = _object_id(reference)
-    if reference_id:
-        wanted = normalize_object_id(reference_id)
+    if reference.id:
+        wanted = normalize_object_id(reference.id)
         by_id = [d for d in datasources if normalize_object_id(d.id) == wanted]
         if by_id:
-            return _single_datasource(by_id)
-    reference_name = reference.get("name")
-    if isinstance(reference_name, str) and reference_name:
-        return _single_datasource([d for d in datasources if d.name == reference_name])
+            return by_id[0] if len(by_id) == 1 else None
+    if reference.name:
+        by_name = [d for d in datasources if d.name == reference.name]
+        return by_name[0] if len(by_name) == 1 else None
     return None
-
-
-def _single_datasource(datasources: List[Datasource]) -> Optional[Datasource]:
-    return datasources[0] if len(datasources) == 1 else None
 
 
 def warehouse_context_from_datasource(
@@ -1005,20 +997,6 @@ def warehouse_context_from_datasource(
             detail.convert_urns_to_lowercase if detail else True
         ),
     )
-
-
-def matching_datasource_for_context(
-    datasources: List[Datasource],
-    context: WarehouseLineageContext,
-    mapping: DatasourcePlatformMapping = None,
-) -> Optional[Datasource]:
-    for datasource in datasources:
-        if (
-            warehouse_context_from_datasource(datasource, context.env, mapping)
-            == context
-        ):
-            return datasource
-    return None
 
 
 def warehouse_context_with_connection(
@@ -1159,13 +1137,14 @@ def _physical_table_name(
             table_name = _clean_identifier_part(information.get("name"))
     if not table_name:
         return None
-    # The warehouse context carries the real database (from the JDBC
-    # connection); MicroStrategy's table "namespace" is a logical namespace
-    # (e.g. "SALES_DM_1" with a dedup suffix), so it is only a last resort.
+    # MicroStrategy's table "namespace" is a logical namespace (e.g.
+    # "SALES_DM_1" with a dedup suffix), not the warehouse database, so a
+    # context without a database gives no name rather than a guessed one.
+    if not context.database:
+        return None
     return qualify_table_name(
         table_name,
-        database=context.database
-        or _clean_identifier_part(physical_table.get("namespace")),
+        database=context.database,
         schema=_clean_identifier_part(physical_table.get("tablePrefix"))
         or context.schema,
         name_parts=_platform_name_parts(context.platform),

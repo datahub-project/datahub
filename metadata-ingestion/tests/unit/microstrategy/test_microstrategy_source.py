@@ -39,7 +39,6 @@ from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
     Datasource,
-    DatasourceConnection,
     MetricEnrichment,
     MicroStrategyObject,
     ModelTablesResponse,
@@ -71,6 +70,13 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_from_sql_statements
+from tests.unit.microstrategy.conftest import (
+    ConnectionModelTablesClient,
+    ModelTablesClient,
+    ReportSqlModelTablesClient,
+    install_client,
+    model_table,
+)
 
 
 def _source(extra_config: dict | None = None) -> MicroStrategySource:
@@ -165,6 +171,7 @@ def test_attach_dataset_warehouse_upstreams_uses_dataset_source_warehouse() -> N
         dashboard,
         context=None,
         entries={},
+        project_id="project-1",
     )
 
     assert dashboard.datasets[0].warehouse_upstream_urns == [
@@ -186,6 +193,7 @@ def test_attach_dataset_warehouse_upstreams_skips_without_context() -> None:
         dashboard,
         context=None,
         entries={},
+        project_id="project-1",
     )
 
     assert dashboard.datasets[0].warehouse_upstream_urns == []
@@ -633,7 +641,7 @@ class _ReportSearchClient:
 def test_reports_scoped_to_dashboard_linked_by_default() -> None:
     source = _report_scope_source()
     client = _ReportSearchClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_reports(
@@ -664,7 +672,7 @@ def test_linked_report_fetch_failure_skips_that_report() -> None:
             return super().get_report_object(project_id, report_id)
 
     client = FailingClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_reports(
@@ -710,7 +718,7 @@ def test_report_enumeration_skipped_when_no_dashboard_links() -> None:
 def test_reports_not_scoped_when_independent_reports_enabled() -> None:
     source = _report_scope_source({"extract_independent_reports": True})
     client = _ReportSearchClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_reports(
@@ -1232,7 +1240,7 @@ def test_fetch_project_model_tables_requests_logical_table_information() -> None
     fake_client = FakeClient()
     source.client = fake_client  # type: ignore[assignment]
 
-    source._fetch_project_model_tables("project-1")
+    source.fetch_project_model_tables("project-1")
 
     assert fake_client.fields_requested
     assert all("information" in fields for fields in fake_client.fields_requested)
@@ -1251,7 +1259,7 @@ def test_fetch_project_model_tables_unrecognized_payload_is_a_failed_fetch() -> 
     # Duck-typed stand-in for MicroStrategyClient.
     source.client = FakeClient()  # type: ignore[assignment]
 
-    assert source._fetch_project_model_tables("project-1") is None
+    assert source.fetch_project_model_tables("project-1") is None
     assert [f.title for f in source.report.failures] == [
         "Unrecognized model tables response shape"
     ]
@@ -1273,7 +1281,7 @@ def test_fetch_project_model_tables_without_a_total_stops_at_a_short_page() -> N
 
     source.client = FakeClient()  # type: ignore[assignment]
 
-    tables = source._fetch_project_model_tables("project-1")
+    tables = source.fetch_project_model_tables("project-1")
 
     assert tables is not None and len(tables) == 3
     assert offsets == [0, 2]
@@ -1293,7 +1301,7 @@ def test_fetch_project_model_tables_unrecognized_page_mid_pagination_fails() -> 
 
     source.client = FakeClient()  # type: ignore[assignment]
 
-    assert source._fetch_project_model_tables("project-1") is None
+    assert source.fetch_project_model_tables("project-1") is None
     assert len(source.report.failures) == 1
     assert source.report.model_tables_scanned == 0
 
@@ -1314,7 +1322,7 @@ def test_fetch_project_model_tables_empty_page_before_total_is_a_failure() -> No
 
     source.client = FakeClient()  # type: ignore[assignment]
 
-    assert source._fetch_project_model_tables("project-1") is None
+    assert source.fetch_project_model_tables("project-1") is None
     assert [f.title for f in source.report.failures] == [
         "MicroStrategy Model Tables Truncated"
     ]
@@ -1367,8 +1375,6 @@ def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:
     assert list(source.report.filtered_dashboards) == ["Filtered Out"]
     # Model-table and connection APIs must not be touched when every
     # dashboard was pattern-filtered.
-    assert not lineage_context._index_resolved
-    assert not lineage_context._context_resolved
     assert fake_client.model_table_calls == 0
     assert fake_client.connection_calls == 0
 
@@ -1429,7 +1435,7 @@ def test_semantic_model_retries_a_failed_model_tables_fetch() -> None:
     source = _source({"emit_semantic_model_entities": True})
     client = _FlakyModelTablesClient()
     # Duck-typed stand-in for MicroStrategyClient.
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
     lineage_context = _LazyProjectLineage(source, "project-1", [])
 
     assert lineage_context.model_tables is None
@@ -1753,7 +1759,7 @@ def _dataset_container_parents(workunits: List[Any]) -> Dict[str, str]:
 def test_dataset_object_info_is_fetched_once_per_dataset_across_dossiers() -> None:
     source = _dataset_lookup_source()
     client = _DatasetLookupClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_dashboards(
@@ -1775,7 +1781,7 @@ def test_dataset_object_info_is_fetched_once_per_dataset_across_dossiers() -> No
 def test_dataset_object_lookup_failure_falls_back_to_dossier_folder() -> None:
     source = _dataset_lookup_source()
     client = _DatasetLookupClient(fail=True)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_dashboards(
@@ -1979,7 +1985,7 @@ def _derived_field(workunits: List[Any], name: str) -> Any:
 def test_report_derived_metrics_come_from_model_report_definition() -> None:
     source = _dataset_lookup_source()
     client = _ReportDerivedClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_dashboards(
@@ -2000,7 +2006,7 @@ def test_report_derived_metrics_come_from_model_report_definition() -> None:
 def test_report_derived_metrics_fall_back_to_v2_definition_names() -> None:
     source = _dataset_lookup_source()
     client = _ReportDerivedClient(model_fails=True)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_dashboards(
@@ -2065,7 +2071,7 @@ class _TwoReportClient(_ReportDerivedClient):
 def test_model_definition_failure_is_counted_per_report_and_warned_once() -> None:
     source = _dataset_lookup_source()
     client = _TwoReportClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     list(
         source._process_project_dashboards(
@@ -2125,7 +2131,7 @@ class _ModelWithoutExpressionClient(_ReportDerivedClient):
 def test_model_definition_without_expressions_is_counted() -> None:
     source = _dataset_lookup_source()
     client = _ModelWithoutExpressionClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_dashboards(
@@ -2177,7 +2183,7 @@ class _ModelEmptyClient(_ReportDerivedClient):
 def test_model_definition_empty_is_counted() -> None:
     source = _dataset_lookup_source()
     client = _ModelEmptyClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_dashboards(
@@ -2314,7 +2320,7 @@ def _embedded_metric_source() -> MicroStrategySource:
 def test_embedded_report_metric_formula_comes_from_metric_model() -> None:
     source = _embedded_metric_source()
     client = _ModelEmbeddedClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_dashboards(
@@ -2345,7 +2351,7 @@ def test_embedded_report_metric_formula_comes_from_metric_model() -> None:
 def test_embedded_report_metric_without_model_keeps_name_and_counts_failure() -> None:
     source = _embedded_metric_source()
     client = _ModelEmbeddedClient(metric_model_fails=True)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_dashboards(
@@ -2370,7 +2376,7 @@ def test_embedded_report_metric_without_model_keeps_name_and_counts_failure() ->
 def test_report_derived_metrics_keep_grid_provenance_when_definitions_fail() -> None:
     source = _dataset_lookup_source()
     client = _ReportDerivedClient(model_fails=True, v2_fails=True)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_dashboards(
@@ -2388,7 +2394,7 @@ def test_report_derived_metrics_keep_grid_provenance_when_definitions_fail() -> 
 def test_report_derived_metrics_skip_cube_datasets() -> None:
     source = _dataset_lookup_source()
     client = _ReportDerivedClient(subtype="776")
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     list(
         source._process_project_dashboards(
@@ -2460,6 +2466,7 @@ def test_every_sql_view_failing_raises_one_loud_warning(
         _warehouse_dashboard(),
         None,
         entries={},
+        project_id="project-1",
     )
     assert source.report.sql_views_parsed == 2
     assert source.report.sql_parse_failure_count == 2
@@ -2488,6 +2495,7 @@ def test_all_failed_warning_counts_reused_failed_sql_views(
             _warehouse_dashboard(),
             None,
             entries={},
+            project_id="project-1",
         )
     assert source.report.sql_views_parsed == 2
     assert source.report.sql_parse_failure_count == 1
@@ -2514,6 +2522,7 @@ def test_all_failed_warning_is_silent_when_any_sql_view_parses(
         _warehouse_dashboard(),
         None,
         entries={},
+        project_id="project-1",
     )
     assert source.report.sql_views_parsed == 2
     assert source.report.sql_parse_failure_count == 1
@@ -2670,7 +2679,7 @@ def _run_dashboards(source: MicroStrategySource) -> List[Any]:
 def test_personal_folder_objects_skipped_by_resolved_profiles_root_id() -> None:
     source = _personal_folder_source()
     client = _PersonalFolderClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = _run_dashboards(source)
 
@@ -2706,7 +2715,7 @@ def test_personal_folder_objects_skipped_by_resolved_profiles_root_id() -> None:
 def test_personal_folder_objects_skipped_by_name_when_root_unresolved() -> None:
     source = _personal_folder_source()
     client = _PersonalFolderClient(resolve_by_id=False)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = _run_dashboards(source)
 
@@ -2721,7 +2730,7 @@ def test_personal_folder_objects_skipped_by_name_when_root_unresolved() -> None:
 def test_personal_folder_resolution_failure_falls_back_to_names_once() -> None:
     source = _personal_folder_source()
     client = _PersonalFolderClient(personal_call_fails=True)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     _run_dashboards(source)
 
@@ -2734,7 +2743,7 @@ def test_personal_folder_resolution_failure_falls_back_to_names_once() -> None:
 def test_include_personal_folders_keeps_everything_and_skips_resolution() -> None:
     source = _personal_folder_source({"include_personal_folders": True})
     client = _PersonalFolderClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = _run_dashboards(source)
 
@@ -2785,7 +2794,7 @@ def test_personal_folder_reports_skipped_before_definition_fetch() -> None:
         {"extract_independent_reports": True, "extract_report_definitions": True}
     )
     client = _PersonalReportClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_reports(
@@ -2924,7 +2933,7 @@ def test_folder_path_pattern_allows_only_the_matching_nested_path() -> None:
         {"folder_path_pattern": {"allow": [_CLOSE_PATTERN]}}
     )
     client = _FolderPathClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = _run_adhoc_dashboards(source)
 
@@ -2962,7 +2971,7 @@ def test_folder_path_pattern_deny_wins_over_allow() -> None:
         }
     )
     client = _FolderPathClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     _run_adhoc_dashboards(source)
 
@@ -2973,7 +2982,7 @@ def test_folder_path_pattern_deny_wins_over_allow() -> None:
 def test_folder_path_pattern_default_ingests_everything() -> None:
     source = _personal_folder_source()
     client = _FolderPathClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     _run_adhoc_dashboards(source)
 
@@ -2990,7 +2999,7 @@ def test_folder_path_unresolved_is_skipped_once_a_pattern_is_set() -> None:
         {"folder_path_pattern": {"allow": ["^Sales_Project/"]}}
     )
     client = _FolderPathClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     _run_adhoc_dashboards(source)
 
@@ -3050,7 +3059,7 @@ def test_folder_path_pattern_scopes_reports_before_definition_fetch() -> None:
         }
     )
     client = _FolderPathReportClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_reports(
@@ -3076,7 +3085,7 @@ def test_folder_path_pattern_applies_to_dashboard_linked_reports() -> None:
         {"folder_path_pattern": {"deny": ["^Sales Analytics/Shared Reports"]}}
     )
     client = _ReportSearchClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_reports(
@@ -3171,7 +3180,7 @@ def test_report_metrics_read_statically_unless_instance_option_is_on() -> None:
     # read without an instance header.
     source = _embedded_metric_source()
     client = _InstanceModelClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     list(
         source._process_project_dashboards(
@@ -3199,7 +3208,7 @@ def test_report_instance_is_released_when_auth_is_lost() -> None:
             raise MicroStrategyAuthError("session invalidated")
 
     client = AuthLostClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     with pytest.raises(MicroStrategyAuthError):
         source._report_derived_metric_definitions("project-1", "ds-shared")
@@ -3212,7 +3221,7 @@ def test_instance_option_executes_report_and_releases_the_instance() -> None:
     source = _embedded_metric_source()
     source.config.resolve_report_metrics_via_instance = True
     client = _InstanceModelClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     list(
         source._process_project_dashboards(
@@ -3234,7 +3243,7 @@ def test_instance_failure_falls_back_to_the_static_definition() -> None:
     source = _embedded_metric_source()
     source.config.resolve_report_metrics_via_instance = True
     client = _InstanceModelClient(instance_fails=True)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     list(
         source._process_project_dashboards(
@@ -3283,7 +3292,7 @@ def _forecast_model_document() -> Dict[str, Any]:
 def test_document_derived_metrics_are_not_read_unless_instance_option_is_on() -> None:
     source = _embedded_metric_source()
     client = _InstanceModelClient(model_document=_forecast_model_document())
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_dashboards(
@@ -3301,7 +3310,7 @@ def test_document_derived_metric_formula_read_from_static_model_document() -> No
     source = _embedded_metric_source()
     source.config.resolve_report_metrics_via_instance = True
     client = _InstanceModelClient(model_document=_forecast_model_document())
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_dashboards(
@@ -3331,7 +3340,7 @@ def test_model_document_failure_is_counted_and_skipped() -> None:
     source = _embedded_metric_source()
     source.config.resolve_report_metrics_via_instance = True
     client = _InstanceModelClient(model_document_fails=True)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(
         source._process_project_dashboards(
@@ -3390,7 +3399,7 @@ def test_dashboard_instance_is_shared_and_released_once() -> None:
     # and SQL-view lineage share one rather than executing it twice.
     source = _source()
     client = _ExecutionClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
     dossier = _dossier_object("dash-1")
 
     first = source._dashboard_instance("project-1", dossier)
@@ -3410,7 +3419,7 @@ def test_dashboard_instance_is_shared_and_released_once() -> None:
 def test_timed_out_dashboard_is_not_executed_twice() -> None:
     source = _source()
     client = _ExecutionClient(["timeout"])
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
     dossier = _dossier_object("dash-1")
 
     with pytest.raises(MicroStrategyAPIError):
@@ -3428,7 +3437,7 @@ def test_timed_out_dashboard_is_not_executed_twice() -> None:
 def test_consecutive_timeouts_stop_executions_in_the_project() -> None:
     source = _source({"max_consecutive_execution_timeouts": 2})
     client = _ExecutionClient(["timeout", "timeout"])
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     for dossier_id in ("dash-1", "dash-2", "dash-3"):
         dossier = _dossier_object(dossier_id)
@@ -3453,7 +3462,7 @@ def test_fast_failures_and_successes_do_not_trip_the_timeout_limit() -> None:
     # a success resets the run of timeouts.
     source = _source({"max_consecutive_execution_timeouts": 2})
     client = _ExecutionClient(["timeout", "error", "ok", "timeout", "error"])
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     for index in range(5):
         dossier = _dossier_object(f"dash-{index}")
@@ -3469,7 +3478,7 @@ def test_fast_failures_and_successes_do_not_trip_the_timeout_limit() -> None:
 def test_timeout_limit_zero_disables_it() -> None:
     source = _source({"max_consecutive_execution_timeouts": 0})
     client = _ExecutionClient(["timeout"] * 4)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     for index in range(4):
         dossier = _dossier_object(f"dash-{index}")
@@ -3650,7 +3659,7 @@ def _dataset_upstreams(workunits: List[Any]) -> Dict[str, List[str]]:
 def test_document_datasets_get_sql_lineage_through_report_instances() -> None:
     source = _document_source({"extract_document_dataset_sql_lineage": True})
     client = _DocumentClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = _run_dashboards(source)
 
@@ -3677,7 +3686,7 @@ def test_document_datasets_get_sql_lineage_through_report_instances() -> None:
 def test_document_datasets_are_left_alone_unless_enabled() -> None:
     source = _document_source()
     client = _DocumentClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = _run_dashboards(source)
 
@@ -3704,7 +3713,7 @@ def test_document_datasets_are_left_alone_unless_enabled() -> None:
 def test_document_dataset_failure_is_counted_and_the_rest_still_emitted() -> None:
     source = _document_source({"extract_document_dataset_sql_lineage": True})
     client = _DocumentClient(failing_report_ids={"rep-1"})
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = _run_dashboards(source)
 
@@ -3731,7 +3740,7 @@ def test_document_dataset_timeouts_count_towards_the_execution_limit() -> None:
         }
     )
     client = _DocumentClient(timing_out_report_ids={"rep-1"})
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     _run_dashboards(source)
 
@@ -3747,7 +3756,7 @@ def test_document_dataset_timeouts_count_towards_the_execution_limit() -> None:
 def test_grid_report_shared_by_documents_is_executed_once() -> None:
     source = _document_source({"extract_document_dataset_sql_lineage": True})
     client = _DocumentClient(documents={"doc-1": ["rep-1"], "doc-2": ["rep-1"]})
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = _run_dashboards(source)
 
@@ -3776,7 +3785,7 @@ def test_shared_report_sql_is_parsed_once_and_progress_is_logged(
 ) -> None:
     source = _document_source({"extract_document_dataset_sql_lineage": True})
     client = _DocumentClient(documents={"doc-1": ["rep-1"], "doc-2": ["rep-1"]})
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     with (
         caplog.at_level(logging.INFO),
@@ -3804,7 +3813,7 @@ def test_shared_report_sql_is_parsed_once_and_progress_is_logged(
 def test_project_caches_are_dropped_at_the_project_boundary() -> None:
     source = _document_source({"extract_document_dataset_sql_lineage": True})
     client = _DocumentClient(documents={"doc-1": ["rep-1"]})
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
     _run_dashboards(source)
 
     source._reset_project_caches()
@@ -3821,7 +3830,7 @@ def test_failed_shared_report_is_not_retried_for_the_next_document() -> None:
         documents={"doc-1": ["rep-1"], "doc-2": ["rep-1"]},
         failing_report_ids={"rep-1"},
     )
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = _run_dashboards(source)
 
@@ -3845,7 +3854,7 @@ def test_malformed_report_sql_view_drops_only_the_lineage() -> None:
             return SqlView.model_validate({"sqlStatement": ["not", "a", "string"]})
 
     client = MalformedSqlViewClient(documents={"doc-1": ["rep-1"], "doc-2": ["rep-1"]})
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = _run_dashboards(source)
 
@@ -3867,7 +3876,7 @@ def test_report_sql_lineage_reuses_sql_read_for_a_document_dataset() -> None:
         }
     )
     client = _DocumentClient(documents={"doc-1": ["rep-1"]})
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
     _run_dashboards(source)
     dataset = DatasetObject.model_validate({"id": "source", "name": "Daily Sales"})
 
@@ -4530,7 +4539,7 @@ def test_per_report_report_pass_upgrades_schema_and_emits_no_chart() -> None:
         {"extract_reports": True, "extract_independent_reports": True}
     )
     client = _SharedReportClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(source._process_project(_PROJECT))
 
@@ -4600,7 +4609,7 @@ def test_per_report_without_cubes_or_reports_is_rejected() -> None:
 def test_per_report_parses_a_shared_report_sql_view_once() -> None:
     source = _per_report_source({"extract_warehouse_lineage": True})
     client = _SharedReportClient(second="dossier", with_sql=True)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     with mock.patch.object(
         source.lineage,
@@ -4631,7 +4640,7 @@ def test_per_report_report_pass_does_not_execute_a_report_a_dossier_settled() ->
         }
     )
     client = _SharedReportClient(with_sql=True)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     with mock.patch.object(
         source.lineage,
@@ -4711,7 +4720,7 @@ def test_per_report_later_dashboard_warehouse_settles_lineage_the_first_skipped(
 ) -> None:
     source = _per_report_source({"extract_warehouse_lineage": True})
     client = _DivergingReportClient(second_dataset_id)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(source._process_project(_PROJECT))
 
@@ -4780,7 +4789,7 @@ def test_per_report_report_pass_does_not_borrow_project_warehouse_for_unmapped()
         }
     )
     client = _UnmappedWarehouseClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(source._process_project(_PROJECT))
 
@@ -4806,7 +4815,7 @@ def test_per_report_report_pass_without_a_schema_keeps_dossier_lineage() -> None
         }
     )
     client = _EmptyReportDefinitionClient(with_sql=True)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(source._process_project(_PROJECT))
 
@@ -4832,7 +4841,7 @@ class _MetricModelRecordingClient(_SharedReportClient):
 def test_per_report_report_pass_enriches_the_report_metrics() -> None:
     source = _per_report_source({"extract_metric_expressions": True})
     client = _MetricModelRecordingClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
     report_object = client.get_object_info("project-1", "ds-shared", 3)
 
     source._process_report_as_dataset(
@@ -4854,7 +4863,7 @@ class _AttributeReportClient(_SharedReportClient):
 def test_per_report_report_pass_attaches_model_lineage() -> None:
     source = _per_report_source({"extract_reports": True})
     client = _AttributeReportClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
     warehouse_table = (
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.dim_region,PROD)"
     )
@@ -4899,7 +4908,7 @@ def test_per_report_document_reuses_lineage_a_dossier_settled() -> None:
         }
     )
     client = _SharedReportClient(with_sql=True)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(source._process_project(_PROJECT))
 
@@ -4936,7 +4945,7 @@ def test_per_report_dashboard_pass_auth_failure_still_emits_registered_datasets(
 ):
     source = _per_report_source()
     client = _SharedReportClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
     first_dossier = client.get_dossier_definition
 
     def fail_second_dashboard(project_id: str, dossier_id: str) -> Dict[str, Any]:
@@ -4967,7 +4976,7 @@ def test_per_report_dashboard_pass_auth_failure_still_emits_registered_datasets(
 def test_per_report_auth_failure_during_emission_fails_the_run() -> None:
     source = _per_report_source()
     client = _SharedReportClient()
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     def lose_session(
         project_id: str, object_id: str, object_type: int
@@ -5024,7 +5033,7 @@ def test_per_report_report_pass_drops_stale_field_lineage_and_reads_the_sql_agai
         }
     )
     client = _SharedReportClient(with_sql=True)
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
     lineage_context = _LazyProjectLineage(source, "project-1", [])
     list(source._process_project_dashboards(_PROJECT, lineage_context))
     entry = source._report_dataset_entry("project-1", "ds-shared")
@@ -5178,7 +5187,7 @@ def test_per_report_dataset_omits_prompt_and_filter_without_a_report_definition(
         raise MicroStrategyAPIError("403")
 
     client.get_report_definition = definition_unavailable  # type: ignore[method-assign]
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
 
     workunits = list(source._process_project(_PROJECT))
 
@@ -5413,45 +5422,19 @@ def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
     assert sqlglot_logger.filters == filters_before
 
 
-def _model_table(
-    name: str, fact_id: str, datasource_id: Optional[str]
-) -> Dict[str, object]:
-    table: Dict[str, object] = {
-        "information": {"objectId": f"logical-{fact_id}", "name": name},
-        "physicalTable": {"tableName": name},
-        "facts": [
-            {"information": {"objectId": fact_id}, "expression": {"text": "AMOUNT"}}
-        ],
-        "attributes": [],
-    }
-    if datasource_id:
-        table["primaryDataSource"] = {"objectId": datasource_id, "name": "ignored"}
-    return table
-
-
-class _ModelTablesClient:
-    def __init__(self, tables: List[Dict[str, object]]) -> None:
-        self.tables = tables
-        self.fields_requested: List[str] = []
-
-    def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
-        self.fields_requested.append(kwargs.get("fields", ""))
-        return ModelTablesResponse(tables=self.tables, total=len(self.tables))
-
-
 def test_mixed_warehouse_project_resolves_model_lineage_per_table(
     mixed_datasources: List[Datasource],
 ) -> None:
     source = _source({"extract_model_lineage": True})
-    client = _ModelTablesClient(
+    client = ModelTablesClient(
         [
-            _model_table("ora_orders", "fact-1", "aaa111"),
-            _model_table("snow_orders", "fact-2", "BBB222"),
-            _model_table("unlinked_orders", "fact-3", None),
-            _model_table("unknown_orders", "fact-4", "ZZZ999"),
+            model_table("ora_orders", "fact-1", "aaa111"),
+            model_table("snow_orders", "fact-2", "BBB222"),
+            model_table("unlinked_orders", "fact-3", None),
+            model_table("unknown_orders", "fact-4", "ZZZ999"),
         ]
     )
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
     lineage_context = _LazyProjectLineage(source, "project-1", mixed_datasources)
 
     index = lineage_context.model_lineage_index
@@ -5476,7 +5459,7 @@ def test_mixed_warehouse_project_warning_names_platforms_and_mapping(
     mixed_datasources: List[Datasource],
 ) -> None:
     source = _source({"extract_model_lineage": True})
-    source.client = _ModelTablesClient([])  # type: ignore[assignment]
+    install_client(source, ModelTablesClient([]))
     lineage_context = _LazyProjectLineage(source, "project-1", mixed_datasources)
 
     assert lineage_context.warehouse_context is None
@@ -5488,7 +5471,7 @@ def test_mixed_warehouse_project_warning_names_platforms_and_mapping(
     assert "project_id=project-1" in context
     assert "oracle:1" in context
     assert "snow_flake:1" in context
-    assert "datasource_platform_mapping" in str(warning.message)
+    assert "datasource_platform_mapping" in context
 
 
 @pytest.mark.parametrize(
@@ -5505,7 +5488,7 @@ def test_project_without_warehouse_context_warns_once(
     datasources: List[Dict[str, object]], expected_title: str
 ) -> None:
     source = _source({"extract_model_lineage": True})
-    source.client = _ModelTablesClient([])  # type: ignore[assignment]
+    install_client(source, ModelTablesClient([]))
     lineage_context = _LazyProjectLineage(
         source,
         "project-1",
@@ -5520,14 +5503,14 @@ def test_unmapped_second_datasource_resolves_model_lineage_per_table(
     mixed_datasources: List[Datasource],
 ) -> None:
     source = _source({"extract_model_lineage": True})
-    client = _ModelTablesClient(
+    client = ModelTablesClient(
         [
-            _model_table("ora_orders", "fact-1", "AAA111"),
-            _model_table("legacy_orders", "fact-2", "CCC333"),
-            _model_table("unlinked_orders", "fact-3", None),
+            model_table("ora_orders", "fact-1", "AAA111"),
+            model_table("legacy_orders", "fact-2", "CCC333"),
+            model_table("unlinked_orders", "fact-3", None),
         ]
     )
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
     unmapped = Datasource.model_validate(
         {"id": "CCC333", "name": "legacy_ds", "database": {"type": "unknown_db"}}
     )
@@ -5552,44 +5535,19 @@ def test_single_warehouse_project_keeps_project_level_context(
     mixed_datasources: List[Datasource],
 ) -> None:
     source = _source({"extract_model_lineage": True})
-    client = _ModelTablesClient([_model_table("orders", "fact-1", None)])
-    source.client = client  # type: ignore[assignment]
+    client = ModelTablesClient([model_table("orders", "fact-1", None)])
+    install_client(source, client)
     lineage_context = _LazyProjectLineage(source, "project-1", mixed_datasources[:1])
 
     index = lineage_context.model_lineage_index
 
     assert index is not None
-    assert lineage_context.table_context_resolver is None
-    assert client.fields_requested == ["information,physicalTable,attributes,facts"]
+    assert "primaryDataSource" not in client.fields_requested[0]
     assert index.fact_field_urns(["fact-1"]) == [
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,"
         "ora_db.ora.orders,PROD),amount)"
     ]
     assert source.report.model_tables_without_warehouse_context == 0
-
-
-class _ConnectionModelTablesClient(_ModelTablesClient):
-    def __init__(
-        self, tables: List[Dict[str, object]], fail_connection: bool = False
-    ) -> None:
-        super().__init__(tables)
-        self.fail_connection = fail_connection
-        self.connection_requests: List[str] = []
-
-    def get_datasource_connection(
-        self, connection_id: str, project_id: Optional[str] = None
-    ) -> DatasourceConnection:
-        self.connection_requests.append(connection_id)
-        if self.fail_connection:
-            raise MicroStrategyAPIError("connection lookup failed")
-        return DatasourceConnection.model_validate(
-            {
-                "id": connection_id,
-                "name": "oracle_connection",
-                "database": {"type": "oracle"},
-                "connectionString": "SCHEMA=CONN_SCHEMA",
-            }
-        )
 
 
 def _connected_oracle_warehouse(schema: Optional[str] = None) -> Dict[str, object]:
@@ -5625,8 +5583,8 @@ def test_dataset_sql_view_lineage_uses_connection_enriched_model_urns(
     mixed_datasources: List[Datasource],
 ) -> None:
     source = _source({"extract_model_lineage": True})
-    client = _ConnectionModelTablesClient([_model_table("orders", "fact-1", "AAA111")])
-    source.client = client  # type: ignore[assignment]
+    client = ConnectionModelTablesClient([model_table("orders", "fact-1", "AAA111")])
+    install_client(source, client)
     lineage_context = _LazyProjectLineage(
         source, "project-1", _connected_oracle_datasources(mixed_datasources)
     )
@@ -5645,6 +5603,7 @@ def test_dataset_sql_view_lineage_uses_connection_enriched_model_urns(
         dashboard,
         lineage_context.warehouse_context,
         project_id="project-1",
+        entries={},
     )
     dataset = dashboard.datasets[0]
     source.mapper.attach_dataset_model_lineage(dataset, index)
@@ -5654,19 +5613,6 @@ def test_dataset_sql_view_lineage_uses_connection_enriched_model_urns(
         urn for urns in dataset.field_warehouse_upstreams.values() for urn in urns
     ]
     assert client.connection_requests == ["conn-ora"]
-
-
-class _ReportSqlModelTablesClient(_ConnectionModelTablesClient):
-    def create_report_instance(self, project_id: str, report_id: str) -> str:
-        return f"ri-{report_id}"
-
-    def get_report_sql_view(
-        self, project_id: str, report_id: str, instance_id: str
-    ) -> SqlView:
-        return SqlView(sql_statement="select amount from orders")
-
-    def delete_report_instance(self, *args: Any) -> bool:
-        return True
 
 
 def test_report_dataset_in_mixed_project_uses_its_own_warehouse_context(
@@ -5680,8 +5626,8 @@ def test_report_dataset_in_mixed_project_uses_its_own_warehouse_context(
             "extract_report_definitions": False,
         }
     )
-    source.client = _ReportSqlModelTablesClient(  # type: ignore[assignment]
-        [_model_table("orders", "fact-1", "AAA111")]
+    install_client(
+        source, ReportSqlModelTablesClient([model_table("orders", "fact-1", "AAA111")])
     )
     lineage_context = _LazyProjectLineage(
         source, "project-1", _connected_oracle_datasources(mixed_datasources)
@@ -5709,10 +5655,10 @@ def test_failed_connection_lookup_keeps_unenriched_context_and_is_cached(
     mixed_datasources: List[Datasource],
 ) -> None:
     source = _source({"extract_model_lineage": True})
-    client = _ConnectionModelTablesClient(
-        [_model_table("orders", "fact-1", "AAA111")], fail_connection=True
+    client = ConnectionModelTablesClient(
+        [model_table("orders", "fact-1", "AAA111")], fail_connection=True
     )
-    source.client = client  # type: ignore[assignment]
+    install_client(source, client)
     lineage_context = _LazyProjectLineage(
         source, "project-1", _connected_oracle_datasources(mixed_datasources, "ORA")
     )
@@ -5725,6 +5671,7 @@ def test_failed_connection_lookup_keeps_unenriched_context_and_is_cached(
         dashboard,
         lineage_context.warehouse_context,
         project_id="project-1",
+        entries={},
     )
     dataset = dashboard.datasets[0]
     source.mapper.attach_dataset_model_lineage(dataset, index)
@@ -5743,3 +5690,278 @@ def test_failed_connection_lookup_keeps_unenriched_context_and_is_cached(
         for w in source.report.warnings
         if w.title == "Failed to Fetch Datasource Connection"
     ]
+
+
+def _warehouse(
+    datasource_id: str,
+    name: str,
+    db_type: str,
+    database: Optional[str] = None,
+    schema: Optional[str] = None,
+    connection_id: Optional[str] = None,
+) -> Datasource:
+    database_ref: Dict[str, object] = {"type": db_type}
+    if database:
+        database_ref["name"] = database
+    if schema:
+        database_ref["schema"] = schema
+    datasource: Dict[str, object] = {
+        "id": datasource_id,
+        "name": name,
+        "database": database_ref,
+    }
+    if connection_id:
+        datasource["connection"] = {"id": connection_id, "name": connection_id}
+    return Datasource.model_validate(datasource)
+
+
+def _field_urn(table_urn: str) -> str:
+    return f"urn:li:schemaField:({table_urn},amount)"
+
+
+def test_same_platform_datasources_resolve_to_their_own_connection_database() -> None:
+    source = _source({"extract_model_lineage": True})
+    client = ConnectionModelTablesClient(
+        [
+            model_table("orders", "fact-1", "AAA111"),
+            model_table("orders", "fact-2", "BBB222"),
+        ],
+        connections={
+            "conn-a": {
+                "database": {"type": "snow_flake"},
+                "connectionString": "DATABASE=DB_ONE;SCHEMA=SC_ONE",
+            },
+            "conn-b": {
+                "database": {"type": "snow_flake"},
+                "connectionString": "DATABASE=DB_TWO;SCHEMA=SC_TWO",
+            },
+        },
+    )
+    install_client(source, client)
+    lineage_context = _LazyProjectLineage(
+        source,
+        "project-1",
+        [
+            _warehouse("AAA111", "wh_a", "snow_flake", connection_id="conn-a"),
+            _warehouse("BBB222", "wh_b", "snow_flake", connection_id="conn-b"),
+        ],
+    )
+
+    index = lineage_context.model_lineage_index
+
+    assert index is not None
+    assert lineage_context.warehouse_context is None
+    assert index.fact_field_urns(["fact-1"]) == [
+        _field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db_one.sc_one.orders,PROD)"
+        )
+    ]
+    assert index.fact_field_urns(["fact-2"]) == [
+        _field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db_two.sc_two.orders,PROD)"
+        )
+    ]
+    assert source.report.model_tables_resolved_by_datasource == 2
+
+
+def test_datasources_with_one_connection_enriched_context_count_as_one_warehouse() -> (
+    None
+):
+    source = _source({"extract_model_lineage": True})
+    client = ConnectionModelTablesClient(
+        [model_table("orders", "fact-1", None)],
+        connections={
+            "conn-a": {"connectionString": "DATABASE=DB_SAME;SCHEMA=SC_SAME"},
+            "conn-b": {"connectionString": "DATABASE=DB_SAME;SCHEMA=SC_SAME"},
+        },
+    )
+    install_client(source, client)
+    lineage_context = _LazyProjectLineage(
+        source,
+        "project-1",
+        [
+            _warehouse("AAA111", "wh_a", "oracle", "DB_A", connection_id="conn-a"),
+            _warehouse("BBB222", "wh_b", "oracle", "DB_B", connection_id="conn-b"),
+        ],
+    )
+
+    index = lineage_context.model_lineage_index
+
+    assert index is not None
+    assert lineage_context.warehouse_context is not None
+    assert "primaryDataSource" not in client.fields_requested[0]
+    assert index.fact_field_urns(["fact-1"]) == [
+        _field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,db_same.sc_same.orders,PROD)"
+        )
+    ]
+
+
+def test_datasources_split_only_by_platform_instance_or_env_resolve_per_table() -> None:
+    source = _source(
+        {
+            "extract_model_lineage": True,
+            "datasource_platform_mapping": {
+                "wh_a": {"platform_instance": "inst_a"},
+                "wh_b": {"env": "DEV"},
+            },
+        }
+    )
+    install_client(
+        source,
+        ModelTablesClient(
+            [
+                model_table("orders", "fact-1", "AAA111"),
+                model_table("orders", "fact-2", "BBB222"),
+            ]
+        ),
+    )
+    lineage_context = _LazyProjectLineage(
+        source,
+        "project-1",
+        [
+            _warehouse("AAA111", "wh_a", "oracle", "DB", "SC"),
+            _warehouse("BBB222", "wh_b", "oracle", "DB", "SC"),
+        ],
+    )
+
+    index = lineage_context.model_lineage_index
+
+    assert index is not None
+    assert lineage_context.warehouse_context is None
+    assert index.fact_field_urns(["fact-1"]) == [
+        _field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,inst_a.db.sc.orders,PROD)"
+        )
+    ]
+    assert index.fact_field_urns(["fact-2"]) == [
+        _field_urn("urn:li:dataset:(urn:li:dataPlatform:oracle,db.sc.orders,DEV)")
+    ]
+
+
+def test_platform_mapping_resolves_an_unrecognized_datasource_per_table(
+    mixed_datasources: List[Datasource],
+) -> None:
+    source = _source(
+        {
+            "extract_model_lineage": True,
+            "datasource_platform_mapping": {"legacy_ds": {"platform": "databricks"}},
+        }
+    )
+    install_client(
+        source,
+        ModelTablesClient(
+            [
+                model_table("orders", "fact-1", "CCC333"),
+                model_table("ora", "fact-2", "AAA111"),
+            ]
+        ),
+    )
+    lineage_context = _LazyProjectLineage(
+        source,
+        "project-1",
+        [
+            mixed_datasources[0],
+            _warehouse("CCC333", "legacy_ds", "unknown_db", "CAT", "SCH"),
+        ],
+    )
+
+    index = lineage_context.model_lineage_index
+
+    assert index is not None
+    assert index.fact_field_urns(["fact-1"]) == [
+        _field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,cat.sch.orders,PROD)"
+        )
+    ]
+    assert len(index.fact_field_urns(["fact-2"])) == 1
+    assert source.report.model_tables_without_warehouse_context == 0
+
+
+def test_unresolved_table_warning_is_raised_once_per_project(
+    mixed_datasources: List[Datasource],
+) -> None:
+    source = _source({"extract_model_lineage": True})
+    install_client(
+        source,
+        ModelTablesClient(
+            [model_table("a", "fact-1", None), model_table("b", "fact-2", "ZZZ999")]
+        ),
+    )
+
+    for project_id in ("project-1", "project-2"):
+        assert (
+            _LazyProjectLineage(source, project_id, mixed_datasources).model_tables
+            is not None
+        )
+
+    warnings = [
+        w
+        for w in source.report.warnings
+        if "Logical Tables Without Source Warehouse" in str(w.title)
+    ]
+    contexts = [c for w in warnings for c in w.context]
+    assert len(contexts) == 2
+    assert "project_id=project-1" in contexts[0]
+    assert "project_id=project-2" in contexts[1]
+    assert source.report.model_tables_without_warehouse_context == 4
+
+
+def test_index_and_semantic_model_reads_count_each_table_once(
+    mixed_datasources: List[Datasource],
+) -> None:
+    source = _source({"extract_model_lineage": True})
+    install_client(
+        source,
+        ModelTablesClient(
+            [model_table("a", "fact-1", "AAA111"), model_table("b", "fact-2", None)]
+        ),
+    )
+    lineage_context = _LazyProjectLineage(source, "project-1", mixed_datasources)
+
+    assert lineage_context.model_lineage_index is not None
+    lineage_context.model_tables_retrying_failure()
+    lineage_context.model_tables_retrying_failure()
+
+    assert source.report.model_tables_resolved_by_datasource == 1
+    assert source.report.model_tables_without_warehouse_context == 1
+
+
+def test_model_tables_are_paged_until_the_reported_total() -> None:
+    source = _source({"page_size": 2})
+    client = ModelTablesClient(
+        [model_table(f"t{i}", f"fact-{i}", None) for i in range(5)]
+    )
+    install_client(source, client)
+
+    tables = source.fetch_project_model_tables("project-1")
+
+    assert tables is not None
+    assert len(tables) == 5
+    assert client.offsets_requested == [0, 2, 4]
+
+
+def test_connection_lookup_failure_is_cached_per_project_and_warned_again_for_the_next() -> (
+    None
+):
+    source = _source({"extract_model_lineage": True})
+    client = ConnectionModelTablesClient([], fail_connection=True)
+    install_client(source, client)
+    datasource = _warehouse("AAA111", "wh", "oracle", "DB", connection_id="conn-1")
+
+    for project_id in ("project-1", "project-1", "project-2"):
+        context = source.datasource_warehouse_context(project_id, datasource)
+        assert context is not None
+        assert context.database == "DB"
+
+    assert client.connection_requests == ["conn-1", "conn-1"]
+    assert source.report.warehouse_lineage_api_failures == 2
+
+
+def test_failed_connection_lookup_without_a_database_skips_the_datasource() -> None:
+    source = _source({"extract_model_lineage": True})
+    install_client(source, ConnectionModelTablesClient([], fail_connection=True))
+    datasource = _warehouse("AAA111", "wh", "snow_flake", connection_id="conn-1")
+
+    assert source.datasource_warehouse_context("project-1", datasource) is None
+    assert source.report.datasources_skipped_without_database == 1
