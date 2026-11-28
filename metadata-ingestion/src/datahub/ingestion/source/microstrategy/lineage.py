@@ -40,6 +40,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_NON_ALNUM_RE,
     MSTR_PARSE_LABEL_HASH_CHARS,
     MSTR_PARSE_LABEL_PREFIX,
+    MSTR_PLATFORM_MIN_NAME_PARTS,
     MSTR_PLATFORM_QUALIFIED_NAME_PARTS,
     MSTR_SELECT_STATEMENT_RE,
     MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM,
@@ -679,11 +680,17 @@ class MicroStrategyLineageExtractor:
         kept: List[str] = []
         unqualified: List[str] = []
         dropped: Set[str] = set()
+        instance_prefix = (
+            f"{context.platform_instance}." if context.platform_instance else ""
+        )
+        min_parts = _min_name_parts(context.platform)
         for urn in in_tables:
             name = DatasetUrn.from_string(urn).name
+            if instance_prefix and name.startswith(instance_prefix):
+                name = name[len(instance_prefix) :]
             if _leaf_identifier(name) in MSTR_DUMMY_TABLE_NAMES:
                 dropped.add(urn)
-            elif len(name.split(".")) < _platform_name_parts(context.platform):
+            elif len(name.split(".")) < min_parts:
                 unqualified.append(urn)
                 dropped.add(urn)
             else:
@@ -1194,6 +1201,10 @@ def _platform_name_parts(platform: str) -> int:
     )
 
 
+def _min_name_parts(platform: str) -> int:
+    return MSTR_PLATFORM_MIN_NAME_PARTS.get(platform, _platform_name_parts(platform))
+
+
 def _physical_table_name(
     physical_table: Dict[str, object],
     context: WarehouseLineageContext,
@@ -1214,15 +1225,14 @@ def _physical_table_name(
     # context without a database gives no name rather than a guessed one.
     if not context.database:
         return None
-    name_parts = _platform_name_parts(context.platform)
     name = qualify_table_name(
         table_name,
         database=context.database,
         schema=_clean_identifier_part(physical_table.get("tablePrefix"))
         or context.schema,
-        name_parts=name_parts,
+        name_parts=_platform_name_parts(context.platform),
     )
-    return name if len(name.split(".")) >= name_parts else None
+    return name if len(name.split(".")) >= _min_name_parts(context.platform) else None
 
 
 def _model_expression_field_names(item: Dict[str, object]) -> List[str]:

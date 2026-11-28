@@ -1128,11 +1128,13 @@ _ORDERS_JOIN_CUSTOMERS = (
 
 
 @pytest.mark.parametrize(
-    "sql, schema, expected_upstreams, unqualified",
+    "sql, context, expected_upstreams, unqualified",
     [
         (
             _ORDERS_JOIN_CUSTOMERS,
-            "public",
+            WarehouseLineageContext(
+                platform="snowflake", env="PROD", database="sales_db", schema="public"
+            ),
             [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
                 "sales_db.public.customers,PROD)",
@@ -1143,27 +1145,60 @@ _ORDERS_JOIN_CUSTOMERS = (
         ),
         (
             _ORDERS_JOIN_CUSTOMERS,
-            None,
+            WarehouseLineageContext(
+                platform="snowflake", env="PROD", database="sales_db"
+            ),
             [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
                 "sales_db.sales.orders,PROD)"
             ],
             1,
         ),
-        ("select 'Open' as status from dual", "public", [], 0),
-        (None, "public", [], 0),
+        (
+            _ORDERS_JOIN_CUSTOMERS,
+            WarehouseLineageContext(
+                platform="snowflake",
+                env="PROD",
+                database="sales_db",
+                platform_instance="prod_account",
+            ),
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+                "prod_account.sales_db.sales.orders,PROD)"
+            ],
+            1,
+        ),
+        (
+            _ORDERS_JOIN_CUSTOMERS,
+            WarehouseLineageContext(platform="oracle", env="PROD"),
+            ["urn:li:dataset:(urn:li:dataPlatform:oracle,sales.orders,PROD)"],
+            1,
+        ),
+        (
+            "select 'Open' as status from dual",
+            WarehouseLineageContext(
+                platform="snowflake", env="PROD", database="sales_db", schema="public"
+            ),
+            [],
+            0,
+        ),
+        (
+            None,
+            WarehouseLineageContext(
+                platform="snowflake", env="PROD", database="sales_db", schema="public"
+            ),
+            [],
+            0,
+        ),
     ],
 )
 def test_logical_view_upstreams_come_from_its_sql_not_its_name(
     sql: Optional[str],
-    schema: Optional[str],
+    context: WarehouseLineageContext,
     expected_upstreams: List[str],
     unqualified: int,
 ) -> None:
     mapper = _mapper(FakeSemanticModelClient())
-    context = WarehouseLineageContext(
-        platform="snowflake", env="PROD", database="sales_db", schema=schema
-    )
     view = _table("Regional Orders", [_attribute("ATTR1", "Region")], [])
     view["physicalTable"] = {
         "type": "sql",

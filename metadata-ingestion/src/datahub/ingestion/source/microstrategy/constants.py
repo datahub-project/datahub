@@ -423,6 +423,16 @@ MSTR_PLATFORM_QUALIFIED_NAME_PARTS = {
     "mariadb": 2,
 }
 MSTR_DEFAULT_QUALIFIED_NAME_PARTS = 3
+# Fewest parts a parsed SQL table name needs to be able to join a native
+# dataset: Teradata and Athena name tables database.table, and the Oracle
+# source defaults to schema.table, so two parts are complete there.
+MSTR_PLATFORM_MIN_NAME_PARTS = {
+    "athena": 2,
+    "mariadb": 2,
+    "mysql": 2,
+    "oracle": 2,
+    "teradata": 2,
+}
 # Dummy one-row tables (Oracle, MySQL) that a SQL view can select from without
 # reading data.
 MSTR_DUMMY_TABLE_NAMES = frozenset({"dual"})
