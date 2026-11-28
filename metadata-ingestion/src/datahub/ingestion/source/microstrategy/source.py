@@ -620,6 +620,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if self.report.failures:
             # Objects a failed run never reached keep their last read.
             self._object_state.keep_unrecorded()
+        if self.report.change_check_failures:
+            self.report.warning(
+                title="Unchanged-object check failed",
+                message=(
+                    "Some dashboards and reports could not be compared with "
+                    "DataHub, so they were read again. The run report counts "
+                    "them in change_check_failures."
+                ),
+                context="; ".join(self.report.change_check_failure_samples),
+            )
         if self._object_state.is_too_large():
             self.report.warning(
                 title="Unchanged-object checkpoint too large",

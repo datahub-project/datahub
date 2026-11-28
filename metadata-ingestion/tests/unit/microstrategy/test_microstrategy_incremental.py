@@ -696,6 +696,25 @@ def test_failed_dashboard_keeps_its_last_read(
     assert first.server.definition_reads == ["dash-2"]
 
 
+def test_failed_change_check_reads_the_object(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    first = _first_run(mock_datahub_graph)
+    mock_datahub_graph.get_entities.side_effect = RuntimeError("graph unavailable")
+
+    second = _run(mock_datahub_graph, first.server, "run-2")
+
+    assert first.server.definition_reads == ["dash-1", "dash-2"]
+    assert second.source.report.dashboards_skipped_unchanged == 0
+    assert second.source.report.change_check_failures > 0
+    assert [
+        warning.title
+        for warning in second.source.report.warnings
+        if warning.title == "Unchanged-object check failed"
+    ] == ["Unchanged-object check failed"]
+    assert _soft_deleted_urns(second.workunits) == set()
+
+
 @pytest.mark.parametrize("dataset_identity", ["per_dashboard", "per_report"])
 def test_report_read_without_its_sql_view_is_read_again(
     mock_datahub_graph: MagicMock,  # noqa: F811
