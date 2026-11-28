@@ -58,7 +58,10 @@ from datahub.ingestion.source.microstrategy.models import (
     normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-from datahub.ingestion.source.microstrategy.spill_cache import SpillCache
+from datahub.ingestion.source.microstrategy.spill_cache import (
+    SpillCache,
+    SpillConnection,
+)
 from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
@@ -71,6 +74,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     column_refs_to_schema_field_urns,
     create_lineage_from_sql_statements,
 )
+from datahub.utilities.sentinels import Unset
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
@@ -300,7 +304,12 @@ class ModelLineageIndex:
 
 
 class MicroStrategyLineageExtractor:
-    def __init__(self, config: MicroStrategyConfig, report: MicroStrategyReport):
+    def __init__(
+        self,
+        config: MicroStrategyConfig,
+        report: MicroStrategyReport,
+        spill_connection: SpillConnection,
+    ):
         self.config = config
         self.report = report
         # upstream dataset urn -> {lower(fieldPath): fieldPath}, or None when the
@@ -308,18 +317,18 @@ class MicroStrategyLineageExtractor:
         # fetched at most once per run.
         self._warehouse_field_cache: Dict[str, Optional[Dict[str, str]]] = {}
         # Same report SQL is parsed once per project.
-        self._parse_cache: SpillCache[_ParsedSqlView] = SpillCache(
-            MSTR_CACHE_MEMORY_ENTRIES
+        self._parsed_sql_views: SpillCache[_ParsedSqlView] = SpillCache(
+            spill_connection, "parsed_sql_views", MSTR_CACHE_MEMORY_ENTRIES
         )
         # One resolver per warehouse, so each table schema is fetched once per project.
         self._schema_resolvers: Dict[_WarehouseKey, _EvictingSchemaResolver] = {}
 
     def reset_project_caches(self) -> None:
-        self._parse_cache.reset()
+        self._parsed_sql_views.reset()
         self._close_schema_resolvers()
 
     def close(self) -> None:
-        self._parse_cache.close()
+        self._parsed_sql_views.close()
         self._close_schema_resolvers()
 
     def _close_schema_resolvers(self) -> None:
@@ -538,13 +547,13 @@ class MicroStrategyLineageExtractor:
         label = (
             label or MSTR_PARSE_LABEL_PREFIX + cache_key[:MSTR_PARSE_LABEL_HASH_CHARS]
         )
-        cached = self._parse_cache.get(cache_key)
-        if cached is not None:
+        cached = self._parsed_sql_views.get(cache_key)
+        if not isinstance(cached, Unset):
             self._report_cache_hit(cached, label, sql, context)
             return cached
         parsed = self._parse_sql_view(sql, context, want_field_columns, graph, label)
         if not parsed.failed_lookup_urns:
-            self._parse_cache.put(cache_key, parsed)
+            self._parsed_sql_views.put(cache_key, parsed)
         return parsed
 
     def _report_cache_hit(

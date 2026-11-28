@@ -584,9 +584,11 @@ MSTR_MODEL_API_MIN_TIMEOUT_SECONDS = 120
 MSTR_PROGRESS_LOG_INTERVAL_DASHBOARDS = 25
 MSTR_PROGRESS_LOG_INTERVAL_METRICS = 1000
 
-# Per-project report SQL and parsed SQL lineage entries kept in memory before
-# older ones spill to a temporary local file.
+# Entries each per-project cache keeps in memory before older ones spill to a
+# temporary local file. Full JSON payloads (report v2 definitions, metric
+# models) can be large, so those caches keep fewer.
 MSTR_CACHE_MEMORY_ENTRIES = 2000
+MSTR_PAYLOAD_CACHE_MEMORY_ENTRIES = 200
 
 MSTR_SQLGLOT_LOGGER = "sqlglot"
 # One warning per generated statement; they fill the executor's bounded log.
@@ -595,8 +597,16 @@ MSTR_SQLGLOT_SUPPRESSED_PREFIXES: Final[Sequence[str]] = ("Unsupported property"
 MSTR_PARSE_LABEL_PREFIX = "sql "
 MSTR_PARSE_LABEL_HASH_CHARS = 12
 
+# A spilling cache writes evicted entries in batches of a quarter of its memory
+# cap, at most this many, so one eviction never stalls on a huge write.
 MSTR_MAX_EVICTION_BATCH = 150
 MSTR_EVICTION_BATCH_DIVISOR = 4
+
+
+class ReportObjectLookupKind(StrEnum):
+    DATASET = "dataset"
+    LINKED_REPORT = "linked_report"
+
 
 MSTR_SQLGLOT_WARNINGS_TOP_K = 10
 

@@ -21,6 +21,7 @@ from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import 
 )
 from datahub.ingestion.source.microstrategy.models import MicroStrategyObject
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import SpillConnection
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     ContainerClass,
@@ -110,7 +111,7 @@ def _mapper(
         config=config,
         report=report,
         client=client,  # type: ignore[arg-type]
-        lineage=MicroStrategyLineageExtractor(config, report),
+        lineage=MicroStrategyLineageExtractor(config, report, SpillConnection()),
     )
 
 
@@ -881,6 +882,35 @@ def test_a_successful_metric_model_resets_the_consecutive_failure_count() -> Non
 
     assert len(client.metric_model_calls) == len(ids)
     assert not mapper.report.failures
+
+
+def test_cached_models_between_live_failures_do_not_reset_the_failure_count() -> None:
+    limit = MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+    ids = [f"M{index}" for index in range(4 * limit)]
+    cached_ids = {metric_id for index, metric_id in enumerate(ids) if index % 2}
+    client = FakeSemanticModelClient(
+        metrics=[_metric_object(metric_id, metric_id) for metric_id in ids],
+        metric_models_fail=True,
+    )
+    config = _config()
+    report = MicroStrategyReport()
+    mapper = MicroStrategySemanticModelMapper(
+        config=config,
+        report=report,
+        client=client,  # type: ignore[arg-type]
+        lineage=MicroStrategyLineageExtractor(config, report, SpillConnection()),
+        cached_metric_model=lambda _project, metric_id: (
+            {} if metric_id in cached_ids else None
+        ),
+        graph=_graph_with_exists(True),
+    )
+
+    _emit_metrics(mapper)
+
+    assert len(client.metric_model_calls) == limit
+    assert [failure.title for failure in report.failures] == [
+        "MicroStrategy Metric Models Unavailable"
+    ]
 
 
 @pytest.mark.parametrize("exists", [True, False])

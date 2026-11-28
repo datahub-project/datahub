@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from typing_extensions import LiteralString
 
@@ -136,12 +136,18 @@ class MicroStrategySemanticModelMapper:
         report: MicroStrategyReport,
         client: MicroStrategyClient,
         lineage: MicroStrategyLineageExtractor,
+        cached_metric_model: Optional[
+            Callable[[str, str], Optional[Dict[str, object]]]
+        ] = None,
         graph: Optional[DataHubGraph] = None,
     ) -> None:
         self.config = config
         self.report = report
         self.client = client
         self.lineage = lineage
+        # A model that failed earlier is retried here, so the failure is
+        # reported against the metric.
+        self.cached_metric_model = cached_metric_model
         self.graph = graph
 
     def emit(
@@ -619,9 +625,13 @@ class MicroStrategySemanticModelMapper:
                     failed,
                     project_id,
                 )
+            model = self._cached_model(project_id, metric_object.id)
             try:
-                model = self.client.get_metric_model(project_id, metric_object.id)
-                consecutive_failures = 0
+                if model is None:
+                    model = self.client.get_metric_model(project_id, metric_object.id)
+                    # Cache hits must not reset the streak, or live failures
+                    # interleaved with them would never trip the stop.
+                    consecutive_failures = 0
             except MicroStrategyAPIError as error:
                 failed += 1
                 consecutive_failures += 1
@@ -783,6 +793,14 @@ class MicroStrategySemanticModelMapper:
                 for referenced_metric_id in metric_metric_ids_from_model(model)
             ],
         )
+
+    def _cached_model(
+        self, project_id: str, metric_id: str
+    ) -> Optional[Dict[str, object]]:
+        # Last pass to need a model, so a live fetch is not written back.
+        if self.cached_metric_model is None:
+            return None
+        return self.cached_metric_model(project_id, metric_id)
 
     def _unknown_presence_reason(self) -> str:
         return (
