@@ -751,6 +751,16 @@ fragment canEditLineageFragment on EntityWithRelationships {
             canEditLineage
         }
     }
+    ... on MLModel {
+        privileges {
+            canEditLineage
+        }
+    }
+    ... on MLModelGroup {
+        privileges {
+            canEditLineage
+        }
+    }
 }
 
 query getLineageCounts(

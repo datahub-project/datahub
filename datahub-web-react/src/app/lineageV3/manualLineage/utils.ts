@@ -12,7 +12,10 @@ export function getValidEntityTypes(lineageDirection: LineageDirection, entityTy
             case EntityType.Dashboard:
                 return [EntityType.Chart, EntityType.Dataset, EntityType.Metric];
             case EntityType.DataJob:
-                return [EntityType.DataJob, EntityType.Dataset];
+                return [EntityType.DataJob, EntityType.Dataset, EntityType.Mlmodel, EntityType.MlmodelGroup];
+            case EntityType.Mlmodel:
+            case EntityType.MlmodelGroup:
+                return [EntityType.DataJob, EntityType.DataProcessInstance];
             case EntityType.Metric:
                 // updateLineage does not write metricUpstreams; do not offer a no-op picker
                 return [];
@@ -30,7 +33,10 @@ export function getValidEntityTypes(lineageDirection: LineageDirection, entityTy
                 console.warn('There are no valid lineage entities downstream of Dashboard entities');
                 return [];
             case EntityType.DataJob:
-                return [EntityType.DataJob, EntityType.Dataset];
+                return [EntityType.DataJob, EntityType.Dataset, EntityType.Mlmodel, EntityType.MlmodelGroup];
+            case EntityType.Mlmodel:
+            case EntityType.MlmodelGroup:
+                return [EntityType.DataJob, EntityType.DataProcessInstance];
             case EntityType.Metric:
                 return [EntityType.Dataset, EntityType.Chart, EntityType.Dashboard];
             default:

@@ -4,8 +4,11 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
+import com.linkedin.common.Edge;
+import com.linkedin.common.EdgeArray;
 import com.linkedin.common.MLFeatureUrnArray;
 import com.linkedin.common.TimeStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.VersionTag;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.MLFeatureUrn;
@@ -19,6 +22,7 @@ import com.linkedin.ml.metadata.MLMetric;
 import com.linkedin.ml.metadata.MLMetricArray;
 import com.linkedin.ml.metadata.MLModelProperties;
 import java.net.URISyntaxException;
+import java.util.List;
 import org.testng.annotations.Test;
 
 public class MLModelPropertiesMapperTest {
@@ -183,5 +187,30 @@ public class MLModelPropertiesMapperTest {
     assertNull(result.getDescription());
     assertNull(result.getType());
     assertNull(result.getVersion());
+  }
+
+  @Test
+  public void testMapLineageFromEdgesAndDeprecatedFields() throws URISyntaxException {
+    Urn trainJob = Urn.createFromString("urn:li:dataJob:(urn:li:dataFlow:(airflow,f,PROD),train)");
+    Urn evalJob = Urn.createFromString("urn:li:dataJob:(urn:li:dataFlow:(airflow,f,PROD),eval)");
+    Urn predictJob =
+        Urn.createFromString("urn:li:dataJob:(urn:li:dataFlow:(airflow,f,PROD),predict)");
+    MLModelProperties input = new MLModelProperties();
+    input.setTrainingJobs(new UrnArray(trainJob));
+    input.setTrainingJobEdges(
+        new EdgeArray(
+            new Edge().setDestinationUrn(trainJob), new Edge().setDestinationUrn(evalJob)));
+    input.setDownstreamJobEdges(new EdgeArray(new Edge().setDestinationUrn(predictJob)));
+    MLModelUrn modelUrn =
+        MLModelUrn.createFromString("urn:li:mlModel:(urn:li:dataPlatform:mlflow,edgemodel,PROD)");
+
+    com.linkedin.datahub.graphql.generated.MLModelProperties result =
+        MLModelPropertiesMapper.map(null, input, modelUrn);
+
+    assertEquals(
+        result.getMlModelLineageInfo().getTrainingJobs(),
+        List.of(trainJob.toString(), evalJob.toString()));
+    assertEquals(
+        result.getMlModelLineageInfo().getDownstreamJobs(), List.of(predictJob.toString()));
   }
 }

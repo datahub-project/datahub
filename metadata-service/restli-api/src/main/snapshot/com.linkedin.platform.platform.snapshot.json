@@ -5042,13 +5042,34 @@
                         "type" : "array",
                         "items" : "com.linkedin.common.Urn"
                       },
-                      "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.",
+                      "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.\nDeprecated! Use trainingJobEdges instead.",
                       "optional" : true,
                       "Relationship" : {
                         "/*" : {
                           "entityTypes" : [ "dataJob", "dataProcessInstance" ],
                           "isLineage" : true,
                           "name" : "TrainedBy"
+                        }
+                      },
+                      "deprecated" : true
+                    }, {
+                      "name" : "trainingJobEdges",
+                      "type" : {
+                        "type" : "array",
+                        "items" : "com.linkedin.common.Edge"
+                      },
+                      "doc" : "Jobs or process instances (if any) used to train the model or group.",
+                      "optional" : true,
+                      "Relationship" : {
+                        "/*/destinationUrn" : {
+                          "createdActor" : "trainingJobEdges/*/created/actor",
+                          "createdOn" : "trainingJobEdges/*/created/time",
+                          "entityTypes" : [ "dataJob", "dataProcessInstance" ],
+                          "isLineage" : true,
+                          "name" : "TrainedBy",
+                          "properties" : "trainingJobEdges/*/properties",
+                          "updatedActor" : "trainingJobEdges/*/lastModified/actor",
+                          "updatedOn" : "trainingJobEdges/*/lastModified/time"
                         }
                       }
                     }, {
@@ -5057,7 +5078,7 @@
                         "type" : "array",
                         "items" : "com.linkedin.common.Urn"
                       },
-                      "doc" : "List of jobs or process instances (if any) that use the model or group.",
+                      "doc" : "List of jobs or process instances (if any) that use the model or group.\nDeprecated! Use downstreamJobEdges instead.",
                       "optional" : true,
                       "Relationship" : {
                         "/*" : {
@@ -5065,6 +5086,28 @@
                           "isLineage" : true,
                           "isUpstream" : false,
                           "name" : "UsedBy"
+                        }
+                      },
+                      "deprecated" : true
+                    }, {
+                      "name" : "downstreamJobEdges",
+                      "type" : {
+                        "type" : "array",
+                        "items" : "com.linkedin.common.Edge"
+                      },
+                      "doc" : "Jobs or process instances (if any) that use the model or group.",
+                      "optional" : true,
+                      "Relationship" : {
+                        "/*/destinationUrn" : {
+                          "createdActor" : "downstreamJobEdges/*/created/actor",
+                          "createdOn" : "downstreamJobEdges/*/created/time",
+                          "entityTypes" : [ "dataJob", "dataProcessInstance" ],
+                          "isLineage" : true,
+                          "isUpstream" : false,
+                          "name" : "UsedBy",
+                          "properties" : "downstreamJobEdges/*/properties",
+                          "updatedActor" : "downstreamJobEdges/*/lastModified/actor",
+                          "updatedOn" : "downstreamJobEdges/*/lastModified/time"
                         }
                       }
                     } ]
