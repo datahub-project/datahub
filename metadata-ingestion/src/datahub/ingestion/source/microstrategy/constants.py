@@ -125,6 +125,14 @@ FINGERPRINT_EXCLUDED_CONFIG_FIELDS: FrozenSet[str] = frozenset(
         "progress_log_interval_seconds",
     }
 )
+
+
+class MicroStrategyReadOutcome(StrEnum):
+    COMPLETE = "complete"
+    # Not read; its last read still stands.
+    FAILED = "failed"
+
+
 # Shared references rather than an object's own entities.
 SHARED_REFERENCE_ENTITY_TYPES: FrozenSet[str] = frozenset(
     {TagUrn.ENTITY_TYPE, GlossaryTermUrn.ENTITY_TYPE}

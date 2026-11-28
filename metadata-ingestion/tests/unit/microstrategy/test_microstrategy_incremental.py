@@ -9,6 +9,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.microstrategy.checkpoint_state import (
+    MicroStrategyCheckpointState,
     MicroStrategyStateHandler,
 )
 from datahub.ingestion.source.microstrategy.client import (
@@ -703,6 +704,31 @@ def test_default_run_does_not_stamp_or_checkpoint() -> None:
         "skip_unchanged_objects is ignored" in str(warning)
         for warning in run.source.report.warnings
     )
+
+
+@pytest.mark.parametrize("dataset_identity", ["per_dashboard", "per_report"])
+def test_stale_removal_without_skipping_does_not_stamp(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    dataset_identity: str,
+) -> None:
+    _DataHub(mock_datahub_graph)
+
+    run = _run(
+        mock_datahub_graph,
+        _MicroStrategy(),
+        "run-1",
+        skip_unchanged_objects=False,
+        dataset_identity=dataset_identity,
+    )
+
+    assert _stamped_urns(run.workunits) == []
+    # Still checkpointed, so a failed read keeps its last entities.
+    current = run.source.state_provider.get_current_checkpoint(
+        run.source._object_state.job_id
+    )
+    assert current is not None
+    assert isinstance(current.state, MicroStrategyCheckpointState)
+    assert current.state.dashboards
 
 
 def test_fingerprint_excluded_fields_are_config_fields() -> None:

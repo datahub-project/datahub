@@ -7,6 +7,7 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobI
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_UNCHANGED_OBJECTS_JOB_ID,
+    MicroStrategyReadOutcome,
 )
 from datahub.ingestion.source.microstrategy.spill_cache import object_cache_key
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
@@ -37,6 +38,10 @@ class ObjectCheckpoint(BaseModel):
     # Report ids a dashboard adds to the dashboard-linked report scope.
     linked_report_ids: List[str] = Field(default_factory=list)
     usage_targets: List[RecordedUsageTarget] = Field(default_factory=list)
+    # Set during this run's read and never saved.
+    outcome: MicroStrategyReadOutcome = Field(
+        default=MicroStrategyReadOutcome.COMPLETE, exclude=True
+    )
 
 
 class ReportDatasetCheckpoint(BaseModel):

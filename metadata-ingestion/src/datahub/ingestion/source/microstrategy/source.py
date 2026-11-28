@@ -79,6 +79,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MicroStrategyCache,
     MicroStrategyDatasetIdentity,
     MicroStrategyPhase,
+    MicroStrategyReadOutcome,
 )
 from datahub.ingestion.source.microstrategy.incremental import (
     ChangeCheckResult,
@@ -629,6 +630,29 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 ),
             )
 
+    def _object_fingerprint(
+        self,
+        project: Project,
+        mstr_object: MicroStrategyObject,
+        dependency_ids: Sequence[str],
+        checkpoint: ObjectCheckpoint,
+    ) -> Optional[str]:
+        # Stamped only for skipping, and never on a read that missed something.
+        if (
+            not self._skips_unchanged()
+            or checkpoint.outcome != MicroStrategyReadOutcome.COMPLETE
+        ):
+            return None
+        return self._change_detector.object_fingerprint(
+            project.id,
+            mstr_object,
+            self.mapper.folder_path(
+                project.name, mstr_object, self._predefined_folders(project.id)
+            ),
+            dependency_ids,
+            self._dataset_object_info,
+        )
+
     def _note_change_check(self, failure: Optional[str]) -> None:
         if failure is not None:
             self.report.change_check_failures += 1
@@ -855,7 +879,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     project, lineage_context
                 )
             return
-        if self._records_checkpoints():
+        if self._skips_unchanged():
             self._change_detector.init_project(
                 project.id, source_warehouses, self._predefined_folders(project.id)
             )
@@ -1220,15 +1244,15 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 ),
                 exc=error,
             )
-            checkpoint = None
+            if checkpoint is not None:
+                checkpoint.outcome = MicroStrategyReadOutcome.FAILED
         finally:
             self._progress.dashboard_done(
                 project.name, dashboard_object.name, dashboard_object.id, before
             )
-        if not self._records_checkpoints():
+        if checkpoint is None:
             return
-        if checkpoint is None or checkpoint.fingerprint is None:
-            # Not fully read: keep what its last read produced.
+        if checkpoint.outcome == MicroStrategyReadOutcome.FAILED:
             previous = self._object_state.previous_dashboard(
                 project_id, dashboard_object.id
             )
@@ -1239,9 +1263,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return
         checkpoint.urns = self._tracked_urns(checkpoint.urns)
         self._object_state.record_dashboard(project_id, dashboard_object.id, checkpoint)
-        self._dashboard_fingerprints[normalize_object_id(dashboard_object.id)] = (
-            checkpoint.fingerprint
-        )
+        if checkpoint.fingerprint is not None:
+            self._dashboard_fingerprints[normalize_object_id(dashboard_object.id)] = (
+                checkpoint.fingerprint
+            )
 
     def _resolve_project_folders(self, project: Project) -> bool:
         try:
@@ -1620,17 +1645,20 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self._register_recorded_target(usage_target)
             if checkpoint is not None:
                 checkpoint.usage_targets = [usage_target]
-                checkpoint.fingerprint = (
-                    self._change_detector.report_dataset_fingerprint(
-                        project_id,
-                        self._dataset_object_info(project_id, dataset.id),
-                        {
-                            dashboard_id: self._dashboard_fingerprints.get(dashboard_id)
-                            for dashboard_id in checkpoint.dashboard_ids
-                        },
-                        entry.from_report_pass,
+                if self._skips_unchanged():
+                    checkpoint.fingerprint = (
+                        self._change_detector.report_dataset_fingerprint(
+                            project_id,
+                            self._dataset_object_info(project_id, dataset.id),
+                            {
+                                dashboard_id: self._dashboard_fingerprints.get(
+                                    dashboard_id
+                                )
+                                for dashboard_id in checkpoint.dashboard_ids
+                            },
+                            entry.from_report_pass,
+                        )
                     )
-                )
             yield from _recording_urns(
                 self.mapper.gen_report_dataset_workunits(
                     project_id,
@@ -1692,6 +1720,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         try:
             dashboard = self._get_dashboard_definition(project_id, dashboard_object)
             if dashboard is None:
+                if checkpoint is not None:
+                    checkpoint.outcome = MicroStrategyReadOutcome.FAILED
                 return
             needs_sql_view_context = (
                 self.config.extract_warehouse_lineage or model_lineage_index is not None
@@ -1742,14 +1772,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 {report_id.upper() for report_id in report_dependency_ids}
             )
             checkpoint.usage_targets = [usage_target]
-            checkpoint.fingerprint = self._change_detector.object_fingerprint(
-                project_id,
-                dashboard_object,
-                self.mapper.folder_path(
-                    project.name, dashboard_object, predefined_folders
-                ),
-                dependency_ids,
-                self._dataset_object_info,
+            checkpoint.fingerprint = self._object_fingerprint(
+                project, dashboard_object, dependency_ids, checkpoint
             )
         yield from self._process_dashboard(
             project_id,
@@ -2211,10 +2235,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 exc=error,
             )
             if checkpoint is not None:
-                checkpoint.fingerprint = None
+                checkpoint.outcome = MicroStrategyReadOutcome.FAILED
         if checkpoint is None:
             return
-        if checkpoint.fingerprint is None:
+        if checkpoint.outcome == MicroStrategyReadOutcome.FAILED:
             previous = self._object_state.previous_report(project_id, report_object.id)
             if previous is not None:
                 self._keep_report(project_id, report_object.id, previous)
@@ -2302,14 +2326,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     urn=self.mapper.report_urn(project_id, report_object.id),
                 )
             ]
-            checkpoint.fingerprint = self._change_detector.object_fingerprint(
-                project_id,
-                report_object,
-                self.mapper.folder_path(
-                    project.name, report_object, predefined_folders
-                ),
-                dependency_ids,
-                self._dataset_object_info,
+            checkpoint.fingerprint = self._object_fingerprint(
+                project, report_object, dependency_ids, checkpoint
             )
         yield from self.mapper.gen_report_workunits(
             project_id,
