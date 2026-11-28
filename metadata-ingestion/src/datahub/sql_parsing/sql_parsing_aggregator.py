@@ -61,6 +61,7 @@ from datahub.sql_parsing.sqlglot_utils import (
     DialectOrStr,
     _parse_statement,
     get_query_fingerprint,
+    get_query_shape,
     try_format_query,
 )
 from datahub.sql_parsing.tool_meta_extractor import (
@@ -116,6 +117,24 @@ _SLOW_DOWNSTREAM_WARNING_SECONDS = 60
 _SLOWEST_DOWNSTREAMS_TRACKED = 10
 
 
+def _parse_failure_sample(
+    error: Exception,
+    sql: str,
+    platform: DialectOrStr,
+    query_id: Optional[str] = None,
+    source_query_id: Optional[str] = None,
+) -> str:
+    # The report is uploaded to DataHub, so the sample must not quote the SQL. Parser
+    # messages can repeat SQL text, even without quotes, so only the error type is kept.
+    sample = type(error).__name__
+    if query_id:
+        sample += f" on query {query_id}"
+    if source_query_id:
+        sample += f", source id {source_query_id}"
+    shape = get_query_shape(sql, platform)
+    return f"{sample}: {shape}" if shape else sample
+
+
 @dataclasses.dataclass
 class _ColumnLineageMergeResult:
     """What merging one query's column lineage into a downstream's lineage added."""
@@ -150,6 +169,9 @@ class ObservedQuery:
     extra_info: Optional[dict] = None
     # Emitted as queryProperties.customProperties on the Query entity.
     custom_properties: Optional[Dict[str, str]] = None
+    # The platform's own id for the query (e.g. a BigQuery job id), so that a parse
+    # failure in the report can be looked up on the platform.
+    source_query_id: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -1041,8 +1063,16 @@ class SqlParsingAggregator(Closeable):
             override_dialect=observed.override_dialect,
         )
         if parsed.debug_info.error:
+            query_id = observed.query_hash or parsed.query_fingerprint
+            logger.debug(f"Failed to parse query {query_id}: {parsed.debug_info.error}")
             self.report.observed_query_parse_failures.append(
-                f"{parsed.debug_info.error} on query: {observed.query[:100]}"
+                _parse_failure_sample(
+                    parsed.debug_info.error,
+                    observed.query,
+                    observed.override_dialect or self.platform.platform_name,
+                    query_id=query_id,
+                    source_query_id=observed.source_query_id,
+                )
             )
         if parsed.debug_info.table_error:
             self.report.num_observed_queries_failed += 1
@@ -1376,8 +1406,11 @@ class SqlParsingAggregator(Closeable):
             override_dialect=view_definition.override_dialect,
         )
         if parsed.debug_info.error:
-            self.report.views_parse_failures[view_urn] = (
-                f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
+            logger.debug(f"Failed to parse view {view_urn}: {parsed.debug_info.error}")
+            self.report.views_parse_failures[view_urn] = _parse_failure_sample(
+                parsed.debug_info.error,
+                view_definition.view_definition,
+                view_definition.override_dialect or self.platform.platform_name,
             )
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1

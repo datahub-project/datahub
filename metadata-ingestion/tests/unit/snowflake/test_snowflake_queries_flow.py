@@ -29,7 +29,10 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
 from datahub.metadata.schema_classes import UpstreamLineageClass
-from datahub.sql_parsing.sql_parsing_aggregator import KnownLineageMapping
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    KnownLineageMapping,
+    ObservedQuery,
+)
 from tests.unit.snowflake.conftest import (
     QueryHandler,
     QueryResult,
@@ -179,6 +182,65 @@ def test_audit_log_feeds_users_copy_history_and_query_log_into_lineage(
     )
     assert {wu.get_urn() for wu in cached.get_workunits_internal()} == urns
     cached.close()
+
+
+def test_unparseable_rows_are_reported_without_row_data() -> None:
+    """Warnings about bad source rows name an id only; they never carry row values."""
+    bad_query = _audit_row(
+        "q-bad",
+        "SELECT",
+        "select 'secret_literal' from db.s.src",
+        USER_NAME="jane.doe@example.com",
+        QUERY_START_TIME=None,
+    )
+    rows: Dict[str, QueryResult] = {
+        "SNOWFLAKE.ACCOUNT_USAGE.USERS": [{"NAME": "jane_doe_login"}],
+        "COPY_HISTORY": [
+            {
+                "DOWNSTREAM_TABLE_NAME": "DB.S.TARGET",
+                "UPSTREAM_LOCATIONS": "not-json s3://secret-bucket/key",
+            }
+        ],
+        "QUERY_HISTORY": [bad_query],
+    }
+    extractor = _make_extractor(_dispatch_for(rows))
+
+    list(extractor.get_workunits_internal())
+
+    report = extractor.structured_reporter
+    contexts = {
+        entry.message: " ".join(entry.context or []) for entry in report.warnings
+    }
+    assert "query q-bad" in contexts["Error parsing query log row"]
+    assert "DB.S.TARGET" in contexts["Error parsing copy history row"]
+    assert "Error parsing user row" in contexts
+    dumped = str(report.as_obj())
+    for leaked in (
+        "secret_literal",
+        "jane.doe@example.com",
+        "jane_doe_login",
+        "secret-bucket",
+    ):
+        assert leaked not in dumped
+    extractor.close()
+
+
+def test_observed_query_carries_the_audit_row_query_id() -> None:
+    row = _audit_row(
+        "q-view",
+        "CREATE_VIEW",
+        "create temporary view db.s.v as select * from db.s.src",
+    )
+    extractor = _make_extractor(_dispatch_for({"QUERY_HISTORY": [row]}))
+
+    observed = [
+        entry
+        for entry in extractor.fetch_query_log({})
+        if isinstance(entry, ObservedQuery)
+    ]
+
+    assert [entry.source_query_id for entry in observed] == ["q-view"]
+    extractor.close()
 
 
 def test_query_log_fetch_is_skipped_when_no_query_feature_is_enabled() -> None:

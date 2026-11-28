@@ -1952,7 +1952,11 @@ def test_unparseable_query_log_rows_are_reported_and_skipped() -> None:
         identifiers=BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), report),
     )
     good = _job("select * from `my_dataset`.`a`")
-    connection.query.return_value = [good, object(), good]
+    bad = _job("select 'secret_literal' from `my_dataset`.`a`")
+    bad["job_id"] = "job-bad"
+    bad["user_email"] = "jane.doe@example.com"
+    bad["creation_time"] = None  # type: ignore[typeddict-item]
+    connection.query.return_value = [good, bad, good]
     extractor.start_time, extractor.end_time = extractor._get_time_window()
 
     entries = list(
@@ -1961,5 +1965,14 @@ def test_unparseable_query_log_rows_are_reported_and_skipped() -> None:
         )
     )
 
-    assert len(entries) == 2
-    assert "Error parsing query log row" in {w.message for w in report.warnings}
+    assert [entry.source_query_id for entry in entries] == ["job-1", "job-1"]
+    warnings = [
+        w for w in report.warnings if w.message == "Error parsing query log row"
+    ]
+    assert len(warnings) == 1
+    context = " ".join(warnings[0].context)
+    assert "job-bad" in context
+    assert "my-project" in context
+    dumped = str(report.as_obj())
+    assert "jane.doe@example.com" not in dumped
+    assert "secret_literal" not in dumped
