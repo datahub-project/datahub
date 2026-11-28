@@ -9,15 +9,9 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActorFilter;
 import com.linkedin.datahub.graphql.generated.DataHubPolicy;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
-import com.linkedin.datahub.graphql.generated.PolicyMatchCriterion;
-import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
-import com.linkedin.datahub.graphql.generated.PolicyMatchFilter;
 import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
-import com.linkedin.datahub.graphql.generated.ResourceFilter;
-import com.linkedin.datahub.graphql.generated.StructuredPropertyCriterionValue;
-import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInfoPolicyMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -25,8 +19,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
-import com.linkedin.policy.DataHubResourceFilter;
-import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -70,7 +62,7 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     policy.setActors(mapActors(policyInfo.getActors()));
     policy.setEditable(policyInfo.isEditable());
     if (policyInfo.hasResources()) {
-      policy.setResources(mapResources(context, policyInfo.getResources()));
+      policy.setResources(PolicyInfoPolicyMapper.mapResources(context, policyInfo.getResources()));
     }
   }
 
@@ -97,73 +89,6 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
       result.setRoles(
           actorFilter.getRoles().stream().map(Urn::toString).collect(Collectors.toList()));
     }
-    return result;
-  }
-
-  private ResourceFilter mapResources(
-      @Nullable QueryContext context, final DataHubResourceFilter resourceFilter) {
-    final ResourceFilter result = new ResourceFilter();
-    result.setAllResources(resourceFilter.isAllResources());
-    if (resourceFilter.hasType()) {
-      result.setType(resourceFilter.getType());
-    }
-    if (resourceFilter.hasResources()) {
-      result.setResources(resourceFilter.getResources());
-    }
-    if (resourceFilter.hasFilter()) {
-      result.setFilter(mapFilter(context, resourceFilter.getFilter()));
-    }
-    return result;
-  }
-
-  private PolicyMatchFilter mapFilter(
-      @Nullable QueryContext context, final com.linkedin.policy.PolicyMatchFilter filter) {
-    return PolicyMatchFilter.builder()
-        .setCriteria(
-            filter.getCriteria().stream()
-                .map(
-                    criterion -> {
-                      boolean hasStructuredProps = criterion.hasStructuredPropertyValues();
-                      return PolicyMatchCriterion.builder()
-                          .setField(criterion.getField())
-                          .setValues(
-                              criterion.getValues().stream()
-                                  .map(c -> mapValue(context, c))
-                                  .collect(Collectors.toList()))
-                          .setCondition(
-                              UnknownEnumValues.mapOrNull(
-                                  PolicyMatchCondition.class, criterion.getCondition()))
-                          .setStructuredPropertyValues(
-                              hasStructuredProps
-                                  ? criterion.getStructuredPropertyValues().stream()
-                                      .map(this::mapStructuredPropertyValue)
-                                      .collect(Collectors.toList())
-                                  : null)
-                          .build();
-                    })
-                .collect(Collectors.toList()))
-        .build();
-  }
-
-  private PolicyMatchCriterionValue mapValue(@Nullable QueryContext context, final String value) {
-    try {
-      // If value is urn, set entity field
-      Urn urn = Urn.createFromString(value);
-      return PolicyMatchCriterionValue.builder()
-          .setValue(value)
-          .setEntity(UrnToEntityMapper.map(context, urn))
-          .build();
-    } catch (URISyntaxException e) {
-      // Value is not an urn. Just set value
-      return PolicyMatchCriterionValue.builder().setValue(value).build();
-    }
-  }
-
-  private StructuredPropertyCriterionValue mapStructuredPropertyValue(
-      final com.linkedin.policy.StructuredPropertyCriterionValue value) {
-    final StructuredPropertyCriterionValue result = new StructuredPropertyCriterionValue();
-    result.setPropertyUrn(value.getPropertyUrn().toString());
-    result.setValues(value.getValues());
     return result;
   }
 }

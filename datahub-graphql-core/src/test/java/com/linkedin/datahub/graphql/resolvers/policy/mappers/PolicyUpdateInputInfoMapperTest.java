@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.policy.mappers;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -16,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.PolicyMatchFilterInput;
 import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.datahub.graphql.generated.PolicyUpdateInput;
+import com.linkedin.datahub.graphql.generated.ResourceFilter;
 import com.linkedin.datahub.graphql.generated.ResourceFilterInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyCriterionValueInput;
 import com.linkedin.policy.DataHubActorFilter;
@@ -74,7 +76,7 @@ public class PolicyUpdateInputInfoMapperTest {
             .setRoles(new UrnArray(UrnUtils.getUrn("urn:li:dataHubRole:Editor"))));
 
     final DataHubPolicyInfo result =
-        PolicyUpdateInputInfoMapper.mapToExisting(null, updateInput(actorInput()), existing);
+        PolicyUpdateInputInfoMapper.mapToExisting(null, updateInput(actorInput()), existing, false);
 
     // Fields absent from PolicyUpdateInput/ActorFilterInput survive the edit.
     assertTrue(result.getActors().hasRoles());
@@ -106,7 +108,7 @@ public class PolicyUpdateInputInfoMapperTest {
 
     // The edit form's actor input has no groups/users selected this time.
     final DataHubPolicyInfo result =
-        PolicyUpdateInputInfoMapper.mapToExisting(null, updateInput(actorInput()), existing);
+        PolicyUpdateInputInfoMapper.mapToExisting(null, updateInput(actorInput()), existing, false);
 
     assertFalse(result.getActors().hasGroups());
     assertFalse(result.getActors().hasUsers());
@@ -379,5 +381,95 @@ public class PolicyUpdateInputInfoMapperTest {
     applyResourceFilter(input, structuredPropCriterion);
 
     assertThrows(Exception.class, () -> mapper.map(null, input));
+  }
+
+  private static PolicyMatchFilterInput tagConstraintInput(final String tagUrn) {
+    PolicyMatchCriterionInput criterion = new PolicyMatchCriterionInput();
+    criterion.setField("TAG");
+    criterion.setValues(List.of(tagUrn));
+    criterion.setCondition(PolicyMatchCondition.NOT_EQUALS);
+    PolicyMatchFilterInput filter = new PolicyMatchFilterInput();
+    filter.setCriteria(List.of(criterion));
+    return filter;
+  }
+
+  private static PolicyUpdateInput inputWithFilterAndConstraints(final String tagUrn) {
+    PolicyUpdateInput input = createBasicPolicyInput("Constrained Policy");
+    input.setDescription("desc");
+    PolicyMatchCriterionInput typeCriterion = new PolicyMatchCriterionInput();
+    typeCriterion.setField("TYPE");
+    typeCriterion.setValues(List.of("dataset"));
+    typeCriterion.setCondition(PolicyMatchCondition.EQUALS);
+    applyResourceFilter(input, typeCriterion);
+    input.getResources().setPrivilegeConstraints(tagConstraintInput(tagUrn));
+    return input;
+  }
+
+  @Test
+  public void testPrivilegeConstraintsRoundTripWithFilter() {
+    DataHubPolicyInfo info =
+        PolicyUpdateInputInfoMapper.map(null, inputWithFilterAndConstraints("urn:li:tag:pii"));
+
+    PolicyMatchCriterion stored =
+        info.getResources().getPrivilegeConstraints().getCriteria().get(0);
+    assertEquals(stored.getField(), "TAG");
+    assertEquals(stored.getValues(), new StringArray("urn:li:tag:pii"));
+    assertEquals(stored.getCondition().toString(), "NOT_EQUALS");
+    assertEquals(info.getResources().getFilter().getCriteria().get(0).getField(), "TYPE");
+
+    // Back out through the GraphQL read mapper: what was written is what is returned.
+    ResourceFilter returned = PolicyInfoPolicyMapper.map(null, info).getResources();
+    assertEquals(returned.getFilter().getCriteria().get(0).getField(), "TYPE");
+    var returnedConstraint = returned.getPrivilegeConstraints().getCriteria().get(0);
+    assertEquals(returnedConstraint.getField(), "TAG");
+    assertEquals(returnedConstraint.getCondition(), PolicyMatchCondition.NOT_EQUALS);
+    assertEquals(returnedConstraint.getValues().get(0).getValue(), "urn:li:tag:pii");
+  }
+
+  @Test
+  public void testNoPrivilegeConstraintsMapsToNone() {
+    PolicyUpdateInput input = createBasicPolicyInput("Unconstrained");
+    input.setDescription("desc");
+    DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(null, input);
+
+    assertFalse(info.getResources().hasPrivilegeConstraints());
+    assertNull(PolicyInfoPolicyMapper.map(null, info).getResources().getPrivilegeConstraints());
+  }
+
+  @Test
+  public void testUpdateKeepsStoredPrivilegeConstraintsWhenOmitted() {
+    // The policy editor UI has no privilegeConstraints field and never sends it.
+    DataHubPolicyInfo existing =
+        PolicyUpdateInputInfoMapper.map(null, inputWithFilterAndConstraints("urn:li:tag:pii"));
+
+    DataHubPolicyInfo result =
+        PolicyUpdateInputInfoMapper.mapToExisting(
+            null, createBasicPolicyInput("Edited in UI"), existing, false);
+
+    assertEquals(
+        result.getResources().getPrivilegeConstraints().getCriteria().get(0).getValues(),
+        new StringArray("urn:li:tag:pii"));
+  }
+
+  @Test
+  public void testUpdateReplacesOrClearsPrivilegeConstraintsWhenProvided() {
+    DataHubPolicyInfo replaced =
+        PolicyUpdateInputInfoMapper.mapToExisting(
+            null,
+            inputWithFilterAndConstraints("urn:li:tag:confidential"),
+            PolicyUpdateInputInfoMapper.map(null, inputWithFilterAndConstraints("urn:li:tag:pii")),
+            true);
+    assertEquals(
+        replaced.getResources().getPrivilegeConstraints().getCriteria().get(0).getValues(),
+        new StringArray("urn:li:tag:confidential"));
+
+    // An explicit `privilegeConstraints: null` removes them.
+    DataHubPolicyInfo cleared =
+        PolicyUpdateInputInfoMapper.mapToExisting(
+            null,
+            createBasicPolicyInput("Cleared"),
+            PolicyUpdateInputInfoMapper.map(null, inputWithFilterAndConstraints("urn:li:tag:pii")),
+            true);
+    assertFalse(cleared.getResources().hasPrivilegeConstraints());
   }
 }

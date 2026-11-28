@@ -15,8 +15,10 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.DataHubPolicy;
 import com.linkedin.datahub.graphql.generated.Policy;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
+import com.linkedin.datahub.graphql.generated.PolicyMatchCriterion;
 import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
+import com.linkedin.datahub.graphql.generated.ResourceFilter;
 import com.linkedin.datahub.graphql.types.policy.DataHubPolicyMapper;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -162,5 +164,73 @@ public class PolicyInfoPolicyMapperTest {
     } finally {
       UnknownDataHandlingsForTests.reset();
     }
+  }
+
+  private static PolicyMatchFilter tagFilter(final String condition, final String tagUrn) {
+    final DataMap criterion = new DataMap();
+    criterion.put("field", "TAG");
+    criterion.put("values", new DataList(List.of(tagUrn)));
+    criterion.put("condition", condition);
+    return new PolicyMatchFilter(new DataMap(Map.of("criteria", new DataList(List.of(criterion)))));
+  }
+
+  private static DataHubPolicyInfo policyWithPrivilegeConstraints(final String condition) {
+    final DataHubPolicyInfo info = policyWithCondition("EQUALS");
+    info.getResources().setPrivilegeConstraints(tagFilter(condition, "urn:li:tag:pii"));
+    return info;
+  }
+
+  private static EntityResponse entityResponse(final DataHubPolicyInfo info) {
+    return new EntityResponse()
+        .setUrn(UrnUtils.getUrn("urn:li:dataHubPolicy:x"))
+        .setEntityName("dataHubPolicy")
+        .setAspects(
+            new EnvelopedAspectMap(
+                Map.of(
+                    DATAHUB_POLICY_INFO_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(info.data())))));
+  }
+
+  private static void assertTagConstraint(final ResourceFilter resources) {
+    // The sibling filter must still come through alongside the constraints.
+    assertEquals(resources.getFilter().getCriteria().get(0).getField(), "TYPE");
+    final PolicyMatchCriterion constraint =
+        resources.getPrivilegeConstraints().getCriteria().get(0);
+    assertEquals(constraint.getField(), "TAG");
+    assertEquals(constraint.getCondition(), PolicyMatchCondition.NOT_EQUALS);
+    assertEquals(constraint.getValues().get(0).getValue(), "urn:li:tag:pii");
+  }
+
+  @Test
+  public void testPrivilegeConstraintsAreMappedOnBothReadPaths() {
+    final DataHubPolicyInfo info = policyWithPrivilegeConstraints("NOT_EQUALS");
+
+    // listPolicies
+    assertTagConstraint(PolicyInfoPolicyMapper.map(null, info).getResources());
+    // entity(urn:) / search
+    assertTagConstraint(DataHubPolicyMapper.map(null, entityResponse(info)).getResources());
+  }
+
+  @Test
+  public void testPolicyWithoutPrivilegeConstraintsMapsToNull() {
+    final DataHubPolicyInfo info = policyWithCondition("EQUALS");
+
+    assertNull(PolicyInfoPolicyMapper.map(null, info).getResources().getPrivilegeConstraints());
+    assertNull(
+        DataHubPolicyMapper.map(null, entityResponse(info))
+            .getResources()
+            .getPrivilegeConstraints());
+  }
+
+  @Test
+  public void testPrivilegeConstraintWithMatchConditionFromNewerVersionIsLeftOut() {
+    // Same reasoning as the filter: the editor must not save back a guessed constraint.
+    assertTrue(
+        PolicyInfoPolicyMapper.isUnrepresentable(
+            policyWithPrivilegeConstraints("CONDITION_FROM_NEWER_BUILD"),
+            "urn:li:dataHubPolicy:x"));
+    assertFalse(
+        PolicyInfoPolicyMapper.isUnrepresentable(
+            policyWithPrivilegeConstraints("NOT_EQUALS"), "urn:li:dataHubPolicy:x"));
   }
 }
