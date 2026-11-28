@@ -65,6 +65,56 @@ permissions:
   contents: read
 
 jobs:
+  # Neither check boots a stack or needs the jars, so a boot failure in local-stack can't hide them.
+  env-parity-and-lane-selection:
+    name: "Env parity and local lane selection"
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && !github.event.pull_request.head.repo.fork && 'depot-ubuntu-24.04-small' || 'ubuntu-24.04' }}
+    timeout-minutes: 20
+    # Gradle's Depot remote build cache (settings.gradle); empty on fork PRs, which disables it.
+    env:
+      DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Stdlib only: reads the Docker quickstart config and the launcher's env, not a running stack.
+      - name: Env parity with the Docker quickstart (report only)
+        # Report only until the allowlist has held on master; the step summary shows the result.
+        continue-on-error: true
+        run: |
+          mkdir -p build
+          status=0
+          python3 smoke-test/check_env_parity.py --report build/env-parity.txt > /dev/null || status=$?
+          {
+            echo "### Smoke env parity (Docker quickstart vs Docker-free)"
+            echo '```'
+            sed '/^Allowed differences:/,$d' build/env-parity.txt 2>/dev/null || echo "The check failed before writing a report."
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      - name: Install native dependencies for the CLI
+        run: ./metadata-ingestion/scripts/install_deps.sh
+
+      # Collecting the smoke suite imports datahub.metadata, which needs codegen.
+      - name: Install smoke-test dependencies and generate model classes
+        run: ./gradlew :smoke-test:installDev :metadata-ingestion:codegen
+
+      - name: Check the local lane selection
+        working-directory: smoke-test
+        run: ../.github/scripts/check_local_lane_selection.sh
+
+      - name: Upload env parity report
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: gms-lite-env-parity
+          path: build/env-parity.txt
+          if-no-files-found: ignore
+          retention-days: 3
+
   local-stack:
     name: "Local stack lifecycle (OpenSearch ${{ matrix.opensearch }})"
     strategy:
@@ -76,6 +126,8 @@ jobs:
       # cannot run, and stop if GMS turns out not to be the local stack.
       SMOKE_BACKEND: local
       EMBEDDED_OPENSEARCH_VERSION: ${{ matrix.opensearch }}
+      # Gradle's Depot remote build cache (settings.gradle); empty on fork PRs, which disables it.
+      DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && !github.event.pull_request.head.repo.fork && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
     timeout-minutes: 45
     steps:
@@ -123,11 +175,6 @@ jobs:
       - name: Install smoke-test and frontend dependencies
         if: matrix.opensearch == steps.opensearch_default.outputs.major
         run: ./gradlew :smoke-test:installDev :datahub-web-react:yarnInstall
-
-      - name: Check the local lane selection
-        if: matrix.opensearch == steps.opensearch_default.outputs.major
-        working-directory: smoke-test
-        run: ../.github/scripts/check_local_lane_selection.sh
 
       - name: Install Playwright dependencies
         if: matrix.opensearch == steps.opensearch_default.outputs.major
@@ -197,21 +244,6 @@ jobs:
           DATAHUB_TELEMETRY_ENABLED: "false"
         run: scripts/dev/datahub-dev.sh start --local --fresh --frontend --job smoke-test
 
-      - name: Env parity with the Docker quickstart (report only)
-        if: matrix.opensearch == steps.opensearch_default.outputs.major
-        # Report only until the allowlist has held on master; the step summary shows the result.
-        continue-on-error: true
-        run: |
-          status=0
-          python3 smoke-test/check_env_parity.py --report build/env-parity.txt > /dev/null || status=$?
-          {
-            echo "### Smoke env parity (Docker quickstart vs Docker-free)"
-            echo '```'
-            sed '/^Allowed differences:/,$d' build/env-parity.txt 2>/dev/null || echo "The check failed before writing a report."
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
-
       - name: Run search, lineage and self-service profile smoke tests
         if: matrix.opensearch == steps.opensearch_default.outputs.major
         run: scripts/dev/tests/local_frontend_e2e.sh smoke
@@ -234,7 +266,6 @@ jobs:
           name: gms-lite-local-stack-logs-os${{ matrix.opensearch }}
           path: |
             build/lean-boot/
-            build/env-parity.txt
             ~/.datahub/local/stacks/*/resolved-env.json
             ~/.datahub/local/stacks/*/timings.json
             ~/.datahub/local/stacks/*/launcher.log
