@@ -56,6 +56,16 @@ const cases = [
         '<details open><summary>Title</summary><p>Content</p></details>',
         '<details><summary>Title</summary><p>Content</p></details>',
     ],
+    [
+        'should use a longer fence for a code block that contains a fence',
+        '<pre><code class="language-markdown">Example:\n\n```sql\nSELECT 1;\n```</code></pre>',
+        '````markdown\nExample:\n\n```sql\nSELECT 1;\n```\n````',
+    ],
+    [
+        'should keep a three backtick fence when backticks do not start a line',
+        '<pre><code>a ``` b</code></pre>',
+        '```\na ``` b\n```',
+    ],
 ];
 
 const skipParseCases = [
