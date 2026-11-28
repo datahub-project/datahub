@@ -84,12 +84,15 @@ class _MetricProgress:
         self._report = report
         self._started = time.perf_counter()
         self.done = 0
-        self.failed = 0
+        self._failed = 0
 
     def step(self) -> None:
         if self.done and self._gate.due(self.done):
             self.log()
         self.done += 1
+
+    def record_failure(self) -> None:
+        self._failed += 1
 
     def log(self) -> None:
         self._gate.mark(self.done)
@@ -100,7 +103,7 @@ class _MetricProgress:
             self.done,
             self._total,
             time.perf_counter() - self._started,
-            self.failed,
+            self._failed,
             self._report.peak_rss_mb,
             self._project_id,
         )
@@ -646,7 +649,7 @@ class MicroStrategySemanticModelMapper:
             try:
                 model = self.client.get_metric_model(project_id, metric_object.id)
             except MicroStrategyAPIError as error:
-                progress.failed += 1
+                progress.record_failure()
                 self.report.report_metric_expression_api_failure()
                 self.report.report_failed_metric_model(metric_object.id)
                 # Deterministic 500s; failing the run skips stale removal forever.

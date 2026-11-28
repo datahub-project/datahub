@@ -576,4 +576,14 @@ MSTR_SQLGLOT_LOGGER = "sqlglot"
 MSTR_SQLGLOT_SUPPRESSED_PREFIXES: List[str] = ["Unsupported property"]
 
 MSTR_ENDPOINT_ID_PLACEHOLDER = "/{id}"
+# 32-hex object ids and UUIDs, so one endpoint is one row.
+MSTR_ENDPOINT_OBJECT_ID_SEGMENT_RE = re.compile(r"/[0-9A-Fa-f]{32}(?=/|$)")
+MSTR_ENDPOINT_UUID_SEGMENT_RE = re.compile(
+    r"/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?=/|$)"
+)
+# Not 32-hex object ids, so a literal match would make one row per visualization.
+# The replacement keeps group 1, the segment kind.
+MSTR_ENDPOINT_DOSSIER_KEY_SEGMENT_RE = re.compile(
+    r"/(chapters|pages|visualizations)/[^/]+"
+)
 MSTR_ENDPOINT_KEY_REPLACEMENT = r"/\1/{key}"

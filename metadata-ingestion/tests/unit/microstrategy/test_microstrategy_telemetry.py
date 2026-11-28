@@ -24,6 +24,7 @@ from datahub.ingestion.source.microstrategy.telemetry import (
     timed_phase,
 )
 from datahub.ingestion.source.microstrategy.telemetry_helpers import (
+    IntervalGate,
     dashboard_seconds_bucket,
     endpoint_template,
 )
@@ -136,13 +137,13 @@ def test_timed_iter_excludes_consumer_time(monkeypatch: MonkeyPatch) -> None:
     report = MicroStrategyReport()
 
     def produce() -> Iterator[int]:
-        clock.now += 2.0  # producing the first item
+        clock.now += 2.0
         yield 1
-        clock.now += 3.0  # producing the second item
+        clock.now += 3.0
         yield 2
 
     for _ in timed_iter(report, MicroStrategyPhase.DASHBOARD, produce()):
-        clock.now += 100.0  # the pipeline writing the item to the sink
+        clock.now += 100.0
 
     assert report.phase_seconds["dashboard"] == pytest.approx(5.0)
     assert report.phase_calls["dashboard"] == 1
@@ -440,10 +441,25 @@ def test_run_progress_logs_each_dashboard_and_periodic_progress(
         "my_project/Doc 1 (id-1)": 3,
     }
     messages = [record.getMessage() for record in caplog.records]
-    assert any(
-        "Dashboard 'Doc 1' (id-1) took 12.0s: 1 API calls 4.0s" in m for m in messages
-    )
-    assert any(m.startswith("MicroStrategy progress: 2 dashboards") for m in messages)
+    assert sum("took 12.0s" in message for message in messages) == 2
+    assert sum("MicroStrategy progress" in message for message in messages) == 1
+
+
+def test_interval_gate_fires_on_items_or_time_and_mark_resets(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    clock = _FakeClock()
+    monkeypatch.setattr("time.perf_counter", clock)
+    gate = IntervalGate(every_items=3, every_seconds=60)
+
+    assert not gate.due(2)
+    assert gate.due(3)
+    gate.mark(3)
+    assert not gate.due(5)
+    clock.now += 60
+    assert gate.due(4)
+    gate.mark(4)
+    assert not gate.due(6)
 
 
 def test_slowest_tables_keep_only_the_top_rows() -> None:
