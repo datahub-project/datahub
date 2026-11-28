@@ -5566,6 +5566,7 @@ def test_failed_connection_lookup_keeps_unenriched_context_and_is_cached(
     ]
     assert client.connection_requests == ["conn-ora"]
     assert source.report.warehouse_lineage_api_failures == 1
+    assert lineage_context.model_lineage_degraded
     assert [
         w
         for w in source.report.warnings

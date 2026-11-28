@@ -84,6 +84,8 @@ class WarehouseLineageContext:
     database: Optional[str] = None
     schema: Optional[str] = None
     convert_urns_to_lowercase: bool = True
+    # The connection lookup failed, so database and schema may be missing.
+    connection_unavailable: bool = False
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,7 @@
 import contextlib
 import logging
 from collections import Counter
+from dataclasses import replace
 from functools import partial
 from typing import (
     Callable,
@@ -310,6 +311,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # Normalized connection id -> connection, or None once a fetch failed.
         # Connections are environment-level objects, so this spans projects.
         self._datasource_connections: Dict[str, Optional[DatasourceConnection]] = {}
+        self._failed_connection_keys: Set[str] = set()
         self._progress = RunProgress(
             self.report,
             every_dashboards=self.config.progress_log_interval_dashboards,
@@ -1175,7 +1177,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return context
         connection = self._datasource_connection(project_id, datasource.connection_id)
         if connection is None:
-            return context
+            return (
+                replace(context, connection_unavailable=True)
+                if normalize_object_id(datasource.connection_id)
+                in self._failed_connection_keys
+                else context
+            )
         return warehouse_context_with_connection(
             context,
             connection,
@@ -1195,6 +1202,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 project_id=project_id,
             )
         except MicroStrategyAPIError as error:
+            self._failed_connection_keys.add(key)
             self.report.report_warehouse_lineage_api_failure()
             self.report.warning(
                 title="Failed to Fetch Datasource Connection",
@@ -1922,6 +1930,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self._release_dashboard_instance(project_id, dashboard_object)
         if model_lineage_index:
             self.mapper.attach_model_lineage(dashboard, model_lineage_index)
+            if lineage_context.model_lineage_degraded:
+                _mark_incomplete(checkpoint)
         if self.config.extract_derived_metrics:
             self.mapper.attach_derived_metrics(dashboard)
             self._enrich_report_derived_metrics(project_id, dashboard)
@@ -2555,6 +2565,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         model_lineage_index = lineage_context.model_lineage_index
         if model_lineage_index:
             self.mapper.attach_dataset_model_lineage(dataset, model_lineage_index)
+            return complete and not lineage_context.model_lineage_degraded
         return complete
 
     def _enrich_report_dataset_sql_lineage(
@@ -2572,12 +2583,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         if not context:
             return True
-        return self._enrich_report_sql_lineage(
+        complete = self._enrich_report_sql_lineage(
             project_id=project_id,
             report_object=report_object,
             dataset=dataset,
             context=context,
         )
+        return complete and not context.connection_unavailable
 
     @timed_phase(MicroStrategyPhase.DASHBOARD_DEFINITION)
     def _get_dashboard_definition(
@@ -3172,10 +3184,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return False
 
         self.report.report_warehouse_lineage_sql_views_scanned(len(sql_view_rows))
-        self._attach_dataset_warehouse_upstreams(
+        return self._attach_dataset_warehouse_upstreams(
             sql_view_rows, dashboard, context, project_id=project_id
         )
-        return True
 
     @timed_phase(MicroStrategyPhase.DOCUMENT_WAREHOUSE_LINEAGE)
     def _enrich_document_warehouse_lineage(
@@ -3211,6 +3222,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if dataset_context is None:
                 self.report.report_sql_view_row_without_context()
                 continue
+            if dataset_context.connection_unavailable:
+                complete = False
             if self._report_lineage_resolved(project_id, dataset.id):
                 self.report.report_document_dataset_sql_view_reused()
                 continue
@@ -3273,7 +3286,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dashboard: DashboardDefinition,
         context: Optional[WarehouseLineageContext],
         project_id: str,
-    ) -> None:
+    ) -> bool:
+        # False when a connection lookup failed, leaving a context without its schema.
+        complete = True
         dataset_by_id = {
             normalize_object_id(dataset.id): dataset for dataset in dashboard.datasets
         }
@@ -3305,6 +3320,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if dataset_context is None:
                 self.report.report_sql_view_row_without_context()
                 continue
+            if dataset_context.connection_unavailable:
+                complete = False
 
             sql_statement = sql_statement_from_sql_view_entry(row)
             if not sql_statement.strip():
@@ -3314,6 +3331,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self._attach_sql_view_lineage(
                 sql_statement, dataset, dataset_context, project_id=project_id
             )
+        return complete
 
     def _attach_sql_view_lineage(
         self,
@@ -3819,6 +3837,7 @@ class _LazyProjectLineage:
         self._table_context_resolver_resolved = False
         # Object identity: the cached table list is shared by both passes.
         self._counted_tables: Set[int] = set()
+        self._table_connection_unavailable = False
 
     def _resolve(self, part: str, fetch: Callable[[], _T]) -> Optional[_T]:
         """Run a project-level lookup once. An unexpected error is reported
@@ -3876,6 +3895,8 @@ class _LazyProjectLineage:
             if datasource
             else None
         )
+        if context is not None and context.connection_unavailable:
+            self._table_connection_unavailable = True
         if id(table) not in self._counted_tables:
             self._counted_tables.add(id(table))
             if context is not None:
@@ -3943,6 +3964,16 @@ class _LazyProjectLineage:
                 ),
             )
         return self._index
+
+    @property
+    def model_lineage_degraded(self) -> bool:
+        # A failed connection lookup left some field URNs without their schema.
+        if self.model_lineage_index is None:
+            return False
+        context = self.warehouse_context
+        return self._table_connection_unavailable or bool(
+            context and context.connection_unavailable
+        )
 
 
 def _metric_items(available_objects: Dict[str, object]) -> Iterable[Dict[str, object]]:

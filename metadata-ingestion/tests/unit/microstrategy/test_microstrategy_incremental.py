@@ -214,6 +214,7 @@ class _MicroStrategy:
         self.failing_definitions: Set[str] = set()
         self.failing_visualizations: Set[str] = set()
         self.failing_sql_views = False
+        self.failing_connection = False
         self.definition_reads: List[str] = []
         self.dossier_instances = 0
         self.report_definition_reads: List[str] = []
@@ -244,17 +245,7 @@ class _MicroStrategy:
                 "list_project_datasources",
                 [Datasource.model_validate(warehouse) for warehouse in self.warehouses],
             ),
-            fixed(
-                "get_datasource_connection",
-                DatasourceConnection.model_validate(
-                    {
-                        "id": "connection-1",
-                        "name": "Sales Connection",
-                        "database": {"type": "snow_flake"},
-                        "connectionString": "DATABASE=SALES_DB;SCHEMA=ORDERS",
-                    }
-                ),
-            ),
+            faked("get_datasource_connection"),
             fixed("get_predefined_folders", []),
             fixed("get_dossier_datasets_sql", []),
             fixed("get_model_document", {}),
@@ -394,6 +385,20 @@ class _MicroStrategy:
         if self.failing_sql_views:
             raise MicroStrategyAPIError("sql view unavailable")
         return SqlView(sqlStatement="select revenue from SALES_DB.ORDERS.ORDERS")
+
+    def get_datasource_connection(
+        self, _client: MicroStrategyClient, connection_id: str, **_: object
+    ) -> DatasourceConnection:
+        if self.failing_connection:
+            raise MicroStrategyAPIError("connection unavailable")
+        return DatasourceConnection.model_validate(
+            {
+                "id": connection_id,
+                "name": "Sales Connection",
+                "database": {"type": "snow_flake"},
+                "connectionString": "DATABASE=SALES_DB;SCHEMA=ORDERS",
+            }
+        )
 
     def list_model_tables(
         self, _client: MicroStrategyClient, project_id: str, **_: object
@@ -761,6 +766,30 @@ def test_report_read_without_its_sql_view_is_read_again(
 
     assert server.report_definition_reads == ["report-1"]
     assert server.report_sql_views == 1
+    assert second.source.report.reports_skipped_unchanged == 0
+    assert _soft_deleted_urns(second.workunits) == set()
+
+
+@pytest.mark.parametrize("dataset_identity", ["per_dashboard", "per_report"])
+def test_report_read_without_its_connection_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    dataset_identity: str,
+) -> None:
+    server = _MicroStrategy()
+    server.failing_connection = True
+    datahub = _DataHub(mock_datahub_graph)
+    first = _run(mock_datahub_graph, server, "run-1", dataset_identity=dataset_identity)
+    datahub.write(first.workunits)
+    assert REPORT_CHART_URN not in _stamped_urns(first.workunits)
+    assert REPORT_1_DATASET_URN not in _stamped_urns(first.workunits)
+    server.failing_connection = False
+    server.report_definition_reads.clear()
+
+    second = _run(
+        mock_datahub_graph, server, "run-2", dataset_identity=dataset_identity
+    )
+
+    assert server.report_definition_reads == ["report-1"]
     assert second.source.report.reports_skipped_unchanged == 0
     assert _soft_deleted_urns(second.workunits) == set()
 
