@@ -1,9 +1,14 @@
 from dataclasses import dataclass, field
 
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_SQLGLOT_WARNINGS_TOP_K,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolverReport
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.stats_collections import TopKDict
 
 
 @dataclass
@@ -144,6 +149,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     document_datasets_skipped_not_grid_report: int = 0
     reports_skipped_not_dashboard_linked: int = 0
     failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)
+    metrics_kept_after_model_failure: int = 0
+    metrics_skipped_after_model_failure: int = 0
+    metric_presence_check_failures: int = 0
     semantic_models_emitted: int = 0
     semantic_model_datasets_emitted: int = 0
     semantic_model_metrics_emitted: int = 0
@@ -151,6 +159,20 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     semantic_model_attribute_relationship_api_failures: int = 0
     semantic_model_consolidation_api_failures: int = 0
     semantic_model_metric_search_api_failures: int = 0
+    sql_parses_executed: int = 0
+    sql_parse_cache_hits: int = 0
+    # Reuses of a failed parse. The failure itself is counted once per distinct SQL.
+    sql_parse_failure_cache_hits: int = 0
+    # Upstream warehouse schema lookups that raised. The lookup is retried on the
+    # next use, and column lineage for that table is skipped meanwhile.
+    warehouse_schema_lookup_failures: int = 0
+    sql_statements_parsed: int = 0
+    report_sql_fetched: int = 0
+    schema_resolver: SchemaResolverReport = field(default_factory=SchemaResolverReport)
+    cache_project_resets: int = 0
+    sqlglot_warnings_suppressed: TopKDict[str, int] = field(
+        default_factory=lambda: TopKDict(int, top_k=MSTR_SQLGLOT_WARNINGS_TOP_K)
+    )
 
     def report_project_scanned(self) -> None:
         self.projects_scanned += 1
@@ -403,6 +425,15 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_failed_metric_model(self, metric_id: str) -> None:
         self.failed_metric_model_ids.append(metric_id)
 
+    def report_metric_kept_after_model_failure(self) -> None:
+        self.metrics_kept_after_model_failure += 1
+
+    def report_metric_skipped_after_model_failure(self) -> None:
+        self.metrics_skipped_after_model_failure += 1
+
+    def report_metric_presence_check_failure(self) -> None:
+        self.metric_presence_check_failures += 1
+
     def report_semantic_model_emitted(self) -> None:
         self.semantic_models_emitted += 1
 
@@ -423,3 +454,21 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_semantic_model_metric_search_api_failure(self) -> None:
         self.semantic_model_metric_search_api_failures += 1
+
+    def report_sql_parse_executed(self, statements: int) -> None:
+        self.sql_parses_executed += 1
+        self.sql_statements_parsed += statements
+
+    def report_sql_parse_cache_hit(self) -> None:
+        self.sql_parse_cache_hits += 1
+
+    def report_sql_parse_failure_cache_hit(self) -> None:
+        self.sql_parse_cache_hits += 1
+        self.sql_parse_failure_cache_hits += 1
+
+    def report_warehouse_schema_lookup_failures(self, count: int) -> None:
+        self.warehouse_schema_lookup_failures += count
+
+    # Not named report_sql_fetched: that is the counter's own attribute.
+    def report_sql_view_fetched(self) -> None:
+        self.report_sql_fetched += 1

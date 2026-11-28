@@ -278,7 +278,10 @@ class MicroStrategyClient:
     def search_metrics(self, project_id: str) -> Iterable[MicroStrategyObject]:
         """Project-wide metric catalog, independent of any specific report/cube."""
         yield from self._search_typed_objects(
-            project_id, MSTR_OBJECT_TYPE_METRIC, "metric search"
+            project_id,
+            MSTR_OBJECT_TYPE_METRIC,
+            "metric search",
+            timeout_seconds=self.config.resolve_model_api_timeout_seconds(),
         )
 
     def get_report_object(
@@ -326,10 +329,12 @@ class MicroStrategyClient:
         project_id: str,
         object_type: int,
         context: str,
+        timeout_seconds: Optional[int] = None,
     ) -> Iterable[MicroStrategyObject]:
         for item in self._metadata_search(
             project_id=project_id,
             type_filter=str(object_type),
+            timeout_seconds=timeout_seconds,
         ):
             parsed = self._parse_model(
                 MicroStrategyObject, item, f"{context} project_id={project_id}"
@@ -456,6 +461,7 @@ class MicroStrategyClient:
             "/api/model/tables",
             project_id=project_id,
             params=params,
+            timeout_seconds=self.config.resolve_model_api_timeout_seconds(),
         )
         return ModelTablesResponse.model_validate(
             payload if isinstance(payload, dict) else {}
@@ -766,6 +772,7 @@ class MicroStrategyClient:
         project_id: str,
         type_filter: Optional[str] = None,
         name: Optional[str] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Iterable[Dict[str, object]]:
         offset = 0
         total: Optional[int] = None
@@ -786,11 +793,18 @@ class MicroStrategyClient:
                 MSTR_API_SEARCHES,
                 project_id=project_id,
                 params=payload,
+                timeout_seconds=timeout_seconds,
             )
             items = self._extract_search_results(result)
             if total is None:
                 total = self._extract_total(result)
             if not items:
+                if total is not None and offset < total:
+                    # Ending here would silently truncate the object list.
+                    raise MicroStrategyAPIError(
+                        f"MicroStrategy search returned an empty page at offset "
+                        f"{offset} of {total} (type={type_filter}, project={project_id})"
+                    )
                 if offset == 0:
                     self._warn_if_unrecognized_shape(result, MSTR_API_SEARCHES)
                 break

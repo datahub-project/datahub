@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from unittest import mock
 
 import pytest
@@ -11,6 +11,9 @@ from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyClient,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_MODEL_API_MIN_TIMEOUT_SECONDS,
+)
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
 
@@ -135,6 +138,7 @@ def test_metadata_search_uses_quick_search_results_endpoint(
         path: str,
         project_id: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
         nonlocal captured_path
         captured_path = path
@@ -164,6 +168,7 @@ def test_search_reports_uses_report_object_type(
         path: str,
         project_id: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
         nonlocal captured_params
         captured_params = params
@@ -189,6 +194,7 @@ def test_search_metrics_uses_metric_object_type(monkeypatch: MonkeyPatch) -> Non
         path: str,
         project_id: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
         nonlocal captured_params
         captured_params = params
@@ -628,6 +634,52 @@ def test_request_raises_after_exhausting_retries_on_persistent_503(
     assert report.api_errors == 1
 
 
+def test_request_retries_network_error_then_succeeds(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, report = _make_client()
+    outcomes: List[Union[requests.RequestException, StatusResponse]] = [
+        requests.ConnectionError("reset"),
+        StatusResponse(200),
+    ]
+
+    def fake_request(**kwargs: object) -> StatusResponse:
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    with mock.patch("time.sleep") as fake_sleep:
+        response = client._request("GET", "/api/projects")
+
+    assert response.status_code == 200
+    assert fake_sleep.call_count == 1
+    assert report.api_errors == 0
+
+
+def test_request_raises_after_exhausting_retries_on_network_errors(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, report = _make_client({"max_retries": 2})
+    call_count = 0
+
+    def fake_request(**kwargs: object) -> StatusResponse:
+        nonlocal call_count
+        call_count += 1
+        raise requests.Timeout("timed out")
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    with mock.patch("time.sleep"), pytest.raises(MicroStrategyAPIError) as error:
+        client._request("GET", "/api/projects")
+
+    assert call_count == 3
+    assert error.value.status_code is None
+    assert report.api_errors == 1
+
+
 def test_sql_view_and_instance_calls_use_a_single_attempt(
     monkeypatch: MonkeyPatch,
 ) -> None:
@@ -832,6 +884,7 @@ def test_metadata_search_paginates_until_total_items(
         path: str,
         project_id: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
         assert params is not None
         requested_offsets.append(params["offset"])
@@ -843,6 +896,30 @@ def test_metadata_search_paginates_until_total_items(
 
     assert len(items) == 5
     assert requested_offsets == [0, 2, 4]
+
+
+def test_metadata_search_empty_page_before_total_items_raises(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, _report = _make_client({"page_size": 1000})
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        assert params is not None
+        offset = params["offset"]
+        items = (
+            [] if offset == 2000 else [{"id": f"d{offset + i}"} for i in range(1000)]
+        )
+        return {"result": items, "totalItems": 5000}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    with pytest.raises(MicroStrategyAPIError):
+        list(client._metadata_search(project_id="project-1"))
 
 
 def test_login_without_auth_token_header_raises(monkeypatch: MonkeyPatch) -> None:
@@ -892,7 +969,7 @@ def test_search_dashboards_skips_malformed_objects(monkeypatch: MonkeyPatch) -> 
     monkeypatch.setattr(
         client,
         "_get_json",
-        lambda path, project_id=None, params=None: {
+        lambda path, project_id=None, params=None, timeout_seconds=None: {
             "result": [
                 {"id": "dash-1", "name": "Dashboard 1"},
                 {"name": "no id"},
@@ -1080,3 +1157,68 @@ def test_close_without_login_does_not_log_out(monkeypatch: MonkeyPatch) -> None:
 
     assert calls == []
     assert report.warnings == []
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected"),
+    [
+        ({"timeout_seconds": 30}, MSTR_MODEL_API_MIN_TIMEOUT_SECONDS),
+        ({"timeout_seconds": 300}, 300),
+    ],
+)
+def test_model_tables_use_the_model_api_timeout(
+    monkeypatch: MonkeyPatch, overrides: Dict[str, int], expected: int
+) -> None:
+    client, _ = _make_client(overrides)
+    timeouts: List[object] = []
+
+    def fake_get_json(path: str, **kwargs: object) -> Dict[str, object]:
+        timeouts.append(kwargs.get("timeout_seconds"))
+        return {"tables": [], "total": 0}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    client.list_model_tables("project-1")
+
+    assert timeouts == [expected]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected"),
+    [
+        ({"timeout_seconds": 30}, MSTR_MODEL_API_MIN_TIMEOUT_SECONDS),
+        ({"timeout_seconds": 300}, 300),
+    ],
+)
+def test_metric_search_uses_the_model_api_timeout(
+    monkeypatch: MonkeyPatch, overrides: Dict[str, int], expected: int
+) -> None:
+    client, _ = _make_client(overrides)
+    timeouts: List[object] = []
+
+    def fake_get_json(path: str, **kwargs: object) -> Dict[str, object]:
+        timeouts.append(kwargs.get("timeout_seconds"))
+        return {"result": [], "totalItems": 0}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    assert list(client.search_metrics("project-1")) == []
+    assert timeouts == [expected]
+
+
+def test_other_searches_keep_the_configured_timeout(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, _ = _make_client({"timeout_seconds": 30})
+    timeouts: List[object] = []
+
+    def fake_get_json(path: str, **kwargs: object) -> Dict[str, object]:
+        timeouts.append(kwargs.get("timeout_seconds"))
+        return {"result": [], "totalItems": 0}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    list(client.search_dashboards("project-1"))
+    list(client.search_reports("project-1"))
+
+    assert timeouts == [None, None]

@@ -1,10 +1,17 @@
-from typing import Any, Dict, Iterator, List, Optional
+import logging
+from typing import Any, Dict, Iterator, List, Optional, Set
+from unittest import mock
+
+import pytest
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.microstrategy.client import MicroStrategyAPIError
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT,
+)
 from datahub.ingestion.source.microstrategy.lineage import MicroStrategyLineageExtractor
 from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import (
     MicroStrategySemanticModelMapper,
@@ -41,12 +48,15 @@ class FakeSemanticModelClient:
         attribute_relationships: Optional[Dict[str, Dict[str, Any]]] = None,
         consolidation_models: Optional[Dict[str, Dict[str, Any]]] = None,
         search_metrics_fails: bool = False,
+        metric_models_fail: bool = False,
     ) -> None:
         self._metrics = metrics or []
         self._metric_models = metric_models or {}
         self._attribute_relationships = attribute_relationships or {}
         self._consolidation_models = consolidation_models or {}
         self._search_metrics_fails = search_metrics_fails
+        self._metric_models_fail = metric_models_fail
+        self.metric_model_calls: List[str] = []
         self.attribute_relationship_calls: List[str] = []
         self.consolidation_calls: List[str] = []
 
@@ -56,6 +66,9 @@ class FakeSemanticModelClient:
         return iter(self._metrics)
 
     def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        self.metric_model_calls.append(metric_id)
+        if self._metric_models_fail:
+            raise MicroStrategyAPIError("metric model unavailable")
         return self._metric_models.get(metric_id, {})
 
     def get_attribute_relationships(
@@ -696,35 +709,190 @@ def test_consolidated_metric_resolves_upstream_through_consolidation_attributes(
     assert client.consolidation_calls == ["CONSOL1"]
 
 
-def test_metric_model_fetch_failure_warns_and_skips_that_metric() -> None:
-    client = FakeSemanticModelClient(
-        metrics=[_metric_object("BROKEN", "Broken Metric")],
-        metric_models={},  # no fixture -> get_metric_model raises via override below
-    )
-
-    def _raise(project_id: str, metric_id: str) -> Dict[str, Any]:
-        raise MicroStrategyAPIError("boom")
-
-    client.get_metric_model = _raise  # type: ignore[method-assign]
-    mapper = _mapper(client)
-    model_tables = [_table("SALES", attributes=[], facts=[_fact("FACT1", "Revenue")])]
-
-    aspects = _aspects_by_urn(
-        list(
-            mapper.emit(
-                project_id="project-1",
-                project_name="Project One",
-                model_tables=model_tables,
-                warehouse_context=None,
-                project_container_key=_project_container_key(),
-            )
+def _emit_metrics(mapper: MicroStrategySemanticModelMapper) -> List[MetadataWorkUnit]:
+    return list(
+        mapper.emit(
+            project_id="project-1",
+            project_name="Project One",
+            model_tables=[
+                _table("SALES", attributes=[], facts=[_fact("FACT1", "Revenue")])
+            ],
+            warehouse_context=None,
+            project_container_key=_project_container_key(),
         )
     )
 
-    metric_urn = "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,BROKEN)"
-    assert metric_urn not in aspects
-    assert mapper.report.metric_expression_api_failures == 1
-    assert list(mapper.report.failed_metric_model_ids) == ["BROKEN"]
+
+_BROKEN_METRIC_URN = (
+    "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,BROKEN)"
+)
+
+
+def _failing_metric_mapper(
+    *, graph: Optional[mock.Mock], metric_count: int = 1
+) -> MicroStrategySemanticModelMapper:
+    metrics = (
+        [_metric_object("BROKEN", "Broken Metric")]
+        if metric_count == 1
+        else [
+            _metric_object(f"M{index}", f"Metric {index}")
+            for index in range(metric_count)
+        ]
+    )
+    mapper = _mapper(FakeSemanticModelClient(metrics=metrics, metric_models_fail=True))
+    mapper.graph = graph
+    return mapper
+
+
+def _graph_with_exists(result: bool) -> mock.Mock:
+    graph = mock.Mock()
+    graph.exists.return_value = result
+    return graph
+
+
+def test_metric_model_fetch_failure_keeps_an_existing_metric_untouched() -> None:
+    graph = _graph_with_exists(True)
+    mapper = _failing_metric_mapper(graph=graph)
+
+    aspects = _aspects_by_urn(_emit_metrics(mapper))
+
+    graph.exists.assert_called_once_with(_BROKEN_METRIC_URN)
+    assert list(aspects[_BROKEN_METRIC_URN]) == ["StatusClass"]
+    assert mapper.report.metrics_kept_after_model_failure == 1
+    assert mapper.report.semantic_model_metrics_emitted == 0
+    assert not mapper.report.failures
+
+
+def test_metric_model_fetch_failure_emits_shell_for_an_absent_metric() -> None:
+    mapper = _failing_metric_mapper(graph=_graph_with_exists(False))
+
+    aspects = _aspects_by_urn(_emit_metrics(mapper))
+
+    assert "MetricInfoClass" in aspects[_BROKEN_METRIC_URN]
+    assert mapper.report.metrics_kept_after_model_failure == 0
+    assert not mapper.report.failures
+
+
+def test_metric_model_fetch_failure_without_graph_emits_nothing_for_the_metric() -> (
+    None
+):
+    mapper = _failing_metric_mapper(graph=None)
+
+    aspects = _aspects_by_urn(_emit_metrics(mapper))
+
+    assert _BROKEN_METRIC_URN not in aspects
+    assert mapper.report.metrics_skipped_after_model_failure == 1
+    assert not mapper.report.failures
+    assert [w.title for w in mapper.report.warnings] == [
+        "MicroStrategy Metric Model Unavailable"
+    ]
+
+
+def test_unverifiable_metric_without_graph_fails_the_run_once_when_stale_removal_is_on() -> (
+    None
+):
+    mapper = _failing_metric_mapper(graph=None, metric_count=3)
+    mapper.config = _config(
+        stateful_ingestion={"enabled": True, "remove_stale_metadata": True}
+    )
+
+    _emit_metrics(mapper)
+
+    assert mapper.report.metrics_skipped_after_model_failure == 3
+    assert len(mapper.report.failures) == 1
+
+
+def test_metric_presence_check_failure_emits_nothing_and_fails_the_run_once() -> None:
+    graph = mock.Mock()
+    graph.exists.side_effect = RuntimeError("graph down")
+    mapper = _failing_metric_mapper(graph=graph, metric_count=3)
+
+    aspects = _aspects_by_urn(_emit_metrics(mapper))
+
+    assert not [urn for urn in aspects if urn.startswith("urn:li:metric:")]
+    assert mapper.report.metrics_skipped_after_model_failure == 3
+    assert mapper.report.metric_presence_check_failures == 3
+    assert [failure.title for failure in mapper.report.failures] == [
+        "Failed to check MicroStrategy metrics in DataHub"
+    ]
+
+
+def test_metric_presence_check_failures_count_toward_the_consecutive_limit() -> None:
+    graph = mock.Mock()
+    graph.exists.side_effect = RuntimeError("graph down")
+    mapper = _failing_metric_mapper(
+        graph=graph, metric_count=MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT + 5
+    )
+
+    _emit_metrics(mapper)
+
+    assert graph.exists.call_count == MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+    assert {failure.title for failure in mapper.report.failures} == {
+        "Failed to check MicroStrategy metrics in DataHub",
+        "MicroStrategy Metric Models Unavailable",
+    }
+
+
+def test_consecutive_metric_model_failures_stop_the_loop_and_fail_the_run() -> None:
+    client = FakeSemanticModelClient(
+        metrics=[
+            _metric_object(f"M{index}", f"Metric {index}")
+            for index in range(MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT + 5)
+        ],
+        metric_models_fail=True,
+    )
+    mapper = _mapper(client)
+
+    _emit_metrics(mapper)
+
+    assert len(client.metric_model_calls) == MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+    assert [failure.title for failure in mapper.report.failures] == [
+        "MicroStrategy Metric Models Unavailable"
+    ]
+
+
+class _FlakyMetricClient(FakeSemanticModelClient):
+    def __init__(self, *, failing_ids: Set[str], **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._failing_ids = failing_ids
+
+    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        if metric_id in self._failing_ids:
+            self.metric_model_calls.append(metric_id)
+            raise MicroStrategyAPIError("metric model unavailable")
+        return super().get_metric_model(project_id, metric_id)
+
+
+def test_a_successful_metric_model_resets_the_consecutive_failure_count() -> None:
+    limit = MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+    ids = [f"M{index}" for index in range(2 * (limit - 1) + 1)]
+    client = _FlakyMetricClient(
+        metrics=[_metric_object(metric_id, metric_id) for metric_id in ids],
+        failing_ids=set(ids) - {ids[limit - 1]},
+    )
+    mapper = _mapper(client)
+    mapper.graph = _graph_with_exists(False)
+
+    _emit_metrics(mapper)
+
+    assert len(client.metric_model_calls) == len(ids)
+    assert not mapper.report.failures
+
+
+@pytest.mark.parametrize("exists", [True, False])
+def test_consecutive_failures_stop_the_loop_for_known_metrics(exists: bool) -> None:
+    limit = MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+    mapper = _failing_metric_mapper(
+        graph=_graph_with_exists(exists), metric_count=limit + 5
+    )
+
+    _emit_metrics(mapper)
+
+    assert mapper.report.metrics_kept_after_model_failure == (limit if exists else 0)
+    assert mapper.report.semantic_model_metrics_emitted == (0 if exists else limit - 1)
+    assert [failure.title for failure in mapper.report.failures] == [
+        "MicroStrategy Metric Models Unavailable"
+    ]
 
 
 def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
@@ -764,3 +932,50 @@ def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
     assert model_urn in aspects
     assert dataset_urn in aspects
     assert mapper.report.semantic_model_metric_search_api_failures == 1
+    # A warning would let stale removal soft-delete every previously emitted metric.
+    assert [failure.title for failure in mapper.report.failures] == [
+        "MicroStrategy Metric Search Unavailable"
+    ]
+
+
+def test_metrics_are_emitted_as_they_are_fetched(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fetched: List[str] = []
+
+    class RecordingClient(FakeSemanticModelClient):
+        def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+            fetched.append(metric_id)
+            return {"expression": {"text": f"Sum({metric_id})", "tokens": []}}
+
+    client = RecordingClient(
+        metrics=[_metric_object("METRIC1", "One"), _metric_object("METRIC2", "Two")]
+    )
+    mapper = _mapper(client)
+    model_tables = [_table("SALES", attributes=[], facts=[_fact("FACT1", "Revenue")])]
+
+    fetched_at_first_metric: Optional[int] = None
+    with (
+        caplog.at_level(logging.INFO),
+        mock.patch(
+            "datahub.ingestion.source.microstrategy.microstrategy_semantic_model."
+            "MSTR_PROGRESS_LOG_INTERVAL_METRICS",
+            1,
+        ),
+    ):
+        for wu in mapper.emit(
+            project_id="project-1",
+            project_name="Project One",
+            model_tables=model_tables,
+            warehouse_context=None,
+            project_container_key=_project_container_key(),
+        ):
+            if fetched_at_first_metric is None and wu.get_urn().startswith(
+                "urn:li:metric:"
+            ):
+                fetched_at_first_metric = len(fetched)
+
+    assert fetched_at_first_metric == 1
+    assert fetched == ["METRIC1", "METRIC2"]
+    assert mapper.report.semantic_model_metrics_emitted == 2
+    assert "Semantic model metrics: 1/2 read, 0 failed" in caplog.text

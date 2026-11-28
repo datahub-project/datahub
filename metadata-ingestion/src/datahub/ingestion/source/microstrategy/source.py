@@ -41,6 +41,7 @@ from datahub.ingestion.source.microstrategy.client import (
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
+    MSTR_CACHE_MEMORY_ENTRIES,
     MSTR_CUBE_SUBTYPES,
     MSTR_DEFINITION_ENDPOINT_METRIC_MODEL,
     MSTR_DEFINITION_ENDPOINT_MODEL,
@@ -55,6 +56,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_PERSONAL_FOLDER_TYPES,
     MSTR_PREDEFINED_FOLDER_LABELS,
     MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES,
+    MSTR_PROGRESS_LOG_INTERVAL_DASHBOARDS,
     USAGE_TARGET_CHART,
     USAGE_TARGET_DASHBOARD,
 )
@@ -63,7 +65,6 @@ from datahub.ingestion.source.microstrategy.lineage import (
     SqlViewLineage,
     WarehouseLineageContext,
     bind_visualizations_by_derived_objects,
-    ensure_sql_lineage_dependencies,
     matching_datasource_for_context,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
@@ -101,6 +102,10 @@ from datahub.ingestion.source.microstrategy.models import (
     normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import SpillCache
+from datahub.ingestion.source.microstrategy.sqlglot_warnings import (
+    suppress_sqlglot_warnings,
+)
 from datahub.ingestion.source.microstrategy.usage import (
     MicroStrategyUsageExtractor,
     UsageBucket,
@@ -121,6 +126,9 @@ _ERROR_SUMMARY_MAX_CHARS = 300
 # Modeling document answers that mean the whole project lacks access. 404 is
 # left out: the endpoint can answer it for a single unmodelled document.
 _MODEL_DOCUMENT_PROJECT_WIDE_STATUSES = frozenset({403, 501})
+
+# Model tables answers that a second request will not change.
+_MODEL_TABLES_NON_RETRYABLE_STATUSES = frozenset({403, 501})
 
 
 class _PredefinedFoldersUnavailable(Exception):
@@ -168,17 +176,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.client = MicroStrategyClient(config, self.report)
         self.mapper = MicroStrategyMapper(config, self.report)
         self.lineage = self.mapper.lineage
-        if self.config.extract_lineage and (
-            self.config.extract_warehouse_lineage
-            or self.config.extract_report_sql_lineage
-        ):
-            # Fail at construction, not per SQL view: a missing parser module
-            # would otherwise be swallowed into per-statement parse warnings
-            # and the run would report SUCCESS with zero warehouse lineage.
-            ensure_sql_lineage_dependencies()
         # (project id, metric id) -> model; {} once a fetch failed.
         self._metric_model_cache: Dict[Tuple[str, str], Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
+        self._model_tables_non_retryable_projects: Set[str] = set()
         # The Modeling document of the dashboard in flight, so binding and
         # document derived metrics share one GET. Dashboards are processed one
         # at a time, so only the latest is kept.
@@ -194,10 +195,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._dataset_object_cache: Dict[
             Tuple[str, str], Optional[MicroStrategyObject]
         ] = {}
-        # (project id, report id) -> the SQL _report_sql_statement returned
-        # (None once a read failed), so a grid report shared by many documents
-        # is executed once per run and a failed one is not retried.
-        self._report_sql_cache: Dict[Tuple[str, str], Optional[str]] = {}
+        # Report SQL is large and reused across documents; a failed read is not retried.
+        self._report_sql_cache: SpillCache[Optional[str]] = SpillCache(
+            MSTR_CACHE_MEMORY_ENTRIES, compress=True
+        )
         # (project id, report id) -> derived metric definitions, or None once
         # every definition endpoint failed for it.
         self._report_derived_metric_cache: Dict[
@@ -233,6 +234,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # Object GUID (upper) -> usage target for entities ingested this run;
         # usage buckets only attach to these.
         self._usage_targets: Dict[str, UsageTarget] = {}
+        self._dashboards_processed = 0
 
     @classmethod
     def create(
@@ -265,63 +267,87 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.client.login()
-        auth_lost = False
         try:
-            if self.config.emit_chapter_page_structured_properties:
-                yield from self._emit_chapter_page_structured_property_definitions()
-            projects = self.client.list_projects()
-            for index, project in enumerate(projects, start=1):
-                if not self.config.project_pattern.allowed(project.name):
-                    self.report.filtered_projects.append(project.name)
-                    continue
-                # A project can take minutes (paginated searches plus per-object
-                # execution), so show which project is in flight and how far along.
-                logger.info(
-                    "Processing project %r (%s) [%d/%d]",
-                    project.name,
-                    project.id,
-                    index,
-                    len(projects),
-                )
-                try:
-                    with self.report.new_stage(
-                        f"{project.name}: {METADATA_EXTRACTION}"
-                    ):
-                        yield from self._process_project(project)
-                except MicroStrategyAuthError as error:
-                    # Auth is dead: every remaining call fails identically, so stop
-                    # with one clear failure instead of a per-project cascade.
-                    self.report.failure(
-                        title="MicroStrategy Authentication Lost",
-                        message=(
-                            "The session was invalidated mid-run and could not "
-                            "be re-established; aborting the remaining projects."
-                        ),
-                        context=f"project_id={project.id}, project_name={project.name}",
-                        exc=error,
-                    )
-                    auth_lost = True
-                    break
-                except ConfigurationError:
-                    # Environmental (e.g. a missing parser dependency): every
-                    # remaining project would fail identically, so surface it
-                    # as a run failure instead of per-project noise.
-                    raise
-                except Exception as error:
-                    self.report.failure(
-                        title="Failed to Process Project",
-                        message=(
-                            "Skipping the rest of this project after an unexpected "
-                            "error; other projects will still be processed."
-                        ),
-                        context=f"project_id={project.id}, project_name={project.name}",
-                        exc=error,
-                    )
-            if self.config.extract_usage_statistics and not auth_lost:
-                yield from self._process_usage_statistics(projects)
+            with suppress_sqlglot_warnings(self.report):
+                yield from self._process_projects()
         finally:
+            self._cleanup()
+
+    def _process_projects(self) -> Iterable[MetadataWorkUnit]:
+        auth_lost = False
+        if self.config.emit_chapter_page_structured_properties:
+            yield from self._emit_chapter_page_structured_property_definitions()
+        projects = self.client.list_projects()
+        for index, project in enumerate(projects, start=1):
+            if not self.config.project_pattern.allowed(project.name):
+                self.report.filtered_projects.append(project.name)
+                continue
+            # A project can take minutes (paginated searches plus per-object
+            # execution), so show which project is in flight and how far along.
+            logger.info(
+                "Processing project %r (%s) [%d/%d]",
+                project.name,
+                project.id,
+                index,
+                len(projects),
+            )
+            try:
+                with self.report.new_stage(f"{project.name}: {METADATA_EXTRACTION}"):
+                    yield from self._process_project(project)
+            except MicroStrategyAuthError as error:
+                # Auth is dead: every remaining call fails identically, so stop
+                # with one clear failure instead of a per-project cascade.
+                self.report.failure(
+                    title="MicroStrategy Authentication Lost",
+                    message=(
+                        "The session was invalidated mid-run and could not "
+                        "be re-established; aborting the remaining projects."
+                    ),
+                    context=f"project_id={project.id}, project_name={project.name}",
+                    exc=error,
+                )
+                auth_lost = True
+                break
+            except ConfigurationError:
+                # Environmental (e.g. a missing parser dependency): every
+                # remaining project would fail identically, so surface it
+                # as a run failure instead of per-project noise.
+                raise
+            except Exception as error:
+                self.report.failure(
+                    title="Failed to Process Project",
+                    message=(
+                        "Skipping the rest of this project after an unexpected "
+                        "error; other projects will still be processed."
+                    ),
+                    context=f"project_id={project.id}, project_name={project.name}",
+                    exc=error,
+                )
+        if self.config.extract_usage_statistics and not auth_lost:
+            yield from self._process_usage_statistics(projects)
+
+    def _cleanup(self) -> None:
+        # Each step runs even if an earlier one raises.
+        try:
             self._warn_if_every_sql_view_failed()
-            self.client.close()
+        finally:
+            try:
+                self.lineage.close()
+            finally:
+                try:
+                    self._report_sql_cache.close()
+                finally:
+                    self.client.close()
+
+    def _reset_project_caches(self) -> None:
+        # Memory and temporary disk track the largest project, not the whole run.
+        self._report_sql_cache.reset()
+        self._dataset_object_cache.clear()
+        self._report_derived_metric_cache.clear()
+        self._metric_model_cache.clear()
+        self._report_objects.clear()
+        self.lineage.reset_project_caches()
+        self.report.cache_project_resets += 1
 
     def _emit_chapter_page_structured_property_definitions(
         self,
@@ -343,12 +369,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_chapter_page_structured_property_definition_emitted()
 
     def _warn_if_every_sql_view_failed(self) -> None:
-        """SQL-view lineage that fails on every single statement is almost
-        never a per-statement problem (an unsupported dialect, a missing
-        dependency, a broken warehouse context); make that pattern obvious in
-        the report instead of leaving N identical parse warnings to be read."""
         parsed = self.report.sql_views_parsed
-        failed = self.report.sql_parse_failure_count
+        # Cache hits count in sql_views_parsed; a failure counts once, plus its reuses.
+        failed = (
+            self.report.sql_parse_failure_count
+            + self.report.sql_parse_failure_cache_hits
+        )
         if parsed == 0 or failed < parsed:
             return
         first_failure = next(iter(self.report.sql_parse_failures), "")
@@ -433,21 +459,30 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # Warehouse/model-table lookups are deferred until an allowed dashboard/report
         # needs them, so fully-filtered projects don't pay for those API calls.
         lineage_context = _LazyProjectLineage(self, project.id, source_warehouses)
-        # Report ids referenced by allowed dashboards, collected during the
-        # dashboard pass so the report pass can scope to them.
-        linked_report_ids: Set[str] = set()
         yield from self.mapper.gen_project_container(
             project,
             source_warehouses=source_warehouses,
         )
-        if (
-            self.config.extract_dashboards or self.config.extract_reports
-        ) and not self._resolve_project_folders(project):
-            if self.config.emit_semantic_model_entities:
-                yield from self._process_project_semantic_model(
-                    project, lineage_context
-                )
+        try:
+            yield from self._process_project_content(project, lineage_context)
+        finally:
+            # The semantic model does not read these caches, so free them first.
+            self._reset_project_caches()
+        if self.config.emit_semantic_model_entities:
+            yield from self._process_project_semantic_model(project, lineage_context)
+
+    def _process_project_content(
+        self,
+        project: Project,
+        lineage_context: "_LazyProjectLineage",
+    ) -> Iterable[MetadataWorkUnit]:
+        if not (self.config.extract_dashboards or self.config.extract_reports):
             return
+        if not self._resolve_project_folders(project):
+            return
+        # Report ids referenced by allowed dashboards, collected during the
+        # dashboard pass so the report pass can scope to them.
+        linked_report_ids: Set[str] = set()
         if self.config.extract_dashboards:
             yield from self._process_project_dashboards(
                 project,
@@ -460,15 +495,25 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 lineage_context,
                 linked_report_ids,
             )
-        if self.config.emit_semantic_model_entities:
-            yield from self._process_project_semantic_model(project, lineage_context)
 
     def _process_project_semantic_model(
         self,
         project: Project,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
-        model_tables = lineage_context.model_tables
+        model_tables = lineage_context.model_tables_retrying_failure()
+        if model_tables is None:
+            # [] would let stale removal soft-delete the semantic model.
+            self.report.failure(
+                title="MicroStrategy Semantic Model Unavailable",
+                message=(
+                    "Skipping semantic-model emission for this project because "
+                    "the model tables API could not be read. Stale-entity "
+                    "removal is skipped for this run."
+                ),
+                context=f"project_id={project.id}",
+            )
+            return
         if not model_tables:
             self.report.warning(
                 title="MicroStrategy Semantic Model Unavailable",
@@ -484,6 +529,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             client=self.client,
             lineage=self.lineage,
+            graph=self.ctx.graph,
         )
         yield from semantic_model_mapper.emit(
             project_id=project.id,
@@ -631,6 +677,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     ),
                     exc=error,
                 )
+            finally:
+                self._log_dashboard_progress()
+
+    def _log_dashboard_progress(self) -> None:
+        self._dashboards_processed += 1
+        if self._dashboards_processed % MSTR_PROGRESS_LOG_INTERVAL_DASHBOARDS == 0:
+            logger.info(
+                "MicroStrategy progress: %d dashboards processed, %d datasets scanned",
+                self._dashboards_processed,
+                self.report.datasets_scanned,
+            )
 
     def _resolve_project_folders(self, project: Project) -> bool:
         try:
@@ -1609,6 +1666,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     fields="information,physicalTable,attributes,facts",
                 )
             except MicroStrategyAPIError as error:
+                if error.status_code in _MODEL_TABLES_NON_RETRYABLE_STATUSES:
+                    self._model_tables_non_retryable_projects.add(project_id)
                 self.report.report_model_lineage_api_failure()
                 self.report.warning(
                     title="MicroStrategy Model Lineage Unavailable",
@@ -1624,21 +1683,37 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
             tables = response.tables
             if tables is None:
-                if offset == 0:
-                    self.report.warning(
-                        title="Unrecognized model tables response shape",
+                # A second request returns the same payload.
+                self._model_tables_non_retryable_projects.add(project_id)
+                # [] would let stale removal soft-delete the semantic model.
+                self.report.failure(
+                    title="Unrecognized model tables response shape",
+                    message=(
+                        "The model tables API returned a payload without a "
+                        "'tables' list; model lineage and the semantic model are "
+                        "skipped for this project."
+                    ),
+                    context=f"project_id={project_id}, offset={offset}",
+                )
+                return None
+            total = response.total
+            if not tables:
+                if isinstance(total, int) and offset < total:
+                    # A partial list would drop the missing tables' lineage
+                    # and let stale removal soft-delete their semantic model.
+                    self.report.failure(
+                        title="MicroStrategy Model Tables Truncated",
                         message=(
-                            "The model tables API returned a payload without a "
-                            "'tables' list; model lineage may be missing."
+                            "The model tables API returned an empty page before "
+                            "the reported total; model lineage and the semantic "
+                            "model are skipped for this project."
                         ),
-                        context=f"project_id={project_id}",
+                        context=f"project_id={project_id}, offset={offset}, total={total}",
                     )
+                    return None
                 break
             model_tables.extend(table for table in tables if isinstance(table, dict))
-            total = response.total
             offset += len(tables)
-            if not tables:
-                break
             # Large projects paginate thousands of model tables; log progress so
             # the lineage-index build does not look hung.
             logger.info(
@@ -1972,13 +2047,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if dataset_context is None:
                 self.report.report_sql_view_row_without_context()
                 continue
-            cache_key = (project_id, normalize_object_id(dataset.id))
+            cache_key = _report_sql_cache_key(project_id, dataset.id)
             if cache_key in self._report_sql_cache:
                 # Dataset URNs are document-scoped but the report's SQL is
                 # not, so a report shared by many documents is read once and
                 # its lineage attached to each; a remembered failure is not
                 # retried and not counted again.
-                sql_statement = self._report_sql_cache[cache_key]
+                sql_statement = self._report_sql_cache.get(cache_key)
                 self.report.report_document_dataset_sql_view_reused()
             else:
                 if self._execution_limit_reached(project_id):
@@ -1991,7 +2066,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         f"dataset_id={dataset.id}"
                     ),
                 )
-                self._report_sql_cache[cache_key] = sql_statement
+                self._report_sql_cache.put(cache_key, sql_statement)
                 if sql_statement is None:
                     self.report.report_document_dataset_sql_view_failure()
             if not sql_statement:
@@ -2076,6 +2151,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             context,
             self.mapper.dataset_field_paths(dataset),
             graph=self.ctx.graph,
+            label=f"{dataset.name} ({dataset.id})",
         )
         if result.upstream_urns:
             dataset.warehouse_upstream_urns = result.upstream_urns
@@ -2090,10 +2166,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dataset: DatasetObject,
         context: WarehouseLineageContext,
     ) -> None:
-        cache_key = (project_id, normalize_object_id(report_object.id))
+        cache_key = _report_sql_cache_key(project_id, report_object.id)
         if cache_key in self._report_sql_cache:
             # Already read this run as the dataset of a document.
-            sql_statement = self._report_sql_cache[cache_key]
+            sql_statement = self._report_sql_cache.get(cache_key)
         else:
             if self._execution_limit_reached(project_id):
                 return
@@ -2102,7 +2178,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 report_object.id,
                 context=f"project_id={project_id}, report_id={report_object.id}",
             )
-            self._report_sql_cache[cache_key] = sql_statement
+            self._report_sql_cache.put(cache_key, sql_statement)
         if not sql_statement:
             return
 
@@ -2158,6 +2234,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self._delete_report_instance(project_id, report_id, instance_id)
 
         sql_statement = sql_view.get_statement()
+        self.report.report_sql_view_fetched()
         if not sql_statement:
             self.report.report_sql_view_without_statement()
         return sql_statement
@@ -2509,6 +2586,23 @@ class _LazyProjectLineage:
             )
         return self._model_tables
 
+    def model_tables_retrying_failure(self) -> Optional[List[Dict[str, object]]]:
+        # The first fetch is hours earlier; one failure drops the semantic model.
+        # A refusal such as a 403 is not worth a second request.
+        if (
+            self._model_tables_resolved
+            and self._model_tables is None
+            and self._project_id
+            not in self._source._model_tables_non_retryable_projects
+        ):
+            logger.info(
+                "Retrying the model tables fetch for the semantic model "
+                "(project=%s); the earlier fetch failed",
+                self._project_id,
+            )
+            self._model_tables_resolved = False
+        return self.model_tables
+
     @property
     def model_lineage_index(self) -> Optional[ModelLineageIndex]:
         if not self._index_resolved:
@@ -2522,6 +2616,10 @@ class _LazyProjectLineage:
                 ),
             )
         return self._index
+
+
+def _report_sql_cache_key(project_id: str, report_id: str) -> str:
+    return f"{project_id}:{normalize_object_id(report_id)}"
 
 
 def _metric_items(available_objects: Dict[str, object]) -> Iterable[Dict[str, object]]:

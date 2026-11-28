@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 
 import pytest
 
+from datahub.ingestion.source.microstrategy.lineage import metric_formula_references
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
@@ -11,6 +12,7 @@ from datahub.ingestion.source.microstrategy.models import (
     PersonalFolderResolution,
     ReportDefinition,
     extract_document_derived_metric_definitions,
+    extract_embedded_metric_definitions,
     is_document_object,
     is_dossier_view_media,
     is_personal_folder_object,
@@ -161,7 +163,7 @@ def test_datasource_connection_parses_jdbc_url_query_params() -> None:
     connection = DatasourceConnection.model_validate(
         {
             "id": "conn-1",
-            "name": "SNOWFLAKE_DWH_JDBC_Connection",
+            "name": "MY_SNOWFLAKE_JDBC_CONNECTION",
             "database": {"type": "snow_flake"},
             "connectionString": (
                 ";JDBC;DRIVER={net.snowflake.client.jdbc.SnowflakeDriver};"
@@ -314,10 +316,6 @@ def _model_report_payload() -> dict:
 
 
 def test_extract_embedded_metric_definitions_finds_derived_metrics_only() -> None:
-    from datahub.ingestion.source.microstrategy.models import (
-        extract_embedded_metric_definitions,
-    )
-
     definitions = {
         definition.id: definition
         for definition in extract_embedded_metric_definitions(_model_report_payload())
@@ -339,10 +337,6 @@ def test_extract_embedded_metric_definitions_finds_derived_metrics_only() -> Non
 def test_extract_embedded_metric_definitions_names_flagged_derived_without_formula() -> (
     None
 ):
-    from datahub.ingestion.source.microstrategy.models import (
-        extract_embedded_metric_definitions,
-    )
-
     # v2 report definitions may flag a derived metric without exposing its
     # expression; the object name is still worth having.
     payload = {
@@ -367,10 +361,6 @@ def test_extract_embedded_metric_definitions_names_flagged_derived_without_formu
 
 
 def test_metric_formula_references_accept_braces_and_brackets() -> None:
-    from datahub.ingestion.source.microstrategy.lineage import (
-        metric_formula_references,
-    )
-
     assert metric_formula_references("([Net Sales Amt]/[Store Net Sales Amt])-1") == [
         "Net Sales Amt",
         "Store Net Sales Amt",
@@ -577,10 +567,6 @@ def test_dossier_definition_has_no_layouts() -> None:
 
 
 def test_extract_embedded_metric_definitions_follow_data_template_order() -> None:
-    from datahub.ingestion.source.microstrategy.models import (
-        extract_embedded_metric_definitions,
-    )
-
     def derived(object_id: str, name: str) -> Dict[str, Any]:
         return {
             "id": object_id,

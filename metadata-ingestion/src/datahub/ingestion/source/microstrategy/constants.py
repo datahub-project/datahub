@@ -1,5 +1,8 @@
 import re
-from typing import Dict, Tuple
+from collections.abc import Sequence
+from typing import Dict, Final, Tuple
+
+from datahub.utilities.str_enum import StrEnum
 
 MICROSTRATEGY_PLATFORM = "microstrategy"
 
@@ -521,3 +524,39 @@ MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] =
         "1-based position of the visualization's page within its chapter.",
     ),
 )
+
+
+class MetricPresence(StrEnum):
+    PRESENT = "present"
+    ABSENT = "absent"
+    UNKNOWN = "unknown"
+
+
+# Isolated metric model 500s are expected; a long run of them means the
+# Modeling service is down and every further call would fail too.
+MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT = 20
+
+# Metric search and /api/model/tables are slow on large projects.
+MSTR_MODEL_API_MIN_TIMEOUT_SECONDS = 120
+
+MSTR_PROGRESS_LOG_INTERVAL_DASHBOARDS = 25
+MSTR_PROGRESS_LOG_INTERVAL_METRICS = 1000
+
+# Per-project report SQL and parsed SQL lineage entries kept in memory before
+# older ones spill to a temporary local file.
+MSTR_CACHE_MEMORY_ENTRIES = 2000
+
+MSTR_SQLGLOT_LOGGER = "sqlglot"
+# One warning per generated statement; they fill the executor's bounded log.
+MSTR_SQLGLOT_SUPPRESSED_PREFIXES: Final[Sequence[str]] = ("Unsupported property",)
+
+MSTR_PARSE_LABEL_PREFIX = "sql "
+MSTR_PARSE_LABEL_HASH_CHARS = 12
+
+MSTR_MAX_EVICTION_BATCH = 150
+MSTR_EVICTION_BATCH_DIVISOR = 4
+
+MSTR_SQLGLOT_WARNINGS_TOP_K = 10
+
+MSTR_REASON_NO_GRAPH = "no DataHub connection"
+MSTR_REASON_PRESENCE_CHECK_FAILED = "DataHub lookup failed"

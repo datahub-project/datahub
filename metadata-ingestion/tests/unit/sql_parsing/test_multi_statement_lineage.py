@@ -2,6 +2,7 @@ from typing import Callable, Dict, List, Set
 
 import pytest
 
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_from_sql_statements,
@@ -993,3 +994,26 @@ class TestSnowflakeCopyGrantMultiStatementLineage:
         )
         assert _table_short_names(result.in_tables) == set()
         assert _table_short_names(result.out_tables) == {"t"}
+
+
+def test_caller_supplied_schema_resolver_is_used_and_left_open() -> None:
+    resolver = SchemaResolver(platform="postgres", env="PROD")
+    resolver.add_raw_schema_info(
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,dev.public.src,PROD)",
+        {"id": "INTEGER", "name": "VARCHAR"},
+    )
+
+    for _ in range(2):
+        result = _parse(
+            ["CREATE TABLE dev.public.dst AS SELECT * FROM dev.public.src"],
+            schema_resolver=resolver,
+        )
+        assert result.column_lineage is not None
+        assert sorted(c.downstream.column for c in result.column_lineage) == [
+            "id",
+            "name",
+        ]
+
+    assert not resolver.closed
+    assert resolver.schema_count() == 1
+    resolver.close()
