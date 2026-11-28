@@ -25,6 +25,7 @@ from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     DatasourceConnection,
     MicroStrategyObject,
+    ModelTablesResponse,
     Project,
     SqlView,
 )
@@ -193,6 +194,9 @@ class _MicroStrategy:
                 ancestors=[{"id": "folder-2", "name": "Data"}],
             )
         self.warehouses: List[Dict[str, object]] = [WAREHOUSE]
+        self.model_tables: List[Dict[str, object]] = [
+            {"id": "table-1", "physicalTable": {"tableName": "ORDERS"}}
+        ]
         self.failing_definitions: Set[str] = set()
         self.failing_visualizations: Set[str] = set()
         self.failing_sql_views = False
@@ -238,6 +242,7 @@ class _MicroStrategy:
                 ),
             ),
             fixed("get_predefined_folders", []),
+            fixed("get_dossier_datasets_sql", []),
             fixed("get_model_document", {}),
             fixed("delete_dossier_instance", True),
             fixed("delete_report_instance", True),
@@ -252,6 +257,7 @@ class _MicroStrategy:
             faked("get_dossier_visualization"),
             faked("get_report_definition"),
             faked("get_report_sql_view"),
+            faked("list_model_tables"),
             patch.object(
                 MicroStrategyClient,
                 "get_document_definition",
@@ -361,6 +367,13 @@ class _MicroStrategy:
         if self.failing_sql_views:
             raise MicroStrategyAPIError("sql view unavailable")
         return SqlView(sqlStatement="select revenue from SALES_DB.ORDERS.ORDERS")
+
+    def list_model_tables(
+        self, _client: MicroStrategyClient, project_id: str, **_: object
+    ) -> ModelTablesResponse:
+        return ModelTablesResponse(
+            tables=self.model_tables, total=len(self.model_tables)
+        )
 
     def _request(
         self, _client: MicroStrategyClient, method: str, path: str, **_: object
@@ -606,6 +619,20 @@ def test_warehouse_order_does_not_change_the_fingerprint(
 
     assert server.definition_reads == []
     assert second.source.report.dashboards_skipped_unchanged == 2
+
+
+def test_model_table_change_reads_everything(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    first = _first_run(mock_datahub_graph, extract_model_lineage=True)
+    first.server.model_tables[0]["physicalTable"] = {"tableName": "ORDERS_V2"}
+
+    second = _run(
+        mock_datahub_graph, first.server, "run-2", extract_model_lineage=True
+    )
+
+    assert first.server.definition_reads == ["dash-1", "dash-2"]
+    assert second.source.report.dashboards_skipped_unchanged == 0
 
 
 def test_recipe_change_reads_everything(

@@ -189,6 +189,16 @@ def _stamped_in_datahub(
     )
 
 
+def _rows_digest(rows: Optional[Sequence[Mapping[str, object]]]) -> Optional[str]:
+    # Hashed once here; a large project's rows would otherwise go into every fingerprint.
+    if rows is None:
+        return None
+    body = json.dumps(
+        sorted(json.dumps(row, sort_keys=True, default=str) for row in rows)
+    )
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
 # The evaluate methods only read, so they are safe on worker threads.
 class MicroStrategyChangeDetector:
     def __init__(self, config: MicroStrategyConfig) -> None:
@@ -200,6 +210,7 @@ class MicroStrategyChangeDetector:
         project_id: str,
         source_warehouses: Sequence[Datasource],
         predefined_folders: PredefinedFolderResolution,
+        model_tables: Optional[Sequence[Mapping[str, object]]],
     ) -> None:
         # Anything shaping every object's output re-reads the whole project.
         self._salts[project_id] = json.dumps(
@@ -220,6 +231,7 @@ class MicroStrategyChangeDetector:
                 ],
                 "folder_labels": sorted(predefined_folders.labels.items()),
                 "hidden_folders": sorted(predefined_folders.hidden_ids),
+                "model_tables": _rows_digest(model_tables),
             },
             sort_keys=True,
             default=str,

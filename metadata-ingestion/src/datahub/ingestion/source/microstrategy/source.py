@@ -891,7 +891,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return
         if self._skips_unchanged():
             self._change_detector.init_project(
-                project.id, source_warehouses, self._predefined_folders(project.id)
+                project.id,
+                source_warehouses,
+                self._predefined_folders(project.id),
+                # Model lineage of every object comes from these project-wide rows.
+                lineage_context.model_tables
+                if self.config.extract_lineage and self.config.extract_model_lineage
+                else None,
             )
         if (
             self._per_report
