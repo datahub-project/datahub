@@ -65,3 +65,17 @@ def test_multiple_acks() -> None:
 
     ack_manager.ack(meta2, processed=True)
     assert ack_manager.outstanding_acks() == 0
+
+
+def test_ack_releases_only_its_own_event() -> None:
+    # A batching action (act() returns False) acks each event later, once its
+    # batch is written. The pipeline may already have acked one of them, for
+    # example after act() raised, so a duplicate ack must be harmless.
+    ack_manager = AckManager()
+    ack_manager.new_batch()
+    metas = [ack_manager.get_meta(f"event{i}") for i in range(3)]
+
+    ack_manager.ack(metas[1], processed=True)
+    ack_manager.ack(metas[1], processed=True)
+
+    assert ack_manager.outstanding_acks() == 2

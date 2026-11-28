@@ -42,6 +42,9 @@ class Action(Closeable, metaclass=ABCMeta):
             Whether to immediately commit the event as processed successfully.
             Return False if the event has been recorded but should not be acknowledged
             until some later time, e.g. due to batch or asynchronous processing.
+            Acknowledge each such event later with ``ctx.event_source.ack(event)``. Don't
+            rely on one acknowledgement covering earlier events: the Kafka source commits
+            offsets that way, but the datahub-cloud source tracks each event separately.
 
             Returning None is equivalent to returning True, i.e. it assumes the event was processed successfully.
 

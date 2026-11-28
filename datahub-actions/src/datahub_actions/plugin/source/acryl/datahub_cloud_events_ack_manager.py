@@ -25,11 +25,11 @@ class AckManager:
         return {"batch_id": self.batch_id, "msg_id": self.msg_id}
 
     def ack(self, meta: dict, processed: bool) -> None:
-        batch_id, msg_id = (meta["batch_id"], meta["msg_id"])
-        if processed:
-            self.acks.pop((batch_id, msg_id))
-        else:
-            logger.warning(f"Whoops - we didn't process {meta}")
+        if not processed:
+            # Batching actions defer the ack and send it once the batch is written.
+            logger.debug(f"Event not acked yet: {meta}")
+            return
+        self.acks.pop((meta["batch_id"], meta["msg_id"]), None)
 
     def outstanding_acks(self) -> int:
         return len(self.acks)
