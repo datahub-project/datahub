@@ -192,6 +192,12 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     # Upstream warehouse schema lookups that raised. The lookup is retried on the
     # next use, and column lineage for that table is skipped meanwhile.
     warehouse_schema_lookup_failures: int = 0
+    # Parsed upstream tables without the database/schema their platform's
+    # names need (the SQL named them bare and the datasource gave no default),
+    # and semantic-model tables whose warehouse name could not be qualified.
+    # Neither is emitted: such a URN never joins the warehouse dataset.
+    sql_upstreams_skipped_unqualified: int = 0
+    semantic_model_tables_without_warehouse_name: int = 0
     sql_statements_parsed: int = 0
     report_sql_fetched: int = 0
     schema_resolver: SchemaResolverReport = field(default_factory=SchemaResolverReport)
@@ -671,6 +677,14 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_semantic_model_metric_search_api_failure(self) -> None:
         with self._lock:
             self.semantic_model_metric_search_api_failures += 1
+
+    def report_sql_upstreams_skipped_unqualified(self, count: int) -> None:
+        with self._lock:
+            self.sql_upstreams_skipped_unqualified += count
+
+    def report_semantic_model_table_without_warehouse_name(self) -> None:
+        with self._lock:
+            self.semantic_model_tables_without_warehouse_name += 1
 
     def report_sql_parse_executed(self, statements: int) -> None:
         with self._lock:

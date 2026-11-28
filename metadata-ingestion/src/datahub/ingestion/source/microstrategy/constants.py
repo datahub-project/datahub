@@ -423,6 +423,19 @@ MSTR_PLATFORM_QUALIFIED_NAME_PARTS = {
     "mariadb": 2,
 }
 MSTR_DEFAULT_QUALIFIED_NAME_PARTS = 3
+# Fewest parts a parsed SQL table name needs to be able to join a native
+# dataset: Teradata and Athena name tables database.table, and the Oracle
+# source defaults to schema.table, so two parts are complete there.
+MSTR_PLATFORM_MIN_NAME_PARTS = {
+    "athena": 2,
+    "mariadb": 2,
+    "mysql": 2,
+    "oracle": 2,
+    "teradata": 2,
+}
+# Dummy one-row tables (Oracle, MySQL) that a SQL view can select from without
+# reading data.
+MSTR_DUMMY_TABLE_NAMES = frozenset({"dual"})
 
 # Keywords and function names excluded when extracting column identifiers from
 # model expression text (e.g. `SUM(QTY_SOLD * UNIT_PRICE)` must yield only the
@@ -601,6 +614,8 @@ MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] =
 )
 
 MSTR_MODEL_TABLE_DATASOURCE_FIELD = "primaryDataSource"
+# physicalTable.type of a logical view: it has a sqlStatement and no tableName.
+MSTR_LOGICAL_VIEW_TABLE_TYPE = "sql"
 MSTR_MODEL_TABLE_FIELDS = ",".join(
     ("information", "physicalTable", "attributes", "facts")
 )

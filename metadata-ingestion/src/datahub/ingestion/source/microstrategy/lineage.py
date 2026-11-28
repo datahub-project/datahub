@@ -30,14 +30,17 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_CACHE_MEMORY_ENTRIES,
     MSTR_CREATE_TABLE_NAME_RE,
     MSTR_DEFAULT_QUALIFIED_NAME_PARTS,
+    MSTR_DUMMY_TABLE_NAMES,
     MSTR_HEX_OBJECT_ID_RE,
     MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE,
     MSTR_LINEAGE_STOP_WORDS,
+    MSTR_LOGICAL_VIEW_TABLE_TYPE,
     MSTR_METRIC_REFERENCE_RE,
     MSTR_NAME_TOKEN_RE,
     MSTR_NON_ALNUM_RE,
     MSTR_PARSE_LABEL_HASH_CHARS,
     MSTR_PARSE_LABEL_PREFIX,
+    MSTR_PLATFORM_MIN_NAME_PARTS,
     MSTR_PLATFORM_QUALIFIED_NAME_PARTS,
     MSTR_SELECT_STATEMENT_RE,
     MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM,
@@ -63,6 +66,7 @@ from datahub.ingestion.source.microstrategy.spill_cache import (
     SpillConnection,
 )
 from datahub.metadata.schema_classes import SchemaMetadataClass
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
@@ -647,9 +651,12 @@ class MicroStrategyLineageExtractor:
             )
             return _failed_parse(failed_lookups)
 
+        table_upstreams, dropped = self._joinable_upstreams(
+            result.in_tables, context, label
+        )
         column_upstreams: Dict[str, List[str]] = {}
         if want_columns:
-            skipped = set(failed_lookups)
+            skipped = set(failed_lookups) | dropped
             for column_lineage in result.column_lineage or []:
                 # Without the upstream schema the column casing is a guess.
                 upstream_urns = column_refs_to_schema_field_urns(
@@ -662,10 +669,45 @@ class MicroStrategyLineageExtractor:
 
         return _ParsedSqlView(
             status=_SqlViewParseStatus.PARSED,
-            upstream_urns=_dedupe_sorted(result.in_tables),
+            upstream_urns=_dedupe_sorted(table_upstreams),
             column_upstreams=column_upstreams,
             failed_lookup_urns=failed_lookups,
         )
+
+    def _joinable_upstreams(
+        self, in_tables: List[str], context: WarehouseLineageContext, label: str
+    ) -> Tuple[List[str], Set[str]]:
+        kept: List[str] = []
+        unqualified: List[str] = []
+        dropped: Set[str] = set()
+        instance_prefix = (
+            f"{context.platform_instance}." if context.platform_instance else ""
+        )
+        min_parts = _min_name_parts(context.platform)
+        for urn in in_tables:
+            name = DatasetUrn.from_string(urn).name
+            if instance_prefix and name.startswith(instance_prefix):
+                name = name[len(instance_prefix) :]
+            if _leaf_identifier(name) in MSTR_DUMMY_TABLE_NAMES:
+                dropped.add(urn)
+            elif len(name.split(".")) < min_parts:
+                unqualified.append(urn)
+                dropped.add(urn)
+            else:
+                kept.append(urn)
+        if unqualified:
+            self.report.report_sql_upstreams_skipped_unqualified(len(unqualified))
+            self.report.warning(
+                title="Unqualified Warehouse Table Skipped",
+                message=(
+                    "A SQL view names a table without the database or schema its "
+                    "platform needs, and its datasource gives no default, so no "
+                    "upstream is emitted for it."
+                ),
+                context=f"{label}: {len(unqualified)} tables, e.g. {unqualified[0]}",
+                log=False,
+            )
+        return kept, dropped
 
     def _evict_failed_lookups(
         self, schema_resolver: Optional[_EvictingSchemaResolver], label: str
@@ -1159,10 +1201,18 @@ def _platform_name_parts(platform: str) -> int:
     )
 
 
+def _min_name_parts(platform: str) -> int:
+    return MSTR_PLATFORM_MIN_NAME_PARTS.get(platform, _platform_name_parts(platform))
+
+
 def _physical_table_name(
     physical_table: Dict[str, object],
     context: WarehouseLineageContext,
 ) -> Optional[str]:
+    # A logical view's information.name is its MicroStrategy name, not a
+    # warehouse table; its upstreams come from its SQL instead.
+    if physical_table.get("type") == MSTR_LOGICAL_VIEW_TABLE_TYPE:
+        return None
     table_name = _clean_identifier_part(physical_table.get("tableName"))
     if not table_name:
         information = physical_table.get("information")
@@ -1175,13 +1225,14 @@ def _physical_table_name(
     # context without a database gives no name rather than a guessed one.
     if not context.database:
         return None
-    return qualify_table_name(
+    name = qualify_table_name(
         table_name,
         database=context.database,
         schema=_clean_identifier_part(physical_table.get("tablePrefix"))
         or context.schema,
         name_parts=_platform_name_parts(context.platform),
     )
+    return name if len(name.split(".")) >= _min_name_parts(context.platform) else None
 
 
 def _model_expression_field_names(item: Dict[str, object]) -> List[str]:
