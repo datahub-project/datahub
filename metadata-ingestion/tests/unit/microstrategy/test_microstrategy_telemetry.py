@@ -27,8 +27,8 @@ from datahub.ingestion.source.microstrategy.telemetry import (
 )
 from datahub.utilities.file_backed_collections import FileBackedDict
 
-_OBJECT_ID = "975C6B213B4DBCA9E59CAB80ABBA98FE"
-_INSTANCE_ID = "5EF5353155407668866F609421112F2D"
+_OBJECT_ID = "0123456789ABCDEF0123456789ABCDEF"
+_INSTANCE_ID = "FEDCBA9876543210FEDCBA9876543210"
 _CONTEXT = WarehouseLineageContext(
     platform="snowflake", env="PROD", database="SALES_DB", schema="SALES"
 )
@@ -385,13 +385,13 @@ def test_run_progress_logs_each_dashboard_and_periodic_progress(
         report.report_api_call("GET", "/api/projects", 200, 4.0)
         report.datasets_scanned += 3
         with caplog.at_level(logging.INFO):
-            progress.dashboard_done("Adhoc_RMA", f"Doc {index}", f"id-{index}", before)
+            progress.dashboard_done("my_project", f"Doc {index}", f"id-{index}", before)
 
     assert report.dashboards_timed == 2
     assert report.dashboard_seconds_histogram == {"10-30s": 2}
     assert report.datasets_by_slow_dashboard == {
-        "Adhoc_RMA/Doc 0 (id-0)": 3,
-        "Adhoc_RMA/Doc 1 (id-1)": 3,
+        "my_project/Doc 0 (id-0)": 3,
+        "my_project/Doc 1 (id-1)": 3,
     }
     messages = [record.getMessage() for record in caplog.records]
     assert any(
@@ -447,8 +447,8 @@ def test_endpoint_template_replaces_dossier_chapter_and_visualization_keys() -> 
     assert (
         endpoint_template(
             "GET",
-            f"{base}/chapters/W305FE5BF92C64F2CA6D26C8BE05DABA2/visualizations/"
-            "K83D395FF5640E145258BC2B1E1CA12FC",
+            f"{base}/chapters/W00112233445566778899AABBCCDDEEFF/visualizations/"
+            "KFFEEDDCCBBAA99887766554433221100",
         )
         == expected
     )
