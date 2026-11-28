@@ -12,15 +12,18 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTMetric,
     DBTNode,
     DBTSourceReport,
+    extract_dbt_metrics,
+    parse_dbt_metric_filter,
     parse_semantic_model,
 )
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
     _resolve_database_schema,
-    extract_dbt_metrics,
 )
-from datahub.ingestion.source.dbt.dbt_semantic_model import DbtSemanticModelMapper
+from datahub.ingestion.source.dbt.dbt_semantic_model import (
+    DbtSemanticModelMapper,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DatasetPropertiesClass,
@@ -70,6 +73,7 @@ def _sm_node(
     upstreams: Optional[List[str]] = None,
     package_name: str = _PROJECT,
     convert_urns_to_lowercase: bool = False,
+    description: str = "",
 ) -> DBTNode:
     return DBTNode(
         dbt_name=f"semantic_model.{package_name}.{name}",
@@ -83,7 +87,7 @@ def _sm_node(
         node_type="semantic_model",
         max_loaded_at=None,
         comment="",
-        description="",
+        description=description,
         upstream_nodes=upstreams or [],
         materialization=None,
         catalog_type=None,
@@ -987,6 +991,9 @@ def test_metric_filter_is_folded_into_the_expression():
         _expression_of(info[big].expression).expression
         == "sum(orders.order_total) FILTER (WHERE amount > 100)"
     )
+    # A filter in neither the string nor the where_filters shape is not read.
+    assert parse_dbt_metric_filter({"unexpected": True}) is None
+    assert parse_dbt_metric_filter(None) is None
 
 
 def test_two_predicates_are_parenthesised_so_or_keeps_its_scope():
@@ -1401,11 +1408,6 @@ def test_a_failed_metrics_probe_warns_even_on_the_auto_enable_path():
 # --- project name -----------------------------------------------------------
 
 
-def test_config_pins_the_project_name_over_the_manifest():
-    source = _source(semantic_model_project_name="pinned")
-    assert source._resolve_semantic_model_project_name("from_manifest", []) == "pinned"
-
-
 def test_the_package_name_is_the_fallback_when_there_is_no_manifest_metadata():
     # dbt Cloud has no manifest metadata, but the Discovery API returns
     # packageName for each semantic model.
@@ -1440,13 +1442,28 @@ def test_an_undeterminable_project_name_is_a_failure_not_a_guess():
     assert source.report.failures
 
 
+def test_the_deprecated_top_level_project_name_still_pins_it():
+    source = _source(semantic_model_project_name="pinned")
+    assert source._resolve_semantic_model_project_name("from_manifest", []) == "pinned"
+
+
+def test_emit_semantic_model_entities_is_a_boolean():
+    config = DBTCommonConfig.model_validate(
+        {"target_platform": "postgres", "emit_semantic_model_entities": True}
+    )
+    assert config.emit_semantic_model_entities is True
+
+
 @pytest.mark.parametrize("value", ["", "   ", "a,b", "a(b", "a)b"])
 def test_an_unusable_project_name_override_is_rejected_at_config_time(
     value: str,
 ) -> None:
     with pytest.raises(ValueError):
         DBTCommonConfig.model_validate(
-            {"target_platform": "postgres", "semantic_model_project_name": value}
+            {
+                "target_platform": "postgres",
+                "semantic_model_project_name": value,
+            }
         )
 
 
