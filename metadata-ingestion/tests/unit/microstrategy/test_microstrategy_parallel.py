@@ -840,12 +840,14 @@ def test_report_counters_and_first_failure_flag_are_exact_under_threads(
         barrier.wait(timeout=_WAIT_SECONDS)
         for _ in range(500):
             report.report_dashboard_scanned()
+            report.report_datasource_skipped_without_database()
         firsts.append(report.report_metric_presence_check_failure())
         report.warning(title="Worker warning", message="m", context=f"worker={idx}")
 
     _run_threads(8, worker)
 
     assert report.dashboards_scanned == 8 * 500
+    assert report.datasources_skipped_without_database == 8 * 500
     assert firsts.count(True) == 1
     assert report.metric_presence_check_failures == 8
 

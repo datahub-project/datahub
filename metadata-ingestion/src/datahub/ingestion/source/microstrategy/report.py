@@ -346,7 +346,8 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
             self.warehouse_lineage_api_failures += 1
 
     def report_datasource_skipped_without_database(self) -> None:
-        self.datasources_skipped_without_database += 1
+        with self._lock:
+            self.datasources_skipped_without_database += 1
 
     def report_metric_field(self) -> None:
         with self._lock:
