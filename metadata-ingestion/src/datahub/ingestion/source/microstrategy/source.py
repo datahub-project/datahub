@@ -486,6 +486,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         return [
             self._metric_models,
             self._type3_objects,
+            self._fingerprint_objects,
             self._report_sql_statements,
             self._report_v2_payloads,
             self._report_derived_metrics,
@@ -502,6 +503,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             for cache in (
                 self._report_sql_statements,
                 self._type3_objects,
+                self._fingerprint_objects,
                 self._report_derived_metrics,
                 self._report_v2_payloads,
             ):

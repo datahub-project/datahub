@@ -1521,6 +1521,10 @@ def _fill_project_caches(source: MicroStrategySource) -> None:
         _REPORT_KEY,
         _ReportObjectLookup.from_fetch(ReportObjectLookupKind.DATASET, None),
     )
+    source._fingerprint_objects.put(
+        _REPORT_KEY,
+        _ReportObjectLookup.from_fetch(ReportObjectLookupKind.DATASET, None),
+    )
     source._report_derived_metrics.put(_REPORT_KEY, None)
     source._report_v2_payloads.put(_REPORT_KEY, {})
     source._metric_models.put(_METRIC_KEY, None)
@@ -1537,6 +1541,7 @@ def _project_cache_values(source: MicroStrategySource) -> List[object]:
     return [
         source._report_sql_statements.get(_REPORT_KEY),
         source._type3_objects.get(_REPORT_KEY),
+        source._fingerprint_objects.get(_REPORT_KEY),
         source._report_derived_metrics.get(_REPORT_KEY),
         source._report_v2_payloads.get(_REPORT_KEY),
         source._metric_models.get(_METRIC_KEY),
@@ -1544,7 +1549,7 @@ def _project_cache_values(source: MicroStrategySource) -> List[object]:
     ]
 
 
-_EMPTY_PROJECT_CACHES: List[object] = [unset, unset, unset, unset, unset, None]
+_EMPTY_PROJECT_CACHES: List[object] = [unset, unset, unset, unset, unset, unset, None]
 
 
 def _assert_project_caches_empty(source: MicroStrategySource) -> None:
@@ -1606,7 +1611,15 @@ def test_report_caches_are_released_when_project_content_raises() -> None:
         list(source._process_project(_PROJECT))
 
     # Metric models stay for the semantic model until the project is done.
-    assert _project_cache_values(source) == [unset, unset, unset, unset, None, None]
+    assert _project_cache_values(source) == [
+        unset,
+        unset,
+        unset,
+        unset,
+        unset,
+        None,
+        None,
+    ]
 
 
 def test_each_project_starts_with_empty_caches_and_the_run_closes_them() -> None:
