@@ -9,6 +9,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
+    MSTR_MODEL_API_MIN_TIMEOUT_SECONDS,
     MicroStrategyDatasetIdentity,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -95,11 +96,12 @@ class MicroStrategyConfig(
         gt=0,
         description="HTTP request timeout in seconds.",
     )
-    model_api_timeout_seconds: int = Field(
-        default=120,
+    model_api_timeout_seconds: Optional[int] = Field(
+        default=None,
         gt=0,
         description=(
-            "HTTP timeout in seconds for the project metric search and the model tables API."
+            "HTTP timeout in seconds for the project metric search and the model tables API. "
+            f"Defaults to `timeout_seconds`, raised to at least {MSTR_MODEL_API_MIN_TIMEOUT_SECONDS}."
         ),
     )
     max_retries: int = Field(
@@ -622,6 +624,24 @@ class MicroStrategyConfig(
                 "emitted through the dashboard warehouse lineage path."
             )
         return self
+
+    @model_validator(mode="after")
+    def _per_report_requires_a_dataset_source(self) -> "MicroStrategyConfig":
+        if self.per_report and not (self.extract_cubes or self.extract_reports):
+            raise ValueError(
+                "dataset_identity: per_report requires extract_cubes or "
+                "extract_reports: without either no dataset is emitted."
+            )
+        return self
+
+    @property
+    def per_report(self) -> bool:
+        return self.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT
+
+    def resolve_model_api_timeout_seconds(self) -> int:
+        if self.model_api_timeout_seconds is not None:
+            return self.model_api_timeout_seconds
+        return max(self.timeout_seconds, MSTR_MODEL_API_MIN_TIMEOUT_SECONDS)
 
     @field_validator("base_url", mode="after")
     @classmethod

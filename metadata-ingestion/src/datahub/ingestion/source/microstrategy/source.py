@@ -1,8 +1,10 @@
+import contextlib
 import logging
 from collections import Counter
 from typing import (
     Callable,
     Dict,
+    Generator,
     Iterable,
     List,
     Optional,
@@ -62,7 +64,6 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_SQLGLOT_LOGGER,
     MSTR_UNKNOWN_DATASOURCE_TYPE,
     MicroStrategyCache,
-    MicroStrategyDatasetIdentity,
     MicroStrategyPhase,
     UsageTargetKind,
 )
@@ -220,8 +221,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._report_sql_cache: SpillCache[Optional[str]] = SpillCache(
             self.config.cache_memory_entries, compress=True
         )
-        # Released twice per project; both must count as one reset.
-        self._project_caches_released = False
         # (project id, report id) -> derived metric definitions, or None once
         # every definition endpoint failed for it.
         self._report_derived_metric_cache: Dict[
@@ -239,10 +238,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # where max_consecutive_execution_timeouts tripped.
         self._consecutive_execution_timeouts: Dict[str, int] = {}
         self._execution_limited_projects: Set[str] = set()
-        # One dataset per report per project, shared by every dashboard that embeds it.
-        self._per_report = (
-            self.config.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT
-        )
         self._report_datasets: Dict[_ReportDatasetKey, _ReportDatasetEntry] = {}
         if self.config.extract_derived_metrics and not (
             self.config.extract_lineage and self.config.extract_visualization_details
@@ -328,7 +323,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         f"{project.name}: {METADATA_EXTRACTION}"
                     ):
                         yield from self._process_project(project)
-                    self._progress.log_progress()
                 except MicroStrategyAuthError as error:
                     # Auth is dead: every remaining call fails identically, so stop
                     # with one clear failure instead of a per-project cascade.
@@ -358,37 +352,34 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         context=f"project_id={project.id}, project_name={project.name}",
                         exc=error,
                     )
-                finally:
-                    self._reset_project_caches()
             if self.config.extract_usage_statistics and not auth_lost:
                 yield from self._process_usage_statistics(projects)
         finally:
-            self._progress.log_progress()
-            sqlglot_logger.removeFilter(sqlglot_filter)
-            self._warn_if_every_sql_view_failed()
-            self.lineage.close()
-            self._report_sql_cache.close()
-            self.client.close()
+            # Callbacks run last-registered first, each even if an earlier one raises.
+            with contextlib.ExitStack() as cleanup:
+                cleanup.callback(self.client.close)
+                cleanup.callback(self._report_sql_cache.close)
+                cleanup.callback(self.lineage.close)
+                cleanup.callback(self._warn_if_every_sql_view_failed)
+                cleanup.callback(sqlglot_logger.removeFilter, sqlglot_filter)
+                cleanup.callback(self._progress.log_progress)
 
     def _reset_project_caches(self) -> None:
         # Memory and temporary disk track the largest project, not the whole run.
-        if self._project_caches_released:
-            return
-        self._project_caches_released = True
-        for cache, entries in {
-            MicroStrategyCache.REPORT_SQL: self._report_sql_cache.reset(),
-            MicroStrategyCache.DATASET_OBJECT: len(self._dataset_object_cache),
-            MicroStrategyCache.REPORT_DERIVED_METRIC: len(
-                self._report_derived_metric_cache
+        self.report.report_cache_entries(
+            MicroStrategyCache.REPORT_SQL, self._report_sql_cache.reset()
+        )
+        for name, cache in (
+            (MicroStrategyCache.DATASET_OBJECT, self._dataset_object_cache),
+            (
+                MicroStrategyCache.REPORT_DERIVED_METRIC,
+                self._report_derived_metric_cache,
             ),
-            MicroStrategyCache.METRIC_MODEL: len(self._metric_model_cache),
-            MicroStrategyCache.REPORT_OBJECT: len(self._report_objects),
-        }.items():
-            self.report.report_cache_entries(cache, entries)
-        self._dataset_object_cache.clear()
-        self._report_derived_metric_cache.clear()
-        self._metric_model_cache.clear()
-        self._report_objects.clear()
+            (MicroStrategyCache.METRIC_MODEL, self._metric_model_cache),
+            (MicroStrategyCache.REPORT_OBJECT, self._report_objects),
+        ):
+            self.report.report_cache_entries(name, len(cache))
+            cache.clear()
         self._report_datasets.clear()
         self.lineage.reset_project_caches()
         self.report.cache_project_resets += 1
@@ -500,7 +491,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _process_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
-        self._project_caches_released = False
         source_warehouses = self._get_project_source_warehouses(project.id)
         # Warehouse/model-table lookups are deferred until an allowed dashboard/report
         # needs them, so fully-filtered projects don't pay for those API calls.
@@ -512,26 +502,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             project,
             source_warehouses=source_warehouses,
         )
-        if (
-            self.config.extract_dashboards or self.config.extract_reports
-        ) and not self._resolve_project_folders(project):
-            if self.config.emit_semantic_model_entities:
-                yield from self._process_project_semantic_model(
-                    project, lineage_context
-                )
-            return
         try:
-            yield from self._process_project_passes(
-                project, lineage_context, linked_report_ids
-            )
-        except Exception:
-            # Charts and dashboards already emitted point at these datasets. Not
-            # a finally: yielding while the generator closes raises RuntimeError.
-            if self._per_report:
-                yield from self._gen_report_dataset_workunits(project.id)
-            raise
-        if self._per_report:
-            yield from self._gen_report_dataset_workunits(project.id)
+            if (
+                self.config.extract_dashboards or self.config.extract_reports
+            ) and self._resolve_project_folders(project):
+                yield from self._process_project_passes(
+                    project, lineage_context, linked_report_ids
+                )
+        finally:
+            # The semantic model does not read these caches, so free them first.
+            self._reset_project_caches()
         if self.config.emit_semantic_model_entities:
             yield from self._process_project_semantic_model(project, lineage_context)
 
@@ -541,18 +521,29 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         lineage_context: "_LazyProjectLineage",
         linked_report_ids: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
-        if self.config.extract_dashboards:
-            yield from self._process_project_dashboards(
-                project,
-                lineage_context,
-                linked_report_ids,
-            )
-        if self.config.extract_reports:
-            yield from self._process_project_reports(
-                project,
-                lineage_context,
-                linked_report_ids,
-            )
+        try:
+            if self.config.extract_dashboards:
+                yield from self._process_project_dashboards(
+                    project,
+                    lineage_context,
+                    linked_report_ids,
+                )
+            if self.config.extract_reports:
+                yield from self._process_project_reports(
+                    project,
+                    lineage_context,
+                    linked_report_ids,
+                )
+        except Exception as error:
+            # Charts and dashboards already emitted point at these datasets. Not
+            # a finally: yielding while the generator closes raises RuntimeError.
+            if self.config.per_report:
+                yield from self._gen_report_dataset_workunits(
+                    project.id, cached_only=isinstance(error, MicroStrategyAuthError)
+                )
+            raise
+        if self.config.per_report:
+            yield from self._gen_report_dataset_workunits(project.id)
 
     @timed_generator_phase(MicroStrategyPhase.SEMANTIC_MODEL)
     def _process_project_semantic_model(
@@ -560,8 +551,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project: Project,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
-        # The semantic model does not read the dashboard caches, so release them first.
-        self._reset_project_caches()
         model_tables = lineage_context.model_tables_retrying_failure()
         if model_tables is None:
             # [] would let stale removal soft-delete the semantic model.
@@ -590,6 +579,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             client=self.client,
             lineage=self.lineage,
+            graph=self.ctx.graph,
         )
         yield from semantic_model_mapper.emit(
             project_id=project.id,
@@ -856,7 +846,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 )
             finally:
                 self._progress.dashboard_done(
-                    project.name, dashboard_object.name, dashboard_object.id, before
+                    project_name=project.name,
+                    dashboard_name=dashboard_object.name,
+                    dashboard_id=dashboard_object.id,
+                    before=before,
                 )
 
     def _resolve_project_folders(self, project: Project) -> bool:
@@ -1101,7 +1094,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _report_dataset_entry(
         self, project_id: str, dataset_id: str
     ) -> Optional["_ReportDatasetEntry"]:
-        if not self._per_report:
+        if not self.config.per_report:
             return None
         return self._report_datasets.get(_report_dataset_key(project_id, dataset_id))
 
@@ -1110,29 +1103,35 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         entry = self._report_dataset_entry(project_id, dataset_id)
         return entry is not None and entry.lineage_resolved
 
-    def _bind_report_dataset(
-        self,
-        project_id: str,
-        dashboard_object: MicroStrategyObject,
-        dataset: DatasetObject,
+    def _shared_report_dataset(
+        self, project_id: str, dataset: DatasetObject
     ) -> DatasetObject:
         # Later dashboards share the first one's instance, so enrichment accumulates once.
         cache_key = _report_dataset_key(project_id, dataset.id)
         entry = self._report_datasets.get(cache_key)
         if entry is None:
-            entry = _ReportDatasetEntry(
-                dataset=dataset, first_dashboard_object=dashboard_object
-            )
-        else:
-            self.report.report_report_deduplicated()
-            if entry.dataset.source_warehouse is None:
-                entry.dataset.source_warehouse = dataset.source_warehouse
-        if dashboard_object.id not in entry.dashboard_ids:
-            entry = entry.model_copy(
-                update={"dashboard_ids": [*entry.dashboard_ids, dashboard_object.id]}
-            )
-        self._report_datasets[cache_key] = entry
+            entry = _ReportDatasetEntry(dataset=dataset)
+            self._report_datasets[cache_key] = entry
+        elif entry.dataset.source_warehouse is None:
+            entry.dataset.source_warehouse = dataset.source_warehouse
         return entry.dataset
+
+    def _record_report_dataset_dashboard(
+        self,
+        project_id: str,
+        dashboard_object: MicroStrategyObject,
+        dashboard: DashboardDefinition,
+    ) -> None:
+        # Only once the dashboard is emitted, so a failed one never shows on the dataset.
+        for dataset in dashboard.datasets:
+            entry = self._report_datasets[_report_dataset_key(project_id, dataset.id)]
+            if dashboard_object.id in entry.dashboard_ids:
+                continue
+            if entry.dashboard_ids:
+                self.report.report_report_deduplicated()
+            else:
+                entry.first_dashboard_object = dashboard_object
+            entry.dashboard_ids.append(dashboard_object.id)
 
     def _register_report_dataset(
         self,
@@ -1140,7 +1139,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_object: MicroStrategyObject,
         report_definition: Optional[ReportDefinition],
     ) -> "_ReportDatasetEntry":
-        # Keeps the dashboard's instance; the report definition replaces the schema.
         cache_key = _report_dataset_key(project_id, report_object.id)
         available_objects = (
             report_definition.available_objects if report_definition else {}
@@ -1150,27 +1148,23 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         ) or report_object.description
         fresh = _report_dataset_object(report_object, available_objects, description)
         entry = self._report_datasets.get(cache_key)
-        lineage_resolved = False
         if entry is None:
             entry = _ReportDatasetEntry(dataset=fresh)
+            self._report_datasets[cache_key] = entry
         elif available_objects:
-            entry.dataset.available_objects = fresh.available_objects
-            entry.dataset.object_ids = fresh.object_ids
+            # Merged, not replaced: charts already emitted reference the dossier's fields.
+            entry.dataset.available_objects = self.mapper.merge_dataset_fields(
+                fresh, entry.dataset
+            )
+            entry.dataset.object_ids = sorted(
+                {*fresh.object_ids, *entry.dataset.object_ids}
+            )
             if description:
                 entry.dataset.description = description
-            stale_field_lineage = self._drop_stale_field_lineage(entry.dataset)
-            lineage_resolved = entry.lineage_resolved and not stale_field_lineage
-        else:
-            lineage_resolved = entry.lineage_resolved
-        entry = entry.model_copy(
-            update={
-                "report_object": report_object,
-                "report_definition": report_definition,
-                "from_report_pass": True,
-                "lineage_resolved": lineage_resolved,
-            }
-        )
-        self._report_datasets[cache_key] = entry
+            if self._drop_stale_field_lineage(entry.dataset):
+                entry.lineage_resolved = False
+        entry.report_object = report_object
+        entry.report_definition = report_definition
         return entry
 
     def _drop_stale_field_lineage(self, dataset: DatasetObject) -> bool:
@@ -1184,8 +1178,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             del dataset.field_warehouse_upstreams[path]
         return bool(stale_paths)
 
+    def _emits_report_dataset(self, entry: "_ReportDatasetEntry") -> bool:
+        return entry.from_report_pass or (
+            bool(entry.dashboard_ids) and self.config.extract_cubes
+        )
+
     def _gen_report_dataset_workunits(
-        self, project_id: str
+        self, project_id: str, cached_only: bool = False
     ) -> Iterable[MetadataWorkUnit]:
         # Once, after both passes, so the entity has everything the run learned.
         predefined_folders = self._predefined_folders(project_id)
@@ -1194,24 +1193,25 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         ]
         for cache_key in project_keys:
             entry = self._report_datasets.pop(cache_key)
-            if not (
-                entry.from_report_pass
-                or (entry.dashboard_ids and self.config.extract_cubes)
-            ):
+            if not self._emits_report_dataset(entry):
                 continue
             try:
                 # Built whole so a failure part-way emits nothing for this report.
                 workunits = list(
                     self._report_dataset_entry_workunits(
-                        project_id, entry, predefined_folders
+                        project_id, entry, predefined_folders, cached_only
                     )
                 )
+            except (MicroStrategyAuthError, ConfigurationError):
+                # Swallowing these would let stale removal delete datasets charts use.
+                raise
             except Exception as error:
                 self.report.warning(
                     title="Failed to Emit Report Dataset",
                     message=(
                         "Skipping this report dataset after an unexpected error; "
-                        "other report datasets will still be emitted."
+                        "dashboards and charts that use it will show a missing "
+                        "upstream. Other report datasets will still be emitted."
                     ),
                     context=(
                         f"project_id={project_id}, report_id={entry.dataset.id}, "
@@ -1220,6 +1220,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     exc=error,
                 )
                 continue
+            self.report.report_report_dataset_emitted()
             self._register_usage_target(
                 entry.dataset.id,
                 UsageTargetKind.DATASET,
@@ -1232,16 +1233,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         entry: "_ReportDatasetEntry",
         predefined_folders: PredefinedFolderResolution,
+        cached_only: bool,
     ) -> Iterable[MetadataWorkUnit]:
         dataset = entry.dataset
-        dataset_object = entry.report_object or self._dataset_object_info(
-            project_id, dataset.id
-        )
-        folder_object = self._folder_object(project_id, dataset_object)
-        if folder_object is not None:
-            yield from self.mapper.gen_folder_containers(
-                project_id, folder_object, predefined_folders
+        dataset_object = entry.report_object
+        if dataset_object is None and cached_only:
+            # The session is gone, so a lookup would only fail again.
+            dataset_object = self._dataset_object_cache.get(
+                (project_id, normalize_object_id(dataset.id))
             )
+        elif dataset_object is None:
+            dataset_object = self._dataset_object_info(project_id, dataset.id)
         fallback_key = (
             self.mapper.folder_container_for_dashboard(
                 project_id, entry.first_dashboard_object, predefined_folders
@@ -1249,15 +1251,32 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if entry.first_dashboard_object is not None
             else self.mapper.project_key(project_id)
         )
+        parent_key = yield from self._dataset_folder_workunits(
+            project_id, dataset_object, fallback_key, predefined_folders
+        )
         yield from self.mapper.gen_report_dataset_workunits(
             project_id,
             dataset,
-            self.mapper.dataset_folder_parent_key(
-                project_id, folder_object, fallback_key, predefined_folders
-            ),
+            parent_key,
             dataset_object=dataset_object,
             dashboard_ids=entry.dashboard_ids,
             report_definition=entry.report_definition,
+        )
+
+    def _dataset_folder_workunits(
+        self,
+        project_id: str,
+        dataset_object: Optional[MicroStrategyObject],
+        fallback_key: ProjectKey,
+        predefined_folders: Optional[PredefinedFolderResolution],
+    ) -> Generator[MetadataWorkUnit, None, ProjectKey]:
+        folder_object = self._folder_object(project_id, dataset_object)
+        if folder_object is not None:
+            yield from self.mapper.gen_folder_containers(
+                project_id, folder_object, predefined_folders
+            )
+        return self.mapper.dataset_folder_parent_key(
+            project_id, folder_object, fallback_key, predefined_folders
         )
 
     def _folder_object(
@@ -1338,6 +1357,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             extra_chart_urns=extra_chart_urns,
             predefined_folders=predefined_folders,
         )
+        if self.config.per_report:
+            self._record_report_dataset_dashboard(
+                project_id, dashboard_object, dashboard
+            )
 
     @timed_phase(MicroStrategyPhase.DATASET_OBJECT_LOOKUP)
     def _dataset_object_info(
@@ -1705,7 +1728,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report_object.id,
             project_id,
         )
-        if not self._per_report:
+        if not self.config.per_report:
             self._register_usage_target(
                 report_object.id,
                 UsageTargetKind.CHART,
@@ -1721,11 +1744,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             # Not a per-report problem; must abort the whole run.
             raise
         except Exception as error:
+            entry = self._report_dataset_entry(project_id, report_object.id)
             self.report.warning(
                 title="Failed to Process Report",
                 message=(
-                    "Skipping report after an unexpected error; other reports "
-                    "will still be processed."
+                    "Report dataset will still be emitted, possibly without "
+                    "lineage, after an unexpected error; other reports will "
+                    "still be processed."
+                    if entry is not None and self._emits_report_dataset(entry)
+                    else "Skipping report after an unexpected error; other "
+                    "reports will still be processed."
                 ),
                 context=(
                     f"project_id={project_id}, report_id={report_object.id}, "
@@ -1740,7 +1768,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_object: MicroStrategyObject,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
-        if self._per_report:
+        if self.config.per_report:
             self._process_report_as_dataset(project_id, report_object, lineage_context)
             return
         predefined_folders = self._predefined_folders(project_id)
@@ -1758,20 +1786,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report_definition,
         )
         if source_dataset is not None:
-            if self.config.extract_metric_expressions:
-                self._enrich_dataset_metric_expressions(
-                    project_id,
-                    source_dataset,
-                )
-            self._enrich_report_dataset_sql_lineage(
+            self._enrich_report_dataset(
                 project_id, report_object, source_dataset, lineage_context
             )
-            model_lineage_index = lineage_context.model_lineage_index
-            if model_lineage_index:
-                self.mapper.attach_dataset_model_lineage(
-                    source_dataset,
-                    model_lineage_index,
-                )
             # A report without a source id gets a placeholder dataset id, which
             # names no catalog object to look up.
             dataset_object = (
@@ -1779,18 +1796,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 if report_definition and report_definition.source_id
                 else None
             )
-            folder_object = self._folder_object(project_id, dataset_object)
-            if folder_object is not None:
-                yield from self.mapper.gen_folder_containers(
-                    project_id, folder_object, predefined_folders
-                )
+            dataset_parent_key = yield from self._dataset_folder_workunits(
+                project_id, dataset_object, parent_key, predefined_folders
+            )
             yield from self.mapper.gen_report_source_dataset_workunits(
                 project_id,
                 report_object,
                 source_dataset,
-                self.mapper.dataset_folder_parent_key(
-                    project_id, folder_object, parent_key, predefined_folders
-                ),
+                dataset_parent_key,
                 dataset_object=dataset_object,
             )
         yield from self.mapper.gen_report_workunits(
@@ -1812,7 +1825,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         entry = self._register_report_dataset(
             project_id, report_object, report_definition
         )
-        dataset = entry.dataset
+        self._enrich_report_dataset(
+            project_id, report_object, entry.dataset, lineage_context
+        )
+
+    def _enrich_report_dataset(
+        self,
+        project_id: str,
+        report_object: MicroStrategyObject,
+        dataset: DatasetObject,
+        lineage_context: "_LazyProjectLineage",
+    ) -> None:
         if self.config.extract_metric_expressions:
             self._enrich_dataset_metric_expressions(project_id, dataset)
         self._enrich_report_dataset_sql_lineage(
@@ -1893,10 +1916,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             response=response,
             report=self.report,
         )
-        if self._per_report:
+        if self.config.per_report:
             # Before enrichment, so every dashboard writes onto the one shared instance.
             dashboard.datasets = [
-                self._bind_report_dataset(project_id, dashboard_object, dataset)
+                self._shared_report_dataset(project_id, dataset)
                 for dataset in dashboard.datasets
             ]
         if is_document_object(dashboard_object) and not dashboard.visualizations:
@@ -2088,11 +2111,24 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     context=f"project_id={project_id}, offset={offset}",
                 )
                 return None
-            model_tables.extend(table for table in tables if isinstance(table, dict))
             total = response.total
-            offset += len(tables)
             if not tables:
+                if isinstance(total, int) and offset < total:
+                    # A partial list would drop the missing tables' lineage
+                    # and let stale removal soft-delete their semantic model.
+                    self.report.failure(
+                        title="MicroStrategy Model Tables Truncated",
+                        message=(
+                            "The model tables API returned an empty page before "
+                            "the reported total; model lineage and the semantic "
+                            "model are skipped for this project."
+                        ),
+                        context=f"project_id={project_id}, offset={offset}, total={total}",
+                    )
+                    return None
                 break
+            model_tables.extend(table for table in tables if isinstance(table, dict))
+            offset += len(tables)
             # Large projects paginate thousands of model tables; log progress so
             # the lineage-index build does not look hung.
             logger.info(
@@ -2557,9 +2593,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if result.upstream_urns:
             dataset.warehouse_upstream_urns = result.upstream_urns
             if entry is not None:
-                self._report_datasets[_report_dataset_key(project_id, dataset.id)] = (
-                    entry.model_copy(update={"lineage_resolved": True})
-                )
+                entry.lineage_resolved = True
         if result.field_upstreams:
             dataset.field_warehouse_upstreams = result.field_upstreams
         return result
@@ -2853,7 +2887,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project: Project,
         dashboard: DashboardDefinition,
     ) -> List[str]:
-        if not self.config.extract_reports or self._per_report:
+        if not self.config.extract_reports or self.config.per_report:
             # No Report chart: the dashboard's visualizations link the dataset.
             return []
         project_id = project.id
@@ -2892,23 +2926,19 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         extra_chart_urns: Sequence[str] = (),
         predefined_folders: Optional[PredefinedFolderResolution] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        if self.config.extract_cubes and not self._per_report:
+        if self.config.extract_cubes and not self.config.per_report:
             for dataset in dashboard.datasets:
                 # A dataset is its own catalog object (report or cube) with its
                 # own folder, which is usually not the dossier's folder.
                 dataset_object = self._dataset_object_info(project_id, dataset.id)
-                folder_object = self._folder_object(project_id, dataset_object)
-                if folder_object is not None:
-                    yield from self.mapper.gen_folder_containers(
-                        project_id, folder_object, predefined_folders
-                    )
+                dataset_parent_key = yield from self._dataset_folder_workunits(
+                    project_id, dataset_object, parent_key, predefined_folders
+                )
                 yield from self.mapper.gen_dataset_workunits(
                     project_id,
                     dashboard,
                     dataset,
-                    self.mapper.dataset_folder_parent_key(
-                        project_id, folder_object, parent_key, predefined_folders
-                    ),
+                    dataset_parent_key,
                     dataset_object=dataset_object,
                 )
 
@@ -2938,15 +2968,16 @@ class _ReportDatasetKey(BaseModel):
 
 
 class _ReportDatasetEntry(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
     dataset: DatasetObject
     first_dashboard_object: Optional[MicroStrategyObject] = None
     dashboard_ids: List[str] = Field(default_factory=list)
     report_object: Optional[MicroStrategyObject] = None
     report_definition: Optional[ReportDefinition] = None
-    from_report_pass: bool = False
     lineage_resolved: bool = False
+
+    @property
+    def from_report_pass(self) -> bool:
+        return self.report_object is not None
 
 
 def _report_dataset_key(project_id: str, dataset_id: str) -> _ReportDatasetKey:
