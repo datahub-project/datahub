@@ -605,7 +605,7 @@ def test_request_retries_transient_500_then_succeeds(
 
     monkeypatch.setattr(client.session, "request", fake_request)
 
-    with mock.patch("time.sleep") as fake_sleep:
+    with mock.patch.object(client._auth_dead, "wait") as fake_sleep:
         response = client._request("GET", "/api/projects")
 
     assert response.status_code == 200
@@ -627,7 +627,10 @@ def test_request_raises_after_exhausting_retries_on_persistent_503(
 
     monkeypatch.setattr(client.session, "request", fake_request)
 
-    with mock.patch("time.sleep"), pytest.raises(MicroStrategyAPIError):
+    with (
+        mock.patch.object(client._auth_dead, "wait"),
+        pytest.raises(MicroStrategyAPIError),
+    ):
         client._request("GET", "/api/projects")
 
     assert call_count == 3
@@ -651,7 +654,7 @@ def test_request_retries_network_error_then_succeeds(
 
     monkeypatch.setattr(client.session, "request", fake_request)
 
-    with mock.patch("time.sleep") as fake_sleep:
+    with mock.patch.object(client._auth_dead, "wait") as fake_sleep:
         response = client._request("GET", "/api/projects")
 
     assert response.status_code == 200
@@ -672,7 +675,10 @@ def test_request_raises_after_exhausting_retries_on_network_errors(
 
     monkeypatch.setattr(client.session, "request", fake_request)
 
-    with mock.patch("time.sleep"), pytest.raises(MicroStrategyAPIError) as error:
+    with (
+        mock.patch.object(client._auth_dead, "wait"),
+        pytest.raises(MicroStrategyAPIError) as error,
+    ):
         client._request("GET", "/api/projects")
 
     assert call_count == 3
@@ -696,12 +702,18 @@ def test_sql_view_and_instance_calls_use_a_single_attempt(
 
     monkeypatch.setattr(client.session, "request", fake_request)
 
-    with mock.patch("time.sleep"), pytest.raises(MicroStrategyAPIError):
+    with (
+        mock.patch.object(client._auth_dead, "wait"),
+        pytest.raises(MicroStrategyAPIError),
+    ):
         client.get_report_sql_view("project-1", "report-1", "instance-1")
     assert call_count == 1
 
     call_count = 0
-    with mock.patch("time.sleep"), pytest.raises(MicroStrategyAPIError):
+    with (
+        mock.patch.object(client._auth_dead, "wait"),
+        pytest.raises(MicroStrategyAPIError),
+    ):
         client.create_report_instance("project-1", "report-1")
     assert call_count == 1
     assert report.api_errors == 2
@@ -726,7 +738,10 @@ def test_metric_model_does_not_retry_500(
 
     monkeypatch.setattr(client.session, "request", fake_request)
 
-    with mock.patch("time.sleep"), pytest.raises(MicroStrategyAPIError) as error:
+    with (
+        mock.patch.object(client._auth_dead, "wait"),
+        pytest.raises(MicroStrategyAPIError) as error,
+    ):
         client.get_metric_model("project-1", "metric-1")
 
     assert call_count == expected_calls
@@ -745,7 +760,10 @@ def test_request_fails_fast_on_non_retryable_404(monkeypatch: MonkeyPatch) -> No
 
     monkeypatch.setattr(client.session, "request", fake_request)
 
-    with mock.patch("time.sleep") as fake_sleep, pytest.raises(MicroStrategyAPIError):
+    with (
+        mock.patch.object(client._auth_dead, "wait") as fake_sleep,
+        pytest.raises(MicroStrategyAPIError),
+    ):
         client._request("GET", "/api/projects")
 
     assert call_count == 1
