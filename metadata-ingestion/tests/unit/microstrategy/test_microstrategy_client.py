@@ -11,6 +11,9 @@ from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyClient,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_MODEL_API_MIN_TIMEOUT_SECONDS,
+)
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
 
@@ -1159,7 +1162,7 @@ def test_close_without_login_does_not_log_out(monkeypatch: MonkeyPatch) -> None:
 @pytest.mark.parametrize(
     ("overrides", "expected"),
     [
-        ({"timeout_seconds": 30}, 120),
+        ({"timeout_seconds": 30}, MSTR_MODEL_API_MIN_TIMEOUT_SECONDS),
         ({"timeout_seconds": 300}, 300),
     ],
 )
@@ -1183,7 +1186,7 @@ def test_model_tables_use_the_model_api_timeout(
 @pytest.mark.parametrize(
     ("overrides", "expected"),
     [
-        ({"timeout_seconds": 30}, 120),
+        ({"timeout_seconds": 30}, MSTR_MODEL_API_MIN_TIMEOUT_SECONDS),
         ({"timeout_seconds": 300}, 300),
     ],
 )

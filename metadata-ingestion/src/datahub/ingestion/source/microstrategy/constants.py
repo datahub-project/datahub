@@ -549,3 +549,14 @@ MSTR_CACHE_MEMORY_ENTRIES = 2000
 MSTR_SQLGLOT_LOGGER = "sqlglot"
 # One warning per generated statement; they fill the executor's bounded log.
 MSTR_SQLGLOT_SUPPRESSED_PREFIXES: Final[Sequence[str]] = ("Unsupported property",)
+
+MSTR_PARSE_LABEL_PREFIX = "sql "
+MSTR_PARSE_LABEL_HASH_CHARS = 12
+
+MSTR_MAX_EVICTION_BATCH = 150
+MSTR_EVICTION_BATCH_DIVISOR = 4
+
+MSTR_SQLGLOT_WARNINGS_TOP_K = 10
+
+MSTR_REASON_NO_GRAPH = "no DataHub connection"
+MSTR_REASON_PRESENCE_CHECK_FAILED = "DataHub lookup failed"

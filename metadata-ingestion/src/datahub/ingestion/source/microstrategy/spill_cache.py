@@ -1,11 +1,12 @@
 from typing import Generic, Optional, TypeVar
 
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_EVICTION_BATCH_DIVISOR,
+    MSTR_MAX_EVICTION_BATCH,
+)
 from datahub.utilities.file_backed_collections import FileBackedDict
 
 _VT = TypeVar("_VT")
-
-_MAX_EVICTION_BATCH = 150
-_EVICTION_BATCH_DIVISOR = 4
 
 
 class SpillCache(Generic[_VT]):
@@ -20,7 +21,8 @@ class SpillCache(Generic[_VT]):
             cache_eviction_batch_size=max(
                 1,
                 min(
-                    _MAX_EVICTION_BATCH, self._memory_entries // _EVICTION_BATCH_DIVISOR
+                    MSTR_MAX_EVICTION_BATCH,
+                    self._memory_entries // MSTR_EVICTION_BATCH_DIVISOR,
                 ),
             ),
             should_compress_value=self._compress,
