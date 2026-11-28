@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from unittest import mock
 
 from datahub.ingestion.source.microstrategy.config import (
@@ -1587,27 +1587,10 @@ def test_page_name_without_match_falls_back_to_all_datasets() -> None:
     assert binding.dataset_id_by_column_set == {"cs-store": "ds-store-wtd"}
 
 
-def _mixed_datasources() -> List[Datasource]:
-    return [
-        Datasource.model_validate(
-            {
-                "id": "AAA111",
-                "name": "oracle_ds",
-                "database": {"type": "oracle", "name": "ORA_DB", "schema": "ORA"},
-            }
-        ),
-        Datasource.model_validate(
-            {
-                "id": "BBB222",
-                "name": "snowflake_ds",
-                "database": {"type": "snow_flake", "name": "SNOW_DB", "schema": "SNOW"},
-            }
-        ),
-    ]
-
-
-def test_datasource_for_model_table_matches_exact_id_then_unique_name() -> None:
-    datasources = _mixed_datasources()
+def test_datasource_for_model_table_matches_exact_id_then_unique_name(
+    mixed_datasources: List[Datasource],
+) -> None:
+    datasources = mixed_datasources
 
     by_id: Dict[str, object] = {
         "primaryDataSource": {"objectId": "bbb222", "name": "other"}
@@ -1625,13 +1608,15 @@ def test_datasource_for_model_table_matches_exact_id_then_unique_name() -> None:
     assert datasource_for_model_table({}, datasources) is None
 
 
-def test_datasource_for_model_table_rejects_duplicate_names() -> None:
+def test_datasource_for_model_table_rejects_duplicate_names(
+    mixed_datasources: List[Datasource],
+) -> None:
     twin = Datasource.model_validate(
         {"id": "CCC333", "name": "oracle_ds", "database": {"type": "oracle"}}
     )
     table: Dict[str, object] = {"primaryDataSource": {"name": "oracle_ds"}}
 
-    assert datasource_for_model_table(table, [*_mixed_datasources(), twin]) is None
+    assert datasource_for_model_table(table, [*mixed_datasources, twin]) is None
 
 
 def test_model_lineage_index_resolves_each_table_from_its_own_context() -> None:
@@ -1653,7 +1638,7 @@ def test_model_lineage_index_resolves_each_table_from_its_own_context() -> None:
             "attributes": [],
         }
 
-    def resolver(table: Dict[str, object]) -> Any:
+    def resolver(table: Dict[str, object]) -> Optional[WarehouseLineageContext]:
         physical = table["physicalTable"]
         assert isinstance(physical, dict)
         return contexts.get(str(physical["tableName"]))

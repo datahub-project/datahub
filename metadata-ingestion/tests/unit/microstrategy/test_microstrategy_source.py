@@ -4609,27 +4609,10 @@ def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
     assert source.report.peak_rss_mb is not None
 
 
-def _mixed_warehouse_datasources() -> List[Datasource]:
-    return [
-        Datasource.model_validate(
-            {
-                "id": "AAA111",
-                "name": "oracle_ds",
-                "database": {"type": "oracle", "name": "ORA_DB", "schema": "ORA"},
-            }
-        ),
-        Datasource.model_validate(
-            {
-                "id": "BBB222",
-                "name": "snowflake_ds",
-                "database": {"type": "snow_flake", "name": "SNOW_DB", "schema": "SNOW"},
-            }
-        ),
-    ]
-
-
-def _model_table(name: str, fact_id: str, datasource_id: Optional[str]) -> dict:
-    table: dict = {
+def _model_table(
+    name: str, fact_id: str, datasource_id: Optional[str]
+) -> Dict[str, object]:
+    table: Dict[str, object] = {
         "information": {"objectId": f"logical-{fact_id}", "name": name},
         "physicalTable": {"tableName": name},
         "facts": [
@@ -4643,7 +4626,7 @@ def _model_table(name: str, fact_id: str, datasource_id: Optional[str]) -> dict:
 
 
 class _ModelTablesClient:
-    def __init__(self, tables: List[dict]) -> None:
+    def __init__(self, tables: List[Dict[str, object]]) -> None:
         self.tables = tables
         self.fields_requested: List[str] = []
 
@@ -4652,7 +4635,9 @@ class _ModelTablesClient:
         return ModelTablesResponse(tables=self.tables, total=len(self.tables))
 
 
-def test_mixed_warehouse_project_resolves_model_lineage_per_table() -> None:
+def test_mixed_warehouse_project_resolves_model_lineage_per_table(
+    mixed_datasources: List[Datasource],
+) -> None:
     source = _source({"extract_model_lineage": True})
     client = _ModelTablesClient(
         [
@@ -4663,9 +4648,7 @@ def test_mixed_warehouse_project_resolves_model_lineage_per_table() -> None:
         ]
     )
     source.client = client  # type: ignore[assignment]
-    lineage_context = _LazyProjectLineage(
-        source, "project-1", _mixed_warehouse_datasources()
-    )
+    lineage_context = _LazyProjectLineage(source, "project-1", mixed_datasources)
 
     index = lineage_context.model_lineage_index
 
@@ -4685,12 +4668,12 @@ def test_mixed_warehouse_project_resolves_model_lineage_per_table() -> None:
     assert source.report.model_tables_without_warehouse_context == 2
 
 
-def test_mixed_warehouse_project_warning_names_platforms_and_mapping() -> None:
+def test_mixed_warehouse_project_warning_names_platforms_and_mapping(
+    mixed_datasources: List[Datasource],
+) -> None:
     source = _source({"extract_model_lineage": True})
     source.client = _ModelTablesClient([])  # type: ignore[assignment]
-    lineage_context = _LazyProjectLineage(
-        source, "project-1", _mixed_warehouse_datasources()
-    )
+    lineage_context = _LazyProjectLineage(source, "project-1", mixed_datasources)
 
     assert lineage_context.warehouse_context is None
 
@@ -4729,7 +4712,9 @@ def test_project_without_warehouse_context_warns_once(
     assert [str(w.title) for w in source.report.warnings] == [expected_title]
 
 
-def test_unmapped_second_datasource_resolves_model_lineage_per_table() -> None:
+def test_unmapped_second_datasource_resolves_model_lineage_per_table(
+    mixed_datasources: List[Datasource],
+) -> None:
     source = _source({"extract_model_lineage": True})
     client = _ModelTablesClient(
         [
@@ -4743,7 +4728,7 @@ def test_unmapped_second_datasource_resolves_model_lineage_per_table() -> None:
         {"id": "CCC333", "name": "legacy_ds", "database": {"type": "unknown_db"}}
     )
     lineage_context = _LazyProjectLineage(
-        source, "project-1", [_mixed_warehouse_datasources()[0], unmapped]
+        source, "project-1", [mixed_datasources[0], unmapped]
     )
 
     index = lineage_context.model_lineage_index
@@ -4759,13 +4744,13 @@ def test_unmapped_second_datasource_resolves_model_lineage_per_table() -> None:
     assert source.report.model_tables_without_warehouse_context == 2
 
 
-def test_single_warehouse_project_keeps_project_level_context() -> None:
+def test_single_warehouse_project_keeps_project_level_context(
+    mixed_datasources: List[Datasource],
+) -> None:
     source = _source({"extract_model_lineage": True})
     client = _ModelTablesClient([_model_table("orders", "fact-1", None)])
     source.client = client  # type: ignore[assignment]
-    lineage_context = _LazyProjectLineage(
-        source, "project-1", _mixed_warehouse_datasources()[:1]
-    )
+    lineage_context = _LazyProjectLineage(source, "project-1", mixed_datasources[:1])
 
     index = lineage_context.model_lineage_index
 
@@ -4780,7 +4765,9 @@ def test_single_warehouse_project_keeps_project_level_context() -> None:
 
 
 class _ConnectionModelTablesClient(_ModelTablesClient):
-    def __init__(self, tables: List[dict], fail_connection: bool = False) -> None:
+    def __init__(
+        self, tables: List[Dict[str, object]], fail_connection: bool = False
+    ) -> None:
         super().__init__(tables)
         self.fail_connection = fail_connection
         self.connection_requests: List[str] = []
@@ -4813,16 +4800,12 @@ def _connected_oracle_warehouse(schema: Optional[str] = None) -> Dict[str, objec
     }
 
 
-def _connected_oracle_datasources(schema: Optional[str] = None) -> List[Datasource]:
+def _connected_oracle_datasources(
+    mixed_datasources: List[Datasource], schema: Optional[str] = None
+) -> List[Datasource]:
     return [
         Datasource.model_validate(_connected_oracle_warehouse(schema)),
-        Datasource.model_validate(
-            {
-                "id": "BBB222",
-                "name": "snowflake_ds",
-                "database": {"type": "snow_flake", "name": "SNOW_DB", "schema": "SNOW"},
-            }
-        ),
+        *mixed_datasources[1:],
     ]
 
 
@@ -4834,12 +4817,14 @@ def _dashboard_with_fact_metric(schema: Optional[str] = None) -> DashboardDefini
     return dashboard
 
 
-def test_dataset_sql_view_lineage_uses_connection_enriched_model_urns() -> None:
+def test_dataset_sql_view_lineage_uses_connection_enriched_model_urns(
+    mixed_datasources: List[Datasource],
+) -> None:
     source = _source({"extract_model_lineage": True})
     client = _ConnectionModelTablesClient([_model_table("orders", "fact-1", "AAA111")])
     source.client = client  # type: ignore[assignment]
     lineage_context = _LazyProjectLineage(
-        source, "project-1", _connected_oracle_datasources()
+        source, "project-1", _connected_oracle_datasources(mixed_datasources)
     )
     index = lineage_context.model_lineage_index
     assert index is not None
@@ -4880,7 +4865,9 @@ class _ReportSqlModelTablesClient(_ConnectionModelTablesClient):
         return True
 
 
-def test_report_dataset_in_mixed_project_uses_its_own_warehouse_context() -> None:
+def test_report_dataset_in_mixed_project_uses_its_own_warehouse_context(
+    mixed_datasources: List[Datasource],
+) -> None:
     source = _per_report_source(
         {
             "extract_lineage": True,
@@ -4893,7 +4880,7 @@ def test_report_dataset_in_mixed_project_uses_its_own_warehouse_context() -> Non
         [_model_table("orders", "fact-1", "AAA111")]
     )
     lineage_context = _LazyProjectLineage(
-        source, "project-1", _connected_oracle_datasources()
+        source, "project-1", _connected_oracle_datasources(mixed_datasources)
     )
     dashboard_object = MicroStrategyObject.model_validate(
         {"id": "dash-1", "name": "Sales Dashboard", "type": "55"}
@@ -4917,14 +4904,16 @@ def test_report_dataset_in_mixed_project_uses_its_own_warehouse_context() -> Non
     ]
 
 
-def test_failed_connection_lookup_keeps_unenriched_context_and_is_cached() -> None:
+def test_failed_connection_lookup_keeps_unenriched_context_and_is_cached(
+    mixed_datasources: List[Datasource],
+) -> None:
     source = _source({"extract_model_lineage": True})
     client = _ConnectionModelTablesClient(
         [_model_table("orders", "fact-1", "AAA111")], fail_connection=True
     )
     source.client = client  # type: ignore[assignment]
     lineage_context = _LazyProjectLineage(
-        source, "project-1", _connected_oracle_datasources(schema="ORA")
+        source, "project-1", _connected_oracle_datasources(mixed_datasources, "ORA")
     )
     index = lineage_context.model_lineage_index
     assert index is not None
