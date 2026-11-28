@@ -388,31 +388,44 @@ class MicroStrategyClient:
     ) -> List[MicroStrategyObject]:
         # Metadata search state is per session on the server; concurrent searches 404.
         with self._metadata_search_lock:
-            create_response = self._get_json(
-                MSTR_API_METADATA_SEARCHES,
-                project_id=project_id,
-                params={
-                    "domain": 2,
-                    "usedByObject": f"{object_id};{object_type}",
-                    "usedByRecursive": "false",
-                },
-                method="POST",
-            )
-            search_id = self._extract_search_id(create_response)
-            if not search_id:
-                raise MicroStrategyAPIError(
-                    "MicroStrategy metadata search response did not include search id "
-                    f"for object_id={object_id}, object_type={object_type}"
-                )
-            result = self._get_json(
-                MSTR_API_METADATA_SEARCHES,
-                project_id=project_id,
-                params={"searchId": search_id, "offset": 0, "limit": -1},
-            )
+            token = self._session_auth_token()
+            try:
+                result = self._dependency_search(project_id, object_id, object_type)
+            except MicroStrategyAPIError:
+                # Another worker re-logged in mid-search: the new session does
+                # not know the search id, so run the search again in it.
+                if self._session_auth_token() == token:
+                    raise
+                result = self._dependency_search(project_id, object_id, object_type)
         return self._parse_models(
             MicroStrategyObject,
             self._extract_search_results(result),
             f"object dependencies object_id={object_id}",
+        )
+
+    def _dependency_search(
+        self, project_id: str, object_id: str, object_type: str
+    ) -> Dict[str, object]:
+        create_response = self._get_json(
+            MSTR_API_METADATA_SEARCHES,
+            project_id=project_id,
+            params={
+                "domain": 2,
+                "usedByObject": f"{object_id};{object_type}",
+                "usedByRecursive": "false",
+            },
+            method="POST",
+        )
+        search_id = self._extract_search_id(create_response)
+        if not search_id:
+            raise MicroStrategyAPIError(
+                "MicroStrategy metadata search response did not include search id "
+                f"for object_id={object_id}, object_type={object_type}"
+            )
+        return self._get_json(
+            MSTR_API_METADATA_SEARCHES,
+            project_id=project_id,
+            params={"searchId": search_id, "offset": 0, "limit": -1},
         )
 
     def get_metric_model(

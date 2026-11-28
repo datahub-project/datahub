@@ -660,6 +660,42 @@ def test_concurrent_metadata_searches_do_not_clobber_active_search() -> None:
     assert results == {idx: [f"dep-doc-{idx}"] for idx in range(4)}
 
 
+@pytest.mark.parametrize("relogged_in, searches", [(True, 2), (False, 1)])
+def test_dependency_search_reruns_after_a_concurrent_relogin(
+    relogged_in: bool, searches: int
+) -> None:
+    client = _client()
+    client.session.headers[MSTR_AUTH_TOKEN_HEADER] = "token-1"
+    posts: List[str] = []
+
+    def fake_request(
+        method: str,
+        url: str,
+        params: Optional[Dict[str, object]] = None,
+        **kwargs: object,
+    ) -> requests.Response:
+        token = client.session.headers[MSTR_AUTH_TOKEN_HEADER]
+        if method == "POST":
+            posts.append(str(token))
+            return _response(200, payload={"id": f"search-{token}"})
+        assert params is not None
+        if len(posts) == 1:
+            if relogged_in:
+                client.session.headers[MSTR_AUTH_TOKEN_HEADER] = "token-2"
+            return _response(404)
+        return _response(200, payload={"result": [{"id": "dep-1", "name": "Dep"}]})
+
+    with mock.patch.object(client.session, "request", side_effect=fake_request):
+        if relogged_in:
+            deps = client.get_object_dependencies("proj-1", "doc-1", "55")
+            assert [dep.id for dep in deps] == ["dep-1"]
+        else:
+            with pytest.raises(MicroStrategyAPIError):
+                client.get_object_dependencies("proj-1", "doc-1", "55")
+
+    assert len(posts) == searches
+
+
 def _source(
     max_workers: int,
     dataset_identity: str = MicroStrategyDatasetIdentity.PER_DASHBOARD,
