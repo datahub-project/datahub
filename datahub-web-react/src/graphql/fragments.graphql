@@ -1931,6 +1931,7 @@ fragment entityPrivileges on EntityPrivileges {
     canViewDatasetOperations
     canManageAssetSummary
     canEditLifecycleStage
+    canEditDataContract
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {

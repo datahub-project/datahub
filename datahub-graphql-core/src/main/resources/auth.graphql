@@ -476,6 +476,11 @@ type EntityPrivileges {
   Whether the user can set this entity's lifecycle stage directly, without a proposal.
   """
   canEditLifecycleStage: Boolean
+
+  """
+  Whether the user can create or edit the data contract of this entity
+  """
+  canEditDataContract: Boolean
 }
 
 """

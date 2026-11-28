@@ -1,4 +1,4 @@
-import { Button, Text } from '@components';
+import { Button, Text, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -24,9 +24,10 @@ const SummaryMessage = styled.div`
 
 type Props = {
     showContractBuilder: () => void;
+    disabled?: boolean;
 };
 
-export const DataContractEmptyState = ({ showContractBuilder }: Props) => {
+export const DataContractEmptyState = ({ showContractBuilder, disabled }: Props) => {
     const { t } = useTranslation('entity.profile.validations');
     const { t: tc } = useTranslation('common.actions');
     return (
@@ -37,9 +38,18 @@ export const DataContractEmptyState = ({ showContractBuilder }: Props) => {
                 </Text>
                 <Text color="textSecondary">{t('dataContractEmptyState.description')}</Text>
             </SummaryMessage>
-            <Button icon={{ icon: Plus }} onClick={showContractBuilder} data-testid="create-contract-button">
-                {tc('create')}
-            </Button>
+            <Tooltip title={disabled ? t('action.noPermissionEditContract') : null}>
+                <span>
+                    <Button
+                        icon={{ icon: Plus }}
+                        onClick={showContractBuilder}
+                        disabled={disabled}
+                        data-testid="create-contract-button"
+                    >
+                        {tc('create')}
+                    </Button>
+                </span>
+            </Tooltip>
         </Summary>
     );
 };
