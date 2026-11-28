@@ -4746,17 +4746,21 @@ class _ConnectionModelTablesClient(_ModelTablesClient):
         )
 
 
-_SCHEMALESS_ORACLE_WAREHOUSE: Dict[str, object] = {
-    "id": "AAA111",
-    "name": "oracle_ds",
-    "database": {"type": "oracle", "name": "ORA_DB"},
-    "connection": {"id": "conn-ora", "name": "oracle_connection"},
-}
+def _connected_oracle_warehouse(schema: Optional[str] = None) -> Dict[str, object]:
+    database: Dict[str, object] = {"type": "oracle", "name": "ORA_DB"}
+    if schema:
+        database["schema"] = schema
+    return {
+        "id": "AAA111",
+        "name": "oracle_ds",
+        "database": database,
+        "connection": {"id": "conn-ora", "name": "oracle_connection"},
+    }
 
 
-def _schemaless_oracle_datasources() -> List[Datasource]:
+def _connected_oracle_datasources(schema: Optional[str] = None) -> List[Datasource]:
     return [
-        Datasource.model_validate(_SCHEMALESS_ORACLE_WAREHOUSE),
+        Datasource.model_validate(_connected_oracle_warehouse(schema)),
         Datasource.model_validate(
             {
                 "id": "BBB222",
@@ -4767,8 +4771,8 @@ def _schemaless_oracle_datasources() -> List[Datasource]:
     ]
 
 
-def _dashboard_with_fact_metric() -> DashboardDefinition:
-    dashboard = _dashboard(_SCHEMALESS_ORACLE_WAREHOUSE)
+def _dashboard_with_fact_metric(schema: Optional[str] = None) -> DashboardDefinition:
+    dashboard = _dashboard(_connected_oracle_warehouse(schema))
     dashboard.datasets[0].metric_enrichments["METRIC-1"] = MetricEnrichment(
         fact_ids=["fact-1"]
     )
@@ -4780,7 +4784,7 @@ def test_dataset_sql_view_lineage_uses_connection_enriched_model_urns() -> None:
     client = _ConnectionModelTablesClient([_model_table("orders", "fact-1", "AAA111")])
     source.client = client  # type: ignore[assignment]
     lineage_context = _LazyProjectLineage(
-        source, "project-1", _schemaless_oracle_datasources()
+        source, "project-1", _connected_oracle_datasources()
     )
     index = lineage_context.model_lineage_index
     assert index is not None
@@ -4806,3 +4810,41 @@ def test_dataset_sql_view_lineage_uses_connection_enriched_model_urns() -> None:
         urn for urns in dataset.field_warehouse_upstreams.values() for urn in urns
     ]
     assert client.connection_requests == ["conn-ora"]
+
+
+def test_failed_connection_lookup_keeps_unenriched_context_and_is_cached() -> None:
+    source = _source({"extract_model_lineage": True})
+    client = _ConnectionModelTablesClient(
+        [_model_table("orders", "fact-1", "AAA111")], fail_connection=True
+    )
+    source.client = client  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", _connected_oracle_datasources(schema="ORA")
+    )
+    index = lineage_context.model_lineage_index
+    assert index is not None
+    dashboard = _dashboard_with_fact_metric(schema="ORA")
+
+    source._attach_dataset_warehouse_upstreams(
+        [{"id": "ds-1", "sqlStatement": "select amount from orders"}],
+        dashboard,
+        lineage_context.warehouse_context,
+        project_id="project-1",
+    )
+    dataset = dashboard.datasets[0]
+    source.mapper.attach_dataset_model_lineage(dataset, index)
+
+    table_urn = "urn:li:dataset:(urn:li:dataPlatform:oracle,ora_db.ora.orders,PROD)"
+    field_urn = f"urn:li:schemaField:({table_urn},amount)"
+    assert dataset.warehouse_upstream_urns == [table_urn]
+    assert index.fact_field_urns(["fact-1"]) == [field_urn]
+    assert field_urn in [
+        urn for urns in dataset.field_warehouse_upstreams.values() for urn in urns
+    ]
+    assert client.connection_requests == ["conn-ora"]
+    assert source.report.warehouse_lineage_api_failures == 1
+    assert [
+        w
+        for w in source.report.warnings
+        if w.title == "Failed to Fetch Datasource Connection"
+    ]
