@@ -15,6 +15,7 @@ from datahub.sql_parsing.schema_resolver import (
     GraphQLSchemaMetadata,
     SchemaInfo,
     SchemaResolver,
+    SchemaResolverReport,
     _SchemaResolverWithExtras,
     _TableName,
     match_columns_to_schema,
@@ -865,3 +866,109 @@ def test_reopened_cache_file_restores_schemas_and_original_field_paths(tmp_path)
         "col_a": "[version=2.0].[type=long].col_a",
         "Col_B": "[version=2.0].[type=string].Col_B",
     }
+
+
+class TestCaseInsensitiveResolution:
+    def test_lowercase_reference_resolves_to_registered_mixed_case_urn(
+        self,
+    ) -> None:
+        report = SchemaResolverReport()
+        graph = MagicMock(spec=DataHubGraph)
+        resolver = SchemaResolver(
+            platform="teradata", env="PROD", graph=graph, report=report
+        )
+        registered = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Sales", table="Orders")
+        )
+        resolver.add_raw_schema_info(registered, {"col_a": "VARCHAR"})
+
+        urn, schema = resolver.resolve_table(
+            _TableName(database=None, db_schema="sales", table="orders")
+        )
+
+        assert urn == registered
+        assert schema == {"col_a": "VARCHAR"}
+        assert report.num_case_insensitive_hits == 1
+        graph.get_entities.assert_not_called()
+
+    def test_several_registered_casings_stay_unresolved(self) -> None:
+        report = SchemaResolverReport()
+        resolver = SchemaResolver(platform="teradata", env="PROD", report=report)
+        for db_schema in ("Sales", "SALES"):
+            resolver.add_raw_schema_info(
+                resolver.get_urn_for_table(
+                    _TableName(database=None, db_schema=db_schema, table="Orders")
+                ),
+                {"col_a": "VARCHAR"},
+            )
+        table = _TableName(database=None, db_schema="sales", table="orders")
+
+        urn, schema = resolver.resolve_table(table)
+
+        assert schema is None
+        assert urn == resolver.get_urn_for_unresolved_table(table)
+        assert report.num_case_insensitive_collisions == 1
+
+    @pytest.mark.parametrize("platform", ["bigquery", "db2"])
+    def test_case_sensitive_platform_does_not_match_other_casing(
+        self, platform: str
+    ) -> None:
+        resolver = SchemaResolver(platform=platform, env="PROD")
+        resolver.add_raw_schema_info(
+            resolver.get_urn_for_table(
+                _TableName(database="proj", db_schema="ds", table="MyTable")
+            ),
+            {"c": "STRING"},
+        )
+        table = _TableName(database="proj", db_schema="ds", table="mytable")
+
+        urn, schema = resolver.resolve_table(table)
+
+        assert schema is None
+        assert urn == resolver.get_urn_for_unresolved_table(table)
+
+    def test_temp_table_shadows_registered_table_in_another_casing(self) -> None:
+        resolver = SchemaResolver(platform="teradata", env="PROD")
+        registered = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Sales", table="Orders")
+        )
+        resolver.add_raw_schema_info(registered, {"persistent_col": "VARCHAR"})
+        session_resolver = resolver.with_temp_tables(
+            {
+                registered: [
+                    SchemaFieldClass(
+                        fieldPath="temp_col", nativeDataType="int", type=MagicMock()
+                    )
+                ]
+            }
+        )
+
+        urn, schema = session_resolver.resolve_table(
+            _TableName(database=None, db_schema="sales", table="orders")
+        )
+
+        assert urn == registered
+        assert schema is not None and "temp_col" in schema
+
+    def test_index_survives_reopening_the_cache_file(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        cache_file = tmp_path / "schema_cache.db"
+        resolver = SchemaResolver(
+            platform="teradata", env="PROD", _cache_filename=cache_file
+        )
+        registered = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Sales", table="Orders")
+        )
+        resolver.add_raw_schema_info(registered, {"col_a": "VARCHAR"})
+        resolver.close()
+
+        reopened = SchemaResolver(
+            platform="teradata", env="PROD", _cache_filename=cache_file
+        )
+        urn, schema = reopened.resolve_table(
+            _TableName(database=None, db_schema="sales", table="orders")
+        )
+
+        assert urn == registered
+        assert schema == {"col_a": "VARCHAR"}

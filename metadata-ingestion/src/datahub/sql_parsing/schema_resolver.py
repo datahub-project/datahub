@@ -46,6 +46,10 @@ class SchemaResolverReport:
 
     num_schema_cache_hits: int = 0
     num_schema_cache_misses: int = 0
+    # Hits on a registered URN whose casing differs from every candidate casing.
+    num_case_insensitive_hits: int = 0
+    # Lookups left unresolved because several registered URNs differ only by case.
+    num_case_insensitive_collisions: int = 0
 
 
 class GraphQLSchemaField(TypedDict):
@@ -111,6 +115,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         # but a schemaField URN must use the dataset's real field path to join.
         self._original_field_paths: FileBackedDict[Dict[str, str]] = FileBackedDict(
             shared_connection=self._conn, tablename="original_field_paths"
+        )
+        # {lowercased urn: registered urns}, on case-insensitive platforms only. The
+        # exact/lower/mixed candidates in resolve_table cannot reach a table registered
+        # as e.g. `Db.Table` when SQL references `db.table`; this does.
+        self._urns_by_lower_urn: FileBackedDict[List[str]] = FileBackedDict(
+            shared_connection=self._conn, tablename="urns_by_lower_urn"
         )
 
     @property
@@ -220,6 +230,10 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                     self._track_cache_hit()
                     return candidate_urn, schema_info
 
+        case_insensitive_hit = self._resolve_case_insensitive(urn)
+        if case_insensitive_hit is not None:
+            return case_insensitive_hit
+
         if self.graph:
             # Skip URNs already in cache (None entries included) to avoid repeated API calls.
             urns_to_fetch = [u for u in urns_to_try if u not in self._schema_cache]
@@ -314,6 +328,30 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         if self.report is not None:
             self.report.num_schema_cache_hits += 1
 
+    def _resolve_case_insensitive(self, urn: str) -> Optional[Tuple[str, SchemaInfo]]:
+        if not self._prefers_urn_lower():
+            # On case-sensitive platforms `MyTable` and `mytable` are different tables.
+            return None
+        registered = [
+            (candidate, schema_info)
+            for candidate in self._urns_by_lower_urn.get(urn.lower(), [])
+            if (schema_info := self._schema_cache.get(candidate)) is not None
+        ]
+        if len(registered) > 1:
+            if self.report is not None:
+                self.report.num_case_insensitive_collisions += 1
+            logger.debug(
+                f"Not resolving {urn}: registered under several casings "
+                f"{sorted(candidate for candidate, _ in registered)}"
+            )
+            return None
+        if not registered:
+            return None
+        self._track_cache_hit()
+        if self.report is not None:
+            self.report.num_case_insensitive_hits += 1
+        return registered[0]
+
     def _track_cache_miss(self) -> None:
         """Track a cache miss if reporting is enabled."""
         if self.report is not None:
@@ -389,6 +427,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         original_field_paths: Optional[Dict[str, str]] = None,
     ) -> None:
         self._schema_cache[urn] = schema_info
+        if schema_info is not None and self._prefers_urn_lower():
+            lower_urn = urn.lower()
+            registered = self._urns_by_lower_urn.get(lower_urn, [])
+            if urn not in registered:
+                self._urns_by_lower_urn[lower_urn] = [*registered, urn]
         if original_field_paths:
             self._original_field_paths[urn] = original_field_paths
         else:
@@ -430,7 +473,12 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
             # Track cache hit for extra schemas
             self._base_resolver._track_cache_hit()
             return urn, self._extra_schemas[urn]
-        return self._base_resolver.resolve_table(table)
+        # A temp table whose name matches a registered table is keyed under the
+        # URN the base resolver returned for it, which can differ in casing.
+        resolved_urn, schema_info = self._base_resolver.resolve_table(table)
+        if resolved_urn in self._extra_schemas:
+            return resolved_urn, self._extra_schemas[resolved_urn]
+        return resolved_urn, schema_info
 
     def add_temp_tables(
         self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]
