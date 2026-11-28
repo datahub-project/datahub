@@ -1,0 +1,206 @@
+{
+ "createTime": "2026-11-03T11:44:02.454200Z",
+ "displayName": "loop-pipe",
+ "jobDetail": {
+  "taskDetails": [
+   {
+    "createTime": "2026-11-03T11:44:03.540447Z",
+    "endTime": "2026-11-03T11:44:04.186376Z",
+    "execution": {
+     "state": 3
+    },
+    "outputs": {
+     "artifact": {
+      "artifacts": [
+       {
+        "uri": "https://us-central1-aiplatform.googleapis.com/v1/projects/123456789012/locations/us-central1/models/2000000000000000004@2"
+       }
+      ]
+     }
+    },
+    "parentTaskId": "-2000000000000000003",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-03T11:44:04.044195169Z"
+     }
+    ],
+    "startTime": "2026-11-03T11:44:04.186376Z",
+    "state": 3,
+    "taskId": "-2000000000000000002",
+    "taskName": "importer",
+    "taskUniqueName": "importer"
+   },
+   {
+    "createTime": "2026-11-03T11:44:03.125951Z",
+    "execution": {
+     "state": 2
+    },
+    "parentTaskId": "0",
+    "pipelineTaskStatus": [
+     {
+      "state": 2,
+      "updateTime": "2026-11-03T11:44:03.406268879Z"
+     }
+    ],
+    "startTime": "2026-11-03T11:44:03.540447Z",
+    "state": 2,
+    "taskId": "-2000000000000000003",
+    "taskName": "loop-pipe-20261103170000",
+    "taskUniqueName": "loop-pipe-20261103170000"
+   },
+   {
+    "createTime": "2026-11-03T11:44:03.540447Z",
+    "execution": {
+     "state": 2
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/2000000000000000006"
+     }
+    },
+    "inputs": {
+     "model": {
+      "artifacts": [
+       {
+        "uri": "https://us-central1-aiplatform.googleapis.com/v1/projects/123456789012/locations/us-central1/models/2000000000000000004@2"
+       }
+      ]
+     }
+    },
+    "parentTaskId": "-2000000000000000003",
+    "pipelineTaskStatus": [
+     {
+      "state": 2,
+      "updateTime": "2026-11-03T11:44:04.987365273Z"
+     }
+    ],
+    "startTime": "2026-11-03T11:44:04.537856Z",
+    "state": 2,
+    "taskId": "-2000000000000000005",
+    "taskName": "check-registry-model",
+    "taskUniqueName": "check-registry-model"
+   },
+   {
+    "createTime": "2026-11-03T11:44:03.540447Z",
+    "parentTaskId": "-2000000000000000003",
+    "state": 1,
+    "taskId": "2000000000000000007",
+    "taskName": "for-loop-2",
+    "taskUniqueName": "for-loop-2"
+   },
+   {
+    "createTime": "2026-11-03T11:44:03.540447Z",
+    "execution": {
+     "state": 2
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/2000000000000000009"
+     }
+    },
+    "outputs": {
+     "model": {
+      "artifacts": [
+       {
+        "uri": "gs://demo-loop-bucket/pipeline-root/123456789012/loop-pipe-20261103170000/train_2000000000000000008/model"
+       }
+      ]
+     }
+    },
+    "parentTaskId": "-2000000000000000003",
+    "pipelineTaskStatus": [
+     {
+      "state": 2,
+      "updateTime": "2026-11-03T11:44:04.371586261Z"
+     }
+    ],
+    "startTime": "2026-11-03T11:44:04.021313Z",
+    "state": 2,
+    "taskId": "2000000000000000008",
+    "taskName": "train",
+    "taskUniqueName": "train"
+   }
+  ]
+ },
+ "labels": {
+  "vertex-ai-pipelines-run-billing-id": "2000000000000000001"
+ },
+ "name": "projects/123456789012/locations/us-central1/pipelineJobs/loop-pipe-20261103170000",
+ "pipelineSpec": {
+  "components": {
+   "comp-for-loop-2": {
+    "dag": {
+     "tasks": {
+      "evaluate": {
+       "componentRef": {
+        "name": "comp-evaluate"
+       },
+       "taskInfo": {
+        "name": "evaluate"
+       }
+      }
+     }
+    }
+   }
+  },
+  "pipelineInfo": {
+   "name": "loop-pipe"
+  },
+  "root": {
+   "dag": {
+    "tasks": {
+     "check-registry-model": {
+      "componentRef": {
+       "name": "comp-check-registry-model"
+      },
+      "dependentTasks": [
+       "importer"
+      ],
+      "taskInfo": {
+       "name": "check-registry-model"
+      }
+     },
+     "for-loop-2": {
+      "componentRef": {
+       "name": "comp-for-loop-2"
+      },
+      "dependentTasks": [
+       "train"
+      ],
+      "parameterIterator": {
+       "itemInput": "pipelinechannel--loop-item-param-1",
+       "items": {
+        "raw": "[1, 2]"
+       }
+      },
+      "taskInfo": {
+       "name": "for-loop-2"
+      }
+     },
+     "importer": {
+      "componentRef": {
+       "name": "comp-importer"
+      },
+      "taskInfo": {
+       "name": "importer"
+      }
+     },
+     "train": {
+      "componentRef": {
+       "name": "comp-train"
+      },
+      "taskInfo": {
+       "name": "train"
+      }
+     }
+    }
+   }
+  }
+ },
+ "startTime": "2026-11-03T11:44:03.125951Z",
+ "state": 3,
+ "updateTime": "2026-11-03T11:44:03.389263Z"
+}

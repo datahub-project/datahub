@@ -1,0 +1,456 @@
+{
+ "createTime": "2026-11-04T10:43:18.481997Z",
+ "displayName": "nested-pipe",
+ "endTime": "2026-11-04T10:49:13.389199Z",
+ "jobDetail": {
+  "taskDetails": [
+   {
+    "createTime": "2026-11-04T10:43:21.633375Z",
+    "endTime": "2026-11-04T10:43:22.655579Z",
+    "execution": {
+     "state": 3
+    },
+    "outputs": {
+     "artifact": {
+      "artifacts": [
+       {
+        "uri": "gs://demo-nested-bucket/model/v1"
+       }
+      ]
+     }
+    },
+    "parentTaskId": "1000000000000000028",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-04T10:43:22.469341116Z"
+     }
+    ],
+    "startTime": "2026-11-04T10:43:22.655579Z",
+    "state": 3,
+    "taskId": "-1000000000000000027",
+    "taskName": "importer",
+    "taskUniqueName": "exit-handler-1.importer"
+   },
+   {
+    "createTime": "2026-11-04T10:43:21.633375Z",
+    "endTime": "2026-11-04T10:46:06.914916Z",
+    "execution": {
+     "state": 3
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/1000000000000000030"
+     }
+    },
+    "inputs": {
+     "model": {
+      "artifacts": [
+       {
+        "uri": "https://us-central1-aiplatform.googleapis.com/v1/projects/my-project/locations/us-central1/models/1000000000000000031@champion"
+       }
+      ]
+     }
+    },
+    "parentTaskId": "1000000000000000028",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-04T10:46:06.812432917Z"
+     }
+    ],
+    "startTime": "2026-11-04T10:43:23.089258Z",
+    "state": 3,
+    "taskId": "-1000000000000000029",
+    "taskName": "use-model",
+    "taskUniqueName": "exit-handler-1.use-model"
+   },
+   {
+    "createTime": "2026-11-04T10:43:21.633375Z",
+    "endTime": "2026-11-04T10:46:28.281529Z",
+    "execution": {
+     "state": 3
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/1000000000000000033"
+     }
+    },
+    "inputs": {
+     "unmanaged_container_model": {
+      "artifacts": [
+       {
+        "uri": "gs://demo-nested-bucket/model/v1"
+       }
+      ]
+     }
+    },
+    "outputs": {
+     "model": {
+      "artifacts": [
+       {
+        "uri": "https://us-central1-aiplatform.googleapis.com/v1/projects/123456789012/locations/us-central1/models/1000000000000000034@1"
+       }
+      ]
+     }
+    },
+    "parentTaskId": "1000000000000000028",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-04T10:46:28.132114012Z"
+     }
+    ],
+    "startTime": "2026-11-04T10:43:23.283554Z",
+    "state": 3,
+    "taskId": "-1000000000000000032",
+    "taskName": "model-upload",
+    "taskUniqueName": "exit-handler-1.model-upload"
+   },
+   {
+    "createTime": "2026-11-04T10:43:22.073151Z",
+    "endTime": "2026-11-04T10:46:07.196685Z",
+    "execution": {
+     "state": 3
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/1000000000000000037"
+     }
+    },
+    "parentTaskId": "-1000000000000000036",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-04T10:46:07.110345133Z"
+     }
+    ],
+    "startTime": "2026-11-04T10:43:23.356362Z",
+    "state": 3,
+    "taskId": "-1000000000000000035",
+    "taskName": "train",
+    "taskUniqueName": "exit-handler-1.branch-a.train"
+   },
+   {
+    "createTime": "2026-11-04T10:43:21.279055Z",
+    "endTime": "2026-11-04T10:49:13.189380Z",
+    "execution": {
+     "state": 3
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/1000000000000000040"
+     }
+    },
+    "parentTaskId": "1000000000000000039",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-04T10:49:13.013929600Z"
+     }
+    ],
+    "startTime": "2026-11-04T10:46:28.812661Z",
+    "state": 3,
+    "taskId": "-1000000000000000038",
+    "taskName": "announce",
+    "taskUniqueName": "announce"
+   },
+   {
+    "createTime": "2026-11-04T10:43:21.633375Z",
+    "endTime": "2026-11-04T10:46:07.415723Z",
+    "execution": {
+     "state": 3
+    },
+    "parentTaskId": "1000000000000000028",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-04T10:46:07.238256701Z"
+     }
+    ],
+    "startTime": "2026-11-04T10:43:22.073151Z",
+    "state": 3,
+    "taskId": "-1000000000000000036",
+    "taskName": "branch-a",
+    "taskUniqueName": "exit-handler-1.branch-a"
+   },
+   {
+    "createTime": "2026-11-04T10:43:21.279055Z",
+    "endTime": "2026-11-04T10:46:28.455016Z",
+    "execution": {
+     "state": 3
+    },
+    "parentTaskId": "1000000000000000039",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-04T10:46:28.308422023Z"
+     }
+    ],
+    "startTime": "2026-11-04T10:43:21.633375Z",
+    "state": 3,
+    "taskId": "1000000000000000028",
+    "taskName": "exit-handler-1",
+    "taskUniqueName": "exit-handler-1"
+   },
+   {
+    "createTime": "2026-11-04T10:43:21.633375Z",
+    "endTime": "2026-11-04T10:45:47.262719Z",
+    "execution": {
+     "state": 3
+    },
+    "parentTaskId": "1000000000000000028",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-04T10:45:47.102395910Z"
+     }
+    ],
+    "startTime": "2026-11-04T10:43:22.042207Z",
+    "state": 3,
+    "taskId": "1000000000000000041",
+    "taskName": "branch-b",
+    "taskUniqueName": "exit-handler-1.branch-b"
+   },
+   {
+    "createTime": "2026-11-04T10:43:20.523631Z",
+    "endTime": "2026-11-04T10:49:13.378341Z",
+    "execution": {
+     "state": 3
+    },
+    "parentTaskId": "0",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-04T10:49:13.219252703Z"
+     }
+    ],
+    "startTime": "2026-11-04T10:43:21.279055Z",
+    "state": 3,
+    "taskId": "1000000000000000039",
+    "taskName": "nested-pipe-20261104161316",
+    "taskUniqueName": "nested-pipe-20261104161316"
+   },
+   {
+    "createTime": "2026-11-04T10:43:21.633375Z",
+    "endTime": "2026-11-04T10:46:27.109692Z",
+    "execution": {
+     "state": 3
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/1000000000000000043"
+     }
+    },
+    "parentTaskId": "1000000000000000028",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-04T10:46:27.008394549Z"
+     }
+    ],
+    "startTime": "2026-11-04T10:43:22.411909Z",
+    "state": 3,
+    "taskId": "1000000000000000042",
+    "taskName": "sdk-upload",
+    "taskUniqueName": "exit-handler-1.sdk-upload"
+   },
+   {
+    "createTime": "2026-11-04T10:43:21.633375Z",
+    "endTime": "2026-11-04T10:43:22.667085Z",
+    "execution": {
+     "state": 3
+    },
+    "outputs": {
+     "artifact": {
+      "artifacts": [
+       {
+        "uri": "https://us-central1-aiplatform.googleapis.com/v1/projects/my-project/locations/us-central1/models/1000000000000000031@champion"
+       }
+      ]
+     }
+    },
+    "parentTaskId": "1000000000000000028",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-04T10:43:22.473986576Z"
+     }
+    ],
+    "startTime": "2026-11-04T10:43:22.667085Z",
+    "state": 3,
+    "taskId": "1000000000000000044",
+    "taskName": "importer-2",
+    "taskUniqueName": "exit-handler-1.importer-2"
+   },
+   {
+    "createTime": "2026-11-04T10:43:22.042207Z",
+    "endTime": "2026-11-04T10:45:47.070017Z",
+    "execution": {
+     "state": 3
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "failedMainJobs": [],
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/1000000000000000046"
+     }
+    },
+    "parentTaskId": "1000000000000000041",
+    "pipelineTaskStatus": [
+     {
+      "state": 3,
+      "updateTime": "2026-11-04T10:45:46.962641036Z"
+     }
+    ],
+    "startTime": "2026-11-04T10:43:23.515037Z",
+    "state": 3,
+    "taskId": "1000000000000000045",
+    "taskName": "train",
+    "taskUniqueName": "exit-handler-1.branch-b.train"
+   }
+  ]
+ },
+ "labels": {
+  "vertex-ai-pipelines-run-billing-id": "1000000000000000026"
+ },
+ "name": "projects/123456789012/locations/us-central1/pipelineJobs/nested-pipe-20261104161316",
+ "pipelineSpec": {
+  "components": {
+   "comp-branch-a": {
+    "dag": {
+     "tasks": {
+      "train": {
+       "componentRef": {
+        "name": "comp-train"
+       },
+       "taskInfo": {
+        "name": "train"
+       }
+      }
+     }
+    }
+   },
+   "comp-branch-b": {
+    "dag": {
+     "tasks": {
+      "train": {
+       "componentRef": {
+        "name": "comp-train-2"
+       },
+       "taskInfo": {
+        "name": "train"
+       }
+      }
+     }
+    }
+   },
+   "comp-exit-handler-1": {
+    "dag": {
+     "tasks": {
+      "branch-a": {
+       "componentRef": {
+        "name": "comp-branch-a"
+       },
+       "taskInfo": {
+        "name": "branch-a"
+       }
+      },
+      "branch-b": {
+       "componentRef": {
+        "name": "comp-branch-b"
+       },
+       "taskInfo": {
+        "name": "branch-b"
+       }
+      },
+      "importer": {
+       "componentRef": {
+        "name": "comp-importer"
+       },
+       "taskInfo": {
+        "name": "importer"
+       }
+      },
+      "importer-2": {
+       "componentRef": {
+        "name": "comp-importer-2"
+       },
+       "taskInfo": {
+        "name": "importer-2"
+       }
+      },
+      "model-upload": {
+       "componentRef": {
+        "name": "comp-model-upload"
+       },
+       "dependentTasks": [
+        "importer"
+       ],
+       "taskInfo": {
+        "name": "model-upload"
+       }
+      },
+      "sdk-upload": {
+       "componentRef": {
+        "name": "comp-sdk-upload"
+       },
+       "taskInfo": {
+        "name": "sdk-upload"
+       }
+      },
+      "use-model": {
+       "componentRef": {
+        "name": "comp-use-model"
+       },
+       "dependentTasks": [
+        "importer-2"
+       ],
+       "taskInfo": {
+        "name": "check-champion"
+       }
+      }
+     }
+    }
+   }
+  },
+  "pipelineInfo": {
+   "name": "nested-pipe"
+  },
+  "root": {
+   "dag": {
+    "tasks": {
+     "announce": {
+      "componentRef": {
+       "name": "comp-announce"
+      },
+      "dependentTasks": [
+       "exit-handler-1"
+      ],
+      "taskInfo": {
+       "name": "announce"
+      },
+      "triggerPolicy": {
+       "strategy": "ALL_UPSTREAM_TASKS_COMPLETED"
+      }
+     },
+     "exit-handler-1": {
+      "componentRef": {
+       "name": "comp-exit-handler-1"
+      },
+      "taskInfo": {
+       "name": "exit-handler-1"
+      }
+     }
+    }
+   }
+  }
+ },
+ "startTime": "2026-11-04T10:43:20.523631Z",
+ "state": 4,
+ "updateTime": "2026-11-04T10:49:13.389199Z"
+}
