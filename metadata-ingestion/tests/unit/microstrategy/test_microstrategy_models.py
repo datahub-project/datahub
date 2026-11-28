@@ -161,7 +161,7 @@ def test_datasource_connection_parses_jdbc_url_query_params() -> None:
     connection = DatasourceConnection.model_validate(
         {
             "id": "conn-1",
-            "name": "SNOWFLAKE_DWH_JDBC_Connection",
+            "name": "MY_SNOWFLAKE_JDBC_CONNECTION",
             "database": {"type": "snow_flake"},
             "connectionString": (
                 ";JDBC;DRIVER={net.snowflake.client.jdbc.SnowflakeDriver};"

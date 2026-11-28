@@ -2,6 +2,7 @@ from typing import Any, Dict, Iterator, List
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.constants import UsageTargetKind
 from datahub.ingestion.source.microstrategy.models import Project
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.source import MicroStrategySource
@@ -271,12 +272,12 @@ def test_source_emits_usage_aspects_for_ingested_entities() -> None:
     )
     source._register_usage_target(
         "dash-1",
-        "dashboard",
+        UsageTargetKind.DASHBOARD,
         source.mapper.dashboard_urn("project-1", "DASH-1"),
     )
     source._register_usage_target(
         "report-1",
-        "chart",
+        UsageTargetKind.CHART,
         source.mapper.report_urn("project-1", "REPORT-1"),
     )
 
@@ -313,7 +314,9 @@ def test_usage_targets_not_tracked_when_disabled() -> None:
         _usage_config({"extract_usage_statistics": False}),
         PipelineContext(run_id="usage-test"),
     )
-    source._register_usage_target("dash-1", "dashboard", "urn:li:dashboard:x")
+    source._register_usage_target(
+        "dash-1", UsageTargetKind.DASHBOARD, "urn:li:dashboard:x"
+    )
     assert source._usage_targets == {}
 
 

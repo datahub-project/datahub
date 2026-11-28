@@ -1,38 +1,21 @@
 import functools
 import inspect
 import logging
-import re
-import sys
 import time
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Iterable,
-    Iterator,
-    Optional,
-    Protocol,
-    TypeVar,
-    cast,
-)
+from typing import Callable, Iterable, Iterator, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict
-from typing_extensions import ParamSpec
+from typing_extensions import Concatenate, ParamSpec
 
 from datahub.ingestion.source.microstrategy.constants import (
-    MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS,
-    MSTR_ENDPOINT_ID_PLACEHOLDER,
-    MSTR_ENDPOINT_KEY_REPLACEMENT,
     MSTR_SQLGLOT_SUPPRESSED_PREFIXES,
     MicroStrategyPhase,
 )
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-
-try:
-    import resource
-except ImportError:  # pragma: no cover - not available on Windows
-    resource = None  # type: ignore[assignment]
+from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.telemetry_helpers import (
+    IntervalGate,
+    peak_rss_mb,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,57 +23,32 @@ P = ParamSpec("P")
 R = TypeVar("R")
 T = TypeVar("T")
 
-# 32-hex object ids and UUIDs, so one endpoint is one row.
-_OBJECT_ID_SEGMENT_RE = re.compile(r"/[0-9A-Fa-f]{32}(?=/|$)")
-_UUID_SEGMENT_RE = re.compile(
-    r"/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?=/|$)"
-)
-# Not 32-hex object ids, so a literal match would make one row per visualization.
-_DOSSIER_KEY_SEGMENT_RE = re.compile(r"/(chapters|pages|visualizations)/[^/]+")
+_PROGRESS_TOP_PHASES = 6
 
 
 class _HasReport(Protocol):
-    report: "MicroStrategyReport"
+    @property
+    def report(self) -> MicroStrategyReport: ...
 
 
-def endpoint_template(method: str, path: str) -> str:
-    path = path.split("?", 1)[0]
-    path = _OBJECT_ID_SEGMENT_RE.sub(MSTR_ENDPOINT_ID_PLACEHOLDER, path)
-    path = _UUID_SEGMENT_RE.sub(MSTR_ENDPOINT_ID_PLACEHOLDER, path)
-    path = _DOSSIER_KEY_SEGMENT_RE.sub(MSTR_ENDPOINT_KEY_REPLACEMENT, path)
-    return f"{method.upper()} {path}"
+S = TypeVar("S", bound=_HasReport)
 
 
-def peak_rss_mb() -> Optional[float]:
-    if resource is None:
-        return None
-    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    # ru_maxrss is in bytes on macOS and kilobytes on Linux.
-    divisor = 1024 * 1024 if sys.platform == "darwin" else 1024
-    return round(peak / divisor, 1)
-
-
-def dashboard_seconds_bucket(seconds: float) -> str:
-    lower = 0
-    for upper in MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS:
-        if seconds < upper:
-            return f"{lower}-{upper}s"
-        lower = upper
-    return f">={lower}s"
-
-
-def timed_phase(name: MicroStrategyPhase) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    def decorate(method: Callable[P, R]) -> Callable[P, R]:
+def timed_phase(
+    name: MicroStrategyPhase,
+) -> Callable[[Callable[Concatenate[S, P], R]], Callable[Concatenate[S, P], R]]:
+    def decorate(
+        method: Callable[Concatenate[S, P], R],
+    ) -> Callable[Concatenate[S, P], R]:
         if inspect.isgeneratorfunction(method):
             raise TypeError(
                 f"{method.__qualname__} is a generator; use timed_generator_phase"
             )
 
         @functools.wraps(method)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            owner = cast(_HasReport, args[0])
-            with owner.report.phase(name):
-                return method(*args, **kwargs)
+        def wrapper(self: S, *args: P.args, **kwargs: P.kwargs) -> R:
+            with self.report.phase(name):
+                return method(self, *args, **kwargs)
 
         return wrapper
 
@@ -99,12 +57,15 @@ def timed_phase(name: MicroStrategyPhase) -> Callable[[Callable[P, R]], Callable
 
 def timed_generator_phase(
     name: MicroStrategyPhase,
-) -> Callable[[Callable[P, Iterable[T]]], Callable[P, Iterator[T]]]:
-    def decorate(method: Callable[P, Iterable[T]]) -> Callable[P, Iterator[T]]:
+) -> Callable[
+    [Callable[Concatenate[S, P], Iterable[T]]], Callable[Concatenate[S, P], Iterator[T]]
+]:
+    def decorate(
+        method: Callable[Concatenate[S, P], Iterable[T]],
+    ) -> Callable[Concatenate[S, P], Iterator[T]]:
         @functools.wraps(method)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[T]:
-            owner = cast(_HasReport, args[0])
-            return timed_iter(owner.report, name, method(*args, **kwargs))
+        def wrapper(self: S, *args: P.args, **kwargs: P.kwargs) -> Iterator[T]:
+            return timed_iter(self.report, name, method(self, *args, **kwargs))
 
         return wrapper
 
@@ -112,7 +73,7 @@ def timed_generator_phase(
 
 
 def timed_iter(
-    report: "MicroStrategyReport", name: MicroStrategyPhase, iterable: Iterable[T]
+    report: MicroStrategyReport, name: MicroStrategyPhase, iterable: Iterable[T]
 ) -> Iterator[T]:
     # Step by step, so sink writes between yields are not charged to the phase.
     iterator = iter(iterable)
@@ -133,7 +94,7 @@ def timed_iter(
 
 
 class SqlglotWarningFilter(logging.Filter):
-    def __init__(self, report: "MicroStrategyReport") -> None:
+    def __init__(self, report: MicroStrategyReport) -> None:
         super().__init__()
         self._report = report
 
@@ -161,16 +122,13 @@ class TelemetrySnapshot(BaseModel):
 class RunProgress:
     def __init__(
         self,
-        report: "MicroStrategyReport",
+        report: MicroStrategyReport,
         every_dashboards: int,
         every_seconds: float,
     ) -> None:
         self._report = report
-        self._every_dashboards = every_dashboards
-        self._every_seconds = every_seconds
+        self._gate = IntervalGate(every_dashboards, every_seconds)
         self._started = time.perf_counter()
-        self._last_logged = self._started
-        self._since_logged = 0
 
     def snapshot(self) -> TelemetrySnapshot:
         report = self._report
@@ -210,26 +168,20 @@ class RunProgress:
             after.sql_parse_cache_hits - before.sql_parse_cache_hits,
             datasets,
         )
-        self._since_logged += 1
-        now = time.perf_counter()
-        if (
-            self._since_logged >= self._every_dashboards
-            or now - self._last_logged >= self._every_seconds
-        ):
+        if self._gate.due(self._report.dashboards_timed):
             self.log_progress()
 
     def log_progress(self) -> None:
         report = self._report
-        self._last_logged = time.perf_counter()
-        self._since_logged = 0
-        report.peak_rss_mb = peak_rss_mb()
-        elapsed = self._last_logged - self._started
         processed = report.dashboards_timed
+        self._gate.mark(processed)
+        report.peak_rss_mb = peak_rss_mb()
+        elapsed = time.perf_counter() - self._started
         top_phases = ", ".join(
             f"{name} {seconds:.0f}s"
             for name, seconds in sorted(
                 report.phase_seconds.items(), key=lambda item: item[1], reverse=True
-            )[:6]
+            )[:_PROGRESS_TOP_PHASES]
         )
         logger.info(
             "MicroStrategy progress: %d dashboards in %.0fs (%.1fs each, %d "

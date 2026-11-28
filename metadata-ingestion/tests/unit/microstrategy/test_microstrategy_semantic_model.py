@@ -786,7 +786,6 @@ def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
 def test_metrics_are_emitted_as_they_are_fetched(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # Holding every metric until the last one is built doubled peak memory.
     fetched: List[str] = []
 
     class RecordingClient(FakeSemanticModelClient):
@@ -879,6 +878,7 @@ def test_metric_progress_logs_once_the_interval_has_elapsed(
     progress = _MetricProgress(
         project_id="project-1",
         total=10,
+        every_metrics=1000,
         every_seconds=0,
         report=MicroStrategyReport(),
     )

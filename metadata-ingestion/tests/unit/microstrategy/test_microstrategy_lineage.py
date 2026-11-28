@@ -875,8 +875,8 @@ def test_convert_urns_to_lowercase_false_preserves_warehouse_case() -> None:
     context = WarehouseLineageContext(
         platform="snowflake",
         env="PROD",
-        database="P_MER_EDW_DB",
-        schema="XRBIA_DM",
+        database="MY_DB",
+        schema="MY_DM",
         convert_urns_to_lowercase=False,
     )
 
@@ -884,9 +884,9 @@ def test_convert_urns_to_lowercase_false_preserves_warehouse_case() -> None:
         [
             {
                 "physicalTable": {
-                    "namespace": "XRBIA_DM_1",
-                    "tablePrefix": "XRBIA_DM.",
-                    "tableName": "W_RTL_SLS_IT_LC_DY_A",
+                    "namespace": "MY_DM_1",
+                    "tablePrefix": "MY_DM.",
+                    "tableName": "SALES_ITEM_DAY_FACT",
                 },
                 "facts": [
                     {
@@ -902,7 +902,7 @@ def test_convert_urns_to_lowercase_false_preserves_warehouse_case() -> None:
 
     assert index.fact_field_urns(["fact-1"]) == [
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
-        "P_MER_EDW_DB.XRBIA_DM.W_RTL_SLS_IT_LC_DY_A,PROD),NET_SLS_QTY)"
+        "MY_DB.MY_DM.SALES_ITEM_DAY_FACT,PROD),NET_SLS_QTY)"
     ]
 
 

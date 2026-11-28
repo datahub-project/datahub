@@ -40,8 +40,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_STRUCTURED_PROPERTY_PAGE_POSITION,
     MSTR_WHITESPACE_RE,
     TEMPORAL_TAG_URN,
-    USAGE_TARGET_DASHBOARD,
-    USAGE_TARGET_DATASET,
+    UsageTargetKind,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     ColumnSetBinding,
@@ -1361,11 +1360,11 @@ class MicroStrategyMapper:
 
     def gen_usage_workunits(
         self,
-        entity_kind: str,
+        entity_kind: UsageTargetKind,
         entity_urn: str,
         bucket: UsageBucket,
     ) -> Iterable[MetadataWorkUnit]:
-        """Daily usage bucket -> Dashboard/Chart usage statistics aspect."""
+        """Daily usage bucket -> Dashboard/Chart/Dataset usage statistics aspect."""
         granularity = TimeWindowSizeClass(unit=CalendarIntervalClass.DAY, multiple=1)
         sorted_user_counts = sorted(bucket.user_counts.items())
         aspect: Union[
@@ -1373,7 +1372,7 @@ class MicroStrategyMapper:
             ChartUsageStatisticsClass,
             DatasetUsageStatisticsClass,
         ]
-        if entity_kind == USAGE_TARGET_DATASET:
+        if entity_kind == UsageTargetKind.DATASET:
             # per_report has no query log; the execution count is the closest query count.
             aspect = DatasetUsageStatisticsClass(
                 timestampMillis=bucket.bucket_start_ms,
@@ -1389,7 +1388,7 @@ class MicroStrategyMapper:
                 ]
                 or None,
             )
-        elif entity_kind == USAGE_TARGET_DASHBOARD:
+        elif entity_kind == UsageTargetKind.DASHBOARD:
             aspect = DashboardUsageStatisticsClass(
                 timestampMillis=bucket.bucket_start_ms,
                 eventGranularity=granularity,
@@ -1621,16 +1620,14 @@ class MicroStrategyMapper:
             "microstrategyDashboardId": dashboard.id,
             "microstrategyDatasetId": dataset.id,
         }
-        properties.update(_dataset_semantic_count_properties(dataset))
         # Deliberately the FULL SQL-derived table set (audit trail), even when
         # the emitted upstreamLineage aspect is restricted to field-evidenced
         # tables.
-        if self.config.extract_warehouse_lineage and dataset.warehouse_upstream_urns:
-            properties.update(
-                _warehouse_upstream_properties(dataset.warehouse_upstream_urns)
+        properties.update(
+            self._dataset_lineage_properties(
+                dataset, self.config.extract_warehouse_lineage
             )
-        properties.update(_model_lineage_properties(dataset))
-        properties.update(self._source_warehouse_properties(dataset.source_warehouse))
+        )
         return properties
 
     def _report_dataset_custom_properties(
@@ -1660,8 +1657,18 @@ class MicroStrategyMapper:
                 properties["microstrategyReportSourceName"] = (
                     report_definition.source_name
                 )
-        properties.update(_dataset_semantic_count_properties(dataset))
-        if self._report_dataset_lineage_enabled() and dataset.warehouse_upstream_urns:
+        properties.update(
+            self._dataset_lineage_properties(
+                dataset, self._report_dataset_lineage_enabled()
+            )
+        )
+        return properties
+
+    def _dataset_lineage_properties(
+        self, dataset: DatasetObject, include_warehouse_upstreams: bool
+    ) -> Dict[str, str]:
+        properties = _dataset_semantic_count_properties(dataset)
+        if include_warehouse_upstreams and dataset.warehouse_upstream_urns:
             properties.update(
                 _warehouse_upstream_properties(dataset.warehouse_upstream_urns)
             )
