@@ -12,10 +12,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MicroStrategyPhase,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-from datahub.ingestion.source.microstrategy.telemetry_helpers import (
-    IntervalGate,
-    peak_rss_mb,
-)
+from datahub.ingestion.source.microstrategy.telemetry_helpers import IntervalGate
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +172,7 @@ class RunProgress:
         report = self._report
         processed = report.dashboards_timed
         self._gate.mark(processed)
-        report.peak_rss_mb = peak_rss_mb()
+        report.update_peak_rss()
         elapsed = time.perf_counter() - self._started
         top_phases = ", ".join(
             f"{name} {seconds:.0f}s"

@@ -112,6 +112,24 @@ def test_api_calls_are_charged_to_the_innermost_phase() -> None:
     assert report.phase_calls == {"dashboard": 1, "sql_parse": 1}
 
 
+def test_nested_phases_exit_in_lifo_order_even_when_raising() -> None:
+    report = MicroStrategyReport()
+    stacks: List[List[str]] = []
+
+    with pytest.raises(RuntimeError, match="inner failed"):
+        with report.phase(MicroStrategyPhase.DASHBOARD):
+            with report.phase(MicroStrategyPhase.SQL_PARSE):
+                stacks.append(list(report._phase_stack))
+                raise RuntimeError("inner failed")
+
+    with report.phase(MicroStrategyPhase.USAGE):
+        stacks.append(list(report._phase_stack))
+
+    assert stacks == [["dashboard", "sql_parse"], ["usage"]]
+    assert report._phase_stack == []
+    assert report.phase_calls == {"dashboard": 1, "sql_parse": 1, "usage": 1}
+
+
 def test_timed_iter_excludes_consumer_time(monkeypatch: MonkeyPatch) -> None:
     clock = _FakeClock()
     monkeypatch.setattr("time.perf_counter", clock)

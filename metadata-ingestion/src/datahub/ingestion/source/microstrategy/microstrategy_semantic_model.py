@@ -27,10 +27,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
 )
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-from datahub.ingestion.source.microstrategy.telemetry_helpers import (
-    IntervalGate,
-    peak_rss_mb,
-)
+from datahub.ingestion.source.microstrategy.telemetry_helpers import IntervalGate
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -96,7 +93,7 @@ class _MetricProgress:
 
     def log(self) -> None:
         self._gate.mark(self.done)
-        self._report.peak_rss_mb = peak_rss_mb()
+        self._report.update_peak_rss()
         logger.info(
             "Semantic model metrics: %d/%d in %.0fs, %d failed; peak RSS %s MB "
             "(project=%s)",

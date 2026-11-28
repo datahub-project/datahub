@@ -209,7 +209,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     # Source time only: sink writes between yields are excluded.
     dashboards_timed: int = 0
     dashboard_seconds_total: float = 0.0
-    dashboard_seconds_histogram: Dict[str, int] = field(default_factory=dict)
+    dashboard_seconds_histogram: TopKDict[str, int] = field(default_factory=_int_top_k)
     slowest_dashboards: TopKDict[str, float] = field(
         default_factory=lambda: _float_top_k(_SLOWEST_TOP_K)
     )
@@ -230,7 +230,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     schema_resolution_seconds: float = 0.0
     schema_resolution_calls: int = 0
     schema_resolver: SchemaResolverReport = field(default_factory=SchemaResolverReport)
-    cache_entries_peak: Dict[str, int] = field(default_factory=dict)
+    cache_entries_peak: TopKDict[str, int] = field(default_factory=_int_top_k)
     cache_project_resets: int = 0
     sqlglot_warnings_suppressed: TopKDict[str, int] = field(
         default_factory=lambda: _int_top_k(_SQLGLOT_WARNINGS_TOP_K)
@@ -522,11 +522,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
             self.phase_seconds[key] += time.perf_counter() - start
             if count:
                 self.phase_calls[key] += 1
-            # An inner phase can leak its entry, so scan back to this one.
-            for index in range(len(self._phase_stack) - 1, -1, -1):
-                if self._phase_stack[index] == key:
-                    del self._phase_stack[index]
-                    break
+            self._phase_stack.pop()
 
     def report_api_call(
         self, method: str, path: str, status: Optional[int], seconds: float
@@ -536,8 +532,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         self.api_call_seconds += seconds
         self.api_calls_by_endpoint[endpoint] += 1
         self.api_seconds_by_endpoint[endpoint] += seconds
-        if seconds > self.api_max_seconds_by_endpoint.get(endpoint, 0.0):
-            self.api_max_seconds_by_endpoint[endpoint] = seconds
+        self.api_max_seconds_by_endpoint[endpoint] = max(
+            self.api_max_seconds_by_endpoint[endpoint], seconds
+        )
         status_label = (
             str(status) if status is not None else MSTR_TELEMETRY_ERROR_STATUS
         )
@@ -552,10 +549,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_dashboard_timing(self, key: str, seconds: float, datasets: int) -> None:
         self.dashboards_timed += 1
         self.dashboard_seconds_total += seconds
-        bucket = dashboard_seconds_bucket(seconds)
-        self.dashboard_seconds_histogram[bucket] = (
-            self.dashboard_seconds_histogram.get(bucket, 0) + 1
-        )
+        self.dashboard_seconds_histogram[dashboard_seconds_bucket(seconds)] += 1
         self._keep_slowest(self.slowest_dashboards, key, seconds)
         if key in self.slowest_dashboards:
             self.datasets_by_slow_dashboard[key] = datasets
@@ -590,20 +584,23 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_cache_entries(self, name: MicroStrategyCache, entries: int) -> None:
         key = str(name)
-        self.cache_entries_peak[key] = max(self.cache_entries_peak.get(key, 0), entries)
+        self.cache_entries_peak[key] = max(self.cache_entries_peak[key], entries)
 
     @staticmethod
     def _keep_slowest(table: "TopKDict[str, float]", key: str, seconds: float) -> None:
-        table[key] = max(table.get(key, 0.0), seconds)
+        table[key] = max(table[key], seconds)
         if len(table) > table.top_k:
             fastest = min(table, key=lambda name: table[name])
             del table[fastest]
 
-    def compute_stats(self) -> None:
-        super().compute_stats()
+    def update_peak_rss(self) -> None:
         current_rss = peak_rss_mb()
         if current_rss is not None:
             self.peak_rss_mb = current_rss
+
+    def compute_stats(self) -> None:
+        super().compute_stats()
+        self.update_peak_rss()
 
     def as_obj(self) -> dict:
         # Accumulators stay exact; only the serialized copy is rounded.
