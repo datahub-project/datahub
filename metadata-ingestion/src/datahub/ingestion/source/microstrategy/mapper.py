@@ -16,6 +16,7 @@ from typing import (
 )
 
 from pydantic import BaseModel, ConfigDict
+from typing_extensions import assert_never
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -38,6 +39,14 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DOT_COLLAPSE_RE,
     MSTR_OBJECT_TIMESTAMP_FORMATS,
     MSTR_PROP_FINGERPRINT,
+    MSTR_PROPERTY_DASHBOARD_COUNT,
+    MSTR_PROPERTY_DASHBOARD_IDS,
+    MSTR_PROPERTY_PROJECT_ID,
+    MSTR_PROPERTY_REPORT_HAS_FILTER,
+    MSTR_PROPERTY_REPORT_ID,
+    MSTR_PROPERTY_REPORT_PROMPT_COUNT,
+    MSTR_PROPERTY_REPORT_SOURCE_ID,
+    MSTR_PROPERTY_REPORT_SOURCE_NAME,
     MSTR_STRUCTURED_PROPERTY_CHAPTER,
     MSTR_STRUCTURED_PROPERTY_PAGE,
     MSTR_STRUCTURED_PROPERTY_PAGE_POSITION,
@@ -363,6 +372,30 @@ class MicroStrategyMapper:
     def dataset_field_paths(self, dataset: DatasetObject) -> List[str]:
         return [spec.field_path for spec in _iter_dataset_fields(dataset)]
 
+    def merge_dataset_fields(
+        self, primary: DatasetObject, secondary: DatasetObject
+    ) -> Dict[str, object]:
+        """Primary's available objects plus each secondary field whose path
+        primary lacks, so every path emitted from secondary keeps resolving."""
+        merged: Dict[str, object] = {
+            key: list(value) if isinstance(value, list) else value
+            for key, value in primary.available_objects.items()
+        }
+        primary_paths = set(self.dataset_field_paths(primary))
+        appended: Set[int] = set()
+        for spec in _iter_dataset_fields(secondary):
+            category = _FIELD_KIND_CATEGORIES.get(spec.kind)
+            if (
+                category is None
+                or spec.field_path in primary_paths
+                or id(spec.item) in appended
+            ):
+                continue
+            appended.add(id(spec.item))
+            items = merged.get(category)
+            merged[category] = [*(items if isinstance(items, list) else []), spec.item]
+        return merged
+
     def gen_project_container(
         self,
         project: Project,
@@ -619,7 +652,6 @@ class MicroStrategyMapper:
             custom_properties.update(self._dashboard_object_properties(dataset_object))
         if fingerprint is not None:
             custom_properties[MSTR_PROP_FINGERPRINT] = fingerprint
-        self.report.report_report_dataset_emitted()
         yield from self._gen_dataset_entity_workunits(
             project_id=project_id,
             parent_id=first_dashboard_id,
@@ -1451,7 +1483,7 @@ class MicroStrategyMapper:
                 ]
                 or None,
             )
-        else:
+        elif entity_kind == UsageTargetKind.CHART:
             aspect = ChartUsageStatisticsClass(
                 timestampMillis=bucket.bucket_start_ms,
                 eventGranularity=granularity,
@@ -1466,6 +1498,8 @@ class MicroStrategyMapper:
                 ]
                 or None,
             )
+        else:
+            assert_never(entity_kind)
         self.report.report_usage_bucket_emitted()
         yield MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
@@ -1686,23 +1720,18 @@ class MicroStrategyMapper:
         report_definition: Optional[ReportDefinition],
     ) -> Dict[str, str]:
         properties = {
-            "microstrategyProjectId": project_id,
-            "microstrategyReportId": dataset.id,
-            "microstrategyDashboardCount": str(len(dashboard_ids)),
+            MSTR_PROPERTY_PROJECT_ID: project_id,
+            MSTR_PROPERTY_REPORT_ID: dataset.id,
+            MSTR_PROPERTY_DASHBOARD_COUNT: str(len(dashboard_ids)),
         }
         if dashboard_ids:
-            properties["microstrategyDashboardIds"] = ",".join(dashboard_ids)
+            properties[MSTR_PROPERTY_DASHBOARD_IDS] = ",".join(dashboard_ids)
         if report_definition is not None:
-            properties["microstrategyReportPromptCount"] = str(
-                report_definition.prompt_count
-            )
-            properties["microstrategyReportHasFilter"] = str(
-                report_definition.has_filter
-            ).lower()
+            properties.update(_report_definition_properties(report_definition))
             if report_definition.source_id:
-                properties["microstrategyReportSourceId"] = report_definition.source_id
+                properties[MSTR_PROPERTY_REPORT_SOURCE_ID] = report_definition.source_id
             if report_definition.source_name:
-                properties["microstrategyReportSourceName"] = (
+                properties[MSTR_PROPERTY_REPORT_SOURCE_NAME] = (
                     report_definition.source_name
                 )
         properties.update(
@@ -1762,16 +1791,7 @@ class MicroStrategyMapper:
         }
         properties.update(self._dashboard_object_properties(report_object))
         if report_definition:
-            properties.update(
-                {
-                    "microstrategyReportPromptCount": str(
-                        report_definition.prompt_count
-                    ),
-                    "microstrategyReportHasFilter": str(
-                        report_definition.has_filter
-                    ).lower(),
-                }
-            )
+            properties.update(_report_definition_properties(report_definition))
         if source_dataset:
             properties.update(
                 {
@@ -2345,6 +2365,13 @@ class _FieldSpec:
     derived: Optional[DerivedMetricSpec] = None
 
 
+# Derived metrics are not available objects; they live on the dataset itself.
+_FIELD_KIND_CATEGORIES: Dict[str, str] = {
+    "metric": "metrics",
+    "attribute": "attributes",
+}
+
+
 # Strategy's Datasets panel lists a report's objects in two alphabetical runs:
 # the attributes first, then the metrics, with report-derived metrics sorted in
 # among the catalog ones under the name the report displays.
@@ -2458,6 +2485,15 @@ def _dataset_semantic_count_properties(dataset: DatasetObject) -> Dict[str, str]
             len(metrics) + attribute_schema_field_count
         ),
         "microstrategyObjectIdCount": str(len(dataset.object_ids)),
+    }
+
+
+def _report_definition_properties(
+    report_definition: ReportDefinition,
+) -> Dict[str, str]:
+    return {
+        MSTR_PROPERTY_REPORT_PROMPT_COUNT: str(report_definition.prompt_count),
+        MSTR_PROPERTY_REPORT_HAS_FILTER: str(report_definition.has_filter).lower(),
     }
 
 

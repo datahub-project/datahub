@@ -3126,7 +3126,6 @@ def test_report_dataset_without_dashboards_links_cube_to_project() -> None:
     assert properties.customProperties["microstrategyDashboardCount"] == "0"
     assert _aspect(workunits, SubTypesClass).typeNames == ["Cube"]
     assert _maybe_aspect(workunits, OwnershipClass) is None
-    assert mapper.report.report_datasets_emitted == 1
 
 
 def test_usage_bucket_for_report_dataset_emits_dataset_usage_statistics() -> None:

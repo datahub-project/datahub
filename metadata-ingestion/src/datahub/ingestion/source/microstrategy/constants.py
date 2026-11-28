@@ -1,5 +1,6 @@
 import re
-from typing import Dict, FrozenSet, List, Tuple
+from collections.abc import Sequence
+from typing import Dict, Final, FrozenSet, Tuple
 
 from datahub.metadata.urns import GlossaryTermUrn, TagUrn
 from datahub.utilities.str_enum import StrEnum
@@ -106,6 +107,14 @@ DIMENSION_TAG_URN = "urn:li:tag:Dimension"
 TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
 DERIVED_TAG_URN = "urn:li:tag:Derived"
 
+MSTR_PROPERTY_PROJECT_ID = "microstrategyProjectId"
+MSTR_PROPERTY_REPORT_ID = "microstrategyReportId"
+MSTR_PROPERTY_DASHBOARD_COUNT = "microstrategyDashboardCount"
+MSTR_PROPERTY_DASHBOARD_IDS = "microstrategyDashboardIds"
+MSTR_PROPERTY_REPORT_PROMPT_COUNT = "microstrategyReportPromptCount"
+MSTR_PROPERTY_REPORT_HAS_FILTER = "microstrategyReportHasFilter"
+MSTR_PROPERTY_REPORT_SOURCE_ID = "microstrategyReportSourceId"
+MSTR_PROPERTY_REPORT_SOURCE_NAME = "microstrategyReportSourceName"
 
 # Stamped on emitted properties so a skip is trusted only if DataHub still has it.
 MSTR_PROP_FINGERPRINT = "microstrategyFingerprint"
@@ -613,14 +622,39 @@ class MicroStrategyCache(StrEnum):
     REPORT_DEFINITION = "report_definition"
 
 
+# Isolated metric model 500s are expected; a long run of them means the
+# Modeling service is down and every further call would fail too.
+MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT = 20
+
+# Metric search and /api/model/tables are slow on large projects.
+MSTR_MODEL_API_MIN_TIMEOUT_SECONDS = 120
+
 MSTR_TELEMETRY_NO_PHASE = "(no phase)"
 MSTR_TELEMETRY_ERROR_STATUS = "error"
 
-MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS: List[int] = [10, 30, 60, 120, 300, 600, 1800]
+MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS: Final[Sequence[int]] = (
+    10,
+    30,
+    60,
+    120,
+    300,
+    600,
+    1800,
+)
 
 MSTR_SQLGLOT_LOGGER = "sqlglot"
 # One warning per generated statement; they fill the executor's bounded log.
-MSTR_SQLGLOT_SUPPRESSED_PREFIXES: List[str] = ["Unsupported property"]
+MSTR_SQLGLOT_SUPPRESSED_PREFIXES: Final[Sequence[str]] = ("Unsupported property",)
 
 MSTR_ENDPOINT_ID_PLACEHOLDER = "/{id}"
+# 32-hex object ids and UUIDs, so one endpoint is one row.
+MSTR_ENDPOINT_OBJECT_ID_SEGMENT_RE = re.compile(r"/[0-9A-Fa-f]{32}(?=/|$)")
+MSTR_ENDPOINT_UUID_SEGMENT_RE = re.compile(
+    r"/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?=/|$)"
+)
+# Not 32-hex object ids, so a literal match would make one row per visualization.
+# The replacement keeps group 1, the segment kind.
+MSTR_ENDPOINT_DOSSIER_KEY_SEGMENT_RE = re.compile(
+    r"/(chapters|pages|visualizations)/[^/]+"
+)
 MSTR_ENDPOINT_KEY_REPLACEMENT = r"/\1/{key}"

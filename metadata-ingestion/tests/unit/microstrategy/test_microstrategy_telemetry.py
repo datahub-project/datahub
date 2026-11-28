@@ -24,9 +24,11 @@ from datahub.ingestion.source.microstrategy.telemetry import (
     timed_phase,
 )
 from datahub.ingestion.source.microstrategy.telemetry_helpers import (
+    IntervalGate,
     dashboard_seconds_bucket,
     endpoint_template,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.file_backed_collections import FileBackedDict
 
 _OBJECT_ID = "0123456789ABCDEF0123456789ABCDEF"
@@ -111,19 +113,37 @@ def test_api_calls_are_charged_to_the_innermost_phase() -> None:
     assert report.phase_calls == {"dashboard": 1, "sql_parse": 1}
 
 
+def test_nested_phases_exit_in_lifo_order_even_when_raising() -> None:
+    report = MicroStrategyReport()
+    stacks: List[List[str]] = []
+
+    with pytest.raises(RuntimeError, match="inner failed"):
+        with report.phase(MicroStrategyPhase.DASHBOARD):
+            with report.phase(MicroStrategyPhase.SQL_PARSE):
+                stacks.append(list(report._phase_stack))
+                raise RuntimeError("inner failed")
+
+    with report.phase(MicroStrategyPhase.USAGE):
+        stacks.append(list(report._phase_stack))
+
+    assert stacks == [["dashboard", "sql_parse"], ["usage"]]
+    assert report._phase_stack == []
+    assert report.phase_calls == {"dashboard": 1, "sql_parse": 1, "usage": 1}
+
+
 def test_timed_iter_excludes_consumer_time(monkeypatch: MonkeyPatch) -> None:
     clock = _FakeClock()
     monkeypatch.setattr("time.perf_counter", clock)
     report = MicroStrategyReport()
 
     def produce() -> Iterator[int]:
-        clock.now += 2.0  # producing the first item
+        clock.now += 2.0
         yield 1
-        clock.now += 3.0  # producing the second item
+        clock.now += 3.0
         yield 2
 
     for _ in timed_iter(report, MicroStrategyPhase.DASHBOARD, produce()):
-        clock.now += 100.0  # the pipeline writing the item to the sink
+        clock.now += 100.0
 
     assert report.phase_seconds["dashboard"] == pytest.approx(5.0)
     assert report.phase_calls["dashboard"] == 1
@@ -270,6 +290,27 @@ def test_column_lineage_request_is_part_of_the_cache_key() -> None:
     assert extractor.report.sql_parse_cache_hits == 0
 
 
+def test_warehouse_context_is_part_of_the_cache_key() -> None:
+    extractor = _extractor()
+    other_context = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database="OTHER_DB", schema="SALES"
+    )
+
+    sales = extractor.warehouse_lineage_from_sql(
+        "select region from fact_sales", _CONTEXT, []
+    )
+    other = extractor.warehouse_lineage_from_sql(
+        "select region from fact_sales", other_context, []
+    )
+
+    assert sales.upstream_urns == [_FACT_SALES]
+    assert other.upstream_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.sales.fact_sales,PROD)"
+    ]
+    assert extractor.report.sql_parses_executed == 2
+    assert extractor.report.sql_parse_cache_hits == 0
+
+
 def test_failed_parse_is_reported_once_and_served_from_the_cache() -> None:
     extractor = _extractor()
 
@@ -280,7 +321,7 @@ def test_failed_parse_is_reported_once_and_served_from_the_cache() -> None:
         for _ in range(3):
             assert (
                 extractor.warehouse_lineage_from_sql(
-                    "select * from fact_sales", _CONTEXT, []
+                    "select * from fact_sales", _CONTEXT, [], label="Sales Cube (ds-1)"
                 ).upstream_urns
                 == []
             )
@@ -289,6 +330,10 @@ def test_failed_parse_is_reported_once_and_served_from_the_cache() -> None:
     report = extractor.report
     assert report.sql_parse_failure_count == 1
     assert len(report.warnings) == 1
+    assert any(
+        context.startswith("Sales Cube (ds-1) (cached failure)")
+        for context in report.warnings[0].context or []
+    )
     assert report.sql_parse_failure_cache_hits == 2
     assert report.sql_views_parsed == 3
 
@@ -364,14 +409,19 @@ def test_schema_resolution_is_timed_through_the_shared_resolver() -> None:
     graph = mock.MagicMock()
     graph.get_entities.return_value = {}
 
-    extractor.warehouse_lineage_from_sql(
-        "select region from fact_sales", _CONTEXT, [], graph=graph
-    )
+    with mock.patch.object(
+        SchemaResolver, "close", autospec=True, side_effect=SchemaResolver.close
+    ) as close:
+        extractor.warehouse_lineage_from_sql(
+            "select region from fact_sales", _CONTEXT, [], graph=graph
+        )
+        assert close.call_count == 0
+        extractor.close()
 
     report = extractor.report
-    assert report.schema_resolution_calls >= 1
-    assert report.schema_resolver.num_schema_cache_misses >= 1
-    extractor.close()
+    assert report.schema_resolution_calls == 1
+    assert report.schema_resolver.num_schema_cache_misses == 1
+    assert close.call_count == 1
 
 
 def test_run_progress_logs_each_dashboard_and_periodic_progress(
@@ -389,16 +439,40 @@ def test_run_progress_logs_each_dashboard_and_periodic_progress(
             progress.dashboard_done("my_project", f"Doc {index}", f"id-{index}", before)
 
     assert report.dashboards_timed == 2
-    assert report.dashboard_seconds_histogram == {"10-30s": 2}
-    assert report.datasets_by_slow_dashboard == {
-        "my_project/Doc 0 (id-0)": 3,
-        "my_project/Doc 1 (id-1)": 3,
+    assert list(report.as_obj()["dashboard_seconds_histogram"].items()) == [
+        ("0-10s", 0),
+        ("10-30s", 2),
+        ("30-60s", 0),
+        ("60-120s", 0),
+        ("120-300s", 0),
+        ("300-600s", 0),
+        ("600-1800s", 0),
+        (">=1800s", 0),
+    ]
+    assert set(report.slowest_dashboards) == {
+        "my_project/Doc 0 (id-0) [3 datasets]",
+        "my_project/Doc 1 (id-1) [3 datasets]",
     }
     messages = [record.getMessage() for record in caplog.records]
-    assert any(
-        "Dashboard 'Doc 1' (id-1) took 12.0s: 1 API calls 4.0s" in m for m in messages
-    )
-    assert any(m.startswith("MicroStrategy progress: 2 dashboards") for m in messages)
+    assert sum("took 12.0s" in message for message in messages) == 2
+    assert sum("MicroStrategy progress" in message for message in messages) == 1
+
+
+def test_interval_gate_fires_on_items_or_time_and_mark_resets(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    clock = _FakeClock()
+    monkeypatch.setattr("time.perf_counter", clock)
+    gate = IntervalGate(every_items=3, every_seconds=60)
+
+    assert not gate.due(2)
+    assert gate.due(3)
+    gate.mark(3)
+    assert not gate.due(5)
+    clock.now += 60
+    assert gate.due(4)
+    gate.mark(4)
+    assert not gate.due(6)
 
 
 def test_slowest_tables_keep_only_the_top_rows() -> None:
@@ -408,7 +482,6 @@ def test_slowest_tables_keep_only_the_top_rows() -> None:
 
     assert len(report.slowest_dashboards) == 25
     assert min(report.slowest_dashboards.values()) == 15.0
-    assert set(report.datasets_by_slow_dashboard) == set(report.slowest_dashboards)
 
 
 def test_report_serializes_telemetry_rounded() -> None:
