@@ -483,6 +483,9 @@ def stack_test_env(stack: Mapping[str, object]) -> dict[str, str]:
         "DATAHUB_ADMIN_USERNAME": "datahub",
         "DATAHUB_ADMIN_PASSWORD": "datahub",
         "DATAHUB_TELEMETRY_ENABLED": "false",
+        # Sleep after each smoke-test sync wait (library default 3 s). This stack indexes
+        # with a 1 s flush and refresh and acks offsets only after indexing.
+        "ELASTICSEARCH_REFRESH_INTERVAL_SECONDS": "1",
     }
     if stack.get("frontendPort"):
         env["DATAHUB_FRONTEND_URL"] = env["BASE_URL"] = (

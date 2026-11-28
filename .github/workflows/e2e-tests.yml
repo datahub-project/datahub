@@ -39,7 +39,8 @@ on:
       - ".github/actions/smoke-test-retry"
       - ".github/actions/report-test-results/**"
   pull_request:
-    types: [opened, synchronize, reopened]
+    # labeled: adding docker-free:pytests starts the Docker-free lane (see docker_free).
+    types: [opened, synchronize, reopened, labeled]
     branches:
       - "**"
     paths:
@@ -76,7 +77,9 @@ concurrency:
   # Using `github.run_id` (unique val) instead of `github.ref` here
   # because we don't want to cancel this workflow on master only for PRs
   #   as that makes reproducing issues easier
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  # Any other label gets its own group, so adding it does not cancel a running build; its
+  # run skips every job.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}${{ github.event.action == 'labeled' && github.event.label.name != 'docker-free:pytests' && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 env:
@@ -90,7 +93,9 @@ jobs:
   # computes its own change flags.
   setup:
     runs-on: depot-ubuntu-24.04-small
-    if: ${{ github.event_name == 'pull_request' }}
+    if: >-
+      ${{ github.event_name == 'pull_request'
+        && (github.event.action != 'labeled' || github.event.label.name == 'docker-free:pytests') }}
     outputs:
       backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' }}
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
@@ -310,7 +315,11 @@ jobs:
   # empty classifier inputs as smart testing off.
   docker:
     needs: [classify_pr]
-    if: ${{ !cancelled() }}
+    # Adding docker-free:pytests restarts the whole run (it shares the PR's concurrency
+    # group), so this lane runs again too; other labels run nothing.
+    if: >-
+      ${{ !cancelled()
+        && (github.event.action != 'labeled' || github.event.label.name == 'docker-free:pytests') }}
     # A called workflow cannot raise its caller's permissions: this is the
     # union of what docker-unified's jobs and its reusable workflows request.
     permissions:
@@ -332,17 +341,21 @@ jobs:
     secrets: inherit
 
   # The Docker-free lane runs on every push to master for now, to build up a record of
-  # stable runs before it runs on pull requests. The PR wiring (run_pytest, smoke_tier,
-  # smoke_changed_tests from setup, classify_pr's tags) is in place: enabling it means
-  # adding `|| (github.event_name == 'pull_request' && needs.setup.outputs.run_pytest
-  # == 'true')` to the condition. Fork PRs would then fall back to GitHub-hosted
-  # runners, no Depot cache and smart testing off.
+  # stable runs before it runs on every pull request. PRs opt in with the
+  # docker-free:pytests label (adding it starts a run), at the PR's tier and smart-testing
+  # selection, as the Docker lane. Running it on every PR means replacing the label check
+  # with `needs.setup.outputs.run_pytest == 'true'`. Fork PRs fall back to GitHub-hosted
+  # runners, no Depot cache, smart testing off and no sticky comment.
   docker_free:
     # Prefix of the lane's job names: docker-free / <job>.
     name: docker-free
     needs: [setup, classify_pr]
     if: >-
-      ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+      ${{ !cancelled()
+        && ((github.event_name == 'push' && github.ref == 'refs/heads/master')
+          || (github.event_name == 'pull_request'
+            && needs.setup.result == 'success'
+            && contains(github.event.pull_request.labels.*.name, 'docker-free:pytests'))) }}
     permissions:
       contents: read
       actions: read
