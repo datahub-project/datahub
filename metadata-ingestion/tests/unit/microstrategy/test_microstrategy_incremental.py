@@ -258,6 +258,8 @@ class _MicroStrategy:
         self.failing_model_tables = False
         self.report_source_id: Optional[str] = None
         self.failing_sql_views = False
+        # Fields only the search result carries, e.g. a date the object endpoint disagrees with.
+        self.search_report_fields: Dict[str, object] = {}
         self.failing_connection = False
         self.definition_reads: List[str] = []
         self.dossier_instances = 0
@@ -332,7 +334,8 @@ class _MicroStrategy:
     def search_reports(
         self, _client: MicroStrategyClient, project_id: str
     ) -> List[MicroStrategyObject]:
-        return [MicroStrategyObject.model_validate(self.objects["report-1"])]
+        report = {**self.objects["report-1"], **self.search_report_fields}
+        return [MicroStrategyObject.model_validate(report)]
 
     def get_object_info(
         self,
@@ -970,6 +973,28 @@ def test_per_report_without_dashboards_skips_unchanged_reports(
     first.server.bump("report-1")
     _run(mock_datahub_graph, first.server, "run-3", **options)
     assert first.server.report_definition_reads == ["report-1"]
+
+
+def test_per_report_dataset_skips_when_search_and_object_dates_differ(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    server = _MicroStrategy()
+    server.objects["report-1"]["dateModified"] = "2026-01-01T00:00:01.000+0000"
+    server.search_report_fields = {"dateModified": "2026-01-01T00:00:00.000+0000"}
+    options: Dict[str, object] = {
+        "dataset_identity": "per_report",
+        "extract_dashboards": False,
+    }
+    datahub = _DataHub(mock_datahub_graph)
+    first = _run(mock_datahub_graph, server, "run-1", **options)
+    datahub.write(first.workunits)
+    assert server.report_definition_reads == ["report-1"]
+    server.report_definition_reads.clear()
+
+    second = _run(mock_datahub_graph, server, "run-2", **options)
+
+    assert server.report_definition_reads == []
+    assert second.source.report.report_datasets_skipped_unchanged == 1
 
 
 def test_failed_run_keeps_objects_it_did_not_reach(
