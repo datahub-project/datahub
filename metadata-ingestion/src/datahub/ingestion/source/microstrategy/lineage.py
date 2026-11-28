@@ -459,18 +459,17 @@ class MicroStrategyLineageExtractor:
                 [repr(context), str(want_field_columns), str(graph is not None), sql]
             ).encode("utf-8")
         ).hexdigest()
+        label = label or _PARSE_LABEL_PREFIX + cache_key[:_PARSE_LABEL_HASH_CHARS]
         cached = self._parse_cache.get(cache_key)
         if cached is not None:
             if cached.has_statements:
                 self.report.report_sql_parse_cache_hit(failed=cached.failed)
+            if cached.failed:
+                self._warn_sql_parse_failure(
+                    f"{label} (cached failure)", sql, context, log=False
+                )
             return cached
-        parsed = self._parse_sql_view(
-            sql,
-            context,
-            want_field_columns,
-            graph,
-            label or _PARSE_LABEL_PREFIX + cache_key[:_PARSE_LABEL_HASH_CHARS],
-        )
+        parsed = self._parse_sql_view(sql, context, want_field_columns, graph, label)
         if not parsed.schema_lookup_failed:
             self._parse_cache.put(cache_key, parsed)
         return parsed
@@ -529,7 +528,7 @@ class MicroStrategyLineageExtractor:
             # A lazy import failure would hit every statement.
             raise _sql_lineage_dependency_error(error) from error
         except Exception as error:
-            self._report_sql_parse_failure(sql, context, error)
+            self._report_sql_parse_failure(sql, context, error, label)
             return _PARSE_FAILED
         finally:
             self.report.report_sql_parse_executed(
@@ -542,7 +541,9 @@ class MicroStrategyLineageExtractor:
         if failed_lookups:
             self._report_schema_lookup_failures(failed_lookups, label)
         if result.debug_info.error is not None:
-            self._report_sql_parse_failure(sql, context, result.debug_info.error)
+            self._report_sql_parse_failure(
+                sql, context, result.debug_info.error, label
+            )
             return _PARSE_FAILED
 
         column_upstreams: Optional[Dict[str, List[str]]] = None
@@ -583,24 +584,34 @@ class MicroStrategyLineageExtractor:
         sql: str,
         context: WarehouseLineageContext,
         error: BaseException,
+        label: str,
     ) -> None:
         self.report.report_sql_parse_failure(
-            f"platform={context.platform}, "
+            f"{label}, platform={context.platform}, "
             f"error={type(error).__name__}: {str(error)[:160]}, "
             f"sql_prefix={sql.strip()[:80]!r}"
         )
+        self._warn_sql_parse_failure(label, sql, context, log=True)
+        logger.debug(
+            "Failed to parse MicroStrategy SQL view (%s): %s",
+            error,
+            sql.strip()[:200],
+        )
+
+    def _warn_sql_parse_failure(
+        self, label: str, sql: str, context: WarehouseLineageContext, log: bool
+    ) -> None:
         self.report.warning(
             title="Failed to parse MicroStrategy SQL view",
             message=(
                 "A MicroStrategy SQL view could not be parsed; warehouse lineage "
                 "for this dataset was skipped."
             ),
-            context=f"platform={context.platform}, sql_prefix={sql.strip()[:80]!r}",
-        )
-        logger.debug(
-            "Failed to parse MicroStrategy SQL view (%s): %s",
-            error,
-            sql.strip()[:200],
+            context=(
+                f"{label}, platform={context.platform}, "
+                f"sql_prefix={sql.strip()[:80]!r}"
+            ),
+            log=log,
         )
 
     def model_lineage_index_from_tables(

@@ -321,7 +321,7 @@ def test_failed_parse_is_reported_once_and_served_from_the_cache() -> None:
         for _ in range(3):
             assert (
                 extractor.warehouse_lineage_from_sql(
-                    "select * from fact_sales", _CONTEXT, []
+                    "select * from fact_sales", _CONTEXT, [], label="Sales Cube (ds-1)"
                 ).upstream_urns
                 == []
             )
@@ -330,6 +330,10 @@ def test_failed_parse_is_reported_once_and_served_from_the_cache() -> None:
     report = extractor.report
     assert report.sql_parse_failure_count == 1
     assert len(report.warnings) == 1
+    assert any(
+        context.startswith("Sales Cube (ds-1) (cached failure)")
+        for context in report.warnings[0].context or []
+    )
     assert report.sql_parse_failure_cache_hits == 2
     assert report.sql_views_parsed == 3
 

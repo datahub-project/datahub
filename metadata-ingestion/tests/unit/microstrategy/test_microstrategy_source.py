@@ -2350,7 +2350,8 @@ def test_every_sql_view_failing_raises_one_loud_warning(
     assert len(loud) == 1
     assert "All 2 SQL views" in loud[0].message
     assert any(
-        "first_failure=platform=snowflake, error=ValueError: boom" in ctx
+        "first_failure=Sales Cube (ds-1), platform=snowflake, error=ValueError: boom"
+        in ctx
         for ctx in (loud[0].context or [])
     )
 
