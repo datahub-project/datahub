@@ -7,6 +7,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -15,6 +16,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.RequiredFieldNotPresentException;
+import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
@@ -35,6 +37,7 @@ import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AttributedActorHeaders;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
+import com.linkedin.metadata.entity.validation.UnknownReferenceAddedException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
@@ -625,6 +628,100 @@ public class JavaEntityClientTest {
     assertEquals(rejected.size(), 1);
     verify(_entityService, never())
         .ingestProposal(any(OperationContext.class), any(), anyBoolean());
+  }
+
+  @Test
+  void ingestValidProposalsRejectsOnlyTheProposalThatAddsAnUnknownReference() throws Exception {
+    MetadataChangeProposal first = containerStatus("first");
+    MetadataChangeProposal adding = containerStatus("adding");
+    MetadataChangeProposal last = containerStatus("last");
+    UnknownReferenceAddedException rejection =
+        new UnknownReferenceAddedException(
+            "adds an unknown reference", adding.getEntityUrn(), adding.getAspectName());
+    ArgumentCaptor<AspectsBatch> written = ArgumentCaptor.forClass(AspectsBatch.class);
+    when(_entityService.ingestProposal(any(OperationContext.class), written.capture(), eq(false)))
+        .thenThrow(rejection)
+        .thenReturn(List.of());
+
+    List<Pair<MetadataChangeProposal, Exception>> rejected =
+        getJavaEntityClient().ingestValidProposals(opContext, List.of(first, adding, last));
+
+    assertEquals(rejected.size(), 1);
+    assertSame(rejected.get(0).getFirst(), adding);
+    assertSame(rejected.get(0).getSecond(), rejection);
+    assertEquals(
+        written.getAllValues().get(1).getMCPItems().stream()
+            .map(item -> item.getMetadataChangeProposal())
+            .toList(),
+        List.of(first, last));
+  }
+
+  @Test
+  void ingestValidProposalsDoesNotRewriteTimeseriesAspectsAfterARejection() throws Exception {
+    MetadataChangeProposal profile =
+        new MetadataChangeProposal()
+            .setEntityUrn(
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,profiled,PROD)"))
+            .setAspectName("datasetProfile")
+            .setEntityType("dataset")
+            .setChangeType(ChangeType.UPSERT)
+            .setAspect(
+                GenericRecordUtils.serializeAspect(new DatasetProfile().setTimestampMillis(1L)));
+    MetadataChangeProposal adding = containerStatus("adding");
+    when(_entityService.ingestProposal(any(OperationContext.class), any(), eq(false)))
+        .thenThrow(
+            new UnknownReferenceAddedException(
+                "adds an unknown reference", adding.getEntityUrn(), adding.getAspectName()));
+
+    List<Pair<MetadataChangeProposal, Exception>> rejected =
+        getJavaEntityClient().ingestValidProposals(opContext, List.of(profile, adding));
+
+    assertEquals(rejected.stream().map(Pair::getFirst).toList(), List.of(adding));
+    verify(_entityService, times(1))
+        .ingestProposal(any(OperationContext.class), any(), anyBoolean());
+  }
+
+  @Test
+  void ingestValidProposalsKeepsALaterProposalForTheSameAspect() throws Exception {
+    // The rejection names the urn and aspect only; the first proposal for them is rejected and a
+    // later one for the same aspect is written in the retry.
+    MetadataChangeProposal adding = containerStatus("same");
+    MetadataChangeProposal later =
+        containerStatus("same")
+            .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(true)));
+    ArgumentCaptor<AspectsBatch> written = ArgumentCaptor.forClass(AspectsBatch.class);
+    when(_entityService.ingestProposal(any(OperationContext.class), written.capture(), eq(false)))
+        .thenThrow(
+            new UnknownReferenceAddedException(
+                "adds an unknown reference", adding.getEntityUrn(), adding.getAspectName()))
+        .thenReturn(List.of());
+
+    List<Pair<MetadataChangeProposal, Exception>> rejected =
+        getJavaEntityClient().ingestValidProposals(opContext, List.of(adding, later));
+
+    assertEquals(rejected.stream().map(Pair::getFirst).toList(), List.of(adding));
+    assertEquals(
+        written.getAllValues().get(1).getMCPItems().stream()
+            .map(item -> item.getMetadataChangeProposal())
+            .toList(),
+        List.of(later));
+  }
+
+  @Test
+  void ingestValidProposalsRethrowsAnUnknownReferenceNoProposalAdds() {
+    MetadataChangeProposal proposal = containerStatus("proposal");
+    UnknownReferenceAddedException rejection =
+        new UnknownReferenceAddedException(
+            "added by a write hook", UrnUtils.getUrn("urn:li:container:other"), "status");
+    when(_entityService.ingestProposal(any(OperationContext.class), any(), eq(false)))
+        .thenThrow(rejection);
+
+    UnknownReferenceAddedException thrown =
+        expectThrows(
+            UnknownReferenceAddedException.class,
+            () -> getJavaEntityClient().ingestValidProposals(opContext, List.of(proposal)));
+
+    assertSame(thrown, rejection);
   }
 
   @Test

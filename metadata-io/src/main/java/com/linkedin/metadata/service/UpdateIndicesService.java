@@ -28,7 +28,6 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
-import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -299,7 +298,8 @@ public class UpdateIndicesService implements SearchIndicesService {
           registry.findAspectSpec(event.getEntityType(), event.getAspectName()).orElse(null);
       if (handling()
           .isFromNewerVersion(
-              deserializeOrNull(event.hasAspect() ? event.getAspect() : null, aspectSpec),
+              GenericRecordUtils.deserializeAspectOrNull(
+                  event.hasAspect() ? event.getAspect() : null, aspectSpec),
               event.getSystemMetadata(),
               aspectSpec,
               registry)) {
@@ -313,7 +313,8 @@ public class UpdateIndicesService implements SearchIndicesService {
             event.getEntityUrn());
         return null;
       }
-      final RecordTemplate previous = deserializeOrNull(event.getPreviousAspectValue(), aspectSpec);
+      final RecordTemplate previous =
+          GenericRecordUtils.deserializeAspectOrNull(event.getPreviousAspectValue(), aspectSpec);
       if (!event.hasPreviousAspectValue()
           || !handling()
               .isFromNewerVersion(
@@ -322,7 +323,8 @@ public class UpdateIndicesService implements SearchIndicesService {
       }
       // Blame the previous value only when the new one is valid on its own, so an event whose new
       // value is invalid for another reason still fails.
-      final MCLItemImpl withoutPrevious = buildWithoutPrevious(opContext, event);
+      final MCLItemImpl withoutPrevious =
+          MCLItemImpl.buildWithoutPrevious(event, opContext.getAspectRetriever());
       if (withoutPrevious == null) {
         throw e;
       }
@@ -343,46 +345,13 @@ public class UpdateIndicesService implements SearchIndicesService {
       // transform doesn't meet references to entity types this version doesn't know. The graph
       // update strips its copy only for an upsert.
       final RecordTemplate previousForSearch =
-          deserializeOrNull(event.getPreviousAspectValue(), aspectSpec);
+          GenericRecordUtils.deserializeAspectOrNull(event.getPreviousAspectValue(), aspectSpec);
       if (previousForSearch != null) {
         handling().stripUnknownReferences(previousForSearch, registry);
       }
       final MCLItem indexed = withoutPrevious.withPreviousRecordTemplate(previousForSearch);
       unvalidatedPrevious.put(indexed, previous);
       return indexed;
-    }
-  }
-
-  @Nullable
-  private static RecordTemplate deserializeOrNull(
-      @Nullable final GenericAspect value, @Nullable final AspectSpec aspectSpec) {
-    if (value == null || aspectSpec == null) {
-      return null;
-    }
-    try {
-      return GenericRecordUtils.deserializeAspect(
-          value.getValue(), value.getContentType(), aspectSpec);
-    } catch (RuntimeException deserializationFailure) {
-      // Unreadable payloads aren't attributed to a newer version.
-      return null;
-    }
-  }
-
-  @Nullable
-  private static MCLItemImpl buildWithoutPrevious(
-      @Nonnull final OperationContext opContext, @Nonnull final MetadataChangeLog event) {
-    final MetadataChangeLog withoutPrevious;
-    try {
-      withoutPrevious = event.copy();
-    } catch (CloneNotSupportedException e) {
-      return null;
-    }
-    withoutPrevious.removePreviousAspectValue();
-    withoutPrevious.removePreviousSystemMetadata();
-    try {
-      return MCLItemImpl.builder().build(withoutPrevious, opContext.getAspectRetriever());
-    } catch (RuntimeException invalid) {
-      return null;
     }
   }
 
