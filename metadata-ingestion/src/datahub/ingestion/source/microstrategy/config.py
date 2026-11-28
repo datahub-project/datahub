@@ -94,7 +94,10 @@ class MicroStrategyConfig(
     timeout_seconds: int = Field(
         default=30,
         gt=0,
-        description="HTTP request timeout in seconds.",
+        description=(
+            "HTTP request timeout in seconds. Model and metric search calls use "
+            f"the larger of this and {MSTR_MODEL_API_MIN_TIMEOUT_SECONDS} seconds."
+        ),
     )
     max_retries: int = Field(
         default=3,
@@ -608,6 +611,8 @@ class MicroStrategyConfig(
         return self.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT
 
     def resolve_model_api_timeout_seconds(self) -> int:
+        # Metric search and /api/model/tables are slow on large projects, so a
+        # short timeout_seconds must not apply to them.
         return max(self.timeout_seconds, MSTR_MODEL_API_MIN_TIMEOUT_SECONDS)
 
     @field_validator("base_url", mode="after")

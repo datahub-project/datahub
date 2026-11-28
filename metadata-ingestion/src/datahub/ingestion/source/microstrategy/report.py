@@ -1,13 +1,14 @@
 from dataclasses import dataclass, field
 
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_SQLGLOT_WARNINGS_TOP_K,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolverReport
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict
-
-_SQLGLOT_WARNINGS_TOP_K = 10
 
 
 @dataclass
@@ -165,12 +166,15 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     sql_parse_cache_hits: int = 0
     # Reuses of a failed parse. The failure itself is counted once per distinct SQL.
     sql_parse_failure_cache_hits: int = 0
+    # Upstream warehouse schema lookups that raised. The lookup is retried on the
+    # next use, and column lineage for that table is skipped meanwhile.
+    warehouse_schema_lookup_failures: int = 0
     sql_statements_parsed: int = 0
     report_sql_fetched: int = 0
     schema_resolver: SchemaResolverReport = field(default_factory=SchemaResolverReport)
     cache_project_resets: int = 0
     sqlglot_warnings_suppressed: TopKDict[str, int] = field(
-        default_factory=lambda: TopKDict(int, top_k=_SQLGLOT_WARNINGS_TOP_K)
+        default_factory=lambda: TopKDict(int, top_k=MSTR_SQLGLOT_WARNINGS_TOP_K)
     )
 
     def report_project_scanned(self) -> None:
@@ -464,10 +468,16 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         self.sql_parses_executed += 1
         self.sql_statements_parsed += statements
 
-    def report_sql_parse_cache_hit(self, failed: bool) -> None:
+    def report_sql_parse_cache_hit(self) -> None:
         self.sql_parse_cache_hits += 1
-        if failed:
-            self.sql_parse_failure_cache_hits += 1
 
-    def report_report_sql_fetched(self) -> None:
+    def report_sql_parse_failure_cache_hit(self) -> None:
+        self.sql_parse_cache_hits += 1
+        self.sql_parse_failure_cache_hits += 1
+
+    def report_warehouse_schema_lookup_failures(self, count: int) -> None:
+        self.warehouse_schema_lookup_failures += count
+
+    # Not named report_sql_fetched: that is the counter's own attribute.
+    def report_sql_view_fetched(self) -> None:
         self.report_sql_fetched += 1

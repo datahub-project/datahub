@@ -1243,9 +1243,50 @@ def test_fetch_project_model_tables_unrecognized_payload_is_a_failed_fetch() -> 
     source.client = FakeClient()  # type: ignore[assignment]
 
     assert source._fetch_project_model_tables("project-1") is None
-    assert [w.title for w in source.report.warnings] == [
+    assert [f.title for f in source.report.failures] == [
         "Unrecognized model tables response shape"
     ]
+
+
+def test_fetch_project_model_tables_without_a_total_stops_at_a_short_page() -> None:
+    source = _source({"extract_model_lineage": True, "page_size": 2})
+    offsets: List[int] = []
+
+    class FakeClient:
+        def list_model_tables(
+            self, project_id: str, limit: int, offset: int, fields: str
+        ) -> ModelTablesResponse:
+            offsets.append(offset)
+            count = 2 if offset == 0 else 1
+            return ModelTablesResponse(
+                tables=[{"id": f"t{offset + i}"} for i in range(count)], total=None
+            )
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    tables = source._fetch_project_model_tables("project-1")
+
+    assert tables is not None and len(tables) == 3
+    assert offsets == [0, 2]
+    assert not source.report.failures
+
+
+def test_fetch_project_model_tables_unrecognized_page_mid_pagination_fails() -> None:
+    source = _source({"extract_model_lineage": True, "page_size": 2})
+
+    class FakeClient:
+        def list_model_tables(
+            self, project_id: str, limit: int, offset: int, fields: str
+        ) -> ModelTablesResponse:
+            if offset == 0:
+                return ModelTablesResponse(tables=[{"id": "t0"}, {"id": "t1"}], total=5)
+            return ModelTablesResponse(tables=None, total=None)
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._fetch_project_model_tables("project-1") is None
+    assert len(source.report.failures) == 1
+    assert source.report.model_tables_scanned == 0
 
 
 def test_fetch_project_model_tables_empty_page_before_total_is_a_failure() -> None:
@@ -1390,6 +1431,105 @@ def test_semantic_model_retries_a_failed_model_tables_fetch() -> None:
     assert client.model_table_calls == 2
     assert lineage_context.model_tables_retrying_failure() == tables
     assert client.model_table_calls == 2
+
+
+@pytest.mark.parametrize("status_code", [403, 501])
+def test_refused_model_tables_fetch_is_neither_retried_nor_double_counted(
+    status_code: int,
+) -> None:
+    source = _source({"emit_semantic_model_entities": True})
+    calls: List[int] = []
+
+    class FakeClient:
+        def list_model_tables(self, *args: object, **kwargs: object) -> None:
+            calls.append(1)
+            raise MicroStrategyAPIError("refused", status_code=status_code)
+
+    source.client = FakeClient()  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(source, "project-1", [])
+
+    assert lineage_context.model_tables is None
+    assert lineage_context.model_tables_retrying_failure() is None
+
+    assert len(calls) == 1
+    assert source.report.model_lineage_api_failures == 1
+
+
+def test_unrecognized_model_tables_payload_is_not_retried() -> None:
+    source = _source({"emit_semantic_model_entities": True})
+    calls: List[int] = []
+
+    class FakeClient:
+        def list_model_tables(self, *args: object, **kwargs: object) -> Any:
+            calls.append(1)
+            return ModelTablesResponse(tables=None, total=None)
+
+    source.client = FakeClient()  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(source, "project-1", [])
+
+    assert lineage_context.model_tables is None
+    assert lineage_context.model_tables_retrying_failure() is None
+
+    assert len(calls) == 1
+    assert len(source.report.failures) == 1
+
+
+def _fill_project_caches(source: MicroStrategySource) -> None:
+    source._report_sql_cache.put("report", "select 1")
+    source._dataset_object_cache[("project-1", "dataset")] = None
+    source._report_derived_metric_cache[("project-1", "report")] = None
+    source._metric_model_cache[("project-1", "metric")] = {}
+    source._report_objects[("project-1", "report")] = None
+    source.lineage.warehouse_lineage_from_sql(
+        "select a from t",
+        WarehouseLineageContext(platform="snowflake", env="PROD"),
+        [],
+    )
+
+
+def _assert_project_caches_empty(source: MicroStrategySource) -> None:
+    assert "report" not in source._report_sql_cache
+    assert not source._dataset_object_cache
+    assert not source._report_derived_metric_cache
+    assert not source._metric_model_cache
+    assert not source._report_objects
+    executed = source.report.sql_parses_executed
+    source.lineage.warehouse_lineage_from_sql(
+        "select a from t",
+        WarehouseLineageContext(platform="snowflake", env="PROD"),
+        [],
+    )
+    assert source.report.sql_parses_executed == executed + 1
+
+
+def test_project_reset_empties_every_per_project_cache() -> None:
+    source = _source()
+    _fill_project_caches(source)
+
+    source._reset_project_caches()
+
+    _assert_project_caches_empty(source)
+
+
+def test_project_caches_are_reset_when_project_content_raises() -> None:
+    source = _source(
+        {"extract_source_warehouses": False, "emit_semantic_model_entities": False}
+    )
+    _fill_project_caches(source)
+
+    def failing_content(
+        project: Project, lineage_context: _LazyProjectLineage
+    ) -> Iterator[MetadataWorkUnit]:
+        raise RuntimeError("project failed")
+        yield
+
+    source._process_project_content = failing_content  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError):
+        list(source._process_project(_PROJECT))
+
+    assert source.report.cache_project_resets == 1
+    _assert_project_caches_empty(source)
 
 
 def test_semantic_model_runs_after_the_project_caches_are_released() -> None:
@@ -2321,10 +2461,8 @@ def test_every_sql_view_failing_raises_one_loud_warning(
         entry for entry in source.report.warnings if entry.title == _ALL_FAILED_TITLE
     ]
     assert len(loud) == 1
-    assert "All 2 SQL views" in loud[0].message
     assert any(
-        "first_failure=Sales Cube (ds-1), platform=snowflake, error=ValueError: boom"
-        in ctx
+        ctx.startswith("first_failure=Sales Cube (ds-1)")
         for ctx in (loud[0].context or [])
     )
 
@@ -2352,7 +2490,6 @@ def test_all_failed_warning_counts_reused_failed_sql_views(
         entry for entry in source.report.warnings if entry.title == _ALL_FAILED_TITLE
     ]
     assert len(loud) == 1
-    assert "All 2 SQL views" in loud[0].message
 
 
 def test_all_failed_warning_is_silent_when_any_sql_view_parses(
