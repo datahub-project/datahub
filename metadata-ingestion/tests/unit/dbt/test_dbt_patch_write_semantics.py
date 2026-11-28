@@ -254,6 +254,7 @@ def test_patch_output_order() -> None:
         (urn, "glossaryTerms"),
         (urn, "institutionalMemory"),
         (urn, "schemaMetadata"),
+        (urn, "upstreamLineage"),
         (urn, "viewProperties"),
         (field_urn, "structuredProperties"),
         (run_urn, "dataProcessInstanceProperties"),
