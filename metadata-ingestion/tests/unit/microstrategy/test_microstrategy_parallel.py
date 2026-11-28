@@ -674,7 +674,7 @@ def test_dependency_search_reruns_after_a_concurrent_relogin(
         params: Optional[Dict[str, object]] = None,
         **kwargs: object,
     ) -> requests.Response:
-        token = client.session.headers[MSTR_AUTH_TOKEN_HEADER]
+        token = client._session_auth_token()
         if method == "POST":
             posts.append(str(token))
             return _response(200, payload={"id": f"search-{token}"})
