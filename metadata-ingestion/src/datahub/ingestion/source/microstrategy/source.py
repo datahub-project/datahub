@@ -841,7 +841,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if not pending:
                 return
             for dashboard_id in pending:
-                self.report.dashboards_skipped_unchanged -= 1
                 yield from self._process_dashboard_with_boundary(
                     project,
                     self._dashboard_candidates[dashboard_id],
@@ -932,6 +931,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             yield from self._read_dashboards_of_changed_reports(
                 project, lineage_context, linked_report_ids
             )
+        self.report.dashboards_skipped_unchanged += len(
+            self._dashboard_candidates.keys() - self._read_dashboards
+        )
         if self._per_report:
             yield from self._gen_report_dataset_workunits(project.id)
         if self.config.emit_semantic_model_entities:
@@ -1194,7 +1196,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self._keep_dashboard(
                 project.id, dashboard_object.id, previous, linked_report_ids
             )
-            self.report.dashboards_skipped_unchanged += 1
         yield from self._read_dashboards_of_changed_reports(
             project, lineage_context, linked_report_ids
         )
