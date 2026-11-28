@@ -34,8 +34,9 @@ from datahub.metadata.schema_classes import (
     SemanticFieldTypeClass,
 )
 from datahub.metadata.urns import DataPlatformInstanceUrn, MetricUrn, SemanticModelUrn
-from datahub.sdk.metric import DialectExpressionInput, Metric
+from datahub.sdk.metric import Metric
 from datahub.sdk.semantic_model import (
+    DialectExpressionInput,
     SemanticFieldInput,
     SemanticModel,
     SemanticModelDataset,

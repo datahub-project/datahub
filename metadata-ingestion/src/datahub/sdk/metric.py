@@ -20,7 +20,6 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn, MetricUrn, SemanticModelUrn, Urn
 from datahub.sdk._semantic_shared import (
     AiContextInput,
-    DialectExpressionInput,
     MetricExpressionInputType,
     as_input_list,
     build_ai_context,
@@ -46,8 +45,6 @@ from datahub.sdk._shared import (
 from datahub.sdk.entity import Entity, ExtraAspectsType
 
 __all__ = [
-    "AiContextInput",
-    "DialectExpressionInput",
     "DerivedFromInputType",
     "Metric",
     "MetricExpressionInputType",

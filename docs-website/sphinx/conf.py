@@ -5,8 +5,21 @@
 
 # See https://stackoverflow.com/a/65147676
 import builtins
+import re
+from typing import List
 
 builtins.__sphinx_build__ = True
+
+import sphinx_autodoc_typehints  # noqa: E402
+
+from datahub.sdk import dataset as _sdk_dataset  # noqa: E402
+from datahub.sdk.container import Container  # noqa: E402
+
+# pydantic's TYPE_CHECKING-only import (AbstractSetIntStr) cannot resolve at runtime.
+sphinx_autodoc_typehints._TYPE_GUARD_IMPORTS_RESOLVED.add("pydantic.main")
+
+# _shared.py imports Container under TYPE_CHECKING to avoid a circular import.
+_sdk_dataset.Container = Container
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -61,3 +74,44 @@ html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
 
 # TODO enable html_show_sourcelink
+
+
+_PDL_JAVADOC_CODE = re.compile(r"\{@code ([^}]*)\}")
+
+
+def _flatten_generated_model_docs(app, what, name, obj, options, lines: List[str]) -> None:
+    # PDL comments have ragged indentation and Javadoc {@code} tags that RST misreads.
+    if not name.startswith("datahub.metadata.schema_classes."):
+        return
+    flattened: List[str] = []
+    in_list_item = False
+    for line in lines:
+        text = _PDL_JAVADOC_CODE.sub(r"``\1``", line.strip())
+        if not text:
+            in_list_item = False
+        elif text.startswith("- "):
+            if flattened and flattened[-1] and not in_list_item:
+                flattened.append("")
+            in_list_item = True
+        elif in_list_item:
+            text = f"  {text}"
+        flattened.append(text)
+    lines[:] = flattened
+
+
+def _separate_field_lists(app, what, name, obj, options, lines: List[str]) -> None:
+    # Autodoc fields must follow a blank line after a directive or bullet list.
+    fixed: List[str] = []
+    for line in lines:
+        if fixed and fixed[-1] and not fixed[-1].startswith(":") and line.startswith(":"):
+            fixed.append("")
+        elif fixed and fixed[-1].startswith(" ") and line and not line.startswith(" "):
+            fixed.append("")
+        fixed.append(line)
+    lines[:] = fixed
+
+
+def setup(app) -> None:
+    # Lower priority runs before napoleon/sphinx_autodoc_typehints add field lists.
+    app.connect("autodoc-process-docstring", _flatten_generated_model_docs, priority=400)
+    app.connect("autodoc-process-docstring", _separate_field_lists, priority=900)
