@@ -20,7 +20,10 @@ from typing import TYPE_CHECKING, Optional
 
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.ingestion.source.fabric.onelake.config import FabricUsageConfig
-from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SQL_DEFAULT_SCHEMA
+from datahub.ingestion.source.fabric.onelake.constants import (
+    FABRIC_SQL_APP_NAME,
+    FABRIC_SQL_DEFAULT_SCHEMA,
+)
 from datahub.ingestion.source.fabric.onelake.models import FabricQueryInsightsRow
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -174,6 +177,12 @@ class FabricUsageExtractor:
     ) -> None:
         if not row.command.strip():
             self.report.report_usage_query_skipped("empty_command")
+            return
+
+        # The connector's own queries reference ingested tables, so without this
+        # they would show up as usage on the next run.
+        if row.program_name == FABRIC_SQL_APP_NAME:
+            self.report.report_usage_query_skipped("datahub_ingestion_query")
             return
 
         # Entra UPNs are case-insensitive by Microsoft spec, but pyodbc preserves the

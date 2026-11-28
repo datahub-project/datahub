@@ -71,6 +71,7 @@ def _ingested(config_dict: Dict[str, object]) -> Set[str]:
             item_display_name="lh_main",
             schema_map={},
             emitted_schemas=set(),
+            profile_targets=[],
         )
     )
     # _process_item_tables swallows its own errors into a warning; an empty
