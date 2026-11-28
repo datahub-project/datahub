@@ -19,13 +19,10 @@ if [ -z "$from" ] || [ -z "$to" ]; then
   exit 0
 fi
 
-if [ -z "${from//0/}" ]; then
-  # New remote ref: commits not already on any remote branch.
-  files=$(git log --name-only --pretty=format: "$to" --not --remotes -- 2>/dev/null || true)
-else
-  # Updating an existing ref: net diff between old and new tip.
-  files=$(git diff --name-only "$from" "$to" -- 2>/dev/null || true)
-fi
+# Only commits not already on any remote branch, for new and existing refs
+# alike: a net diff from the old tip would also count, after a rebase onto a
+# moved base, every file the base changed in between.
+files=$(git log --name-only --pretty=format: "$to" --not --remotes -- 2>/dev/null || true)
 
 count=0
 [ -n "$files" ] && count=$(printf '%s\n' "$files" | sed '/^$/d' | sort -u | wc -l | tr -d ' ')
