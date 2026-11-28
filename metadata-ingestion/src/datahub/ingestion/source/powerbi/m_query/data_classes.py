@@ -87,6 +87,16 @@ class Lineage:
         return Lineage(upstreams=[], column_lineage=[])
 
 
+@dataclass
+class MQueryLineageResult:
+    lineages: List[Lineage] = field(default_factory=list)
+    # True only when the expression parsed and contains no data-access function
+    # (e.g. an "Enter data" table built with Table.FromRows or #table), so the
+    # table cannot have external lineage. False for parse/resolution failures,
+    # where lineage may exist but was not extracted this run.
+    no_data_access_function: bool = False
+
+
 class FunctionName(Enum):
     NATIVE_QUERY = "Value.NativeQuery"
     POSTGRESQL_DATA_ACCESS = "PostgreSQL.Database"

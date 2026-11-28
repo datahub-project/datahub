@@ -23,6 +23,7 @@ from datahub.ingestion.source.powerbi.m_query._bridge import (
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
     Lineage,
+    MQueryLineageResult,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
@@ -67,7 +68,30 @@ def get_upstream_tables(
 ) -> List[Lineage]:
     """Parse the M-Query expression on *table* and return upstream lineage.
 
-    Returns an empty list when the expression is absent, empty, a DAX
+    See :func:`get_upstream_lineage` for when the result is empty.
+    """
+    return get_upstream_lineage(
+        table=table,
+        reporter=reporter,
+        platform_instance_resolver=platform_instance_resolver,
+        ctx=ctx,
+        config=config,
+        parameters=parameters,
+    ).lineages
+
+
+def get_upstream_lineage(
+    table: Table,
+    reporter: PowerBiDashboardSourceReport,
+    platform_instance_resolver: AbstractDataPlatformInstanceResolver,
+    ctx: PipelineContext,
+    config: PowerBiDashboardSourceConfig,
+    parameters: Optional[Dict[str, str]] = None,
+) -> MQueryLineageResult:
+    """Parse the M-Query expression on *table* and return upstream lineage,
+    noting whether the expression has no data-access function at all.
+
+    The lineage list is empty when the expression is absent, empty, a DAX
     computed-table expression (no ``let`` keyword), or a NativeQuery that the
     caller has opted out of (``native_query_parsing=False``).
     """
@@ -75,13 +99,13 @@ def get_upstream_tables(
 
     if table.expression is None:
         logger.debug("There is no M-Query expression in table %s", table.full_name)
-        return []
+        return MQueryLineageResult()
 
     expression = table.expression
 
     if not expression.strip():
         logger.debug("Empty M-Query expression in table %s — skipping", table.full_name)
-        return []
+        return MQueryLineageResult()
 
     if TRACE_POWERBI_MQUERY_PARSER:
         logger.debug(
@@ -98,7 +122,7 @@ def get_upstream_tables(
             table.full_name,
         )
         reporter.m_query_native_query_skipped += 1
-        return []
+        return MQueryLineageResult()
 
     reporter.m_query_parse_attempts += 1
 
@@ -112,7 +136,7 @@ def get_upstream_tables(
             message=f"M-Query parsing timed out after {config.m_query_parse_timeout} seconds. Lineage for this table will not be extracted.",
             context=f"table-full-name={table.full_name}, expression={expression}",
         )
-        return []
+        return MQueryLineageResult()
     except MQueryParseError as e:
         # Expressions without a `let` keyword are almost certainly not M-Query
         # (e.g. DAX computed-table expressions like SUMMARIZE(...)). The old
@@ -136,7 +160,7 @@ def get_upstream_tables(
                 context=f"table-full-name={table.full_name}, expression={expression}",
                 exc=e,
             )
-        return []
+        return MQueryLineageResult()
     except MQueryBridgeError as e:
         reporter.m_query_parse_unknown_errors += 1
         reporter.warning(
@@ -145,7 +169,7 @@ def get_upstream_tables(
             context=f"table-full-name={table.full_name}",
             exc=e,
         )
-        return []
+        return MQueryLineageResult()
 
     reporter.m_query_parse_successes += 1
 
@@ -204,7 +228,10 @@ def get_upstream_tables(
                     expression,
                 )
 
-        return lineages
+        return MQueryLineageResult(
+            lineages=lineages,
+            no_data_access_function=not data_access_func_details,
+        )
 
     except Exception as e:
         reporter.m_query_resolver_errors += 1
@@ -214,4 +241,4 @@ def get_upstream_tables(
             context=f"table-full-name={table.full_name}, expression={expression}, message={e}",
             exc=e,
         )
-        return []
+        return MQueryLineageResult()

@@ -488,9 +488,7 @@ class Mapper:
             f"Extracting lineage for table {table.full_name} in dataset {table.dataset.name if table.dataset else None}"
         )
 
-        upstream_lineage: List[
-            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-        ] = parser.get_upstream_tables(
+        m_query_result = parser.get_upstream_lineage(
             table=table,
             reporter=self.__reporter,
             platform_instance_resolver=self.__dataplatform_instance_resolver,
@@ -498,6 +496,7 @@ class Mapper:
             config=self.__config,
             parameters=parameters,
         )
+        upstream_lineage = m_query_result.lineages
 
         logger.debug(
             f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_lineage}"
@@ -540,12 +539,14 @@ class Mapper:
         if (
             upstream
             and table.expression
+            and not m_query_result.no_data_access_function
             and not any(lineage.upstreams for lineage in upstream_lineage)
         ):
             # The M source resolved to nothing this run (parse failure or an
             # unsupported source). An aspect with only the model-internal edges
             # would replace external lineage emitted by earlier runs, so keep
-            # the stored lineage.
+            # the stored lineage. A source with no data-access function (an
+            # "Enter data" table) never has external lineage, so it is emitted.
             self.__reporter.model_internal_lineage_withheld += 1
             return mcps
 
