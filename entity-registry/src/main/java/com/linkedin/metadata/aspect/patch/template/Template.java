@@ -52,11 +52,13 @@ public interface Template<T extends RecordTemplate> {
       throws JsonProcessingException {
     TemplateUtil.validatePatch(jsonPatch);
 
-    JsonNode transformed = populateTopLevelKeys(preprocessTemplate(recordTemplate), jsonPatch);
+    JsonNode stored = preprocessTemplate(recordTemplate);
+    JsonPatch effectivePatch = preprocessPatch(stored, jsonPatch);
+    JsonNode transformed = populateTopLevelKeys(stored, effectivePatch);
     try {
       // Hack in a more efficient patcher. Even with the serialization overhead 140% faster
       JsonObject patched =
-          jsonPatch.apply(
+          effectivePatch.apply(
               Json.createReader(new StringReader(OBJECT_MAPPER.writeValueAsString(transformed)))
                   .readObject());
       JsonNode postProcessed = rebaseFields(OBJECT_MAPPER.readTree(patched.toString()));
@@ -65,9 +67,26 @@ public interface Template<T extends RecordTemplate> {
       throw new RuntimeException(
           String.format(
               "Error performing JSON PATCH on aspect %s. Patch: %s Target: %s",
-              recordTemplate.schema().getName(), jsonPatch, transformed.toString()),
+              recordTemplate.schema().getName(), effectivePatch, transformed.toString()),
           e);
     }
+  }
+
+  /**
+   * Extension point for an aspect whose patch operations deviate from RFC 6902. It runs on the
+   * stored aspect, after {@link #transformFields} and before the patch is applied, and returns the
+   * patch to apply. An implementation can consume operations it evaluates itself and may throw to
+   * reject the patch before anything is applied. The default applies the patch as given, which is
+   * the standard behavior.
+   *
+   * @param stored the stored aspect as patch-compatible json
+   * @param jsonPatch the patch as requested
+   * @return the patch to apply to {@code stored}
+   * @throws JsonProcessingException if there is an issue reading a patch value
+   */
+  default JsonPatch preprocessPatch(@Nonnull JsonNode stored, @Nonnull JsonPatch jsonPatch)
+      throws JsonProcessingException {
+    return jsonPatch;
   }
 
   /**

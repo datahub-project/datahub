@@ -12,6 +12,7 @@ import com.linkedin.metadata.aspect.consistency.check.CheckContext;
 import com.linkedin.metadata.aspect.consistency.check.CheckResult;
 import com.linkedin.metadata.aspect.consistency.check.ConsistencyCheck;
 import com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck;
+import com.linkedin.metadata.aspect.consistency.fix.BatchConsistencyFix;
 import com.linkedin.metadata.aspect.consistency.fix.BatchItemsFix;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFix;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixDetail;
@@ -2713,5 +2714,72 @@ public class ConsistencyServiceTest {
         () -> consistencyService.checkBatch(mockOpContext, assertionCheckBatchRequest()));
     verify(mockEsSystemMetadataDAO, times(3))
         .scroll(any(), any(), anyBoolean(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testFixIssuesBatchesBatchConsistencyFixWhilePreservingInputOrder() {
+    BatchConsistencyFix batchFix = mock(BatchConsistencyFix.class);
+    when(batchFix.getType()).thenReturn(ConsistencyFixType.RESTORE_INDICES);
+    ConsistencyFix singleFix = mock(ConsistencyFix.class);
+    when(singleFix.getType()).thenReturn(ConsistencyFixType.DELETE_INDEX_DOCUMENTS);
+
+    ConsistencyFixRegistry localFixRegistry =
+        new ConsistencyFixRegistry(List.of(batchFix, singleFix));
+    ConsistencyService localService =
+        new ConsistencyService(
+            mockEntityService,
+            mockEsSystemMetadataDAO,
+            mockGraphClient,
+            checkRegistry,
+            localFixRegistry);
+
+    Urn u1 = UrnUtils.getUrn("urn:li:document:1");
+    Urn u2 = UrnUtils.getUrn("urn:li:document:2");
+    Urn u3 = UrnUtils.getUrn("urn:li:document:3");
+
+    ConsistencyIssue i1 =
+        ConsistencyIssue.forEntity(u1, "document", "c1", ConsistencyFixType.RESTORE_INDICES)
+            .description("r1")
+            .build();
+    ConsistencyIssue i2 =
+        ConsistencyIssue.forEntity(u2, "document", "c2", ConsistencyFixType.DELETE_INDEX_DOCUMENTS)
+            .description("d2")
+            .build();
+    ConsistencyIssue i3 =
+        ConsistencyIssue.forEntity(u3, "document", "c1", ConsistencyFixType.RESTORE_INDICES)
+            .description("r3")
+            .build();
+
+    when(singleFix.apply(eq(mockOpContext), eq(i2), eq(false)))
+        .thenReturn(
+            ConsistencyFixDetail.builder()
+                .urn(u2)
+                .action(ConsistencyFixType.DELETE_INDEX_DOCUMENTS)
+                .success(true)
+                .build());
+    when(batchFix.applyBatch(eq(mockOpContext), eq(List.of(i1, i3)), eq(false)))
+        .thenReturn(
+            List.of(
+                ConsistencyFixDetail.builder()
+                    .urn(u1)
+                    .action(ConsistencyFixType.RESTORE_INDICES)
+                    .success(true)
+                    .build(),
+                ConsistencyFixDetail.builder()
+                    .urn(u3)
+                    .action(ConsistencyFixType.RESTORE_INDICES)
+                    .success(false)
+                    .errorMessage("failed u3")
+                    .build()));
+
+    ConsistencyFixResult result = localService.fixIssues(mockOpContext, List.of(i1, i2, i3), false);
+
+    assertEquals(result.getTotalProcessed(), 3);
+    assertEquals(result.getEntitiesFixed(), 2);
+    assertEquals(result.getEntitiesFailed(), 1);
+    assertEquals(
+        result.getFixDetails().stream().map(ConsistencyFixDetail::getUrn).toList(),
+        List.of(u1, u2, u3));
+    verify(batchFix, times(1)).applyBatch(eq(mockOpContext), eq(List.of(i1, i3)), eq(false));
   }
 }

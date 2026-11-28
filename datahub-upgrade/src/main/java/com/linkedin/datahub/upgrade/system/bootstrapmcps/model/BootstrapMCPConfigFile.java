@@ -38,6 +38,15 @@ public class BootstrapMCPConfigFile {
     @Builder.Default private boolean blocking = false;
     @Builder.Default private boolean async = true;
     @Builder.Default private boolean optional = false;
+
+    /**
+     * Re-run the step when the resolved {@code values_env} changes, instead of once per version.
+     * The step stores a hash of the values with its upgrade result and skips only while the hash is
+     * unchanged, so a value can be toggled and toggled back without bumping the version or setting
+     * {@code force}. A result stored without a hash counts as changed.
+     */
+    @Builder.Default private boolean valuesTrackedAcrossRuns = false;
+
     @Nonnull private String mcps_location;
     @Nullable private String values_env;
     @Nullable private String revision_env;

@@ -18,6 +18,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.RetryableIndexingException;
@@ -57,12 +58,10 @@ public class V3SearchDocumentProjector {
   public static final String ASPECT_JSON_FIELD = "_aspectJson";
 
   private static final String SEMANTIC_CONTENT_ASPECT_NAME = "semanticContent";
-  private static final String PRIMARY_SEARCH_GROUP = "primary";
 
   private final SearchDocumentTransformer searchDocumentTransformer;
   private final boolean vectorProjectionEnabled;
-  private final Map<String, Integer> expectedVectorDimensions;
-  private final Set<String> semanticEntityNames;
+  private final SemanticVectorGate vectorGate;
 
   // A systemic dimension mismatch fails validation for every document, so an unbounded per-doc log
   // floods the logs. Log each rejected model once and rely on the vectorModelDropped metric for
@@ -71,24 +70,22 @@ public class V3SearchDocumentProjector {
 
   public V3SearchDocumentProjector(
       @Nonnull final SearchDocumentTransformer searchDocumentTransformer) {
-    this(searchDocumentTransformer, false, Map.of(), Set.of());
+    this(searchDocumentTransformer, false, SemanticVectorGate.from(null));
   }
 
   public V3SearchDocumentProjector(
       @Nonnull final SearchDocumentTransformer searchDocumentTransformer,
       final boolean vectorProjectionEnabled) {
-    this(searchDocumentTransformer, vectorProjectionEnabled, Map.of(), Set.of());
+    this(searchDocumentTransformer, vectorProjectionEnabled, SemanticVectorGate.from(null));
   }
 
   public V3SearchDocumentProjector(
       @Nonnull final SearchDocumentTransformer searchDocumentTransformer,
       final boolean vectorProjectionEnabled,
-      @Nonnull final Map<String, Integer> expectedVectorDimensions,
-      @Nonnull final Set<String> semanticEntityNames) {
+      @Nonnull final SemanticVectorGate vectorGate) {
     this.searchDocumentTransformer = searchDocumentTransformer;
     this.vectorProjectionEnabled = vectorProjectionEnabled;
-    this.expectedVectorDimensions = Map.copyOf(expectedVectorDimensions);
-    this.semanticEntityNames = Set.copyOf(semanticEntityNames);
+    this.vectorGate = vectorGate;
   }
 
   public ObjectNode newEntityDocument(
@@ -126,6 +123,18 @@ public class V3SearchDocumentProjector {
       @Nonnull final OperationContext opContext,
       @Nonnull final MCLItem event,
       @Nullable final RecordTemplate previousAspect) {
+    return projectAspect(opContext, event, previousAspect, false);
+  }
+
+  /**
+   * @param diffEmbeddingProfiles a live merge sends only the embedding fields that changed. A
+   *     rebuild replaces the document, so it keeps every profile.
+   */
+  public Optional<ProjectedAspect> projectAspect(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final MCLItem event,
+      @Nullable final RecordTemplate previousAspect,
+      final boolean diffEmbeddingProfiles) {
     final Urn urn = event.getUrn();
     final AspectSpec aspectSpec = event.getAspectSpec();
 
@@ -172,13 +181,25 @@ public class V3SearchDocumentProjector {
             sharedHasValues,
             parsedUrnNames,
             event.getUrn(),
-            opContext);
+            opContext,
+            diffEmbeddingProfiles ? previousSearchDocument.orElse(null) : null,
+            diffEmbeddingProfiles);
     if (!STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
       for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
         final String fieldName = fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
         if (V3SearchFields.omitsSourceRoot(fieldName, searchableEntities)) {
           projected.rootFields().putNull(fieldName);
         }
+      }
+    }
+    if (diffEmbeddingProfiles
+        && previousSearchDocument.isEmpty()
+        && ChangeType.RESTATE.equals(event.getChangeType())
+        && SEMANTIC_CONTENT_ASPECT_NAME.equals(aspectSpec.getName())) {
+      // A restate with no stored document rebuilds the profile set. Only a type the gate accepts
+      // has configured profiles to clear.
+      if (vectorGate.isEntityEligible(event.getEntitySpec())) {
+        nullAbsentConfiguredEmbeddingModels(projected.rootFields());
       }
     }
     return Optional.of(projected);
@@ -294,7 +315,9 @@ public class V3SearchDocumentProjector {
         sharedHasValues,
         parsedUrnNames,
         urn,
-        opContext);
+        opContext,
+        null,
+        false);
   }
 
   public void applyProjection(
@@ -629,7 +652,9 @@ public class V3SearchDocumentProjector {
       @Nonnull final Set<String> sharedHasValues,
       @Nonnull final ParsedUrnNames parsedUrns,
       @Nonnull final Urn urn,
-      @Nonnull final OperationContext opContext) {
+      @Nonnull final OperationContext opContext,
+      @Nullable final ObjectNode previousSearchDocument,
+      final boolean diffEmbeddingProfiles) {
     final String aspectName = aspectSpec.getName();
     final ObjectNode rootFields = projectedFields.deepCopy();
     rootFields.remove(URN_FIELD);
@@ -662,10 +687,14 @@ public class V3SearchDocumentProjector {
 
     if (SEMANTIC_CONTENT_ASPECT_NAME.equals(aspectName)) {
       aspectFields.remove(EMBEDDINGS_FIELD);
-      if (shouldProjectRootEmbeddings(entitySpec)) {
+      if (vectorGate.isEntityEligible(entitySpec)) {
         filterRetiredModelsAndValidateVectorDimensions(opContext, rootFields);
+        if (diffEmbeddingProfiles) {
+          // Dimension checks need the chunks array. Strip unchanged vectors only after that.
+          retainChangedEmbeddingProfiles(rootFields, previousSearchDocument);
+        }
       } else {
-        rootFields.remove(EMBEDDINGS_FIELD);
+        retainEmbeddingRemovals(rootFields);
       }
       putParsedUrnName(rootFields, urn, opContext.getEntityRegistry());
       return new ProjectedAspect(aspectName, rootFields, aspectFields, true);
@@ -675,17 +704,88 @@ public class V3SearchDocumentProjector {
     return new ProjectedAspect(aspectName, rootFields, aspectFields, rootOnly);
   }
 
-  private static boolean isPrimaryEntity(@Nonnull final EntitySpec entitySpec) {
-    return PRIMARY_SEARCH_GROUP.equals(V3IndexKeys.resolve(entitySpec));
+  /**
+   * An entity type the gate does not accept gets no vectors, but an old profile may still be in its
+   * document, and SQL lets it be removed. A null profile is a removal and is kept so the index
+   * follows SQL; everything else is dropped.
+   */
+  private static void retainEmbeddingRemovals(@Nonnull final ObjectNode rootFields) {
+    final JsonNode embeddings = rootFields.get(EMBEDDINGS_FIELD);
+    if (!(embeddings instanceof ObjectNode embeddingsObject)) {
+      rootFields.remove(EMBEDDINGS_FIELD);
+      return;
+    }
+    final Iterator<Map.Entry<String, JsonNode>> profiles = embeddingsObject.fields();
+    while (profiles.hasNext()) {
+      if (!profiles.next().getValue().isNull()) {
+        profiles.remove();
+      }
+    }
+    if (embeddingsObject.isEmpty()) {
+      rootFields.remove(EMBEDDINGS_FIELD);
+    }
   }
 
   /**
-   * Semantic search being on for this entity is the whole gate. The V3 index maps a root embeddings
-   * field for exactly the entities semantic search is enabled for, so a separate projection switch
-   * would only drop vectors the mapping already expects.
+   * A partial update merges, so an unchanged profile would resend its vectors. Drop a profile that
+   * matches the previous one, and inside a changed profile drop fields that match, including {@code
+   * chunks} when the vectors did not change. A null profile is a removal and stays.
    */
-  private boolean shouldProjectRootEmbeddings(@Nonnull final EntitySpec entitySpec) {
-    return isPrimaryEntity(entitySpec) || semanticEntityNames.contains(entitySpec.getName());
+  private static void retainChangedEmbeddingProfiles(
+      @Nonnull final ObjectNode rootFields, @Nullable final ObjectNode previousSearchDocument) {
+    final JsonNode embeddings = rootFields.get(EMBEDDINGS_FIELD);
+    if (!(embeddings instanceof ObjectNode currentEmbeddings)) {
+      return;
+    }
+    final JsonNode previousEmbeddings =
+        previousSearchDocument == null ? null : previousSearchDocument.get(EMBEDDINGS_FIELD);
+    if (!(previousEmbeddings instanceof ObjectNode previousProfiles)) {
+      return;
+    }
+    final Iterator<Map.Entry<String, JsonNode>> profiles = currentEmbeddings.fields();
+    while (profiles.hasNext()) {
+      final Map.Entry<String, JsonNode> profile = profiles.next();
+      final JsonNode currentProfile = profile.getValue();
+      if (currentProfile == null || currentProfile.isNull() || !currentProfile.isObject()) {
+        continue;
+      }
+      final JsonNode previousProfile = previousProfiles.get(profile.getKey());
+      if (previousProfile == null || previousProfile.isNull() || !previousProfile.isObject()) {
+        continue;
+      }
+      if (currentProfile.equals(previousProfile)) {
+        profiles.remove();
+        continue;
+      }
+      retainChangedFields((ObjectNode) currentProfile, (ObjectNode) previousProfile);
+    }
+    if (currentEmbeddings.isEmpty()) {
+      rootFields.remove(EMBEDDINGS_FIELD);
+    }
+  }
+
+  private static void retainChangedFields(
+      @Nonnull final ObjectNode current, @Nonnull final ObjectNode previous) {
+    final Iterator<Map.Entry<String, JsonNode>> fields = current.fields();
+    while (fields.hasNext()) {
+      final Map.Entry<String, JsonNode> field = fields.next();
+      final JsonNode previousValue = previous.get(field.getKey());
+      if (previousValue != null && field.getValue().equals(previousValue)) {
+        fields.remove();
+      }
+    }
+  }
+
+  private void nullAbsentConfiguredEmbeddingModels(@Nonnull final ObjectNode rootFields) {
+    final JsonNode embeddings = rootFields.get(EMBEDDINGS_FIELD);
+    if (!(embeddings instanceof ObjectNode embeddingsObject)) {
+      return;
+    }
+    for (String modelKey : vectorGate.modelDimensions().keySet()) {
+      if (!embeddingsObject.has(modelKey)) {
+        embeddingsObject.putNull(modelKey);
+      }
+    }
   }
 
   private void filterRetiredModelsAndValidateVectorDimensions(
@@ -696,57 +796,61 @@ public class V3SearchDocumentProjector {
     }
     final Iterator<Map.Entry<String, JsonNode>> models = embeddingsObject.fields();
     while (models.hasNext()) {
-      if (!expectedVectorDimensions.containsKey(models.next().getKey())) {
+      final Map.Entry<String, JsonNode> model = models.next();
+      // A null profile is a removal. A retired model's stored profile can still be removed in SQL,
+      // so the index has to follow.
+      if (!vectorGate.isModelConfigured(model.getKey()) && !model.getValue().isNull()) {
         models.remove();
       }
     }
-    expectedVectorDimensions.forEach(
-        (modelKey, expectedDimension) -> {
-          final JsonNode model = embeddingsObject.get(modelKey);
-          if (model == null) {
-            return;
-          }
-          final String rejection = invalidModelReason(model, expectedDimension);
-          if (rejection != null) {
-            // Drop only this model's vectors so the lexical document still indexes; throwing
-            // here would fail the whole MCL batch and poison-pill the entity into endless
-            // retries over one bad embedding.
-            opContext
-                .getMetricUtils()
-                .ifPresent(
-                    metricUtils ->
-                        metricUtils.increment(
-                            V3SearchDocumentProjector.class, "vectorModelDropped", 1));
-            if (loggedInvalidModels.add(modelKey)) {
-              log.warn(
-                  "Dropping semantic embeddings for model '{}' from search document: {} "
-                      + "(further occurrences for this model are suppressed; see the "
-                      + "vectorModelDropped metric for volume)",
-                  modelKey,
-                  rejection);
-            }
-            embeddingsObject.remove(modelKey);
-          }
-        });
+    vectorGate
+        .modelDimensions()
+        .forEach(
+            (modelKey, expectedDimension) -> {
+              final JsonNode model = embeddingsObject.get(modelKey);
+              // A null profile removes the key. It has no chunks to validate, and dropping it would
+              // leave the stored vectors in place on a merge.
+              if (model == null || model.isNull() || model.isMissingNode()) {
+                return;
+              }
+              final String rejection = invalidModelReason(modelKey, model);
+              if (rejection != null) {
+                // Drop only this model's vectors so the lexical document still indexes; throwing
+                // here would fail the whole MCL batch and poison-pill the entity into endless
+                // retries over one bad embedding.
+                opContext
+                    .getMetricUtils()
+                    .ifPresent(
+                        metricUtils ->
+                            metricUtils.increment(
+                                V3SearchDocumentProjector.class, "vectorModelDropped", 1));
+                if (loggedInvalidModels.add(modelKey)) {
+                  log.warn(
+                      "Dropping semantic embeddings for model '{}' from search document: {} "
+                          + "(further occurrences for this model are suppressed; see the "
+                          + "vectorModelDropped metric for volume)",
+                      modelKey,
+                      rejection);
+                }
+                embeddingsObject.remove(modelKey);
+              }
+            });
   }
 
   @Nullable
-  private static String invalidModelReason(
-      @Nonnull final JsonNode model, @Nullable final Integer expectedDimension) {
-    if (expectedDimension == null || expectedDimension <= 0) {
-      return "configured vector dimension must be positive";
-    }
+  private String invalidModelReason(@Nonnull final String modelKey, @Nonnull final JsonNode model) {
     final JsonNode chunks = model.get("chunks");
     if (chunks == null || !chunks.isArray()) {
       return "missing chunks array";
     }
     for (JsonNode chunk : chunks) {
       final JsonNode vector = chunk.get("vector");
-      if (vector == null || !vector.isArray() || vector.size() != expectedDimension) {
+      final int size = vector != null && vector.isArray() ? vector.size() : 0;
+      if (!vectorGate.isValidDimension(modelKey, size)) {
         return "vector has "
-            + (vector != null && vector.isArray() ? vector.size() : 0)
+            + size
             + " dimensions; configured mapping expects "
-            + expectedDimension;
+            + vectorGate.modelDimensions().get(modelKey);
       }
     }
     return null;

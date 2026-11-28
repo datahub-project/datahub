@@ -18,6 +18,7 @@ import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -157,6 +158,13 @@ public class MCLSpringCommonTestConfiguration {
   @Primary
   public SpringStandardPluginConfiguration springStandardPluginConfiguration() {
     return Mockito.mock(SpringStandardPluginConfiguration.class);
+  }
+
+  // The mocked plugin configuration above contributes no beans, and the Search V3 index writer
+  // needs the gate.
+  @Bean
+  public SemanticVectorGate semanticVectorGate() {
+    return SemanticVectorGate.from(null);
   }
 
   @Bean(name = "kafkaThrottle")

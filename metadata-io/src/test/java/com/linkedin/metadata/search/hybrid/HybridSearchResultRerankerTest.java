@@ -17,7 +17,6 @@ import static org.testng.Assert.assertTrue;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.SearchEntity;
@@ -389,18 +388,14 @@ public class HybridSearchResultRerankerTest {
   public void testKnnReadsOnlyTheIndicesOfThePlansEligibleTypes() throws Exception {
     // Datasets have vectors on this deployment, but the plan leaves them out, as a template's
     // entity gates can, so the kNN request does not read their index
+    SemanticSearchConfiguration documentsAndDatasets =
+        V3HybridKnnRequestBuilderTest.semanticSearch(true);
+    documentsAndDatasets.setEnabledEntities(Set.of("document", "dataset"));
     HybridSearchResultReranker datasetsEnabled =
         new HybridSearchResultReranker(
             new HybridQueryEmbeddingService(
                 embeddingProvider, "text-embedding-3-small", "text_embedding_3_small"),
-            new V3HybridKnnRequestBuilder(
-                new SemanticSearchConfiguration(
-                    true,
-                    Set.of("document", "dataset"),
-                    Map.of("text_embedding_3_small", new ModelEmbeddingConfig()),
-                    null,
-                    null,
-                    null)),
+            new V3HybridKnnRequestBuilder(documentsAndDatasets),
             new HybridScoreMapBuilder(
                 new HybridVectorScoreNormalizer(SearchEngineType.ELASTICSEARCH_8, "cosine")),
             new HybridCandidateMerger(

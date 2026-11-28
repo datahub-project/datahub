@@ -1,5 +1,7 @@
 package com.linkedin.metadata.aspect;
 
+import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -262,6 +264,15 @@ public class EntityAspect {
                           .orElse(null),
                       SetMode.IGNORE_NULL);
         }
+        if (this.systemMetadata == null && this.auditStamp != null) {
+          // A legacy row has no metadata of its own. Its observed time is the row's creation
+          // time, not the read time, so a later write does not persist a fabricated "now".
+          this.systemMetadata =
+              new SystemMetadata()
+                  .setRunId(DEFAULT_RUN_ID)
+                  .setLastObserved(this.auditStamp.getTime());
+        }
+        SystemMetadataUtils.backfillAspectCreatedFromRow(this.systemMetadata, this.auditStamp);
       }
     }
 

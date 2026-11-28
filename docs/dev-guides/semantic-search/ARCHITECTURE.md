@@ -241,6 +241,10 @@ Embeddings are stored as a proper DataHub aspect (`SemanticContent`), defined in
 }
 ```
 
+One `semanticContent` aspect holds every embedding profile, keyed by profile id (the same key as `modelEmbeddingKey`). Each write names one key and leaves the other profiles in place. Each profile records what it stores, any outstanding work, and whether its vectors still match the content it is bound to. Writes that depend on what they read check that profile's own state, so writes to sibling profiles never conflict.
+
+See [The semanticContent Model](SEMANTIC_CONTENT_MODEL.md) for every field, the write paths, bindings, and profile-scoped preconditions.
+
 #### Privacy-Sensitive Use Cases
 
 The `text` field in each chunk is **optional**. This supports scenarios where:

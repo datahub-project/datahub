@@ -214,6 +214,7 @@ public class DefaultAspectsUtil {
     Map<Urn, List<MCPItem>> itemsByUrn =
         batch.stream()
             .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
+            .filter(item -> !item.requiresExistingAspect())
             .collect(Collectors.groupingBy(BatchItem::getUrn));
 
     // create default aspects when key aspect is missing

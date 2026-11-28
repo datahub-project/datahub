@@ -545,6 +545,7 @@ public class ConsistencyController {
                     .collect(Collectors.toList())
                 : null)
         .details(apiIssue.getDetails())
+        .metadata(apiIssue.getMetadata())
         .build();
   }
 

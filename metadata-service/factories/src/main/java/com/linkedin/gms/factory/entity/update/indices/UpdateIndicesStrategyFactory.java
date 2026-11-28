@@ -15,6 +15,7 @@ import com.linkedin.metadata.config.search.SearchV3Configuration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.SemanticContentIndexFields;
 import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyIndexFields;
 import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
@@ -23,6 +24,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchIndexSkip;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.CassandraSearchLimitations;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
 import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
@@ -30,9 +32,7 @@ import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -152,7 +152,8 @@ public class UpdateIndicesStrategyFactory {
       @Qualifier("incrementalReindexWriteTargets") @Nullable
           IncrementalReindexWriteTargets incrementalReindexWriteTargets,
       StructuredPropertyMappingCache structuredPropertyMappingCache,
-      @Autowired(required = false) @Nullable List<V3SearchIndexSkip> searchIndexSkips) {
+      @Autowired(required = false) @Nullable List<V3SearchIndexSkip> searchIndexSkips,
+      SemanticVectorGate semanticVectorGate) {
 
     EntityIndexVersionConfiguration v3Config =
         EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v3Cleanup).build();
@@ -176,7 +177,7 @@ public class UpdateIndicesStrategyFactory {
         .timeseriesThrottleCache(timeseriesWriteThrottleCache)
         .searchClientShim(searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3))
         .vectorProjectionEnabled(vectorProjectionEnabled)
-        .expectedVectorDimensions(expectedVectorDimensions(configProvider))
+        .semanticVectorGate(semanticVectorGate)
         .entityDocumentIdHasher(entityDocumentIdHasher)
         .documentContributors(documentContributors)
         .semanticSearchConfiguration(semanticSearchConfiguration(configProvider))
@@ -213,32 +214,6 @@ public class UpdateIndicesStrategyFactory {
     return configProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
   }
 
-  @Nonnull
-  private static Map<String, Integer> expectedVectorDimensions(
-      @Nullable final ConfigurationProvider configProvider) {
-    if (configProvider == null
-        || configProvider.getElasticSearch() == null
-        || configProvider.getElasticSearch().getEntityIndex() == null
-        || configProvider.getElasticSearch().getEntityIndex().getSemanticSearch() == null
-        || configProvider.getElasticSearch().getEntityIndex().getSemanticSearch().getModels()
-            == null) {
-      return Map.of();
-    }
-    final Map<String, Integer> dimensions = new LinkedHashMap<>();
-    configProvider
-        .getElasticSearch()
-        .getEntityIndex()
-        .getSemanticSearch()
-        .getModels()
-        .forEach(
-            (modelKey, modelConfig) -> {
-              if (modelConfig != null) {
-                dimensions.put(modelKey, modelConfig.getVectorDimension());
-              }
-            });
-    return dimensions;
-  }
-
   /**
    * One mapping read per index per TTL, shared by the index writers and the on-demand consistency
    * check. The flag defaults on; a missing index configuration keeps that default.
@@ -264,6 +239,21 @@ public class UpdateIndicesStrategyFactory {
   public StructuredPropertyIndexFields structuredPropertyIndexFields(
       @Nonnull ElasticSearchService elasticSearchService) {
     return new StructuredPropertyIndexFields(
+        (opContext, indexName, request) ->
+            elasticSearchService
+                .getIndexBuilder(indexName)
+                .getSearchClient()
+                .search(opContext, request, RequestOptions.DEFAULT));
+  }
+
+  /**
+   * Reads minimal semanticContent key fields a batch at a time from the V3 index being compared.
+   */
+  @Bean
+  @Nonnull
+  public SemanticContentIndexFields semanticContentIndexFields(
+      @Nonnull ElasticSearchService elasticSearchService) {
+    return new SemanticContentIndexFields(
         (opContext, indexName, request) ->
             elasticSearchService
                 .getIndexBuilder(indexName)

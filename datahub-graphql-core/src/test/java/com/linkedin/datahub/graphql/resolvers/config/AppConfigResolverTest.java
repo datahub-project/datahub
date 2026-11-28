@@ -19,6 +19,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.config.*;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticProfilesConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.service.SettingsService;
@@ -28,6 +29,7 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import org.mockito.Mock;
@@ -631,8 +633,11 @@ public class AppConfigResolverTest {
     assertEquals(result.getSemanticSearchConfig().getEnabledEntities().size(), 2);
     assertTrue(result.getSemanticSearchConfig().getEnabledEntities().contains("document"));
     assertTrue(result.getSemanticSearchConfig().getEnabledEntities().contains("chart"));
+    assertTrue(result.getSemanticSearchConfig().getSemanticContentPatchSupported());
 
     assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+    assertTrue(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getSemanticContentPatchSupported());
     assertEquals(
         result.getSemanticSearchConfig().getEmbeddingConfig().getProvider(), "aws-bedrock");
     assertEquals(
@@ -645,6 +650,51 @@ public class AppConfigResolverTest {
     assertEquals(
         result.getSemanticSearchConfig().getEmbeddingConfig().getAwsProviderConfig().getRegion(),
         "us-west-2");
+    assertEquals(result.getSemanticSearchConfig().getGenerationEnabled(), Boolean.FALSE);
+    assertNull(result.getSemanticSearchConfig().getServiceProfileKey());
+  }
+
+  @Test
+  public void testSemanticSearchConfigReportsTheServiceProfileKey() throws Exception {
+    ModelEmbeddingConfig service = new ModelEmbeddingConfig();
+    service.setServiceOwned(true);
+    SemanticProfilesConfiguration profiles = new SemanticProfilesConfiguration();
+    profiles.setGenerationEnabled(true);
+    profiles.setActive(new LinkedHashMap<>(Map.of("document", "cohere_embed_v3")));
+    SemanticSearchConfiguration semanticSearchConfig = new SemanticSearchConfiguration();
+    semanticSearchConfig.setEnabled(true);
+    semanticSearchConfig.setEnabledEntities(Set.of("document"));
+    semanticSearchConfig.setModels(Map.of("cohere_embed_v3", service));
+    semanticSearchConfig.setProfiles(profiles);
+
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true,
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true,
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            false,
+            semanticSearchConfig,
+            false);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertEquals(result.getSemanticSearchConfig().getGenerationEnabled(), Boolean.TRUE);
+    assertEquals(result.getSemanticSearchConfig().getServiceProfileKey(), "cohere_embed_v3");
   }
 
   /**
@@ -867,6 +917,20 @@ public class AppConfigResolverTest {
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
     assertNotNull(result);
+  }
+
+  @Test
+  public void testSemanticSearchConfigWithoutProviderReportsPatchSupport() throws Exception {
+    SemanticSearchConfiguration semanticSearchConfig = new SemanticSearchConfiguration();
+    semanticSearchConfig.setEnabled(true);
+    semanticSearchConfig.setEnabledEntities(java.util.Set.of("document"));
+    resolver = resolverWithSemanticSearchConfig(semanticSearchConfig);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getSemanticSearchConfig());
+    assertNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+    assertTrue(result.getSemanticSearchConfig().getSemanticContentPatchSupported());
   }
 
   /**

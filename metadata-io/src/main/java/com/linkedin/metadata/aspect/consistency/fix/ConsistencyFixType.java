@@ -36,5 +36,11 @@ public enum ConsistencyFixType {
    * Set mapped structured-property fields that differ from SQL and null mapped fields SQL does not
    * project. No other search field is written, and SQL is left unchanged.
    */
-  SYNC_STRUCTURED_PROPERTY_INDEX_FIELDS
+  SYNC_STRUCTURED_PROPERTY_INDEX_FIELDS,
+
+  /**
+   * Restate latest authoritative aspect(s) from primary storage via {@code
+   * EntityService.restoreIndices} without mutating SQL.
+   */
+  RESTORE_INDICES
 }

@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.ApplicationConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfileConfig;
 import com.linkedin.datahub.graphql.generated.QueriesTabConfig;
 import com.linkedin.metadata.config.*;
+import com.linkedin.metadata.config.search.SemanticProfilesConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.service.SettingsService;
@@ -25,6 +26,12 @@ import lombok.extern.slf4j.Slf4j;
 /** Resolver responsible for serving app configurations to the React UI. */
 @Slf4j
 public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfig>> {
+
+  /**
+   * This server build always registers the semanticContent patch template, so it is a capability of
+   * the build and not an operator setting.
+   */
+  private static final boolean SEMANTIC_CONTENT_PATCH_SUPPORTED = true;
 
   private final GitVersion _gitVersion;
   private final boolean _isAnalyticsEnabled;
@@ -336,6 +343,16 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             semanticSearchConfig.setEnabled(_semanticSearchConfiguration.isEnabled());
             semanticSearchConfig.setEnabledEntities(
                 new java.util.ArrayList<>(_semanticSearchConfiguration.getEnabledEntities()));
+            semanticSearchConfig.setSemanticContentPatchSupported(SEMANTIC_CONTENT_PATCH_SUPPORTED);
+            final SemanticProfilesConfiguration profiles =
+                _semanticSearchConfiguration.getProfiles();
+            semanticSearchConfig.setGenerationEnabled(
+                profiles != null && profiles.isGenerationEnabled());
+            // Startup requires every active entry to name the same service profile.
+            semanticSearchConfig.setServiceProfileKey(
+                profiles == null || profiles.getActive() == null
+                    ? null
+                    : profiles.getActive().values().stream().findFirst().orElse(null));
 
             // Build EmbeddingConfig from server's embedding provider configuration
             if (_semanticSearchConfiguration.getEmbeddingProvider() != null) {
@@ -349,6 +366,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
               // Derive and set canonical model embedding key
               final String modelEmbeddingKey = deriveModelEmbeddingKey(providerConfig.getModelId());
               embeddingConfig.setModelEmbeddingKey(modelEmbeddingKey);
+              // Also set here for clients that predate the top-level field and read this one.
+              embeddingConfig.setSemanticContentPatchSupported(SEMANTIC_CONTENT_PATCH_SUPPORTED);
 
               // Populate provider-specific configuration
               if ("aws-bedrock".equalsIgnoreCase(providerConfig.getType())

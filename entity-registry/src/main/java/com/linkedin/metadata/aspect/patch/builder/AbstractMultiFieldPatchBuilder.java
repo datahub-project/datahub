@@ -8,7 +8,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -32,6 +34,7 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
 
   protected List<ImmutableTriple<String, String, JsonNode>> pathValues = new ArrayList<>();
   protected Urn targetEntityUrn = null;
+  private boolean requireExistingAspect = false;
 
   /**
    * Per-instance override for arrayPrimaryKeys. When set, takes precedence over {@link
@@ -66,7 +69,21 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
     proposal.setEntityUrn(this.targetEntityUrn);
     proposal.setAspectName(getAspectName());
     proposal.setAspect(buildPatch());
+    if (requireExistingAspect) {
+      proposal.setHeaders(
+          new StringMap(Map.of(MCPItem.HTTP_HEADER_IF_MATCH, MCPItem.IF_MATCH_ANY)));
+    }
     return proposal;
+  }
+
+  /**
+   * Sends {@code If-Match: *}, so the patch applies only when the aspect row already exists. A
+   * missing row is a no-op: the patch does not create the aspect or the entity.
+   */
+  @SuppressWarnings("unchecked")
+  public T ifAspectExists() {
+    this.requireExistingAspect = true;
+    return (T) this;
   }
 
   /**

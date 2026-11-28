@@ -52,10 +52,12 @@ from datahub.ingestion.source.unstructured.embedding_providers.factory import (
     derive_model_id,
 )
 from datahub.ingestion.source.unstructured.embedding_target import (
+    ServerGeneratesEmbeddings,
     resolve_embedding_target,
 )
 from datahub.ingestion.source.unstructured.semantic_chunks import (
     MAX_SERIALIZED_ASPECT_BYTES,
+    CappedChunks,
     build_semantic_content,
     cap_chunks,
     chunk_elements,
@@ -65,6 +67,7 @@ from datahub.ingestion.source.unstructured.semantic_chunks import (
 from datahub.metadata.schema_classes import (
     EmbeddingModelDataClass,
     SemanticContentClass,
+    SemanticRefreshMarkerClass,
 )
 from datahub.utilities.ratelimiter import RateLimiter
 
@@ -72,6 +75,124 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_explicit_embedding_config(
+    embedding_config: "EmbeddingConfig",
+    graph: Optional[DataHubGraph],
+) -> "EmbeddingConfig":
+    """Resolve a recipe that names its own provider. Skip when the server generates."""
+    if not embedding_config.allow_local_embedding_config and graph:
+        logger.info("Loading embedding configuration from DataHub server...")
+        try:
+            server_config = get_semantic_search_config(graph)
+            if server_config and server_config.generates(
+                resolve_embedding_target(embedding_config).model_embedding_key
+            ):
+                return _skip_because_server_generates()
+            if not server_config.enabled:
+                raise ValueError(
+                    "Semantic search is not enabled on the DataHub server. "
+                    "Cannot proceed with embedding generation. "
+                    "Please enable semantic search in the server's application.yml configuration."
+                )
+            if server_config.embedding_config is None:
+                raise ValueError(
+                    "Server reports semantic search is enabled but has no embedding configuration. "
+                    "This indicates a misconfigured server."
+                )
+            logger.info("Validating local embedding configuration against server...")
+            embedding_config.validate_against_server(server_config.embedding_config)
+            embedding_config._semantic_content_patch_supported = (
+                server_config.semantic_content_patch_supported
+            )
+            logger.info(
+                "✓ Local embedding configuration validated successfully"
+                f"\n  Provider: {server_config.embedding_config.provider}"
+                f"\n  Model: {server_config.embedding_config.model_id}"
+            )
+        except Exception as e:
+            is_old_server = "does not expose semantic search configuration" in str(e)
+            if is_old_server:
+                logger.warning(
+                    f"⚠️  Server does not support semantic search configuration API (likely older version). "
+                    f"Falling back to local embedding configuration.\n"
+                    f"  Provider: {embedding_config.provider}\n"
+                    f"  Model: {embedding_config.model}\n"
+                    f"  AWS Region: {embedding_config.aws_region or 'N/A'}\n\n"
+                    f"Note: Semantic search on the server may not work if the configuration doesn't match. "
+                    f"Consider upgrading to DataHub v0.14.0+ for automatic configuration sync."
+                )
+            else:
+                logger.error(
+                    f"Failed to load/validate embedding configuration from server: {e}"
+                )
+                raise ValueError(
+                    f"Cannot proceed with embedding generation - server configuration failed.\n"
+                    f"Error: {e}\n\n"
+                    f"To bypass server validation (NOT RECOMMENDED), set:\n"
+                    f"  embedding:\n"
+                    f"    allow_local_embedding_config: true"
+                ) from e
+    else:
+        if graph:
+            try:
+                server_config = get_semantic_search_config(graph)
+            except Exception as e:
+                logger.warning(
+                    f"Could not check semanticContent patch support; "
+                    f"writing full aspects instead: {e}"
+                )
+            else:
+                if server_config and server_config.generates(
+                    resolve_embedding_target(embedding_config).model_embedding_key
+                ):
+                    return _skip_because_server_generates()
+                if server_config is not None:
+                    embedding_config._semantic_content_patch_supported = (
+                        server_config.semantic_content_patch_supported
+                    )
+        logger.warning(
+            "⚠️  WARNING: Server validation is disabled (allow_local_embedding_config=true). "
+            "Proceeding with local embedding configuration. "
+            "This may cause semantic search to fail if configuration doesn't match the server."
+        )
+
+    embedding_config._resolved_target = resolve_embedding_target(embedding_config)
+    return embedding_config
+
+
+def _skip_because_server_generates() -> "EmbeddingConfig":
+    from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
+
+    logger.info(
+        "This server generates embeddings itself — skipping embedding generation."
+    )
+    skipped = EmbeddingConfig()
+    skipped._server_generates_embeddings = True
+    return skipped
+
+
+def _set_profile_field(profile: EmbeddingModelDataClass, name: str, value: Any) -> None:
+    if any(field.name == name for field in profile.RECORD_SCHEMA.fields):
+        setattr(profile, name, value)
+
+
+def _stamp_profile_payload(profile: EmbeddingModelDataClass, partial: bool) -> None:
+    """Hash the capped chunks this write stores. Distinct from the source-text digest."""
+    chunks = [chunk.to_obj() for chunk in profile.chunks] if profile.chunks else []
+    payload = json.dumps(
+        {"chunks": chunks, "sourceTextSha256": profile.sourceTextSha256},
+        sort_keys=True,
+        default=str,
+    )
+    _set_profile_field(
+        profile, "contentHash", hashlib.sha256(payload.encode()).hexdigest()
+    )
+    _set_profile_field(profile, "partial", partial)
+    _set_profile_field(profile, "vectorState", "READY")
+    if profile.chunks:
+        _set_profile_field(profile, "vectorDimension", len(profile.chunks[0].vector))
 
 
 class SkipMarkerReadError(RuntimeError):
@@ -359,6 +480,7 @@ class DocumentChunkingSource(Source):
         document_urn: str,
         elements: list[dict[str, Any]],
         source_text_sha256: Optional[str] = None,
+        refresh_marker: Optional[SemanticRefreshMarkerClass] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Process elements inline and emit SemanticContent aspects.
 
@@ -371,13 +493,19 @@ class DocumentChunkingSource(Source):
             source_text_sha256: SHA-256 hex digest (UTF-8 bytes) of the exact resolved
                 source text the elements were partitioned from, recorded on the emitted
                 embeddings as staleness provenance. None when the caller does not track it.
+            refresh_marker: Source tokens of the stored aspects the text was read from,
+                recorded on the emitted profile so the server can tell whether a later
+                edit to those aspects post-dates these vectors. None when the caller
+                does not read the source aspects.
 
         Yields:
             MetadataWorkUnits containing SemanticContent aspects
         """
         if not elements:
             logger.warning(f"No elements provided for document {document_urn}")
-            yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
+            yield self.build_skip_marker_workunit(
+                document_urn, "NO_INDEXABLE_CONTENT", refresh_marker=refresh_marker
+            )
             return
 
         # Chunk the elements. A chunking failure raises so the calling source
@@ -387,20 +515,25 @@ class DocumentChunkingSource(Source):
             # Deterministic for this text: emit a skip marker (rather than silently nothing)
             # so the document is classified as never-embeddable instead of missing.
             logger.warning(f"No chunks created for document {document_urn}")
-            yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
+            yield self.build_skip_marker_workunit(
+                document_urn, "NO_INDEXABLE_CONTENT", refresh_marker=refresh_marker
+            )
             return
 
         # Bound the chunk count so the assembled aspect stays under the Kafka size
         # floor. Only the kept chunks are embedded below, preserving chunk/vector
         # alignment.
-        chunks = self._cap_chunks(chunks, document_urn)
+        capped_chunks = self._cap_chunks(chunks, document_urn)
+        chunks = capped_chunks.chunks
 
         # All-blank chunk text is deterministic for this document: _generate_embeddings
         # would filter every chunk before calling the provider, so treat it as a
         # deliberate skip rather than an embedding failure that would retry forever.
         if not any(has_embeddable_text(chunk) for chunk in chunks):
             logger.warning(f"Only blank chunk text for document {document_urn}")
-            yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
+            yield self.build_skip_marker_workunit(
+                document_urn, "NO_INDEXABLE_CONTENT", refresh_marker=refresh_marker
+            )
             return
 
         # Generate embeddings (only if configured).
@@ -437,7 +570,12 @@ class DocumentChunkingSource(Source):
         # Emit SemanticContent aspect (only if embeddings were generated)
         if embeddings:
             yield from self._emit_semantic_content(
-                document_urn, chunks, embeddings, source_text_sha256
+                document_urn,
+                chunks,
+                embeddings,
+                source_text_sha256,
+                refresh_marker,
+                count_capped=capped_chunks.truncated,
             )
 
         self.report.report_document_processed(len(chunks))
@@ -747,7 +885,8 @@ class DocumentChunkingSource(Source):
 
             # Bound the chunk count so the assembled aspect stays under the Kafka
             # size floor (only the kept chunks are embedded below).
-            chunks = self._cap_chunks(chunks, doc["urn"])
+            capped_chunks = self._cap_chunks(chunks, doc["urn"])
+            chunks = capped_chunks.chunks
 
             # Generate embeddings (only if configured)
             embeddings = []
@@ -776,7 +915,12 @@ class DocumentChunkingSource(Source):
 
             # Emit SemanticContent aspect to DataHub (only if embeddings were generated)
             if embeddings:
-                yield from self._emit_semantic_content(doc["urn"], chunks, embeddings)
+                yield from self._emit_semantic_content(
+                    doc["urn"],
+                    chunks,
+                    embeddings,
+                    count_capped=capped_chunks.truncated,
+                )
 
             self.report.report_document_processed(len(chunks))
             self.report.report_embeddings_generated(len(embeddings))
@@ -945,7 +1089,7 @@ class DocumentChunkingSource(Source):
 
     def _cap_chunks(
         self, chunks: list[dict[str, Any]], document_urn: str
-    ) -> list[dict[str, Any]]:
+    ) -> CappedChunks:
         """Bound a document's embeddable-chunk count so its semanticContent aspect stays
         under the Kafka/GMS size floor.
 
@@ -966,7 +1110,7 @@ class DocumentChunkingSource(Source):
         # (e.g. the Nth embeddable chunk is followed only by trailing blanks), nothing
         # that would have been embedded is lost, so emit unchanged without a warning.
         if not capped.truncated:
-            return chunks
+            return capped
 
         self._count_oversized(document_urn, dropped=False)
         self.report.warning(
@@ -979,7 +1123,7 @@ class DocumentChunkingSource(Source):
             context=f"{document_urn}: {len(chunks)} raw chunks -> capped at {max_chunks} embeddable",
             log=False,
         )
-        return capped.chunks
+        return capped
 
     def _generate_embeddings(self, chunks: list[dict[str, Any]]) -> list[list[float]]:
         """Generate embeddings via the configured provider.
@@ -1007,7 +1151,10 @@ class DocumentChunkingSource(Source):
             raise
 
     def build_skip_marker_workunit(
-        self, document_urn: str, reason: str
+        self,
+        document_urn: str,
+        reason: str,
+        refresh_marker: Optional[SemanticRefreshMarkerClass] = None,
     ) -> MetadataWorkUnit:
         """Build a semanticContent skip marker for a deliberately-skipped document.
 
@@ -1020,10 +1167,42 @@ class DocumentChunkingSource(Source):
         so the marker carries forward every other model's existing entry (dropping only
         this pipeline's own) — otherwise one pipeline's skip would erase other models'
         embeddings, and the index projection would clear their vectors.
+
+        When the server accepts profile patches, the marker sets this profile's vector
+        state and does not read or rewrite the rest of the aspect. ``refresh_marker`` is
+        recorded on that profile only when the caller read the source tokens it watches;
+        an incremental run compares it with the entity marker, so a skip without it is
+        re-processed on every run.
         """
+        own_key = self.get_model_embedding_key()
+        # No model is loaded when a skip is written, so there is no key to patch. The
+        # full-aspect path below writes the skip without one.
+        if (
+            self.config.embedding._semantic_content_patch_supported
+            and own_key is not None
+        ):
+            from datahub.specific.semantic_content import SemanticContentPatchBuilder
+
+            profile = EmbeddingModelDataClass(
+                modelVersion=self.resolved_target.semantic_model_version,
+                generatedAt=int(datetime.now(timezone.utc).timestamp() * 1000),
+                totalChunks=0,
+                chunks=[],
+            )
+            _set_profile_field(profile, "vectorState", "SKIPPED")
+            _set_profile_field(profile, "stateReason", reason)
+            if refresh_marker is not None:
+                _set_profile_field(profile, "refreshMarker", refresh_marker)
+            return MetadataWorkUnit(
+                id=f"{document_urn}-semanticContent-skip",
+                mcp_raw=SemanticContentPatchBuilder(document_urn)
+                .set_profile(own_key, profile)
+                .build()[0],
+                is_primary_source=False,
+            )
+
         preserved_embeddings: dict[str, EmbeddingModelDataClass] = {}
         if self.graph is not None:
-            own_key = self.get_model_embedding_key()
             try:
                 existing = self.graph.get_aspect(
                     entity_urn=document_urn, aspect_type=SemanticContentClass
@@ -1066,8 +1245,14 @@ class DocumentChunkingSource(Source):
         chunks: list[dict[str, Any]],
         embeddings: list[list[float]],
         source_text_sha256: Optional[str] = None,
+        refresh_marker: Optional[SemanticRefreshMarkerClass] = None,
+        count_capped: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit SemanticContent aspect for the document."""
+        """Emit SemanticContent aspect for the document.
+
+        count_capped is True when _cap_chunks dropped embeddable chunks before embedding;
+        the size-ceiling truncation below is a separate cause of a partial embedding.
+        """
         target = self.resolved_target
         model_version = target.semantic_model_version
         model_key = target.model_embedding_key
@@ -1113,6 +1298,30 @@ class DocumentChunkingSource(Source):
             )
 
         assert semantic_content is not None
+        partial = count_capped or capped.kept_chunks < capped.original_chunks
+
+        if refresh_marker is not None:
+            _set_profile_field(
+                semantic_content.embeddings[model_key],
+                "refreshMarker",
+                refresh_marker,
+            )
+        _set_profile_field(semantic_content.embeddings[model_key], "partial", partial)
+
+        if self.config.embedding._semantic_content_patch_supported:
+            from datahub.specific.semantic_content import SemanticContentPatchBuilder
+
+            profile = semantic_content.embeddings[model_key]
+            _stamp_profile_payload(profile, partial)
+            yield MetadataWorkUnit(
+                id=f"{document_urn}-semanticContent",
+                mcp_raw=SemanticContentPatchBuilder(document_urn)
+                .set_profile(model_key, profile)
+                .clear_legacy_skip()
+                .build()[0],
+                is_primary_source=False,
+            )
+            return
 
         # Create MetadataWorkUnit
         mcp = MetadataChangeProposalWrapper(
@@ -1145,9 +1354,10 @@ class DocumentChunkingSource(Source):
         test_connection to ensure consistent behavior.
 
         Resolution order:
-        1. If explicit local config provided: return it (optionally validate vs server)
-        2. If not: try to load from DataHub server
-        3. If server unreachable or not configured: use defaults
+        1. If the server generates embeddings itself: skip, before any provider call
+        2. If explicit local config provided: return it (optionally validate vs server)
+        3. If not: try to load from DataHub server
+        4. If server unreachable or not configured: use defaults
 
         Args:
             embedding_config: Initial embedding configuration from recipe
@@ -1168,93 +1378,18 @@ class DocumentChunkingSource(Source):
         )
 
         if embedding_config.provider == "datahub":
-            target = resolve_embedding_target(embedding_config, graph)
+            try:
+                target = resolve_embedding_target(embedding_config, graph)
+            except ServerGeneratesEmbeddings:
+                return _skip_because_server_generates()
             resolved = embedding_config.model_copy(deep=True)
             resolved.model = target.model_id
             resolved.model_embedding_key = target.model_embedding_key
             resolved._resolved_target = target
             return resolved
 
-        # Check if user provided explicit embedding configuration
         if embedding_config.has_local_config():
-            # Explicit config provided - validate against server if available
-            if not embedding_config.allow_local_embedding_config and graph:
-                logger.info("Loading embedding configuration from DataHub server...")
-
-                try:
-                    server_config = get_semantic_search_config(graph)
-
-                    # Check if semantic search is enabled
-                    if not server_config.enabled:
-                        raise ValueError(
-                            "Semantic search is not enabled on the DataHub server. "
-                            "Cannot proceed with embedding generation. "
-                            "Please enable semantic search in the server's application.yml configuration."
-                        )
-
-                    # Validate local config matches server
-                    if server_config.embedding_config is None:
-                        raise ValueError(
-                            "Server reports semantic search is enabled but has no embedding configuration. "
-                            "This indicates a misconfigured server."
-                        )
-
-                    logger.info(
-                        "Validating local embedding configuration against server..."
-                    )
-
-                    embedding_config.validate_against_server(
-                        server_config.embedding_config
-                    )
-
-                    logger.info(
-                        "✓ Local embedding configuration validated successfully"
-                        f"\n  Provider: {server_config.embedding_config.provider}"
-                        f"\n  Model: {server_config.embedding_config.model_id}"
-                    )
-
-                except Exception as e:
-                    # Check if this is an old server that doesn't support semantic search config API
-                    is_old_server = (
-                        "does not expose semantic search configuration" in str(e)
-                    )
-
-                    if is_old_server:
-                        # Backward compatibility: Old server + local config provided
-                        logger.warning(
-                            f"⚠️  Server does not support semantic search configuration API (likely older version). "
-                            f"Falling back to local embedding configuration.\n"
-                            f"  Provider: {embedding_config.provider}\n"
-                            f"  Model: {embedding_config.model}\n"
-                            f"  AWS Region: {embedding_config.aws_region or 'N/A'}\n\n"
-                            f"Note: Semantic search on the server may not work if the configuration doesn't match. "
-                            f"Consider upgrading to DataHub v0.14.0+ for automatic configuration sync."
-                        )
-                        # Continue with local config (don't raise)
-                    else:
-                        # Other error (semantic search disabled, validation failed, etc.)
-                        logger.error(
-                            f"Failed to load/validate embedding configuration from server: {e}"
-                        )
-                        raise ValueError(
-                            f"Cannot proceed with embedding generation - server configuration failed.\n"
-                            f"Error: {e}\n\n"
-                            f"To bypass server validation (NOT RECOMMENDED), set:\n"
-                            f"  embedding:\n"
-                            f"    allow_local_embedding_config: true"
-                        ) from e
-
-            else:
-                logger.warning(
-                    "⚠️  WARNING: Server validation is disabled (allow_local_embedding_config=true). "
-                    "Proceeding with local embedding configuration. "
-                    "This may cause semantic search to fail if configuration doesn't match the server."
-                )
-
-            embedding_config._resolved_target = resolve_embedding_target(
-                embedding_config
-            )
-            return embedding_config
+            return _resolve_explicit_embedding_config(embedding_config, graph)
 
         # No explicit config - try server first, then defaults
         if graph:
@@ -1263,6 +1398,15 @@ class DocumentChunkingSource(Source):
                     "No embedding provider configured - loading from DataHub server..."
                 )
                 server_config = get_semantic_search_config(graph)
+
+                if (
+                    server_config
+                    and server_config.embedding_config
+                    and server_config.generates(
+                        server_config.embedding_config.model_embedding_key
+                    )
+                ):
+                    return _skip_because_server_generates()
 
                 if (
                     server_config
@@ -1277,6 +1421,9 @@ class DocumentChunkingSource(Source):
                     resolved = EmbeddingConfig.from_server(
                         server_config.embedding_config,
                         api_key=local_api_key,
+                    )
+                    resolved._semantic_content_patch_supported = (
+                        server_config.semantic_content_patch_supported
                     )
                     logger.info(
                         "✓ Loaded embedding configuration from server"
@@ -1542,6 +1689,10 @@ class DocumentChunkingSource(Source):
         Returns:
             CapabilityReport indicating if embedding generation is capable
         """
+        # The server writes the vectors. This source correctly embeds nothing.
+        if embedding_config and embedding_config._server_generates_embeddings:
+            return CapabilityReport(capable=True)
+
         # Check if embedding config is provided and enabled
         if not embedding_config or not embedding_config.provider:
             return CapabilityReport(

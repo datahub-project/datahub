@@ -1757,7 +1757,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   script.getParams().entrySet().stream()
                       .collect(
                           Collectors.toMap(
-                              Map.Entry::getKey, entry -> JsonData.of(entry.getValue()))))
+                              Map.Entry::getKey,
+                              entry -> JsonData.of(entry.getValue(), jacksonJsonpMapper))))
               .source(script.getIdOrCode())
               .build();
     }
@@ -1807,6 +1808,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             .conflicts(Conflicts.Proceed)
             .slices(slices)
             .timeout(time)
+            .script(convertScript(reindexRequest.getScript()))
             .waitForCompletion(false)
             .build();
     ReindexResponse esReindexResponse = withTransportOptions(options).reindex(esReindexRequest);

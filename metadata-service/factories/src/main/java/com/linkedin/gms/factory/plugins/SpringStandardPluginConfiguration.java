@@ -16,6 +16,8 @@ import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.hooks.LifecycleStageTransitionHook;
 import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
+import com.linkedin.metadata.aspect.hooks.SemanticRefreshMarkerHook;
+import com.linkedin.metadata.aspect.hooks.SemanticRefreshSideEffect;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
@@ -45,6 +47,7 @@ import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.RepositoryLineageDestinationValidator;
 import com.linkedin.metadata.aspect.validation.SearchTemplateValidator;
+import com.linkedin.metadata.aspect.validation.SemanticContentProfileWriteValidator;
 import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.StructuredPropertyPrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
@@ -61,6 +64,9 @@ import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateSource;
+import com.linkedin.metadata.config.search.SemanticBindingConfig;
+import com.linkedin.metadata.config.search.SemanticProfilesConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffect;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.domains.sideeffects.DomainReferenceDetachSideEffect;
@@ -80,6 +86,11 @@ import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateStampHook;
+import com.linkedin.metadata.search.semantic.profile.AlwaysEligible;
+import com.linkedin.metadata.search.semantic.profile.ConfiguredSemanticProfileRegistry;
+import com.linkedin.metadata.search.semantic.profile.SemanticProfileEligibility;
+import com.linkedin.metadata.search.semantic.profile.SemanticProfileRegistry;
+import com.linkedin.metadata.search.semantic.profile.SemanticVectorGate;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
 import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator;
@@ -94,10 +105,13 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -105,6 +119,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -1428,6 +1443,135 @@ public class SpringStandardPluginConfiguration {
                             .aspectName(ALL)
                             .build()))
                 .build());
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(SemanticProfileRegistry.class)
+  public SemanticProfileRegistry semanticProfileRegistry(ConfigurationProvider configProvider) {
+    return new ConfiguredSemanticProfileRegistry(semanticSearch(configProvider));
+  }
+
+  /**
+   * The one vector rule. The write validator, the side effect and the Search V3 index writer all
+   * take this bean, so SQL and the index accept the same vectors.
+   */
+  @Bean
+  @ConditionalOnMissingBean(SemanticVectorGate.class)
+  public SemanticVectorGate semanticVectorGate(ConfigurationProvider configProvider) {
+    return SemanticVectorGate.from(semanticSearch(configProvider));
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(SemanticProfileEligibility.class)
+  public SemanticProfileEligibility semanticProfileEligibility() {
+    return new AlwaysEligible();
+  }
+
+  @Bean
+  public MutationHook semanticRefreshMarkerHook(SemanticProfileRegistry registry) {
+    return new SemanticRefreshMarkerHook()
+        .setRegistry(registry)
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(SemanticRefreshMarkerHook.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH, DELETE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(SEMANTIC_CONTENT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MCPSideEffect semanticRefreshSideEffect(
+      SemanticProfileRegistry registry,
+      SemanticVectorGate gate,
+      ConfigurationProvider configProvider) {
+    List<AspectPluginConfig.EntityAspectName> supported = new ArrayList<>();
+    for (String aspect : semanticSourceAspects(semanticSearch(configProvider))) {
+      supported.add(
+          AspectPluginConfig.EntityAspectName.builder().entityName(ALL).aspectName(aspect).build());
+    }
+    return new SemanticRefreshSideEffect()
+        .setRegistry(registry)
+        .setGate(searchV3Enabled(configProvider) ? gate : null)
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(SemanticRefreshSideEffect.class.getName())
+                .enabled(!supported.isEmpty())
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH, DELETE))
+                .supportedEntityAspectNames(supported)
+                .build());
+  }
+
+  /**
+   * Every aspect any binding triggers on, matching {@link ConfiguredSemanticProfileRegistry}, which
+   * always keeps a {@code documentText} binding. Included-only aspects never move the marker, so
+   * they are not watched. {@code semanticContent} is excluded so the side effect never reacts to
+   * its own patch.
+   */
+  @Nonnull
+  static Set<String> semanticSourceAspects(@Nullable SemanticSearchConfiguration semanticSearch) {
+    Map<String, SemanticBindingConfig> bindings =
+        semanticSearch != null
+                && semanticSearch.getProfiles() != null
+                && semanticSearch.getProfiles().getBindings() != null
+            ? semanticSearch.getProfiles().getBindings()
+            : SemanticProfilesConfiguration.defaultBindings();
+    Stream<String> triggered =
+        bindings.values().stream()
+            .filter(Objects::nonNull)
+            .filter(b -> b.getTriggers() != null)
+            .flatMap(b -> b.getTriggers().keySet().stream());
+    Stream<String> documentTextDefaults =
+        bindings.containsKey(SemanticProfilesConfiguration.DOCUMENT_TEXT_BINDING)
+            ? Stream.empty()
+            : SemanticProfilesConfiguration.defaultDocumentTextTriggers().keySet().stream();
+    return Stream.concat(triggered, documentTextDefaults)
+        .filter(aspect -> !SEMANTIC_CONTENT_ASPECT_NAME.equals(aspect))
+        .collect(Collectors.toCollection(LinkedHashSet::new));
+  }
+
+  @Bean
+  public AspectPayloadValidator semanticContentProfileWriteValidator(
+      SemanticProfileRegistry registry,
+      SemanticVectorGate gate,
+      ConfigurationProvider configProvider) {
+    return new SemanticContentProfileWriteValidator()
+        .setRegistry(registry)
+        .setGate(gate)
+        .setRequireConfiguredProfiles(searchV3Enabled(configProvider))
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(SemanticContentProfileWriteValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH, DELETE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(SEMANTIC_CONTENT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  private static boolean searchV3Enabled(ConfigurationProvider configProvider) {
+    return configProvider.getElasticSearch() != null
+        && configProvider.getElasticSearch().getEntityIndex() != null
+        && configProvider.getElasticSearch().getEntityIndex().getV3() != null
+        && configProvider.getElasticSearch().getEntityIndex().getV3().isEnabled();
+  }
+
+  @Nullable
+  private static SemanticSearchConfiguration semanticSearch(ConfigurationProvider configProvider) {
+    if (configProvider.getElasticSearch() == null
+        || configProvider.getElasticSearch().getEntityIndex() == null) {
+      return null;
+    }
+    return configProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
   }
 
   @Bean

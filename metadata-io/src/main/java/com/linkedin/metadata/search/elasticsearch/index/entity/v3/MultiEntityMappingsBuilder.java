@@ -620,8 +620,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     Map<String, Object> built =
         searchClientShim == null
             ? Map.of()
-            : SemanticEmbeddingFieldConfigBuilder.buildEmbeddingFieldConfig(
-                semanticSearchConfiguration, searchClientShim);
+            : V3EmbeddingMappings.explicit(
+                SemanticEmbeddingFieldConfigBuilder.buildEmbeddingFieldConfig(
+                    semanticSearchConfiguration, searchClientShim));
     Object existing = properties.get("embeddings");
     if (existing instanceof Map) {
       properties.put("embeddings", mergePreservingExisting((Map<String, Object>) existing, built));

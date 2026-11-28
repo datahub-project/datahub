@@ -4,6 +4,15 @@ Semantic search lets you find DataHub entities using natural language queries li
 
 Semantic search covers document entities (`ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` defaults to `document`); keyword search still covers every entity type. The hosted providers below (OpenAI, AWS Bedrock, Cohere) call an external embedding API with your own credentials, while `onnx` runs a neural model in-process.
 
+On Search V3, DataHub stores a document's vectors only for an entity type in `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES`, under a model in `semanticSearch.models`, at that model's `vectorDimension`. A write that breaks any of these is rejected, so the stored vectors and the search index never differ. Vectors already stored for a type or model you stop using stay as they are and receive no further updates. You can still remove them, and the removal reaches the index.
+
+## Enabling Another Entity Type
+
+Adding a type to `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` changes no index mapping, so the vectors already stored for that type do not reach the Search V3 index on their own. The documents run reads documents only, and a write that resends the same vectors leaves them out of the index update. After you add a type, copy the stored vectors into the index in one of two ways:
+
+- Run [RestoreIndices](../how/restore-indices.md) with `aspectNames=semanticContent`. It replays the stored `semanticContent` aspects, and the index update writes each whole profile.
+- Run the on-demand `semantic-content-index-mismatch` consistency check and apply its fix. System update does not run this check unless `checkIds` names it, and a check run without a mode only reports. Through the consistency API, send `POST /openapi/operations/consistency/fix` with `"checkIds": ["semantic-content-index-mismatch"]`, the type you added as `entityType` (for example `"service"`) and `"dryRun": false`. Run it once per added type, and once with `"dryRun": true` first to see what it would fix.
+
 ## Prerequisites
 
 1. **OpenSearch 2.17+** with the k-NN plugin, or **2.19+** when a model uses faiss cosine, or **Elasticsearch 8.18+**. Semantic search reads the same index family as keyword search. An install that still has V2 entity indices is held on V2 by the [Search V3 read hold](../how/upgrading-datahub.md#moving-search-to-v3), so semantic search keeps reading the V2 semantic indices until that hold lifts. After the cutover it reads the V3 document index on that same engine floor.

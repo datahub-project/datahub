@@ -8,6 +8,8 @@ import com.linkedin.datahub.upgrade.UpgradeCliApplicationTestConfiguration;
 import com.linkedin.metadata.aspect.consistency.ConsistencyCheckRegistry;
 import com.linkedin.metadata.aspect.consistency.ConsistencyFixRegistry;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
+import com.linkedin.metadata.aspect.consistency.check.SemanticContentIndexMismatchCheck;
+import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
 import jakarta.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +73,9 @@ public class ConsistencyServiceBeanTest extends AbstractTestNGSpringContextTests
     assertNotNull(
         checkRegistry.getEntityTypes(),
         "Check registry should have entity types after component scan");
+    assertTrue(
+        checkRegistry.getById(SemanticContentIndexMismatchCheck.CHECK_ID).isPresent(),
+        "SemanticContentIndexMismatchCheck should be registered via component scan");
   }
 
   @Test
@@ -78,5 +83,8 @@ public class ConsistencyServiceBeanTest extends AbstractTestNGSpringContextTests
     // Verify that fixes have been registered (from component scan)
     // At minimum, BatchItemsFix should be registered handling multiple fix types
     assertTrue(fixRegistry.size() > 0, "Fix registry should have fixes after component scan");
+    assertTrue(
+        fixRegistry.getFix(ConsistencyFixType.RESTORE_INDICES).isPresent(),
+        "RestoreIndicesFix should be registered for RESTORE_INDICES");
   }
 }

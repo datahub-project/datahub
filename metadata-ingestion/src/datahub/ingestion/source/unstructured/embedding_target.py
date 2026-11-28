@@ -19,6 +19,14 @@ class ServerEmbeddingModelMismatchError(ServerEmbeddingRunError):
     pass
 
 
+class ServerGeneratesEmbeddings(Exception):
+    """The server writes embeddings itself, so the client must not call a provider.
+
+    Raised only after the embedding-service feature check, so a server that does not
+    offer that feature still fails with ``ServerEmbeddingsUnavailableError``.
+    """
+
+
 def model_storage_key(model: str, override: Optional[str] = None) -> str:
     if override:
         return override
@@ -58,6 +66,12 @@ def resolve_embedding_target(
                 "configured. Ask your administrator to enable semantic search."
             )
         index = semantic.embedding_config
+        # This provider always writes the index key; local overrides must match it.
+        if semantic.generates(index.model_embedding_key):
+            raise ServerGeneratesEmbeddings("This server generates embeddings itself.")
+        config._semantic_content_patch_supported = (
+            semantic.semantic_content_patch_supported
+        )
         served = service.embedding_service_model
         if served is not None and served != index.model_id:
             raise ServerEmbeddingModelMismatchError(

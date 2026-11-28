@@ -29,12 +29,15 @@ import java.util.Set;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.core.MethodParameter;
 import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingPathVariableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.NoHandlerFoundException;
@@ -83,6 +86,31 @@ public class GlobalControllerExceptionHandlerTest {
     assertEquals(response.getStatusCode(), HttpStatus.BAD_REQUEST);
     assertNotNull(response.getBody());
     assertEquals(response.getBody().get("error"), "Invalid argument");
+  }
+
+  @Test
+  public void testHandleMissingRequestParameterIsBadRequest() {
+    MissingServletRequestParameterException ex =
+        new MissingServletRequestParameterException("entityType", "String");
+
+    ResponseEntity<Map<String, String>> response =
+        GlobalControllerExceptionHandler.handleRequestBindingException(ex);
+
+    assertEquals(response.getStatusCode(), HttpStatus.BAD_REQUEST);
+    assertNotNull(response.getBody());
+    assertTrue(response.getBody().get("error").contains("entityType"));
+  }
+
+  @Test
+  public void testHandleMissingPathVariableIsServerError() throws NoSuchMethodException {
+    MethodParameter parameter =
+        new MethodParameter(String.class.getMethod("valueOf", Object.class), 0);
+    MissingPathVariableException ex = new MissingPathVariableException("urn", parameter);
+
+    ResponseEntity<Map<String, String>> response =
+        GlobalControllerExceptionHandler.handleRequestBindingException(ex);
+
+    assertEquals(response.getStatusCode(), HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   @Test

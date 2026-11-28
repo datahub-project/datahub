@@ -51,6 +51,8 @@ USER datahub
 # application-upgrade.yaml holds health checks, the entity client, and cache defaults.
 # An explicit SPRING_PROFILES_ACTIVE still overrides this image default.
 ENV SPRING_PROFILES_ACTIVE=upgrade
+# Runs the datahub-documents ingestion source by default. Override with '{"enabled": false}' to stop it.
+ENV DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES='{"enabled": true}'
 ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
     OTEL_EXPORTER_OTLP_HTTP_HTTP2_MAX_FRAME_SIZE=16777215 \
     OTEL_EXPORTER_OTLP_HTTP_COMPRESSION=gzip \

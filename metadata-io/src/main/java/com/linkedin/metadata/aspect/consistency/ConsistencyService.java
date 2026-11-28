@@ -11,6 +11,7 @@ import com.linkedin.metadata.aspect.consistency.check.CheckFollowUp;
 import com.linkedin.metadata.aspect.consistency.check.CheckFollowUpRequest;
 import com.linkedin.metadata.aspect.consistency.check.CheckResult;
 import com.linkedin.metadata.aspect.consistency.check.ConsistencyCheck;
+import com.linkedin.metadata.aspect.consistency.fix.BatchConsistencyFix;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFix;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixDetail;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixResult;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1257,33 +1259,85 @@ public class ConsistencyService {
   public ConsistencyFixResult fixIssues(
       @Nonnull OperationContext opContext, @Nonnull List<ConsistencyIssue> issues, boolean dryRun) {
 
-    List<ConsistencyFixDetail> fixDetails = new ArrayList<>();
-    int entitiesFixed = 0;
-    int entitiesFailed = 0;
+    ConsistencyFixDetail[] detailsBySlot = new ConsistencyFixDetail[issues.size()];
+    Map<ConsistencyFixType, List<Integer>> batchIndicesByType = new LinkedHashMap<>();
 
-    for (ConsistencyIssue issue : issues) {
+    for (int i = 0; i < issues.size(); i++) {
+      ConsistencyIssue issue = issues.get(i);
+      Optional<ConsistencyFix> registeredFix = fixRegistry.getFix(issue.getFixType());
+      if (registeredFix.isPresent() && registeredFix.get() instanceof BatchConsistencyFix) {
+        batchIndicesByType.computeIfAbsent(issue.getFixType(), k -> new ArrayList<>()).add(i);
+        continue;
+      }
       try {
-        ConsistencyFixDetail detail = applyFix(opContext, issue, dryRun);
-        fixDetails.add(detail);
-
-        if (detail.isSuccess()) {
-          entitiesFixed++;
-        } else {
-          entitiesFailed++;
-        }
+        detailsBySlot[i] = applyFix(opContext, issue, dryRun);
       } catch (Exception e) {
         log.error(
             "Unexpected error fixing issue for {}: {}. Continuing with other issues.",
             issue.getEntityUrn(),
             e.getMessage(),
             e);
-        fixDetails.add(
+        detailsBySlot[i] =
             ConsistencyFixDetail.builder()
                 .urn(issue.getEntityUrn())
                 .action(issue.getFixType())
                 .success(false)
                 .errorMessage("Unexpected error: " + e.getMessage())
-                .build());
+                .build();
+      }
+    }
+
+    for (Map.Entry<ConsistencyFixType, List<Integer>> entry : batchIndicesByType.entrySet()) {
+      ConsistencyFixType fixType = entry.getKey();
+      List<Integer> slotIndices = entry.getValue();
+      List<ConsistencyIssue> groupIssues = new ArrayList<>(slotIndices.size());
+      for (int slotIndex : slotIndices) {
+        groupIssues.add(issues.get(slotIndex));
+      }
+      try {
+        BatchConsistencyFix batchFix = (BatchConsistencyFix) fixRegistry.getFixOrThrow(fixType);
+        List<ConsistencyFixDetail> groupDetails =
+            batchFix.applyBatch(opContext, groupIssues, dryRun);
+        if (groupDetails.size() != slotIndices.size()) {
+          throw new IllegalStateException(
+              "BatchConsistencyFix "
+                  + fixType
+                  + " returned "
+                  + groupDetails.size()
+                  + " details for "
+                  + slotIndices.size()
+                  + " issues");
+        }
+        for (int k = 0; k < slotIndices.size(); k++) {
+          detailsBySlot[slotIndices.get(k)] = groupDetails.get(k);
+        }
+      } catch (Exception e) {
+        log.error(
+            "Unexpected error fixing batch of {} {} issues: {}. Continuing with other issues.",
+            slotIndices.size(),
+            fixType,
+            e.getMessage(),
+            e);
+        for (int slotIndex : slotIndices) {
+          ConsistencyIssue issue = issues.get(slotIndex);
+          detailsBySlot[slotIndex] =
+              ConsistencyFixDetail.builder()
+                  .urn(issue.getEntityUrn())
+                  .action(issue.getFixType())
+                  .success(false)
+                  .errorMessage("Unexpected error: " + e.getMessage())
+                  .build();
+        }
+      }
+    }
+
+    List<ConsistencyFixDetail> fixDetails = List.of(detailsBySlot);
+    int entitiesFixed = 0;
+    int entitiesFailed = 0;
+    for (ConsistencyFixDetail detail : fixDetails) {
+      if (detail.isSuccess()) {
+        entitiesFixed++;
+      } else {
         entitiesFailed++;
       }
     }
