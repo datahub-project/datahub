@@ -89,6 +89,25 @@ def test_postgres_ingest_with_all_db(
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
+def test_postgres_ingest_skip_table_partitions(
+    postgres_runner, pytestconfig, test_resources_dir, tmp_path
+):
+    config_file = (
+        test_resources_dir / "postgres_skip_table_partitions_to_file.yml"
+    ).resolve()
+
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        fail_on_output_mces=True,
+        output_path=tmp_path / "postgres_skip_table_partitions_mces.json",
+        golden_path=test_resources_dir / "postgres_skip_table_partitions_golden.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
 def test_postgres_test_connection(
     postgres_runner, pytestconfig, test_resources_dir, tmp_path
 ):

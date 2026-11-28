@@ -3,11 +3,16 @@ import subprocess
 
 import pytest
 
+from utilities.backends import Capability
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.domain(Domain.PLATFORM),
+    pytest.mark.requires(Capability.DOCKER),
+]
 
 # ==============================================
 # ACTIONS CONTAINER SHUTDOWN TESTS

@@ -309,5 +309,7 @@ class PipelineConfig(ConfigModel):
     def get_raw_dict(self) -> Dict:
         result = self._raw_dict
         if result is None:
-            result = self.model_dump()
+            # JSON mode: callers json.dumps this, and typed fields (enums such as
+            # datahub_api.client_mode, SecretStr) are not JSON-serializable otherwise.
+            result = self.model_dump(mode="json")
         return result

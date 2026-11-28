@@ -96,3 +96,33 @@ def test_onprem_config_accepts_certificate_paths():
 )
 def test_max_workers_default_depends_on_deployment(config, workers):
     assert QlikSourceConfig.model_validate(config).resolved_max_workers() == workers
+
+
+def test_binary_file_to_app_paths_match_one_spelling():
+    config = QlikSourceConfig.model_validate(
+        {
+            "on_prem": {
+                **ON_PREM,
+                "read_data_model": True,
+                "binary_file_to_app": {"\\\\NAS\\Apps\\Sales.qvf": " APP-1 "},
+            }
+        }
+    )
+    assert config.on_prem is not None
+    # QRS app ids are lower-case GUIDs.
+    assert config.on_prem.binary_file_to_app == {"//nas/apps/sales.qvf": "app-1"}
+
+
+def test_binary_file_to_app_rejects_one_file_mapped_to_two_apps():
+    with pytest.raises(ValueError):
+        QlikSourceConfig.model_validate(
+            {
+                "on_prem": {
+                    **ON_PREM,
+                    "binary_file_to_app": {
+                        "lib://Apps/Sales.qvf": "app-1",
+                        "lib://apps/sales.qvf": "app-2",
+                    },
+                }
+            }
+        )

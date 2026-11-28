@@ -5,6 +5,7 @@ import { GraphQLHelper } from '../../helpers/graphql-helper';
 import { ViewSelectPage } from '../../pages/views/view-select.page';
 import { TIMEOUTS } from '../../utils/constants';
 import { withRandomSuffix } from '../../utils/random';
+import { DomainTag } from '../../utils/test-tags';
 
 /**
  * Embedded lists ("View All Physical Children", a user's "Owner Of" tab) apply the view selected in
@@ -81,7 +82,7 @@ async function createStoreDatabasesView(page: Page, track: (urn: string) => void
 }
 
 test.describe('Embedded lists apply the search bar view', () => {
-  test('View All Physical Children', async ({ page, cleanup }) => {
+  test('View All Physical Children', { tag: [DomainTag.Catalog] }, async ({ page, cleanup }) => {
     const viewName = await createStoreDatabasesView(page, (urn) => cleanup.track(urn));
     await page.goto(`/dataset/${encodeURIComponent(LOGICAL_PARENT_URN)}`);
     await new ViewSelectPage(page).selectView(viewName);
@@ -114,7 +115,7 @@ test.describe('Embedded lists apply the search bar view', () => {
     await expect(pagination.getByText(resultRange(TOTAL_CHILDREN))).toBeVisible({ timeout: TIMEOUTS.LONG });
   });
 
-  test("a user's Owner Of tab", async ({ page, cleanup }) => {
+  test("a user's Owner Of tab", { tag: [DomainTag.Catalog] }, async ({ page, cleanup }) => {
     const viewName = await createStoreDatabasesView(page, (urn) => cleanup.track(urn));
     await page.goto(`/user/${encodeURIComponent(OWNER_URN)}/owner of`);
     await new ViewSelectPage(page).selectView(viewName);

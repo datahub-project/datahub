@@ -2,7 +2,7 @@
 
 :::info
 
-This feature is currently in Public Beta in DataHub Cloud. Reach out to your DataHub Cloud representative to get access.
+Documentation Propagation is available in DataHub Core (open source), where it runs in DataHub Actions and is enabled by default. In DataHub Cloud, this feature is currently in Public Beta. Reach out to your DataHub Cloud representative to get access.
 
 :::
 
@@ -32,7 +32,7 @@ This feature is enabled by default in Open Source DataHub.
 | Feature                       | Open Source | DataHub Cloud |
 | ----------------------------- | ----------- | ------------- |
 | Column-Level Docs Propagation | ✔️          | ✔️            |
-| Asset-Level Docs Propagation  | ✔️          | ✔️            |
+| Asset-Level Docs Propagation  | ❌          | ✔️            |
 | Downstream Lineage + Siblings | ✔️          | ✔️            |
 | Historical Backfilling        | ❌          | ✔️            |
 

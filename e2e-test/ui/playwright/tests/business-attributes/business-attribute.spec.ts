@@ -12,6 +12,7 @@ import { test } from '../../fixtures/base-test';
 import { BusinessAttributePage } from '../../pages/business-attribute.page';
 import { DatasetPage } from '../../pages/dataset.page';
 import { GraphQLHelper } from '../../helpers/graphql-helper';
+import { DomainTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'business-attributes' });
 
@@ -38,7 +39,7 @@ test.describe('Business Attributes', () => {
   });
 
   test.describe('Business Attribute CRUD Operations', () => {
-    test('should create, view, and delete a business attribute', async () => {
+    test('should create, view, and delete a business attribute', { tag: [DomainTag.Catalog] }, async () => {
       test.setTimeout(180000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
@@ -65,27 +66,31 @@ test.describe('Business Attributes', () => {
   });
 
   test.describe('Business Attribute Inheritance', () => {
-    test('should inherit tags and terms from business attribute to dataset field', async () => {
-      test.setTimeout(60000);
-      const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
-      test.skip(!enabled, 'Business Attribute feature is not enabled');
+    test(
+      'should inherit tags and terms from business attribute to dataset field',
+      { tag: [DomainTag.Catalog] },
+      async () => {
+        test.setTimeout(60000);
+        const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
+        test.skip(!enabled, 'Business Attribute feature is not enabled');
 
-      await datasetPage.navigateToDataset(DATASET_URN);
-      await datasetPage.closeAnyOpenModal();
-      await datasetPage.clickSchemaField(FIELD_NAME);
+        await datasetPage.navigateToDataset(DATASET_URN);
+        await datasetPage.closeAnyOpenModal();
+        await datasetPage.clickSchemaField(FIELD_NAME);
 
-      await businessAttributePage.expectTextVisible('Business Attribute');
-      await businessAttributePage.clickAddAttributeButton(FIELD_NAME);
-      await businessAttributePage.selectAttributeInModal(TEST_ATTRIBUTE_2);
+        await businessAttributePage.expectTextVisible('Business Attribute');
+        await businessAttributePage.clickAddAttributeButton(FIELD_NAME);
+        await businessAttributePage.selectAttributeInModal(TEST_ATTRIBUTE_2);
 
-      await businessAttributePage.expectTextVisible(TEST_ATTRIBUTE_2);
-      await businessAttributePage.expectTextVisible('PlaywrightTerm');
-      await businessAttributePage.expectTextVisible('Playwright');
-    });
+        await businessAttributePage.expectTextVisible(TEST_ATTRIBUTE_2);
+        await businessAttributePage.expectTextVisible('PlaywrightTerm');
+        await businessAttributePage.expectTextVisible('Playwright');
+      },
+    );
   });
 
   test.describe('Business Attribute Related Entities', () => {
-    test('should view related entities for a business attribute', async () => {
+    test('should view related entities for a business attribute', { tag: [DomainTag.Catalog] }, async () => {
       test.setTimeout(120000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
@@ -100,7 +105,7 @@ test.describe('Business Attributes', () => {
       await businessAttributePage.expectRelatedEntitiesCount(/of [0-9]+/);
     });
 
-    test('should search related entities by query', async ({ page }) => {
+    test('should search related entities by query', { tag: [DomainTag.Catalog] }, async ({ page }) => {
       test.setTimeout(60000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
@@ -118,7 +123,7 @@ test.describe('Business Attributes', () => {
   });
 
   test.describe('Business Attribute Field Operations', () => {
-    test('should remove business attribute from dataset field', async () => {
+    test('should remove business attribute from dataset field', { tag: [DomainTag.Catalog] }, async () => {
       test.setTimeout(60000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
@@ -133,7 +138,7 @@ test.describe('Business Attributes', () => {
   });
 
   test.describe('Business Attribute Data Type', () => {
-    test('should update the data type of a business attribute', async () => {
+    test('should update the data type of a business attribute', { tag: [DomainTag.Catalog] }, async () => {
       test.setTimeout(60000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');

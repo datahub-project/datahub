@@ -54,6 +54,7 @@
                 {
                     "fieldPath": "rcvr_cntry_code",
                     "nullable": true,
+                    "description": "**Business name:** Receiver country code",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -142,6 +143,7 @@
                         {
                             "fieldPath": "rcvr_cntry_code",
                             "nullable": true,
+                            "description": "**Business name:** Receiver country code",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.StringType": {}

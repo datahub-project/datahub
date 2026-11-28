@@ -1,6 +1,6 @@
 import logging
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from functools import partial
 from typing import (
@@ -44,6 +44,8 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    LEGACY_RUN_EXECUTIONS,
+    LEGACY_RUN_EXECUTIONS_TITLE,
     DetailCalls,
     ResourceCategory,
     ResourceReads,
@@ -62,6 +64,7 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     is_status_for_run_event_class,
 )
 from datahub.ingestion.source.vertexai.vertexai_scope import (
+    CarryForward,
     DetailReader,
     Scope,
     StoppedScopes,
@@ -107,6 +110,10 @@ _RUN_CALL_KINDS = (
 )
 
 
+# A Vertex Experiment Preview run has no executions or logged jobs to read.
+_LEGACY_RUN_CALL_KINDS = (DetailCalls.EXPERIMENT_RUN_DETAIL,)
+
+
 @dataclass
 class _RunState:
     state: str
@@ -143,6 +150,7 @@ class VertexAIExperimentExtractor:
         state_handler: VertexAIStateHandler,
         get_scope_fn: Callable[[], Scope],
         stopped_scopes: StoppedScopes,
+        carry_forward: CarryForward,
         rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = nullcontext(),
     ):
         self.config = config
@@ -157,9 +165,11 @@ class VertexAIExperimentExtractor:
         self.report = report
         self.state_handler = state_handler
         self.rate_limiter = rate_limiter
+        self._legacy_warned = False
         self._get_scope = get_scope_fn
         self._stopped = stopped_scopes
         self._read_detail = DetailReader(report, stopped_scopes, get_scope_fn)
+        self._carry = carry_forward
 
         self.experiments: Optional[List[ExperimentMetadata]] = None
 
@@ -200,14 +210,32 @@ class VertexAIExperimentExtractor:
             return []
         experiments = []
         for ctx in contexts:
-            if (
-                metadata_constants.TENSORBOARD_CUSTOM_JOB_EXPERIMENT_FIELD
-                not in ctx.metadata
-            ):
+            is_experiment = self._read_detail(
+                DetailCalls.EXPERIMENT_CONTEXT,
+                partial(self._is_experiment_context, ctx),
+                item=ctx.name,
+            )
+            if is_experiment.value is None:
+                self._carry.keep_urn(self._experiment_key(ctx.name).as_urn())
+            if is_experiment.value:
                 exp = Experiment.__new__(Experiment)
                 exp._metadata_context = ctx
                 experiments.append(exp)
         return experiments
+
+    def _is_experiment_context(self, ctx: MetadataContext) -> bool:
+        # A context with no metadata struct is a plain experiment.
+        return metadata_constants.TENSORBOARD_CUSTOM_JOB_EXPERIMENT_FIELD not in (
+            ctx.gca_resource.metadata or {}
+        )
+
+    def _experiment_key(self, experiment_name: str) -> ExperimentKey:
+        return ExperimentKey(
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+            id=self.name_formatter.format_experiment_id(experiment_name),
+        )
 
     def _list_experiment_runs_rate_limited(
         self, experiment: Experiment
@@ -235,12 +263,54 @@ class VertexAIExperimentExtractor:
                 filter_str=run_exec_filter,
             ),
         ]
-        runs: List[ExperimentRun] = []
-        for node in nodes:
-            run = ExperimentRun.__new__(ExperimentRun)
-            run._initialize_experiment_run(node, experiment)
-            runs.append(run)
-        return runs
+        inited = (self._init_run(node, experiment) for node in nodes)
+        return [run for run in inited if run is not None]
+
+    def _init_run(
+        self, node: Union[MetadataContext, MetadataExecution], experiment: Experiment
+    ) -> Optional[ExperimentRun]:
+        run = ExperimentRun.__new__(ExperimentRun)
+        is_legacy = isinstance(node, MetadataExecution)
+
+        def init() -> bool:
+            # lookup_tensorboard_run=False: otherwise, for a run with no TensorBoard
+            # run, the SDK creates one in the experiment's backing TensorBoard, or
+            # clears the experiment's link to it if that TensorBoard was deleted.
+            with self.rate_limiter if is_legacy else nullcontext():
+                run._initialize_experiment_run(
+                    node, experiment, lookup_tensorboard_run=False
+                )
+            return True
+
+        # For a legacy run the metrics read is the only remote call left in
+        # init, so it has its own call kind and a stop does not reach current runs.
+        result = self._read_detail(
+            DetailCalls.EXPERIMENT_RUN_LEGACY_METRICS
+            if is_legacy
+            else DetailCalls.EXPERIMENT_RUN_INIT,
+            init,
+            item=f"{experiment.name}/{node.display_name}",
+        )
+        if result.keep_previous:
+            return None
+        if result.value is None:
+            if not is_legacy:
+                return None
+            self._set_run_without_metrics(run, node, experiment)
+        return run
+
+    @staticmethod
+    def _set_run_without_metrics(
+        run: ExperimentRun,
+        node: Union[MetadataContext, MetadataExecution],
+        experiment: Experiment,
+    ) -> None:
+        run._experiment = experiment
+        run._run_name = node.display_name
+        run._metadata_node = node  # type: ignore[assignment]
+        run._largest_step = None
+        run._backing_tensorboard_run = None
+        run._metadata_metric_artifact = None  # type: ignore[assignment]
 
     def get_experiment_workunits(self) -> Iterable[MetadataWorkUnit]:
         logger.info("Fetching Experiments from Vertex AI")
@@ -377,12 +447,7 @@ class VertexAIExperimentExtractor:
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             resource_category=ResourceCategory.EXPERIMENTS,
-            container_key=ExperimentKey(
-                platform=self.platform,
-                instance=self.config.platform_instance,
-                env=self.config.env,
-                id=self.name_formatter.format_experiment_id(experiment.name),
-            ),
+            container_key=self._experiment_key(experiment.name),
             name=experiment.name,
             sub_types=[MLAssetSubTypes.VERTEX_EXPERIMENT],
             extra_properties={
@@ -395,16 +460,37 @@ class VertexAIExperimentExtractor:
             external_url=self.url_builder.make_experiment_url(experiment.name),
         )
 
+    @staticmethod
+    def _run_metrics(run: ExperimentRun) -> Dict[str, Union[float, int, str]]:
+        if not run._is_legacy_experiment_run():
+            return run.get_metrics()
+        if run._metadata_metric_artifact is None:
+            return {}
+        try:
+            return run.get_metrics()
+        except KeyError:
+            # The SDK reads the artifact's metadata Struct with [], which
+            # raises when the artifact has none.
+            return {}
+
+    @staticmethod
+    def _run_params(run: ExperimentRun) -> Mapping[str, object]:
+        if run._is_legacy_experiment_run():
+            # The SDK's get_params raises KeyError when the execution has no
+            # metadata struct.
+            return run._metadata_node.to_dict().get("metadata") or {}
+        return run.get_params()
+
     def _read_run_state(self, run: ExperimentRun) -> _RunState:
         return _RunState(
             state=run.get_state(),
             params=[
                 MLHyperParamClass(name=k, value=str(v))
-                for k, v in run.get_params().items()
+                for k, v in self._run_params(run).items()
             ],
             metrics=[
                 MLMetricClass(name=k, value=str(v))
-                for k, v in run.get_metrics().items()
+                for k, v in self._run_metrics(run).items()
             ],
         )
 
@@ -605,23 +691,31 @@ class VertexAIExperimentExtractor:
         """The run's details, or None when the stored run is kept. Only a
         temporary failure keeps it, and then its remaining reads are not made."""
         item = f"{experiment.name}/{run.name}"
-        if self._stopped.any_transient(self._get_scope(), _RUN_CALL_KINDS):
+        is_legacy = run._is_legacy_experiment_run()
+        if self._stopped.any_transient(
+            self._get_scope(), _LEGACY_RUN_CALL_KINDS if is_legacy else _RUN_CALL_KINDS
+        ):
             self.report.report_item_kept_after_stop()
             return None
-        executions = self._read_detail(
-            DetailCalls.EXPERIMENT_RUN_EXECUTIONS,
-            lambda: list(run.get_executions()),
-            item=item,
-        )
-        if executions.keep_previous:
-            return None
-        jobs = self._read_detail(
-            DetailCalls.EXPERIMENT_RUN_LOGGED_JOBS,
-            lambda: self._read_logged_custom_jobs(run),
-            item=item,
-        )
-        if jobs.keep_previous:
-            return None
+        executions: List[MetadataExecution] = []
+        logged_jobs: List[CustomJob] = []
+        if not is_legacy:
+            read = self._read_detail(
+                DetailCalls.EXPERIMENT_RUN_EXECUTIONS,
+                lambda: list(run.get_executions()),
+                item=item,
+            )
+            if read.keep_previous:
+                return None
+            executions = read.value or []
+            jobs = self._read_detail(
+                DetailCalls.EXPERIMENT_RUN_LOGGED_JOBS,
+                lambda: self._read_logged_custom_jobs(run),
+                item=item,
+            )
+            if jobs.keep_previous:
+                return None
+            logged_jobs = jobs.value or []
         state = self._read_detail(
             DetailCalls.EXPERIMENT_RUN_DETAIL,
             lambda: self._read_run_state(run),
@@ -629,9 +723,17 @@ class VertexAIExperimentExtractor:
         )
         if state.keep_previous:
             return None
+        if is_legacy:
+            self.report.info(
+                title=LEGACY_RUN_EXECUTIONS_TITLE,
+                message=LEGACY_RUN_EXECUTIONS,
+                context=scope_context(replace(self._get_scope(), item=item)),
+                log=not self._legacy_warned,
+            )
+            self._legacy_warned = True
         return _RunReads(
-            executions=executions.value or [],
-            logged_jobs=jobs.value or [],
+            executions=executions,
+            logged_jobs=logged_jobs,
             state=state.value or _RunState(state="", params=[], metrics=[]),
         )
 
@@ -640,12 +742,7 @@ class VertexAIExperimentExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         experiment = experiment_meta.experiment
         run = run_meta.run
-        experiment_key = ExperimentKey(
-            platform=self.platform,
-            instance=self.config.platform_instance,
-            env=self.config.env,
-            id=self.name_formatter.format_experiment_id(experiment.name),
-        )
+        experiment_key = self._experiment_key(experiment.name)
         run_urn = self.urn_builder.make_experiment_run_urn(experiment, run)
         reads = self._read_run(experiment, run)
         if reads is None:

@@ -41,7 +41,7 @@ test.describe('Domains V2 Core', () => {
     }
   });
 
-  test('can navigate to domains', async ({ page }) => {
+  test('can navigate to domains', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     // beforeEach already navigated to /domains
     await page.waitForLoadState('networkidle');
     expect(page.url()).toContain('/domains');
@@ -58,14 +58,14 @@ test.describe('Domains V2 Core', () => {
     cleanup.track(domainUrn);
   });
 
-  test('Verify domain list displays', async ({ page, logger }) => {
+  test('Verify domain list displays', { tag: [DomainTag.Catalog] }, async ({ page, logger }) => {
     await page.waitForLoadState('networkidle');
     const domainsPage = new DomainEntityPage(page, logger);
     const summaryCount = await domainsPage.summaryTab.count();
     expect(summaryCount).toBeGreaterThanOrEqual(0);
   });
 
-  test('Verify can view domain and its properties', async ({ page, logger }) => {
+  test('Verify can view domain and its properties', { tag: [DomainTag.Catalog] }, async ({ page, logger }) => {
     const domainsPage = new DomainEntityPage(page, logger);
 
     await page.goto(`${DOMAIN_URL_PATTERN}${PARENT_DOMAIN_URN}`);

@@ -165,8 +165,9 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/github-documents';
 import {
     GITLAB_DOCUMENTS_BASE_URL,
+    GITLAB_DOCUMENTS_BRANCH,
     GITLAB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT,
-    GITLAB_DOCUMENTS_REPOSITORY,
+    GITLAB_DOCUMENTS_REPOSITORIES,
     GITLAB_DOCUMENTS_TOKEN,
 } from '@app/ingestV2/source/builder/RecipeForm/gitlab-documents';
 import {
@@ -1126,8 +1127,8 @@ export const RECIPE_FIELDS: RecipeFields = {
         fields: [
             GITLAB_DOCUMENTS_TOKEN,
             GITLAB_DOCUMENTS_BASE_URL,
-            GITLAB_DOCUMENTS_REPOSITORY,
-            REPOSITORY_DOCUMENTS_BRANCH,
+            GITLAB_DOCUMENTS_REPOSITORIES,
+            GITLAB_DOCUMENTS_BRANCH,
             REPOSITORY_DOCUMENTS_PATH_PREFIX,
             REPOSITORY_DOCUMENTS_FILE_EXTENSIONS,
             GITLAB_DOCUMENTS_IMPORT_MODE,

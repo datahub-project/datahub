@@ -28,11 +28,18 @@ from tests.e2e.utils import (
     wait_for_writes_to_sync,
 )
 from utilities import env_vars
+from utilities.backends import Capability
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.CATALOG)
+# No actions process on the local stack: the stock propagation action reads
+# the Kafka event source. Kafka is the closest capability until the local
+# stack runs datahub-actions against GMS's queue.
+pytestmark = [
+    pytest.mark.domain(Domain.CATALOG),
+    pytest.mark.requires(Capability.KAFKA),
+]
 
 DELETE_AFTER_TEST = env_vars.get_delete_after_test()
 

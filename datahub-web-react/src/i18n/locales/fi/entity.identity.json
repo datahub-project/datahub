@@ -45,6 +45,7 @@
     "inviteToken.copyTooltip": "Kopioi kutsulinkki.",
     "inviteToken.createError": "Kutsutunnuksen luominen roolille {{roleName}} epäonnistui: \n {{error}}",
     "inviteToken.footerText": "Kopioi kutsulinkki lähetettäväksi käyttäjillesi. Kun he liittyvät, käyttäjät saavat automaattisesti valitun roolin.",
+    "inviteToken.footerTextNoRole": "Kopioi kutsulinkki lähetettäväksi käyttäjillesi. He voivat luoda tilin, eikä heille määritetä roolia.",
     "inviteToken.generateNewLinkTooltip": "Luo uusi linkki. Vanhat linkit eivät ole enää voimassa.",
     "inviteToken.generateSuccess": "Uusi kutsulinkki luotu",
     "inviteToken.modalTitle": "Jaa kutsulinkki",

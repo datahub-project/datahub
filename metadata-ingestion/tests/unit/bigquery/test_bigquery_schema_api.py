@@ -41,33 +41,36 @@ def make_api() -> BigQuerySchemaApi:
 
 
 def table_row(
-    name: str, table_type: str = "BASE TABLE", ddl: Optional[str] = None
+    name: str,
+    table_type: str = "BASE TABLE",
+    ddl: Optional[str] = None,
+    comment: Optional[str] = None,
 ) -> Row:
     return make_row(
         table_name=name,
         created=NOW,
         table_type=table_type,
-        comment=None,
+        comment=comment,
         ddl=ddl,
     )
 
 
-def view_row(name: str) -> Row:
+def view_row(name: str, comment: Optional[str] = None) -> Row:
     return make_row(
         table_name=name,
         created=NOW,
-        comment=None,
+        comment=comment,
         view_definition="SELECT 1",
         table_type="VIEW",
         labels=None,
     )
 
 
-def snapshot_row(name: str) -> Row:
+def snapshot_row(name: str, comment: Optional[str] = None) -> Row:
     return make_row(
         table_name=name,
         created=NOW,
-        comment=None,
+        comment=comment,
         ddl="CREATE SNAPSHOT",
         snapshot_time=NOW,
         base_table_catalog=PROJECT,
@@ -257,6 +260,14 @@ class TestTables:
 
         assert table.expires is None
 
+    def test_comment_is_decoded(self) -> None:
+        """table.comment reaches here as an escaped BigQuery SQL string literal."""
+        table = BigQuerySchemaApi._make_bigquery_table(
+            table_row("t", comment='"a\\nb \\"q\\""'), None
+        )
+
+        assert table.comment == 'a\nb "q"'
+
 
 class TestViewsAndSnapshots:
     def test_broken_view_row_is_reported(self) -> None:
@@ -288,6 +299,34 @@ class TestViewsAndSnapshots:
         assert snapshots[0].base_table_identifier is not None
         assert snapshots[0].base_table_identifier.table == "base"
         assert "Failed to process snapshot" in {w.title for w in report.warnings}
+
+    def test_view_comment_is_decoded(self) -> None:
+        api = make_api()
+        with patch.object(
+            api,
+            "get_query_result",
+            return_value=[view_row("v", comment='"a\\nb \\"q\\""')],
+        ):
+            views = list(
+                api.get_views_for_dataset(PROJECT, DATASET, False, BigQueryV2Report())
+            )
+
+        assert views[0].comment == 'a\nb "q"'
+
+    def test_snapshot_comment_is_decoded(self) -> None:
+        api = make_api()
+        with patch.object(
+            api,
+            "get_query_result",
+            return_value=[snapshot_row("s", comment='"a\\nb \\"q\\""')],
+        ):
+            snapshots = list(
+                api.get_snapshots_for_dataset(
+                    PROJECT, DATASET, True, BigQueryV2Report()
+                )
+            )
+
+        assert snapshots[0].comment == 'a\nb "q"'
 
 
 class TestConstraints:
@@ -528,3 +567,18 @@ def test_dataset_metadata_batch_groups_by_location() -> None:
         {"location": "US", "names": {"b"}},
     ]
     assert [d.comment for d in datasets] == ["a doc", "b doc"]
+
+
+def test_dataset_comment_is_decoded() -> None:
+    """dataset.comment reaches here as an escaped BigQuery SQL string literal."""
+    api = make_api()
+    datasets = [BigqueryDataset(name="a", location="US")]
+
+    with patch.object(
+        api,
+        "_fetch_dataset_metadata_batch",
+        return_value={"a": {"description": '"a\\nb \\"q\\""'}},
+    ):
+        api._enrich_datasets_with_metadata(PROJECT, datasets)
+
+    assert datasets[0].comment == 'a\nb "q"'

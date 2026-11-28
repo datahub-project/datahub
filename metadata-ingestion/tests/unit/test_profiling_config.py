@@ -4,6 +4,7 @@ import sys
 import textwrap
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.source.profiling.config import (
@@ -160,6 +161,66 @@ def test_flatten_without_query_combiner_warns_but_does_not_raise(
     assert any("has no effect" in r.message for r in caplog.records)
 
 
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"use_sampling": True, "limit": 100, "offset": 25},
+        {"use_sampling": False, "offset": 25},
+    ],
+)
+def test_the_config_keeps_what_the_recipe_asked_for(values: dict) -> None:
+    # Whether a bound can be honoured is the source's call, made per asset and
+    # reported from there. The config neither decides it nor rewrites the
+    # recipe, so what is read back is what was written.
+    config = ProfilingConfig.model_validate(values)
+
+    assert config.limit == values.get("limit")
+    assert config.offset == values.get("offset")
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"limit": 0},
+        {"limit": -1},
+        {"offset": -1, "limit": 10},
+    ],
+)
+def test_out_of_range_limit_and_offset_are_rejected(values: dict) -> None:
+    # These are field constraints, not validators: caught at config-parse time
+    # rather than as a database error mid-run -- `limit: 0` used to fall through
+    # to a full-table profile silently.
+    with pytest.raises(ValidationError):
+        ProfilingConfig.model_validate({"use_sampling": False, **values})
+
+
+def test_sampling_is_off_by_default() -> None:
+    # The shared default is off: most sources do not implement sampling, so a
+    # flag that is on where it does nothing only misleads.
+    assert ProfilingConfig().use_sampling is False
+
+
+def test_sources_that_sample_turn_sampling_on() -> None:
+    # Both sources that implement sampling opt back in. This is the guard that
+    # matters after flipping the shared default: a missing override -- or a
+    # subclass that exists but is not wired to the source's `profiling` field --
+    # means a large table is profiled in full rather than sampled.
+    #
+    # Excel is not a third: ExcelProfiler assigns self.sample_size and never
+    # reads it, profiling every row of the frame, so opting it in would
+    # advertise a reduction that does not happen.
+    from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+    from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+
+    assert BigQueryV2Config.model_validate({}).profiling.use_sampling is True
+    assert (
+        SnowflakeV2Config.model_validate(
+            {"account_id": "abc12345"}
+        ).profiling.use_sampling
+        is True
+    )
+
+
 def test_profiling_and_kafka_config_import_without_sqlalchemy_or_greenlet() -> None:
     # kafka, cassandra, and excel configs import the profiling config at module
     # scope, and none of those extras ship sqlalchemy. Importing either module
@@ -229,3 +290,48 @@ def test_tags_to_ignore_sampling_rejects_a_malformed_entry(bad):
     with pytest.raises(Exception) as err:
         ProfilingConfig(tags_to_ignore_sampling=[bad])
     assert bad in str(err.value)
+
+
+def test_a_profiling_config_instance_keeps_the_source_sampling_default() -> None:
+    # A code caller may pass a ProfilingConfig instance instead of a dict. The
+    # instance carries the *shared* default for everything it did not set, so
+    # dumping it wholesale would pin use_sampling to False and silently profile
+    # the whole table on the two sources that sample. Only what the caller set
+    # may survive the dump.
+    from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+    from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+
+    unset = ProfilingConfig(limit=5)
+    assert BigQueryV2Config(profiling=unset).profiling.use_sampling is True
+    assert (
+        SnowflakeV2Config(profiling=unset, account_id="abc12345").profiling.limit == 5
+    )
+    assert (
+        SnowflakeV2Config(profiling=unset, account_id="abc12345").profiling.use_sampling
+        is True
+    )
+
+    # An explicit opt-out is still the caller's to make.
+    explicit = ProfilingConfig(use_sampling=False)
+    assert BigQueryV2Config(profiling=explicit).profiling.use_sampling is False
+    assert (
+        SnowflakeV2Config(
+            profiling=explicit, account_id="abc12345"
+        ).profiling.use_sampling
+        is False
+    )
+
+
+def test_a_profiling_config_instance_keeps_its_validator_derived_fields() -> None:
+    # `exclude_unset` must not drop what ProfilingConfig's own before-validators
+    # wrote: turn_off_expensive_profiling_metrics fans out into the
+    # include_field_* flags, and losing that would quietly re-enable them.
+    from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+
+    turned_off = ProfilingConfig(
+        enabled=True, turn_off_expensive_profiling_metrics=True
+    )
+    profiling = SnowflakeV2Config(profiling=turned_off, account_id="abc12345").profiling
+
+    assert profiling.include_field_histogram is False
+    assert profiling.include_field_quantiles is False

@@ -182,6 +182,7 @@ def gen_mock_experiment_run() -> ExperimentRun:
     mock_experiment_run.update_time = MOCK_UPDATE_TIME
     mock_experiment_run.display_name = "mock_experiment_run_display_name"
     mock_experiment_run.description = "mock_experiment_run_description"
+    mock_experiment_run._is_legacy_experiment_run.return_value = False
 
     # name must match gen_mock_training_custom_job().name to resolve the ExperimentRun → TrainingJob URN
     mock_logged_job = MagicMock()

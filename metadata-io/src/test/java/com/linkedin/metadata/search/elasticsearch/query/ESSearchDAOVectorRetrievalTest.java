@@ -82,6 +82,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateV
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
+import com.linkedin.metadata.search.embedding.EmbeddingThrottledException;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
@@ -699,6 +700,20 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   @Test
+  public void testSkipAggregatesSkipsTheFacetRequest() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.99, 0.95));
+
+    SearchResult result =
+        search(context(DOCUMENT, f -> f.setSkipAggregates(true)), null, 0, 10, DOCUMENT);
+
+    assertEquals(result.getNumEntities().intValue(), 2);
+    // The kNN request is the only one: no facet request over the surviving URNs
+    verify(client, times(1)).searchKnn(any(), any());
+    verify(client, never()).search(any(OperationContext.class), any(), any());
+  }
+
+  @Test
   public void testMinSimilarityDropsHitsWithoutRefillingTheWindow() throws Exception {
     store(vector(r -> r.setCandidateCap(4).setMinSimilarity(0.8f)));
     // Engine scores are (1 + cosine) / 2: cosines 0.98, 0.9, 0.8 (at the floor), and 0.7
@@ -784,7 +799,8 @@ public class ESSearchDAOVectorRetrievalTest {
       // Each caller filter that bypasses a default clause (removed the soft-delete clause,
       // lifecycleStage the hidden-stage clause), and the fields the published-document default
       // reads. Each as Rest.li and OpenAPI send it, and as the GraphQL resolvers do once they add
-      // that default, with and without the clause the manage-documents privilege lifts.
+      // that default, with and without the clause the manage-documents privilege lifts. A
+      // showInGlobalContext filter lifts the placement clause in its own branch only.
       List<Filter> filters = new ArrayList<>();
       for (Filter caller :
           java.util.Arrays.asList(
@@ -793,7 +809,10 @@ public class ESSearchDAOVectorRetrievalTest {
               filter("removed", "true"),
               filter("lifecycleStage", HIDDEN_STAGE),
               filter("state", "UNPUBLISHED"),
-              filter("showInGlobalContext", "false"))) {
+              filter("showInGlobalContext", "false"),
+              anyOf(
+                  filter("domains", "urn:li:domain:sales"),
+                  filter("showInGlobalContext", "false")))) {
         filters.add(caller);
         filters.add(withDocumentDefaults(caller, false));
         filters.add(withDocumentDefaults(caller, true));
@@ -923,6 +942,45 @@ public class ESSearchDAOVectorRetrievalTest {
         SearchTemplateException.class,
         () -> search(dao(null, null), context(DOCUMENT, f -> {}), null, 0, 10, DOCUMENT));
     assertVectorOutcome(SearchTemplateVectorRetrieval.UNAVAILABLE);
+    assertNoFallback();
+  }
+
+  @DataProvider
+  public Object[][] vectorRungEngines() {
+    return new Object[][] {
+      {SearchClientShim.SearchEngineType.OPENSEARCH_2, "2.19.3", false},
+      {SearchClientShim.SearchEngineType.OPENSEARCH_3, "3.5.0", true},
+      // A version GMS cannot read leaves the rung to run, as it did before the check
+      {SearchClientShim.SearchEngineType.OPENSEARCH_3, "unknown", true}
+    };
+  }
+
+  /**
+   * Before 3.5 the k-NN plugin applies the rung's kNN pre-filter, which names {@code _entityType},
+   * in the chunk scope, where it can match nothing. There a vector rung on the DataHub index fails
+   * closed as unavailable before it embeds the query, even with {@code onFailure: next}.
+   */
+  @Test(dataProvider = "vectorRungEngines")
+  public void testAVectorRungOnTheDataHubIndexNeedsOpenSearch35(
+      SearchClientShim.SearchEngineType engine, String version, boolean served) throws Exception {
+    when(client.getEngineType()).thenReturn(engine);
+    when(client.getEngineVersion()).thenReturn(version);
+    harness.store(KEYWORD_URN, keyword());
+    SearchTemplateProperties next = vector(r -> r.setOnFailure("next"));
+    next.setLadder(nextOnMiss());
+    store(next);
+    knnReturns(hits(0.9, 0.8));
+
+    if (served) {
+      assertEquals(
+          urns(search(DOCUMENT, null, 0, 10)), List.of("urn:li:document:d0", "urn:li:document:d1"));
+      assertVectorOutcome(SearchTemplateVectorRetrieval.SERVED);
+    } else {
+      assertThrows(SearchTemplateFailClosedException.class, () -> search(DOCUMENT, null, 0, 10));
+      assertVectorOutcome(SearchTemplateVectorRetrieval.UNAVAILABLE);
+      verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+      verify(client, never()).searchKnn(any(), any());
+    }
     assertNoFallback();
   }
 
@@ -1145,6 +1203,51 @@ public class ESSearchDAOVectorRetrievalTest {
     verify(reranker, times(1))
         .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
     verify(client, never()).searchKnn(any(), any());
+  }
+
+  @Test
+  public void testAKeywordRerankRootThatFindsNothingHandsTheSearchToItsVectorNext()
+      throws Exception {
+    store(vector(r -> {}));
+    SearchTemplateProperties root = keyword();
+    root.setApiVersion(2);
+    root.setRetrieval(new SearchTemplateRetrieval().setCombine("keywordRerank"));
+    root.setKnn("{ \"others\": \"keepKeywordPlaces\" }");
+    root.setLadder(onMissNext(VECTOR_URN));
+    harness.store(KEYWORD_URN, root);
+    SearchResponse empty = keywordResponse(0);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(empty);
+    knnReturns(hits(0.9, 0.8));
+    HybridSearchResultReranker reranker = mock(HybridSearchResultReranker.class);
+    when(reranker.vectorEntityNames(any(OperationContext.class), any()))
+        .thenReturn(Set.of("document"));
+    when(reranker.providerSucceededSince(anyLong())).thenReturn(true);
+    when(reranker.modelEmbeddingKey()).thenReturn(MODEL_KEY);
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, true));
+
+    SearchResult page =
+        cached(dao(reranker, embedding()))
+            .search(
+                pinned(context(DOCUMENT, f -> {}, coordinator), KEYWORD_URN),
+                DOCUMENT,
+                "quarterly revenue",
+                null,
+                null,
+                0,
+                10,
+                List.of());
+
+    // The root misses its minHits of 1, so the vector rung serves its own page, total, and
+    // explain, and nothing reranks that page
+    assertEquals(urns(page), List.of("urn:li:document:d0", "urn:li:document:d1"));
+    assertEquals(page.getNumEntities().intValue(), 2);
+    assertEquals(
+        page.getMetadata().getVectorRetrieval().getOutcome(), SearchTemplateVectorRetrieval.SERVED);
+    verify(client, times(1)).searchKnn(any(), any());
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
   }
 
   @Test
@@ -1583,6 +1686,11 @@ public class ESSearchDAOVectorRetrievalTest {
         .when(provider)
         .embed(anyString(), any(), any(), any(Duration.class));
     assertEquals(embeddingFailure().getReason(), QueryEmbeddingException.FAILED);
+    // A provider throttled past its own retries
+    doThrow(new EmbeddingThrottledException("Vertex AI call failed after 1 attempts: 429"))
+        .when(provider)
+        .embed(anyString(), any(), any(), any(Duration.class));
+    assertEquals(embeddingFailure().getReason(), QueryEmbeddingException.REJECTED);
     // A provider that gave up at the deadline
     doThrow(new UncheckedTimeoutException("slow provider"))
         .when(provider)
@@ -1622,11 +1730,12 @@ public class ESSearchDAOVectorRetrievalTest {
         expectThrows(SearchTemplateFailClosedException.class, () -> search(DOCUMENT, null, 0, 10));
     assertNull(ExceptionUtils.throwableOfType(knn, QueryEmbeddingException.class));
 
-    // Similarity embeds nothing, so its failures never are
+    // Similarity embeds nothing, so its failures never are. An anchor it cannot use is typed, so
+    // a caller can report it as a bad request
     store(similarity(r -> {}));
-    SearchTemplateFailClosedException noAnchor =
+    SearchTemplateNoAnchorException noAnchor =
         expectThrows(
-            SearchTemplateFailClosedException.class,
+            SearchTemplateNoAnchorException.class,
             () -> similar(context(DOCUMENT, f -> {}), DOCUMENT));
     assertNull(ExceptionUtils.throwableOfType(noAnchor, QueryEmbeddingException.class));
   }
@@ -2524,7 +2633,7 @@ public class ESSearchDAOVectorRetrievalTest {
       for (boolean canManageDocuments : List.of(false, true)) {
         OperationContext searching =
             context(DOCUMENT, f -> {})
-                .withAnchorFilter(publishedDocumentDefault(canManageDocuments));
+                .withAnchorFilter(publishedDocumentDefault(canManageDocuments, true));
         Filter caller = withDocumentDefaults(filter("domains", sales), canManageDocuments);
         clearInvocations(client, harness.retriever, metrics);
         if (canManageDocuments && anchor.getValue().equals("UNPUBLISHED")) {
@@ -2567,7 +2676,7 @@ public class ESSearchDAOVectorRetrievalTest {
     store(similarity(r -> {}));
     anchorHas(ANCHOR, MODEL_KEY, 1L, FIRST_CHUNK);
     knnReturns(hits(0.95));
-    Filter beside = publishedDocumentDefault(false);
+    Filter beside = publishedDocumentDefault(false, true);
     beside.getOr().add(valuelessBranch());
     Map<String, Filter> unusable =
         Map.of(
@@ -2600,7 +2709,7 @@ public class ESSearchDAOVectorRetrievalTest {
     assertEquals(
         urns(
             similar(
-                context(DOCUMENT, f -> {}).withAnchorFilter(publishedDocumentDefault(false)),
+                context(DOCUMENT, f -> {}).withAnchorFilter(publishedDocumentDefault(false, true)),
                 DOCUMENT)),
         List.of("urn:li:document:d0"));
   }
@@ -2634,7 +2743,7 @@ public class ESSearchDAOVectorRetrievalTest {
       for (boolean canManageDocuments : List.of(false, true)) {
         for (Filter anchorFilter :
             List.of(
-                publishedDocumentDefault(canManageDocuments),
+                publishedDocumentDefault(canManageDocuments, true),
                 DocumentSearchFilterUtils.buildCombinedFilter(
                     List.of(), viewer, true, canManageDocuments))) {
           clearInvocations(client);
@@ -3212,29 +3321,57 @@ public class ESSearchDAOVectorRetrievalTest {
                             CriterionUtils.buildCriterion(field, Condition.EQUAL, value)))));
   }
 
-  /** The caller's filter as the GraphQL resolvers send it after adding the document defaults. */
+  /** A filter that matches any branch of these filters. */
+  private static Filter anyOf(Filter... filters) {
+    ConjunctiveCriterionArray branches = new ConjunctiveCriterionArray();
+    for (Filter filter : filters) {
+      branches.addAll(filter.getOr());
+    }
+    return new Filter().setOr(branches);
+  }
+
+  /**
+   * The caller's filter as the GraphQL resolvers send it after adding the document defaults. A
+   * caller branch that filters on showInGlobalContext gets them without the placement clause.
+   */
   private static Filter withDocumentDefaults(Filter caller, boolean canManageDocuments) {
-    Filter defaults = publishedDocumentDefault(canManageDocuments);
-    return caller == null ? defaults : FilterUtils.combineFilters(caller, defaults);
+    if (caller == null) {
+      return publishedDocumentDefault(canManageDocuments, true);
+    }
+    ConjunctiveCriterionArray branches = new ConjunctiveCriterionArray();
+    for (ConjunctiveCriterion branch : caller.getOr()) {
+      boolean placement =
+          branch.getAnd().stream().noneMatch(c -> c.getField().equals("showInGlobalContext"));
+      branches.addAll(
+          FilterUtils.combineFilters(
+                  new Filter().setOr(new ConjunctiveCriterionArray(branch)),
+                  publishedDocumentDefault(canManageDocuments, placement))
+              .getOr());
+    }
+    return new Filter().setOr(branches);
   }
 
   /**
    * The published-document default the GraphQL resolvers add for documents: published, or legacy
-   * and not unpublished unless the viewer may manage documents, and shown in global context.
+   * and not unpublished unless the viewer may manage documents, and, with placement, shown in
+   * global context.
    */
-  private static Filter publishedDocumentDefault(boolean canManageDocuments) {
+  private static Filter publishedDocumentDefault(boolean canManageDocuments, boolean placement) {
     CriterionArray published =
         new CriterionArray(
             CriterionUtils.buildCriterion(
-                "lifecycleStage", Condition.EQUAL, "urn:li:lifecycleStageType:PUBLISHED"),
-            CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, true, "false"));
+                "lifecycleStage", Condition.EQUAL, "urn:li:lifecycleStageType:PUBLISHED"));
     CriterionArray legacy =
         new CriterionArray(CriterionUtils.buildIsNullCriterion("lifecycleStage"));
     if (!canManageDocuments) {
       legacy.add(CriterionUtils.buildCriterion("state", Condition.EQUAL, true, "UNPUBLISHED"));
     }
-    legacy.add(
-        CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, true, "false"));
+    if (placement) {
+      published.add(
+          CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, true, "false"));
+      legacy.add(
+          CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, true, "false"));
+    }
     return new Filter()
         .setOr(
             new ConjunctiveCriterionArray(

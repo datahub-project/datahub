@@ -55,17 +55,19 @@ class JobMetrics:
         names it "Caller (matrix) / Inner job" — the matrix lives on the caller
         segment, so we parse that and drop the inner-job suffix (whose own name
         may itself end in parens, e.g. "(Shard 1/5)", and would otherwise be
-        mis-parsed as the matrix). Otherwise returns (full_name, []).
+        mis-parsed as the matrix). Callers above it without a matrix stay in
+        the name, so "docker / Pytest Smoke Tests (Batch 0/5)" from a lane
+        called by a parent workflow gives ("docker / Pytest Smoke Tests",
+        ["Batch 0/5"]). Otherwise returns (full_name, []).
         """
-        # Collapses multiple inner jobs under one caller to the caller
-        # name; fine while each caller has a single inner job (the case here).
-        caller = full_name.split(" / ", 1)[0]
-        match = re.match(r"^(.+?)\s*\((.+)\)$", caller)
-        if match:
-            base_name = match.group(1).strip()
-            matrix_values = [v.strip() for v in match.group(2).split(",")]
-            return base_name, matrix_values
-        return caller, []
+        segments = full_name.split(" / ")
+        for i, segment in enumerate(segments):
+            match = re.match(r"^(.+?)\s*\((.+)\)$", segment)
+            if match:
+                base_name = " / ".join([*segments[:i], match.group(1).strip()])
+                matrix_values = [v.strip() for v in match.group(2).split(",")]
+                return base_name, matrix_values
+        return full_name, []
 
     @classmethod
     def from_api(cls, data: dict[str, Any]) -> "JobMetrics":

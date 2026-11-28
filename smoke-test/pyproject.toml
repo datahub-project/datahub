@@ -90,6 +90,8 @@ markers = [
     "global_policy_mutator: module mutates shared platform policy state (disables All Users defaults and/or heavy policy-cache tests); smoke.sh runs these serially in a second pytest invocation after non-mutators",
     "p0: critical smoke test; runs on every pull request",
     "domain(*names): product domain(s) owning this test, from the Domain enum in utilities/domains.py; select with --domain",
+    "requires(*capabilities): backend capabilities the test needs beyond GMS, from the Capability enum in utilities/backends.py; SMOKE_BACKEND=local deselects tests needing what the local stack lacks",
+    "docker_canary: p0 test that proves a Docker image works; runs in the Docker canary lane (SMOKE_BACKEND_MODE=canary) next to the local lane",
     # Smart-testing tags, one marker per taxonomy dimension. Values come from the
     # enums in smart_testing/taxonomy.py; conftest also applies them from
     # smart_testing/test_tags.yaml when SMOKE_SMART_TESTING is shadow or active.

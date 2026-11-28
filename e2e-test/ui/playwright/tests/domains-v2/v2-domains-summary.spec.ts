@@ -17,6 +17,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { DomainEntityPage } from '../../pages/domains/domain-entity.page';
 import { LOAD_STATES } from '../../utils/constants';
+import { DomainTag } from '../../utils/test-tags';
 
 // Ensure test parent domain is seeded before tests run
 test.use({ featureName: 'domains-v2' });
@@ -33,21 +34,21 @@ test.describe('Domains V2 Summary Tab', () => {
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   });
 
-  test('summary tab displays properties section', async ({ page, logger }) => {
+  test('summary tab displays properties section', { tag: [DomainTag.Catalog] }, async ({ page, logger }) => {
     const domainsPage = new DomainEntityPage(page, logger);
 
     // Verify properties section is visible
     await expect(domainsPage.propertiesSection).toBeVisible();
   });
 
-  test('summary tab displays about section', async ({ page, logger }) => {
+  test('summary tab displays about section', { tag: [DomainTag.Catalog] }, async ({ page, logger }) => {
     const domainsPage = new DomainEntityPage(page, logger);
 
     // Verify about section is visible
     await expect(domainsPage.aboutSection).toBeVisible();
   });
 
-  test('summary tab displays template section', async ({ page, logger }) => {
+  test('summary tab displays template section', { tag: [DomainTag.Catalog] }, async ({ page, logger }) => {
     const domainsPage = new DomainEntityPage(page, logger);
 
     // Verify template wrapper and all module sections are visible

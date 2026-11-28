@@ -71,6 +71,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateM
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateQueryShape;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
+import com.linkedin.metadata.search.embedding.EmbeddingThrottledException;
 import com.linkedin.metadata.search.embedding.VectorStore;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.hybrid.HybridRerankPlan;
@@ -1150,7 +1151,13 @@ public class ESSearchDAO {
       countHybrid(opContext, "hybridReadFailed");
       // One line per failed search; the stack trace only at debug, so an outage does not flood logs
       log.warn("Hybrid read failed; serving the keyword ranking: {}", cause.toString());
-      return new WindowRerank(rows, SearchTemplateKeywordRerank.FAILED);
+      // A provider throttle is rejected, as on a vector rung. Unlike a full executor it came from
+      // the provider, so it counts toward the pause and as a failed hybrid read, as it always has
+      return new WindowRerank(
+          rows,
+          cause instanceof EmbeddingThrottledException
+              ? SearchTemplateKeywordRerank.REJECTED
+              : SearchTemplateKeywordRerank.FAILED);
     }
   }
 

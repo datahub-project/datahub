@@ -7,7 +7,10 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.source.microstrategy.constants import MICROSTRATEGY_PLATFORM
+from datahub.ingestion.source.microstrategy.constants import (
+    MICROSTRATEGY_PLATFORM,
+    MicroStrategyDatasetIdentity,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -555,8 +558,8 @@ class MicroStrategyConfig(
             "column header is clicked."
         ),
     )
-    dataset_identity: Literal["per_dashboard", "per_report"] = Field(
-        default="per_dashboard",
+    dataset_identity: MicroStrategyDatasetIdentity = Field(
+        default=MicroStrategyDatasetIdentity.PER_DASHBOARD,
         description=(
             "What one DataHub dataset entity stands for. `per_dashboard` (the "
             "default, the historical behaviour) keys each dataset by the "
@@ -613,6 +616,27 @@ class MicroStrategyConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
         description="Stateful ingestion config with stale entity removal support.",
+    )
+    skip_unchanged_objects: bool = Field(
+        default=False,
+        description=(
+            "Skip re-reading dashboards (dossiers and documents) and standalone "
+            "reports that have not changed since the last successful run. An "
+            "object is skipped only when its version, last-modified time, "
+            "name, owner, description, certification and folder path, the "
+            "same properties of every report and cube it depends on, the "
+            "project's warehouse datasources, the recipe and the connector "
+            "version all match the previous run, and every entity it emitted "
+            "is still present in DataHub with the same change fingerprint. "
+            "Under `dataset_identity: per_report`, a shared report dataset is "
+            "re-emitted together with every dashboard that uses it whenever "
+            "any of them changes. Skipped entities are kept during stale "
+            "entity removal and keep receiving usage statistics. Requires "
+            "stateful ingestion and a DataHub graph connection; otherwise a "
+            "warning is reported and everything is read. To force a full "
+            "re-read, run once with `stateful_ingestion.ignore_old_state: "
+            "true` or with this option off."
+        ),
     )
 
     @model_validator(mode="after")

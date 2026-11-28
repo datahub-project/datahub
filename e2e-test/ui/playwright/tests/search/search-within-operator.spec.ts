@@ -9,6 +9,7 @@
 import { test } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
 import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'search' });
 
@@ -24,34 +25,38 @@ test.describe('Search Filters — Within operator', () => {
     await searchPage.navigateToHome();
   });
 
-  test('Domain Within uses DESCENDANTS_INCL and matches nested child entities', async ({ page }) => {
-    await searchPage.search(DATASET_NAME);
-    await searchPage.expectFiltersV2Visible();
+  test(
+    'Domain Within uses DESCENDANTS_INCL and matches nested child entities',
+    { tag: [DomainTag.Catalog] },
+    async ({ page }) => {
+      await searchPage.search(DATASET_NAME);
+      await searchPage.expectFiltersV2Visible();
 
-    // Dataset is only in the child domain — searching by name alone should find it.
-    await searchPage.expectTextVisible(DATASET_NAME);
+      // Dataset is only in the child domain — searching by name alone should find it.
+      await searchPage.expectTextVisible(DATASET_NAME);
 
-    await searchPage.selectFilterOption('Domain', PARENT_DOMAIN);
-    await searchPage.expectActiveFilter(PARENT_DOMAIN);
+      await searchPage.selectFilterOption('Domain', PARENT_DOMAIN);
+      await searchPage.expectActiveFilter(PARENT_DOMAIN);
 
-    // Domain filters default to Within (DESCENDANTS_INCL), which includes nested children.
-    await searchPage.expectActiveFilterOperator('domains', 'within');
-    await searchPage.expectUrlContains('DESCENDANTS_INCL');
-    await searchPage.expectTextVisible(DATASET_NAME);
-    await searchPage.expectHasResults();
+      // Domain filters default to Within (DESCENDANTS_INCL), which includes nested children.
+      await searchPage.expectActiveFilterOperator('domains', 'within');
+      await searchPage.expectUrlContains('DESCENDANTS_INCL');
+      await searchPage.expectTextVisible(DATASET_NAME);
+      await searchPage.expectHasResults();
 
-    // Switching to Equals on the parent should miss the child-only dataset.
-    await searchPage.selectActiveFilterOperator('domains', 'equals');
-    await searchPage.expectActiveFilterOperator('domains', 'equals');
-    await searchPage.expectNoResults();
+      // Switching to Equals on the parent should miss the child-only dataset.
+      await searchPage.selectActiveFilterOperator('domains', 'equals');
+      await searchPage.expectActiveFilterOperator('domains', 'equals');
+      await searchPage.expectNoResults();
 
-    // Reload preserves Within via the URL condition.
-    await searchPage.selectActiveFilterOperator('domains', 'within');
-    await page.reload();
-    await page.waitForLoadState('networkidle');
-    await searchPage.dismissOnboardingOverlays();
-    await searchPage.expectActiveFilterOperator('domains', 'within');
-    await searchPage.expectUrlContains('DESCENDANTS_INCL');
-    await searchPage.expectTextVisible(DATASET_NAME);
-  });
+      // Reload preserves Within via the URL condition.
+      await searchPage.selectActiveFilterOperator('domains', 'within');
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+      await searchPage.dismissOnboardingOverlays();
+      await searchPage.expectActiveFilterOperator('domains', 'within');
+      await searchPage.expectUrlContains('DESCENDANTS_INCL');
+      await searchPage.expectTextVisible(DATASET_NAME);
+    },
+  );
 });

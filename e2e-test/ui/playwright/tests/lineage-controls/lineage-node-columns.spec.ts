@@ -68,7 +68,7 @@ test.describe('column search and pagination within a lineage node', () => {
       .toEqual(PAGE_1_COLUMNS);
   });
 
-  test('searches across every column, not just the page on screen', async () => {
+  test('searches across every column, not just the page on screen', { tag: [DomainTag.Catalog] }, async () => {
     // col_23 is on the last page, so a search that finds it proves the filter runs over the
     // whole column list rather than the ten columns currently drawn.
     await lineagePage.searchColumns(WIDE_URN, 'col_23');

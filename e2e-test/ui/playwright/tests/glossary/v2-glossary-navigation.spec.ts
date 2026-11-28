@@ -7,6 +7,7 @@
 import { test } from '../../fixtures/base-test';
 import { GlossaryPage } from '../../pages/glossary.page';
 import { withRandomSuffix } from '../../utils/random';
+import { DomainTag } from '../../utils/test-tags';
 
 // Pre-seeded via fixtures/data.json — scoped to the Properties-tab-persistence test.
 const PROPS_TEST_TERM1_URN = 'urn:li:glossaryTerm:PlaywrightNavPropsTest.PlaywrightNavTerm1';
@@ -22,7 +23,7 @@ test.describe('glossary sidebar navigation', () => {
     await glossaryPage.navigateToGlossary();
   });
 
-  test('can move a term into its parent term group', async ({ cleanup }) => {
+  test('can move a term into its parent term group', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     // moveCurrentEntityTo polls autocomplete for up to 90 s (ES indexing latency on the
     // freshly-created target group), expectEntityInContentsTab retries for up to 90 s, plus
     // create/navigate overhead.
@@ -47,7 +48,7 @@ test.describe('glossary sidebar navigation', () => {
     await glossaryPage.expectEntityInContentsTab(termUrn);
   });
 
-  test('Properties tab persists when switching between terms', async () => {
+  test('Properties tab persists when switching between terms', { tag: [DomainTag.Catalog] }, async () => {
     test.setTimeout(90000);
     await glossaryPage.navigateToGlossaryTermByUrn(PROPS_TEST_TERM1_URN);
     await glossaryPage.openPropertiesTab();
@@ -57,7 +58,7 @@ test.describe('glossary sidebar navigation', () => {
     await glossaryPage.expectPropertiesTabActive();
   });
 
-  test('can move a term group under a parent node', async ({ cleanup }) => {
+  test('can move a term group under a parent node', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     // moveCurrentEntityTo polls autocomplete for up to 90 s (ES indexing latency on the
     // freshly-created target group), expectEntityInContentsTab retries for up to 90 s, plus
     // create/navigate overhead.

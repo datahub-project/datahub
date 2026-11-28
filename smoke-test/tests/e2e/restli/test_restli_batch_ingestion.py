@@ -25,6 +25,7 @@ from tests.e2e.utils import (
     unique_dataset_urn,
     with_test_retry,
 )
+from utilities.backends import Capability
 from utilities.consistency_utils import wait_for_writes_to_sync
 from utilities.domains import Domain
 
@@ -225,6 +226,9 @@ def test_restli_batch_ingestion_exception_sync(graph_client):
         logger.info(f"Error emitting MCPs due to {e}")
 
 
+# GMS reports async ingestion failures from the Kafka consumer; pgQueue
+# validates synchronously, so there is no async failure to observe.
+@pytest.mark.requires(Capability.KAFKA)
 def test_restli_batch_ingestion_exception_async(graph_client):
     """
     Test Batch ingestion when an exception occurs in async mode

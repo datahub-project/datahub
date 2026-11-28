@@ -15,6 +15,7 @@ import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/type
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entityV2/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
+import { canEditDisplayedStructuredProperties } from '@src/app/entityV2/shared/tabs/Properties/structuredPropertyPrivileges';
 import {
     getDisplayName,
     getPropertyRowFromSearchResult,
@@ -47,10 +48,10 @@ const MAX_STRUCTURED_PROPERTIES_TO_FETCH = 100;
 const SidebarStructuredProperties = ({ properties }: Props) => {
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
-    const canEditProps = entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
     const [isPropModalVisible, setIsPropModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
     const isSchemaSidebar = properties?.isSchemaSidebar || false;
+    const canEditProps = canEditDisplayedStructuredProperties(entityData, isSchemaSidebar);
 
     const orFilters = getSidebarStructuredPropertiesOrFilters(isSchemaSidebar, entityRegistry, entityType);
     const inputs = {

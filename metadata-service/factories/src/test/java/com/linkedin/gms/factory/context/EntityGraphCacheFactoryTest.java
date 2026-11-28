@@ -1,11 +1,13 @@
 package com.linkedin.gms.factory.context;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.test.TestHazelcastInstanceFactory;
 import com.linkedin.gms.factory.ProductionConfigContextRunner;
 import com.linkedin.gms.factory.common.ObjectMapperFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.graph.cache.KnownEntityGraph;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphDefinition;
@@ -53,6 +55,7 @@ public class EntityGraphCacheFactoryTest {
     return ProductionConfigContextRunner.create()
         .withUserConfiguration(EntityGraphCacheFactory.class, ObjectMapperFactory.class)
         .withBean("entityRegistry", EntityRegistry.class, () -> entityRegistry)
+        .withBean(SearchClusterRegistry.class, () -> mock(SearchClusterRegistry.class))
         .withBean(
             "systemOperationContext",
             OperationContext.class,

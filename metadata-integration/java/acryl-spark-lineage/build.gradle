@@ -576,7 +576,7 @@ ext.sparkJava21CompatibleJvmArgs = [
         "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
 ]
 
-// Spark 3.5.8 + Hadoop 3.4.1 do not support JDK 24+: Hadoop's UserGroupInformation calls
+// Spark 3.5.x + Hadoop 3.4.1 do not support JDK 24+: Hadoop's UserGroupInformation calls
 // Subject.getSubject(AccessControlContext), which JEP 486 (Security Manager removal) makes throw
 // UnsupportedOperationException on JDK 24+ — and -Djava.security.manager=allow is itself a fatal
 // launcher error there, so it can't be rescued. Run the real-Spark smoke suites on Java 21 (the

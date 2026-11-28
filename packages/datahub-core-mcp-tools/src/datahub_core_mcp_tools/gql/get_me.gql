@@ -1,0 +1,41 @@
+query getMe {
+    me {
+        corpUser {
+            type
+            urn
+            username
+            exists
+            info {
+                active
+                displayName
+                title
+                firstName
+                lastName
+                fullName
+                email
+            }
+            editableProperties {
+                displayName
+                title
+                pictureLink
+                teams
+                skills
+            }
+            groups: relationships(
+                input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 50 }
+            ) {
+                relationships {
+                    entity {
+                        ... on CorpGroup {
+                            urn
+                            name
+                            properties {
+                                displayName
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

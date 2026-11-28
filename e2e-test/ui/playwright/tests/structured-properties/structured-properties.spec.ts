@@ -2,6 +2,7 @@ import { test } from '../../fixtures/base-test';
 import { StructuredPropertiesPage } from '../../pages/structured-properties.page';
 import { TOAST_MESSAGES } from './constants';
 import { withRandomSuffix } from '../../utils/random';
+import { DomainTag } from '../../utils/test-tags';
 
 /**
  * Structured Properties CRUD tests
@@ -17,7 +18,7 @@ test.describe('Structured Properties CRUD', () => {
     await structuredPropertiesPage.navigate();
   });
 
-  test('Verify creating a new structured property', async ({ cleanup }) => {
+  test('Verify creating a new structured property', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     const propertyName = withRandomSuffix('prop-create');
     const structuredProperty = { name: propertyName, entity: 'Dataset' };
 
@@ -30,7 +31,7 @@ test.describe('Structured Properties CRUD', () => {
     cleanup.track(propertyUrn);
   });
 
-  test('Verify updating an existing structured property', async ({ cleanup }) => {
+  test('Verify updating an existing structured property', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     const propertyName = withRandomSuffix('prop-update');
     const updatedPropertyName = withRandomSuffix('prop-updated');
     const propertyDescription = 'Test property description';
@@ -56,7 +57,7 @@ test.describe('Structured Properties CRUD', () => {
     cleanup.track(propertyUrn);
   });
 
-  test('Verify deleting a structured property', async ({ cleanup }) => {
+  test('Verify deleting a structured property', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     const propertyName = withRandomSuffix('prop-delete');
     const structuredProperty = { name: propertyName, entity: 'Dataset' };
 

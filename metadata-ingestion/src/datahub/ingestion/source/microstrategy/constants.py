@@ -1,5 +1,7 @@
 import re
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
+
+from datahub.utilities.str_enum import StrEnum
 
 MICROSTRATEGY_PLATFORM = "microstrategy"
 
@@ -103,17 +105,15 @@ DIMENSION_TAG_URN = "urn:li:tag:Dimension"
 TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
 DERIVED_TAG_URN = "urn:li:tag:Derived"
 
-# Entity kinds usage buckets can attach to (dashboards get
-# DashboardUsageStatistics, report charts get ChartUsageStatistics, and under
-# dataset_identity=per_report the report datasets get DatasetUsageStatistics).
+# per_report attaches usage to the report's dataset; otherwise only dashboards and charts.
 USAGE_TARGET_DASHBOARD = "dashboard"
 USAGE_TARGET_CHART = "chart"
 USAGE_TARGET_DATASET = "dataset"
 
-# dataset_identity values: one dataset entity per (dashboard, dataset) pair,
-# or one per MicroStrategy report object per project.
-DATASET_IDENTITY_PER_DASHBOARD = "per_dashboard"
-DATASET_IDENTITY_PER_REPORT = "per_report"
+# Stamped on emitted properties so a skip is trusted only if DataHub still has it.
+MSTR_PROP_FINGERPRINT = "microstrategyFingerprint"
+ENTITY_CHECK_BATCH_SIZE = 100
+MSTR_UNCHANGED_OBJECTS_JOB_ID = "microstrategy_unchanged_objects"
 
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.
@@ -528,3 +528,70 @@ MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] =
         "1-based position of the visualization's page within its chapter.",
     ),
 )
+
+MSTR_MODEL_TABLE_FIELDS = "information,physicalTable,attributes,facts"
+# Requested only for a project with several warehouses.
+MSTR_MODEL_TABLE_DATASOURCE_FIELD = "primaryDataSource"
+MSTR_DATASOURCE_MAPPING_HINT = (
+    "Set datasource_platform_mapping, keyed by connection or datasource name, "
+    "for datasources of a type the connector does not recognize."
+)
+
+
+class MicroStrategyDatasetIdentity(StrEnum):
+    PER_DASHBOARD = "per_dashboard"
+    PER_REPORT = "per_report"
+
+
+class MicroStrategyPhase(StrEnum):
+    DASHBOARD = "dashboard"
+    DASHBOARD_SEARCH = "dashboard_search"
+    SQL_PARSE = "sql_parse"
+    WAREHOUSE_FIELD_LOOKUP = "warehouse_field_lookup"
+    USAGE = "usage"
+    SEMANTIC_MODEL = "semantic_model"
+    SOURCE_WAREHOUSES = "source_warehouses"
+    FOLDER_RESOLUTION = "folder_resolution"
+    DATASET_OBJECT_LOOKUP = "dataset_object_lookup"
+    REPORT_DERIVED_METRICS = "report_derived_metrics"
+    DOCUMENT_DERIVED_METRICS = "document_derived_metrics"
+    REPORT_DERIVED_METRIC_DEFINITIONS = "report_derived_metric_definitions"
+    REPORT_MODEL_INSTANCE = "report_model_instance"
+    REPORTS = "reports"
+    DASHBOARD_DEFINITION = "dashboard_definition"
+    MODEL_DOCUMENT = "model_document"
+    VISUALIZATION_BINDINGS = "visualization_bindings"
+    REPORT_DEFINITION = "report_definition"
+    MODEL_TABLES = "model_tables"
+    MODEL_LINEAGE_INDEX = "model_lineage_index"
+    DASHBOARD_DEPENDENCIES = "dashboard_dependencies"
+    METRIC_EXPRESSIONS = "metric_expressions"
+    METRIC_MODEL_FETCH = "metric_model_fetch"
+    VISUALIZATION_DETAILS = "visualization_details"
+    WAREHOUSE_LINEAGE = "warehouse_lineage"
+    DOCUMENT_WAREHOUSE_LINEAGE = "document_warehouse_lineage"
+    REPORT_SQL_FETCH = "report_sql_fetch"
+    DASHBOARD_INSTANCE = "dashboard_instance"
+    INSTANCE_CLEANUP = "instance_cleanup"
+
+
+class MicroStrategyCache(StrEnum):
+    SQL_PARSE = "sql_parse"
+    REPORT_SQL = "report_sql"
+    DATASET_OBJECT = "dataset_object"
+    REPORT_DERIVED_METRIC = "report_derived_metric"
+    METRIC_MODEL = "metric_model"
+    REPORT_DEFINITION = "report_definition"
+
+
+MSTR_TELEMETRY_NO_PHASE = "(no phase)"
+MSTR_TELEMETRY_ERROR_STATUS = "error"
+
+MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS: List[int] = [10, 30, 60, 120, 300, 600, 1800]
+
+MSTR_SQLGLOT_LOGGER = "sqlglot"
+# One warning per generated statement; they fill the executor's bounded log.
+MSTR_SQLGLOT_SUPPRESSED_PREFIXES: List[str] = ["Unsupported property"]
+
+MSTR_ENDPOINT_ID_PLACEHOLDER = "/{id}"
+MSTR_ENDPOINT_KEY_REPLACEMENT = r"/\1/{key}"

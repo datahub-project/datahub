@@ -15,6 +15,8 @@ from typing import (
     Union,
 )
 
+from pydantic import BaseModel, ConfigDict
+
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
@@ -35,6 +37,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_DOT_COLLAPSE_RE,
     MSTR_OBJECT_TIMESTAMP_FORMATS,
+    MSTR_PROP_FINGERPRINT,
     MSTR_STRUCTURED_PROPERTY_CHAPTER,
     MSTR_STRUCTURED_PROPERTY_PAGE,
     MSTR_STRUCTURED_PROPERTY_PAGE_POSITION,
@@ -137,6 +140,13 @@ class DatasetSchemaFields:
     fields: List[SchemaFieldClass]
     by_object_id: Dict[str, List[SchemaFieldClass]]
     object_names: Dict[str, str]
+
+
+class _FolderLevel(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    key: FolderKey
 
 
 class MicroStrategyMapper:
@@ -411,22 +421,50 @@ class MicroStrategyMapper:
         predefined_folders: Optional[PredefinedFolderResolution] = None,
     ) -> Iterable[MetadataWorkUnit]:
         parent_key: Optional[ProjectKey] = self.project_key(project_id)
-        current_path = ""
-        for name in self.folder_path_names(dashboard_object, predefined_folders):
-            if not self.config.folder_pattern.allowed(name):
-                continue
-            current_path = f"{current_path}/{name}" if current_path else name
-            folder_key = self.folder_key(project_id, current_path)
+        for level in self._folder_levels(
+            project_id, dashboard_object, predefined_folders
+        ):
+            folder_key = level.key
             if folder_key.guid() not in self._emitted_folder_keys:
                 self.report.report_folder_scanned()
                 yield from gen_containers(
                     container_key=folder_key,
                     parent_container_key=parent_key,
-                    name=name,
+                    name=level.name,
                     sub_types=[BIContainerSubTypes.MICROSTRATEGY_FOLDER],
                 )
                 self._emitted_folder_keys.add(folder_key.guid())
             parent_key = folder_key
+
+    def folder_container_urns(
+        self,
+        project_id: str,
+        mstr_object: MicroStrategyObject,
+        predefined_folders: Optional[PredefinedFolderResolution] = None,
+    ) -> List[str]:
+        return [
+            level.key.as_urn()
+            for level in self._folder_levels(
+                project_id, mstr_object, predefined_folders
+            )
+        ]
+
+    def _folder_levels(
+        self,
+        project_id: str,
+        mstr_object: MicroStrategyObject,
+        predefined_folders: Optional[PredefinedFolderResolution],
+    ) -> List[_FolderLevel]:
+        levels: List[_FolderLevel] = []
+        current_path = ""
+        for name in self.folder_path_names(mstr_object, predefined_folders):
+            if not self.config.folder_pattern.allowed(name):
+                continue
+            current_path = f"{current_path}/{name}" if current_path else name
+            levels.append(
+                _FolderLevel(name=name, key=self.folder_key(project_id, current_path))
+            )
+        return levels
 
     def folder_container_for_dashboard(
         self,
@@ -569,12 +607,8 @@ class MicroStrategyMapper:
         dataset_object: Optional[MicroStrategyObject],
         dashboard_ids: Sequence[str],
         report_definition: Optional[ReportDefinition] = None,
+        fingerprint: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """The one dataset entity a MicroStrategy report is under
-        dataset_identity=per_report: the report object itself, however many
-        dashboards embed it and whether or not the report pass saw it. The
-        first dashboard that used it is the fallback a cube's URL links to.
-        The report's owner lands here, since no `Report` chart carries it."""
         first_dashboard_id = dashboard_ids[0] if dashboard_ids else None
         custom_properties = self._report_dataset_custom_properties(
             project_id=project_id,
@@ -584,6 +618,8 @@ class MicroStrategyMapper:
         )
         if dataset_object is not None:
             custom_properties.update(self._dashboard_object_properties(dataset_object))
+        if fingerprint is not None:
+            custom_properties[MSTR_PROP_FINGERPRINT] = fingerprint
         self.report.report_report_dataset_emitted()
         yield from self._gen_dataset_entity_workunits(
             project_id=project_id,
@@ -591,15 +627,13 @@ class MicroStrategyMapper:
             dataset=dataset,
             parent_key=parent_key,
             custom_properties=custom_properties,
-            include_coarse_lineage=(
-                self.config.extract_warehouse_lineage
-                or self.config.extract_report_sql_lineage
-            ),
+            include_coarse_lineage=self._report_dataset_lineage_enabled(),
             external_url=self.dataset_external_url(
                 project_id, first_dashboard_id, dataset, dataset_object
             ),
             sub_type=self.dataset_sub_type(dataset_object),
         )
+        # No `Report` chart carries the report's owner under per_report.
         if self.config.ingest_owner and dataset_object and dataset_object.owner:
             yield self._ownership_workunit(
                 self.lineage.dataset_urn(project_id, first_dashboard_id, dataset),
@@ -720,6 +754,7 @@ class MicroStrategyMapper:
         report_definition: Optional[ReportDefinition],
         source_dataset: Optional[DatasetObject],
         parent_key: ProjectKey,
+        fingerprint: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_report_scanned()
         self.report.report_chart_scanned()
@@ -735,6 +770,14 @@ class MicroStrategyMapper:
         inputs = [input_urn] if input_urn else []
         if inputs:
             self.report.report_chart_lineage_edges(len(inputs))
+        custom_properties = self._report_properties(
+            project_id=project_id,
+            report_object=report_object,
+            report_definition=report_definition,
+            source_dataset=source_dataset,
+        )
+        if fingerprint is not None:
+            custom_properties[MSTR_PROP_FINGERPRINT] = fingerprint
 
         yield self._platform_instance_workunit(report_urn)
         yield MetadataChangeProposalWrapper(
@@ -748,12 +791,7 @@ class MicroStrategyMapper:
                 ),
                 lastModified=self._dashboard_audit_stamps(report_object),
                 chartUrl=f"{self.config.base_url}/app/{project_id}/{report_object.id}",
-                customProperties=self._report_properties(
-                    project_id=project_id,
-                    report_object=report_object,
-                    report_definition=report_definition,
-                    source_dataset=source_dataset,
-                ),
+                customProperties=custom_properties,
                 inputs=inputs,
                 inputEdges=[EdgeClass(destinationUrn=input_urn) for input_urn in inputs]
                 or None,
@@ -868,6 +906,7 @@ class MicroStrategyMapper:
         dashboard: DashboardDefinition,
         parent_key: ProjectKey,
         extra_chart_urns: Sequence[str] = (),
+        fingerprint: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_dashboard_scanned()
         dashboard_urn = self.dashboard_urn(project_id, dashboard.id)
@@ -894,6 +933,8 @@ class MicroStrategyMapper:
         if dashboard.layouts:
             custom_properties["microstrategyLayoutCount"] = str(len(dashboard.layouts))
             custom_properties["microstrategyLayouts"] = "; ".join(dashboard.layouts)
+        if fingerprint is not None:
+            custom_properties[MSTR_PROP_FINGERPRINT] = fingerprint
 
         # A document exposes no visualizations through the REST API, so no
         # chart carries its dataset lineage the way a dossier's do; its
@@ -1381,8 +1422,7 @@ class MicroStrategyMapper:
             DatasetUsageStatisticsClass,
         ]
         if entity_kind == USAGE_TARGET_DATASET:
-            # A report dataset (dataset_identity=per_report): the Platform
-            # Analytics execution count is the closest thing to a query count.
+            # per_report has no query log; the execution count is the closest query count.
             aspect = DatasetUsageStatisticsClass(
                 timestampMillis=bucket.bucket_start_ms,
                 eventGranularity=granularity,
@@ -1648,10 +1688,6 @@ class MicroStrategyMapper:
         dashboard_ids: Sequence[str],
         report_definition: Optional[ReportDefinition],
     ) -> Dict[str, str]:
-        """Properties of a per-report dataset: which dashboards use it (in the
-        order seen), what the report pass learned from its definition when it
-        fetched one, and the same semantic, lineage and warehouse summaries a
-        dashboard-scoped dataset carries."""
         properties = {
             "microstrategyProjectId": project_id,
             "microstrategyReportId": dataset.id,
@@ -1673,16 +1709,19 @@ class MicroStrategyMapper:
                     report_definition.source_name
                 )
         properties.update(_dataset_semantic_count_properties(dataset))
-        if (
-            self.config.extract_warehouse_lineage
-            or self.config.extract_report_sql_lineage
-        ) and dataset.warehouse_upstream_urns:
+        if self._report_dataset_lineage_enabled() and dataset.warehouse_upstream_urns:
             properties.update(
                 _warehouse_upstream_properties(dataset.warehouse_upstream_urns)
             )
         properties.update(_model_lineage_properties(dataset))
         properties.update(self._source_warehouse_properties(dataset.source_warehouse))
         return properties
+
+    def _report_dataset_lineage_enabled(self) -> bool:
+        return (
+            self.config.extract_warehouse_lineage
+            or self.config.extract_report_sql_lineage
+        )
 
     def _report_source_dataset_custom_properties(
         self,
@@ -2416,8 +2455,6 @@ def _dataset_semantic_count_properties(dataset: DatasetObject) -> Dict[str, str]
 
 
 def _model_lineage_properties(dataset: DatasetObject) -> Dict[str, str]:
-    """Field-level lineage summary: how many fields have warehouse upstreams
-    and how many upstream fields and tables feed them. Empty without any."""
     if not dataset.field_warehouse_upstreams:
         return {}
     upstream_field_urns = {

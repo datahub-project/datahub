@@ -13,7 +13,8 @@ still imports the suite.
 With ``--size-batches MAX`` (CI's ``smoke_test_matrix`` job, via
 ``TEST_STRATEGY=plan ./smoke.sh``) the plugin also applies smart selection from
 ``SMOKE_SMART_TAGS`` and picks the fewest batches (at most MAX) whose predicted
-long pole meets ``TARGET_BATCH_WALL_SECONDS`` (see ``shard_pack.size_batches``).
+long pole meets ``TARGET_BATCH_WALL_SECONDS``, or
+``SMOKE_PLAN_TARGET_BATCH_SECONDS`` when set (see ``shard_pack.size_batches``).
 Each batch job then runs only its planned scopes (``SMOKE_BATCH_PLAN``).
 """
 
@@ -44,6 +45,8 @@ from shard_pack import (
 from smart_testing import collection as smart_testing
 from smart_testing.taxonomy import PRTags, load_tag_map
 from utilities import env_vars
+from utilities.backend_plugin import configured_backend
+from utilities.backends import backend_filtered_items
 from utilities.domains import domains_of, is_selected, parse_requested_domains
 
 
@@ -137,6 +140,8 @@ def serialize_batch_plans(
     missing_weight_count: int,
     markexpr: str,
     domains: list[str],
+    backend: str,
+    backend_mode: str,
 ) -> dict[str, Any]:
     batches = []
     walls: list[float] = []
@@ -162,6 +167,8 @@ def serialize_batch_plans(
         "xdist_workers": xdist_workers,
         "markexpr": markexpr,
         "domains": domains,
+        "backend": backend,
+        "backend_mode": backend_mode,
         "test_count": test_count,
         "scope_count": len(scope_test_counts),
         "missing_weight_count": missing_weight_count,
@@ -188,6 +195,7 @@ def size_selected(
     xdist_workers: int,
     raw_pr_tags: str,
     changed_tests: Sequence[str],
+    weights_stem: str,
 ) -> tuple[PackedSuite, dict[str, Any]]:
     """Smart-select ``items``, then pick the fewest batches that meet the target.
 
@@ -207,10 +215,13 @@ def size_selected(
         for item in items:
             smart_testing.apply_markers(item, tag_map)
         chosen = smart_testing.selected_items(items, tag_map, pr, changed_tests)
-    packed = size_batches(chosen, max_batches, xdist_workers)
+    target_wall = env_vars.get_plan_target_batch_seconds(TARGET_BATCH_WALL_SECONDS)
+    packed = size_batches(
+        chosen, max_batches, xdist_workers, target_wall, weights_stem=weights_stem
+    )
     return packed, {
         "max_batches": max_batches,
-        "target_wall": TARGET_BATCH_WALL_SECONDS,
+        "target_wall": target_wall,
         "slowest_scope_wall": slowest_scope_seconds(packed),
         "candidate_test_count": len(items),
         "candidate_scope_count": len({loadscope_key(item.nodeid) for item in items}),
@@ -234,17 +245,23 @@ def pytest_collection_modifyitems(
             "are cleared so they will not run. Prefer --collect-only."
         )
 
+    backend, backend_mode = configured_backend(config)
     selected = markexpr_filtered_items(
         str(getattr(config.option, "markexpr", "") or ""),
-        domain_filtered_items(config, items),
+        backend_filtered_items(
+            backend, backend_mode, domain_filtered_items(config, items)
+        ),
     )
     batch_number = env_vars.get_batch_number()
     xdist_workers = env_vars.get_pytest_xdist_workers()
     max_batches = config.getoption("--size-batches")
+    weights_stem = backend.weights_stem
     sizing: dict[str, Any] = {}
     if max_batches is None:
         batch_count = max(1, env_vars.get_batch_count())
-        packed = plan_collected_items(selected, batch_count, xdist_workers)
+        packed = plan_collected_items(
+            selected, batch_count, xdist_workers, weights_stem=weights_stem
+        )
     else:
         packed, sizing = size_selected(
             selected,
@@ -252,6 +269,7 @@ def pytest_collection_modifyitems(
             xdist_workers=xdist_workers,
             raw_pr_tags=env_vars.get_smart_testing_tags(),
             changed_tests=env_vars.get_smoke_changed_tests(),
+            weights_stem=weights_stem,
         )
         batch_count = len(packed.plans)
         selected = [item for scope in packed.items_by_scope.values() for item in scope]
@@ -270,6 +288,8 @@ def pytest_collection_modifyitems(
         missing_weight_count=len(packed.missing_weight_ids),
         markexpr=markexpr,
         domains=domains,
+        backend=backend.value,
+        backend_mode=backend_mode.value,
     )
     payload.update(sizing)
     path = resolve_dump_path(

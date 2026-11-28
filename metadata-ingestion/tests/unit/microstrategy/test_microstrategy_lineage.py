@@ -12,6 +12,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
     bind_visualizations_by_derived_objects,
     consolidation_attribute_ids,
     datahub_platform_for_source_type,
+    datasource_for_model_table,
     extract_field_names_from_expression,
     metric_attribute_ids_from_model,
     metric_consolidation_ids_from_model,
@@ -31,6 +32,7 @@ from datahub.ingestion.source.microstrategy.models import (
     Visualization,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingDebugInfo, SqlParsingResult
 
 
 def _extractor() -> MicroStrategyLineageExtractor:
@@ -254,6 +256,34 @@ def test_warehouse_upstream_urns_from_sql_reports_parse_failures() -> None:
         "".join(warning.context or []) for warning in extractor.report.warnings
     )
     assert len(warning_contexts) < 500
+
+
+def test_warehouse_lineage_reports_error_carried_in_parse_result() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="SALES_DB",
+        schema="SALES",
+    )
+    parsed = SqlParsingResult(
+        in_tables=[],
+        out_tables=[],
+        debug_info=SqlParsingDebugInfo(table_error=ValueError("cannot parse")),
+    )
+
+    with mock.patch(
+        "datahub.sql_parsing.sqlglot_lineage.create_lineage_from_sql_statements",
+        return_value=parsed,
+    ):
+        upstreams = extractor.warehouse_lineage_from_sql(
+            "select * from fact_sales",
+            context,
+            [],
+        ).upstream_urns
+
+    assert upstreams == []
+    assert len(extractor.report.sql_parse_failures) == 1
 
 
 def test_warehouse_upstream_urns_from_multipass_sql_excludes_intermediates() -> None:
@@ -1540,3 +1570,95 @@ def test_page_name_without_match_falls_back_to_all_datasets() -> None:
     binding = bind_visualization_column_sets(dashboard, visualization)
 
     assert binding.dataset_id_by_column_set == {"cs-store": "ds-store-wtd"}
+
+
+def _mixed_datasources() -> List[Datasource]:
+    return [
+        Datasource.model_validate(
+            {
+                "id": "AAA111",
+                "name": "oracle_ds",
+                "database": {"type": "oracle", "name": "ORA_DB", "schema": "ORA"},
+            }
+        ),
+        Datasource.model_validate(
+            {
+                "id": "BBB222",
+                "name": "snowflake_ds",
+                "database": {"type": "snow_flake", "name": "SNOW_DB", "schema": "SNOW"},
+            }
+        ),
+    ]
+
+
+def test_datasource_for_model_table_matches_exact_id_then_unique_name() -> None:
+    datasources = _mixed_datasources()
+
+    by_id: Dict[str, object] = {
+        "primaryDataSource": {"objectId": "bbb222", "name": "other"}
+    }
+    by_name: Dict[str, object] = {
+        "primaryDataSource": {"objectId": "ZZZ999", "name": "oracle_ds"}
+    }
+    unknown: Dict[str, object] = {
+        "primaryDataSource": {"objectId": "ZZZ999", "name": "missing_ds"}
+    }
+
+    assert datasource_for_model_table(by_id, datasources) == datasources[1]
+    assert datasource_for_model_table(by_name, datasources) == datasources[0]
+    assert datasource_for_model_table(unknown, datasources) is None
+    assert datasource_for_model_table({}, datasources) is None
+
+
+def test_datasource_for_model_table_rejects_duplicate_names() -> None:
+    twin = Datasource.model_validate(
+        {"id": "CCC333", "name": "oracle_ds", "database": {"type": "oracle"}}
+    )
+    table: Dict[str, object] = {"primaryDataSource": {"name": "oracle_ds"}}
+
+    assert datasource_for_model_table(table, [*_mixed_datasources(), twin]) is None
+
+
+def test_model_lineage_index_resolves_each_table_from_its_own_context() -> None:
+    contexts = {
+        "oracle_table": WarehouseLineageContext(
+            platform="oracle", env="PROD", database="ora_db", schema="ora"
+        ),
+        "snowflake_table": WarehouseLineageContext(
+            platform="snowflake", env="PROD", database="snow_db", schema="snow"
+        ),
+    }
+
+    def table(name: str, fact_id: str) -> Dict[str, object]:
+        return {
+            "physicalTable": {"tableName": name},
+            "facts": [
+                {"information": {"objectId": fact_id}, "expression": {"text": "AMOUNT"}}
+            ],
+            "attributes": [],
+        }
+
+    def resolver(table: Dict[str, object]) -> Any:
+        physical = table["physicalTable"]
+        assert isinstance(physical, dict)
+        return contexts.get(str(physical["tableName"]))
+
+    index = _extractor().model_lineage_index_from_tables(
+        [
+            table("oracle_table", "fact-1"),
+            table("snowflake_table", "fact-2"),
+            table("unmapped_table", "fact-3"),
+        ],
+        None,
+        table_context_resolver=resolver,
+    )
+
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,"
+        "ora_db.ora.oracle_table,PROD),amount)"
+    ]
+    assert index.fact_field_urns(["fact-2"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "snow_db.snow.snowflake_table,PROD),amount)"
+    ]
+    assert index.fact_field_urns(["fact-3"]) == []
