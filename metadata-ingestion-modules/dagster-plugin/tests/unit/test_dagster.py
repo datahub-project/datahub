@@ -1,21 +1,32 @@
 import json
 import logging
+import os
 import pathlib
 import tempfile
 import uuid
-from typing import Dict, List, Mapping, Sequence, Set
+from typing import Any, Dict, List, Mapping, Sequence, Set
 from unittest.mock import Mock, patch
 
 import dagster._core.utils
+import pytest
 from dagster import (
+    DagsterEvent,
     DagsterInstance,
+    DagsterRun,
+    DynamicOut,
+    DynamicOutput,
     In,
     Out,
+    ReexecutionOptions,
     SkipReason,
     build_run_status_sensor_context,
     build_sensor_context,
+    execute_job,
+    graph,
+    in_process_executor,
     job,
     op,
+    reconstructable,
 )
 from dagster._core.definitions.job_definition import JobDefinition
 from dagster._core.definitions.repository_definition import (
@@ -28,12 +39,24 @@ from freezegun import freeze_time
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig
-from datahub.metadata.schema_classes import StatusClass
+from datahub.metadata.schema_classes import (
+    DataJobInfoClass,
+    DataJobInputOutputClass,
+    DataProcessInstanceInputClass,
+    DataProcessInstanceOutputClass,
+    DataProcessInstancePropertiesClass,
+    StatusClass,
+)
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub_dagster_plugin.client.dagster_generator import (
     DagsterEnvironment,
     DagsterGenerator,
     DatahubDagsterSourceConfig,
+    DatasetLineage,
+    normalize_step_deps,
+    step_key_mapping_key,
+    step_key_to_node_handle,
 )
 from datahub_dagster_plugin.sensors.datahub_sensors import (
     DatahubSensors,
@@ -574,6 +597,373 @@ def test_success_run_still_emits_lineage(mock_emit: Mock, mock_uuid: Mock) -> No
     assert "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableA,PROD)" in [
         str(d) for d in io_aspect.inputDatasets
     ]
+
+
+def test_step_key_normalization() -> None:
+    assert step_key_to_node_handle("my_op") == "my_op"
+    assert step_key_to_node_handle("my_op[?]") == "my_op"
+    assert step_key_to_node_handle("outer.my_op[key_1]") == "outer.my_op"
+    assert step_key_mapping_key("my_op[key_1]") == "key_1"
+    assert step_key_mapping_key("my_op[?]") is None
+    assert step_key_mapping_key("my_op") is None
+
+    assert normalize_step_deps(
+        {"start": set(), "fan": {"start"}, "work[?]": {"fan"}, "done": {"work[?]"}}
+    ) == {"start": set(), "fan": {"start"}, "work": {"fan"}, "done": {"work"}}
+
+
+def _run_and_emit(
+    mock_emitter: Mock,
+    job_def: JobDefinition,
+    run_id: str,
+    **config_kwargs: Any,
+) -> List[MetadataChangeProposalWrapper]:
+    instance = DagsterInstance.ephemeral()
+    result = job_def.execute_in_process(instance=instance, run_id=run_id)
+    return _emit_for_run(
+        mock_emitter,
+        instance,
+        result.dagster_run,
+        result.get_run_success_event(),
+        **config_kwargs,
+    )
+
+
+def _emit_for_run(
+    mock_emitter: Mock,
+    instance: DagsterInstance,
+    dagster_run: DagsterRun,
+    dagster_event: DagsterEvent,
+    **config_kwargs: Any,
+) -> List[MetadataChangeProposalWrapper]:
+    ctx = build_run_status_sensor_context(
+        sensor_name="datahub_sensor",
+        dagster_instance=instance,
+        dagster_run=dagster_run,
+        dagster_event=dagster_event,
+    )
+    config = DatahubDagsterSourceConfig(
+        datahub_client_config=DatahubClientConfig(server="http://localhost:8081"),
+        connect_ops_to_ops=True,
+        **config_kwargs,
+    )
+    # _emit_metadata swallows exceptions, so a SkipReason alone doesn't prove success.
+    skip_reason = DatahubSensors(config=config)._emit_metadata(ctx)
+    assert isinstance(skip_reason, SkipReason)
+    assert skip_reason.skip_message == "Pipeline metadata is emitted to DataHub"
+    return _collect_emitted_mcps(mock_emitter)
+
+
+def _datajob_ids(mcps: List[MetadataChangeProposalWrapper]) -> Set[str]:
+    return {
+        str(mcp.entityUrn).rsplit("/", 1)[-1].rstrip(")")
+        for mcp in mcps
+        if mcp.aspectName == "dataJobInfo"
+    }
+
+
+def _upstream_job_ids(
+    mcps: List[MetadataChangeProposalWrapper], job_id: str
+) -> Set[str]:
+    for mcp in mcps:
+        if (
+            mcp.aspectName == "dataJobInputOutput"
+            and str(mcp.entityUrn).endswith(f"/{job_id})")
+            and isinstance(mcp.aspect, DataJobInputOutputClass)
+        ):
+            return {
+                u.rsplit("/", 1)[-1].rstrip(")") for u in mcp.aspect.inputDatajobs or []
+            }
+    raise AssertionError(f"No dataJobInputOutput emitted for {job_id}")
+
+
+@patch.object(uuid, "uuid4", side_effect=TEST_UUIDS)
+@patch("datahub_dagster_plugin.sensors.datahub_sensors.DataHubGraph", autospec=True)
+@freeze_time(FROZEN_TIME)
+def test_dynamically_mapped_op_emits_one_datajob(
+    mock_emit: Mock, mock_uuid: Mock
+) -> None:
+    mock_emitter = Mock()
+    mock_emit.return_value = mock_emitter
+
+    @op(out=DynamicOut())
+    def fan_out():
+        for i in range(2):
+            yield DynamicOutput(i, mapping_key=f"item_{i}")
+
+    @op
+    def process_item(x):
+        return x
+
+    @op
+    def combine(xs):
+        return sum(xs)
+
+    @job
+    def mapped_job():
+        combine(fan_out().map(process_item).collect())
+
+    mcps = _run_and_emit(mock_emitter, mapped_job, "ab112233445566778899aabbccddeeff")
+
+    assert _datajob_ids(mcps) == {"fan_out", "process_item", "combine"}
+    assert _upstream_job_ids(mcps, "process_item") == {"fan_out"}
+    assert _upstream_job_ids(mcps, "combine") == {"process_item"}
+
+    # One process instance per mapped instance, each with its own id.
+    process_item_runs = {
+        mcp.aspect.name: str(mcp.entityUrn)
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataProcessInstancePropertiesClass)
+        and "process_item" in mcp.aspect.name
+    }
+    assert {name.rsplit("/", 1)[-1] for name in process_item_runs} == {
+        "process_item[item_0]",
+        "process_item[item_1]",
+    }
+    assert len(set(process_item_runs.values())) == 2
+
+
+@patch.object(uuid, "uuid4", side_effect=TEST_UUIDS)
+@patch("datahub_dagster_plugin.sensors.datahub_sensors.DataHubGraph", autospec=True)
+@freeze_time(FROZEN_TIME)
+def test_aliased_and_graph_nested_ops_emit_per_node(
+    mock_emit: Mock, mock_uuid: Mock
+) -> None:
+    mock_emitter = Mock()
+    mock_emit.return_value = mock_emitter
+
+    @op
+    def source():
+        return 1
+
+    @op
+    def step(x):
+        return x
+
+    @graph
+    def subgraph(x):
+        return step(x)
+
+    @job
+    def reuse_job():
+        first = step(source())
+        second = step.alias("second_step")(first)
+        subgraph(second)
+
+    mcps = _run_and_emit(mock_emitter, reuse_job, "ac112233445566778899aabbccddeeff")
+
+    assert _datajob_ids(mcps) == {"source", "step", "second_step", "subgraph.step"}
+    assert _upstream_job_ids(mcps, "second_step") == {"step"}
+    assert _upstream_job_ids(mcps, "subgraph.step") == {"second_step"}
+
+
+def _datajob_io_by_job_id(
+    mcps: List[MetadataChangeProposalWrapper],
+) -> Dict[str, DataJobInputOutputClass]:
+    return {
+        str(mcp.entityUrn).rsplit("/", 1)[-1].rstrip(")"): mcp.aspect
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataJobInputOutputClass)
+    }
+
+
+@patch.object(uuid, "uuid4", side_effect=TEST_UUIDS)
+@patch("datahub_dagster_plugin.sensors.datahub_sensors.DataHubGraph", autospec=True)
+@freeze_time(FROZEN_TIME)
+def test_mapped_op_in_graph_gets_per_instance_lineage(
+    mock_emit: Mock, mock_uuid: Mock
+) -> None:
+    mock_emitter = Mock()
+    mock_emit.return_value = mock_emitter
+
+    @op(out=DynamicOut())
+    def fan_out():
+        for i in range(2):
+            yield DynamicOutput(i, mapping_key=f"item_{i}")
+
+    static_input = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.static_input,PROD)"
+    )
+
+    @op(ins={"x": In(metadata={"datahub.inputs": [static_input]})})
+    def process_item(x):
+        return x
+
+    @op
+    def combine(xs):
+        return sum(xs)
+
+    @graph
+    def batch():
+        combine(fan_out().map(process_item).collect())
+
+    @job
+    def nested_mapped_job():
+        batch()
+
+    table_0 = DatasetUrn.create_from_ids("snowflake", "db.schema.table_0", "PROD")
+    table_1 = DatasetUrn.create_from_ids("snowflake", "db.schema.table_1", "PROD")
+
+    def lineage_by_step_key(*_: Any) -> Dict[str, DatasetLineage]:
+        return {
+            "batch.process_item[item_0]": DatasetLineage(set(), {table_0}),
+            "batch.process_item[item_1]": DatasetLineage(set(), {table_1}),
+        }
+
+    mcps = _run_and_emit(
+        mock_emitter,
+        nested_mapped_job,
+        "ae112233445566778899aabbccddeeff",
+        asset_lineage_extractor=lineage_by_step_key,
+        dagster_url="http://dagster.example",
+    )
+
+    assert _datajob_ids(mcps) == {
+        "batch.fan_out",
+        "batch.process_item",
+        "batch.combine",
+    }
+    assert _upstream_job_ids(mcps, "batch.process_item") == {"batch.fan_out"}
+    assert _upstream_job_ids(mcps, "batch.combine") == {"batch.process_item"}
+    io = _datajob_io_by_job_id(mcps)["batch.process_item"]
+    assert set(io.outputDatasets) == {str(table_0), str(table_1)}
+
+    # The Dagster UI addresses nested ops by path segments.
+    urls = {
+        mcp.aspect.externalUrl
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataJobInfoClass)
+        and str(mcp.entityUrn).endswith("/batch.process_item)")
+    }
+    assert urls == {"http://dagster.example/jobs/nested_mapped_job/batch/process_item"}
+
+    # Each mapped instance claims only its own outputs.
+    dpi_names = {
+        str(mcp.entityUrn): mcp.aspect.name
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataProcessInstancePropertiesClass)
+    }
+    dpi_outputs = {
+        dpi_names[str(mcp.entityUrn)].rsplit("/", 1)[-1]: set(mcp.aspect.outputs)
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataProcessInstanceOutputClass)
+    }
+    assert dpi_outputs == {
+        "batch.process_item[item_0]": {str(table_0)},
+        "batch.process_item[item_1]": {str(table_1)},
+    }
+
+    # Static datahub.inputs metadata belongs to every instance, not one step key.
+    dpi_inputs = {
+        dpi_names[str(mcp.entityUrn)].rsplit("/", 1)[-1]: set(mcp.aspect.inputs)
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataProcessInstanceInputClass)
+        and "process_item[" in dpi_names.get(str(mcp.entityUrn), "")
+    }
+    assert dpi_inputs == {
+        "batch.process_item[item_0]": {static_input},
+        "batch.process_item[item_1]": {static_input},
+    }
+
+    # The DataJob template is re-emitted with the first instance only.
+    process_item_infos = [
+        mcp
+        for mcp in mcps
+        if mcp.aspectName == "dataJobInfo"
+        and str(mcp.entityUrn).endswith("/batch.process_item)")
+    ]
+    assert len(process_item_infos) == 2
+
+
+@op
+def _reexec_extract() -> int:
+    return 1
+
+
+@op
+def _reexec_load(x: int) -> int:
+    if os.environ.get("DATAHUB_TEST_FAIL_LOAD") == "1":
+        raise ValueError("Simulated failure")
+    return x
+
+
+@job(executor_def=in_process_executor)
+def reexecution_job() -> None:
+    _reexec_load(_reexec_extract())
+
+
+@patch.object(uuid, "uuid4", side_effect=TEST_UUIDS)
+@patch("datahub_dagster_plugin.sensors.datahub_sensors.DataHubGraph", autospec=True)
+@freeze_time(FROZEN_TIME)
+def test_reexecution_keeps_lineage_of_steps_that_did_not_run(
+    mock_emit: Mock, mock_uuid: Mock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mock_emitter = Mock()
+    mock_emit.return_value = mock_emitter
+
+    instance = DagsterInstance.ephemeral()
+    monkeypatch.setenv("DATAHUB_TEST_FAIL_LOAD", "1")
+    with execute_job(
+        reconstructable(reexecution_job), instance=instance, raise_on_error=False
+    ) as parent:
+        assert not parent.success
+        parent_run_id = parent.run_id
+
+    monkeypatch.delenv("DATAHUB_TEST_FAIL_LOAD")
+    with execute_job(
+        reconstructable(reexecution_job),
+        instance=instance,
+        reexecution_options=ReexecutionOptions.from_failure(parent_run_id, instance),
+    ) as retry:
+        assert retry.success
+        retry_run = retry.dagster_run
+        success_event = retry.get_run_success_event()
+
+    mcps = _emit_for_run(mock_emitter, instance, retry_run, success_event)
+
+    # Both ops are in the plan, so both DataJobs are emitted, but only the
+    # re-executed op emits lineage and a run.
+    assert _datajob_ids(mcps) == {"_reexec_extract", "_reexec_load"}
+    assert set(_datajob_io_by_job_id(mcps)) == {"_reexec_load"}
+    op_run_names = {
+        mcp.aspect.name.rsplit("/", 1)[-1]
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataProcessInstancePropertiesClass)
+        and "_reexec" in mcp.aspect.name
+    }
+    assert op_run_names == {"_reexec_load"}
+
+
+@patch.object(uuid, "uuid4", side_effect=TEST_UUIDS)
+@patch("datahub_dagster_plugin.sensors.datahub_sensors.DataHubGraph", autospec=True)
+@freeze_time(FROZEN_TIME)
+def test_unresolvable_op_definition_is_skipped(
+    mock_emit: Mock, mock_uuid: Mock
+) -> None:
+    mock_emitter = Mock()
+    mock_emit.return_value = mock_emitter
+
+    @op
+    def first():
+        return 1
+
+    @op
+    def second(x):
+        return x
+
+    @job
+    def two_op_job():
+        second(first())
+
+    with patch(
+        "datahub_dagster_plugin.sensors.datahub_sensors.resolve_node_op_def_names",
+        return_value={"second": "second"},
+    ):
+        mcps = _run_and_emit(
+            mock_emitter, two_op_job, "af112233445566778899aabbccddeeff"
+        )
+
+    assert _datajob_ids(mcps) == {"second"}
 
 
 def test_emit_asset_emits_status_aspect() -> None:

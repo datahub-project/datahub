@@ -46,6 +46,12 @@ from dagster._core.definitions.unresolved_asset_job_definition import (
 from dagster._core.events import DagsterEventType, HandledOutputData, LoadedInputData
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot
 
+try:
+    from dagster._core.snap import JobSnapshot  # type: ignore[attr-defined]
+except ImportError:
+    # Renamed in Dagster 1.8.12, see dagster_generator.py
+    from dagster._core.snap import JobSnap as JobSnapshot
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.graph.config import ClientMode
@@ -62,12 +68,40 @@ from datahub_dagster_plugin.client.dagster_generator import (
     DagsterEnvironment,
     DagsterGenerator,
     DatahubDagsterSourceConfig,
+    normalize_step_deps,
+    normalize_step_keyed_datasets,
+    resolve_node_op_def_names,
+    step_key_to_node_handle,
 )
 
 
 class Lineage(NamedTuple):
     upstreams: List[str]
     downstreams: List[str]
+
+
+def _mapped_instance_datasets(
+    job_datasets: Sequence[DatasetUrn],
+    step_datasets: Dict[str, Set[DatasetUrn]],
+    step_key: str,
+    node_handle: str,
+) -> Set[DatasetUrn]:
+    """Datasets for one mapped instance: the DataJob's lineage minus what only
+    its sibling instances recorded.
+
+    Starting from the DataJob keeps lineage that isn't per step, such as
+    upstream ops' outputs and static datahub.inputs/datahub.outputs metadata.
+    """
+    own = step_datasets.get(step_key, set())
+    siblings: Set[DatasetUrn] = set().union(
+        *(
+            urns
+            for key, urns in step_datasets.items()
+            if key not in (step_key, node_handle)
+            and step_key_to_node_handle(key) == node_handle
+        )
+    )
+    return set(job_datasets) - (siblings - own)
 
 
 def make_datahub_sensor(
@@ -705,6 +739,141 @@ class DatahubSensors:
 
         return SkipReason("Asset metadata processed")
 
+    def _emit_ops(
+        self,
+        context: RunStatusSensorContext,
+        dagster_generator: DagsterGenerator,
+        job_snapshot: JobSnapshot,
+        step_deps: Dict[str, Set[str]],
+        step_dataset_inputs: Dict[str, Set[DatasetUrn]],
+        step_dataset_outputs: Dict[str, Set[DatasetUrn]],
+    ) -> None:
+        """Emit a DataJob per op node and a DataProcessInstance per executed step.
+
+        `step_deps` is keyed by node handle (`my_op`, `my_graph.my_op`), so all
+        instances of a dynamically mapped op share one DataJob. The dataset dicts
+        are keyed by step key (`my_op[mapping_key]` for mapped instances) or by
+        node handle.
+        """
+        dataset_inputs = normalize_step_keyed_datasets(step_dataset_inputs)
+        dataset_outputs = normalize_step_keyed_datasets(step_dataset_outputs)
+
+        # A mapped op has one stats entry per mapped instance.
+        run_step_stats: Dict[str, List[RunStepKeyStatsSnapshot]] = defaultdict(list)
+        for run_step_stat in context.instance.get_run_step_stats(
+            context.dagster_run.run_id
+        ):
+            run_step_stats[step_key_to_node_handle(run_step_stat.step_key)].append(
+                run_step_stat
+            )
+
+        op_def_snaps = {
+            op_def_snap.name: op_def_snap
+            for op_def_snap in job_snapshot.node_defs_snapshot.op_def_snaps
+        }
+        node_op_def_names = resolve_node_op_def_names(job_snapshot, sorted(step_deps))
+
+        # For failed/canceled runs where no lineage was collected,
+        # skip emitting lineage to avoid overwriting existing lineage
+        run_is_not_successful = context.dagster_run.status in (
+            DagsterRunStatus.FAILURE,
+            DagsterRunStatus.CANCELED,
+        )
+
+        # For all dagster ops present in job:
+        # Emit op entity which get mapped with datahub datajob entity.
+        # Emit op run which get mapped with datahub data process instance entity.
+        for node_handle in sorted(step_deps):
+            op_def_name = node_op_def_names.get(node_handle)
+            op_def_snap = op_def_snaps.get(op_def_name) if op_def_name else None
+            if op_def_snap is None:
+                context.log.warning(
+                    f"Skipping step {node_handle}: could not resolve its op definition"
+                )
+                continue
+
+            datajob = dagster_generator.generate_datajob(
+                job_snapshot=job_snapshot,
+                step_deps=step_deps,
+                op_def_snap=op_def_snap,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+                output_datasets=dataset_outputs,
+                input_datasets=dataset_inputs,
+                node_handle=node_handle,
+            )
+
+            if (
+                datajob.name
+                and datajob.name.startswith("__ASSET_JOB")
+                and datajob.name.split("__")
+            ):
+                dagster_generator.generate_browse_path(
+                    datajob.name.split("__"), urn=datajob.urn, graph=self.graph
+                )
+                datajob.name = datajob.name.split("__")[-1]
+
+            # The execution plan of a re-execution (e.g. retry from failure) still
+            # lists every step, but only the re-executed ones have stats and
+            # lineage in this run. Like on a failed run, emitting the others'
+            # empty lineage would overwrite what an earlier run recorded.
+            step_ran = node_handle in run_step_stats
+            if not step_ran:
+                context.log.debug(
+                    f"Step {node_handle} did not run in this run; emitting its DataJob without a run"
+                )
+            op_has_lineage = bool(datajob.inlets) or bool(datajob.outlets)
+            skip_lineage = not op_has_lineage and (
+                run_is_not_successful or not step_ran
+            )
+            if skip_lineage:
+                # Emit the DataJob entity without lineage to preserve
+                # existing lineage from an earlier run
+                for mcp in datajob.generate_mcp(generate_lineage=False):
+                    self.graph.emit_mcp(mcp)
+            else:
+                datajob.emit(self.graph)
+
+            if self.config.debug_mode:
+                for mcp in datajob.generate_mcp():
+                    context.log.debug(f"Emitted MCP: {mcp}")
+
+            self.graph.emit_mcp(
+                mcp=MetadataChangeProposalWrapper(
+                    entityUrn=str(datajob.urn),
+                    aspect=SubTypesClass(
+                        typeNames=["Op"],
+                    ),
+                )
+            )
+
+            for i, step_stats in enumerate(run_step_stats.get(node_handle, [])):
+                inlets: Optional[Set[DatasetUrn]] = None
+                outlets: Optional[Set[DatasetUrn]] = None
+                if step_stats.step_key != node_handle:
+                    inlets = _mapped_instance_datasets(
+                        datajob.inlets,
+                        step_dataset_inputs,
+                        step_stats.step_key,
+                        node_handle,
+                    )
+                    outlets = _mapped_instance_datasets(
+                        datajob.outlets,
+                        step_dataset_outputs,
+                        step_stats.step_key,
+                        node_handle,
+                    )
+                dagster_generator.emit_op_run(
+                    graph=self.graph,
+                    datajob=datajob,
+                    run_step_stats=step_stats,
+                    # The DataJob was emitted above; re-emitting it as the
+                    # template once per mapped instance would multiply writes.
+                    emit_template=i == 0 and not skip_lineage,
+                    inlets=inlets,
+                    outlets=outlets,
+                )
+
     def _emit_metadata(self, context: RunStatusSensorContext) -> SensorReturnTypesUnion:
         """
         Function to emit metadata for datahub rest.
@@ -815,74 +984,14 @@ class DatahubSensors:
                 snapshot_id=context.dagster_run.execution_plan_snapshot_id
             )
 
-            # Map step key with its run step stats
-            run_step_stats: Dict[str, RunStepKeyStatsSnapshot] = {
-                run_step_stat.step_key: run_step_stat
-                for run_step_stat in context.instance.get_run_step_stats(
-                    context.dagster_run.run_id
-                )
-            }
-
-            # For failed/canceled runs where no lineage was collected,
-            # skip emitting lineage to avoid overwriting existing lineage
-            run_is_not_successful = context.dagster_run.status in (
-                DagsterRunStatus.FAILURE,
-                DagsterRunStatus.CANCELED,
+            self._emit_ops(
+                context=context,
+                dagster_generator=dagster_generator,
+                job_snapshot=job_snapshot,
+                step_deps=normalize_step_deps(execution_plan_snapshot.step_deps),
+                step_dataset_inputs=dataset_inputs,
+                step_dataset_outputs=dataset_outputs,
             )
-
-            # For all dagster ops present in job:
-            # Emit op entity which get mapped with datahub datajob entity.
-            # Emit op run which get mapped with datahub data process instance entity.
-            for op_def_snap in job_snapshot.node_defs_snapshot.op_def_snaps:
-                datajob = dagster_generator.generate_datajob(
-                    job_snapshot=job_snapshot,
-                    step_deps=execution_plan_snapshot.step_deps,
-                    op_def_snap=op_def_snap,
-                    env=self.config.env,
-                    platform_instance=self.config.platform_instance,
-                    output_datasets=dataset_outputs,
-                    input_datasets=dataset_inputs,
-                )
-
-                if (
-                    datajob.name
-                    and datajob.name.startswith("__ASSET_JOB")
-                    and datajob.name.split("__")
-                ):
-                    dagster_generator.generate_browse_path(
-                        datajob.name.split("__"), urn=datajob.urn, graph=self.graph
-                    )
-                    datajob.name = datajob.name.split("__")[-1]
-
-                op_has_lineage = bool(datajob.inlets) or bool(datajob.outlets)
-                skip_lineage = run_is_not_successful and not op_has_lineage
-                if skip_lineage:
-                    # Emit the DataJob entity without lineage to preserve
-                    # existing lineage from the last successful run
-                    for mcp in datajob.generate_mcp(generate_lineage=False):
-                        self.graph.emit_mcp(mcp)
-                else:
-                    datajob.emit(self.graph)
-
-                if self.config.debug_mode:
-                    for mcp in datajob.generate_mcp():
-                        context.log.debug(f"Emitted MCP: {mcp}")
-
-                self.graph.emit_mcp(
-                    mcp=MetadataChangeProposalWrapper(
-                        entityUrn=str(datajob.urn),
-                        aspect=SubTypesClass(
-                            typeNames=["Op"],
-                        ),
-                    )
-                )
-
-                dagster_generator.emit_op_run(
-                    graph=self.graph,
-                    datajob=datajob,
-                    run_step_stats=run_step_stats[op_def_snap.name],
-                    emit_template=not skip_lineage,
-                )
             context.log.info("Metadata emitted to DataHub successfully")
             return SkipReason("Pipeline metadata is emitted to DataHub")
         except Exception as e:
