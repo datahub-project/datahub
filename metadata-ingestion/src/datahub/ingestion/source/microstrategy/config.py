@@ -568,29 +568,10 @@ class MicroStrategyConfig(
     dataset_identity: MicroStrategyDatasetIdentity = Field(
         default=MicroStrategyDatasetIdentity.PER_DASHBOARD,
         description=(
-            "What one DataHub dataset entity stands for. `per_dashboard` (the "
-            "default, the historical behaviour) keys each dataset by the "
-            "dossier or document that embeds it (`<project>.<dashboard>."
-            "<dataset>`), so a report used by N dashboards is N identically "
-            "named entities, and with `extract_reports` the same report is "
-            "also a chart plus a report-scoped dataset. `per_report` keys the "
-            "dataset by the MicroStrategy report object itself "
-            "(`<project>.<report>`): one entity per report (grid report or "
-            "cube) per project, filed under the report's own folder, with its "
-            "schema from its own definition when `extract_reports` fetched "
-            "one (else the first dashboard that embeds it), warehouse lineage "
-            "attached once a SQL view parses to upstream tables, and every "
-            "visualization (and, with `emit_document_dataset_edges`, every "
-            "document) that uses the report linking to that single entity; "
-            "with `extract_reports` "
-            "the `Report` chart is not emitted and report usage statistics "
-            "attach to the dataset. Switching schemes changes every dataset "
-            "URN: with stateful ingestion the previous scheme's entities are "
-            "soft-deleted as stale on the next run, so raise "
-            "`stateful_ingestion.fail_safe_threshold` for that run when more "
-            "than the default percentage of entities would change. The design "
-            "note is metadata-ingestion/src/datahub/ingestion/source/"
-            "microstrategy/dataset_identity.md in the DataHub repository."
+            "What one dataset entity represents. `per_dashboard` keys each dataset by the "
+            "dossier or document that embeds it. `per_report` keys one dataset per report "
+            "per project. Switching changes every dataset URN, so with stateful ingestion "
+            "the previous entities are soft-deleted on the next run."
         ),
     )
     datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
