@@ -470,7 +470,7 @@ class SnowflakeConfig(
 ):
     include_table_lineage: bool = pydantic.Field(
         default=True,
-        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
+        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above. Lineage derived from object definitions (views, external tables, dynamic tables and streams) is always ingested when definitions are available, regardless of this setting.",
     )
 
     _include_view_lineage = pydantic_removed_field(
