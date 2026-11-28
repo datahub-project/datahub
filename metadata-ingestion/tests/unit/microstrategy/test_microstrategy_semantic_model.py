@@ -21,6 +21,7 @@ from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import 
 )
 from datahub.ingestion.source.microstrategy.models import MicroStrategyObject
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import SpillConnection
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     ContainerClass,
@@ -110,7 +111,7 @@ def _mapper(
         config=config,
         report=report,
         client=client,  # type: ignore[arg-type]
-        lineage=MicroStrategyLineageExtractor(config, report),
+        lineage=MicroStrategyLineageExtractor(config, report, SpillConnection()),
     )
 
 

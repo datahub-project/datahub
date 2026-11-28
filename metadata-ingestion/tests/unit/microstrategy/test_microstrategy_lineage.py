@@ -40,6 +40,7 @@ from datahub.ingestion.source.microstrategy.models import (
     Visualization,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import SpillConnection
 from datahub.ingestion.source.microstrategy.sqlglot_warnings import (
     suppress_sqlglot_warnings,
 )
@@ -72,7 +73,9 @@ def _extractor() -> MicroStrategyLineageExtractor:
     config = MicroStrategyConfig.model_validate(
         {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
     )
-    return MicroStrategyLineageExtractor(config, MicroStrategyReport())
+    return MicroStrategyLineageExtractor(
+        config, MicroStrategyReport(), SpillConnection()
+    )
 
 
 def test_maps_microstrategy_source_type_to_datahub_platform() -> None:
@@ -1894,7 +1897,8 @@ def test_parse_cache_spills_past_its_memory_size_without_losing_entries() -> Non
     # Spilled entries are served from disk, not evicted.
     assert extractor.report.sql_parses_executed == 6
     assert extractor.report.sql_parse_cache_hits == 6
-    store = extractor._parse_cache._store
+    store = extractor._parsed_sql_views._store
+    assert store is not None
     assert len(store._active_object_cache) <= 2
     on_disk = store.sql_query(f"SELECT COUNT(*) FROM {store.tablename}")[0][0]
     assert on_disk >= 4

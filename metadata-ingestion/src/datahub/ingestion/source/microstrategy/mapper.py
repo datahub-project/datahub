@@ -90,6 +90,7 @@ from datahub.ingestion.source.microstrategy.models import (
     normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import SpillConnection
 from datahub.ingestion.source.microstrategy.usage import UsageBucket
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -160,10 +161,15 @@ class DatasetSchemaFields:
 
 
 class MicroStrategyMapper:
-    def __init__(self, config: MicroStrategyConfig, report: MicroStrategyReport):
+    def __init__(
+        self,
+        config: MicroStrategyConfig,
+        report: MicroStrategyReport,
+        spill_connection: SpillConnection,
+    ):
         self.config = config
         self.report = report
-        self.lineage = MicroStrategyLineageExtractor(config, report)
+        self.lineage = MicroStrategyLineageExtractor(config, report, spill_connection)
         # Folder containers already emitted this run: every dashboard, report
         # and dataset filed under a folder walks the same ancestry.
         self._emitted_folder_keys: Set[str] = set()

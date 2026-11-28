@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from typing_extensions import LiteralString
 
@@ -41,10 +41,6 @@ from datahub.ingestion.source.microstrategy.models import (
     normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-from datahub.ingestion.source.microstrategy.spill_cache import (
-    SpillCache,
-    object_cache_key,
-)
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -141,15 +137,18 @@ class MicroStrategySemanticModelMapper:
         report: MicroStrategyReport,
         client: MicroStrategyClient,
         lineage: MicroStrategyLineageExtractor,
-        metric_model_cache: Optional[SpillCache[Optional[Dict[str, object]]]] = None,
+        cached_metric_model: Optional[
+            Callable[[str, str], Optional[Dict[str, object]]]
+        ] = None,
         graph: Optional[DataHubGraph] = None,
     ) -> None:
         self.config = config
         self.report = report
         self.client = client
         self.lineage = lineage
-        # A cached None is retried here, so the failure is reported against the metric.
-        self.metric_model_cache = metric_model_cache
+        # A model that failed earlier is retried here, so the failure is
+        # reported against the metric.
+        self.cached_metric_model = cached_metric_model
         self.graph = graph
 
     def emit(
@@ -795,10 +794,8 @@ class MicroStrategySemanticModelMapper:
 
     def _metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
         # Last pass to need a model, so a fetch here is not written back.
-        if self.metric_model_cache is not None:
-            cached = self.metric_model_cache.get(
-                object_cache_key(project_id, metric_id)
-            )
+        if self.cached_metric_model is not None:
+            cached = self.cached_metric_model(project_id, metric_id)
             if cached is not None:
                 return cached
         return self.client.get_metric_model(project_id, metric_id)

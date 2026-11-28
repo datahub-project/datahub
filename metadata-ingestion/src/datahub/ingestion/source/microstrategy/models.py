@@ -732,6 +732,10 @@ def normalize_object_id(value: object) -> str:
     return str(value).strip().upper()
 
 
+def object_cache_key(project_id: str, object_id: str) -> str:
+    return f"{normalize_object_id(project_id)}:{normalize_object_id(object_id)}"
+
+
 def _unwrap_definition(response: MicroStrategyDict) -> MicroStrategyDict:
     result = response.get("result", response)
     if isinstance(result, dict):

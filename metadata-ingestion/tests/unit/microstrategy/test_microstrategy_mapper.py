@@ -26,6 +26,7 @@ from datahub.ingestion.source.microstrategy.models import (
     extract_folder_parts,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import SpillConnection
 from datahub.ingestion.source.microstrategy.usage import UsageBucket
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -200,7 +201,7 @@ def _mapper(
             **({"folder_pattern": folder_pattern} if folder_pattern else {}),
         }
     )
-    return MicroStrategyMapper(config, MicroStrategyReport())
+    return MicroStrategyMapper(config, MicroStrategyReport(), SpillConnection())
 
 
 def test_schema_fields_tag_metrics_attributes_and_temporal_forms() -> None:
