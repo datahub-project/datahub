@@ -1,5 +1,6 @@
 import re
 import sys
+import time
 from typing import Optional
 
 from datahub.ingestion.source.microstrategy.constants import (
@@ -46,3 +47,21 @@ def dashboard_seconds_bucket(seconds: float) -> str:
             return f"{lower}-{upper}s"
         lower = upper
     return f">={lower}s"
+
+
+class IntervalGate:
+    def __init__(self, every_items: int, every_seconds: float) -> None:
+        self._every_items = every_items
+        self._every_seconds = every_seconds
+        self._last_count = 0
+        self._last_time = time.perf_counter()
+
+    def due(self, count: int) -> bool:
+        return (
+            count - self._last_count >= self._every_items
+            or time.perf_counter() - self._last_time >= self._every_seconds
+        )
+
+    def mark(self, count: int) -> None:
+        self._last_count = count
+        self._last_time = time.perf_counter()

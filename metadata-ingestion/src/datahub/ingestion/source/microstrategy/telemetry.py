@@ -12,7 +12,10 @@ from datahub.ingestion.source.microstrategy.constants import (
     MicroStrategyPhase,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-from datahub.ingestion.source.microstrategy.telemetry_helpers import peak_rss_mb
+from datahub.ingestion.source.microstrategy.telemetry_helpers import (
+    IntervalGate,
+    peak_rss_mb,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -122,11 +125,8 @@ class RunProgress:
         every_seconds: float,
     ) -> None:
         self._report = report
-        self._every_dashboards = every_dashboards
-        self._every_seconds = every_seconds
+        self._gate = IntervalGate(every_dashboards, every_seconds)
         self._started = time.perf_counter()
-        self._last_logged = self._started
-        self._since_logged = 0
 
     def snapshot(self) -> TelemetrySnapshot:
         report = self._report
@@ -166,21 +166,15 @@ class RunProgress:
             after.sql_parse_cache_hits - before.sql_parse_cache_hits,
             datasets,
         )
-        self._since_logged += 1
-        now = time.perf_counter()
-        if (
-            self._since_logged >= self._every_dashboards
-            or now - self._last_logged >= self._every_seconds
-        ):
+        if self._gate.due(self._report.dashboards_timed):
             self.log_progress()
 
     def log_progress(self) -> None:
         report = self._report
-        self._last_logged = time.perf_counter()
-        self._since_logged = 0
-        report.peak_rss_mb = peak_rss_mb()
-        elapsed = self._last_logged - self._started
         processed = report.dashboards_timed
+        self._gate.mark(processed)
+        report.peak_rss_mb = peak_rss_mb()
+        elapsed = time.perf_counter() - self._started
         top_phases = ", ".join(
             f"{name} {seconds:.0f}s"
             for name, seconds in sorted(

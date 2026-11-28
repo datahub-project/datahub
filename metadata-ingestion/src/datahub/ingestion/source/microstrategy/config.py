@@ -121,12 +121,21 @@ class MicroStrategyConfig(
             "cache hits, peak memory) after this many dashboards."
         ),
     )
+    progress_log_interval_metrics: int = Field(
+        default=1000,
+        gt=0,
+        description=(
+            "Log a semantic-model progress line (metrics fetched and failed, "
+            "peak memory) after this many metrics."
+        ),
+    )
     progress_log_interval_seconds: int = Field(
         default=300,
         gt=0,
         description=(
-            "Also log the progress line when this many seconds have passed "
-            "since the last one, so slow dashboards never leave the log silent."
+            "Also log the dashboard and semantic-model progress lines when this "
+            "many seconds have passed since the last one, so slow dashboards or "
+            "metrics never leave the log silent."
         ),
     )
 
