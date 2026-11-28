@@ -625,9 +625,13 @@ class MicroStrategySemanticModelMapper:
                     failed,
                     project_id,
                 )
+            model = self._cached_model(project_id, metric_object.id)
             try:
-                model = self._metric_model(project_id, metric_object.id)
-                consecutive_failures = 0
+                if model is None:
+                    model = self.client.get_metric_model(project_id, metric_object.id)
+                    # Cache hits must not reset the streak, or live failures
+                    # interleaved with them would never trip the stop.
+                    consecutive_failures = 0
             except MicroStrategyAPIError as error:
                 failed += 1
                 consecutive_failures += 1
@@ -790,13 +794,13 @@ class MicroStrategySemanticModelMapper:
             ],
         )
 
-    def _metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
-        # Last pass to need a model, so a fetch here is not written back.
-        if self.cached_metric_model is not None:
-            cached = self.cached_metric_model(project_id, metric_id)
-            if cached is not None:
-                return cached
-        return self.client.get_metric_model(project_id, metric_id)
+    def _cached_model(
+        self, project_id: str, metric_id: str
+    ) -> Optional[Dict[str, object]]:
+        # Last pass to need a model, so a live fetch is not written back.
+        if self.cached_metric_model is None:
+            return None
+        return self.cached_metric_model(project_id, metric_id)
 
     def _unknown_presence_reason(self) -> str:
         return (
