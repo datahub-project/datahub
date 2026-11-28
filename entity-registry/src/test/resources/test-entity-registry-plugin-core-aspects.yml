@@ -1,0 +1,8 @@
+# A plugin registry whose new entity also carries core aspects
+id: mycompany-full-model
+entities:
+  - name: newThing
+    keyAspect: testDataQualityRules
+    aspects:
+      - testDataQualityRules
+      - status

@@ -1,0 +1,6 @@
+id: mycompany-full-model
+entities:
+  - name: newThing
+    keyAspect: testDataQualityRules
+    aspects:
+      - notAnAspect
