@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.LOGICAL_PARENT_ASPECT_NAME;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Edge;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -14,9 +15,12 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 public final class LogicalModelUtils {
@@ -66,11 +70,19 @@ public final class LogicalModelUtils {
     }
   }
 
-  /** Builds the dataset-level + column-level LogicalParent proposals for a link. */
+  /**
+   * Builds the dataset-level + column-level LogicalParent proposals for a link.
+   *
+   * <p>Columns of the child ({@code childFieldPaths}) that are not in {@code fieldPathMap} but
+   * still point at a different logical model are cleared, so moving a dataset to another model
+   * doesn't leave columns linked to the old one. Unmapped columns already linked to this parent are
+   * kept, so a link that maps only some columns doesn't undo earlier mappings.
+   */
   public static List<MetadataChangeProposal> buildLinkProposals(
       Urn childDatasetUrn,
       Urn parentDatasetUrn,
       Map<String, String> fieldPathMap,
+      Collection<String> childFieldPaths,
       OperationContext context) {
     List<MetadataChangeProposal> proposals = new ArrayList<>();
     proposals.add(createLogicalParentProposal(childDatasetUrn, parentDatasetUrn, context));
@@ -81,19 +93,76 @@ public final class LogicalModelUtils {
           SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, mapping.getValue());
       proposals.add(createLogicalParentProposal(childFieldUrn, parentFieldUrn, context));
     }
+
+    Set<String> unmapped = new LinkedHashSet<>(childFieldPaths);
+    unmapped.removeAll(fieldPathMap.values());
+    currentColumnParents(childDatasetUrn, unmapped, context)
+        .forEach(
+            (childFieldUrn, currentParent) -> {
+              if (!belongsTo(currentParent, parentDatasetUrn)) {
+                proposals.add(createLogicalParentProposal(childFieldUrn, null, context));
+              }
+            });
     return proposals;
   }
 
-  /** Builds the proposals that unset the dataset-level + given column-level LogicalParents. */
+  /**
+   * Builds the proposals that unlink a child dataset from its logical model: the dataset-level
+   * LogicalParent, plus every given column that has a LogicalParent. Columns without one get no
+   * proposal, so unlinking doesn't write empty aspects (and create schema field entities) for
+   * columns that were never mapped.
+   */
   public static List<MetadataChangeProposal> buildUnlinkProposals(
       Urn childDatasetUrn, Collection<String> childFieldPaths, OperationContext context) {
     List<MetadataChangeProposal> proposals = new ArrayList<>();
     proposals.add(createLogicalParentProposal(childDatasetUrn, null, context));
-    for (String fieldPath : childFieldPaths) {
-      Urn childFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, fieldPath);
-      proposals.add(createLogicalParentProposal(childFieldUrn, null, context));
-    }
+    currentColumnParents(childDatasetUrn, childFieldPaths, context)
+        .keySet()
+        .forEach(
+            childFieldUrn ->
+                proposals.add(createLogicalParentProposal(childFieldUrn, null, context)));
     return proposals;
+  }
+
+  /** The current LogicalParent of each given column that has one, keyed by column urn. */
+  private static Map<Urn, Urn> currentColumnParents(
+      Urn childDatasetUrn, Collection<String> fieldPaths, OperationContext context) {
+    Set<Urn> fieldUrns =
+        fieldPaths.stream()
+            .map(fieldPath -> SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, fieldPath))
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+    if (fieldUrns.isEmpty()) {
+      return Map.of();
+    }
+    Map<Urn, Map<String, Aspect>> aspects =
+        context
+            .getAspectRetriever()
+            .getLatestAspectObjects(context, fieldUrns, Set.of(LOGICAL_PARENT_ASPECT_NAME));
+    Map<Urn, Urn> parents = new LinkedHashMap<>();
+    for (Urn fieldUrn : fieldUrns) {
+      Urn parent = parentOf(aspects.get(fieldUrn));
+      if (parent != null) {
+        parents.put(fieldUrn, parent);
+      }
+    }
+    return parents;
+  }
+
+  @Nullable
+  private static Urn parentOf(@Nullable Map<String, Aspect> aspects) {
+    Aspect aspect = aspects == null ? null : aspects.get(LOGICAL_PARENT_ASPECT_NAME);
+    if (aspect == null) {
+      return null;
+    }
+    LogicalParent logicalParent = new LogicalParent(aspect.data());
+    return logicalParent.hasParent() ? logicalParent.getParent().getDestinationUrn() : null;
+  }
+
+  /** Whether a column's parent is a field of {@code parentDatasetUrn}. */
+  private static boolean belongsTo(Urn columnParent, Urn parentDatasetUrn) {
+    return SchemaFieldUtils.parseSchemaFieldUrn(columnParent)
+        .map(parsed -> parentDatasetUrn.equals(parsed.getFirst()))
+        .orElse(false);
   }
 
   /**
