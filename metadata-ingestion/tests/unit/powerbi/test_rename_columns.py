@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
@@ -34,12 +34,16 @@ _UPSTREAM = (
 )
 
 
-def _column(name: str) -> Column:
+def _column(
+    name: str, source_column: Optional[str] = None, calculated: bool = False
+) -> Column:
     return Column(
         name=name,
         dataType="String",
         isHidden=False,
         datahubDataType=StringTypeClass(),
+        columnType="Calculated" if calculated else "Data",
+        source_column=source_column,
     )
 
 
@@ -52,7 +56,11 @@ def _config() -> PowerBiDashboardSourceConfig:
 
 
 def _upstream_columns(
-    expression: str, columns: List[str], upstream: str = _UPSTREAM
+    expression: str,
+    columns: List[str],
+    upstream: str = _UPSTREAM,
+    pbi_columns: Optional[List[Column]] = None,
+    reporter: Optional[PowerBiDashboardSourceReport] = None,
 ) -> Dict[str, List[str]]:
     config = _config()
     lineages = mquery_parser.get_upstream_tables(
@@ -60,9 +68,11 @@ def _upstream_columns(
             name="dim_customers",
             full_name="ws.ds.dim_customers",
             expression=expression,
-            columns=[_column(name) for name in columns],
+            columns=pbi_columns
+            if pbi_columns is not None
+            else [_column(name) for name in columns],
         ),
-        reporter=PowerBiDashboardSourceReport(),
+        reporter=reporter or PowerBiDashboardSourceReport(),
         platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
             config
         ),
@@ -257,3 +267,138 @@ def test_sql_lineage_is_not_renamed_again_after_urn_transform() -> None:
 def test_apply_renames_is_noop_without_steps() -> None:
     lineage = Lineage(upstreams=[], column_lineage=[])
     assert apply_table_rename_columns(lineage, []) is lineage
+
+
+def test_navigation_lineage_uses_source_column_and_skips_calculated() -> None:
+    expression = """\
+let
+    Source = Sql.Database("warehouse.example", "sales_db"),
+    gold_dim_customers = Source{[Schema="gold",Item="dim_customers"]}[Data]
+in
+    gold_dim_customers
+"""
+    # The model renamed CUSTOMER_ACCOUNT to "Customer Account" (TMDL
+    # sourceColumn); the calculated column has no column in the source.
+    assert _upstream_columns(
+        expression,
+        [],
+        pbi_columns=[
+            _column("Customer Account", source_column="CUSTOMER_ACCOUNT"),
+            _column("City"),
+            _column("Account Band", calculated=True),
+        ],
+    ) == {
+        "Customer Account": ["CUSTOMER_ACCOUNT"],
+        "City": ["City"],
+    }
+
+
+def test_admin_scan_calculated_column_gets_no_upstream_edge() -> None:
+    # The admin scanner API reports columnType in its own casing.
+    expression = """\
+let
+    Source = Sql.Database("warehouse.example", "sales_db"),
+    gold_dim_customers = Source{[Schema="gold",Item="dim_customers"]}[Data]
+in
+    gold_dim_customers
+"""
+    scan_columns: List[Dict[str, Any]] = [
+        {"name": "City", "dataType": "String", "isHidden": False, "columnType": "DATA"},
+        {
+            "name": "City Band",
+            "dataType": "String",
+            "isHidden": False,
+            "columnType": "CALCULATED",
+            "expression": 'IF([City] = "Paris", "A", "B")',
+        },
+    ]
+    assert _upstream_columns(
+        expression,
+        [],
+        pbi_columns=[
+            Column(**column, datahubDataType=StringTypeClass())
+            for column in scan_columns
+        ],
+    ) == {"City": ["City"]}
+
+
+def test_source_column_is_walked_back_through_renames() -> None:
+    # M renamed the warehouse column, then the model renamed it again: the
+    # upstream edge must reach the warehouse column name.
+    expression = """\
+let
+    Source = Sql.Database("warehouse.example", "sales_db"),
+    gold_dim_customers = Source{[Schema="gold",Item="dim_customers"]}[Data],
+    #"Renamed Columns" = Table.RenameColumns(gold_dim_customers, {{"CUSTOMER_ACCOUNT", "CustomerAccount"}})
+in
+    #"Renamed Columns"
+"""
+    assert _upstream_columns(
+        expression,
+        [],
+        pbi_columns=[_column("Customer Account", source_column="CustomerAccount")],
+    ) == {"Customer Account": ["CUSTOMER_ACCOUNT"]}
+
+
+def test_native_sql_outputs_onto_calculated_or_missing_fields_are_dropped() -> None:
+    # `Total` is a calculated column of the same name and `Legacy` is not a
+    # field of the table at all: neither is fed by the warehouse column.
+    expression = """\
+let
+    Source = Sql.Database("warehouse.example", "sales_db", [Query="select a AS A, x AS Total, y AS Legacy from gold.dim_customers"])
+in
+    Source
+"""
+    reporter = PowerBiDashboardSourceReport()
+    assert _upstream_columns(
+        expression,
+        [],
+        pbi_columns=[_column("A"), _column("Total", calculated=True)],
+        reporter=reporter,
+    ) == {"A": ["a"]}
+    assert reporter.cll_dropped_not_a_source_column == 2
+    # sqlglot folds the MSSQL output names without a schema; the names are
+    # recorded as the parser returned them.
+    assert list(reporter.cll_dropped_columns) == [
+        "ws.ds.dim_customers.total",
+        "ws.ds.dim_customers.legacy",
+    ]
+
+
+def test_chained_renames_and_reused_names_walk_back_to_the_source() -> None:
+    # Step one renames Account -> Acct and vacates "Account"; step two renames
+    # Acct -> Customer Account and reuses the vacated name for Name.
+    expression = """\
+let
+    Source = Sql.Database("warehouse.example", "sales_db"),
+    gold_dim_customers = Source{[Schema="gold",Item="dim_customers"]}[Data],
+    #"Step1" = Table.RenameColumns(gold_dim_customers, {{"Account", "Acct"}}),
+    #"Step2" = Table.RenameColumns(#"Step1", {{"Acct", "Customer Account"}, {"Name", "Account"}})
+in
+    #"Step2"
+"""
+    assert _upstream_columns(expression, ["Customer Account", "Account"]) == {
+        "Customer Account": ["Account"],
+        "Account": ["Name"],
+    }
+
+
+def test_native_sql_output_matches_source_column_of_renamed_field() -> None:
+    expression = """\
+let
+    Source = Sql.Database("warehouse.example", "sales_db", [Query="select CustomerAccount, City from gold.dim_customers"])
+in
+    Source
+"""
+    assert _upstream_columns(
+        expression,
+        [],
+        pbi_columns=[
+            _column("Customer Account", source_column="CustomerAccount"),
+            _column("City"),
+            _column("Account Band", calculated=True),
+        ],
+    ) == {
+        "Customer Account": ["customeraccount"],
+        "City": ["city"],
+    }

@@ -1,0 +1,375 @@
+import re
+from typing import Dict, List, Optional, Set, Tuple
+
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    DaxFieldReference,
+    DaxReferences,
+)
+
+# `'Table'[Field]`, `Table[Field]` or a bare `[Field]`. A quoted table name
+# escapes an embedded quote as `''`, a field name an embedded `]` as `]]`.
+DAX_FIELD_REFERENCE_RE = re.compile(
+    r"(?:'(?P<quoted>(?:[^']|'')+)'|(?P<bare>[A-Za-z_]\w*))?"
+    r"\[(?P<field>(?:[^\]]|\]\])+)\]"
+)
+# Every quoted table name, e.g. `COUNTROWS('Claims')`; the ones directly
+# followed by `[` are field references and already handled above. Quoted
+# names are consumed left to right so a closing quote is never paired with
+# the opening quote of the next reference.
+DAX_QUOTED_TABLE_RE = re.compile(r"'((?:[^']|'')+)'")
+
+# Functions whose first argument is a table. An unquoted first argument is a
+# bare table name only when it is not followed by `[` (then it is a column
+# reference, handled above) and the caller still has to check it is a model
+# table rather than a VAR holding a table expression.
+TABLE_ARGUMENT_FUNCTIONS = (
+    "RELATED",
+    "RELATEDTABLE",
+    "LOOKUPVALUE",
+    "SUMMARIZE",
+    "SUMMARIZECOLUMNS",
+    "CALCULATETABLE",
+    "FILTER",
+    "VALUES",
+    "DISTINCT",
+    "ALL",
+    "ALLEXCEPT",
+    "ALLNOBLANKROW",
+    "ALLSELECTED",
+    "COUNTROWS",
+    "ADDCOLUMNS",
+    "SELECTCOLUMNS",
+    "SUMX",
+    "AVERAGEX",
+    "MAXX",
+    "MINX",
+    "COUNTX",
+    "RANKX",
+    "TREATAS",
+)
+# Set, join and GENERATE functions: every argument is a table.
+ALL_TABLE_ARGUMENT_FUNCTIONS = (
+    "GENERATE",
+    "GENERATEALL",
+    "UNION",
+    "EXCEPT",
+    "INTERSECT",
+    "CROSSJOIN",
+    "NATURALINNERJOIN",
+    "NATURALLEFTOUTERJOIN",
+)
+# Table functions that evaluate their other arguments in the row context of
+# the table they are given: inside them a bare `[Column]` is a column of that
+# table, not of the table that owns the expression.
+ROW_CONTEXT_ITERATOR_FUNCTIONS = (
+    "SUMX",
+    "AVERAGEX",
+    "MAXX",
+    "MINX",
+    "COUNTX",
+    "RANKX",
+    "TOPN",
+    "GENERATE",
+    "GENERATEALL",
+    "RELATEDTABLE",
+    "CALCULATETABLE",
+    "FILTER",
+    "ADDCOLUMNS",
+    "SELECTCOLUMNS",
+    "SUMMARIZE",
+)
+DAX_TABLE_ARGUMENT_RE = re.compile(
+    r"\b(?:"
+    + "|".join(TABLE_ARGUMENT_FUNCTIONS)
+    + r")\s*\(\s*(?P<bare>[A-Za-z_]\w*)\s*(?=[,)])",
+    re.IGNORECASE,
+)
+# TOPN(N, Table, ...) takes its table second. N is usually a literal or a
+# variable; a computed N containing a comma or parenthesis is not matched.
+DAX_TOPN_TABLE_ARGUMENT_RE = re.compile(
+    r"\bTOPN\s*\(\s*[^,()]+,\s*(?P<bare>[A-Za-z_]\w*)\s*(?=[,)])",
+    re.IGNORECASE,
+)
+DAX_ALL_TABLE_ARGUMENTS_CALL_RE = re.compile(
+    r"\b(?:" + "|".join(ALL_TABLE_ARGUMENT_FUNCTIONS) + r")\s*\(",
+    re.IGNORECASE,
+)
+DAX_BARE_TABLE_NAME_RE = re.compile(r"[A-Za-z_]\w*")
+DAX_ROW_CONTEXT_ITERATOR_RE = re.compile(
+    r"\b(?:" + "|".join(ROW_CONTEXT_ITERATOR_FUNCTIONS) + r")\s*\(",
+    re.IGNORECASE,
+)
+# `VAR Name =`: a variable, which may hold a table and be passed to a table
+# function, so it must not be mistaken for a model table.
+DAX_VARIABLE_RE = re.compile(r"\bVAR\s+(?P<name>[A-Za-z_]\w*)\s*=", re.IGNORECASE)
+# A whole expression, a VAR's value or the RETURN value that is a single bare
+# name, e.g. a calculated table defined as `Policies`. Such a name is a table
+# (or a variable, skipped by the caller); nothing else is a bare identifier.
+DAX_BARE_EXPRESSION_RE = re.compile(r"\s*(?P<bare>[A-Za-z_]\w*)\s*")
+DAX_BARE_VARIABLE_VALUE_RE = re.compile(
+    r"\bVAR\s+[A-Za-z_]\w*\s*=\s*(?P<bare>[A-Za-z_]\w*)\s*(?=\bVAR\b|\bRETURN\b|$)",
+    re.IGNORECASE,
+)
+DAX_BARE_RETURN_VALUE_RE = re.compile(
+    r"\bRETURN\s+(?P<bare>[A-Za-z_]\w*)\s*$", re.IGNORECASE
+)
+# Boolean literals DAX accepts without parentheses.
+DAX_BARE_LITERALS = frozenset({"true", "false"})
+
+ROW_CONTEXT_VARIABLE_PREFIX = "@"
+STRING_QUOTE = '"'
+IDENTIFIER_QUOTE = "'"
+BRACKET_OPEN = "["
+BRACKET_CLOSE = "]"
+BLOCK_COMMENT_START = "/*"
+BLOCK_COMMENT_END = "*/"
+LINE_COMMENT_MARKERS = ("//", "--")
+
+
+def _unescape_table(name: str) -> str:
+    return name.replace("''", "'")
+
+
+def _end_of_quoted(expression: str, start: int, quote: str) -> int:
+    """Index just past the closing quote of the quoted run that opens at
+    `start`; a doubled quote inside the run escapes a quote. An unterminated
+    run extends to the end of the expression."""
+    i = start + 1
+    length = len(expression)
+    while i < length:
+        if expression[i] == quote:
+            if expression[i + 1 : i + 2] == quote:
+                i += 2
+                continue
+            return i + 1
+        i += 1
+    return length
+
+
+def _end_of_bracketed(expression: str, start: int) -> int:
+    """Index just past the `]` that closes the bracketed name opening at
+    `start`; `]]` inside the name escapes a bracket. An unterminated name
+    extends to the end of the expression."""
+    i = start + 1
+    length = len(expression)
+    while i < length:
+        if expression[i] == BRACKET_CLOSE:
+            if expression[i + 1 : i + 2] == BRACKET_CLOSE:
+                i += 2
+                continue
+            return i + 1
+        i += 1
+    return length
+
+
+def _end_of_call(text: str, open_paren: int) -> int:
+    """Index just past the `)` that closes the call whose `(` is at
+    `open_paren`, skipping quoted table names. `text` must already have its
+    strings, comments and bracketed names blanked. An unclosed call extends
+    to the end of the text."""
+    depth = 0
+    i = open_paren
+    length = len(text)
+    while i < length:
+        ch = text[i]
+        if ch == IDENTIFIER_QUOTE:
+            i = _end_of_quoted(text, i, IDENTIFIER_QUOTE)
+            continue
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return length
+
+
+def _top_level_arguments(text: str, open_paren: int, end: int) -> List[Tuple[int, str]]:
+    """Start offset and text of each depth-0 argument of the call whose `(`
+    is at `open_paren` and whose closing `)` is just before `end`. `text`
+    must already be blanked as for `_end_of_call`."""
+    arguments: List[Tuple[int, str]] = []
+    depth = 0
+    start = open_paren + 1
+    i = start
+    while i < end:
+        ch = text[i]
+        if ch == IDENTIFIER_QUOTE:
+            i = _end_of_quoted(text, i, IDENTIFIER_QUOTE)
+            continue
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            if depth == 0:
+                break
+            depth -= 1
+        elif ch == "," and depth == 0:
+            arguments.append((start, text[start:i]))
+            start = i + 1
+        i += 1
+    arguments.append((start, text[start:i]))
+    return arguments
+
+
+def _mask_bracketed_names(text: str) -> str:
+    """Blank the inside of every `[...]` name, keeping the brackets and the
+    length, so the table-level regexes never see a quote, a parenthesis or a
+    function name that is part of a column or measure name."""
+    out: List[str] = []
+    i = 0
+    length = len(text)
+    while i < length:
+        ch = text[i]
+        if ch == IDENTIFIER_QUOTE:
+            end = _end_of_quoted(text, i, IDENTIFIER_QUOTE)
+            out.append(text[i:end])
+            i = end
+        elif ch == BRACKET_OPEN:
+            end = _end_of_bracketed(text, i)
+            inner_end = end - 1 if text[end - 1 : end] == BRACKET_CLOSE else end
+            out.append(BRACKET_OPEN + " " * (inner_end - i - 1))
+            out.append(text[inner_end:end])
+            i = end
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def strip_comments_and_strings(expression: str) -> str:
+    """Blank out `//`, `--` and `/* */` comments and `"..."` string literals
+    so a reference regex never matches inside them. Single-quoted table
+    identifiers and `[bracketed]` column or measure names are kept verbatim,
+    including any quote or comment marker they contain, so an apostrophe in
+    `[Bob's Total]` never opens a quoted table name. Everything else is
+    returned unchanged."""
+    out: List[str] = []
+    i = 0
+    length = len(expression)
+    while i < length:
+        ch = expression[i]
+        pair = expression[i : i + 2]
+        if ch == IDENTIFIER_QUOTE:
+            end = _end_of_quoted(expression, i, IDENTIFIER_QUOTE)
+            out.append(expression[i:end])
+            i = end
+        elif ch == BRACKET_OPEN:
+            end = _end_of_bracketed(expression, i)
+            out.append(expression[i:end])
+            i = end
+        elif ch == STRING_QUOTE:
+            i = _end_of_quoted(expression, i, STRING_QUOTE)
+            out.append(" ")
+        elif pair == BLOCK_COMMENT_START:
+            end = expression.find(BLOCK_COMMENT_END, i + 2)
+            i = length if end == -1 else end + len(BLOCK_COMMENT_END)
+            out.append(" ")
+        elif pair in LINE_COMMENT_MARKERS:
+            end = expression.find("\n", i)
+            i = length if end == -1 else end
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def extract_dax_references(expression: Optional[str]) -> DaxReferences:
+    """Model fields and tables a DAX expression reads, each distinct and in
+    order of first appearance, plus whether the expression iterates a table.
+
+    Comments and string literals are blanked out first, so a field name
+    inside `"..."` or after `//` is not a reference. `'Table'[Field]`,
+    `Table[Field]` and bare `[Field]` references are collected together with
+    the table arguments of the common table functions; `[@Alias]` row-context
+    variables are not fields. A field reference also contributes its table.
+    Whether a referenced table or field exists in the model is the caller's
+    decision."""
+    references = DaxReferences()
+    if not expression:
+        return references
+    text = strip_comments_and_strings(expression)
+    # Same length and offsets as `text`.
+    masked = _mask_bracketed_names(text)
+    iterator_spans: List[Tuple[int, int]] = [
+        (match.end() - 1, _end_of_call(masked, match.end() - 1))
+        for match in DAX_ROW_CONTEXT_ITERATOR_RE.finditer(masked)
+    ]
+
+    def inside_iterator(position: int) -> bool:
+        return any(start < position < end for start, end in iterator_spans)
+
+    # A bare reference is in row context only when every occurrence is
+    # inside an iterator; one occurrence outside reads this table's row.
+    in_row_context: Dict[DaxFieldReference, bool] = {}
+    seen_tables: Set[str] = set()
+
+    def add_table(name: str) -> None:
+        if name not in seen_tables:
+            seen_tables.add(name)
+            references.tables.append(name)
+
+    for match in DAX_FIELD_REFERENCE_RE.finditer(text):
+        field_name = match.group("field").replace("]]", "]").strip()
+        if not field_name or field_name.startswith(ROW_CONTEXT_VARIABLE_PREFIX):
+            continue
+        table: Optional[str] = None
+        if match.group("quoted") is not None:
+            table = _unescape_table(match.group("quoted"))
+        elif match.group("bare") is not None:
+            table = match.group("bare")
+        reference = DaxFieldReference(table=table, field=field_name)
+        iterated = table is None and inside_iterator(match.start())
+        in_row_context[reference] = in_row_context.get(reference, True) and iterated
+        if table is not None:
+            add_table(table)
+    references.fields = [
+        DaxFieldReference(
+            table=reference.table,
+            field=reference.field,
+            in_row_context=iterated,
+        )
+        for reference, iterated in in_row_context.items()
+    ]
+
+    for match in DAX_QUOTED_TABLE_RE.finditer(masked):
+        if masked[match.end() : match.end() + 1] == BRACKET_OPEN:
+            continue
+        add_table(_unescape_table(match.group(1)))
+
+    variables = {
+        match.group("name").casefold() for match in DAX_VARIABLE_RE.finditer(masked)
+    }
+    table_arguments: List[Tuple[int, str]] = [
+        (match.start("bare"), match.group("bare"))
+        for match in (
+            *DAX_TABLE_ARGUMENT_RE.finditer(masked),
+            *DAX_TOPN_TABLE_ARGUMENT_RE.finditer(masked),
+        )
+    ]
+    for match in DAX_ALL_TABLE_ARGUMENTS_CALL_RE.finditer(masked):
+        open_paren = match.end() - 1
+        for start, argument in _top_level_arguments(
+            masked, open_paren, _end_of_call(masked, open_paren)
+        ):
+            name = argument.strip()
+            if DAX_BARE_TABLE_NAME_RE.fullmatch(name):
+                table_arguments.append((start, name))
+    whole = DAX_BARE_EXPRESSION_RE.fullmatch(masked)
+    if whole is not None:
+        table_arguments.append((whole.start("bare"), whole.group("bare")))
+    table_arguments.extend(
+        (match.start("bare"), match.group("bare"))
+        for match in (
+            *DAX_BARE_VARIABLE_VALUE_RE.finditer(masked),
+            *DAX_BARE_RETURN_VALUE_RE.finditer(masked),
+        )
+    )
+    for _, name in sorted(table_arguments):
+        if name.casefold() not in variables and name.casefold() not in (
+            DAX_BARE_LITERALS
+        ):
+            add_table(name)
+
+    references.has_row_context_iterators = bool(iterator_spans)
+    return references
