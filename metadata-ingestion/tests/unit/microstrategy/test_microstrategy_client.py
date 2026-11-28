@@ -911,7 +911,9 @@ def test_metadata_search_empty_page_before_total_items_raises(
     ) -> Dict[str, Any]:
         assert params is not None
         offset = params["offset"]
-        items = [] if offset == 2000 else [{"id": f"d{offset + i}"} for i in range(1000)]
+        items = (
+            [] if offset == 2000 else [{"id": f"d{offset + i}"} for i in range(1000)]
+        )
         return {"result": items, "totalItems": 5000}
 
     monkeypatch.setattr(client, "_get_json", fake_get_json)

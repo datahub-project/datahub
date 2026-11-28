@@ -1231,7 +1231,9 @@ def test_fetch_project_model_tables_empty_page_before_total_is_a_failure() -> No
             self, project_id: str, limit: int, offset: int, fields: str
         ) -> ModelTablesResponse:
             tables: List[Dict[str, object]] = (
-                [] if offset == 2000 else [{"id": f"t{offset + i}"} for i in range(limit)]
+                []
+                if offset == 2000
+                else [{"id": f"t{offset + i}"} for i in range(limit)]
             )
             return ModelTablesResponse(tables=tables, total=5000)
 

@@ -619,8 +619,7 @@ class MicroStrategyLineageExtractor:
                 "for this dataset was skipped."
             ),
             context=(
-                f"{label}, platform={context.platform}, "
-                f"sql_prefix={sql.strip()[:80]!r}"
+                f"{label}, platform={context.platform}, sql_prefix={sql.strip()[:80]!r}"
             ),
             log=log,
         )
@@ -762,8 +761,7 @@ class MicroStrategyLineageExtractor:
             self.report.warning(
                 title="Failed to fetch warehouse schema from DataHub",
                 message=(
-                    "Column lineage for this upstream table uses the casing "
-                    "heuristic."
+                    "Column lineage for this upstream table uses the casing heuristic."
                 ),
                 context=upstream_dataset_urn,
                 exc=error,
