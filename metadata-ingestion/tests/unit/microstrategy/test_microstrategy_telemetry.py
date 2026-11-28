@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Iterator, List
+from typing import Dict, Iterator, List, NoReturn
 from unittest import mock
 
 import pytest
@@ -54,13 +54,13 @@ class _FakeClock:
         return self.now
 
 
-def _config(**overrides: Any) -> MicroStrategyConfig:
+def _config(**overrides: object) -> MicroStrategyConfig:
     return MicroStrategyConfig.model_validate(
         {"base_url": "https://mstr.example.com/MicroStrategyLibrary", **overrides}
     )
 
 
-def _extractor(**overrides: Any) -> MicroStrategyLineageExtractor:
+def _extractor(**overrides: object) -> MicroStrategyLineageExtractor:
     return MicroStrategyLineageExtractor(_config(**overrides), MicroStrategyReport())
 
 
@@ -177,7 +177,7 @@ def test_timed_phase_rejects_generators() -> None:
     with pytest.raises(TypeError, match="timed_generator_phase"):
 
         @timed_phase(MicroStrategyPhase.DASHBOARD)
-        def generator(self: Any) -> Iterator[int]:
+        def generator(self: _Owner) -> Iterator[int]:
             yield 1
 
 
@@ -205,7 +205,7 @@ def test_client_records_every_attempt_and_retry_backoff(
     class _Response:
         def __init__(self, status_code: int) -> None:
             self.status_code = status_code
-            self.headers: dict = {}
+            self.headers: Dict[str, str] = {}
             self.content = b"{}"
 
         def raise_for_status(self) -> None:
@@ -319,7 +319,6 @@ def test_project_reset_drops_the_parse_cache_and_records_its_size() -> None:
 
 
 def test_project_reset_counts_a_spilled_cache_without_calling_len() -> None:
-    # Reset must not call FileBackedDict.__len__, which binds one SQL variable per key.
     extractor = _extractor(cache_memory_entries=2)
     for index in range(5):
         extractor.warehouse_lineage_from_sql(
@@ -338,9 +337,9 @@ def test_one_schema_resolver_is_shared_across_parses() -> None:
     extractor = _extractor()
     graph = mock.MagicMock()
     graph.get_entities.return_value = {}
-    resolvers: List[Any] = []
+    resolvers: List[object] = []
 
-    def fake_parse(**kwargs: Any) -> Any:
+    def fake_parse(**kwargs: object) -> NoReturn:
         resolvers.append(kwargs["schema_resolver"])
         raise RuntimeError("stop after capturing the resolver")
 
@@ -438,7 +437,6 @@ def test_enum_phase_and_cache_names_serialize_by_value() -> None:
 
 
 def test_endpoint_template_replaces_dossier_chapter_and_visualization_keys() -> None:
-    # Visualization keys are not object ids and made one row per visualization.
     base = f"/api/v2/dossiers/{_OBJECT_ID}/instances/{_INSTANCE_ID}"
     expected = (
         "GET /api/v2/dossiers/{id}/instances/{id}/chapters/{key}/visualizations/{key}"

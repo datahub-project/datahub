@@ -284,7 +284,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.client.login()
         auth_lost = False
-        # Per-statement sqlglot warnings fill the executor's bounded log.
         sqlglot_filter = SqlglotWarningFilter(self.report)
         sqlglot_logger = logging.getLogger(MSTR_SQLGLOT_LOGGER)
         sqlglot_logger.addFilter(sqlglot_filter)

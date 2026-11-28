@@ -782,7 +782,6 @@ def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
 def test_metrics_are_emitted_as_they_are_fetched(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # Holding every metric until the last one is built doubled peak memory.
     fetched: List[str] = []
 
     class RecordingClient(FakeSemanticModelClient):

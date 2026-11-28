@@ -1291,8 +1291,6 @@ def test_model_tables_shared_between_lineage_and_semantic_model() -> None:
 
 
 class _FlakyModelTablesClient:
-    """Fails the first list_model_tables call, answers the rest."""
-
     def __init__(self) -> None:
         self.model_table_calls = 0
 
@@ -1307,7 +1305,6 @@ class _FlakyModelTablesClient:
 
 
 def test_semantic_model_retries_a_failed_model_tables_fetch() -> None:
-    # The first fetch is hours earlier; one failure used to drop the semantic model.
     source = _source({"emit_semantic_model_entities": True})
     client = _FlakyModelTablesClient()
     source.client = client  # type: ignore[assignment]
@@ -3643,7 +3640,6 @@ def test_project_caches_are_dropped_at_the_project_boundary() -> None:
     source._reset_project_caches()
     _run_dashboards(source)
 
-    # Caches are per project.
     assert client.report_instances_created == ["rep-1", "rep-1"]
     assert source.report.sql_parses_executed == 2
     assert source._metric_model_cache == {}

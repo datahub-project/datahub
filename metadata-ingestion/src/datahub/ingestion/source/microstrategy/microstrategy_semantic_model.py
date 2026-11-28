@@ -205,7 +205,6 @@ class MicroStrategySemanticModelMapper:
         yield from model.as_workunits()
         for dataset in datasets:
             yield from dataset.as_workunits()
-        # Holding every metric until the last one doubled peak memory.
         metrics_emitted = 0
         for metric in self._metrics(
             project_id=project_id,
