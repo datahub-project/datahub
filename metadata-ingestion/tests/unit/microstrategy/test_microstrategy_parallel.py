@@ -46,6 +46,7 @@ from datahub.ingestion.source.microstrategy.parallel import (
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.source import MicroStrategySource
+from datahub.ingestion.source.microstrategy.spill_cache import SpillConnection
 from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StatusClass,
@@ -939,7 +940,6 @@ def test_end_to_end_parallel_workers_keep_sqlglot_on_main_thread_and_match_seria
             side_effect=tracked_sql_parse,
         ):
             workunits = list(source.get_workunits_internal())
-        assert source._model_documents_in_flight == {}
         return _SourceRunResult(
             workunits=workunits,
             client=fake_client,
@@ -1335,14 +1335,14 @@ def test_semantic_model_parallel_emit_matches_serial_and_coalesces_consolidation
             config=config,
             report=report,
             client=client,  # type: ignore[arg-type]
-            lineage=MicroStrategyLineageExtractor(config, report),
+            lineage=MicroStrategyLineageExtractor(config, report, SpillConnection()),
         )
         wus = list(
             mapper.emit(
                 project_id="proj-1",
                 project_name="Retail Project",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_ProjectKey(
                     platform="microstrategy",
                     instance=None,

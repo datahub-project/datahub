@@ -1,77 +1,76 @@
 import threading
 from typing import Callable, Dict, Generic, Optional, TypeVar, Union
 
-from pydantic import BaseModel, ConfigDict
-
 from datahub.ingestion.api.closeable import Closeable
-from datahub.ingestion.source.microstrategy.models import normalize_object_id
-from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_EVICTION_BATCH_DIVISOR,
+    MSTR_MAX_EVICTION_BATCH,
+)
+from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
+from datahub.utilities.sentinels import Unset, unset
 
 _V = TypeVar("_V")
 
-_TABLE_NAME = "cache"
-_MAX_EVICTION_BATCH = 150
-_EVICTION_BATCH_DIVISOR = 4
 
+class SpillConnection(Closeable):
+    """One temporary SQLite file shared by a project's spill caches, each in
+    its own table. Opened on first write and removed by close()."""
 
-class _Missing:
-    pass
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._wrapper: Optional[ConnectionWrapper] = None
 
+    def get(self) -> ConnectionWrapper:
+        with self._lock:
+            if self._wrapper is None:
+                self._wrapper = ConnectionWrapper()
+            return self._wrapper
 
-_MISSING = _Missing()
+    def drop_table(self, tablename: str) -> None:
+        with self._lock:
+            if self._wrapper is not None:
+                self._wrapper.execute(f"DROP TABLE IF EXISTS {tablename}")
 
-
-class CacheLookup(BaseModel, Generic[_V]):
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
-
-    found: bool
-    value: Optional[_V] = None
-
-
-def object_cache_key(project_id: str, object_id: str) -> str:
-    return f"{project_id}:{normalize_object_id(object_id)}"
+    def close(self) -> None:
+        with self._lock:
+            wrapper, self._wrapper = self._wrapper, None
+        if wrapper is not None:
+            wrapper.close()
 
 
 class SpillCache(Closeable, Generic[_V]):
-    # __len__ binds one SQL variable per key, and the dict is not thread-safe.
-    def __init__(self, memory_entries: int, compress: bool = False) -> None:
+    # FileBackedDict is not thread-safe, so every access holds the lock. A
+    # loader runs outside it; concurrent callers of the same key wait for it.
+    def __init__(
+        self,
+        connection: SpillConnection,
+        tablename: str,
+        memory_entries: int,
+        compress: bool = False,
+    ) -> None:
+        self._connection = connection
+        self._tablename = tablename
         self._memory_entries = max(1, memory_entries)
         self._compress = compress
         self._lock = threading.RLock()
         self._store: Optional[FileBackedDict[_V]] = None
-        self._entry_count = 0
         self._loading: Dict[str, threading.Event] = {}
+        self._closed = False
 
-    @property
-    def entry_count(self) -> int:
-        return self._entry_count
-
-    def get(self, key: str) -> Optional[_V]:
+    def get(self, key: str) -> Union[_V, Unset]:
         with self._lock:
-            value = self._lookup(key)
-        return None if isinstance(value, _Missing) else value
-
-    def get_entry(self, key: str) -> CacheLookup[_V]:
-        with self._lock:
-            value = self._lookup(key)
-        if isinstance(value, _Missing):
-            return CacheLookup(found=False)
-        return CacheLookup(found=True, value=value)
-
-    def __contains__(self, key: str) -> bool:
-        with self._lock:
-            return not isinstance(self._lookup(key), _Missing)
+            return self._lookup(key)
 
     def put(self, key: str, value: _V) -> None:
         with self._lock:
-            self._write(key, value)
+            self._open()[key] = value
 
     def get_or_load(self, key: str, loader: Callable[[], _V]) -> _V:
-        # A loader that raises caches nothing, so a waiter runs its own load.
+        # A failed load caches nothing, so a waiter runs its own load.
         while True:
             with self._lock:
                 value = self._lookup(key)
-                if not isinstance(value, _Missing):
+                if not isinstance(value, Unset):
                     return value
                 pending = self._loading.get(key)
                 if pending is None:
@@ -81,56 +80,72 @@ class SpillCache(Closeable, Generic[_V]):
             pending.wait()
         try:
             loaded = loader()
-        except BaseException:
             with self._lock:
-                del self._loading[key]
+                # A reset or close during the load released the key; the value
+                # must not land in the store opened after it.
+                if self._loading.get(key) is pending:
+                    self._open()[key] = loaded
+            return loaded
+        finally:
+            with self._lock:
+                if self._loading.get(key) is pending:
+                    del self._loading[key]
             pending.set()
-            raise
-        with self._lock:
-            self._write(key, loaded)
-            del self._loading[key]
-        pending.set()
-        return loaded
 
     def reset(self) -> None:
         with self._lock:
-            self._close_store()
-            self._entry_count = 0
+            self._closed = False
+            self._release()
 
     def close(self) -> None:
         with self._lock:
-            self._close_store()
+            self._closed = True
+            self._release()
 
-    def _lookup(self, key: str) -> Union[_V, _Missing]:
-        if self._store is None:
-            return _MISSING
+    def _release(self) -> None:
+        loading, self._loading = self._loading, {}
+        for pending in loading.values():
+            pending.set()
+        store, self._store = self._store, None
+        if store is None or store.closed:
+            return
         try:
-            return self._store[key]
-        except KeyError:
-            return _MISSING
+            store.close()
+        finally:
+            self._connection.drop_table(self._tablename)
 
-    def _write(self, key: str, value: _V) -> None:
-        if isinstance(self._lookup(key), _Missing):
-            self._entry_count += 1
-        self._open()[key] = value
+    def _live_store(self) -> Optional[FileBackedDict[_V]]:
+        if self._closed:
+            raise RuntimeError(f"Spill cache {self._tablename} is closed")
+        # Closing the shared connection closes every store opened on it.
+        if self._store is not None and self._store.closed:
+            self._store = None
+        return self._store
+
+    def _lookup(self, key: str) -> Union[_V, Unset]:
+        store = self._live_store()
+        if store is None:
+            return unset
+        try:
+            return store[key]
+        except KeyError:
+            return unset
 
     def _open(self) -> FileBackedDict[_V]:
-        if self._store is None:
-            self._store = FileBackedDict(
-                tablename=_TABLE_NAME,
+        store = self._live_store()
+        if store is None:
+            store = FileBackedDict(
+                shared_connection=self._connection.get(),
+                tablename=self._tablename,
                 cache_max_size=self._memory_entries,
                 cache_eviction_batch_size=max(
                     1,
                     min(
-                        _MAX_EVICTION_BATCH,
-                        self._memory_entries // _EVICTION_BATCH_DIVISOR,
+                        MSTR_MAX_EVICTION_BATCH,
+                        self._memory_entries // MSTR_EVICTION_BATCH_DIVISOR,
                     ),
                 ),
                 should_compress_value=self._compress,
             )
-        return self._store
-
-    def _close_store(self) -> None:
-        if self._store is not None:
-            self._store.close()
-            self._store = None
+            self._store = store
+        return store

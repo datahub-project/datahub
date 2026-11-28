@@ -1,10 +1,13 @@
+import contextlib
 import hashlib
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import (
     Callable,
     Dict,
+    FrozenSet,
     Iterable,
+    Iterator,
     List,
     MutableMapping,
     Optional,
@@ -13,9 +16,10 @@ from typing import (
     TypeVar,
 )
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.microstrategy.config import (
@@ -30,16 +34,16 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE,
     MSTR_LINEAGE_STOP_WORDS,
     MSTR_METRIC_REFERENCE_RE,
-    MSTR_MODEL_TABLE_DATASOURCE_FIELD,
     MSTR_NAME_TOKEN_RE,
     MSTR_NON_ALNUM_RE,
+    MSTR_PARSE_LABEL_HASH_CHARS,
+    MSTR_PARSE_LABEL_PREFIX,
     MSTR_PLATFORM_QUALIFIED_NAME_PARTS,
     MSTR_SELECT_STATEMENT_RE,
     MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM,
     MSTR_SQL_EXPRESSION_KEYWORDS,
     MSTR_SQL_IDENTIFIER_RE,
     MSTR_SQL_VIEW_OUTPUT_SENTINEL,
-    MSTR_SQLGLOT_SUPPRESSED_PREFIXES,
     MSTR_WHITESPACE_RE,
 )
 from datahub.ingestion.source.microstrategy.models import (
@@ -49,23 +53,39 @@ from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     DatasourceConnection,
     DatasourceReference,
+    ModelTableDatasourceRef,
     Visualization,
     normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-from datahub.ingestion.source.microstrategy.spill_cache import SpillCache
-from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.ingestion.source.microstrategy.spill_cache import (
+    SpillCache,
+    SpillConnection,
+)
+from datahub.metadata.schema_classes import SchemaMetadataClass
+from datahub.sql_parsing.schema_resolver import (
+    SchemaInfo,
+    SchemaResolver,
+    SchemaResolverReport,
+)
 from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_from_sql_statements
+from datahub.sql_parsing.sqlglot_lineage import (
+    column_refs_to_schema_field_urns,
+    create_lineage_from_sql_statements,
+)
+from datahub.utilities.sentinels import Unset
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
 LineageKey = TypeVar("LineageKey")
 
-_PARSE_LABEL_PREFIX = "sql "
-_PARSE_LABEL_HASH_CHARS = 12
+_MISSING_SQL_PARSING_DEPENDENCIES = (
+    "The SQL parsing dependencies are not installed, so MicroStrategy SQL views "
+    "cannot be parsed for warehouse lineage. Install them with "
+    "`pip install 'acryl-datahub[microstrategy]'`."
+)
 
 
 @dataclass(frozen=True)
@@ -80,6 +100,38 @@ class WarehouseLineageContext:
     connection_unavailable: bool = False
 
 
+TableContextResolver = Callable[[Dict[str, object]], Optional[WarehouseLineageContext]]
+
+
+class ProjectWarehouseContexts(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    supported: FrozenSet[WarehouseLineageContext]
+    # A datasource with no platform makes the project mixed, so its tables must
+    # not inherit another datasource's platform.
+    has_unsupported: bool
+
+    @property
+    def single(self) -> Optional[WarehouseLineageContext]:
+        if self.has_unsupported or len(self.supported) != 1:
+            return None
+        return next(iter(self.supported))
+
+    @property
+    def has_several(self) -> bool:
+        return len(self.supported) + int(self.has_unsupported) > 1
+
+
+def project_warehouse_contexts(
+    datasource_contexts: Iterable[Optional[WarehouseLineageContext]],
+) -> ProjectWarehouseContexts:
+    contexts = list(datasource_contexts)
+    return ProjectWarehouseContexts(
+        supported=frozenset(context for context in contexts if context is not None),
+        has_unsupported=any(context is None for context in contexts),
+    )
+
+
 @dataclass(frozen=True)
 class ModelFieldLineage:
     upstream_dataset_urn: str
@@ -90,11 +142,8 @@ class ModelFieldLineage:
 class SqlViewLineage:
     # Table-level upstream dataset urns and, keyed by dataset field path, the
     # upstream warehouse schemaField urns feeding that field.
-    upstream_urns: List[str]
-    field_upstreams: Dict[str, List[str]]
-
-
-_EMPTY_LINEAGE = SqlViewLineage([], {})
+    upstream_urns: List[str] = field(default_factory=list)
+    field_upstreams: Dict[str, List[str]] = field(default_factory=dict)
 
 
 class _SqlViewParseStatus(StrEnum):
@@ -104,48 +153,102 @@ class _SqlViewParseStatus(StrEnum):
 
 
 class _ParsedSqlView(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     status: _SqlViewParseStatus
     upstream_urns: List[str] = Field(default_factory=list)
     column_upstreams: Dict[str, List[str]] = Field(default_factory=dict)
+    # Upstream tables whose schema lookup raised while parsing. A view with any
+    # is not cached, so the next parse retries the lookup.
+    failed_lookup_urns: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _upstreams_only_when_parsed(self) -> "_ParsedSqlView":
+        if self.status != _SqlViewParseStatus.PARSED and (
+            self.upstream_urns or self.column_upstreams
+        ):
+            raise ValueError("Upstreams are only valid for a parsed SQL view")
+        return self
 
 
 class _WarehouseKey(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     platform: str
     platform_instance: Optional[str]
     env: str
 
 
+class _WarehouseSchema(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    lookup_failed: bool = False
+    # Lowercased field path -> real field path; None when DataHub has no schema.
+    field_by_name: Optional[Dict[str, str]] = None
+
+
 _NO_STATEMENTS = _ParsedSqlView(status=_SqlViewParseStatus.NO_STATEMENTS)
 _PARSE_FAILED = _ParsedSqlView(status=_SqlViewParseStatus.FAILED)
 
 
-class SqlglotWarningFilter(logging.Filter):
-    def __init__(self, report: MicroStrategyReport) -> None:
-        super().__init__()
-        self._report = report
+class _EvictingSchemaResolver(SchemaResolver):
+    # SchemaResolver caches a batch lookup that raised as "no schema" for good.
+    # Tracking those urns lets the caller evict them so a later parse retries.
+    def __init__(
+        self,
+        *,
+        platform: str,
+        platform_instance: Optional[str],
+        env: str,
+        graph: Optional[DataHubGraph],
+        report: SchemaResolverReport,
+    ) -> None:
+        super().__init__(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=graph,
+            report=report,
+        )
+        self._failed_lookup_urns: Set[str] = set()
+        self._in_definitive_lookup = False
 
-    def filter(self, record: logging.LogRecord) -> bool:
-        message = record.getMessage()
-        for prefix in MSTR_SQLGLOT_SUPPRESSED_PREFIXES:
-            if message.startswith(prefix):
-                self._report.sqlglot_warnings_suppressed[message] += 1
-                return False
-        return True
+    @contextlib.contextmanager
+    def _definitive_lookup(self) -> Iterator[None]:
+        # Inside these lookups a None entry means DataHub answered "no schema".
+        self._in_definitive_lookup = True
+        try:
+            yield
+        finally:
+            self._in_definitive_lookup = False
 
+    def add_schema_metadata_from_fetch(
+        self, urn: str, schema_metadata: Optional[SchemaMetadataClass]
+    ) -> None:
+        with self._definitive_lookup():
+            super().add_schema_metadata_from_fetch(urn, schema_metadata)
 
-TableContextResolver = Callable[[Dict[str, object]], Optional[WarehouseLineageContext]]
+    def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
+        with self._definitive_lookup():
+            return super()._resolve_schema_info(urn)
 
+    def _save_to_cache(
+        self,
+        urn: str,
+        schema_info: Optional[SchemaInfo],
+        original_field_paths: Optional[Dict[str, str]] = None,
+    ) -> None:
+        if schema_info is None and not self._in_definitive_lookup:
+            self._failed_lookup_urns.add(urn)
+        super()._save_to_cache(urn, schema_info, original_field_paths)
 
-def resolve_table_context(
-    table: Dict[str, object],
-    context: Optional[WarehouseLineageContext],
-    table_context_resolver: Optional[TableContextResolver],
-) -> Optional[WarehouseLineageContext]:
-    return table_context_resolver(table) if table_context_resolver else context
+    def evict_failed_lookups(self) -> List[str]:
+        failed = sorted(self._failed_lookup_urns)
+        self._failed_lookup_urns.clear()
+        for urn in failed:
+            with contextlib.suppress(KeyError):
+                del self._schema_cache[urn]
+        return failed
 
 
 @dataclass(frozen=True)
@@ -203,7 +306,12 @@ class ModelLineageIndex:
 
 
 class MicroStrategyLineageExtractor:
-    def __init__(self, config: MicroStrategyConfig, report: MicroStrategyReport):
+    def __init__(
+        self,
+        config: MicroStrategyConfig,
+        report: MicroStrategyReport,
+        spill_connection: SpillConnection,
+    ):
         self.config = config
         self.report = report
         # upstream dataset urn -> {lower(fieldPath): fieldPath}, or None when the
@@ -211,18 +319,18 @@ class MicroStrategyLineageExtractor:
         # fetched at most once per run.
         self._warehouse_field_cache: Dict[str, Optional[Dict[str, str]]] = {}
         # Same report SQL is parsed once per project.
-        self._parse_cache: SpillCache[_ParsedSqlView] = SpillCache(
-            MSTR_CACHE_MEMORY_ENTRIES
+        self._parsed_sql_views: SpillCache[_ParsedSqlView] = SpillCache(
+            spill_connection, "parsed_sql_views", MSTR_CACHE_MEMORY_ENTRIES
         )
         # One resolver per warehouse, so each table schema is fetched once per project.
-        self._schema_resolvers: Dict[_WarehouseKey, SchemaResolver] = {}
+        self._schema_resolvers: Dict[_WarehouseKey, _EvictingSchemaResolver] = {}
 
     def reset_project_caches(self) -> None:
-        self._parse_cache.reset()
+        self._parsed_sql_views.reset()
         self._close_schema_resolvers()
 
     def close(self) -> None:
-        self._parse_cache.close()
+        self._parsed_sql_views.close()
         self._close_schema_resolvers()
 
     def _close_schema_resolvers(self) -> None:
@@ -232,7 +340,7 @@ class MicroStrategyLineageExtractor:
 
     def _schema_resolver(
         self, context: "WarehouseLineageContext", graph: DataHubGraph
-    ) -> SchemaResolver:
+    ) -> _EvictingSchemaResolver:
         key = _WarehouseKey(
             platform=context.platform,
             platform_instance=context.platform_instance,
@@ -240,7 +348,7 @@ class MicroStrategyLineageExtractor:
         )
         resolver = self._schema_resolvers.get(key)
         if resolver is None:
-            resolver = SchemaResolver(
+            resolver = _EvictingSchemaResolver(
                 platform=context.platform,
                 platform_instance=context.platform_instance,
                 env=context.env,
@@ -253,30 +361,39 @@ class MicroStrategyLineageExtractor:
     def dataset_urn(
         self,
         project_id: str,
-        parent_id: Optional[str],
+        parent_id: str,
         dataset: DatasetObject,
     ) -> str:
-        return make_dataset_urn_with_platform_instance(
-            platform=self.config.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            name=self.dataset_qualified_name(project_id, parent_id, dataset),
+        return self._make_dataset_urn(
+            self.dataset_qualified_name(project_id, parent_id, dataset)
+        )
+
+    def report_dataset_urn(self, project_id: str, dataset: DatasetObject) -> str:
+        return self._make_dataset_urn(
+            self.report_dataset_qualified_name(project_id, dataset)
         )
 
     def dataset_qualified_name(
         self,
         project_id: str,
-        parent_id: Optional[str],
+        parent_id: str,
         dataset: DatasetObject,
     ) -> str:
         if self.config.per_report:
-            return f"{project_id}.{dataset.id}".lower()
-        if parent_id is None:
-            # Would otherwise build `<project>.none.<dataset>`, a URN nothing links to.
-            raise ValueError(
-                f"A per_dashboard dataset URN needs a parent id: dataset {dataset.id}"
-            )
+            return self.report_dataset_qualified_name(project_id, dataset)
         return f"{project_id}.{parent_id}.{dataset.id}".lower()
+
+    @staticmethod
+    def report_dataset_qualified_name(project_id: str, dataset: DatasetObject) -> str:
+        return f"{project_id}.{dataset.id}".lower()
+
+    def _make_dataset_urn(self, name: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.config.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            name=name,
+        )
 
     def visualization_inputs(
         self,
@@ -390,16 +507,16 @@ class MicroStrategyLineageExtractor:
         """
         field_path_by_name = {path.lower(): path for path in dataset_field_paths}
         if not sql.strip():
-            return _EMPTY_LINEAGE
+            return SqlViewLineage()
 
         parsed = self._parse_sql_view_cached(
             sql, context, bool(field_path_by_name), graph, label
         )
         if parsed.status == _SqlViewParseStatus.NO_STATEMENTS:
-            return _EMPTY_LINEAGE
+            return SqlViewLineage()
         self.report.report_sql_view_parsed()
         if parsed.status == _SqlViewParseStatus.FAILED:
-            return _EMPTY_LINEAGE
+            return SqlViewLineage()
 
         field_upstreams: Dict[str, List[str]] = {}
         for column, upstream_urns in parsed.column_upstreams.items():
@@ -429,23 +546,40 @@ class MicroStrategyLineageExtractor:
                 [repr(context), str(want_field_columns), str(graph is not None), sql]
             ).encode("utf-8")
         ).hexdigest()
-        label = label or _PARSE_LABEL_PREFIX + cache_key[:_PARSE_LABEL_HASH_CHARS]
-        cached = self._parse_cache.get(cache_key)
-        if cached is not None:
-            failed = cached.status == _SqlViewParseStatus.FAILED
-            if cached.status != _SqlViewParseStatus.NO_STATEMENTS:
-                self.report.report_sql_parse_cache_hit(failed=failed)
-            if failed:
-                self._warn_sql_parse_failure(
-                    label=f"{label} (cached failure)",
-                    sql=sql,
-                    context=context,
-                    log=False,
-                )
+        label = (
+            label or MSTR_PARSE_LABEL_PREFIX + cache_key[:MSTR_PARSE_LABEL_HASH_CHARS]
+        )
+        cached = self._parsed_sql_views.get(cache_key)
+        if not isinstance(cached, Unset):
+            self._report_cache_hit(cached, label, sql, context)
             return cached
         parsed = self._parse_sql_view(sql, context, want_field_columns, graph, label)
-        self._parse_cache.put(cache_key, parsed)
+        if not parsed.failed_lookup_urns:
+            self._parsed_sql_views.put(cache_key, parsed)
         return parsed
+
+    def _report_cache_hit(
+        self,
+        cached: _ParsedSqlView,
+        label: str,
+        sql: str,
+        context: WarehouseLineageContext,
+    ) -> None:
+        if cached.status == _SqlViewParseStatus.NO_STATEMENTS:
+            return
+        if cached.status == _SqlViewParseStatus.PARSED:
+            self.report.report_sql_parse_cache_hit()
+            return
+        self.report.report_sql_parse_failure_cache_hit()
+        self.report.warning(
+            title="Failed to parse MicroStrategy SQL view",
+            message=(
+                "A MicroStrategy SQL view could not be parsed; warehouse lineage "
+                "for this dataset was skipped."
+            ),
+            context=_sql_parse_context(f"{label} (cached failure)", sql, context),
+            log=False,
+        )
 
     def _parse_sql_view(
         self,
@@ -484,21 +618,29 @@ class MicroStrategyLineageExtractor:
                 is_temp_table=lambda name: _leaf_identifier(name) in created_tables,
                 schema_resolver=schema_resolver,
             )
+        except ImportError as error:
+            raise ConfigurationError(_MISSING_SQL_PARSING_DEPENDENCIES) from error
         except Exception as error:
             self._report_sql_parse_failure(
                 sql=sql, context=context, error=error, label=label
             )
-            return _PARSE_FAILED
+            return _failed_parse(self._evict_failed_lookups(schema_resolver, label))
+
+        failed_lookups = self._evict_failed_lookups(schema_resolver, label)
         if result.debug_info.error is not None:
             self._report_sql_parse_failure(
                 sql=sql, context=context, error=result.debug_info.error, label=label
             )
-            return _PARSE_FAILED
+            return _failed_parse(failed_lookups)
 
         column_upstreams: Dict[str, List[str]] = {}
         if want_columns:
+            skipped = set(failed_lookups)
             for column_lineage in result.column_lineage or []:
-                upstream_urns = column_lineage.upstream_schema_field_urns()
+                # Without the upstream schema the column casing is a guess.
+                upstream_urns = column_refs_to_schema_field_urns(
+                    ref for ref in column_lineage.upstreams if ref.table not in skipped
+                )
                 if upstream_urns:
                     column_upstreams.setdefault(
                         column_lineage.downstream.column.lower(), []
@@ -508,7 +650,28 @@ class MicroStrategyLineageExtractor:
             status=_SqlViewParseStatus.PARSED,
             upstream_urns=_dedupe_sorted(result.in_tables),
             column_upstreams=column_upstreams,
+            failed_lookup_urns=failed_lookups,
         )
+
+    def _evict_failed_lookups(
+        self, schema_resolver: Optional[_EvictingSchemaResolver], label: str
+    ) -> List[str]:
+        if schema_resolver is None:
+            return []
+        failed = schema_resolver.evict_failed_lookups()
+        if failed:
+            self.report.report_warehouse_schema_lookup_failures(len(failed))
+            self.report.warning(
+                title="Failed to fetch upstream schemas from DataHub",
+                message=(
+                    "Column lineage from upstream tables whose schema could not be "
+                    "fetched was skipped for this SQL view. The lookup is retried "
+                    "the next time the view is parsed."
+                ),
+                context=f"{label}: {len(failed)} schema lookups, e.g. {failed[0]}",
+                log=False,
+            )
+        return failed
 
     def _report_sql_parse_failure(
         self,
@@ -517,39 +680,29 @@ class MicroStrategyLineageExtractor:
         error: BaseException,
         label: str,
     ) -> None:
+        detail = _sql_parse_context(label, sql, context)
         self.report.report_sql_parse_failure(
-            f"{label}, platform={context.platform}, "
-            f"error={type(error).__name__}: {str(error)[:160]}, "
-            f"sql_prefix={sql.strip()[:80]!r}"
+            f"{detail}, error={type(error).__name__}: {str(error)[:160]}"
         )
-        self._warn_sql_parse_failure(label=label, sql=sql, context=context, log=True)
-        logger.debug(
-            "Failed to parse MicroStrategy SQL view (%s): %s",
-            error,
-            sql.strip()[:200],
-        )
-
-    def _warn_sql_parse_failure(
-        self, label: str, sql: str, context: WarehouseLineageContext, log: bool
-    ) -> None:
         self.report.warning(
             title="Failed to parse MicroStrategy SQL view",
             message=(
                 "A MicroStrategy SQL view could not be parsed; warehouse lineage "
                 "for this dataset was skipped."
             ),
-            context=(
-                f"{label}, platform={context.platform}, sql_prefix={sql.strip()[:80]!r}"
-            ),
-            log=log,
+            context=detail,
+        )
+        logger.debug(
+            "Failed to parse MicroStrategy SQL view (%s): %s",
+            error,
+            sql.strip()[:200],
         )
 
     def model_lineage_index_from_tables(
         self,
         model_tables: List[Dict[str, object]],
-        context: Optional[WarehouseLineageContext],
+        table_context_resolver: TableContextResolver,
         graph: Optional[DataHubGraph] = None,
-        table_context_resolver: Optional[TableContextResolver] = None,
     ) -> ModelLineageIndex:
         fact_upstreams: Dict[str, List[ModelFieldLineage]] = {}
         attribute_upstreams: Dict[str, List[ModelFieldLineage]] = {}
@@ -561,9 +714,7 @@ class MicroStrategyLineageExtractor:
             physical_table = table.get("physicalTable")
             if not isinstance(physical_table, dict):
                 continue
-            table_context = resolve_table_context(
-                table, context, table_context_resolver
-            )
+            table_context = table_context_resolver(table)
             if table_context is None:
                 continue
             physical_table_name = _physical_table_name(physical_table, table_context)
@@ -656,43 +807,49 @@ class MicroStrategyLineageExtractor:
     ) -> List[str]:
         # Prefer the warehouse dataset's real column casing from the graph so
         # schemaField urns byte-match regardless of the case MicroStrategy reports;
-        # fall back to the casing heuristic when the schema is unavailable.
-        schema_fields = self._warehouse_field_map(upstream_dataset_urn, graph)
+        # fall back to the casing heuristic when DataHub has no schema for it.
+        schema = self._warehouse_schema(upstream_dataset_urn, graph)
+        if schema.lookup_failed:
+            return []
         urns: List[str] = []
         for field_name in field_names:
             resolved = None
-            if schema_fields is not None:
-                resolved = schema_fields.get(field_name.lower())
+            if schema.field_by_name is not None:
+                resolved = schema.field_by_name.get(field_name.lower())
             if resolved is None:
                 resolved = field_name.lower() if convert_to_lowercase else field_name
             urns.append(builder.make_schema_field_urn(upstream_dataset_urn, resolved))
         return urns
 
-    def _warehouse_field_map(
+    def _warehouse_schema(
         self,
         upstream_dataset_urn: str,
         graph: Optional[DataHubGraph],
-    ) -> Optional[Dict[str, str]]:
+    ) -> _WarehouseSchema:
         if graph is None:
-            return None
+            return _WarehouseSchema()
         if upstream_dataset_urn in self._warehouse_field_cache:
-            return self._warehouse_field_cache[upstream_dataset_urn]
+            return _WarehouseSchema(
+                field_by_name=self._warehouse_field_cache[upstream_dataset_urn]
+            )
 
         field_map: Optional[Dict[str, str]] = None
         try:
             schema = graph.get_schema_metadata(upstream_dataset_urn)
         except Exception as error:
             # Not cached, so the next use of this table retries the lookup.
+            self.report.report_warehouse_schema_lookup_failures(1)
             self.report.warning(
                 title="Failed to fetch warehouse schema from DataHub",
                 message=(
-                    "Column lineage for this upstream table uses the casing heuristic."
+                    "Column lineage from this upstream table was skipped; the "
+                    "lookup is retried the next time the table is used."
                 ),
                 context=upstream_dataset_urn,
                 exc=error,
                 log=False,
             )
-            return None
+            return _WarehouseSchema(lookup_failed=True)
         if schema is not None:
             # Later fields win on case-insensitive collisions, which is rare and
             # harmless since either casing anchors to the same column.
@@ -700,7 +857,7 @@ class MicroStrategyLineageExtractor:
                 field.fieldPath.lower(): field.fieldPath for field in schema.fields
             }
         self._warehouse_field_cache[upstream_dataset_urn] = field_map
-        return field_map
+        return _WarehouseSchema(field_by_name=field_map)
 
     def _infer_visualization_dataset_inputs(
         self,
@@ -742,6 +899,18 @@ class MicroStrategyLineageExtractor:
             )
             return []
         return unique_inputs
+
+
+def _sql_parse_context(label: str, sql: str, context: WarehouseLineageContext) -> str:
+    return f"{label}, platform={context.platform}, sql_prefix={sql.strip()[:80]!r}"
+
+
+def _failed_parse(failed_lookups: List[str]) -> _ParsedSqlView:
+    if not failed_lookups:
+        return _PARSE_FAILED
+    return _ParsedSqlView(
+        status=_SqlViewParseStatus.FAILED, failed_lookup_urns=failed_lookups
+    )
 
 
 def _sql_statements(sql: str, context: WarehouseLineageContext) -> List[str]:
@@ -799,50 +968,23 @@ def _detail_for_names(
     return None
 
 
-def warehouse_context_from_datasources(
-    datasources: List[Datasource],
-    env: str,
-    mapping: DatasourcePlatformMapping = None,
-) -> Optional[WarehouseLineageContext]:
-    contexts = distinct_warehouse_contexts(datasources, env, mapping)
-    return next(iter(contexts)) if len(contexts) == 1 else None
-
-
-def distinct_warehouse_contexts(
-    datasources: List[Datasource],
-    env: str,
-    mapping: DatasourcePlatformMapping = None,
-) -> Set[Optional[WarehouseLineageContext]]:
-    # None stays in: a datasource with no platform makes the project mixed,
-    # so its tables must not inherit the other datasource's platform.
-    return {
-        warehouse_context_from_datasource(datasource, env, mapping)
-        for datasource in datasources
-    }
-
-
 def datasource_for_model_table(
     table: Dict[str, object],
     datasources: List[Datasource],
 ) -> Optional[Datasource]:
     # Exact id first, else exact name; an ambiguous match resolves to nothing.
-    reference = table.get(MSTR_MODEL_TABLE_DATASOURCE_FIELD)
-    if not isinstance(reference, dict):
+    reference = ModelTableDatasourceRef.from_table(table)
+    if reference is None:
         return None
-    reference_id = _object_id(reference)
-    if reference_id:
-        wanted = normalize_object_id(reference_id)
+    if reference.id:
+        wanted = normalize_object_id(reference.id)
         by_id = [d for d in datasources if normalize_object_id(d.id) == wanted]
         if by_id:
-            return _single_datasource(by_id)
-    reference_name = reference.get("name")
-    if isinstance(reference_name, str) and reference_name:
-        return _single_datasource([d for d in datasources if d.name == reference_name])
+            return by_id[0] if len(by_id) == 1 else None
+    if reference.name:
+        by_name = [d for d in datasources if d.name == reference.name]
+        return by_name[0] if len(by_name) == 1 else None
     return None
-
-
-def _single_datasource(datasources: List[Datasource]) -> Optional[Datasource]:
-    return datasources[0] if len(datasources) == 1 else None
 
 
 def warehouse_context_from_datasource(
@@ -866,20 +1008,6 @@ def warehouse_context_from_datasource(
             detail.convert_urns_to_lowercase if detail else True
         ),
     )
-
-
-def matching_datasource_for_context(
-    datasources: List[Datasource],
-    context: WarehouseLineageContext,
-    mapping: DatasourcePlatformMapping = None,
-) -> Optional[Datasource]:
-    for datasource in datasources:
-        if (
-            warehouse_context_from_datasource(datasource, context.env, mapping)
-            == context
-        ):
-            return datasource
-    return None
 
 
 def warehouse_context_with_connection(
@@ -1020,13 +1148,14 @@ def _physical_table_name(
             table_name = _clean_identifier_part(information.get("name"))
     if not table_name:
         return None
-    # The warehouse context carries the real database (from the JDBC
-    # connection); MicroStrategy's table "namespace" is a logical namespace
-    # (e.g. "SALES_DM_1" with a dedup suffix), so it is only a last resort.
+    # MicroStrategy's table "namespace" is a logical namespace (e.g.
+    # "SALES_DM_1" with a dedup suffix), not the warehouse database, so a
+    # context without a database gives no name rather than a guessed one.
+    if not context.database:
+        return None
     return qualify_table_name(
         table_name,
-        database=context.database
-        or _clean_identifier_part(physical_table.get("namespace")),
+        database=context.database,
         schema=_clean_identifier_part(physical_table.get("tablePrefix"))
         or context.schema,
         name_parts=_platform_name_parts(context.platform),

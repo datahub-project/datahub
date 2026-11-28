@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+from http import HTTPStatus
 from typing import (
     Any,
     Dict,
@@ -48,6 +49,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_OBJECT_TYPE_REPORT,
     MSTR_PROJECT_ID_HEADER,
     MSTR_TEXT_ENCODING,
+    MSTR_VISUALIZATION_RESULT_ROW_LIMIT,
 )
 from datahub.ingestion.source.microstrategy.models import (
     Datasource,
@@ -728,15 +730,23 @@ class MicroStrategyClient:
         chapter_key: str,
         visualization_key: str,
     ) -> Dict[str, object]:
-        # Without a limit the response carries result rows lineage never reads.
-        return self._get_json(
-            (
-                f"/api/v2/dossiers/{dossier_id}/instances/{instance_id}"
-                f"/chapters/{chapter_key}/visualizations/{visualization_key}"
-            ),
-            project_id=project_id,
-            params={"limit": 0},
+        path = (
+            f"/api/v2/dossiers/{dossier_id}/instances/{instance_id}"
+            f"/chapters/{chapter_key}/visualizations/{visualization_key}"
         )
+        # Lineage reads only the grid definition. The documented default limit
+        # returns up to 1000 result rows, so ask for none; the documented
+        # parameter range does not say what 0 returns, so a 400 retries as-is.
+        try:
+            return self._get_json(
+                path,
+                project_id=project_id,
+                params={"limit": MSTR_VISUALIZATION_RESULT_ROW_LIMIT},
+            )
+        except MicroStrategyAPIError as error:
+            if error.status_code != HTTPStatus.BAD_REQUEST:
+                raise
+        return self._get_json(path, project_id=project_id)
 
     def get_cube_definition(self, project_id: str, cube_id: str) -> Dict[str, Any]:
         """Raw cube definition JSON with availableObjects (attributes with

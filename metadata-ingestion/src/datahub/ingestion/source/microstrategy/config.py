@@ -94,7 +94,10 @@ class MicroStrategyConfig(
     timeout_seconds: int = Field(
         default=30,
         gt=0,
-        description="HTTP request timeout in seconds.",
+        description=(
+            "HTTP request timeout in seconds. Model and metric search calls use "
+            f"the larger of this and {MSTR_MODEL_API_MIN_TIMEOUT_SECONDS} seconds."
+        ),
     )
     max_retries: int = Field(
         default=3,
@@ -577,30 +580,10 @@ class MicroStrategyConfig(
     skip_unchanged_objects: bool = Field(
         default=False,
         description=(
-            "Skip re-reading dashboards (dossiers and documents) and standalone "
-            "reports that have not changed since the last successful run. An "
-            "object is skipped only when its version, last-modified time, "
-            "name, owner, description, certification and folder path, the "
-            "same properties of every report and cube it depends on, the "
-            "project's warehouse datasources (and its logical tables when "
-            "`extract_model_lineage` is on), the recipe and the connector "
-            "version all match the previous run, and every entity it emitted "
-            "is still present in DataHub with the same change fingerprint. "
-            "The fingerprint is written to the `microstrategyFingerprint` "
-            "custom property of each dashboard, report chart and report "
-            "dataset, only while this option is on. "
-            "Under `dataset_identity: per_report`, a shared report dataset is "
-            "re-emitted together with every dashboard that uses it whenever "
-            "any of them changes. Skipped entities are kept during stale "
-            "entity removal and keep receiving usage statistics. Requires "
+            "Skip re-reading dashboards and standalone reports that have not "
+            "changed since the last run, keeping what they emitted. Requires "
             "stateful ingestion and a DataHub graph connection; otherwise a "
-            "warning is reported and everything is read. Changes that leave "
-            "these properties untouched are not detected: for example a "
-            "warehouse table's columns changing in DataHub, or new connector "
-            "code in a development build, which always reports the same "
-            "version. To force a full "
-            "re-read, run once with `stateful_ingestion.ignore_old_state: "
-            "true` or with this option off."
+            "warning is reported and everything is read."
         ),
     )
 
@@ -637,10 +620,14 @@ class MicroStrategyConfig(
 
     @model_validator(mode="after")
     def _per_report_requires_a_dataset_source(self) -> "MicroStrategyConfig":
-        if self.per_report and not (self.extract_cubes or self.extract_reports):
+        has_dataset_source = (
+            self.extract_dashboards and self.extract_cubes
+        ) or self.extract_reports
+        if self.per_report and not has_dataset_source:
             raise ValueError(
-                "dataset_identity: per_report requires extract_cubes or "
-                "extract_reports: without either no dataset is emitted."
+                "dataset_identity: per_report requires extract_reports, or both "
+                "extract_dashboards and extract_cubes: without them no dataset "
+                "is emitted."
             )
         return self
 
@@ -649,6 +636,8 @@ class MicroStrategyConfig(
         return self.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT
 
     def resolve_model_api_timeout_seconds(self) -> int:
+        # Metric search and /api/model/tables are slow on large projects, so a
+        # short timeout_seconds must not apply to them.
         return max(self.timeout_seconds, MSTR_MODEL_API_MIN_TIMEOUT_SECONDS)
 
     @field_validator("base_url", mode="after")

@@ -1,16 +1,22 @@
+import functools
 import threading
-import time
-from typing import Callable, List, Optional
+from types import SimpleNamespace
+from typing import Callable, Iterator, List, Optional
 from unittest import mock
 
 import pytest
 
-from datahub.ingestion.source.microstrategy.models import MicroStrategyObject
-from datahub.ingestion.source.microstrategy.spill_cache import (
-    SpillCache,
+from datahub.ingestion.source.microstrategy import spill_cache
+from datahub.ingestion.source.microstrategy.models import (
+    MicroStrategyObject,
     object_cache_key,
 )
+from datahub.ingestion.source.microstrategy.spill_cache import (
+    SpillCache,
+    SpillConnection,
+)
 from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.sentinels import unset
 
 
 def _report_object(object_id: str) -> MicroStrategyObject:
@@ -25,140 +31,292 @@ def _report_object(object_id: str) -> MicroStrategyObject:
     )
 
 
-def test_values_spill_to_disk_without_loss_and_none_is_a_cached_value() -> None:
-    cache: SpillCache[Optional[MicroStrategyObject]] = SpillCache(1, compress=True)
-    for index in range(5):
-        cache.put(f"key-{index}", _report_object(f"R-{index}"))
-    cache.put("failed", None)
-    cache.put("key-0", _report_object("R-0"))
+@pytest.fixture
+def parked() -> Iterator[threading.Semaphore]:
+    """Released each time a caller starts waiting for another caller's load,
+    so a test can wait for that instead of sleeping."""
+    semaphore = threading.Semaphore(0)
 
-    with mock.patch.object(
-        FileBackedDict, "__len__", side_effect=AssertionError("len() called")
-    ):
-        # One entry is in memory; every other read comes back from SQLite.
+    class _RecordingEvent(threading.Event):
+        def wait(self, timeout: Optional[float] = None) -> bool:
+            semaphore.release()
+            return super().wait(timeout)
+
+    fake_threading = SimpleNamespace(
+        Lock=threading.Lock, RLock=threading.RLock, Event=_RecordingEvent
+    )
+    with mock.patch.object(spill_cache, "threading", fake_threading):
+        yield semaphore
+
+
+def _wait_parked(parked: threading.Semaphore, callers: int) -> None:
+    for _ in range(callers):
+        assert parked.acquire(timeout=10)
+
+
+def _start(target: Callable[[], object]) -> threading.Thread:
+    thread = threading.Thread(target=target)
+    thread.start()
+    return thread
+
+
+def _blocking_loader(
+    started: threading.Event, gate: threading.Event, value: str
+) -> Callable[[], str]:
+    def load() -> str:
+        started.set()
+        assert gate.wait(timeout=10)
+        return value
+
+    return load
+
+
+def test_values_spill_to_disk_and_a_stored_none_is_not_a_miss() -> None:
+    with SpillCache[Optional[MicroStrategyObject]](
+        SpillConnection(), "objects", 1, compress=True
+    ) as cache:
         for index in range(5):
-            value = cache.get(f"key-{index}")
-            assert value == _report_object(f"R-{index}")
-        failed = cache.get_entry("failed")
-        missing = cache.get_entry("missing")
-        assert "failed" in cache
-        # A key written twice is one entry.
-        assert cache.entry_count == 6
-        cache.reset()
+            cache.put(f"key-{index}", _report_object(f"R-{index}"))
+        cache.put("failed", None)
 
-    assert failed.found and failed.value is None
-    assert not missing.found and "missing" not in cache
-    assert cache.entry_count == 0
-    assert cache.get("key-1") is None
+        with mock.patch.object(
+            FileBackedDict, "__len__", side_effect=AssertionError("len() called")
+        ):
+            # One entry is in memory; every other read comes back from SQLite.
+            for index in range(5):
+                assert cache.get(f"key-{index}") == _report_object(f"R-{index}")
+            assert cache.get("failed") is None
+            assert cache.get("missing") is unset
 
 
-def test_object_cache_key_normalizes_the_object_id() -> None:
-    assert object_cache_key("project-1", " rep-1 ") == "project-1:REP-1"
+def test_object_cache_key_normalizes_both_ids() -> None:
+    assert object_cache_key(" project-1", " rep-1 ") == "PROJECT-1:REP-1"
 
 
-def test_concurrent_get_or_load_runs_the_loader_once_per_key() -> None:
-    cache: SpillCache[str] = SpillCache(1)
+def test_a_stored_none_can_be_overwritten() -> None:
+    with SpillCache[Optional[str]](SpillConnection(), "entries", 2) as cache:
+        cache.put("k", None)
+        cache.put("k", "found")
+
+        assert cache.get("k") == "found"
+
+
+def test_a_loader_returning_none_is_cached_for_sequential_callers() -> None:
+    calls: List[int] = []
+
+    def load() -> None:
+        calls.append(1)
+
+    with SpillCache[None](SpillConnection(), "entries", 2) as cache:
+        assert cache.get_or_load("k", load) is None
+        assert cache.get_or_load("k", load) is None
+
+    assert len(calls) == 1
+
+
+def test_a_loader_returning_none_is_shared_with_a_waiting_caller(
+    parked: threading.Semaphore,
+) -> None:
+    started, gate = threading.Event(), threading.Event()
+    calls: List[int] = []
+    results: List[Optional[str]] = []
+
+    def load_none() -> Optional[str]:
+        calls.append(1)
+        started.set()
+        assert gate.wait(timeout=10)
+        return None
+
+    with SpillCache[Optional[str]](SpillConnection(), "entries", 2) as cache:
+        loader = _start(lambda: results.append(cache.get_or_load("k", load_none)))
+        assert started.wait(timeout=10)
+        waiter = _start(lambda: results.append(cache.get_or_load("k", load_none)))
+        _wait_parked(parked, 1)
+        gate.set()
+        loader.join()
+        waiter.join()
+
+    assert results == [None, None]
+    assert len(calls) == 1
+
+
+def test_concurrent_get_or_load_runs_the_loader_once_per_key(
+    parked: threading.Semaphore,
+) -> None:
+    gate = threading.Event()
+    loading = threading.Semaphore(0)
     calls: List[str] = []
     calls_lock = threading.Lock()
-    start = threading.Barrier(8)
     results: List[str] = []
 
     def loader(key: str) -> str:
         with calls_lock:
             calls.append(key)
-        # Long enough that the other callers arrive while this one loads.
-        time.sleep(0.05)
+        loading.release()
+        assert gate.wait(timeout=10)
         return f"value-{key}"
 
-    def worker(key: str) -> None:
-        start.wait()
-        results.append(cache.get_or_load(key, lambda: loader(key)))
+    with SpillCache[str](SpillConnection(), "entries", 1) as cache:
 
-    threads = [
-        threading.Thread(target=worker, args=(f"k{index % 2}",)) for index in range(8)
-    ]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
+        def call(key: str) -> None:
+            results.append(cache.get_or_load(key, lambda: loader(key)))
+
+        loaders = [_start(functools.partial(call, key)) for key in ("k0", "k1")]
+        _wait_parked(loading, 2)
+        waiters = [
+            _start(functools.partial(call, f"k{index % 2}")) for index in range(6)
+        ]
+        _wait_parked(parked, 6)
+        gate.set()
+        for thread in loaders + waiters:
+            thread.join()
 
     assert sorted(calls) == ["k0", "k1"]
     assert sorted(results) == ["value-k0"] * 4 + ["value-k1"] * 4
-    assert cache.entry_count == 2
 
 
-def test_failed_load_caches_nothing_and_a_waiter_loads_again() -> None:
-    cache: SpillCache[str] = SpillCache(1)
-    loading = threading.Event()
-    release = threading.Event()
+def test_two_waiters_on_a_failed_load_retry_it_once(
+    parked: threading.Semaphore,
+) -> None:
+    started, gate = threading.Event(), threading.Event()
     errors: List[BaseException] = []
-    waiter_result: List[str] = []
+    results: List[str] = []
+    retries: List[int] = []
 
     def failing_loader() -> str:
-        loading.set()
-        release.wait()
+        started.set()
+        assert gate.wait(timeout=10)
         raise RuntimeError("boom")
 
-    def first() -> None:
-        try:
-            cache.get_or_load("k", failing_loader)
-        except RuntimeError as error:
-            errors.append(error)
+    def retry() -> str:
+        retries.append(1)
+        return "recovered"
 
-    def second() -> None:
-        waiter_result.append(cache.get_or_load("k", lambda: "recovered"))
+    with SpillCache[str](SpillConnection(), "entries", 1) as cache:
 
-    first_thread = threading.Thread(target=first)
-    first_thread.start()
-    loading.wait()
-    second_thread = threading.Thread(target=second)
-    second_thread.start()
-    time.sleep(0.05)
-    release.set()
-    first_thread.join()
-    second_thread.join()
+        def first() -> None:
+            try:
+                cache.get_or_load("k", failing_loader)
+            except RuntimeError as error:
+                errors.append(error)
+
+        loader = _start(first)
+        assert started.wait(timeout=10)
+        waiters = [
+            _start(lambda: results.append(cache.get_or_load("k", retry)))
+            for _ in range(2)
+        ]
+        _wait_parked(parked, 2)
+        gate.set()
+        for thread in [loader, *waiters]:
+            thread.join()
+
+        assert cache.get("k") == "recovered"
 
     assert len(errors) == 1
-    assert waiter_result == ["recovered"]
-    assert cache.get("k") == "recovered"
-    assert cache.entry_count == 1
+    assert results == ["recovered", "recovered"]
+    assert len(retries) == 1
 
 
-def test_loader_error_propagates_and_the_key_stays_loadable() -> None:
-    cache: SpillCache[int] = SpillCache(1)
+def test_a_failed_write_releases_the_key() -> None:
+    with SpillCache[str](SpillConnection(), "entries", 1) as cache:
+        with (
+            mock.patch.object(
+                FileBackedDict, "__setitem__", side_effect=OSError("disk full")
+            ),
+            pytest.raises(OSError),
+        ):
+            cache.get_or_load("k", lambda: "lost")
 
-    def boom() -> int:
-        raise ValueError("boom")
-
-    with pytest.raises(ValueError):
-        cache.get_or_load("k", boom)
-
-    assert "k" not in cache
-    assert cache.get_or_load("k", lambda: 7) == 7
-    assert cache.get_or_load("k", boom) == 7
+        assert cache.get_or_load("k", lambda: "stored") == "stored"
+        assert cache.get("k") == "stored"
 
 
-def test_close_releases_the_sqlite_file_and_reset_reopens_lazily() -> None:
-    created: List[FileBackedDict[object]] = []
-    real_factory: Callable[..., FileBackedDict[object]] = FileBackedDict
+def test_a_load_that_finishes_after_reset_is_not_stored(
+    parked: threading.Semaphore,
+) -> None:
+    started, gate = threading.Event(), threading.Event()
+    results: List[str] = []
 
-    def recording_factory(**kwargs: object) -> FileBackedDict[object]:
-        store = real_factory(**kwargs)
-        created.append(store)
-        return store
+    with SpillCache[str](SpillConnection(), "entries", 1) as cache:
+        stale = _start(
+            lambda: results.append(
+                cache.get_or_load("k", _blocking_loader(started, gate, "stale"))
+            )
+        )
+        assert started.wait(timeout=10)
+        waiter = _start(lambda: results.append(cache.get_or_load("k", lambda: "fresh")))
+        _wait_parked(parked, 1)
 
-    with mock.patch(
-        "datahub.ingestion.source.microstrategy.spill_cache.FileBackedDict",
-        side_effect=recording_factory,
-    ):
-        cache: SpillCache[str] = SpillCache(2)
-        assert cache.get("k") is None
-        # Reads never create the file; the first write does.
-        assert created == []
-        cache.put("k", "v")
         cache.reset()
-        cache.put("k", "v2")
-        cache.close()
+        waiter.join()
+        gate.set()
+        stale.join()
 
-    assert len(created) == 2
-    assert all(store.closed for store in created)
+        assert cache.get("k") == "fresh"
+    assert sorted(results) == ["fresh", "stale"]
+
+
+def test_close_wakes_a_waiter_and_later_use_raises(
+    parked: threading.Semaphore,
+) -> None:
+    started, gate = threading.Event(), threading.Event()
+    waiter_errors: List[BaseException] = []
+    cache = SpillCache[str](SpillConnection(), "entries", 1)
+    loader = _start(
+        lambda: cache.get_or_load("k", _blocking_loader(started, gate, "v"))
+    )
+    assert started.wait(timeout=10)
+
+    def wait_for_load() -> None:
+        try:
+            cache.get_or_load("k", lambda: "other")
+        except RuntimeError as error:
+            waiter_errors.append(error)
+
+    waiter = _start(wait_for_load)
+    _wait_parked(parked, 1)
+
+    cache.close()
+    waiter.join()
+    gate.set()
+    loader.join()
+
+    assert len(waiter_errors) == 1
+    with pytest.raises(RuntimeError):
+        cache.get("k")
+    with pytest.raises(RuntimeError):
+        cache.put("k", "v")
+    cache.reset()
+    assert cache.get("k") is unset
+    cache.close()
+
+
+def test_caches_share_one_file_and_reset_drops_only_their_own_table() -> None:
+    connection = SpillConnection()
+    reports = SpillCache[str](connection, "reports", 1)
+    metrics = SpillCache[str](connection, "metrics", 1)
+    for index in range(4):
+        reports.put(f"r-{index}", f"report {index}")
+        metrics.put(f"m-{index}", f"metric {index}")
+    database_file = connection.get().filename
+
+    reports.reset()
+    reports.put("r-0", "again")
+
+    assert reports.get("r-1") is unset
+    assert reports.get("r-0") == "again"
+    assert [metrics.get(f"m-{index}") for index in range(4)] == [
+        f"metric {index}" for index in range(4)
+    ]
+
+    connection.close()
+
+    assert not database_file.exists()
+    # Closing the connection empties the caches; the next write opens a new file.
+    assert metrics.get("m-0") is unset
+    metrics.put("m-0", "next project")
+    assert metrics.get("m-0") == "next project"
+    reports.close()
+    metrics.close()
+    connection.close()

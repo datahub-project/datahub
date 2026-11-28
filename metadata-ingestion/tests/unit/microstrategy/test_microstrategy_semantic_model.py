@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Set
 from unittest import mock
 
 import pytest
@@ -21,6 +21,7 @@ from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import 
 )
 from datahub.ingestion.source.microstrategy.models import MicroStrategyObject
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import SpillConnection
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     ContainerClass,
@@ -110,7 +111,7 @@ def _mapper(
         config=config,
         report=report,
         client=client,  # type: ignore[arg-type]
-        lineage=MicroStrategyLineageExtractor(config, report),
+        lineage=MicroStrategyLineageExtractor(config, report, SpillConnection()),
     )
 
 
@@ -198,7 +199,7 @@ def test_table_becomes_semantic_model_dataset_with_dimension_and_measure_fields(
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -259,7 +260,7 @@ def test_semantic_model_gets_browse_path_under_project_and_no_container_aspect()
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=project_key,
             )
         )
@@ -298,7 +299,7 @@ def test_semantic_model_browse_path_leads_with_platform_instance_when_configured
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=project_key,
             )
         )
@@ -333,7 +334,7 @@ def test_table_with_no_usable_fields_is_skipped_with_warning() -> None:
             project_id="project-1",
             project_name="Project One",
             model_tables=model_tables,
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         )
     )
@@ -374,7 +375,7 @@ def test_role_playing_logical_tables_get_distinct_dataset_identities() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -438,7 +439,7 @@ def test_relationship_emitted_for_attribute_shared_across_two_tables() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -473,7 +474,7 @@ def test_attribute_on_single_table_never_triggers_relationship_fetch() -> None:
             project_id="project-1",
             project_name="Project One",
             model_tables=model_tables,
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         )
     )
@@ -494,7 +495,7 @@ def test_relationship_fetch_failure_warns_and_is_skipped() -> None:
             project_id="project-1",
             project_name="Project One",
             model_tables=model_tables,
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         )
     )
@@ -537,7 +538,7 @@ def test_unrecognized_relationship_type_warns_but_still_emits_relationship() -> 
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -578,7 +579,7 @@ def test_base_metric_gets_upstream_datasets_and_no_derived_from() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -629,7 +630,7 @@ def test_derived_metric_gets_derived_from_referenced_metric() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -693,7 +694,7 @@ def test_consolidated_metric_resolves_upstream_through_consolidation_attributes(
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -713,43 +714,6 @@ def test_consolidated_metric_resolves_upstream_through_consolidation_attributes(
     assert client.consolidation_calls == ["CONSOL1"]
 
 
-def test_metric_model_fetch_failure_keeps_the_metric_without_failing_the_run() -> None:
-    client = FakeSemanticModelClient(
-        metrics=[_metric_object("BROKEN", "Broken Metric")],
-        metric_models={},  # no fixture -> get_metric_model raises via override below
-    )
-
-    def _raise(project_id: str, metric_id: str) -> Dict[str, Any]:
-        raise MicroStrategyAPIError("boom")
-
-    client.get_metric_model = _raise  # type: ignore[method-assign]
-    mapper = _mapper(client)
-    mapper.graph = _graph_with_exists(False)
-    model_tables = [_table("SALES", attributes=[], facts=[_fact("FACT1", "Revenue")])]
-
-    aspects = _aspects_by_urn(
-        list(
-            mapper.emit(
-                project_id="project-1",
-                project_name="Project One",
-                model_tables=model_tables,
-                warehouse_context=None,
-                project_container_key=_project_container_key(),
-            )
-        )
-    )
-
-    metric_urn = "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,BROKEN)"
-    assert metric_urn in aspects
-    assert mapper.report.metric_expression_api_failures == 1
-    assert list(mapper.report.failed_metric_model_ids) == ["BROKEN"]
-    # Deterministic per-metric 500s must not fail the run, or stale removal never runs.
-    assert not mapper.report.failures
-    assert [w.title for w in mapper.report.warnings] == [
-        "MicroStrategy Metric Model Unavailable"
-    ]
-
-
 def _emit_metrics(mapper: MicroStrategySemanticModelMapper) -> List[MetadataWorkUnit]:
     return list(
         mapper.emit(
@@ -758,7 +722,7 @@ def _emit_metrics(mapper: MicroStrategySemanticModelMapper) -> List[MetadataWork
             model_tables=[
                 _table("SALES", attributes=[], facts=[_fact("FACT1", "Revenue")])
             ],
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         )
     )
@@ -827,7 +791,20 @@ def test_metric_model_fetch_failure_without_graph_emits_nothing_for_the_metric()
     assert [w.title for w in mapper.report.warnings] == [
         "MicroStrategy Metric Model Unavailable"
     ]
-    assert "metric_id=BROKEN" in str(mapper.report.warnings[0].context)
+
+
+def test_unverifiable_metric_without_graph_fails_the_run_once_when_stale_removal_is_on() -> (
+    None
+):
+    mapper = _failing_metric_mapper(graph=None, metric_count=3)
+    mapper.config = _config(
+        stateful_ingestion={"enabled": True, "remove_stale_metadata": True}
+    )
+
+    _emit_metrics(mapper)
+
+    assert mapper.report.metrics_skipped_after_model_failure == 3
+    assert len(mapper.report.failures) == 1
 
 
 def test_metric_presence_check_failure_emits_nothing_and_fails_the_run_once() -> None:
@@ -880,6 +857,50 @@ def test_consecutive_metric_model_failures_stop_the_loop_and_fail_the_run() -> N
     ]
 
 
+class _FlakyMetricClient(FakeSemanticModelClient):
+    def __init__(self, *, failing_ids: Set[str], **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._failing_ids = failing_ids
+
+    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        if metric_id in self._failing_ids:
+            self.metric_model_calls.append(metric_id)
+            raise MicroStrategyAPIError("metric model unavailable")
+        return super().get_metric_model(project_id, metric_id)
+
+
+def test_a_successful_metric_model_resets_the_consecutive_failure_count() -> None:
+    limit = MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+    ids = [f"M{index}" for index in range(2 * (limit - 1) + 1)]
+    client = _FlakyMetricClient(
+        metrics=[_metric_object(metric_id, metric_id) for metric_id in ids],
+        failing_ids=set(ids) - {ids[limit - 1]},
+    )
+    mapper = _mapper(client)
+    mapper.graph = _graph_with_exists(False)
+
+    _emit_metrics(mapper)
+
+    assert len(client.metric_model_calls) == len(ids)
+    assert not mapper.report.failures
+
+
+@pytest.mark.parametrize("exists", [True, False])
+def test_consecutive_failures_stop_the_loop_for_known_metrics(exists: bool) -> None:
+    limit = MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+    mapper = _failing_metric_mapper(
+        graph=_graph_with_exists(exists), metric_count=limit + 5
+    )
+
+    _emit_metrics(mapper)
+
+    assert mapper.report.metrics_kept_after_model_failure == (limit if exists else 0)
+    assert mapper.report.semantic_model_metrics_emitted == (0 if exists else limit - 1)
+    assert [failure.title for failure in mapper.report.failures] == [
+        "MicroStrategy Metric Models Unavailable"
+    ]
+
+
 def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
     # Regression: metric discovery is a separate API call from the tables
     # fetch that already succeeded by the time this runs. A failure here
@@ -902,7 +923,7 @@ def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -952,7 +973,7 @@ def test_metrics_are_emitted_as_they_are_fetched(
             project_id="project-1",
             project_name="Project One",
             model_tables=model_tables,
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         ):
             if fetched_at_first_metric is None and wu.get_urn().startswith(
@@ -994,7 +1015,6 @@ def test_table_context_resolver_sets_each_dataset_upstream_from_its_own_warehous
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
                 project_container_key=_project_container_key(),
                 table_context_resolver=resolver,
             )

@@ -73,6 +73,10 @@ source:
       enabled: true
       remove_stale_metadata: true
 
+    # Skip dashboards and reports unchanged since the last run. Needs
+    # stateful ingestion and a DataHub sink.
+    # skip_unchanged_objects: true
+
 sink:
   type: datahub-rest
   config:

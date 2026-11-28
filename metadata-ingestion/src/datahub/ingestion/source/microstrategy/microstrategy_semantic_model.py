@@ -1,9 +1,10 @@
 import logging
 import threading
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from pydantic import BaseModel, ConfigDict
+from typing_extensions import LiteralString
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
@@ -18,6 +19,8 @@ from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
     MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT,
     MSTR_PROGRESS_LOG_INTERVAL_METRICS,
+    MSTR_REASON_NO_GRAPH,
+    MSTR_REASON_PRESENCE_CHECK_FAILED,
     MetricPresence,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
@@ -34,7 +37,6 @@ from datahub.ingestion.source.microstrategy.lineage import (
     object_id,
     parse_attribute_relationships,
     physical_table_name,
-    resolve_table_context,
 )
 from datahub.ingestion.source.microstrategy.models import (
     MicroStrategyObject,
@@ -45,10 +47,6 @@ from datahub.ingestion.source.microstrategy.parallel import (
     ordered_parallel_map,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-from datahub.ingestion.source.microstrategy.spill_cache import (
-    SpillCache,
-    object_cache_key,
-)
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -86,9 +84,6 @@ _INVERT_CARDINALITY: Dict[str, str] = {
 }
 
 _SEMANTIC_MODEL_ID = "schema"
-
-_REASON_NO_GRAPH = "no DataHub connection"
-_REASON_PRESENCE_CHECK_FAILED = "DataHub lookup failed"
 
 _METRIC_MODEL_FAILURE_MESSAGES: Dict[MetricPresence, str] = {
     MetricPresence.PRESENT: (
@@ -162,15 +157,18 @@ class MicroStrategySemanticModelMapper:
         report: MicroStrategyReport,
         client: MicroStrategyClient,
         lineage: MicroStrategyLineageExtractor,
-        metric_model_cache: Optional[SpillCache[Optional[Dict[str, object]]]] = None,
+        cached_metric_model: Optional[
+            Callable[[str, str], Optional[Dict[str, object]]]
+        ] = None,
         graph: Optional[DataHubGraph] = None,
     ) -> None:
         self.config = config
         self.report = report
         self.client = client
         self.lineage = lineage
-        # A cached None is retried here, so the failure is reported against the metric.
-        self.metric_model_cache = metric_model_cache
+        # A model that failed earlier is retried here, so the failure is
+        # reported against the metric.
+        self.cached_metric_model = cached_metric_model
         self.graph = graph
 
     def emit(
@@ -179,9 +177,8 @@ class MicroStrategySemanticModelMapper:
         project_id: str,
         project_name: str,
         model_tables: List[Dict[str, object]],
-        warehouse_context: Optional[WarehouseLineageContext],
+        table_context_resolver: TableContextResolver,
         project_container_key: ContainerKey,
-        table_context_resolver: Optional[TableContextResolver] = None,
     ) -> Iterable[MetadataWorkUnit]:
         model_urn = str(
             SemanticModelUrn(
@@ -192,7 +189,7 @@ class MicroStrategySemanticModelMapper:
         )
 
         tables, fact_table_aliases, attribute_table_aliases = self._build_table_index(
-            model_tables, warehouse_context, table_context_resolver
+            model_tables, table_context_resolver
         )
         if not tables:
             self.report.warning(
@@ -224,23 +221,16 @@ class MicroStrategySemanticModelMapper:
         yield from model.as_workunits()
         for dataset in datasets:
             yield from dataset.as_workunits()
-        metrics_emitted = 0
-        for metric in self._metrics(
+        yield from self._metrics(
             project_id=project_id,
             model_urn=model_urn,
             fact_table_aliases=fact_table_aliases,
             attribute_table_aliases=attribute_table_aliases,
             alias_to_dataset=alias_to_dataset,
-        ):
-            if isinstance(metric, MetadataWorkUnit):
-                yield metric
-                continue
-            yield from metric.as_workunits()
-            metrics_emitted += 1
+        )
 
         self.report.report_semantic_model_emitted()
         self.report.report_semantic_model_datasets_emitted(len(datasets))
-        self.report.report_semantic_model_metrics_emitted(metrics_emitted)
         self.report.report_semantic_model_relationships_emitted(len(relationships))
 
     def _container_aspects(
@@ -286,8 +276,7 @@ class MicroStrategySemanticModelMapper:
     def _build_table_index(
         self,
         model_tables: List[Dict[str, object]],
-        warehouse_context: Optional[WarehouseLineageContext],
-        table_context_resolver: Optional[TableContextResolver] = None,
+        table_context_resolver: TableContextResolver,
     ) -> Tuple[List[_TableInfo], Dict[str, Set[str]], Dict[str, Set[str]]]:
         tables: List[_TableInfo] = []
         fact_table_aliases: Dict[str, Set[str]] = {}
@@ -297,9 +286,7 @@ class MicroStrategySemanticModelMapper:
             physical_table = table.get("physicalTable")
             if not isinstance(physical_table, dict):
                 continue
-            table_context = resolve_table_context(
-                table, warehouse_context, table_context_resolver
-            )
+            table_context = table_context_resolver(table)
             physical_alias = self._table_alias(physical_table, table_context)
             if not physical_alias:
                 continue
@@ -650,26 +637,13 @@ class MicroStrategySemanticModelMapper:
         fact_table_aliases: Dict[str, Set[str]],
         attribute_table_aliases: Dict[str, Set[str]],
         alias_to_dataset: Dict[str, SemanticModelDataset],
-    ) -> Iterable[Union[Metric, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
+        metric_objects = self._search_metrics(project_id)
+        if metric_objects is None:
+            return
         consolidation_cache: Dict[str, List[str]] = {}
         consolidation_lock = threading.RLock()
         consolidation_flight: SingleFlight[str, List[str]] = SingleFlight()
-        try:
-            metric_objects = list(self.client.search_metrics(project_id))
-        except MicroStrategyAPIError as error:
-            # A warning would let stale removal delete every metric.
-            self.report.report_semantic_model_metric_search_api_failure()
-            self.report.failure(
-                title="MicroStrategy Metric Search Unavailable",
-                message=(
-                    "Skipping metric emission for the semantic model; project "
-                    "metrics could not be enumerated. Stale-entity removal is "
-                    "skipped for this run so previously ingested metrics are kept."
-                ),
-                context=f"project_id={project_id}",
-                exc=error,
-            )
-            return
 
         def fetch_metric(metric_object: MicroStrategyObject) -> _FetchedMetricModel:
             model = self._metric_model(project_id, metric_object.id)
@@ -705,50 +679,23 @@ class MicroStrategySemanticModelMapper:
                         failed,
                         project_id,
                     )
-                metric_id = normalize_object_id(metric_object.id)
                 try:
                     fetched = outcome.unwrap()
-                    model = fetched.model
-                    consolidation_attributes = fetched.consolidation_attributes
                     consecutive_failures = 0
                 except MicroStrategyAPIError as error:
                     failed += 1
                     consecutive_failures += 1
-                    self.report.report_metric_expression_api_failure()
-                    self.report.report_failed_metric_model(metric_object.id)
-                    metric_urn = str(
-                        MetricUrn(
-                            platform=MICROSTRATEGY_PLATFORM,
-                            path=project_id,
-                            id=metric_id,
-                        )
+                    metric_urn = self._metric_urn(
+                        project_id, normalize_object_id(metric_object.id)
                     )
                     presence = self._metric_presence(metric_urn)
-                    reason_suffix = (
-                        f", reason={self._unknown_presence_reason()}"
-                        if presence == MetricPresence.UNKNOWN
-                        else ""
+                    yield from self._on_metric_model_failure(
+                        project_id=project_id,
+                        metric_id=metric_object.id,
+                        metric_urn=metric_urn,
+                        presence=presence,
+                        error=error,
                     )
-                    # Deterministic 500s; failing the run skips stale removal forever.
-                    self.report.warning(
-                        title="MicroStrategy Metric Model Unavailable",
-                        message=_METRIC_MODEL_FAILURE_MESSAGES[presence],
-                        context=(
-                            f"project_id={project_id}, metric_id={metric_object.id}"
-                            f"{reason_suffix}"
-                        ),
-                        exc=error,
-                        log=False,
-                    )
-                    if presence == MetricPresence.PRESENT:
-                        # A Status write marks the metric as seen for stale removal
-                        # without overwriting its expression and upstreams.
-                        self.report.report_metric_kept_after_model_failure()
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=metric_urn, aspect=StatusClass(removed=False)
-                        ).as_workunit()
-                    if presence == MetricPresence.UNKNOWN:
-                        self.report.report_metric_skipped_after_model_failure()
                     if (
                         consecutive_failures
                         >= MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
@@ -767,102 +714,201 @@ class MicroStrategySemanticModelMapper:
                                 f"metrics_not_read={len(metric_objects) - read - 1}"
                             ),
                         )
-                        break
+                        return
                     if presence != MetricPresence.ABSENT:
                         continue
-                    model = {}
-                    consolidation_attributes = {}
+                    fetched = _FetchedMetricModel(model={}, consolidation_attributes={})
 
-                upstream_aliases: Set[str] = set()
-                for fact_id in metric_fact_ids_from_model(model):
-                    upstream_aliases |= fact_table_aliases.get(fact_id, set())
-                for attribute_id in metric_attribute_ids_from_model(model):
-                    upstream_aliases |= attribute_table_aliases.get(attribute_id, set())
-                for consolidation_id in metric_consolidation_ids_from_model(model):
-                    for attribute_id in consolidation_attributes.get(
-                        consolidation_id, []
-                    ):
-                        upstream_aliases |= attribute_table_aliases.get(
-                            attribute_id, set()
-                        )
+                metric = self._build_metric(
+                    project_id=project_id,
+                    model_urn=model_urn,
+                    metric_object=metric_object,
+                    fetched=fetched,
+                    fact_table_aliases=fact_table_aliases,
+                    attribute_table_aliases=attribute_table_aliases,
+                    alias_to_dataset=alias_to_dataset,
+                )
+                yield from metric.as_workunits()
+                self.report.report_semantic_model_metrics_emitted(1)
 
-                upstream_dataset_urns = sorted(
-                    str(alias_to_dataset[alias].urn)
-                    for alias in upstream_aliases
-                    if alias in alias_to_dataset
-                )
-                derived_from = [
-                    str(
-                        MetricUrn(
-                            platform=MICROSTRATEGY_PLATFORM,
-                            path=project_id,
-                            id=referenced_metric_id,
-                        )
-                    )
-                    for referenced_metric_id in metric_metric_ids_from_model(model)
-                ]
+    def _search_metrics(self, project_id: str) -> Optional[List[MicroStrategyObject]]:
+        try:
+            return list(self.client.search_metrics(project_id))
+        except MicroStrategyAPIError as error:
+            # A warning would let stale removal delete every metric.
+            self.report.report_semantic_model_metric_search_api_failure()
+            self.report.failure(
+                title="MicroStrategy Metric Search Unavailable",
+                message=(
+                    "Skipping metric emission for the semantic model; project "
+                    "metrics could not be enumerated. Stale-entity removal is "
+                    "skipped for this run so previously ingested metrics are kept."
+                ),
+                context=f"project_id={project_id}",
+                exc=error,
+            )
+            return None
 
-                model_expression = model.get("expression")
-                expression_text = _optional_str(
-                    model_expression.get("text")
-                    if isinstance(model_expression, dict)
-                    else None
-                )
-                expression = (
-                    DialectExpressionInput(
-                        expression=expression_text, dialect=DialectClass.OTHER
-                    )
-                    if expression_text
-                    else None
-                )
+    def _metric_urn(self, project_id: str, metric_id: str) -> str:
+        return str(
+            MetricUrn(
+                platform=MICROSTRATEGY_PLATFORM,
+                path=project_id,
+                id=metric_id,
+            )
+        )
 
-                yield Metric(
-                    platform=MICROSTRATEGY_PLATFORM,
-                    path=project_id,
-                    id=metric_id,
-                    semantic_model=model_urn,
-                    platform_instance=self.config.platform_instance,
-                    name=metric_object.name,
-                    description=metric_object.description,
-                    expression=expression,
-                    upstream_datasets=upstream_dataset_urns,
-                    derived_from=derived_from,
+    def _on_metric_model_failure(
+        self,
+        *,
+        project_id: str,
+        metric_id: str,
+        metric_urn: str,
+        presence: MetricPresence,
+        error: MicroStrategyAPIError,
+    ) -> Iterable[MetadataWorkUnit]:
+        self.report.report_metric_expression_api_failure()
+        self.report.report_failed_metric_model(metric_id)
+        reason_suffix = (
+            f", reason={self._unknown_presence_reason()}"
+            if presence == MetricPresence.UNKNOWN
+            else ""
+        )
+        # A warning, not a failure: these 500s repeat every run, so failing the
+        # run would skip stale removal permanently.
+        self.report.warning(
+            title="MicroStrategy Metric Model Unavailable",
+            message=_METRIC_MODEL_FAILURE_MESSAGES[presence],
+            context=f"project_id={project_id}, metric_id={metric_id}{reason_suffix}",
+            exc=error,
+            log=False,
+        )
+        if presence == MetricPresence.PRESENT:
+            # A Status write marks the metric as seen for stale removal without
+            # overwriting its expression and upstreams.
+            self.report.report_metric_kept_after_model_failure()
+            yield MetadataChangeProposalWrapper(
+                entityUrn=metric_urn, aspect=StatusClass(removed=False)
+            ).as_workunit()
+        elif presence == MetricPresence.UNKNOWN:
+            self.report.report_metric_skipped_after_model_failure()
+
+    def _build_metric(
+        self,
+        *,
+        project_id: str,
+        model_urn: str,
+        metric_object: MicroStrategyObject,
+        fetched: _FetchedMetricModel,
+        fact_table_aliases: Dict[str, Set[str]],
+        attribute_table_aliases: Dict[str, Set[str]],
+        alias_to_dataset: Dict[str, SemanticModelDataset],
+    ) -> Metric:
+        model = fetched.model
+        upstream_aliases: Set[str] = set()
+        for fact_id in metric_fact_ids_from_model(model):
+            upstream_aliases |= fact_table_aliases.get(fact_id, set())
+        for attribute_id in metric_attribute_ids_from_model(model):
+            upstream_aliases |= attribute_table_aliases.get(attribute_id, set())
+        for consolidation_id in metric_consolidation_ids_from_model(model):
+            for attribute_id in fetched.consolidation_attributes.get(
+                consolidation_id, []
+            ):
+                upstream_aliases |= attribute_table_aliases.get(attribute_id, set())
+
+        model_expression = model.get("expression")
+        expression_text = _optional_str(
+            model_expression.get("text") if isinstance(model_expression, dict) else None
+        )
+        return Metric(
+            platform=MICROSTRATEGY_PLATFORM,
+            path=project_id,
+            id=normalize_object_id(metric_object.id),
+            semantic_model=model_urn,
+            platform_instance=self.config.platform_instance,
+            name=metric_object.name,
+            description=metric_object.description,
+            expression=(
+                DialectExpressionInput(
+                    expression=expression_text, dialect=DialectClass.OTHER
                 )
+                if expression_text
+                else None
+            ),
+            upstream_datasets=sorted(
+                str(alias_to_dataset[alias].urn)
+                for alias in upstream_aliases
+                if alias in alias_to_dataset
+            ),
+            derived_from=[
+                self._metric_urn(project_id, referenced_metric_id)
+                for referenced_metric_id in metric_metric_ids_from_model(model)
+            ],
+        )
 
     def _metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
         # Last pass to need a model, so a fetch here is not written back.
-        if self.metric_model_cache is not None:
-            cached = self.metric_model_cache.get(
-                object_cache_key(project_id, metric_id)
-            )
+        if self.cached_metric_model is not None:
+            cached = self.cached_metric_model(project_id, metric_id)
             if cached is not None:
                 return cached
         return self.client.get_metric_model(project_id, metric_id)
 
     def _unknown_presence_reason(self) -> str:
-        return _REASON_NO_GRAPH if self.graph is None else _REASON_PRESENCE_CHECK_FAILED
+        return (
+            MSTR_REASON_NO_GRAPH
+            if self.graph is None
+            else MSTR_REASON_PRESENCE_CHECK_FAILED
+        )
 
     def _metric_presence(self, metric_urn: str) -> MetricPresence:
         if self.graph is None:
+            self._report_presence_unavailable(
+                metric_urn,
+                message=(
+                    "There is no DataHub connection, so metrics whose model "
+                    "cannot be fetched are skipped. Stale-entity removal is "
+                    "skipped for this run."
+                ),
+            )
             return MetricPresence.UNKNOWN
         try:
             exists = self.graph.exists(metric_urn)
         except Exception as error:
-            if not self.report.metric_presence_check_failures:
-                # Stale removal needs the graph too, so it must be skipped.
-                self.report.failure(
-                    title="Failed to check MicroStrategy metrics in DataHub",
-                    message=(
-                        "DataHub could not be queried, so metrics whose model "
-                        "cannot be fetched are skipped. Stale-entity removal is "
-                        "skipped for this run."
-                    ),
-                    context=metric_urn,
-                    exc=error,
-                )
-            self.report.report_metric_presence_check_failure()
+            self._report_presence_unavailable(
+                metric_urn,
+                message=(
+                    "DataHub could not be queried, so metrics whose model "
+                    "cannot be fetched are skipped. Stale-entity removal is "
+                    "skipped for this run."
+                ),
+                error=error,
+            )
             return MetricPresence.UNKNOWN
         return MetricPresence.PRESENT if exists else MetricPresence.ABSENT
+
+    def _report_presence_unavailable(
+        self,
+        metric_urn: str,
+        message: LiteralString,
+        error: Optional[Exception] = None,
+    ) -> None:
+        if error is None and not self._stale_removal_enabled():
+            return
+        # A failure makes stale removal skip the run; without it the metrics
+        # skipped here would be soft-deleted. Reported once per run.
+        if not self.report.metric_presence_check_failures:
+            self.report.failure(
+                title="Failed to check MicroStrategy metrics in DataHub",
+                message=message,
+                context=metric_urn,
+                exc=error,
+            )
+        self.report.report_metric_presence_check_failure()
+
+    def _stale_removal_enabled(self) -> bool:
+        stateful = self.config.stateful_ingestion
+        return bool(stateful and stateful.enabled and stateful.remove_stale_metadata)
 
     def _resolve_consolidation_parallel(
         self,
