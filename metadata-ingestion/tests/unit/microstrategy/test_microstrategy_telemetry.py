@@ -421,6 +421,7 @@ def test_report_serializes_telemetry_rounded() -> None:
     assert serialized["api_call_seconds"] == 0.123
     assert serialized["api_seconds_by_phase"] == {"dashboard": 0.123}
     assert "_phase_stack" not in serialized
+    assert report.api_call_seconds == 0.123456789
 
 
 def test_enum_phase_and_cache_names_serialize_by_value() -> None:

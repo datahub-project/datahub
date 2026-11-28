@@ -23,6 +23,8 @@ P = ParamSpec("P")
 R = TypeVar("R")
 T = TypeVar("T")
 
+_PROGRESS_TOP_PHASES = 6
+
 
 class _HasReport(Protocol):
     @property
@@ -179,7 +181,7 @@ class RunProgress:
             f"{name} {seconds:.0f}s"
             for name, seconds in sorted(
                 report.phase_seconds.items(), key=lambda item: item[1], reverse=True
-            )[:6]
+            )[:_PROGRESS_TOP_PHASES]
         )
         logger.info(
             "MicroStrategy progress: %d dashboards in %.0fs (%.1fs each, %d "

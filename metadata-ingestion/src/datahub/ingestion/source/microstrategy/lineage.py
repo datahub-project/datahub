@@ -721,8 +721,16 @@ class MicroStrategyLineageExtractor:
         return unique_inputs
 
 
+_PARSE_LABEL_PREFIX = "sql "
+_PARSE_LABEL_HASH_CHARS = 12
+
+
 def _parse_label(label: Optional[str], sql: str, statements: int) -> str:
-    name = label or "sql " + hashlib.sha256(sql.encode("utf-8")).hexdigest()[:12]
+    name = (
+        label
+        or _PARSE_LABEL_PREFIX
+        + (hashlib.sha256(sql.encode("utf-8")).hexdigest()[:_PARSE_LABEL_HASH_CHARS])
+    )
     return f"{name} ({statements} statements, {len(sql)} chars)"
 
 
