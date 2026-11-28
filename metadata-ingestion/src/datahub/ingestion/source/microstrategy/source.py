@@ -352,6 +352,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._type3_objects: SpillCache[_ReportObjectLookup] = SpillCache(
             self._spill_connection, "type3_objects", MSTR_CACHE_MEMORY_ENTRIES
         )
+        # Fingerprints read the object endpoint only: search results seeded into
+        # _type3_objects carry date_modified one second earlier.
+        self._fingerprint_objects: SpillCache[_ReportObjectLookup] = SpillCache(
+            self._spill_connection, "fingerprint_objects", MSTR_CACHE_MEMORY_ENTRIES
+        )
         # A failed read is cached, so a shared report is not executed again.
         self._report_sql_statements: SpillCache[_ReportSqlOutcome] = SpillCache(
             self._spill_connection,
@@ -821,7 +826,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             mstr_object,
             self._folder_path_of(project, mstr_object),
             dependency_ids,
-            self._dataset_object_info,
+            self._fingerprint_object_info,
         )
 
     def _evaluate_object(
@@ -841,7 +846,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 mstr_object,
                 self._folder_path_of(project, mstr_object),
                 previous,
-                self._dataset_object_info,
+                self._fingerprint_object_info,
                 graph,
                 stamped_urn,
                 stamped_aspect,
@@ -997,7 +1002,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 report_id,
                 previous,
                 dashboard_fingerprints,
-                self._dataset_object_info,
+                self._fingerprint_object_info,
                 graph,
             )
 
@@ -2144,7 +2149,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 self._keep_previous_urns(checkpoint, previous)
             elif self._skips_unchanged() and fingerprinter is not None:
                 checkpoint.fingerprint = fingerprinter.report_dataset_fingerprint(
-                    self._dataset_object_info(project_id, dataset.id),
+                    self._fingerprint_object_info(project_id, dataset.id),
                     {
                         dashboard_id: self._changes.dashboard_fingerprints.get(
                             dashboard_id
@@ -2485,6 +2490,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             ReportObjectLookupKind.DATASET,
             lambda: self._fetch_dataset_object(project_id, dataset_id),
         )
+
+    def _fingerprint_object_info(
+        self, project_id: str, object_id: str
+    ) -> Optional[MicroStrategyObject]:
+        return self._fingerprint_objects.get_or_load(
+            object_cache_key(project_id, object_id),
+            lambda: _ReportObjectLookup.from_fetch(
+                ReportObjectLookupKind.DATASET,
+                self._fetch_dataset_object(project_id, object_id),
+            ),
+        ).report_object
 
     def _fetch_dataset_object(
         self, project_id: str, dataset_id: str
