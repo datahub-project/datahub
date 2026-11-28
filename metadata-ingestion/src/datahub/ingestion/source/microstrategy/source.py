@@ -677,9 +677,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 else "MicroStrategy Project Has No Supported Source Warehouse"
             ),
             message=(
-                "No single project-level warehouse can be chosen, so only "
-                "datasets and logical tables that name their own datasource "
-                f"get warehouse lineage. {MSTR_DATASOURCE_MAPPING_HINT}"
+                "No single project-level warehouse can be chosen, so warehouse "
+                "lineage only covers datasets that name their own source "
+                "warehouse and logical tables whose primary datasource maps "
+                "to a platform. A report's dataset names one only when a "
+                "dashboard embeds it, so other reports get no warehouse "
+                f"lineage. {MSTR_DATASOURCE_MAPPING_HINT}"
                 if several
                 else "None of the project's datasources maps to a supported "
                 "platform, so warehouse lineage is skipped. Set "
@@ -1716,14 +1719,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     project_id,
                     source_dataset,
                 )
-            warehouse_context = lineage_context.warehouse_context
-            if self.config.extract_report_sql_lineage and warehouse_context:
-                self._enrich_report_sql_lineage(
-                    project_id=project_id,
-                    report_object=report_object,
-                    dataset=source_dataset,
-                    context=warehouse_context,
-                )
+            self._enrich_report_dataset_sql_lineage(
+                project_id, report_object, source_dataset, lineage_context
+            )
             model_lineage_index = lineage_context.model_lineage_index
             if model_lineage_index:
                 self.mapper.attach_dataset_model_lineage(
@@ -1774,17 +1772,32 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dataset = entry.dataset
         if self.config.extract_metric_expressions:
             self._enrich_dataset_metric_expressions(project_id, dataset)
-        warehouse_context = lineage_context.warehouse_context
-        if self.config.extract_report_sql_lineage and warehouse_context:
+        self._enrich_report_dataset_sql_lineage(
+            project_id, report_object, dataset, lineage_context
+        )
+        model_lineage_index = lineage_context.model_lineage_index
+        if model_lineage_index:
+            self.mapper.attach_dataset_model_lineage(dataset, model_lineage_index)
+
+    def _enrich_report_dataset_sql_lineage(
+        self,
+        project_id: str,
+        report_object: MicroStrategyObject,
+        dataset: DatasetObject,
+        lineage_context: "_LazyProjectLineage",
+    ) -> None:
+        if not self.config.extract_report_sql_lineage:
+            return
+        context = self._dataset_warehouse_context(
+            project_id, dataset, lineage_context.warehouse_context
+        )
+        if context:
             self._enrich_report_sql_lineage(
                 project_id=project_id,
                 report_object=report_object,
                 dataset=dataset,
-                context=warehouse_context,
+                context=context,
             )
-        model_lineage_index = lineage_context.model_lineage_index
-        if model_lineage_index:
-            self.mapper.attach_dataset_model_lineage(dataset, model_lineage_index)
 
     @timed_phase(MicroStrategyPhase.DASHBOARD_DEFINITION)
     def _get_dashboard_definition(

@@ -4812,6 +4812,56 @@ def test_dataset_sql_view_lineage_uses_connection_enriched_model_urns() -> None:
     assert client.connection_requests == ["conn-ora"]
 
 
+class _ReportSqlModelTablesClient(_ConnectionModelTablesClient):
+    def create_report_instance(self, project_id: str, report_id: str) -> str:
+        return f"ri-{report_id}"
+
+    def get_report_sql_view(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> SqlView:
+        return SqlView(sql_statement="select amount from orders")
+
+    def delete_report_instance(self, *args: Any) -> bool:
+        return True
+
+
+def test_report_dataset_in_mixed_project_uses_its_own_warehouse_context() -> None:
+    source = _per_report_source(
+        {
+            "extract_lineage": True,
+            "extract_report_sql_lineage": True,
+            "extract_model_lineage": True,
+            "extract_report_definitions": False,
+        }
+    )
+    source.client = _ReportSqlModelTablesClient(  # type: ignore[assignment]
+        [_model_table("orders", "fact-1", "AAA111")]
+    )
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", _connected_oracle_datasources()
+    )
+    dashboard_object = MicroStrategyObject.model_validate(
+        {"id": "dash-1", "name": "Sales Dashboard", "type": "55"}
+    )
+    dataset = source._bind_report_dataset(
+        "project-1", dashboard_object, _dashboard_with_fact_metric().datasets[0]
+    )
+    report_object = MicroStrategyObject.model_validate(
+        {"id": "ds-1", "name": "Sales Cube", "type": "3"}
+    )
+
+    source._process_report_as_dataset("project-1", report_object, lineage_context)
+
+    assert lineage_context.warehouse_context is None
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,ora_db.conn_schema.orders,PROD)"
+    )
+    assert dataset.warehouse_upstream_urns == [table_urn]
+    assert f"urn:li:schemaField:({table_urn},amount)" in [
+        urn for urns in dataset.field_warehouse_upstreams.values() for urn in urns
+    ]
+
+
 def test_failed_connection_lookup_keeps_unenriched_context_and_is_cached() -> None:
     source = _source({"extract_model_lineage": True})
     client = _ConnectionModelTablesClient(
