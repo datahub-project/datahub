@@ -1,120 +1,135 @@
-import { Tooltip } from '@components';
+import { Button, Pill, Table, Text, Tooltip } from '@components';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
-import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
-import { Button, Divider, Empty, Tag, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
-import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
-import { getResultColor, getResultIcon, getResultText } from '@app/entityV2/shared/tabs/Dataset/Governance/testUtils';
+import type { Column } from '@components/components/Table/types';
 
-import { TestResult } from '@types';
+import { getCategoryPillColors, getResultPillProps } from '@app/entityV2/shared/tabs/Dataset/Governance/testUtils';
 
-const ResultContainer = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: left;
+import { TestResult, TestResultType } from '@types';
+
+const TableContainer = styled.div`
+    flex: 1;
+    min-height: 0;
+    padding: 0 20px 20px;
 `;
 
-const TestResultsContainer = styled.div`
-    padding: 20px;
+// Table cells default to a single clipped line; names and descriptions are prose, so let them wrap.
+const PrimaryText = styled.div`
+    color: ${(props) => props.theme.colors.text};
+    white-space: normal;
 `;
 
-const TestName = styled(Typography.Title)`
-    margin: 0px;
-    padding: 0px;
-
-    && {
-        margin-bottom: 4px;
-    }
+const WrappingText = styled.div`
+    color: ${(props) => props.theme.colors.textSecondary};
+    white-space: normal;
 `;
 
-const TestCategory = styled(Typography.Text)`
-    margin: 0px;
-    padding: 0px;
-`;
-
-const ResultTypeText = styled(Typography.Text)`
-    margin-left: 8px;
-`;
+type ResultRow = {
+    urn: string;
+    name: string;
+    category: string;
+    description?: string | null;
+    resultType: TestResultType;
+};
 
 type Props = {
-    title: string;
     results: Array<TestResult>;
 };
 
-export const TestResultsList = ({ title, results }: Props) => {
-    const { t } = useTranslation('entity.profile.tests');
-    const { t: tc } = useTranslation(['entity.profile.queries', 'shared.misc']);
-    const theme = useTheme();
-    const resultsTableData = results.map((result) => ({
-        urn: result.test?.urn,
-        name: result?.test?.name,
-        category: result?.test?.category,
-        description: result?.test?.description,
-        resultType: result.type,
-    }));
+function toRows(results: Array<TestResult>): ResultRow[] {
+    return results.flatMap((result) =>
+        result.test
+            ? [
+                  {
+                      urn: result.test.urn,
+                      name: result.test.name,
+                      category: result.test.category,
+                      description: result.test.description,
+                      resultType: result.type,
+                  },
+              ]
+            : [],
+    );
+}
 
-    const resultsTableCols = [
+export const TestResultsList = ({ results }: Props) => {
+    const { t } = useTranslation(['entity.profile.tests', 'entity.profile.queries', 'shared.misc']);
+    const rows = toRows(results);
+    const categoryColors = getCategoryPillColors(rows.map((row) => row.category));
+
+    const columns: Column<ResultRow>[] = [
+        {
+            title: t('entity.profile.tests:table.test'),
+            key: 'name',
+            width: '240px',
+            render: (row) => (
+                <PrimaryText>
+                    <Text weight="semiBold">{row.name}</Text>
+                </PrimaryText>
+            ),
+            sorter: (a, b) => a.name.localeCompare(b.name),
+        },
+        {
+            title: t('entity.profile.tests:table.description'),
+            key: 'description',
+            render: (row) => (
+                <WrappingText>
+                    <Text>{row.description || t('entity.profile.queries:queryCard.noDescription')}</Text>
+                </WrappingText>
+            ),
+        },
+        {
+            title: t('entity.profile.tests:table.category'),
+            key: 'category',
+            width: '160px',
+            render: (row) => (
+                <Pill
+                    label={row.category}
+                    variant="squareFilled"
+                    color={categoryColors.get(row.category)}
+                    size="sm"
+                    clickable={false}
+                />
+            ),
+            sorter: (a, b) => a.category.localeCompare(b.category),
+        },
+        {
+            title: t('entity.profile.tests:table.status'),
+            key: 'status',
+            width: '120px',
+            render: (row) => <Pill {...getResultPillProps(row.resultType)} size="sm" clickable={false} />,
+            // Failing sorts ahead of passing in ascending order.
+            sorter: (a, b) =>
+                Number(a.resultType === TestResultType.Success) - Number(b.resultType === TestResultType.Success),
+        },
         {
             title: '',
-            dataIndex: '',
-            key: '',
-            render: (_, record: any) => {
-                const resultColor = (record.resultType && getResultColor(record.resultType, theme)) || 'default';
-                const resultText =
-                    (record.resultType && getResultText(record.resultType)) || t('testResults.noEvaluations');
-                const resultIcon = (record.resultType && getResultIcon(record.resultType, theme)) || <Prohibit />;
-                return (
-                    <ResultContainer>
-                        <div>
-                            <Tag style={{ borderColor: resultColor }}>
-                                {resultIcon}
-                                <ResultTypeText style={{ color: resultColor }}>{resultText}</ResultTypeText>
-                            </Tag>
-                        </div>
-                        <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
-                            <div style={{ marginLeft: 8 }}>
-                                <div>
-                                    <TestName level={5}>{record.name}</TestName>
-                                    <TestCategory type="secondary">{record.category}</TestCategory>
-                                    <Divider type="vertical" />
-                                    <Typography.Text type={record.description ? undefined : 'secondary'}>
-                                        {record.description || tc('entity.profile.queries:queryCard.noDescription')}
-                                    </Typography.Text>
-                                </div>
-                            </div>
-                            {navigator.clipboard && (
-                                <Tooltip title={tc('shared.misc:copyUrn.tooltip')}>
-                                    <Button
-                                        icon={<Copy />}
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(record.urn);
-                                        }}
-                                    />
-                                </Tooltip>
-                            )}
-                        </div>
-                    </ResultContainer>
-                );
-            },
+            key: 'actions',
+            width: '56px',
+            alignment: 'right',
+            render: (row) =>
+                navigator.clipboard && (
+                    <Tooltip title={t('shared.misc:copyUrn.tooltip')}>
+                        <Button
+                            variant="text"
+                            color="gray"
+                            size="sm"
+                            isCircle
+                            icon={{ icon: Copy }}
+                            aria-label={t('shared.misc:copyUrn.tooltip')}
+                            onClick={() => navigator.clipboard.writeText(row.urn)}
+                        />
+                    </Tooltip>
+                ),
         },
     ];
 
     return (
-        <TestResultsContainer>
-            <Typography.Title level={5}>{title}</Typography.Title>
-            <StyledTable
-                columns={resultsTableCols}
-                dataSource={resultsTableData}
-                rowKey="urn"
-                locale={{
-                    emptyText: <Empty description={t('testResults.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                }}
-                showHeader={false}
-                pagination={false}
-            />
-        </TestResultsContainer>
+        <TableContainer>
+            <Table<ResultRow> columns={columns} data={rows} rowKey="urn" isScrollable maxHeight="100%" />
+        </TableContainer>
     );
 };

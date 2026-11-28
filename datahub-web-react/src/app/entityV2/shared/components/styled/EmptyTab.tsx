@@ -1,5 +1,4 @@
-import { Heading, Text } from '@components';
-import { Empty } from 'antd';
+import { EmptyState, LoadedImage } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -7,28 +6,15 @@ import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 
 import NoDocs from '@images/no-docs.svg';
 
-const StyledEmpty = styled(Empty)<{ $hideImage?: boolean }>`
-    padding: 40px;
-    ${({ $hideImage }) => ($hideImage ? '.ant-empty-image { margin: 0; }' : '.ant-empty-image { height: 86px; }')}
-
-    .ant-empty-footer {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        justify-content: center;
-        .ant-btn:not(:last-child) {
-            margin-right: 8px;
-        }
-    }
+// The image-less variant sits inline in summary sections, which supply their own spacing.
+const Container = styled.div<{ $compact?: boolean }>`
+    padding: ${({ $compact }) => ($compact ? '0' : '40px')};
 `;
 
-const EmptyDescription = styled.div`
-    > * {
-        max-width: 70ch;
-        display: block;
-        margin-right: auto;
-        margin-left: auto;
-    }
+const ActionsRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 16px;
 `;
 
 type Props = {
@@ -39,19 +25,14 @@ type Props = {
 
 export const EmptyTab = ({ tab, hideImage, children }: Props) => {
     return (
-        <StyledEmpty
-            description={
-                <EmptyDescription data-testid="empty-tab-description">
-                    <Heading type="h4">{EMPTY_MESSAGES[tab]?.title}</Heading>
-                    <Text type="span" color="textSecondary">
-                        {EMPTY_MESSAGES[tab]?.description}
-                    </Text>
-                </EmptyDescription>
-            }
-            $hideImage={hideImage}
-            image={NoDocs}
-        >
-            {children}
-        </StyledEmpty>
+        <Container data-testid="empty-tab-description" $compact={hideImage}>
+            <EmptyState
+                title={EMPTY_MESSAGES[tab]?.title ?? ''}
+                description={EMPTY_MESSAGES[tab]?.description}
+                image={hideImage ? undefined : <LoadedImage src={NoDocs} alt="" width="86px" />}
+            >
+                {children && <ActionsRow>{children}</ActionsRow>}
+            </EmptyState>
+        </Container>
     );
 };

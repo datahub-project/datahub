@@ -15,6 +15,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
+import { Button } from '@components/components/Button';
 import { EmptyState } from '@components/components/EmptyState/EmptyState';
 
 const meta = {
@@ -113,6 +114,13 @@ export const withAction = () => (
             icon: { icon: Plus },
         }}
     />
+);
+
+// Custom controls (e.g. a dropdown trigger) go in `children` when `action` can't express them.
+export const withCustomAction = () => (
+    <EmptyState icon={Bell} title="No incidents yet" description="Create an incident to track a data issue.">
+        <Button icon={{ icon: Plus }}>Create</Button>
+    </EmptyState>
 );
 
 export const withTwoActions = () => (

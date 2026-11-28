@@ -1,4 +1,5 @@
-import { Empty } from 'antd';
+import { EmptyState } from '@components';
+import { MonitorPlay } from '@phosphor-icons/react/dist/csr/MonitorPlay';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -16,10 +17,8 @@ const StyledIframe = styled.iframe`
     height: 100%;
 `;
 
-const StyledEmpty = styled(Empty)`
-    margin-top: 28px;
-    font-size: 16px;
-    color: ${(props) => props.theme.colors.textSecondary};
+const EmptyContainer = styled.div`
+    padding-top: 60px;
 `;
 
 export const EmbedTab = () => {
@@ -30,7 +29,11 @@ export const EmbedTab = () => {
         <EmbedContainer>
             {(embedRenderUrl && (
                 <StyledIframe src={safeUrl(embedRenderUrl)} title={entityData?.urn} frameBorder={0} />
-            )) || <StyledEmpty description={t('embed.noPreview')} />}
+            )) || (
+                <EmptyContainer>
+                    <EmptyState icon={MonitorPlay} title={t('embed.noPreview')} />
+                </EmptyContainer>
+            )}
         </EmbedContainer>
     );
 };

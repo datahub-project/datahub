@@ -1,5 +1,4 @@
 import { Tooltip } from '@components';
-import { Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -9,7 +8,7 @@ import Highlight from '@app/sharedV2/text/Highlight';
 
 const MIN_CONTENT = 'min-content' as const;
 
-const ParentNameText = styled(Typography.Text)`
+const ParentNameText = styled.span`
     color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-family: Manrope;
@@ -21,7 +20,7 @@ const ParentNameText = styled(Typography.Text)`
     align-items: center;
 `;
 
-const ChildNameText = styled(Typography.Text)`
+const ChildNameText = styled.span`
     align-self: stretch;
     color: ${(props) => props.theme.colors.text};
     font-size: 12px;

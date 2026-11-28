@@ -1,3 +1,7 @@
+import { EmptyState } from '@components';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
@@ -27,6 +31,10 @@ const QueryBuilderModal = lazyProfileComponent(
     'QueryBuilderModal',
     () => import('@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal'),
 );
+
+const TabEmptyState = styled(EmptyState)`
+    padding: 80px 20px;
+`;
 
 const Content = styled.div<{ $backgroundColor: string }>`
     height: 100%;
@@ -140,13 +148,25 @@ export default function QueriesTab() {
             <Content $backgroundColor={showLoading || showEmptyView ? theme.colors.bg : theme.colors.bgSurface}>
                 {showLoading && <Loading />}
                 {!showLoading && !canViewQueries && (
-                    <EmptyQueriesSection
-                        sectionName={t('queriesTab.queriesTitle')}
-                        emptyText={t('queriesTab.noViewPermission')}
-                        showButton={false}
+                    <TabEmptyState icon={Lock} title={t('queriesTab.noViewPermission')} />
+                )}
+                {/* With no queries in any section, the empty state stands in for the section header. */}
+                {!showLoading && canViewQueries && showEmptyView && (
+                    <TabEmptyState
+                        icon={Code}
+                        title={t('queriesTab.emptyTitle')}
+                        description={t('queriesTab.emptyDescription')}
+                        action={{
+                            label: t('queriesTab.addHighlightedQueryButton'),
+                            icon: { icon: Plus },
+                            onClick: () => setShowQueryBuilder(true),
+                            disabled: !canEditQueries,
+                            tooltip: canEditQueries ? undefined : t('queriesTab.addUnauthorizedMessage'),
+                            dataTestId: 'add-query-button',
+                        }}
                     />
                 )}
-                {!showLoading && canViewQueries && (
+                {!showLoading && canViewQueries && !showEmptyView && (
                     <>
                         {showHighlightedSection && (
                             <QueriesListSection

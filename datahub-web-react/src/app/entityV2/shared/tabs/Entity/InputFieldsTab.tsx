@@ -1,5 +1,7 @@
-import { Empty } from 'antd';
+import { EmptyState } from '@components';
+import { Columns } from '@phosphor-icons/react/dist/csr/Columns';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -11,8 +13,7 @@ import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 
 import { SchemaField } from '@types';
 
-const NoSchema = styled(Empty)`
-    color: ${(props) => props.theme.colors.textDisabled};
+const NoSchemaContainer = styled.div`
     padding-top: 60px;
 `;
 
@@ -21,6 +22,7 @@ const SchemaTableContainer = styled.div`
     height: 100%;
 `;
 export const InputFieldsTab = () => {
+    const { t } = useTranslation('entity.profile.tabs');
     const { entityData } = useEntityData();
     const inputFields = entityData?.inputFields || undefined;
     const ungroupedRows = inputFields?.fields?.map((field) => field?.schemaField) as SchemaField[];
@@ -54,7 +56,9 @@ export const InputFieldsTab = () => {
                         </SchemaEditableContext.Provider>
                     </>
                 ) : (
-                    <NoSchema />
+                    <NoSchemaContainer>
+                        <EmptyState icon={Columns} title={t('inputFields.empty')} />
+                    </NoSchemaContainer>
                 )}
             </SchemaTableContainer>
         </>

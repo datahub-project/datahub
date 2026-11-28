@@ -1,9 +1,9 @@
-import { Dropdown, toast } from '@components';
+import { Button, Dropdown, toast } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { CreateButton, SiblingSelectionDropdownLink } from '@app/entityV2/shared/tabs/Incident/styledComponents';
+import { SiblingSelectionDropdownLink } from '@app/entityV2/shared/tabs/Incident/styledComponents';
 import { CreateIncidentButtonProps, EntityStagedForIncident } from '@app/entityV2/shared/tabs/Incident/types';
 import { useSiblingOptionsForIncidentBuilder } from '@app/entityV2/shared/tabs/Incident/utils';
 import { Tooltip } from '@src/alchemy-components';
@@ -65,24 +65,26 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
         <>
             {isSiblingMode ? (
                 <Dropdown placement="bottom" menu={{ items: siblingSelectionOptions }}>
-                    <CreateButton
+                    <Button
                         disabled={!canEditIncidents}
                         data-testid={getTestId()}
                         className="create-incident-button"
+                        icon={{ icon: Plus }}
                     >
-                        <Plus size={14} /> {tc('create')}
-                    </CreateButton>
+                        {tc('create')}
+                    </Button>
                 </Dropdown>
             ) : (
                 <Tooltip showArrow={false} title={!canEditIncidents ? t('permission.noEditIncidents') : null}>
-                    <CreateButton
+                    <Button
                         onClick={() => setShowIncidentBuilder(true)}
                         disabled={!canEditIncidents}
                         data-testid={getTestId()}
                         className="create-incident-button"
+                        icon={{ icon: Plus }}
                     >
-                        <Plus size={14} /> {tc('create')}
-                    </CreateButton>
+                        {tc('create')}
+                    </Button>
                 </Tooltip>
             )}
         </>

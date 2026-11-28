@@ -5,6 +5,8 @@
     "queriesTab.addUnauthorizedMessage": "You are not authorized to add Queries to this entity.",
     "queriesTab.downstreamQueriesTitle": "Downstream Queries",
     "queriesTab.downstreamQueriesTooltip": "Queries that power downstream assets",
+    "queriesTab.emptyDescription": "Highlight queries that help people understand and use this dataset.",
+    "queriesTab.emptyTitle": "No queries yet",
     "queriesTab.highlightedQueriesTitle": "Highlighted Queries",
     "queriesTab.highlightedQueriesTooltip": "Curated queries relevant to this dataset",
     "queriesTab.noViewPermission": "You don't have permission to view queries for this dataset.",
