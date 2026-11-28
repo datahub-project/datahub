@@ -720,6 +720,27 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return -1;
   }
 
+  @Nonnull
+  @Override
+  public List<EntityAspect> getLatestRowsOfUrn(
+      @Nonnull OperationContext opContext, @Nonnull String urn) {
+    validateConnection();
+    // One partition (urn is the partition key); version follows aspect in the clustering key, so
+    // filtering on it alone needs ALLOW FILTERING, bounded to this partition's rows.
+    final SimpleStatement ss =
+        selectFrom(CassandraAspect.TABLE_NAME)
+            .all()
+            .whereColumn(CassandraAspect.URN_COLUMN)
+            .isEqualTo(literal(urn))
+            .whereColumn(CassandraAspect.VERSION_COLUMN)
+            .isEqualTo(literal(ASPECT_LATEST_VERSION))
+            .allowFiltering()
+            .build();
+    return _cqlSession.execute(ss).all().stream()
+        .map(CassandraAspect::rowToEntityAspect)
+        .collect(Collectors.toList());
+  }
+
   @Override
   public int countUrnRows(@Nonnull OperationContext opContext, @Nonnull String urn) {
     // Not implemented

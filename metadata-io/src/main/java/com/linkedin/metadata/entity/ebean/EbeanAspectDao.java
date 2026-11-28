@@ -1499,6 +1499,34 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return txnFactory.runInScope(opContext, () -> buildExpressionList(args, true).findCount());
   }
 
+  @Nonnull
+  @Override
+  public List<EntityAspect> getLatestRowsOfUrn(
+      @Nonnull OperationContext opContext, @Nonnull String urn) {
+    validateConnection();
+    // Through the routing seam, like batchGet: the resolved aspect table, on primary (write intent)
+    // since callers decide a delete from these rows.
+    final RawSql rawSql =
+        parseBatchGetRawSql(
+            "SELECT urn, aspect, version, metadata, systemMetadata, createdOn, createdBy, createdFor "
+                + "FROM"
+                + tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME)
+                + "WHERE urn = :urn AND version = :version");
+    final Query<EbeanAspectV2> query =
+        resolveBatchGetDatabase(opContext, true)
+            .find(EbeanAspectV2.class)
+            .setRawSql(rawSql)
+            .setParameter("urn", urn)
+            .setParameter("version", ASPECT_LATEST_VERSION);
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          final List<EbeanAspectV2> rows = query.findList();
+          syncKeyScalarsFromEmbeddedId(rows);
+          return rows.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList());
+        });
+  }
+
   @Override
   public int countUrnRows(@Nonnull OperationContext opContext, @Nonnull String urn) {
     return txnFactory.runInScope(

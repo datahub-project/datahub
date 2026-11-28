@@ -477,6 +477,14 @@ public interface AspectDao {
   int countUrnRows(@Nonnull OperationContext opContext, @Nonnull String urn);
 
   /**
+   * The latest row of every aspect stored for the urn, as stored: rows of aspects this version's
+   * registry doesn't know are included and nothing is converted. For checks that must see what a
+   * newer version wrote (read after a rollback), e.g. which run last wrote each aspect.
+   */
+  @Nonnull
+  List<EntityAspect> getLatestRowsOfUrn(@Nonnull OperationContext opContext, @Nonnull String urn);
+
+  /**
    * Stream latest-version aspect rows matching {@code args}, ordered by URN/aspect, and hand the
    * lazily-fetched {@link PartitionedStream} to {@code consumer} to process.
    *
