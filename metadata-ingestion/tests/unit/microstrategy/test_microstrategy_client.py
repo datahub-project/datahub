@@ -1137,7 +1137,12 @@ def test_close_without_login_does_not_log_out(monkeypatch: MonkeyPatch) -> None:
 
 @pytest.mark.parametrize(
     ("overrides", "expected"),
-    [({"timeout_seconds": 30}, 120), ({"model_api_timeout_seconds": 300}, 300)],
+    [
+        ({"timeout_seconds": 30}, 120),
+        ({"timeout_seconds": 300}, 300),
+        ({"timeout_seconds": 300, "model_api_timeout_seconds": 60}, 60),
+        ({"model_api_timeout_seconds": 300}, 300),
+    ],
 )
 def test_model_tables_use_the_model_api_timeout(
     monkeypatch: MonkeyPatch, overrides: Dict[str, int], expected: int
@@ -1158,7 +1163,12 @@ def test_model_tables_use_the_model_api_timeout(
 
 @pytest.mark.parametrize(
     ("overrides", "expected"),
-    [({"timeout_seconds": 30}, 120), ({"model_api_timeout_seconds": 300}, 300)],
+    [
+        ({"timeout_seconds": 30}, 120),
+        ({"timeout_seconds": 300}, 300),
+        ({"timeout_seconds": 300, "model_api_timeout_seconds": 60}, 60),
+        ({"model_api_timeout_seconds": 300}, 300),
+    ],
 )
 def test_metric_search_uses_the_model_api_timeout(
     monkeypatch: MonkeyPatch, overrides: Dict[str, int], expected: int

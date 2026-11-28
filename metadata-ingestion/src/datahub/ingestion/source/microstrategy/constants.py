@@ -566,6 +566,9 @@ class MicroStrategyCache(StrEnum):
     REPORT_OBJECT = "report_object"
 
 
+# Metric search and /api/model/tables are slow on large projects.
+MSTR_MODEL_API_MIN_TIMEOUT_SECONDS = 120
+
 MSTR_TELEMETRY_NO_PHASE = "(no phase)"
 MSTR_TELEMETRY_ERROR_STATUS = "error"
 

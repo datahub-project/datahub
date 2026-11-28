@@ -70,7 +70,7 @@ Set `emit_semantic_model_entities: true` to additionally emit each project's sch
 
 This is additive: it does not change the dashboard/report/dataset emission described elsewhere on this page, and is disabled by default. It requires `extract_model_lineage` access to the MicroStrategy modeling APIs (the same access `extract_model_lineage` already needs) and a DataHub server that registers `semanticModel`/`metric` (Cloud >= 2.1.0, or OSS with `METRICS_ENABLED=true`).
 
-A failed metric search or model tables read marks the run as failed and skips stale-entity removal, so previously ingested metrics are kept. A metric whose own model cannot be fetched is still emitted, without expression or upstream lineage, and is listed in `failed_metric_model_ids`. The metric search and model tables API use `model_api_timeout_seconds`.
+A failed metric search or model tables read marks the run as failed and skips stale-entity removal, so previously ingested metrics are kept. A metric whose own model cannot be fetched is still emitted, without expression or upstream lineage, and is listed in `failed_metric_model_ids`. The metric search and model tables API use `model_api_timeout_seconds`, which defaults to `timeout_seconds` raised to at least 120.
 
 #### Progress Logging and Run Telemetry
 

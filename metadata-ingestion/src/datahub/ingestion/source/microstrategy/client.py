@@ -282,7 +282,7 @@ class MicroStrategyClient:
             project_id,
             MSTR_OBJECT_TYPE_METRIC,
             "metric search",
-            timeout_seconds=self.config.model_api_timeout_seconds,
+            timeout_seconds=self.config.resolve_model_api_timeout_seconds(),
         )
 
     def get_report_object(
@@ -462,7 +462,7 @@ class MicroStrategyClient:
             "/api/model/tables",
             project_id=project_id,
             params=params,
-            timeout_seconds=self.config.model_api_timeout_seconds,
+            timeout_seconds=self.config.resolve_model_api_timeout_seconds(),
         )
         return ModelTablesResponse.model_validate(
             payload if isinstance(payload, dict) else {}

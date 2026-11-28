@@ -7,7 +7,10 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.source.microstrategy.constants import MICROSTRATEGY_PLATFORM
+from datahub.ingestion.source.microstrategy.constants import (
+    MICROSTRATEGY_PLATFORM,
+    MSTR_MODEL_API_MIN_TIMEOUT_SECONDS,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -92,11 +95,12 @@ class MicroStrategyConfig(
         gt=0,
         description="HTTP request timeout in seconds.",
     )
-    model_api_timeout_seconds: int = Field(
-        default=120,
+    model_api_timeout_seconds: Optional[int] = Field(
+        default=None,
         gt=0,
         description=(
-            "HTTP timeout in seconds for the project metric search and the model tables API."
+            "HTTP timeout in seconds for the project metric search and the model tables API. "
+            f"Defaults to `timeout_seconds`, raised to at least {MSTR_MODEL_API_MIN_TIMEOUT_SECONDS}."
         ),
     )
     max_retries: int = Field(
@@ -610,6 +614,11 @@ class MicroStrategyConfig(
                 "emitted through the dashboard warehouse lineage path."
             )
         return self
+
+    def resolve_model_api_timeout_seconds(self) -> int:
+        if self.model_api_timeout_seconds is not None:
+            return self.model_api_timeout_seconds
+        return max(self.timeout_seconds, MSTR_MODEL_API_MIN_TIMEOUT_SECONDS)
 
     @field_validator("base_url", mode="after")
     @classmethod
