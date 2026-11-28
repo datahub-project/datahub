@@ -208,7 +208,7 @@ class FivetranLogRestReader:
             except _RECOVERABLE_REST_ERRORS as e:
                 # A single bad group shouldn't crash the run — owner emails
                 # for that group's connectors will be missing in the emitted
-                # MCEs, but lineage is unaffected.
+                # MCPs, but lineage is unaffected.
                 self._report.warning(
                     title="Failed to list Fivetran group users",
                     message="Owner email lookups for connectors in this group will return None.",

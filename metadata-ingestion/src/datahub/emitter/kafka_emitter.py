@@ -1,4 +1,3 @@
-import functools
 import logging
 import threading
 import time
@@ -19,8 +18,12 @@ from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.emitter.generic_emitter import Emitter
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.generic_emitter import (
+    MCE_DEPRECATION_MESSAGE,
+    Emitter,
+    warn_mce_deprecated,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, mcps_from_mce
 from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.schema_classes import (
@@ -52,12 +55,6 @@ _MAX_QUEUE_FULL_BLOCK_SECONDS = 300.0
 # Re-emit the "queue full" warning every N polls while blocked, so a persistent
 # stall stays visible to operators instead of going silent after the first log.
 _QUEUE_FULL_WARN_EVERY_N_POLLS = 30
-
-_MCE_DEPRECATION_MESSAGE = (
-    "Emitting MetadataChangeEvents is deprecated and will be removed in a "
-    "future release. They are converted to MCPs; emit "
-    "MetadataChangeProposalWrapper instead."
-)
 
 
 class MessageTooLargeError(Exception):
@@ -214,7 +211,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             return self.emit_mcp_async(item, callback or _error_reporting_callback)
         else:
             warnings.warn(
-                _MCE_DEPRECATION_MESSAGE, DataHubDeprecationWarning, stacklevel=2
+                MCE_DEPRECATION_MESSAGE, DataHubDeprecationWarning, stacklevel=2
             )
             return self._emit_mce(item, callback or _error_reporting_callback)
 
@@ -299,7 +296,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             self.backpressure_engagements += 1
             self.backpressure_blocked_seconds += blocked_seconds
 
-    @deprecated(_MCE_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning)
+    @deprecated(MCE_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning)
     def emit_mce_async(
         self,
         mce: MetadataChangeEvent,
@@ -313,10 +310,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
 
         ``callback`` never fires after the raise, but may already have fired with an earlier aspect's error.
         """
-        # Deferred: mcp_builder pulls in ingestion sources, which pgqueue must not import.
-        from datahub.emitter.mcp_builder import mcps_from_mce
-
-        _warn_mce_deprecated()
+        warn_mce_deprecated()
         # The MCP topic is consumed by every GMS that consumes the MCE topic.
         mcps = list(mcps_from_mce(mce))
         if not mcps:
@@ -425,12 +419,6 @@ class _AggregatingKafkaCallback:
             self._failed = True
             self._suppressed = True
             return already_failed
-
-
-# Cached so the warning prints once per process: the Airflow hook builds a new emitter per call.
-@functools.lru_cache(maxsize=None)
-def _warn_mce_deprecated() -> None:
-    logger.warning(_MCE_DEPRECATION_MESSAGE)
 
 
 def _error_reporting_callback(err: Any, msg: Any) -> None:

@@ -52,23 +52,18 @@ datahub put platform --name MyCustomDataPlatform --display_name "My Custom Data 
 // my-custom-data-platform.json
 [
   {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-        "urn": "urn:li:dataPlatform:MyCustomDataPlatform",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-              "datasetNameDelimiter": "/",
-              "name": "My Custom Data Platform",
-              "type": "OTHERS",
-              "logoUrl": "https://<your-logo-url>"
-            }
-          }
-        ]
+    "entityType": "dataPlatform",
+    "entityUrn": "urn:li:dataPlatform:MyCustomDataPlatform",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInfo",
+    "aspect": {
+      "json": {
+        "datasetNameDelimiter": "/",
+        "name": "My Custom Data Platform",
+        "type": "OTHERS",
+        "logoUrl": "https://<your-logo-url>"
       }
-    },
-    "proposedDelta": null
+    }
   }
 ]
 ```

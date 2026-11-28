@@ -18,6 +18,7 @@ from datahub.configuration.common import (
     TraceValidationError,
 )
 from datahub.emitter import rest_emitter
+from datahub.emitter.generic_emitter import MCE_DEPRECATION_MESSAGE, warn_mce_deprecated
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.response_helper import TraceData
 from datahub.emitter.rest_emitter import (
@@ -32,7 +33,7 @@ from datahub.emitter.rest_emitter import (
     logger,
     preserve_unicode_escapes,
 )
-from datahub.errors import APITracingWarning
+from datahub.errors import APITracingWarning, DataHubDeprecationWarning
 from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
@@ -45,6 +46,9 @@ from datahub.metadata.schema_classes import (
     KEY_ASPECT_NAMES,
     KEY_ASPECTS,
     ChangeTypeClass,
+    DatasetSnapshotClass,
+    MetadataChangeEventClass,
+    SystemMetadataClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.server_config_util import RestServiceConfig
@@ -3078,3 +3082,155 @@ class TestAsyncUnlessSyncMarker:
             restli_emitter.emit_mcps([plain], emit_mode=EmitMode.ASYNC)
             payload = json.loads(mock_emit.call_args[0][1])
             assert payload.get("async") == "true"
+
+
+_MCE_URN = "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"
+
+
+@pytest.fixture
+def mce_emitter() -> DataHubRestEmitter:
+    warn_mce_deprecated.cache_clear()
+    return DataHubRestEmitter(
+        MOCK_GMS_ENDPOINT, openapi_ingestion=False, default_emit_mode=EmitMode.ASYNC
+    )
+
+
+def test_emit_mce_method_is_deprecated_and_uses_default_emit_mode(
+    mce_emitter: DataHubRestEmitter,
+) -> None:
+    mce = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=_MCE_URN, aspects=[Status(removed=False)]
+        )
+    )
+    with (
+        patch.object(mce_emitter, "emit_mcps") as emit_mcps,
+        pytest.warns(DataHubDeprecationWarning),
+    ):
+        mce_emitter.emit_mce(mce)
+
+    emit_mcps.assert_called_once()
+    assert emit_mcps.call_args.kwargs["emit_mode"] == EmitMode.ASYNC
+
+
+def test_emit_mce_posts_one_ingest_proposal_batch(
+    mce_emitter: DataHubRestEmitter,
+) -> None:
+    mce = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=_MCE_URN,
+            aspects=[Status(removed=False), DatasetProperties(description="d")],
+        ),
+        systemMetadata=SystemMetadataClass(runId="run-1", lastObserved=1),
+    )
+    response = Mock(spec=Response)
+    response.status_code = 200
+    response.headers = {}
+    callback = Mock()
+    with (
+        patch.object(
+            mce_emitter, "_emit_generic", return_value=response
+        ) as emit_generic,
+        pytest.warns(DataHubDeprecationWarning),
+    ):
+        mce_emitter.emit(mce, callback=callback, emit_mode=EmitMode.SYNC_PRIMARY)
+
+    # One request, so GMS stamps every aspect with the same time (one timeline change).
+    emit_generic.assert_called_once()
+    url, body = emit_generic.call_args.args
+    assert url == f"{MOCK_GMS_ENDPOINT}/aspects?action=ingestProposalBatch"
+    payload = json.loads(body)
+    proposals = payload["proposals"]
+    assert [p["aspectName"] for p in proposals] == ["status", "datasetProperties"]
+    assert [p["systemMetadata"]["runId"] for p in proposals] == ["run-1"] * 2
+    # The fixture's default is ASYNC, so "false" shows the explicit emit_mode won.
+    assert payload["async"] == "false"
+    callback.assert_called_once_with(None, "success")
+
+
+def test_emit_mce_posts_one_openapi_request() -> None:
+    emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+    emitter._server_config = RestServiceConfig(
+        raw_config={"versions": {"acryldata/datahub": {"version": "v1.0.1rc0"}}}
+    )
+    mce = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=_MCE_URN,
+            aspects=[Status(removed=False), DatasetProperties(description="d")],
+        )
+    )
+    response = Mock(spec=Response)
+    response.status_code = 200
+    response.headers = {}
+    response.json.return_value = []
+    with (
+        patch.object(emitter, "_emit_generic", return_value=response) as emit_generic,
+        pytest.warns(DataHubDeprecationWarning),
+    ):
+        emitter.emit(mce, emit_mode=EmitMode.SYNC_PRIMARY)
+
+    emit_generic.assert_called_once()
+    assert (
+        emit_generic.call_args.args[0]
+        == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false"
+    )
+    entities = json.loads(emit_generic.call_args.kwargs["payload"])
+    assert [set(e) - {"urn"} for e in entities] == [{"status"}, {"datasetProperties"}]
+
+
+def test_emit_mce_without_aspects_sends_nothing(
+    mce_emitter: DataHubRestEmitter,
+) -> None:
+    mce = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(urn=_MCE_URN, aspects=[])
+    )
+    callback = Mock()
+    with (
+        patch.object(mce_emitter, "_emit_generic") as emit_generic,
+        pytest.warns(DataHubDeprecationWarning),
+    ):
+        mce_emitter.emit(mce, callback=callback)
+
+    emit_generic.assert_not_called()
+    callback.assert_called_once()
+    assert callback.call_args.args[0] is None
+
+
+def test_emit_mce_failure_reaches_callback(
+    mce_emitter: DataHubRestEmitter,
+) -> None:
+    mce = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=_MCE_URN,
+            aspects=[Status(removed=False), DatasetProperties(description="d")],
+        )
+    )
+    error = OperationalError("rejected")
+    callback = Mock()
+    with (
+        patch.object(mce_emitter, "emit_mcps", side_effect=error) as emit_mcps,
+        pytest.warns(DataHubDeprecationWarning),
+        pytest.raises(OperationalError),
+    ):
+        mce_emitter.emit(mce, callback=callback)
+
+    emit_mcps.assert_called_once()
+    callback.assert_called_once_with(error, str(error))
+
+
+def test_mce_deprecation_logged_once_per_process(
+    mce_emitter: DataHubRestEmitter, caplog: pytest.LogCaptureFixture
+) -> None:
+    mce = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=_MCE_URN, aspects=[Status(removed=False)]
+        )
+    )
+    with (
+        patch.object(mce_emitter, "emit_mcps"),
+        pytest.warns(DataHubDeprecationWarning),
+    ):
+        mce_emitter.emit(mce)
+        mce_emitter.emit(mce)
+
+    assert caplog.text.count(MCE_DEPRECATION_MESSAGE) == 1

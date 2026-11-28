@@ -7,6 +7,7 @@ import os
 import re
 import socket
 import time
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -66,8 +67,12 @@ from datahub.configuration.env_vars import (
 # EmitMode` imports keep working; the class now lives in its own leaf module so
 # graph.config can reference it for the default_emit_mode field without a cycle.
 from datahub.emitter.emit_mode import EmitMode as EmitMode
-from datahub.emitter.generic_emitter import Emitter
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.generic_emitter import (
+    MCE_DEPRECATION_MESSAGE,
+    Emitter,
+    warn_mce_deprecated,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, mcps_from_mce
 from datahub.emitter.request_helper import (
     OpenApiRequest,
     has_sync_emit_marker,
@@ -80,6 +85,7 @@ from datahub.emitter.response_helper import (
 )
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.emitter.token_provider import TokenProviderAuth
+from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.auth.env import build_auth_config_from_env
 from datahub.ingestion.auth.registry import build_token_provider
@@ -833,7 +839,10 @@ class DataHubRestEmitter(Closeable, Emitter):
             ):
                 self.emit_mcp(item, emit_mode=emit_mode)
             else:
-                self.emit_mce(item)
+                warnings.warn(
+                    MCE_DEPRECATION_MESSAGE, DataHubDeprecationWarning, stacklevel=2
+                )
+                self._emit_mce(item, emit_mode)
         except Exception as e:
             if callback:
                 callback(e, str(e))
@@ -842,35 +851,19 @@ class DataHubRestEmitter(Closeable, Emitter):
             if callback:
                 callback(None, "success")  # type: ignore
 
+    @deprecated(MCE_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning)
     def emit_mce(self, mce: MetadataChangeEvent) -> None:
-        url = f"{self._gms_server}/entities?action=ingest"
+        """Emit an MCE as one MCP per aspect, with the default emit mode."""
+        self._emit_mce(mce, self._default_emit_mode)
 
-        raw_mce_obj = mce.proposedSnapshot.to_obj()
-        mce_obj = pre_json_transform(raw_mce_obj)
-        snapshot_fqn = (
-            f"com.linkedin.metadata.snapshot.{mce.proposedSnapshot.RECORD_SCHEMA.name}"
-        )
-        ensure_has_system_metadata(mce)
-        # To make lint happy
-        assert mce.systemMetadata is not None
-        system_metadata_obj = mce.systemMetadata.to_obj()
-        snapshot = {
-            "entity": {"value": {snapshot_fqn: mce_obj}},
-            "systemMetadata": system_metadata_obj,
-        }
-        payload = json.dumps(snapshot)
-        if len(payload) > INGEST_MAX_PAYLOAD_BYTES:
-            logger.warning(
-                f"MCE object has size {len(payload)} that exceeds the max payload size of {INGEST_MAX_PAYLOAD_BYTES}, "
-                "so this metadata will likely fail to be emitted."
-            )
-
-        response = self._emit_generic(url, payload)
-        logger.debug(
-            "Sent MCE successfully urn=%s status=%d",
-            mce.proposedSnapshot.urn,
-            response.status_code,
-        )
+    def _emit_mce(self, mce: MetadataChangeEvent, emit_mode: EmitMode) -> None:
+        """Sends the MCE's aspects in one batch, which GMS stamps as one change unless an oversized MCE is split across requests."""
+        warn_mce_deprecated()
+        mcps = list(mcps_from_mce(mce))
+        if not mcps:
+            logger.warning(f"MCE for {mce.proposedSnapshot.urn} produced zero MCPs")
+            return
+        self.emit_mcps(mcps, emit_mode=emit_mode)
 
     @overload
     @deprecated("Use emit_mode instead of async_flag")

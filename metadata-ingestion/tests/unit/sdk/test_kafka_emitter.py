@@ -6,13 +6,13 @@ import pytest
 from confluent_kafka.schema_registry.error import SchemaRegistryError
 
 from datahub.configuration.common import ConfigurationError, ConfigurationWarning
+from datahub.emitter.generic_emitter import warn_mce_deprecated
 from datahub.emitter.kafka_emitter import (
     DEFAULT_MCP_KAFKA_TOPIC,
     MCE_KEY,
     MCP_KEY,
     DatahubKafkaEmitter,
     KafkaEmitterConfig,
-    _warn_mce_deprecated,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import DataHubDeprecationWarning
@@ -29,8 +29,8 @@ from datahub.metadata.schema_classes import (
 
 class KafkaEmitterTest(unittest.TestCase):
     def setUp(self):
-        _warn_mce_deprecated.cache_clear()
-        self.addCleanup(_warn_mce_deprecated.cache_clear)
+        warn_mce_deprecated.cache_clear()
+        self.addCleanup(warn_mce_deprecated.cache_clear)
 
     def test_kafka_emitter_config(self):
         with self.assertNoLogs("datahub.emitter.kafka_emitter", "WARNING"):
@@ -172,7 +172,7 @@ class KafkaEmitterTest(unittest.TestCase):
 
         with (
             pytest.warns(DataHubDeprecationWarning) as warned,
-            self.assertLogs("datahub.emitter.kafka_emitter", "WARNING") as logs,
+            self.assertLogs("datahub.emitter.generic_emitter", "WARNING") as logs,
         ):
             emitter.emit(mce, callback=lambda err, msg: None)
             emitter.emit(mce, callback=lambda err, msg: None)

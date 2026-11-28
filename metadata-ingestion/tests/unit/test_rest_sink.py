@@ -11,10 +11,13 @@ import time_machine
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
+from datahub.errors import DataHubDeprecationWarning
+from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.datahub_rest import (
     DatahubRestSink,
     DatahubRestSinkConfig,
+    DataHubRestSinkReport,
     RestSinkMode,
 )
 
@@ -54,48 +57,30 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 ),
             ),
-            "/entities?action=ingest",
+            "/aspects?action=ingestProposalBatch",
             {
-                "entity": {
-                    "value": {
-                        "com.linkedin.metadata.snapshot.DatasetSnapshot": {
-                            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,downstream,PROD)",
-                            "aspects": [
-                                {
-                                    "com.linkedin.dataset.UpstreamLineage": {
-                                        "upstreams": [
-                                            {
-                                                "auditStamp": {
-                                                    "time": 1618987484580,
-                                                    "actor": "urn:li:corpuser:datahub",
-                                                },
-                                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream1,PROD)",
-                                                "type": "TRANSFORMED",
-                                            },
-                                            {
-                                                "auditStamp": {
-                                                    "time": 1618987484580,
-                                                    "actor": "urn:li:corpuser:datahub",
-                                                },
-                                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream2,PROD)",
-                                                "type": "TRANSFORMED",
-                                            },
-                                        ]
-                                    }
-                                }
-                            ],
-                        }
+                "async": "false",
+                "proposals": [
+                    {
+                        "entityType": "dataset",
+                        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,downstream,PROD)",
+                        "changeType": "UPSERT",
+                        "aspectName": "upstreamLineage",
+                        "aspect": {
+                            "value": '{"upstreams": [{"auditStamp": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream1,PROD)", "type": "TRANSFORMED"}, {"auditStamp": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream2,PROD)", "type": "TRANSFORMED"}]}',
+                            "contentType": "application/json",
+                        },
+                        "systemMetadata": {
+                            "lastObserved": FROZEN_TIME,
+                            "lastRunId": "no-run-id-provided",
+                            "properties": {
+                                "clientId": "acryl-datahub",
+                                "clientVersion": "1!0.0.0.dev0",
+                            },
+                            "runId": "no-run-id-provided",
+                        },
                     }
-                },
-                "systemMetadata": {
-                    "lastObserved": FROZEN_TIME,
-                    "lastRunId": "no-run-id-provided",
-                    "properties": {
-                        "clientId": "acryl-datahub",
-                        "clientVersion": "1!0.0.0.dev0",
-                    },
-                    "runId": "no-run-id-provided",
-                },
+                ],
             },
         ),
         (
@@ -116,44 +101,30 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 )
             ),
-            "/entities?action=ingest",
+            "/aspects?action=ingestProposalBatch",
             {
-                "entity": {
-                    "value": {
-                        "com.linkedin.metadata.snapshot.ChartSnapshot": {
-                            "urn": "urn:li:chart:(superset,227)",
-                            "aspects": [
-                                {
-                                    "com.linkedin.chart.ChartInfo": {
-                                        "customProperties": {},
-                                        "title": "Weekly Messages",
-                                        "description": "",
-                                        "lastModified": {
-                                            "created": {
-                                                "time": 1618987484580,
-                                                "actor": "urn:li:corpuser:datahub",
-                                            },
-                                            "lastModified": {
-                                                "time": 1618987484580,
-                                                "actor": "urn:li:corpuser:datahub",
-                                            },
-                                        },
-                                        "type": "SCATTER",
-                                    }
-                                }
-                            ],
-                        }
+                "async": "false",
+                "proposals": [
+                    {
+                        "entityType": "chart",
+                        "entityUrn": "urn:li:chart:(superset,227)",
+                        "changeType": "UPSERT",
+                        "aspectName": "chartInfo",
+                        "aspect": {
+                            "value": '{"customProperties": {}, "title": "Weekly Messages", "description": "", "lastModified": {"created": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "lastModified": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}}, "type": "SCATTER"}',
+                            "contentType": "application/json",
+                        },
+                        "systemMetadata": {
+                            "lastObserved": FROZEN_TIME,
+                            "lastRunId": "no-run-id-provided",
+                            "properties": {
+                                "clientId": "acryl-datahub",
+                                "clientVersion": "1!0.0.0.dev0",
+                            },
+                            "runId": "no-run-id-provided",
+                        },
                     }
-                },
-                "systemMetadata": {
-                    "lastObserved": FROZEN_TIME,
-                    "lastRunId": "no-run-id-provided",
-                    "properties": {
-                        "clientId": "acryl-datahub",
-                        "clientVersion": "1!0.0.0.dev0",
-                    },
-                    "runId": "no-run-id-provided",
-                },
+                ],
             },
         ),
         (
@@ -170,34 +141,30 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 )
             ),
-            "/entities?action=ingest",
+            "/aspects?action=ingestProposalBatch",
             {
-                "entity": {
-                    "value": {
-                        "com.linkedin.metadata.snapshot.DataJobSnapshot": {
-                            "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
-                            "aspects": [
-                                {
-                                    "com.linkedin.datajob.DataJobInfo": {
-                                        "customProperties": {},
-                                        "name": "User Deletions",
-                                        "description": "Constructs the fct_users_deleted from logging_events",
-                                        "type": {"string": "SQL"},
-                                    }
-                                }
-                            ],
-                        }
+                "async": "false",
+                "proposals": [
+                    {
+                        "entityType": "dataJob",
+                        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
+                        "changeType": "UPSERT",
+                        "aspectName": "dataJobInfo",
+                        "aspect": {
+                            "value": '{"customProperties": {}, "name": "User Deletions", "description": "Constructs the fct_users_deleted from logging_events", "type": {"string": "SQL"}}',
+                            "contentType": "application/json",
+                        },
+                        "systemMetadata": {
+                            "lastObserved": FROZEN_TIME,
+                            "lastRunId": "no-run-id-provided",
+                            "properties": {
+                                "clientId": "acryl-datahub",
+                                "clientVersion": "1!0.0.0.dev0",
+                            },
+                            "runId": "no-run-id-provided",
+                        },
                     }
-                },
-                "systemMetadata": {
-                    "lastObserved": FROZEN_TIME,
-                    "lastRunId": "no-run-id-provided",
-                    "properties": {
-                        "clientId": "acryl-datahub",
-                        "clientVersion": "1!0.0.0.dev0",
-                    },
-                    "runId": "no-run-id-provided",
-                },
+                ],
             },
         ),
         (
@@ -307,6 +274,8 @@ def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
     )
 
     with contextlib.ExitStack() as stack:
+        if isinstance(record, models.MetadataChangeEventClass):
+            stack.enter_context(pytest.warns(DataHubDeprecationWarning))
         if isinstance(record, models.UsageAggregationClass):
             stack.enter_context(
                 pytest.warns(
@@ -512,3 +481,79 @@ def test_rest_sink_config_accepts_client_config_dump():
     client = DatahubClientConfig(server="http://localhost:8080")
     cfg = DatahubRestSinkConfig(**client.model_dump())
     assert cfg.server == "http://localhost:8080"
+
+
+def test_emit_wrapper_sends_mce_as_one_mcp_batch():
+    status = models.StatusClass(removed=False)
+    properties = models.DatasetPropertiesClass(description="d")
+    mce = models.MetadataChangeEventClass(
+        proposedSnapshot=models.DatasetSnapshotClass(
+            urn="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+            aspects=[status, properties],
+        )
+    )
+    mock_emitter = MagicMock()
+    sink = DatahubRestSink.__new__(DatahubRestSink)
+    sink._emitter_thread_local = threading.local()
+    sink._emitter_thread_local.emitter = mock_emitter
+
+    sink._emit_wrapper(mce, emit_mode=EmitMode.SYNC_PRIMARY)
+
+    mock_emitter.emit.assert_not_called()
+    mock_emitter.emit_mcps.assert_called_once()
+    emitted = mock_emitter.emit_mcps.call_args.args[0]
+    assert all(isinstance(m, MetadataChangeProposalWrapper) for m in emitted)
+    assert [m.aspect for m in emitted] == [status, properties]
+    assert mock_emitter.emit_mcps.call_args.kwargs["emit_mode"] == EmitMode.SYNC_PRIMARY
+
+
+def test_emit_batch_wrapper_expands_mces_in_order():
+    status = models.StatusClass(removed=False)
+    properties = models.DatasetPropertiesClass(description="d")
+    mce = models.MetadataChangeEventClass(
+        proposedSnapshot=models.DatasetSnapshotClass(
+            urn="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+            aspects=[status, properties],
+        )
+    )
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:dataset:(urn:li:dataPlatform:foo,baz,PROD)",
+        aspect=models.StatusClass(removed=True),
+    )
+    mock_emitter = MagicMock()
+    sink = DatahubRestSink.__new__(DatahubRestSink)
+    sink._emitter_thread_local = threading.local()
+    sink._emitter_thread_local.emitter = mock_emitter
+    sink.report = DataHubRestSinkReport()
+    sink._gms_emit_mode = EmitMode.ASYNC
+
+    sink._emit_batch_wrapper([(mce,), (mcp,)])
+
+    emitted = mock_emitter.emit_mcps.call_args.args[0]
+    assert [m.aspect for m in emitted] == [status, properties, mcp.aspect]
+    assert all(isinstance(m, MetadataChangeProposalWrapper) for m in emitted)
+
+
+def test_sink_skips_mce_without_aspects() -> None:
+    mce = models.MetadataChangeEventClass(
+        proposedSnapshot=models.DatasetSnapshotClass(
+            urn="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+            aspects=[],
+        )
+    )
+    sink = DatahubRestSink.__new__(DatahubRestSink)
+    sink.config = DatahubRestSinkConfig(
+        server=MOCK_GMS_ENDPOINT, mode=RestSinkMode.ASYNC_BATCH
+    )
+    sink.executor = MagicMock()
+    sink.report = DataHubRestSinkReport()
+    callback = MagicMock()
+    envelope: RecordEnvelope = RecordEnvelope(mce, metadata={})
+
+    sink.write_record_async(envelope, callback)
+
+    sink.executor.submit.assert_not_called()
+    callback.on_success.assert_called_once()
+    assert callback.on_success.call_args.args[0] is envelope
+    callback.on_failure.assert_not_called()
+    assert len(sink.report.warnings) == 1

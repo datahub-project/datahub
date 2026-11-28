@@ -14,7 +14,7 @@ from pydantic.fields import Field
 from datahub.configuration.common import ConfigEnum
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -86,7 +86,7 @@ class FileSourceConfig(StatefulIngestionConfigBase):
     read_mode: FileReadMode = FileReadMode.AUTO
     aspect: Optional[str] = Field(
         default=None,
-        description="Set to an aspect to only read this aspect for ingestion.",
+        description="Set to an aspect to only read this aspect for ingestion. Also applies to the aspects of MetadataChangeEvents in the file.",
     )
     count_all_before_starting: bool = Field(
         default=True,
@@ -199,6 +199,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
     This plugin pulls metadata from a previously generated file.
     The [metadata file sink](../../../../metadata-ingestion/sink_docs/metadata-file.md) can produce such files, and a number of
     samples are included in the [examples/mce_files](../../../../metadata-ingestion/examples/mce_files) directory.
+    MetadataChangeEvents in the file are deprecated; they are read as one MCP per aspect.
     """
 
     def __init__(self, ctx: PipelineContext, config: FileSourceConfig):
@@ -237,6 +238,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
         self,
     ) -> Iterable[MetadataWorkUnit]:
         for f in self.get_filenames():
+            warned_mce = False
             for i, obj in self.iterate_generic_file(f):
                 id = f"{f.path}:{i}"
                 if isinstance(
@@ -254,7 +256,38 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                     else:
                         yield MetadataWorkUnit(id, mcp_raw=obj)
                 else:
-                    yield MetadataWorkUnit(id, mce=obj)
+                    if not warned_mce:
+                        warned_mce = True
+                        self.report.warning(
+                            title="MetadataChangeEvents are deprecated",
+                            message="The file contains MetadataChangeEvents. They are converted to MCPs; "
+                            "reading MetadataChangeEvents will be removed in a future release. "
+                            "Rewrite the file as MCPs.",
+                            context=f.path,
+                        )
+                    if not obj.proposedSnapshot.aspects:
+                        self.report.warning(
+                            title="Skipped empty MetadataChangeEvent",
+                            message="Skipped a MetadataChangeEvent with no aspects",
+                            context=f"{id} {obj.proposedSnapshot.urn}",
+                        )
+                        continue
+                    try:
+                        mcps = list(mcps_from_mce(obj))
+                    except Exception as e:
+                        self.report.failure(
+                            title="Failed to convert MetadataChangeEvent",
+                            message="Failed to convert MetadataChangeEvent to MCPs",
+                            context=id,
+                            exc=e,
+                        )
+                        continue
+                    for mcp in mcps:
+                        if (
+                            self.config.aspect is None
+                            or mcp.aspectName == self.config.aspect
+                        ):
+                            yield MetadataWorkUnit(f"{id}-{mcp.aspectName}", mcp=mcp)
             self.report.total_num_files += 1
             self.report.append_total_bytes_on_disk(f.size)
 

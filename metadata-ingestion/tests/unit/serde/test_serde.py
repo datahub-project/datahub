@@ -12,9 +12,11 @@ from avrogen import avrojson
 import datahub.metadata.schema_classes as models
 from datahub.cli.json_file import check_mce_file
 from datahub.emitter import mce_builder
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, mcps_from_mce
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.file import (
     FileSourceConfig,
     GenericFileSource,
@@ -65,7 +67,122 @@ def test_serde_to_json(
         pytestconfig,
         output_path=f"{output_file}",
         golden_path=golden_file,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
+
+
+def test_file_source_converts_mces_to_mcps(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    serde_dir = pytestconfig.rootpath / "tests/unit/serde"
+    mce_file = tmp_path / "mces.json"
+    shutil.copy(serde_dir / "test_serde_large.json", mce_file)
+    shutil.copy(serde_dir / "test_serde_patch.json", tmp_path / "mcps.json")
+    source = GenericFileSource(
+        ctx=PipelineContext(run_id="file-source-mce"),
+        config=FileSourceConfig(path=str(tmp_path)),
+    )
+    expected = [
+        mcp
+        for mce in read_metadata_file(mce_file)
+        if isinstance(mce, MetadataChangeEventClass)
+        for mcp in mcps_from_mce(mce)
+    ]
+
+    workunits = list(source.get_workunits_internal())
+
+    assert [
+        wu.metadata for wu in workunits if wu.id.startswith(str(mce_file))
+    ] == expected
+    # One warning, naming only the file that holds MCEs.
+    assert [list(w.context) for w in source.report.warnings] == [[str(mce_file)]]
+
+
+def test_file_source_reports_unconvertible_mce_and_continues(
+    tmp_path: pathlib.Path,
+) -> None:
+    json_path = tmp_path / "bad_urn_mce.json"
+    good_urn = mce_builder.make_dataset_urn("hive", "db.table")
+    write_metadata_file(
+        json_path,
+        [
+            MetadataChangeEventClass(
+                proposedSnapshot=models.DatasetSnapshotClass(
+                    urn=urn, aspects=[models.StatusClass(removed=False)]
+                )
+            )
+            for urn in ["not-a-urn", good_urn]
+        ],
+    )
+    source = GenericFileSource(
+        ctx=PipelineContext(run_id="file-source-bad-urn-mce"),
+        config=FileSourceConfig(path=str(json_path)),
+    )
+
+    workunits = list(source.get_workunits_internal())
+
+    assert [wu.get_urn() for wu in workunits] == [good_urn]
+    assert len(source.report.failures) == 1
+
+
+def test_file_source_skips_mce_without_aspects(tmp_path: pathlib.Path) -> None:
+    json_path = tmp_path / "empty_mce.json"
+    write_metadata_file(
+        json_path,
+        [
+            MetadataChangeEventClass(
+                proposedSnapshot=models.DatasetSnapshotClass(
+                    urn=mce_builder.make_dataset_urn("hive", "db.table"), aspects=[]
+                )
+            )
+        ],
+    )
+    source = GenericFileSource(
+        ctx=PipelineContext(run_id="file-source-empty-mce"),
+        config=FileSourceConfig(path=str(json_path)),
+    )
+
+    assert list(source.get_workunits_internal()) == []
+    assert not source.report.failures
+    urn = mce_builder.make_dataset_urn("hive", "db.table")
+    assert [list(w.context) for w in source.report.warnings] == [
+        [str(json_path)],
+        [f"{json_path}:0 {urn}"],
+    ]
+    assert (
+        f"Skipped a MetadataChangeEvent with no aspects: {json_path}:0 {urn}"
+        in check_mce_file(str(json_path))
+    )
+
+
+def test_file_source_aspect_filter_applies_to_mces(tmp_path: pathlib.Path) -> None:
+    json_path = tmp_path / "mce.json"
+    urn = mce_builder.make_dataset_urn("hive", "db.table")
+    write_metadata_file(
+        json_path,
+        [
+            MetadataChangeEventClass(
+                proposedSnapshot=models.DatasetSnapshotClass(
+                    urn=urn,
+                    aspects=[
+                        models.StatusClass(removed=False),
+                        models.DatasetPropertiesClass(description="d"),
+                    ],
+                )
+            )
+        ],
+    )
+    source = GenericFileSource(
+        ctx=PipelineContext(run_id="file-source-mce-aspect"),
+        config=FileSourceConfig(path=str(json_path), aspect="status"),
+    )
+
+    assert [wu.metadata for wu in source.get_workunits_internal()] == [
+        MetadataChangeProposalWrapper(
+            entityUrn=urn, aspect=models.StatusClass(removed=False)
+        )
+    ]
 
 
 @pytest.mark.parametrize(
@@ -137,6 +254,14 @@ def test_check_metadata_schema(pytestconfig: pytest.Config, json_filename: str) 
     run_datahub_cmd(["check", "metadata-file", f"{json_file_path}"])
 
 
+def test_check_metadata_file_accepts_deprecated_unpack_mces(
+    pytestconfig: pytest.Config,
+) -> None:
+    json_file_path = pytestconfig.rootpath / "examples/mce_files/single_mce.json"
+
+    run_datahub_cmd(["check", "metadata-file", f"{json_file_path}", "--unpack-mces"])
+
+
 def test_serde_paired(pytestconfig: pytest.Config) -> None:
     # Test with a pair of python object + json file.
     # Validates both deserialization and serialization.
@@ -186,9 +311,7 @@ def test_check_metadata_rewrite(
 
     output_file_path = tmp_path / "output.json"
     shutil.copyfile(json_input, output_file_path)
-    run_datahub_cmd(
-        ["check", "metadata-file", f"{output_file_path}", "--rewrite", "--unpack-mces"]
-    )
+    run_datahub_cmd(["check", "metadata-file", f"{output_file_path}", "--rewrite"])
 
     mce_helpers.check_golden_file(
         pytestconfig, output_path=output_file_path, golden_path=json_output_reference

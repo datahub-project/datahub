@@ -26,8 +26,7 @@ from datahub.configuration.env_vars import (
     get_rest_sink_default_max_threads,
     get_rest_sink_default_mode,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, mcps_from_mce
 from datahub.emitter.rest_emitter import (
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     DEFAULT_REST_EMITTER_ENDPOINT,
@@ -408,7 +407,10 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         emit_mode: EmitMode,
     ) -> None:
         # TODO: Add timing metrics
-        self.emitter.emit(record, emit_mode=emit_mode)
+        if isinstance(record, MetadataChangeEvent):
+            self.emitter.emit_mcps(list(mcps_from_mce(record)), emit_mode=emit_mode)
+        else:
+            self.emitter.emit(record, emit_mode=emit_mode)
 
     def _emit_batch_wrapper(
         self,
@@ -428,9 +430,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             event = record[0]
 
             if isinstance(event, MetadataChangeEvent):
-                # Unpack MCEs into MCPs.
-                mcps = mcps_from_mce(event)
-                events.extend(mcps)
+                events.extend(mcps_from_mce(event))
             else:
                 events.append(event)
 
@@ -459,6 +459,24 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         # should only have a high value if the sink is actually a bottleneck.
         with self.report.main_thread_blocking_timer:
             record = record_envelope.record
+            # Acknowledged here, not submitted, so it isn't counted as written (same as the Kafka sink).
+            if (
+                isinstance(record, MetadataChangeEvent)
+                and not record.proposedSnapshot.aspects
+            ):
+                logger.warning(
+                    f"Skipped MCE for {record.proposedSnapshot.urn}: no aspects"
+                )
+                self.report.report_warning(
+                    {
+                        "warning": "Skipped a MetadataChangeEvent with no aspects",
+                        "info": {"urn": record.proposedSnapshot.urn},
+                    }
+                )
+                write_callback.on_success(
+                    record_envelope, {"msg": "MCE had zero aspects"}
+                )
+                return
             if self.config.mode == RestSinkMode.ASYNC:
                 assert isinstance(self.executor, PartitionExecutor)
                 partition_key = _get_partition_key(record_envelope)
