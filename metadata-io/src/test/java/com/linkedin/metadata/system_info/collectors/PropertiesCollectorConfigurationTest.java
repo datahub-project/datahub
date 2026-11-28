@@ -770,6 +770,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.bulkProcessor.itemRequeueMaxAttempts",
           "elasticsearch.bulkProcessor.ackAfterTransfer",
           "elasticsearch.bulkProcessor.ackAfterTransferTimeoutSeconds",
+          "elasticsearch.bulkProcessor.closeTimeoutSeconds",
           "elasticsearch.connectionRequestTimeout",
           "elasticsearch.socketTimeout",
           "elasticsearch.host",

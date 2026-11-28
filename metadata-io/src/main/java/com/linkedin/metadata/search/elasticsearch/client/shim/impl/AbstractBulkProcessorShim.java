@@ -6,9 +6,12 @@ import com.linkedin.metadata.search.elasticsearch.update.BulkProcessorCompletion
 import com.linkedin.metadata.search.elasticsearch.update.BulkWriteResultTracker;
 import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,6 +39,17 @@ public abstract class AbstractBulkProcessorShim<T> {
 
   @Nullable protected BulkItemRequeueSupport bulkItemRequeueSupport;
 
+  private enum Lifecycle {
+    OPEN,
+    // A close owns the processors and is draining them; failed items may still be requeued.
+    CLOSING,
+    // Native processors are closed; any requeue would be dropped, so it is rejected instead.
+    CLOSED
+  }
+
+  private final AtomicReference<Lifecycle> lifecycle = new AtomicReference<>(Lifecycle.OPEN);
+  private volatile boolean receivedBulkWrites;
+
   /**
    * Initialize bulk processor infrastructure with common fields and build the processor array.
    * Subclasses should call this method with their processor supplier.
@@ -56,6 +70,7 @@ public abstract class AbstractBulkProcessorShim<T> {
     }
     this.bulkProcessors = processors;
     this.completionTrackers = trackers;
+    lifecycle.set(Lifecycle.OPEN);
   }
 
   public void configureBulkProcessorWriteOptions(
@@ -76,6 +91,7 @@ public abstract class AbstractBulkProcessorShim<T> {
       @Nonnull OperationFingerprint opContext,
       @Nonnull String urn,
       @Nonnull DocWriteRequest<?> writeRequest) {
+    receivedBulkWrites = true;
     bulkWriteResultTracker.recordEnqueued(1);
     int index = Math.floorMod(urn.hashCode(), threadCount);
     try {
@@ -106,6 +122,22 @@ public abstract class AbstractBulkProcessorShim<T> {
 
   public long drainBulkTransferFailures() {
     return bulkWriteResultTracker.drainUnrecoveredTransferFailures();
+  }
+
+  public int pendingBulkWriteCount() {
+    return bulkWriteResultTracker.getPendingItems();
+  }
+
+  @Nonnull
+  public List<String> pendingBulkItems() {
+    if (completionTrackers == null) {
+      return List.of();
+    }
+    List<String> keys = new ArrayList<>();
+    for (BulkProcessorCompletionTracker completionTracker : completionTrackers) {
+      keys.addAll(completionTracker.pendingItemKeys());
+    }
+    return keys;
   }
 
   @Nonnull
@@ -163,9 +195,75 @@ public abstract class AbstractBulkProcessorShim<T> {
   }
 
   /**
+   * Claims the close of this shim's processors. Several {@code ESBulkProcessor}s can share one shim
+   * (the Spring bean, the registry entry, aliased clusters); only the first claim drains them.
+   *
+   * @return false if another close already claimed or finished it
+   */
+  public boolean claimBulkProcessorClose() {
+    return lifecycle.compareAndSet(Lifecycle.OPEN, Lifecycle.CLOSING);
+  }
+
+  public boolean hasReceivedBulkWrites() {
+    return receivedBulkWrites;
+  }
+
+  /**
    * Close all bulk processors. Subclasses must implement the actual processor-specific close logic.
    */
   public void closeBulkProcessor() {
+    lifecycle.set(Lifecycle.CLOSED);
+    closeNativeProcessors();
+  }
+
+  /**
+   * Shutdown drain within one budget. The flush and the native close can each block on a bulk still
+   * on the wire, so each runs on a daemon thread and the caller waits only for what remains. Work
+   * still running when the budget expires is left on its daemon thread; closing the client then
+   * aborts it, and the failure is recorded as unrecovered.
+   */
+  public void closeBulkProcessorWithin(long timeoutMillis)
+      throws InterruptedException, TimeoutException {
+    long deadlineNanos =
+        System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(Math.max(0, timeoutMillis));
+    try {
+      flushAndAwaitWithin(deadlineNanos);
+    } finally {
+      lifecycle.set(Lifecycle.CLOSED);
+      closeNativeWithin(deadlineNanos);
+    }
+  }
+
+  private void flushAndAwaitWithin(long deadlineNanos)
+      throws InterruptedException, TimeoutException {
+    if (!runWithin(
+        "bulk-processor-close-flush", this::flushBulkProcessor, millisUntil(deadlineNanos))) {
+      throw new TimeoutException(
+          "Flushing bulk processors did not finish within the shutdown budget");
+    }
+    bulkWriteResultTracker.awaitIdle(
+        Duration.ofNanos(Math.max(0, deadlineNanos - System.nanoTime())));
+  }
+
+  private void closeNativeWithin(long deadlineNanos) {
+    boolean closed;
+    try {
+      closed =
+          runWithin(
+              "bulk-processor-close", this::closeNativeProcessors, millisUntil(deadlineNanos));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      closed = false;
+    }
+    if (!closed) {
+      log.warn(
+          "Bulk processor close did not finish within the shutdown budget; closing the client will"
+              + " abort {} in-flight item(s)",
+          bulkWriteResultTracker.getPendingItems());
+    }
+  }
+
+  private void closeNativeProcessors() {
     if (completionTrackers != null) {
       for (BulkProcessorCompletionTracker completionTracker : completionTrackers) {
         completionTracker.shutdownFlushExecutor();
@@ -179,23 +277,59 @@ public abstract class AbstractBulkProcessorShim<T> {
     }
   }
 
-  /** Requeue without {@code recordEnqueued}: the item is already pending from the original add. */
+  /**
+   * Runs {@code action} on a daemon thread and waits up to {@code timeoutMillis}. Returns false if
+   * it is still running so the caller can move on. A RuntimeException from the action is rethrown.
+   */
+  private static boolean runWithin(String name, Runnable action, long timeoutMillis)
+      throws InterruptedException {
+    AtomicReference<RuntimeException> failure = new AtomicReference<>();
+    Thread thread =
+        new Thread(
+            () -> {
+              try {
+                action.run();
+              } catch (RuntimeException e) {
+                failure.set(e);
+              }
+            },
+            name);
+    thread.setDaemon(true);
+    thread.start();
+    // Thread.join(0) waits forever, so a spent budget still allows one millisecond.
+    thread.join(Math.max(1, timeoutMillis));
+    if (thread.isAlive()) {
+      return false;
+    }
+    RuntimeException e = failure.get();
+    if (e != null) {
+      throw e;
+    }
+    return true;
+  }
+
+  private static long millisUntil(long deadlineNanos) {
+    return Math.max(0, TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()));
+  }
+
+  /**
+   * Requeue without {@code recordEnqueued}: the item is already pending from the original add.
+   * Throws when the item cannot be resubmitted; the listener then records it as unrecovered, so it
+   * must not be recorded here as well.
+   */
   protected void requeueFailedRequest(@Nonnull DocWriteRequest<?> writeRequest) {
+    if (lifecycle.get() == Lifecycle.CLOSED) {
+      throw new IllegalStateException("Cannot requeue bulk item; bulk processors are closed");
+    }
     if (bulkProcessors == null || bulkProcessors.length == 0 || completionTrackers == null) {
-      log.warn("Cannot requeue bulk item; processors not initialized");
-      return;
+      throw new IllegalStateException("Cannot requeue bulk item; processors not initialized");
     }
     String routingKey =
         writeRequest.id() != null
             ? writeRequest.id()
             : String.valueOf(writeRequest.index()) + ":" + System.identityHashCode(writeRequest);
     int index = Math.floorMod(routingKey.hashCode(), threadCount);
-    try {
-      trackAndSubmit(index, writeRequest);
-    } catch (RuntimeException | Error e) {
-      bulkWriteResultTracker.recordUnrecoveredTransferFailure(1);
-      throw e;
-    }
+    trackAndSubmit(index, writeRequest);
   }
 
   private void trackAndSubmit(int index, @Nonnull DocWriteRequest<?> writeRequest) {

@@ -1,6 +1,12 @@
 package com.linkedin.gms.factory.search;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -25,11 +31,17 @@ import com.linkedin.metadata.search.elasticsearch.update.MirroredESBulkProcessor
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.testng.annotations.Test;
 
 public class SearchClusterRegistryTest {
@@ -386,6 +398,139 @@ public class SearchClusterRegistryTest {
     assertThrows(
         IllegalStateException.class,
         () -> new SearchClusterRegistry(config, connections, CONVENTION, null));
+  }
+
+  private static SearchClientShim<?> writtenClient() {
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    when(client.hasReceivedBulkWrites()).thenReturn(true);
+    return client;
+  }
+
+  private static ESBulkProcessor processorWithCloseTimeout(Duration closeTimeout) {
+    ESBulkProcessor processor = mock(ESBulkProcessor.class);
+    when(processor.getCloseTimeout()).thenReturn(closeTimeout);
+    return processor;
+  }
+
+  @Test
+  public void testCloseDrainsWrittenClientsThenClosesAllNonPrimaryClientsIncludingIdle()
+      throws Exception {
+    ElasticSearchConfiguration config =
+        config(ComponentClusterConfiguration.builder().searchV3("secondary").build());
+    SearchClientShim<?> primaryClient = writtenClient();
+    SearchClientShim<?> secondaryClient = writtenClient();
+    SearchClientShim<?> idleClient = mock(SearchClientShim.class);
+    ESBulkProcessor primaryProcessor = processorWithCloseTimeout(Duration.ofSeconds(30));
+    ESBulkProcessor secondaryProcessor = processorWithCloseTimeout(Duration.ofSeconds(30));
+    ESBulkProcessor idleProcessor = processorWithCloseTimeout(Duration.ofSeconds(30));
+    Map<String, SearchClusterRegistry.ClusterConnection> connections =
+        liveConnections(
+            config, primaryClient, secondaryClient, primaryProcessor, secondaryProcessor);
+    connections.put(
+        "idle",
+        new SearchClusterRegistry.ClusterConnection(
+            "idle", config, idleClient, idleProcessor, mock(ESIndexBuilder.class)));
+
+    new SearchClusterRegistry(config, connections, CONVENTION, null).close();
+
+    ArgumentCaptor<Duration> budgets = ArgumentCaptor.forClass(Duration.class);
+    verify(primaryProcessor).close(budgets.capture());
+    InOrder secondaryOrder = inOrder(secondaryProcessor, secondaryClient);
+    secondaryOrder.verify(secondaryProcessor).close(budgets.capture());
+    secondaryOrder.verify(secondaryClient).close();
+    for (Duration budget : budgets.getAllValues()) {
+      assertTrue(budget.compareTo(Duration.ofSeconds(30)) <= 0, "budget " + budget);
+    }
+    verify(idleProcessor).close(any(Duration.class));
+    verify(idleClient).close();
+    verify(primaryClient, never()).close();
+  }
+
+  @Test
+  public void testCloseDrainsClustersConcurrentlySoOneStuckClusterCannotStarveAnother()
+      throws Exception {
+    ElasticSearchConfiguration config =
+        config(ComponentClusterConfiguration.builder().searchV3("secondary").build());
+    SearchClientShim<?> primaryClient = writtenClient();
+    SearchClientShim<?> secondaryClient = writtenClient();
+    ESBulkProcessor primaryProcessor = processorWithCloseTimeout(Duration.ofSeconds(30));
+    ESBulkProcessor secondaryProcessor = processorWithCloseTimeout(Duration.ofSeconds(30));
+    CountDownLatch secondaryClosed = new CountDownLatch(1);
+    AtomicBoolean secondaryClosedWhilePrimaryWasStuck = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              secondaryClosedWhilePrimaryWasStuck.set(secondaryClosed.await(10, TimeUnit.SECONDS));
+              return null;
+            })
+        .when(primaryProcessor)
+        .close(any(Duration.class));
+    doAnswer(
+            invocation -> {
+              secondaryClosed.countDown();
+              return null;
+            })
+        .when(secondaryProcessor)
+        .close(any(Duration.class));
+
+    new SearchClusterRegistry(
+            config,
+            liveConnections(
+                config, primaryClient, secondaryClient, primaryProcessor, secondaryProcessor),
+            CONVENTION,
+            null)
+        .close();
+
+    assertTrue(secondaryClosedWhilePrimaryWasStuck.get());
+    verify(secondaryClient).close();
+  }
+
+  @Test
+  public void testCloseClosesASharedClientOnce() throws Exception {
+    ElasticSearchConfiguration config = config(ComponentClusterConfiguration.builder().build());
+    SearchClientShim<?> shared = writtenClient();
+    ESBulkProcessor primaryProcessor = processorWithCloseTimeout(Duration.ofSeconds(30));
+    ESBulkProcessor aliasProcessor = processorWithCloseTimeout(Duration.ofSeconds(30));
+    Map<String, SearchClusterRegistry.ClusterConnection> connections = new LinkedHashMap<>();
+    connections.put(
+        "primary",
+        new SearchClusterRegistry.ClusterConnection(
+            "primary", config, shared, primaryProcessor, mock(ESIndexBuilder.class)));
+    connections.put(
+        "alias",
+        new SearchClusterRegistry.ClusterConnection(
+            "alias", config, shared, aliasProcessor, mock(ESIndexBuilder.class)));
+
+    new SearchClusterRegistry(config, connections, CONVENTION, null).close();
+
+    verify(primaryProcessor).close(any(Duration.class));
+    verify(aliasProcessor, never()).close(any(Duration.class));
+    verify(shared, never()).close();
+  }
+
+  @Test
+  public void testCloseWithMirrorClosesUnderlyingProcessorsNotTheMirror() throws Exception {
+    ElasticSearchConfiguration config = configWithGraphMigration("secondary", true);
+    SearchClientShim<?> primaryClient = writtenClient();
+    SearchClientShim<?> secondaryClient = writtenClient();
+    ESBulkProcessor primaryProcessor = processorWithCloseTimeout(Duration.ofSeconds(30));
+    ESBulkProcessor secondaryProcessor = processorWithCloseTimeout(Duration.ofSeconds(30));
+    SearchClusterRegistry reg =
+        new SearchClusterRegistry(
+            config,
+            liveConnections(
+                config, primaryClient, secondaryClient, primaryProcessor, secondaryProcessor),
+            CONVENTION,
+            null);
+    assertTrue(reg.bulkProcessorFor(SearchComponent.GRAPH) instanceof MirroredESBulkProcessor);
+
+    reg.close();
+
+    verify(primaryProcessor).close(any(Duration.class));
+    verify(secondaryProcessor).close(any(Duration.class));
+    // The mirror's close only flushes both sides; it must not stand in for the real close.
+    verify(primaryProcessor, never()).flush();
+    verify(secondaryProcessor, never()).flush();
+    verify(secondaryClient).close();
   }
 
   @Test

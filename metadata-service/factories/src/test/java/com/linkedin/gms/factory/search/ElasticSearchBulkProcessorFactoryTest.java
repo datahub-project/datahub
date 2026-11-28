@@ -38,6 +38,11 @@ public class ElasticSearchBulkProcessorFactoryTest extends AbstractTestNGSpringC
   }
 
   @Test
+  void closeTimeoutComesFromConfiguration() {
+    assertEquals(java.time.Duration.ofSeconds(30), test.getCloseTimeout());
+  }
+
+  @Test
   void byQueryRequestOptionsUsesConfiguredSocketTimeoutMs() {
     RequestOptions opts = ElasticSearchBulkProcessorFactory.buildByQueryRequestOptions(180);
     assertNotNull(opts.getRequestConfig());

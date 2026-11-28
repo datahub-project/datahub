@@ -547,6 +547,51 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
   void closeBulkProcessor();
 
+  /**
+   * Shutdown drain: flush, wait for tracked bulks, then close the native processors, all within one
+   * budget. The default runs the steps unbounded; the bulk processor shim bounds each step.
+   */
+  @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
+  default void closeBulkProcessorWithin(long timeoutMillis)
+      throws InterruptedException, java.util.concurrent.TimeoutException {
+    try {
+      flushAndAwaitBulkTransfer(timeoutMillis);
+    } finally {
+      closeBulkProcessor();
+    }
+  }
+
+  /**
+   * Claims the close of this client's bulk processors. Several bulk processor wrappers can share
+   * one client; only the first claim should drain and close. Default true for shims without state.
+   */
+  @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
+  default boolean claimBulkProcessorClose() {
+    return true;
+  }
+
+  /** Whether any write was ever added through {@link #addBulk}. Default false. */
+  @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
+  default boolean hasReceivedBulkWrites() {
+    return false;
+  }
+
+  /** Items added but without a terminal bulk outcome yet. Default 0. */
+  @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
+  default int pendingBulkWriteCount() {
+    return 0;
+  }
+
+  /**
+   * {@code index/id} of items still awaiting a bulk outcome, for diagnostics. May be a subset of
+   * {@link #pendingBulkWriteCount()}. Default empty.
+   */
+  @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
+  @Nonnull
+  default java.util.List<String> pendingBulkItems() {
+    return java.util.List.of();
+  }
+
   // -- Semantic search operations --------------------------------------------------
 
   default KnnSearchResponse searchKnn(

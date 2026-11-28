@@ -1250,6 +1250,8 @@ elasticsearch:
     # When true, MAE UpdateIndices awaits bulk transfer before Kafka/pgQueue ack.
     ackAfterTransfer: ${ES_BULK_ACK_AFTER_TRANSFER:false}
     ackAfterTransferTimeoutSeconds: ${ES_BULK_ACK_AFTER_TRANSFER_TIMEOUT_SECONDS:60}
+    # Shutdown wait for in-flight bulks before the client closes; keep below the termination grace period.
+    closeTimeoutSeconds: ${ES_BULK_CLOSE_TIMEOUT_SECONDS:30}
     # By-query HTTP socket timeout (seconds) for delete/update-by-query RequestOptions (DEFAULT tuning).
     # Distinct from elasticsearch.buildIndices.slowOperationTimeoutSeconds (system-update / ESIndexBuilder jobs).
     slowByQueryOperationTimeoutSeconds: ${ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS:180}
