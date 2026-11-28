@@ -79,6 +79,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
     WarehouseLineageContext,
     bind_visualizations_by_derived_objects,
     datasource_for_model_table,
+    matching_datasource,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
     object_id,
@@ -207,6 +208,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         self._model_document_unavailable_projects: Set[str] = set()
         self._model_tables_non_retryable_projects: Set[str] = set()
+        self._project_datasources: List[Datasource] = []
         # The Modeling document of the dashboard in flight, so binding and
         # document derived metrics share one GET. Dashboards are processed one
         # at a time, so only the latest is kept.
@@ -529,6 +531,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def _process_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
         source_warehouses = self._get_project_source_warehouses(project.id)
+        self._project_datasources = source_warehouses
         # Warehouse/model-table lookups are deferred until an allowed dashboard/report
         # needs them, so fully-filtered projects don't pay for those API calls.
         lineage_context = _LazyProjectLineage(self, project.id, source_warehouses)
@@ -2591,9 +2594,15 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         else the project-level context. A named warehouse that does not map
         to a platform gives None: the project's warehouse may be a different
         platform and database, and its URNs would not be this dataset's."""
-        if dataset.source_warehouse:
+        reference = dataset.source_warehouse
+        if reference:
+            # The project's entry carries the connection a dataset reference
+            # can omit; model tables resolve through it, so must SQL views.
+            datasource = matching_datasource(
+                reference.id, reference.name, self._project_datasources
+            )
             return self.datasource_warehouse_context(
-                project_id, dataset.source_warehouse
+                project_id, datasource or reference
             )
         return context
 
