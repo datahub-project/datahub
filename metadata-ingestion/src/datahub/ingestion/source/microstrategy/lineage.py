@@ -11,6 +11,7 @@ from typing import (
     Set,
     Tuple,
     TypeVar,
+    cast,
 )
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,6 +20,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.openapi import EntityAspects
 from datahub.ingestion.source.microstrategy.config import (
     ConnectionPlatformConfig,
     MicroStrategyConfig,
@@ -68,6 +70,7 @@ LineageKey = TypeVar("LineageKey")
 
 _PARSE_LABEL_PREFIX = "sql "
 _PARSE_LABEL_HASH_CHARS = 12
+_SCHEMA_LOOKUP_FAILURE_SAMPLE_SIZE = 3
 
 
 @dataclass(frozen=True)
@@ -104,6 +107,7 @@ class _ParsedSqlView(BaseModel):
     failed: bool = False
     upstream_urns: List[str] = Field(default_factory=list)
     column_upstreams: Optional[Dict[str, List[str]]] = None
+    schema_lookup_failed: bool = False
 
 
 class _WarehouseKey(BaseModel):
@@ -118,6 +122,35 @@ _NO_STATEMENTS = _ParsedSqlView(has_statements=False)
 _PARSE_FAILED = _ParsedSqlView(has_statements=True, failed=True)
 
 
+class _FailureRecordingGraph:
+    # SchemaResolver caches a failed batch lookup as "no schema" for good;
+    # recording the URNs lets the caller evict them so a later parse retries.
+    def __init__(self, graph: DataHubGraph) -> None:
+        self._graph = graph
+        self.failed_urns: Set[str] = set()
+
+    def get_entities(
+        self,
+        entity_name: str,
+        urns: List[str],
+        aspects: Optional[List[str]] = None,
+        with_system_metadata: bool = False,
+    ) -> Dict[str, EntityAspects]:
+        try:
+            return self._graph.get_entities(
+                entity_name=entity_name,
+                urns=urns,
+                aspects=aspects,
+                with_system_metadata=with_system_metadata,
+            )
+        except Exception:
+            self.failed_urns.update(urns)
+            raise
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._graph, name)
+
+
 class _TimedSchemaResolver(SchemaResolver):
     def __init__(
         self,
@@ -129,11 +162,12 @@ class _TimedSchemaResolver(SchemaResolver):
         graph: Optional[DataHubGraph],
         report: SchemaResolverReport,
     ):
+        self._lookup_recorder = _FailureRecordingGraph(graph) if graph else None
         super().__init__(
             platform=platform,
             platform_instance=platform_instance,
             env=env,
-            graph=graph,
+            graph=cast(Optional[DataHubGraph], self._lookup_recorder),
             report=report,
         )
         self._timing_report = timing_report
@@ -144,6 +178,15 @@ class _TimedSchemaResolver(SchemaResolver):
             return super().resolve_table(table)
         finally:
             self._timing_report.report_schema_resolution(time.perf_counter() - started)
+
+    def evict_failed_lookups(self) -> List[str]:
+        if self._lookup_recorder is None:
+            return []
+        failed = sorted(self._lookup_recorder.failed_urns)
+        self._lookup_recorder.failed_urns.clear()
+        for urn in failed:
+            self._schema_cache.pop(urn, None)
+        return failed
 
 
 @dataclass(frozen=True)
@@ -212,16 +255,20 @@ class MicroStrategyLineageExtractor:
         self._parse_cache: SpillCache[_ParsedSqlView] = SpillCache(
             config.cache_memory_entries
         )
-        # One resolver per warehouse, so each table schema is fetched once per run.
+        # One resolver per warehouse, so each table schema is fetched once per project.
         self._schema_resolvers: Dict[_WarehouseKey, _TimedSchemaResolver] = {}
 
     def reset_project_caches(self) -> None:
         self.report.report_cache_entries(
             MicroStrategyCache.SQL_PARSE, self._parse_cache.reset()
         )
+        self._close_schema_resolvers()
 
     def close(self) -> None:
         self._parse_cache.close()
+        self._close_schema_resolvers()
+
+    def _close_schema_resolvers(self) -> None:
         for resolver in self._schema_resolvers.values():
             resolver.close()
         self._schema_resolvers.clear()
@@ -424,7 +471,8 @@ class MicroStrategyLineageExtractor:
             graph,
             label or _PARSE_LABEL_PREFIX + cache_key[:_PARSE_LABEL_HASH_CHARS],
         )
-        self._parse_cache.put(cache_key, parsed)
+        if not parsed.schema_lookup_failed:
+            self._parse_cache.put(cache_key, parsed)
         return parsed
 
     @timed_phase(MicroStrategyPhase.SQL_PARSE)
@@ -463,6 +511,8 @@ class MicroStrategyLineageExtractor:
                 f"CREATE TABLE {MSTR_SQL_VIEW_OUTPUT_SENTINEL} AS\n{queries[-1]}"
             )
 
+        schema_resolver = self._schema_resolver(context, graph) if graph else None
+        failed_lookups: List[str] = []
         try:
             result = create_lineage_from_sql_statements(
                 queries=queries,
@@ -473,9 +523,7 @@ class MicroStrategyLineageExtractor:
                 env=context.env,
                 graph=graph,
                 is_temp_table=lambda name: _leaf_identifier(name) in created_tables,
-                schema_resolver=(
-                    self._schema_resolver(context, graph) if graph else None
-                ),
+                schema_resolver=schema_resolver,
             )
         except ImportError as error:
             # A lazy import failure would hit every statement.
@@ -489,6 +537,10 @@ class MicroStrategyLineageExtractor:
                 time.perf_counter() - started,
                 len(statements),
             )
+            if schema_resolver is not None:
+                failed_lookups = schema_resolver.evict_failed_lookups()
+        if failed_lookups:
+            self._report_schema_lookup_failures(failed_lookups, label)
         if result.debug_info.error is not None:
             self._report_sql_parse_failure(sql, context, result.debug_info.error)
             return _PARSE_FAILED
@@ -507,6 +559,23 @@ class MicroStrategyLineageExtractor:
             has_statements=True,
             upstream_urns=_dedupe_sorted(result.in_tables),
             column_upstreams=column_upstreams,
+            schema_lookup_failed=bool(failed_lookups),
+        )
+
+    def _report_schema_lookup_failures(
+        self, failed_urns: List[str], label: str
+    ) -> None:
+        self.report.warning(
+            title="Failed to fetch upstream schemas from DataHub",
+            message=(
+                "Column lineage for this SQL view was built without the upstream "
+                "table schemas and may not match their columns. The lookup is "
+                "retried for the next SQL view."
+            ),
+            context=(
+                f"{label}: {len(failed_urns)} upstream tables, e.g. "
+                f"{failed_urns[:_SCHEMA_LOOKUP_FAILURE_SAMPLE_SIZE]}"
+            ),
         )
 
     def _report_sql_parse_failure(
