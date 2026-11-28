@@ -1715,7 +1715,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dataset = entry.dataset
         if self.config.extract_metric_expressions:
             self._enrich_dataset_metric_expressions(project_id, dataset)
-        warehouse_context = lineage_context.warehouse_context
+        warehouse_context = self._dataset_warehouse_context(
+            dataset, lineage_context.warehouse_context
+        )
         if self.config.extract_report_sql_lineage and warehouse_context:
             self._enrich_report_sql_lineage(
                 project_id=project_id,

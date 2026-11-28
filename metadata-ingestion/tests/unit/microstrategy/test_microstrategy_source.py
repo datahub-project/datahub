@@ -4481,6 +4481,40 @@ def test_per_report_report_pass_drops_field_lineage_for_replaced_fields() -> Non
     assert set(downstream_paths) <= schema_paths
 
 
+class _UnmappedWarehouseClient(_SharedReportClient):
+    def _dataset(self) -> Dict[str, Any]:
+        dataset = super()._dataset()
+        dataset["sourceWarehouse"] = {
+            "id": "legacy-1",
+            "name": "Legacy DB",
+            "database": {"type": "unknown_db"},
+        }
+        return dataset
+
+
+def test_per_report_report_pass_does_not_borrow_project_warehouse_for_unmapped() -> (
+    None
+):
+    source = _per_report_source(
+        {
+            "extract_warehouse_lineage": True,
+            "extract_report_sql_lineage": True,
+            "extract_source_warehouses": True,
+            "extract_reports": True,
+            "extract_independent_reports": True,
+        }
+    )
+    client = _UnmappedWarehouseClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(source._process_project(_PROJECT))
+
+    # The project's warehouse may be another platform, so its URNs would be wrong.
+    assert client.report_instances == ["report-solo"]
+    lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
+    assert _SHARED_URN not in lineage
+
+
 class _EmptyReportDefinitionClient(_SharedReportClient):
     def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
         return {"result": {"definition": {"description": "Empty definition"}}}
