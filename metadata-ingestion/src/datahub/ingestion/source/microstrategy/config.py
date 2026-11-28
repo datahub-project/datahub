@@ -9,6 +9,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
+    MSTR_MODEL_API_MIN_TIMEOUT_SECONDS,
     MicroStrategyDatasetIdentity,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -95,6 +96,14 @@ class MicroStrategyConfig(
         gt=0,
         description="HTTP request timeout in seconds.",
     )
+    model_api_timeout_seconds: Optional[int] = Field(
+        default=None,
+        gt=0,
+        description=(
+            "HTTP timeout in seconds for the project metric search and the model tables API. "
+            f"Defaults to `timeout_seconds`, raised to at least {MSTR_MODEL_API_MIN_TIMEOUT_SECONDS}."
+        ),
+    )
     max_retries: int = Field(
         default=3,
         ge=0,
@@ -121,28 +130,24 @@ class MicroStrategyConfig(
         default=2000,
         gt=0,
         description=(
-            "Entries the large per-project caches (report SQL text and parsed "
-            "SQL lineage) keep in memory. Older entries spill to a temporary "
-            "local SQLite file instead of being dropped, so memory stays "
-            "bounded on large projects without re-fetching or re-parsing "
-            "anything; the caches are discarded when each project finishes."
+            "Entries kept in memory by each per-project cache of report SQL and parsed SQL lineage. "
+            "Older entries spill to a temporary local file."
         ),
     )
     progress_log_interval_dashboards: int = Field(
         default=25,
         gt=0,
-        description=(
-            "Log a whole-run progress line (rates, API and SQL parse time, "
-            "cache hits, peak memory) after this many dashboards."
-        ),
+        description="Log a whole-run progress line every N dashboards.",
+    )
+    progress_log_interval_metrics: int = Field(
+        default=1000,
+        gt=0,
+        description="Log a semantic-model progress line every N metrics.",
     )
     progress_log_interval_seconds: int = Field(
         default=300,
         gt=0,
-        description=(
-            "Also log the progress line when this many seconds have passed "
-            "since the last one, so slow dashboards never leave the log silent."
-        ),
+        description="Also log a progress line when this many seconds pass without one.",
     )
 
     project_pattern: AllowDenyPattern = Field(
@@ -561,27 +566,10 @@ class MicroStrategyConfig(
     dataset_identity: MicroStrategyDatasetIdentity = Field(
         default=MicroStrategyDatasetIdentity.PER_DASHBOARD,
         description=(
-            "What one DataHub dataset entity stands for. `per_dashboard` (the "
-            "default, the historical behaviour) keys each dataset by the "
-            "dossier or document that embeds it (`<project>.<dashboard>."
-            "<dataset>`), so a report used by N dashboards is N identically "
-            "named entities, and with `extract_reports` the same report is "
-            "also a chart plus a report-scoped dataset. `per_report` keys the "
-            "dataset by the MicroStrategy report object itself "
-            "(`<project>.<report>`): one entity per report (grid report or "
-            "cube) per project, filed under the report's own folder, with its "
-            "schema from its own definition when `extract_reports` fetched "
-            "one (else the first dashboard that embeds it), warehouse lineage "
-            "computed once, and every visualization and document that uses "
-            "the report linking to that single entity; with `extract_reports` "
-            "the `Report` chart is not emitted and report usage statistics "
-            "attach to the dataset. Switching schemes changes every dataset "
-            "URN: with stateful ingestion the previous scheme's entities are "
-            "soft-deleted as stale on the next run, so raise "
-            "`stateful_ingestion.fail_safe_threshold` for that run when more "
-            "than the default percentage of entities would change. The design "
-            "note is metadata-ingestion/src/datahub/ingestion/source/"
-            "microstrategy/dataset_identity.md in the DataHub repository."
+            "What one dataset entity represents. `per_dashboard` keys each dataset by the "
+            "dossier or document that embeds it. `per_report` keys one dataset per report "
+            "per project. Switching changes every dataset URN, so with stateful ingestion "
+            "the previous entities are soft-deleted on the next run."
         ),
     )
     datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
@@ -625,15 +613,23 @@ class MicroStrategyConfig(
             "object is skipped only when its version, last-modified time, "
             "name, owner, description, certification and folder path, the "
             "same properties of every report and cube it depends on, the "
-            "project's warehouse datasources, the recipe and the connector "
+            "project's warehouse datasources (and its logical tables when "
+            "`extract_model_lineage` is on), the recipe and the connector "
             "version all match the previous run, and every entity it emitted "
             "is still present in DataHub with the same change fingerprint. "
+            "The fingerprint is written to the `microstrategyFingerprint` "
+            "custom property of each dashboard, report chart and report "
+            "dataset, only while this option is on. "
             "Under `dataset_identity: per_report`, a shared report dataset is "
             "re-emitted together with every dashboard that uses it whenever "
             "any of them changes. Skipped entities are kept during stale "
             "entity removal and keep receiving usage statistics. Requires "
             "stateful ingestion and a DataHub graph connection; otherwise a "
-            "warning is reported and everything is read. To force a full "
+            "warning is reported and everything is read. Changes that leave "
+            "these properties untouched are not detected: for example a "
+            "warehouse table's columns changing in DataHub, or new connector "
+            "code in a development build, which always reports the same "
+            "version. To force a full "
             "re-read, run once with `stateful_ingestion.ignore_old_state: "
             "true` or with this option off."
         ),
@@ -669,6 +665,24 @@ class MicroStrategyConfig(
                 "emitted through the dashboard warehouse lineage path."
             )
         return self
+
+    @model_validator(mode="after")
+    def _per_report_requires_a_dataset_source(self) -> "MicroStrategyConfig":
+        if self.per_report and not (self.extract_cubes or self.extract_reports):
+            raise ValueError(
+                "dataset_identity: per_report requires extract_cubes or "
+                "extract_reports: without either no dataset is emitted."
+            )
+        return self
+
+    @property
+    def per_report(self) -> bool:
+        return self.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT
+
+    def resolve_model_api_timeout_seconds(self) -> int:
+        if self.model_api_timeout_seconds is not None:
+            return self.model_api_timeout_seconds
+        return max(self.timeout_seconds, MSTR_MODEL_API_MIN_TIMEOUT_SECONDS)
 
     @field_validator("base_url", mode="after")
     @classmethod

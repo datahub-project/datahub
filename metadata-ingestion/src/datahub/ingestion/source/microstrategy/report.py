@@ -2,18 +2,21 @@ import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Dict, Iterator, List, Optional
+from typing import Iterator, List, Optional
 
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import LiteralString
 
 from datahub.ingestion.api.source import StructuredLogCategory
 from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS,
     MSTR_TELEMETRY_ERROR_STATUS,
     MSTR_TELEMETRY_NO_PHASE,
     MSTR_TEXT_ENCODING,
+    MicroStrategyCache,
+    MicroStrategyPhase,
 )
-from datahub.ingestion.source.microstrategy.telemetry import (
+from datahub.ingestion.source.microstrategy.telemetry_helpers import (
     dashboard_seconds_bucket,
     endpoint_template,
     peak_rss_mb,
@@ -28,15 +31,7 @@ from datahub.utilities.stats_collections import TopKDict
 _TELEMETRY_TOP_K = 40
 _SLOWEST_TOP_K = 25
 _SQLGLOT_WARNINGS_TOP_K = 10
-_SECONDS_PRECISION = 3
-_ROUNDED_SECONDS_FIELDS: List[str] = [
-    "api_call_seconds",
-    "api_retry_sleep_seconds",
-    "dashboard_seconds_total",
-    "sql_parse_seconds",
-    "sql_parse_max_seconds",
-    "schema_resolution_seconds",
-]
+_FLOAT_PRECISION = 3
 
 
 def _float_top_k(top_k: int = _TELEMETRY_TOP_K) -> "TopKDict[str, float]":
@@ -61,6 +56,24 @@ class _ThreadPhaseState(threading.local):
         self.api_seconds: float = 0.0
 
 
+def _dashboard_seconds_histogram() -> "TopKDict[str, int]":
+    # Seeded in bound order: TopKDict prints insertion order while under top_k.
+    histogram = _int_top_k()
+    for lower in (0, *MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS):
+        histogram[dashboard_seconds_bucket(lower)] = 0
+    return histogram
+
+
+def _round_floats(value: object) -> object:
+    if isinstance(value, float):
+        return round(value, _FLOAT_PRECISION)
+    if isinstance(value, dict):
+        return {key: _round_floats(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_round_floats(item) for item in value]
+    return value
+
+
 @dataclass
 class MicroStrategyReport(StaleEntityRemovalSourceReport):
     projects_scanned: int = 0
@@ -78,7 +91,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     metric_expression_api_failures: int = 0
     model_tables_scanned: int = 0
     model_lineage_api_failures: int = 0
-    # Tables whose primary datasource matches none get no warehouse lineage.
+    # Set only in projects with several source warehouses, where each logical
+    # table takes its warehouse from its primary datasource; tables whose
+    # datasource is missing or unmapped get no warehouse lineage.
     model_tables_resolved_by_datasource: int = 0
     model_tables_without_warehouse_context: int = 0
     model_lineage_edges: int = 0
@@ -211,6 +226,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     change_check_failures: int = 0
     change_check_failure_samples: LossyList[str] = field(default_factory=LossyList)
     failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)
+    metrics_kept_after_model_failure: int = 0
     semantic_models_emitted: int = 0
     semantic_model_datasets_emitted: int = 0
     semantic_model_metrics_emitted: int = 0
@@ -237,11 +253,12 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     # Source time only: sink writes between yields are excluded.
     dashboards_timed: int = 0
     dashboard_seconds_total: float = 0.0
-    dashboard_seconds_histogram: Dict[str, int] = field(default_factory=dict)
+    dashboard_seconds_histogram: TopKDict[str, int] = field(
+        default_factory=_dashboard_seconds_histogram
+    )
     slowest_dashboards: TopKDict[str, float] = field(
         default_factory=lambda: _float_top_k(_SLOWEST_TOP_K)
     )
-    datasets_by_slow_dashboard: Dict[str, int] = field(default_factory=dict)
     sql_parses_executed: int = 0
     sql_parse_seconds: float = 0.0
     sql_parse_max_seconds: float = 0.0
@@ -258,7 +275,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     schema_resolution_seconds: float = 0.0
     schema_resolution_calls: int = 0
     schema_resolver: SchemaResolverReport = field(default_factory=SchemaResolverReport)
-    cache_entries_peak: Dict[str, int] = field(default_factory=dict)
+    cache_entries_peak: TopKDict[str, int] = field(default_factory=_int_top_k)
     cache_project_resets: int = 0
     sqlglot_warnings_suppressed: TopKDict[str, int] = field(
         default_factory=lambda: _int_top_k(_SQLGLOT_WARNINGS_TOP_K)
@@ -699,6 +716,10 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         with self._telemetry_lock:
             self.failed_metric_model_ids.append(metric_id)
 
+    def report_metric_kept_after_model_failure(self) -> None:
+        with self._telemetry_lock:
+            self.metrics_kept_after_model_failure += 1
+
     def report_semantic_model_emitted(self) -> None:
         with self._telemetry_lock:
             self.semantic_models_emitted += 1
@@ -753,23 +774,23 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
             self.report_datasets_skipped_unchanged += 1
 
     @contextmanager
-    def phase(self, name: str, count: bool = True) -> Iterator[None]:
+    def phase(self, name: MicroStrategyPhase, count: bool = True) -> Iterator[None]:
         # Report serializes Enum keys by member name, so keep plain-string keys.
-        name = str(name)
+        key = str(name)
         stack = self._current_phase_stack()
-        stack.append(name)
+        stack.append(key)
         start = time.perf_counter()
         try:
             yield
         finally:
             elapsed = time.perf_counter() - start
             with self._telemetry_lock:
-                self.phase_seconds[name] += elapsed
+                self.phase_seconds[key] += elapsed
                 if count:
-                    self.phase_calls[name] += 1
+                    self.phase_calls[key] += 1
             # An inner phase can leak its entry, so scan back to this one.
             for index in range(len(stack) - 1, -1, -1):
-                if stack[index] == name:
+                if stack[index] == key:
                     del stack[index]
                     break
 
@@ -803,17 +824,10 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         with self._telemetry_lock:
             self.dashboards_timed += 1
             self.dashboard_seconds_total += seconds
-            bucket = dashboard_seconds_bucket(seconds)
-            self.dashboard_seconds_histogram[bucket] = (
-                self.dashboard_seconds_histogram.get(bucket, 0) + 1
+            self.dashboard_seconds_histogram[dashboard_seconds_bucket(seconds)] += 1
+            self._keep_slowest(
+                self.slowest_dashboards, f"{key} [{datasets} datasets]", seconds
             )
-            self._keep_slowest(self.slowest_dashboards, key, seconds)
-            if key in self.slowest_dashboards:
-                self.datasets_by_slow_dashboard[key] = datasets
-            for stale in set(self.datasets_by_slow_dashboard) - set(
-                self.slowest_dashboards
-            ):
-                del self.datasets_by_slow_dashboard[stale]
 
     def report_sql_parse_executed(
         self, key: str, seconds: float, statements: int
@@ -843,35 +857,31 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
             self.schema_resolution_calls += 1
             self.schema_resolution_seconds += seconds
 
-    def report_cache_entries(self, name: str, entries: int) -> None:
-        name = str(name)
+    def report_cache_entries(self, name: MicroStrategyCache, entries: int) -> None:
+        key = str(name)
         with self._telemetry_lock:
-            self.cache_entries_peak[name] = max(
-                self.cache_entries_peak.get(name, 0), entries
-            )
+            self.cache_entries_peak[key] = max(self.cache_entries_peak[key], entries)
 
     @staticmethod
     def _keep_slowest(table: "TopKDict[str, float]", key: str, seconds: float) -> None:
-        table[key] = max(table.get(key, 0.0), seconds)
+        table[key] = max(table[key], seconds)
         if len(table) > table.top_k:
             fastest = min(table, key=lambda name: table[name])
             del table[fastest]
 
+    def update_peak_rss(self) -> None:
+        current_rss = peak_rss_mb()
+        if current_rss is not None:
+            self.peak_rss_mb = current_rss
+
     def compute_stats(self) -> None:
         with self._telemetry_lock:
             super().compute_stats()
-            current_rss = peak_rss_mb()
-            if current_rss is not None:
-                self.peak_rss_mb = current_rss
-            for name in _ROUNDED_SECONDS_FIELDS:
-                setattr(self, name, round(getattr(self, name), _SECONDS_PRECISION))
-            for table in [
-                self.api_seconds_by_endpoint,
-                self.api_max_seconds_by_endpoint,
-                self.api_seconds_by_phase,
-                self.phase_seconds,
-                self.slowest_dashboards,
-                self.slowest_sql_parses,
-            ]:
-                for key in table:
-                    table[key] = round(table[key], _SECONDS_PRECISION)
+            self.update_peak_rss()
+
+    def as_obj(self) -> dict:
+        # Accumulators stay exact; only the serialized copy is rounded.
+        with self._telemetry_lock:
+            return {
+                key: _round_floats(value) for key, value in super().as_obj().items()
+            }

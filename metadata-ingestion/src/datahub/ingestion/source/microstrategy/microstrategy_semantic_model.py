@@ -2,18 +2,23 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
     MicroStrategyClient,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
-from datahub.ingestion.source.microstrategy.constants import MICROSTRATEGY_PLATFORM
+from datahub.ingestion.source.microstrategy.constants import (
+    MICROSTRATEGY_PLATFORM,
+    MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT,
+)
 from datahub.ingestion.source.microstrategy.lineage import (
     AttributeRelationship,
     MicroStrategyLineageExtractor,
@@ -43,7 +48,9 @@ from datahub.ingestion.source.microstrategy.spill_cache import (
     SpillCache,
     object_cache_key,
 )
-from datahub.ingestion.source.microstrategy.telemetry import peak_rss_mb
+from datahub.ingestion.source.microstrategy.telemetry_helpers import (
+    IntervalGate,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -51,6 +58,7 @@ from datahub.metadata.schema_classes import (
     DialectClass,
     ERModelRelationshipCardinalityClass,
     SemanticFieldTypeClass,
+    StatusClass,
 )
 from datahub.metadata.urns import DataPlatformInstanceUrn, MetricUrn, SemanticModelUrn
 from datahub.sdk.metric import DialectExpressionInput, Metric
@@ -81,8 +89,6 @@ _INVERT_CARDINALITY: Dict[str, str] = {
 
 _SEMANTIC_MODEL_ID = "schema"
 
-_METRIC_PROGRESS_EVERY = 1000
-
 logger = logging.getLogger(__name__)
 
 
@@ -92,36 +98,44 @@ class _MetricProgress:
         *,
         project_id: str,
         total: int,
+        every_metrics: int,
         every_seconds: float,
         report: MicroStrategyReport,
     ) -> None:
         self._project_id = project_id
         self._total = total
-        self._every_seconds = every_seconds
+        self._gate = IntervalGate(every_metrics, every_seconds)
         self._report = report
         self._started = time.perf_counter()
-        self._last_logged = self._started
-        self.done = 0
-        self.failed = 0
+        self._done = 0
+        self._failed = 0
+
+    @property
+    def done(self) -> int:
+        return self._done
+
+    @property
+    def failed(self) -> int:
+        return self._failed
 
     def step(self) -> None:
-        if self.done and (
-            self.done % _METRIC_PROGRESS_EVERY == 0
-            or time.perf_counter() - self._last_logged >= self._every_seconds
-        ):
+        if self._done and self._gate.due(self._done):
             self.log()
-        self.done += 1
+        self._done += 1
+
+    def record_failure(self) -> None:
+        self._failed += 1
 
     def log(self) -> None:
-        self._last_logged = time.perf_counter()
-        self._report.peak_rss_mb = peak_rss_mb()
+        self._gate.mark(self._done)
+        self._report.update_peak_rss()
         logger.info(
             "Semantic model metrics: %d/%d in %.0fs, %d failed; peak RSS %s MB "
             "(project=%s)",
-            self.done,
+            self._done,
             self._total,
-            self._last_logged - self._started,
-            self.failed,
+            time.perf_counter() - self._started,
+            self._failed,
             self._report.peak_rss_mb,
             self._project_id,
         )
@@ -182,6 +196,7 @@ class MicroStrategySemanticModelMapper:
         client: MicroStrategyClient,
         lineage: MicroStrategyLineageExtractor,
         metric_model_cache: Optional[SpillCache[Optional[Dict[str, object]]]] = None,
+        graph: Optional[DataHubGraph] = None,
     ) -> None:
         self.config = config
         self.report = report
@@ -189,6 +204,7 @@ class MicroStrategySemanticModelMapper:
         self.lineage = lineage
         # A cached None is retried here, so the failure is reported against the metric.
         self.metric_model_cache = metric_model_cache
+        self.graph = graph
 
     def emit(
         self,
@@ -241,7 +257,6 @@ class MicroStrategySemanticModelMapper:
         yield from model.as_workunits()
         for dataset in datasets:
             yield from dataset.as_workunits()
-        # Holding every metric until the last one doubled peak memory.
         metrics_emitted = 0
         for metric in self._metrics(
             project_id=project_id,
@@ -250,6 +265,9 @@ class MicroStrategySemanticModelMapper:
             attribute_table_aliases=attribute_table_aliases,
             alias_to_dataset=alias_to_dataset,
         ):
+            if isinstance(metric, MetadataWorkUnit):
+                yield metric
+                continue
             yield from metric.as_workunits()
             metrics_emitted += 1
 
@@ -665,7 +683,7 @@ class MicroStrategySemanticModelMapper:
         fact_table_aliases: Dict[str, Set[str]],
         attribute_table_aliases: Dict[str, Set[str]],
         alias_to_dataset: Dict[str, SemanticModelDataset],
-    ) -> Iterable[Metric]:
+    ) -> Iterable[Union[Metric, MetadataWorkUnit]]:
         consolidation_cache: Dict[str, List[str]] = {}
         consolidation_lock = threading.RLock()
         consolidation_flight: SingleFlight[str, List[str]] = SingleFlight()
@@ -688,6 +706,7 @@ class MicroStrategySemanticModelMapper:
         progress = _MetricProgress(
             project_id=project_id,
             total=len(metric_objects),
+            every_metrics=self.config.progress_log_interval_metrics,
             every_seconds=self.config.progress_log_interval_seconds,
             report=self.report,
         )
@@ -709,6 +728,7 @@ class MicroStrategySemanticModelMapper:
                 consolidation_attributes=consolidation_attributes,
             )
 
+        consecutive_failures = 0
         with ordered_parallel_map(
             fetch_metric,
             metric_objects,
@@ -722,21 +742,62 @@ class MicroStrategySemanticModelMapper:
                     fetched = outcome.unwrap()
                     model = fetched.model
                     consolidation_attributes = fetched.consolidation_attributes
+                    consecutive_failures = 0
                 except MicroStrategyAPIError as error:
-                    progress.failed += 1
+                    progress.record_failure()
+                    consecutive_failures += 1
                     self.report.report_metric_expression_api_failure()
                     self.report.report_failed_metric_model(metric_object.id)
+                    metric_urn = str(
+                        MetricUrn(
+                            platform=MICROSTRATEGY_PLATFORM,
+                            path=project_id,
+                            id=metric_id,
+                        )
+                    )
+                    kept = self._metric_exists_in_datahub(metric_urn)
                     # Deterministic 500s; failing the run skips stale removal forever.
                     self.report.warning(
                         title="MicroStrategy Metric Model Unavailable",
                         message=(
-                            "Emitting this metric without an expression or upstream "
-                            "lineage; its model could not be fetched."
+                            "Kept this metric's previously ingested definition; its "
+                            "model could not be fetched."
+                            if kept
+                            else "Emitting this metric without an expression or "
+                            "upstream lineage; its model could not be fetched."
                         ),
                         context=f"project_id={project_id}, metric_id={metric_object.id}",
                         exc=error,
                         log=False,
                     )
+                    if kept:
+                        # A Status write marks the metric as seen for stale removal
+                        # without overwriting its expression and upstreams.
+                        self.report.report_metric_kept_after_model_failure()
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=metric_urn, aspect=StatusClass(removed=False)
+                        ).as_workunit()
+                    if (
+                        consecutive_failures
+                        >= MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+                    ):
+                        self.report.failure(
+                            title="MicroStrategy Metric Models Unavailable",
+                            message=(
+                                "Stopped reading metric models after repeated "
+                                "consecutive failures; the remaining metrics were "
+                                "not emitted. Stale-entity removal is skipped for "
+                                "this run."
+                            ),
+                            context=(
+                                f"project_id={project_id}, "
+                                f"consecutive_failures={consecutive_failures}, "
+                                f"metrics_not_read={len(metric_objects) - progress.done}"
+                            ),
+                        )
+                        break
+                    if kept:
+                        continue
                     model = {}
                     consolidation_attributes = {}
 
@@ -806,6 +867,22 @@ class MicroStrategySemanticModelMapper:
             if cached is not None:
                 return cached
         return self.client.get_metric_model(project_id, metric_id)
+
+    def _metric_exists_in_datahub(self, metric_urn: str) -> bool:
+        if self.graph is None:
+            return False
+        try:
+            return self.graph.exists(metric_urn)
+        except Exception as error:
+            # Overwriting a good definition is worse than skipping one update.
+            self.report.warning(
+                title="Failed to check MicroStrategy metric in DataHub",
+                message="Kept the metric without overwriting its definition.",
+                context=metric_urn,
+                exc=error,
+                log=False,
+            )
+            return True
 
     def _resolve_consolidation_parallel(
         self,

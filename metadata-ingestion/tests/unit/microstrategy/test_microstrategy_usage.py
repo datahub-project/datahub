@@ -2,6 +2,7 @@ from typing import Any, Dict, Iterator, List
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.constants import UsageTargetKind
 from datahub.ingestion.source.microstrategy.models import Project
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.source import MicroStrategySource
@@ -15,6 +16,7 @@ from datahub.ingestion.source.microstrategy.usage import (
 from datahub.metadata.schema_classes import (
     ChartUsageStatisticsClass,
     DashboardUsageStatisticsClass,
+    DatasetUsageStatisticsClass,
 )
 
 # Shapes below mirror real /api/v2/cubes responses captured from a Platform
@@ -271,12 +273,12 @@ def test_source_emits_usage_aspects_for_ingested_entities() -> None:
     )
     source._register_usage_target(
         "dash-1",
-        "dashboard",
+        UsageTargetKind.DASHBOARD,
         source.mapper.dashboard_urn("project-1", "DASH-1"),
     )
     source._register_usage_target(
         "report-1",
-        "chart",
+        UsageTargetKind.CHART,
         source.mapper.report_urn("project-1", "REPORT-1"),
     )
 
@@ -298,6 +300,27 @@ def test_source_emits_usage_aspects_for_ingested_entities() -> None:
     assert source.report.usage_buckets_emitted == 2
 
 
+def test_source_emits_dataset_usage_for_a_report_dataset_target() -> None:
+    page = _instance_page(headers=[[0, 0, 0, 0]], metric_values=[[4.0]], total=1)
+    source = MicroStrategySource(_usage_config(), PipelineContext(run_id="usage-test"))
+    source.client = _FakeUsageClient([page])  # type: ignore[assignment]
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.dash-1,PROD)"
+    )
+    source._register_usage_target("dash-1", UsageTargetKind.DATASET, dataset_urn)
+
+    workunits = list(
+        source._process_usage_statistics(
+            [Project.model_validate({"id": "PA-PROJECT", "name": "Platform Analytics"})]
+        )
+    )
+
+    assert [workunit.get_urn() for workunit in workunits] == [dataset_urn]
+    aspect = workunits[0].get_aspect_of_type(DatasetUsageStatisticsClass)
+    assert aspect is not None
+    assert aspect.totalSqlQueries == 4
+
+
 def test_source_warns_when_platform_analytics_project_missing() -> None:
     source = MicroStrategySource(_usage_config(), PipelineContext(run_id="usage-test"))
     other = Project.model_validate({"id": "p1", "name": "Sales Analytics"})
@@ -313,7 +336,9 @@ def test_usage_targets_not_tracked_when_disabled() -> None:
         _usage_config({"extract_usage_statistics": False}),
         PipelineContext(run_id="usage-test"),
     )
-    source._register_usage_target("dash-1", "dashboard", "urn:li:dashboard:x")
+    source._register_usage_target(
+        "dash-1", UsageTargetKind.DASHBOARD, "urn:li:dashboard:x"
+    )
     assert source._usage_targets == {}
 
 

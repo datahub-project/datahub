@@ -1,39 +1,20 @@
 import functools
 import inspect
 import logging
-import re
-import sys
 import threading
 import time
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Iterable,
-    Iterator,
-    Optional,
-    Protocol,
-    TypeVar,
-    cast,
-)
+from collections.abc import Generator
+from typing import Callable, Iterable, Iterator, Optional, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict
-from typing_extensions import ParamSpec
+from typing_extensions import Concatenate, ParamSpec
 
 from datahub.ingestion.source.microstrategy.constants import (
-    MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS,
-    MSTR_ENDPOINT_ID_PLACEHOLDER,
-    MSTR_ENDPOINT_KEY_REPLACEMENT,
     MSTR_SQLGLOT_SUPPRESSED_PREFIXES,
     MicroStrategyPhase,
 )
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-
-try:
-    import resource
-except ImportError:  # pragma: no cover - not available on Windows
-    resource = None  # type: ignore[assignment]
+from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.telemetry_helpers import IntervalGate
 
 logger = logging.getLogger(__name__)
 
@@ -41,57 +22,32 @@ P = ParamSpec("P")
 R = TypeVar("R")
 T = TypeVar("T")
 
-# 32-hex object ids and UUIDs, so one endpoint is one row.
-_OBJECT_ID_SEGMENT_RE = re.compile(r"/[0-9A-Fa-f]{32}(?=/|$)")
-_UUID_SEGMENT_RE = re.compile(
-    r"/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?=/|$)"
-)
-# Not 32-hex object ids, so a literal match would make one row per visualization.
-_DOSSIER_KEY_SEGMENT_RE = re.compile(r"/(chapters|pages|visualizations)/[^/]+")
+_PROGRESS_TOP_PHASES = 6
 
 
 class _HasReport(Protocol):
-    report: "MicroStrategyReport"
+    @property
+    def report(self) -> MicroStrategyReport: ...
 
 
-def endpoint_template(method: str, path: str) -> str:
-    path = path.split("?", 1)[0]
-    path = _OBJECT_ID_SEGMENT_RE.sub(MSTR_ENDPOINT_ID_PLACEHOLDER, path)
-    path = _UUID_SEGMENT_RE.sub(MSTR_ENDPOINT_ID_PLACEHOLDER, path)
-    path = _DOSSIER_KEY_SEGMENT_RE.sub(MSTR_ENDPOINT_KEY_REPLACEMENT, path)
-    return f"{method.upper()} {path}"
+S = TypeVar("S", bound=_HasReport)
 
 
-def peak_rss_mb() -> Optional[float]:
-    if resource is None:
-        return None
-    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    # ru_maxrss is in bytes on macOS and kilobytes on Linux.
-    divisor = 1024 * 1024 if sys.platform == "darwin" else 1024
-    return round(peak / divisor, 1)
-
-
-def dashboard_seconds_bucket(seconds: float) -> str:
-    lower = 0
-    for upper in MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS:
-        if seconds < upper:
-            return f"{lower}-{upper}s"
-        lower = upper
-    return f">={lower}s"
-
-
-def timed_phase(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    def decorate(method: Callable[P, R]) -> Callable[P, R]:
+def timed_phase(
+    name: MicroStrategyPhase,
+) -> Callable[[Callable[Concatenate[S, P], R]], Callable[Concatenate[S, P], R]]:
+    def decorate(
+        method: Callable[Concatenate[S, P], R],
+    ) -> Callable[Concatenate[S, P], R]:
         if inspect.isgeneratorfunction(method):
             raise TypeError(
                 f"{method.__qualname__} is a generator; use timed_generator_phase"
             )
 
         @functools.wraps(method)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            owner = cast(_HasReport, args[0])
-            with owner.report.phase(name):
-                return method(*args, **kwargs)
+        def wrapper(self: S, *args: P.args, **kwargs: P.kwargs) -> R:
+            with self.report.phase(name):
+                return method(self, *args, **kwargs)
 
         return wrapper
 
@@ -99,13 +55,16 @@ def timed_phase(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
 
 
 def timed_generator_phase(
-    name: str,
-) -> Callable[[Callable[P, Iterable[T]]], Callable[P, Iterator[T]]]:
-    def decorate(method: Callable[P, Iterable[T]]) -> Callable[P, Iterator[T]]:
+    name: MicroStrategyPhase,
+) -> Callable[
+    [Callable[Concatenate[S, P], Iterable[T]]], Callable[Concatenate[S, P], Iterator[T]]
+]:
+    def decorate(
+        method: Callable[Concatenate[S, P], Iterable[T]],
+    ) -> Callable[Concatenate[S, P], Iterator[T]]:
         @functools.wraps(method)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[T]:
-            owner = cast(_HasReport, args[0])
-            return timed_iter(owner.report, name, method(*args, **kwargs))
+        def wrapper(self: S, *args: P.args, **kwargs: P.kwargs) -> Iterator[T]:
+            return timed_iter(self.report, name, method(self, *args, **kwargs))
 
         return wrapper
 
@@ -113,7 +72,7 @@ def timed_generator_phase(
 
 
 def timed_iter(
-    report: "MicroStrategyReport", name: str, iterable: Iterable[T]
+    report: MicroStrategyReport, name: MicroStrategyPhase, iterable: Iterable[T]
 ) -> Iterator[T]:
     # Step by step, so sink writes between yields are not charged to the phase.
     iterator = iter(iterable)
@@ -128,13 +87,12 @@ def timed_iter(
                     return
             yield item
     finally:
-        close = getattr(iterator, "close", None)
-        if close is not None:
-            close()
+        if isinstance(iterator, Generator):
+            iterator.close()
 
 
 class SqlglotWarningFilter(logging.Filter):
-    def __init__(self, report: "MicroStrategyReport") -> None:
+    def __init__(self, report: MicroStrategyReport) -> None:
         super().__init__()
         self._report = report
 
@@ -150,7 +108,7 @@ class SqlglotWarningFilter(logging.Filter):
 class TelemetrySnapshot(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    seconds: float
+    dashboard_seconds: float
     api_calls: int
     api_seconds: float
     sql_parses: int
@@ -158,27 +116,38 @@ class TelemetrySnapshot(BaseModel):
     sql_parse_cache_hits: int
     datasets: int
 
+    def since(self, before: "TelemetrySnapshot") -> "TelemetrySnapshot":
+        return TelemetrySnapshot(
+            dashboard_seconds=self.dashboard_seconds - before.dashboard_seconds,
+            api_calls=self.api_calls - before.api_calls,
+            api_seconds=self.api_seconds - before.api_seconds,
+            sql_parses=self.sql_parses - before.sql_parses,
+            sql_parse_seconds=self.sql_parse_seconds - before.sql_parse_seconds,
+            sql_parse_cache_hits=self.sql_parse_cache_hits
+            - before.sql_parse_cache_hits,
+            datasets=self.datasets - before.datasets,
+        )
+
 
 class RunProgress:
     def __init__(
         self,
-        report: "MicroStrategyReport",
+        report: MicroStrategyReport,
         every_dashboards: int,
         every_seconds: float,
     ) -> None:
         self._report = report
-        self._every_dashboards = every_dashboards
-        self._every_seconds = every_seconds
+        self._gate = IntervalGate(every_dashboards, every_seconds)
         self._started = time.perf_counter()
-        self._last_logged = self._started
-        self._since_logged = 0
         self._lock = threading.RLock()
 
     def snapshot(self) -> TelemetrySnapshot:
         report = self._report
         with report._telemetry_lock:
             return TelemetrySnapshot(
-                seconds=report.phase_seconds.get(MicroStrategyPhase.DASHBOARD, 0.0),
+                dashboard_seconds=report.phase_seconds.get(
+                    MicroStrategyPhase.DASHBOARD, 0.0
+                ),
                 api_calls=report.api_calls,
                 api_seconds=report.api_call_seconds,
                 sql_parses=report.sql_parses_executed,
@@ -199,25 +168,26 @@ class RunProgress:
         override_api_seconds: Optional[float] = None,
     ) -> None:
         with self._lock:
-            after = self.snapshot()
+            delta = self.snapshot().since(before)
             seconds = (
                 override_seconds
                 if override_seconds is not None
-                else after.seconds - before.seconds
+                else delta.dashboard_seconds
             )
             api_calls = (
                 override_api_calls
                 if override_api_calls is not None
-                else after.api_calls - before.api_calls
+                else delta.api_calls
             )
             api_seconds = (
                 override_api_seconds
                 if override_api_seconds is not None
-                else after.api_seconds - before.api_seconds
+                else delta.api_seconds
             )
-            datasets = after.datasets - before.datasets
             self._report.report_dashboard_timing(
-                f"{project_name}/{dashboard_name} ({dashboard_id})", seconds, datasets
+                f"{project_name}/{dashboard_name} ({dashboard_id})",
+                seconds,
+                delta.datasets,
             )
             logger.info(
                 "Dashboard %r (%s) took %.1fs: %d API calls %.1fs, %d SQL parses "
@@ -227,45 +197,26 @@ class RunProgress:
                 seconds,
                 api_calls,
                 api_seconds,
-                after.sql_parses - before.sql_parses,
-                after.sql_parse_seconds - before.sql_parse_seconds,
-                after.sql_parse_cache_hits - before.sql_parse_cache_hits,
-                datasets,
+                delta.sql_parses,
+                delta.sql_parse_seconds,
+                delta.sql_parse_cache_hits,
+                delta.datasets,
             )
-            self._since_logged += 1
-            now = time.perf_counter()
-            if (
-                self._since_logged >= self._every_dashboards
-                or now - self._last_logged >= self._every_seconds
-            ):
+            if self._gate.due(self._report.dashboards_timed):
                 self.log_progress()
 
     def log_progress(self) -> None:
         report = self._report
-        with self._lock:
-            self._last_logged = time.perf_counter()
-            self._since_logged = 0
-            rss = peak_rss_mb()
-            with report._telemetry_lock:
-                report.peak_rss_mb = rss
-                elapsed = self._last_logged - self._started
-                processed = report.dashboards_timed
-                dashboard_seconds_total = report.dashboard_seconds_total
-                datasets_scanned = report.datasets_scanned
-                api_calls = report.api_calls
-                api_call_seconds = report.api_call_seconds
-                api_retries = report.api_retries
-                api_retry_sleep_seconds = report.api_retry_sleep_seconds
-                sql_parses_executed = report.sql_parses_executed
-                sql_parse_seconds = report.sql_parse_seconds
-                sql_parse_cache_hits = report.sql_parse_cache_hits
-                schema_resolution_seconds = report.schema_resolution_seconds
-                phase_seconds = dict(report.phase_seconds)
+        with self._lock, report._telemetry_lock:
+            processed = report.dashboards_timed
+            self._gate.mark(processed)
+            report.update_peak_rss()
+            elapsed = time.perf_counter() - self._started
             top_phases = ", ".join(
-                f"{name} {phase_seconds[name]:.0f}s"
-                for name in sorted(
-                    phase_seconds, key=lambda key: phase_seconds[key], reverse=True
-                )[:6]
+                f"{name} {seconds:.0f}s"
+                for name, seconds in sorted(
+                    report.phase_seconds.items(), key=lambda item: item[1], reverse=True
+                )[:_PROGRESS_TOP_PHASES]
             )
             logger.info(
                 "MicroStrategy progress: %d dashboards in %.0fs (%.1fs each, %d "
@@ -274,16 +225,16 @@ class RunProgress:
                 "RSS %s MB; phases: %s",
                 processed,
                 elapsed,
-                dashboard_seconds_total / processed if processed else 0.0,
-                datasets_scanned,
-                api_calls,
-                api_call_seconds,
-                api_retries,
-                api_retry_sleep_seconds,
-                sql_parses_executed,
-                sql_parse_seconds,
-                sql_parse_cache_hits,
-                schema_resolution_seconds,
-                rss,
+                report.dashboard_seconds_total / processed if processed else 0.0,
+                report.datasets_scanned,
+                report.api_calls,
+                report.api_call_seconds,
+                report.api_retries,
+                report.api_retry_sleep_seconds,
+                report.sql_parses_executed,
+                report.sql_parse_seconds,
+                report.sql_parse_cache_hits,
+                report.schema_resolution_seconds,
+                report.peak_rss_mb,
                 top_phases,
             )

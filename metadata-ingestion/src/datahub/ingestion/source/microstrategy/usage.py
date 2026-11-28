@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from pydantic import BaseModel, ConfigDict
+
 from datahub.ingestion.source.microstrategy.client import MicroStrategyClient
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
@@ -27,6 +29,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_USAGE_PROJECT_ATTRIBUTE_NAME,
     MSTR_USAGE_USER_ATTRIBUTE_NAME,
     MSTR_USAGE_USER_FORM_NAMES,
+    UsageTargetKind,
 )
 from datahub.ingestion.source.microstrategy.models import Project
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -73,11 +76,12 @@ class UsageBucket:
     user_counts: Dict[str, int] = field(default_factory=dict)
 
 
-@dataclass
-class UsageTarget:
+class UsageTarget(BaseModel):
     """An ingested entity that usage buckets can attach to, keyed by object GUID."""
 
-    kind: str
+    model_config = ConfigDict(frozen=True)
+
+    kind: UsageTargetKind
     urn: str
 
 

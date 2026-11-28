@@ -1,5 +1,5 @@
 import threading
-from typing import Callable, Dict, List, Optional, TypeVar
+from typing import Callable, Dict, List, Optional, TypeVar, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -7,6 +7,8 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobI
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_UNCHANGED_OBJECTS_JOB_ID,
+    MicroStrategyReadOutcome,
+    UsageTargetKind,
 )
 from datahub.ingestion.source.microstrategy.spill_cache import object_cache_key
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
@@ -23,7 +25,7 @@ class RecordedUsageTarget(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     object_id: str
-    kind: str
+    kind: UsageTargetKind
     urn: str
 
 
@@ -33,21 +35,26 @@ class ObjectCheckpoint(BaseModel):
     fingerprint: Optional[str] = None
     urns: List[str] = Field(default_factory=list)
     # Reports and cubes the object reads, re-checked for changes on every run.
-    dependency_report_ids: List[str] = Field(default_factory=list)
+    dependency_ids: List[str] = Field(default_factory=list)
     # Report ids a dashboard adds to the dashboard-linked report scope.
     linked_report_ids: List[str] = Field(default_factory=list)
     usage_targets: List[RecordedUsageTarget] = Field(default_factory=list)
-    referenced_object_ids: List[str] = Field(default_factory=list)
+    # Set during this run's read and never saved.
+    outcome: MicroStrategyReadOutcome = Field(
+        default=MicroStrategyReadOutcome.COMPLETE, exclude=True
+    )
 
 
 class ReportDatasetCheckpoint(BaseModel):
     fingerprint: Optional[str] = None
     urns: List[str] = Field(default_factory=list)
     usage_targets: List[RecordedUsageTarget] = Field(default_factory=list)
-    referenced_object_ids: List[str] = Field(default_factory=list)
     # Normalized ids of the dashboards whose definitions built the dataset.
     dashboard_ids: List[str] = Field(default_factory=list)
     from_report_pass: bool = False
+
+
+OptionalCheckpoint = Union[ObjectCheckpoint, ReportDatasetCheckpoint, None]
 
 
 class MicroStrategyCheckpointState(CheckpointStateBase):
@@ -154,6 +161,11 @@ class MicroStrategyStateHandler(
         self, project_id: str, report_id: str
     ) -> Optional[ObjectCheckpoint]:
         return self._previous(_reports, project_id, report_id)
+
+    def previous_report_dataset(
+        self, project_id: str, report_id: str
+    ) -> Optional[ReportDatasetCheckpoint]:
+        return self._previous(_report_datasets, project_id, report_id)
 
     def previous_dashboards(self, project_id: str) -> Dict[str, ObjectCheckpoint]:
         return self._previous_in_project(_dashboards, project_id)

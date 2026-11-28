@@ -1,11 +1,14 @@
+import contextlib
 import logging
 import threading
 import time
 from collections import Counter
+from dataclasses import replace
 from functools import partial
 from typing import (
     Callable,
     Dict,
+    Generator,
     Generic,
     Iterable,
     Iterator,
@@ -24,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter.emit_mode import EmitMode
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -45,6 +49,7 @@ from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.source.microstrategy.checkpoint_state import (
     MicroStrategyStateHandler,
     ObjectCheckpoint,
+    OptionalCheckpoint,
     RecordedUsageTarget,
     ReportDatasetCheckpoint,
 )
@@ -76,20 +81,21 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_PREDEFINED_FOLDER_LABELS,
     MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES,
     MSTR_SQLGLOT_LOGGER,
+    MSTR_UNKNOWN_DATASOURCE_TYPE,
     MSTR_UNRESOLVED_FOLDER_LABEL,
-    USAGE_TARGET_CHART,
-    USAGE_TARGET_DASHBOARD,
-    USAGE_TARGET_DATASET,
+    SHARED_REFERENCE_ENTITY_TYPES,
     MicroStrategyCache,
-    MicroStrategyDatasetIdentity,
     MicroStrategyLineageLookup,
     MicroStrategyPhase,
+    MicroStrategyReadOutcome,
+    UsageTargetKind,
 )
 from datahub.ingestion.source.microstrategy.incremental import (
-    SHARED_REFERENCE_ENTITY_TYPES,
     ChangeCheckResult,
     MicroStrategyChangeDetector,
     ReportDatasetPlan,
+    StampedAspect,
+    StampedUrnBuilder,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
@@ -119,6 +125,8 @@ from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
     Datasource,
+    DatasourceConnection,
+    DatasourceReference,
     MetricEnrichment,
     MicroStrategyDict,
     MicroStrategyObject,
@@ -174,6 +182,7 @@ from datahub.ingestion.source_report.ingestion_stage import METADATA_EXTRACTION
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
+from datahub.metadata.schema_classes import ChartInfoClass, DashboardInfoClass
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
 
@@ -187,6 +196,10 @@ _ERROR_SUMMARY_MAX_CHARS = 300
 # Modeling document answers that mean the whole project lacks access. 404 is
 # left out: the endpoint can answer it for a single unmodelled document.
 _MODEL_DOCUMENT_PROJECT_WIDE_STATUSES = frozenset({403, 501})
+
+
+class _ReportObjectUnavailable(Exception):
+    pass
 
 
 class _PredefinedFoldersUnavailable(Exception):
@@ -212,6 +225,7 @@ class _PrefetchedDashboard(BaseModel):
     dashboard: Optional[DashboardDefinition] = None
     dossier_sql_rows: Optional[List[Dict[str, object]]] = None
     skipped_report_sql_keys: Set[str] = Field(default_factory=set)
+    incomplete: bool = False
     prefetch_seconds: float = 0.0
     prefetch_api_calls: int = 0
     prefetch_api_seconds: float = 0.0
@@ -315,10 +329,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._model_documents_in_flight: Dict[str, Optional[Dict[str, object]]] = {}
         self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
         self._personal_folder_cache: Dict[str, PersonalFolderResolution] = {}
-        # A failed lookup is cached as None, so it is not fetched again.
-        self._report_object_cache: SpillCache[Optional[MicroStrategyObject]] = (
-            SpillCache(memory_entries)
+        # Only found objects are shared; each lookup keeps its own failed keys,
+        # because a dataset and a linked report fail and warn differently.
+        self._report_object_cache: SpillCache[MicroStrategyObject] = SpillCache(
+            memory_entries
         )
+        self._failed_dataset_object_keys: Set[str] = set()
+        self._failed_linked_report_keys: Set[str] = set()
         # A failed read is cached, so a shared report is not executed again.
         self._report_sql_cache: SpillCache[Optional[str]] = SpillCache(
             memory_entries, compress=True
@@ -347,10 +364,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # where max_consecutive_execution_timeouts tripped.
         self._consecutive_execution_timeouts: Dict[str, int] = {}
         self._execution_limited_projects: Set[str] = set()
-        # One dataset per report per project, shared by every dashboard that embeds it.
-        self._per_report = (
-            self.config.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT
-        )
         self._report_datasets: Dict[_ReportDatasetKey, _ReportDatasetEntry] = {}
         if self.config.extract_derived_metrics and not (
             self.config.extract_lineage and self.config.extract_visualization_details
@@ -370,6 +383,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # Object GUID (upper) -> usage target for entities ingested this run;
         # usage buckets only attach to these.
         self._usage_targets: Dict[str, UsageTarget] = {}
+        # Normalized connection id -> connection, or None once a fetch failed.
+        # Connections are environment-level objects, so this spans projects.
+        self._datasource_connections: Dict[str, Optional[DatasourceConnection]] = {}
+        self._connection_lock = threading.Lock()
+        self._failed_connection_keys: Set[str] = set()
         self._progress = RunProgress(
             self.report,
             every_dashboards=self.config.progress_log_interval_dashboards,
@@ -394,9 +412,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if self.stale_entity_removal_handler.is_checkpointing_enabled()
             else None,
         )
-        self._change_detector = MicroStrategyChangeDetector(
-            self.config, self.mapper, self._object_state
-        )
+        self._change_detector = MicroStrategyChangeDetector(self.config)
         # Per-project skip_unchanged_objects state, keyed by normalized id.
         self._dashboard_candidates: Dict[str, MicroStrategyObject] = {}
         self._read_dashboards: Set[str] = set()
@@ -465,7 +481,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.client.login()
         auth_lost = False
-        # Per-statement sqlglot warnings fill the executor's bounded log.
         sqlglot_filter = SqlglotWarningFilter(self.report)
         sqlglot_logger = logging.getLogger(MSTR_SQLGLOT_LOGGER)
         sqlglot_logger.addFilter(sqlglot_filter)
@@ -491,7 +506,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         f"{project.name}: {METADATA_EXTRACTION}"
                     ):
                         yield from self._process_project(project)
-                    self._progress.log_progress()
                 except MicroStrategyAuthError as error:
                     # Auth is dead: every remaining call fails identically, so stop
                     # with one clear failure instead of a per-project cascade.
@@ -526,16 +540,18 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if self.config.extract_usage_statistics and not auth_lost:
                 yield from self._process_usage_statistics(projects)
         finally:
-            self._finish_checkpoint()
-            self._progress.log_progress()
-            sqlglot_logger.removeFilter(sqlglot_filter)
-            self._warn_if_every_sql_view_failed()
-            self.lineage.close()
-            for cache in self._spill_caches():
-                cache.close()
-            self.client.close()
+            # Callbacks run last-registered first, each even if an earlier one raises.
+            with contextlib.ExitStack() as cleanup:
+                cleanup.callback(self.client.close)
+                for cache in self._spill_caches():
+                    cleanup.callback(cache.close)
+                cleanup.callback(self.lineage.close)
+                cleanup.callback(self._warn_if_every_sql_view_failed)
+                cleanup.callback(sqlglot_logger.removeFilter, sqlglot_filter)
+                cleanup.callback(self._progress.log_progress)
+                cleanup.callback(self._finish_checkpoint)
 
-    def _spill_caches(self) -> List[SpillCache]:
+    def _spill_caches(self) -> List[Closeable]:
         return [
             self._metric_model_cache,
             self._report_object_cache,
@@ -552,7 +568,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._report_sql_cache.reset(self.report, MicroStrategyCache.REPORT_SQL)
         with self._report_sql_lock:
             self._report_sql_consumed.clear()
-        self._report_object_cache.reset(self.report, MicroStrategyCache.DATASET_OBJECT)
+        self._report_object_cache.reset(self.report, MicroStrategyCache.REPORT_OBJECT)
+        self._failed_dataset_object_keys.clear()
+        self._failed_linked_report_keys.clear()
         self._report_derived_metric_cache.reset(
             self.report, MicroStrategyCache.REPORT_DERIVED_METRIC
         )
@@ -561,6 +579,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         with self._cache_lock:
             self._model_documents_in_flight.clear()
+            self._report_datasets.clear()
         self.lineage.reset_project_caches()
 
     def _reset_project_caches(self) -> None:
@@ -670,7 +689,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _register_usage_target(
         self,
         object_id: str,
-        entity_kind: str,
+        entity_kind: UsageTargetKind,
         entity_urn: str,
     ) -> None:
         if self.config.extract_usage_statistics:
@@ -685,6 +704,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if self.report.failures:
             # Objects a failed run never reached keep their last read.
             self._object_state.keep_unrecorded()
+        if self.report.change_check_failures:
+            self.report.warning(
+                title="Unchanged-object check failed",
+                message=(
+                    "Some dashboards and reports could not be compared with "
+                    "DataHub, so they were read again. The run report counts "
+                    "them in change_check_failures."
+                ),
+                context="; ".join(self.report.change_check_failure_samples),
+            )
         if self._object_state.is_too_large():
             self.report.warning(
                 title="Unchanged-object checkpoint too large",
@@ -695,49 +724,53 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 ),
             )
 
+    def _object_fingerprint(
+        self,
+        project: Project,
+        mstr_object: MicroStrategyObject,
+        dependency_ids: Sequence[str],
+        checkpoint: ObjectCheckpoint,
+    ) -> Optional[str]:
+        # Stamped only for skipping, and never on a read that missed something.
+        if (
+            not self._skips_unchanged()
+            or checkpoint.outcome != MicroStrategyReadOutcome.COMPLETE
+        ):
+            return None
+        return self._change_detector.object_fingerprint(
+            project.id,
+            mstr_object,
+            self.mapper.folder_path(
+                project.name, mstr_object, self._predefined_folders(project.id)
+            ),
+            dependency_ids,
+            self._dataset_object_info,
+        )
+
     def _note_change_check(self, failure: Optional[str]) -> None:
         if failure is not None:
             self.report.report_change_check_failure(failure)
 
-    def _evaluate_dashboard_remote(
-        self, project: Project, dashboard_object: MicroStrategyObject
+    def _evaluate_object(
+        self,
+        project: Project,
+        mstr_object: MicroStrategyObject,
+        previous: Optional[ObjectCheckpoint],
+        stamped_urn: StampedUrnBuilder,
+        stamped_aspect: StampedAspect,
     ) -> ChangeCheckResult:
-        return self._change_detector.evaluate_dashboard(
+        return self._change_detector.evaluate_object(
             project.id,
-            dashboard_object,
+            mstr_object,
             self.mapper.folder_path(
-                project.name, dashboard_object, self._predefined_folders(project.id)
+                project.name, mstr_object, self._predefined_folders(project.id)
             ),
+            previous,
             self._dataset_object_info,
             self.ctx.graph,
+            stamped_urn,
+            stamped_aspect,
         )
-
-    def _evaluate_dashboard(
-        self, project: Project, dashboard_object: MicroStrategyObject
-    ) -> ChangeCheckResult:
-        result = self._evaluate_dashboard_remote(project, dashboard_object)
-        self._note_change_check(result.failure)
-        return result
-
-    def _evaluate_report_remote(
-        self, project: Project, report_object: MicroStrategyObject
-    ) -> ChangeCheckResult:
-        return self._change_detector.evaluate_report(
-            project.id,
-            report_object,
-            self.mapper.folder_path(
-                project.name, report_object, self._predefined_folders(project.id)
-            ),
-            self._dataset_object_info,
-            self.ctx.graph,
-        )
-
-    def _evaluate_report(
-        self, project: Project, report_object: MicroStrategyObject
-    ) -> ChangeCheckResult:
-        result = self._evaluate_report_remote(project, report_object)
-        self._note_change_check(result.failure)
-        return result
 
     @staticmethod
     def _tracked_urns(urns: Iterable[str]) -> List[str]:
@@ -775,6 +808,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
         self._object_state.record_dashboard(project_id, dashboard_id, previous)
 
+    def _keep_previous_urns(
+        self,
+        checkpoint: Union[ObjectCheckpoint, ReportDatasetCheckpoint],
+        previous: OptionalCheckpoint,
+    ) -> None:
+        # The partial read may have missed entities; keep them and read it again.
+        checkpoint.fingerprint = None
+        if previous is not None:
+            checkpoint.urns.extend(previous.urns)
+
     def _keep_report(
         self, project_id: str, report_id: str, previous: ObjectCheckpoint
     ) -> None:
@@ -786,7 +829,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         mstr_object: MicroStrategyObject,
         predefined_folders: Optional[PredefinedFolderResolution],
-        checkpoint: Union[ObjectCheckpoint, ReportDatasetCheckpoint, None],
+        checkpoint: OptionalCheckpoint,
     ) -> Iterable[MetadataWorkUnit]:
         # A skipped object must keep its folders even if already emitted.
         if checkpoint is not None:
@@ -887,7 +930,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             ]
             if not pending:
                 return
-            self.report.report_dashboards_skipped_unchanged(-len(pending))
             yield from self._run_dashboards_parallel(
                 project,
                 pending,
@@ -937,45 +979,78 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             project,
             source_warehouses=source_warehouses,
         )
-        if (
-            self.config.extract_dashboards or self.config.extract_reports
-        ) and not self._resolve_project_folders(project):
-            if self.config.emit_semantic_model_entities:
-                yield from self._process_project_semantic_model(
-                    project, lineage_context
+        try:
+            if (
+                self.config.extract_dashboards or self.config.extract_reports
+            ) and self._resolve_project_folders(project):
+                self._start_change_tracking(
+                    project.id, source_warehouses, lineage_context
                 )
-            return
-        if self._records_checkpoints():
-            self._change_detector.init_project(
-                project.id, source_warehouses, self._predefined_folders(project.id)
-            )
-        if (
-            self._per_report
-            and self._skips_unchanged()
-            and not self.config.extract_dashboards
-        ):
-            self._report_plan = self._start_report_plan(project.id, [], {})
-        if self.config.extract_dashboards:
-            yield from self._process_project_dashboards(
-                project,
-                lineage_context,
-                linked_report_ids,
-            )
-        if self.config.extract_reports:
-            yield from self._process_project_reports(
-                project,
-                lineage_context,
-                linked_report_ids,
-            )
-        if self._report_plan is not None:
-            self._report_plan.mark_reports_left_report_pass()
-            yield from self._read_dashboards_of_changed_reports(
-                project, lineage_context, linked_report_ids
-            )
-        if self._per_report:
-            yield from self._gen_report_dataset_workunits(project.id)
+                yield from self._process_project_passes(
+                    project, lineage_context, linked_report_ids
+                )
+        finally:
+            self._release_report_caches()
         if self.config.emit_semantic_model_entities:
             yield from self._process_project_semantic_model(project, lineage_context)
+
+    def _start_change_tracking(
+        self,
+        project_id: str,
+        source_warehouses: List[Datasource],
+        lineage_context: "_LazyProjectLineage",
+    ) -> None:
+        if not self._skips_unchanged():
+            return
+        self._change_detector.init_project(
+            project_id,
+            source_warehouses,
+            self._predefined_folders(project_id),
+            # Model lineage of every object comes from these project-wide rows.
+            lineage_context.model_tables
+            if self.config.extract_lineage and self.config.extract_model_lineage
+            else None,
+        )
+        if self.config.per_report and not self.config.extract_dashboards:
+            self._report_plan = self._start_report_plan(project_id, [], {})
+
+    def _process_project_passes(
+        self,
+        project: Project,
+        lineage_context: "_LazyProjectLineage",
+        linked_report_ids: Set[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        try:
+            if self.config.extract_dashboards:
+                yield from self._process_project_dashboards(
+                    project,
+                    lineage_context,
+                    linked_report_ids,
+                )
+            if self.config.extract_reports:
+                yield from self._process_project_reports(
+                    project,
+                    lineage_context,
+                    linked_report_ids,
+                )
+            if self._report_plan is not None:
+                self._report_plan.mark_reports_left_report_pass()
+                yield from self._read_dashboards_of_changed_reports(
+                    project, lineage_context, linked_report_ids
+                )
+            self.report.report_dashboards_skipped_unchanged(
+                len(self._dashboard_candidates.keys() - self._read_dashboards)
+            )
+        except Exception as error:
+            # Charts and dashboards already emitted point at these datasets. Not
+            # a finally: yielding while the generator closes raises RuntimeError.
+            if self.config.per_report:
+                yield from self._gen_report_dataset_workunits(
+                    project.id, cached_only=isinstance(error, MicroStrategyAuthError)
+                )
+            raise
+        if self.config.per_report:
+            yield from self._gen_report_dataset_workunits(project.id)
 
     @timed_generator_phase(MicroStrategyPhase.SEMANTIC_MODEL)
     def _process_project_semantic_model(
@@ -1014,6 +1089,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             client=self.client,
             lineage=self.lineage,
             metric_model_cache=self._metric_model_cache,
+            graph=self.ctx.graph,
         )
         yield from semantic_model_mapper.emit(
             project_id=project.id,
@@ -1081,13 +1157,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
 
     @staticmethod
-    def _source_platform_summary(source_warehouses: Optional[List[Datasource]]) -> str:
+    def _source_platform_summary(source_warehouses: List[Datasource]) -> str:
         types = Counter(
             datasource.database_type
             or datasource.datasource_type
             or datasource.dbms_name
-            or "unknown"
-            for datasource in source_warehouses or []
+            or MSTR_UNKNOWN_DATASOURCE_TYPE
+            for datasource in source_warehouses
         )
         return "datasource_types=" + ", ".join(
             f"{name}:{count}" for name, count in sorted(types.items())
@@ -1097,6 +1173,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self, project_id: str, source_warehouses: List[Datasource]
     ) -> None:
         if not source_warehouses:
+            if self.config.extract_model_lineage:
+                self.report.warning(
+                    title="MicroStrategy Model Lineage Unavailable",
+                    message=(
+                        "Skipping logical table lineage because no source "
+                        "warehouse was listed for this project. It needs "
+                        "extract_source_warehouses and access to the project's "
+                        "datasources."
+                    ),
+                    context=f"project_id={project_id}",
+                )
             return
         several = self._project_has_several_warehouse_contexts(source_warehouses)
         self.report.warning(
@@ -1106,14 +1193,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 else "MicroStrategy Project Has No Supported Source Warehouse"
             ),
             message=(
-                "No single project-level warehouse can be chosen, so only "
-                "datasets and logical tables that name their own datasource "
-                f"get warehouse lineage. {MSTR_DATASOURCE_MAPPING_HINT}"
+                "No single project-level warehouse can be chosen, so warehouse "
+                "lineage only covers datasets that name their own source "
+                "warehouse and logical tables whose primary datasource maps "
+                "to a platform. A report's dataset names one only when a "
+                "dashboard embeds it, so other reports get no warehouse "
+                f"lineage. {MSTR_DATASOURCE_MAPPING_HINT}"
                 if several
                 else "None of the project's datasources maps to a supported "
-                "platform, so warehouse lineage is skipped. Set "
-                "datasource_platform_mapping, keyed by connection or "
-                "datasource name, to map them."
+                "platform, so warehouse lineage is skipped. "
+                f"{MSTR_DATASOURCE_MAPPING_HINT}"
             ),
             context=(
                 f"project_id={project_id}, "
@@ -1147,38 +1236,72 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             context = self._context_with_connection(project_id, context, datasource)
         return context
 
+    def _datasource_warehouse_context(
+        self,
+        project_id: str,
+        datasource: DatasourceReference,
+    ) -> Optional[WarehouseLineageContext]:
+        # Shared by SQL-view and model-table lineage: both must build the same
+        # table URNs or model field edges are filtered out of SQL upstreams.
+        context = warehouse_context_from_datasource(
+            datasource,
+            self.config.env,
+            self.config.datasource_platform_mapping,
+        )
+        if context is None:
+            return None
+        return self._context_with_connection(project_id, context, datasource)
+
     def _context_with_connection(
         self,
         project_id: str,
         context: WarehouseLineageContext,
-        datasource: Datasource,
+        datasource: DatasourceReference,
     ) -> WarehouseLineageContext:
         if not datasource.connection_id:
             return context
-        try:
-            connection = self.client.get_datasource_connection(
-                datasource.connection_id,
-                project_id=project_id,
+        connection = self._datasource_connection(project_id, datasource.connection_id)
+        if connection is None:
+            return (
+                replace(context, connection_unavailable=True)
+                if normalize_object_id(datasource.connection_id)
+                in self._failed_connection_keys
+                else context
             )
-        except MicroStrategyAPIError as error:
-            self.report.report_warehouse_lineage_api_failure()
-            self.report.warning(
-                title="Failed to Fetch Datasource Connection",
-                message=(
-                    "Continuing without connection-level database/schema "
-                    "context; warehouse lineage may be less precise."
-                ),
-                context=(
-                    f"project_id={project_id}, connection_id={datasource.connection_id}"
-                ),
-                exc=error,
-            )
-            return context
         return warehouse_context_with_connection(
             context,
             connection,
             self.config.datasource_platform_mapping,
         )
+
+    def _datasource_connection(
+        self, project_id: str, connection_id: str
+    ) -> Optional[DatasourceConnection]:
+        # Held across the fetch so concurrent workers share one lookup and one warning.
+        with self._connection_lock:
+            key = normalize_object_id(connection_id)
+            if key in self._datasource_connections:
+                return self._datasource_connections[key]
+            connection: Optional[DatasourceConnection] = None
+            try:
+                connection = self.client.get_datasource_connection(
+                    connection_id,
+                    project_id=project_id,
+                )
+            except MicroStrategyAPIError as error:
+                self._failed_connection_keys.add(key)
+                self.report.report_warehouse_lineage_api_failure()
+                self.report.warning(
+                    title="Failed to Fetch Datasource Connection",
+                    message=(
+                        "Continuing without connection-level database/schema "
+                        "context; warehouse lineage may be less precise."
+                    ),
+                    context=f"project_id={project_id}, connection_id={connection_id}",
+                    exc=error,
+                )
+            self._datasource_connections[key] = connection
+            return connection
 
     def _evaluate_candidate(
         self,
@@ -1309,9 +1432,21 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             normalize_object_id(dashboard_object.id): dashboard_object
             for dashboard_object in candidates
         }
+        previous_checkpoints = {
+            dashboard_id: self._object_state.previous_dashboard(
+                project.id, dashboard_object.id
+            )
+            for dashboard_id, dashboard_object in self._dashboard_candidates.items()
+        }
         decisions: Dict[str, ChangeCheckResult] = {}
         with ordered_parallel_map(
-            lambda item: self._evaluate_dashboard_remote(project, item),
+            lambda item: self._evaluate_object(
+                project,
+                item,
+                previous_checkpoints[normalize_object_id(item.id)],
+                self.mapper.dashboard_urn,
+                DashboardInfoClass,
+            ),
             list(self._dashboard_candidates.values()),
             max_workers=self.config.max_workers,
         ) as check_outcomes:
@@ -1325,7 +1460,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             for dashboard_id, decision in decisions.items()
             if not decision.unchanged
         }
-        if self._per_report:
+        if self.config.per_report:
             self._report_plan = self._start_report_plan(
                 project.id, list(self._dashboard_candidates), decisions
             )
@@ -1333,7 +1468,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dashboards_to_read = [
             dashboard_object
             for dashboard_id, dashboard_object in self._dashboard_candidates.items()
-            if dashboard_id in to_read or decisions[dashboard_id].previous is None
+            if dashboard_id in to_read or previous_checkpoints[dashboard_id] is None
         ]
         with ordered_parallel_map(
             lambda item: self._prefetch_dashboard(project, item, lineage_context),
@@ -1342,7 +1477,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         ) as outcomes:
             outcome_iter = iter(outcomes)
             for dashboard_id, dashboard_object in self._dashboard_candidates.items():
-                previous = decisions[dashboard_id].previous
+                previous = previous_checkpoints[dashboard_id]
                 if dashboard_id in to_read or previous is None:
                     yield from self._consume_dashboard_with_boundary(
                         project,
@@ -1354,7 +1489,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 self._keep_dashboard(
                     project.id, dashboard_object.id, previous, linked_report_ids
                 )
-                self.report.report_dashboards_skipped_unchanged()
         yield from self._read_dashboards_of_changed_reports(
             project, lineage_context, linked_report_ids
         )
@@ -1462,38 +1596,41 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 ),
                 exc=error,
             )
-            checkpoint = None
+            if checkpoint is not None:
+                checkpoint.outcome = MicroStrategyReadOutcome.FAILED
         finally:
             self._release_model_document(project_id, dashboard_object.id)
             consumer_api_after = self.report.thread_api_totals()
             self._progress.dashboard_done(
-                project.name,
-                dashboard_object.name,
-                dashboard_object.id,
-                before,
+                project_name=project.name,
+                dashboard_name=dashboard_object.name,
+                dashboard_id=dashboard_object.id,
+                before=before,
                 override_seconds=prefetch_seconds + consumer_elapsed,
                 override_api_calls=prefetch_api_calls
                 + (consumer_api_after.calls - consumer_api_before.calls),
                 override_api_seconds=prefetch_api_seconds
                 + (consumer_api_after.seconds - consumer_api_before.seconds),
             )
-        if not self._records_checkpoints():
+        if checkpoint is None:
             return
-        if checkpoint is None or checkpoint.fingerprint is None:
-            # Not fully read: keep what its last read produced.
-            previous = self._object_state.previous_dashboard(
-                project_id, dashboard_object.id
-            )
+        previous = self._object_state.previous_dashboard(
+            project_id, dashboard_object.id
+        )
+        if checkpoint.outcome == MicroStrategyReadOutcome.FAILED:
             if previous is not None:
                 self._keep_dashboard(
                     project_id, dashboard_object.id, previous, linked_report_ids
                 )
             return
+        if checkpoint.outcome == MicroStrategyReadOutcome.INCOMPLETE:
+            self._keep_previous_urns(checkpoint, previous)
         checkpoint.urns = self._tracked_urns(checkpoint.urns)
         self._object_state.record_dashboard(project_id, dashboard_object.id, checkpoint)
-        self._dashboard_fingerprints[normalize_object_id(dashboard_object.id)] = (
-            checkpoint.fingerprint
-        )
+        if checkpoint.fingerprint is not None:
+            self._dashboard_fingerprints[normalize_object_id(dashboard_object.id)] = (
+                checkpoint.fingerprint
+            )
 
     def _resolve_project_folders(self, project: Project) -> bool:
         try:
@@ -1727,7 +1864,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _report_dataset_entry(
         self, project_id: str, dataset_id: str
     ) -> Optional["_ReportDatasetEntry"]:
-        if not self._per_report:
+        if not self.config.per_report:
             return None
         with self._cache_lock:
             return self._report_datasets.get(
@@ -1739,32 +1876,36 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         entry = self._report_dataset_entry(project_id, dataset_id)
         return entry is not None and entry.lineage_resolved
 
-    def _bind_report_dataset(
-        self,
-        project_id: str,
-        dashboard_object: MicroStrategyObject,
-        dataset: DatasetObject,
+    def _shared_report_dataset(
+        self, project_id: str, dataset: DatasetObject
     ) -> DatasetObject:
         # Later dashboards share the first one's instance, so enrichment accumulates once.
         cache_key = _report_dataset_key(project_id, dataset.id)
         with self._cache_lock:
             entry = self._report_datasets.get(cache_key)
             if entry is None:
-                entry = _ReportDatasetEntry(
-                    dataset=dataset, first_dashboard_object=dashboard_object
-                )
-            else:
-                self.report.report_report_deduplicated()
-                if entry.dataset.source_warehouse is None:
-                    entry.dataset.source_warehouse = dataset.source_warehouse
-            if dashboard_object.id not in entry.dashboard_ids:
-                entry = entry.model_copy(
-                    update={
-                        "dashboard_ids": [*entry.dashboard_ids, dashboard_object.id]
-                    }
-                )
-            self._report_datasets[cache_key] = entry
+                entry = _ReportDatasetEntry(dataset=dataset)
+                self._report_datasets[cache_key] = entry
+            elif entry.dataset.source_warehouse is None:
+                entry.dataset.source_warehouse = dataset.source_warehouse
             return entry.dataset
+
+    def _record_report_dataset_dashboard(
+        self,
+        project_id: str,
+        dashboard_object: MicroStrategyObject,
+        dashboard: DashboardDefinition,
+    ) -> None:
+        # Only once the dashboard is emitted, so a failed one never shows on the dataset.
+        for dataset in dashboard.datasets:
+            entry = self._report_datasets[_report_dataset_key(project_id, dataset.id)]
+            if dashboard_object.id in entry.dashboard_ids:
+                continue
+            if entry.dashboard_ids:
+                self.report.report_report_deduplicated()
+            else:
+                entry.first_dashboard_object = dashboard_object
+            entry.dashboard_ids.append(dashboard_object.id)
 
     def _register_report_dataset(
         self,
@@ -1772,7 +1913,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_object: MicroStrategyObject,
         report_definition: Optional[ReportDefinition],
     ) -> "_ReportDatasetEntry":
-        # Keeps the dashboard's instance; the report definition replaces the schema.
         cache_key = _report_dataset_key(project_id, report_object.id)
         available_objects = (
             report_definition.available_objects if report_definition else {}
@@ -1783,27 +1923,23 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         fresh = _report_dataset_object(report_object, available_objects, description)
         with self._cache_lock:
             entry = self._report_datasets.get(cache_key)
-            lineage_resolved = False
             if entry is None:
                 entry = _ReportDatasetEntry(dataset=fresh)
+                self._report_datasets[cache_key] = entry
             elif available_objects:
-                entry.dataset.available_objects = fresh.available_objects
-                entry.dataset.object_ids = fresh.object_ids
+                # Merged, not replaced: charts already emitted reference the dossier's fields.
+                entry.dataset.available_objects = self.mapper.merge_dataset_fields(
+                    fresh, entry.dataset
+                )
+                entry.dataset.object_ids = sorted(
+                    {*fresh.object_ids, *entry.dataset.object_ids}
+                )
                 if description:
                     entry.dataset.description = description
-                stale_field_lineage = self._drop_stale_field_lineage(entry.dataset)
-                lineage_resolved = entry.lineage_resolved and not stale_field_lineage
-            else:
-                lineage_resolved = entry.lineage_resolved
-            entry = entry.model_copy(
-                update={
-                    "report_object": report_object,
-                    "report_definition": report_definition,
-                    "from_report_pass": True,
-                    "lineage_resolved": lineage_resolved,
-                }
-            )
-            self._report_datasets[cache_key] = entry
+                if self._drop_stale_field_lineage(entry.dataset):
+                    entry.lineage_resolved = False
+            entry.report_object = report_object
+            entry.report_definition = report_definition
             return entry
 
     def _drop_stale_field_lineage(self, dataset: DatasetObject) -> bool:
@@ -1818,7 +1954,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         return bool(stale_paths)
 
     def _gen_report_dataset_workunits(
-        self, project_id: str
+        self, project_id: str, cached_only: bool = False
     ) -> Iterable[MetadataWorkUnit]:
         # Once, after both passes, so the entity has everything the run learned.
         predefined_folders = self._predefined_folders(project_id)
@@ -1862,33 +1998,96 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 if self._records_checkpoints()
                 else None
             )
-            dataset = entry.dataset
-            dataset_object = entry.report_object or self._dataset_object_info(
-                project_id, dataset.id
-            )
-            folder_object = self._folder_object(project_id, dataset_object)
-            if folder_object is not None:
-                yield from self._folder_containers(
-                    project_id, folder_object, predefined_folders, checkpoint
+            try:
+                # Built whole so a failure part-way emits nothing for this report.
+                workunits = list(
+                    self._report_dataset_entry_workunits(
+                        project_id, entry, predefined_folders, checkpoint, cached_only
+                    )
                 )
-            fallback_key = (
-                self.mapper.folder_container_for_dashboard(
-                    project_id, entry.first_dashboard_object, predefined_folders
+            except (MicroStrategyAuthError, ConfigurationError):
+                # Swallowing these would let stale removal delete datasets charts use.
+                raise
+            except Exception as error:
+                self.report.warning(
+                    title="Failed to Emit Report Dataset",
+                    message=(
+                        "Skipping this report dataset after an unexpected error; "
+                        "dashboards and charts that use it will show a missing "
+                        "upstream. Other report datasets will still be emitted."
+                    ),
+                    context=(
+                        f"project_id={project_id}, report_id={entry.dataset.id}, "
+                        f"report_name={entry.dataset.name}"
+                    ),
+                    exc=error,
                 )
-                if entry.first_dashboard_object is not None
-                else self.mapper.project_key(project_id)
-            )
+                previous = self._object_state.previous_report_dataset(
+                    project_id, entry.dataset.id
+                )
+                if checkpoint is not None and previous is not None:
+                    self._keep_report_dataset(project_id, entry.dataset.id, previous)
+                continue
+            self.report.report_report_dataset_emitted()
             usage_target = RecordedUsageTarget(
-                object_id=dataset.id,
-                kind=USAGE_TARGET_DATASET,
-                urn=self.lineage.dataset_urn(project_id, None, dataset),
+                object_id=entry.dataset.id,
+                kind=UsageTargetKind.DATASET,
+                urn=self.lineage.dataset_urn(project_id, None, entry.dataset),
             )
             self._register_recorded_target(usage_target)
+            yield from workunits
             if checkpoint is not None:
                 checkpoint.usage_targets = [usage_target]
-                checkpoint.referenced_object_ids = sorted(
-                    dataset.normalized_object_ids()
+                checkpoint.urns = self._tracked_urns(checkpoint.urns)
+                self._object_state.record_report_dataset(
+                    project_id, entry.dataset.id, checkpoint
                 )
+        if plan is not None:
+            for report_id, previous in plan.kept_reports().items():
+                self._keep_report_dataset(project_id, report_id, previous)
+                self.report.report_report_dataset_skipped_unchanged()
+
+    def _keep_report_dataset(
+        self, project_id: str, report_id: str, previous: ReportDatasetCheckpoint
+    ) -> None:
+        self._keep_entities(previous.urns, previous.usage_targets)
+        self._object_state.record_report_dataset(project_id, report_id, previous)
+
+    def _report_dataset_entry_workunits(
+        self,
+        project_id: str,
+        entry: "_ReportDatasetEntry",
+        predefined_folders: PredefinedFolderResolution,
+        checkpoint: Optional[ReportDatasetCheckpoint],
+        cached_only: bool,
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset = entry.dataset
+        dataset_object = entry.report_object
+        if dataset_object is None and cached_only:
+            # The session is gone, so a lookup would only fail again.
+            dataset_object = self._report_object_cache.get(
+                object_cache_key(project_id, dataset.id)
+            )
+        elif dataset_object is None:
+            dataset_object = self._dataset_object_info(project_id, dataset.id)
+        fallback_key = (
+            self.mapper.folder_container_for_dashboard(
+                project_id, entry.first_dashboard_object, predefined_folders
+            )
+            if entry.first_dashboard_object is not None
+            else self.mapper.project_key(project_id)
+        )
+        parent_key = yield from self._dataset_folder_workunits(
+            project_id, dataset_object, fallback_key, predefined_folders, checkpoint
+        )
+        if checkpoint is not None:
+            # No fingerprint once the session is gone, so the next run reads it again.
+            if cached_only or self._report_dataset_incomplete(entry):
+                self._keep_previous_urns(
+                    checkpoint,
+                    self._object_state.previous_report_dataset(project_id, dataset.id),
+                )
+            elif self._skips_unchanged():
                 checkpoint.fingerprint = (
                     self._change_detector.report_dataset_fingerprint(
                         project_id,
@@ -1900,32 +2099,45 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         entry.from_report_pass,
                     )
                 )
-            yield from _recording_urns(
-                self.mapper.gen_report_dataset_workunits(
-                    project_id,
-                    dataset,
-                    self.mapper.dataset_folder_parent_key(
-                        project_id, folder_object, fallback_key, predefined_folders
-                    ),
-                    dataset_object=dataset_object,
-                    dashboard_ids=entry.dashboard_ids,
-                    report_definition=entry.report_definition,
-                    fingerprint=_checkpoint_fingerprint(checkpoint),
-                ),
-                checkpoint,
+        yield from _recording_urns(
+            self.mapper.gen_report_dataset_workunits(
+                project_id,
+                dataset,
+                parent_key,
+                dataset_object=dataset_object,
+                dashboard_ids=entry.dashboard_ids,
+                report_definition=entry.report_definition,
+                fingerprint=_checkpoint_fingerprint(checkpoint),
+            ),
+            checkpoint,
+        )
+
+    def _report_dataset_incomplete(self, entry: "_ReportDatasetEntry") -> bool:
+        # A dashboard read that missed lineage also missed it for the shared dataset.
+        return entry.incomplete or (
+            self._skips_unchanged()
+            and any(
+                normalize_object_id(dashboard_id) not in self._dashboard_fingerprints
+                for dashboard_id in entry.dashboard_ids
             )
-            if checkpoint is not None:
-                checkpoint.urns = self._tracked_urns(checkpoint.urns)
-                self._object_state.record_report_dataset(
-                    project_id, dataset.id, checkpoint
-                )
-        if plan is not None:
-            for report_id, previous in plan.kept_reports().items():
-                self._keep_entities(previous.urns, previous.usage_targets)
-                self._object_state.record_report_dataset(
-                    project_id, report_id, previous
-                )
-                self.report.report_report_dataset_skipped_unchanged()
+        )
+
+    def _dataset_folder_workunits(
+        self,
+        project_id: str,
+        dataset_object: Optional[MicroStrategyObject],
+        fallback_key: ProjectKey,
+        predefined_folders: Optional[PredefinedFolderResolution],
+        checkpoint: OptionalCheckpoint = None,
+    ) -> Generator[MetadataWorkUnit, None, ProjectKey]:
+        folder_object = self._folder_object(project_id, dataset_object)
+        if folder_object is not None:
+            yield from self._folder_containers(
+                project_id, folder_object, predefined_folders, checkpoint
+            )
+        return self.mapper.dataset_folder_parent_key(
+            project_id, folder_object, fallback_key, predefined_folders
+        )
 
     def _folder_object(
         self, project_id: str, dataset_object: Optional[MicroStrategyObject]
@@ -1968,11 +2180,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         api_before = self.report.thread_api_totals()
         dossier_sql_rows: Optional[List[Dict[str, object]]] = None
         skipped_report_sql_keys: Set[str] = set()
+        # The checkpoint belongs to the consumer, so the read outcome travels back.
+        read = ObjectCheckpoint()
         with self.report.phase(MicroStrategyPhase.DASHBOARD, count=False):
             _ = lineage_context.model_lineage_index
             try:
                 dashboard = self._get_dashboard_definition(
-                    project_id, dashboard_object, bind_per_report=False
+                    project_id, dashboard_object, read, bind_per_report=False
                 )
                 if dashboard is not None:
                     if self._needs_dashboard_sql_view_context(
@@ -1983,7 +2197,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                             # report on the consumer thread, so document SQL fetches run there.
                             if (
                                 self.config.extract_document_dataset_sql_lineage
-                                and not self._per_report
+                                and not self.config.per_report
                             ):
                                 skipped_report_sql_keys = (
                                     self._prefetch_document_warehouse_sql(
@@ -2020,7 +2234,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                             self._model_document(project_id, dashboard.id)
                     if (
                         self.config.extract_reports
-                        and not self._per_report
+                        and not self.config.per_report
                         and (
                             not self.config.include_personal_folders
                             or not _is_default_pattern(self.config.folder_path_pattern)
@@ -2031,7 +2245,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                                 dependency
                             ) and self.config.report_pattern.allowed(dependency.name):
                                 self._linked_report_object(project_id, dependency.id)
-                    if self.config.extract_cubes and not self._per_report:
+                    if self.config.extract_cubes and not self.config.per_report:
                         for dataset in dashboard.datasets:
                             self._dataset_object_info(project_id, dataset.id)
             finally:
@@ -2042,6 +2256,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             dashboard=dashboard,
             dossier_sql_rows=dossier_sql_rows,
             skipped_report_sql_keys=skipped_report_sql_keys,
+            incomplete=read.outcome != MicroStrategyReadOutcome.COMPLETE,
             prefetch_seconds=time.perf_counter() - started,
             prefetch_api_calls=api_after.calls - api_before.calls,
             prefetch_api_seconds=api_after.seconds - api_before.seconds,
@@ -2068,20 +2283,25 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         prefetched = outcome.unwrap()
         dashboard = prefetched.dashboard
         if dashboard is None:
+            if checkpoint is not None:
+                checkpoint.outcome = MicroStrategyReadOutcome.FAILED
             return
-        if self._per_report:
+        if prefetched.incomplete:
+            _mark_incomplete(checkpoint)
+        if self.config.per_report:
             bound_datasets: List[DatasetObject] = []
             for dataset in dashboard.datasets:
-                bound = self._bind_report_dataset(project_id, dashboard_object, dataset)
+                bound = self._shared_report_dataset(project_id, dataset)
                 if bound is not dataset and dataset.metric_enrichments:
                     bound.metric_enrichments.update(dataset.metric_enrichments)
                 bound_datasets.append(bound)
             dashboard.datasets = bound_datasets
 
         if self._needs_dashboard_sql_view_context(dashboard, lineage_context):
+            complete = True
             if is_document_object(dashboard_object):
                 if self.config.extract_document_dataset_sql_lineage:
-                    self._enrich_document_warehouse_lineage(
+                    complete = self._enrich_document_warehouse_lineage(
                         project_id,
                         dashboard,
                         lineage_context.warehouse_context,
@@ -2091,15 +2311,21 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 with self.report.phase(
                     MicroStrategyPhase.WAREHOUSE_LINEAGE, count=False
                 ):
-                    self._attach_dataset_warehouse_upstreams(
+                    complete = self._attach_dataset_warehouse_upstreams(
                         prefetched.dossier_sql_rows,
                         dashboard,
                         lineage_context.warehouse_context,
                         project_id=project_id,
                     )
+            else:
+                complete = False
+            if not complete:
+                _mark_incomplete(checkpoint)
 
         if model_lineage_index:
             self.mapper.attach_model_lineage(dashboard, model_lineage_index)
+            if lineage_context.model_lineage_degraded:
+                _mark_incomplete(checkpoint)
         if self.config.extract_derived_metrics:
             self.mapper.attach_derived_metrics(dashboard)
             self._enrich_report_derived_metrics(project_id, dashboard)
@@ -2118,7 +2344,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         extra_chart_urns = self._dashboard_report_chart_urns(project, dashboard)
         usage_target = RecordedUsageTarget(
             object_id=dashboard_object.id,
-            kind=USAGE_TARGET_DASHBOARD,
+            kind=UsageTargetKind.DASHBOARD,
             urn=self.mapper.dashboard_urn(project_id, dashboard_object.id),
         )
         self._register_recorded_target(usage_target)
@@ -2126,26 +2352,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             dependency_ids = _unique_object_ids(
                 [dataset.id for dataset in dashboard.datasets] + report_dependency_ids
             )
-            checkpoint.dependency_report_ids = dependency_ids
+            checkpoint.dependency_ids = dependency_ids
             checkpoint.linked_report_ids = sorted(
                 {report_id.upper() for report_id in report_dependency_ids}
             )
             checkpoint.usage_targets = [usage_target]
-            checkpoint.referenced_object_ids = sorted(
-                {
-                    object_id
-                    for dataset in dashboard.datasets
-                    for object_id in dataset.normalized_object_ids()
-                }
-            )
-            checkpoint.fingerprint = self._change_detector.object_fingerprint(
-                project_id,
-                dashboard_object,
-                self.mapper.folder_path(
-                    project.name, dashboard_object, predefined_folders
-                ),
-                dependency_ids,
-                self._dataset_object_info,
+            checkpoint.fingerprint = self._object_fingerprint(
+                project, dashboard_object, dependency_ids, checkpoint
             )
         yield from self._process_dashboard(
             project_id,
@@ -2156,6 +2369,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             predefined_folders=predefined_folders,
             checkpoint=checkpoint,
         )
+        if self.config.per_report:
+            self._record_report_dataset_dashboard(
+                project_id, dashboard_object, dashboard
+            )
 
     def _process_dashboard_object(
         self,
@@ -2207,8 +2424,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         Reports and cubes share object type 3, so one lookup covers both. Any
         failure degrades to the pre-lookup behaviour (dataset parented under
         the dossier's folder, linking to the dossier) and is counted."""
-        return self._report_object_cache.get_or_load(
-            object_cache_key(project_id, dataset_id),
+        return self._report_object(
+            project_id,
+            dataset_id,
+            self._failed_dataset_object_keys,
             lambda: self._fetch_dataset_object(project_id, dataset_id),
         )
 
@@ -2537,10 +2756,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _remember_searched_report(
         self, project_id: str, report_object: MicroStrategyObject
     ) -> None:
-        # A search result carries what an object lookup returns, so it replaces a failed one.
-        cache_key = object_cache_key(project_id, report_object.id)
-        if self._report_object_cache.get(cache_key) is None:
-            self._report_object_cache.put(cache_key, report_object)
+        # A search result carries what an object lookup returns, so it also covers a failed one.
+        self._report_object_cache.put(
+            object_cache_key(project_id, report_object.id), report_object
+        )
 
     def _process_linked_reports(
         self,
@@ -2612,7 +2831,15 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> bool:
         if self.config.extract_metric_expressions:
             self._enrich_dataset_metric_expressions(project_id, dataset)
-        warehouse_context = lineage_context.warehouse_context
+        with self._cache_lock:
+            shared = self._report_datasets.get(
+                _report_dataset_key(project_id, report_id)
+            )
+        warehouse_context = self._dataset_warehouse_context(
+            project_id,
+            shared.dataset if shared is not None else dataset,
+            lineage_context.warehouse_context,
+        )
         sql_fetch_skipped = False
         if (
             self.config.extract_report_sql_lineage
@@ -2635,16 +2862,19 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> _PrefetchedReport:
         project_id = project.id
         change_check: Optional[ChangeCheckResult] = None
-        if not self._per_report and self._skips_unchanged():
-            change_check = self._evaluate_report_remote(project, report_object)
-            if change_check.unchanged and change_check.previous is not None:
+        if not self.config.per_report and self._skips_unchanged():
+            previous = self._object_state.previous_report(project_id, report_object.id)
+            change_check = self._evaluate_object(
+                project, report_object, previous, self.mapper.report_urn, ChartInfoClass
+            )
+            if change_check.unchanged and previous is not None:
                 return _PrefetchedReport(
                     report_object=report_object,
                     change_check=change_check,
                 )
 
         report_definition = self._get_report_definition(project_id, report_object)
-        if self._per_report:
+        if self.config.per_report:
             available_objects = (
                 report_definition.available_objects if report_definition else {}
             )
@@ -2697,10 +2927,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             project_id,
         )
         checkpoint: Optional[ObjectCheckpoint] = None
-        if not self._per_report:
+        if not self.config.per_report:
             self._register_usage_target(
                 report_object.id,
-                USAGE_TARGET_CHART,
+                UsageTargetKind.CHART,
                 self.mapper.report_urn(project_id, report_object.id),
             )
             if self._records_checkpoints():
@@ -2709,13 +2939,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             prefetched = outcome.unwrap()
             if prefetched.change_check is not None:
                 self._note_change_check(prefetched.change_check.failure)
-                if (
-                    prefetched.change_check.unchanged
-                    and prefetched.change_check.previous is not None
-                ):
-                    self._keep_report(
-                        project_id, report_object.id, prefetched.change_check.previous
-                    )
+                previous_report = self._object_state.previous_report(
+                    project_id, report_object.id
+                )
+                if prefetched.change_check.unchanged and previous_report is not None:
+                    self._keep_report(project_id, report_object.id, previous_report)
                     self.report.report_report_skipped_unchanged()
                     return
             yield from _recording_urns(
@@ -2730,11 +2958,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         except (MicroStrategyAuthError, ConfigurationError):
             raise
         except Exception as error:
+            entry = self._report_dataset_entry(project_id, report_object.id)
             self.report.warning(
                 title="Failed to Process Report",
                 message=(
-                    "Skipping report after an unexpected error; other reports "
-                    "will still be processed."
+                    "Report dataset will still be emitted, possibly without "
+                    "lineage, after an unexpected error; other reports will "
+                    "still be processed."
+                    if entry is not None and self._emits_report_dataset(entry)
+                    else "Skipping report after an unexpected error; other "
+                    "reports will still be processed."
                 ),
                 context=(
                     f"project_id={project_id}, report_id={report_object.id}, "
@@ -2743,14 +2976,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 exc=error,
             )
             if checkpoint is not None:
-                checkpoint.fingerprint = None
+                checkpoint.outcome = MicroStrategyReadOutcome.FAILED
         if checkpoint is None:
             return
-        if checkpoint.fingerprint is None:
-            previous = self._object_state.previous_report(project_id, report_object.id)
+        previous = self._object_state.previous_report(project_id, report_object.id)
+        if checkpoint.outcome == MicroStrategyReadOutcome.FAILED:
             if previous is not None:
                 self._keep_report(project_id, report_object.id, previous)
             return
+        if checkpoint.outcome == MicroStrategyReadOutcome.INCOMPLETE:
+            self._keep_previous_urns(checkpoint, previous)
         checkpoint.urns = self._tracked_urns(checkpoint.urns)
         self._object_state.record_report(project_id, report_object.id, checkpoint)
 
@@ -2763,7 +2998,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         project_id = project.id
         report_object = prefetched.report_object
-        if self._per_report:
+        if self.config.per_report:
             self._process_report_as_dataset(
                 project_id, report_object, lineage_context, prefetched=prefetched
             )
@@ -2779,39 +3014,29 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             predefined_folders,
         )
         report_definition = prefetched.report_definition
+        if report_definition is None:
+            _mark_incomplete(checkpoint)
+            report_definition = ReportDefinition.from_search_result(report_object)
         source_dataset = prefetched.source_dataset
         if source_dataset is not None:
-            warehouse_context = lineage_context.warehouse_context
-            if (
-                self.config.extract_report_sql_lineage
-                and warehouse_context
-                and not prefetched.sql_fetch_skipped
+            if not self._enrich_report_dataset(
+                project_id,
+                report_object,
+                source_dataset,
+                lineage_context,
+                metric_expressions_done=True,
+                sql_fetch_skipped=prefetched.sql_fetch_skipped,
             ):
-                self._enrich_report_sql_lineage(
-                    project_id=project_id,
-                    report_object=report_object,
-                    dataset=source_dataset,
-                    context=warehouse_context,
-                )
-            model_lineage_index = lineage_context.model_lineage_index
-            if model_lineage_index:
-                self.mapper.attach_dataset_model_lineage(
-                    source_dataset,
-                    model_lineage_index,
-                )
+                _mark_incomplete(checkpoint)
             dataset_object = prefetched.dataset_object
-            folder_object = self._folder_object(project_id, dataset_object)
-            if folder_object is not None:
-                yield from self._folder_containers(
-                    project_id, folder_object, predefined_folders, checkpoint
-                )
+            dataset_parent_key = yield from self._dataset_folder_workunits(
+                project_id, dataset_object, parent_key, predefined_folders, checkpoint
+            )
             yield from self.mapper.gen_report_source_dataset_workunits(
                 project_id,
                 report_object,
                 source_dataset,
-                self.mapper.dataset_folder_parent_key(
-                    project_id, folder_object, parent_key, predefined_folders
-                ),
+                dataset_parent_key,
                 dataset_object=dataset_object,
             )
         if checkpoint is not None:
@@ -2820,27 +3045,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 if report_definition and report_definition.source_id
                 else []
             )
-            checkpoint.dependency_report_ids = dependency_ids
+            checkpoint.dependency_ids = dependency_ids
             checkpoint.usage_targets = [
                 RecordedUsageTarget(
                     object_id=report_object.id,
-                    kind=USAGE_TARGET_CHART,
+                    kind=UsageTargetKind.CHART,
                     urn=self.mapper.report_urn(project_id, report_object.id),
                 )
             ]
-            checkpoint.referenced_object_ids = (
-                sorted(source_dataset.normalized_object_ids())
-                if source_dataset is not None
-                else []
-            )
-            checkpoint.fingerprint = self._change_detector.object_fingerprint(
-                project_id,
-                report_object,
-                self.mapper.folder_path(
-                    project.name, report_object, predefined_folders
-                ),
-                dependency_ids,
-                self._dataset_object_info,
+            checkpoint.fingerprint = self._object_fingerprint(
+                project, report_object, dependency_ids, checkpoint
             )
         yield from self.mapper.gen_report_workunits(
             project_id,
@@ -2859,49 +3073,93 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         *,
         prefetched: Optional[_PrefetchedReport] = None,
     ) -> None:
-        # No Report chart: it was a second copy of the report.
         self.report.report_report_scanned()
         report_definition = (
             prefetched.report_definition
             if prefetched is not None
             else self._get_report_definition(project_id, report_object)
         )
+        complete = report_definition is not None
         entry = self._register_report_dataset(
-            project_id, report_object, report_definition
+            project_id,
+            report_object,
+            report_definition or ReportDefinition.from_search_result(report_object),
         )
         dataset = entry.dataset
-        if prefetched is not None:
-            if (
-                prefetched.source_dataset is not None
-                and prefetched.source_dataset.metric_enrichments
-            ):
-                dataset.metric_enrichments.update(
-                    prefetched.source_dataset.metric_enrichments
-                )
-        elif self.config.extract_metric_expressions:
-            self._enrich_dataset_metric_expressions(project_id, dataset)
-        warehouse_context = lineage_context.warehouse_context
-        sql_skipped = prefetched.sql_fetch_skipped if prefetched is not None else False
         if (
-            self.config.extract_report_sql_lineage
-            and warehouse_context
-            and not sql_skipped
+            prefetched is not None
+            and prefetched.source_dataset is not None
+            and prefetched.source_dataset.metric_enrichments
         ):
-            self._enrich_report_sql_lineage(
-                project_id=project_id,
-                report_object=report_object,
-                dataset=dataset,
-                context=warehouse_context,
+            dataset.metric_enrichments.update(
+                prefetched.source_dataset.metric_enrichments
             )
+        complete = (
+            self._enrich_report_dataset(
+                project_id,
+                report_object,
+                dataset,
+                lineage_context,
+                metric_expressions_done=prefetched is not None,
+                sql_fetch_skipped=prefetched is not None
+                and prefetched.sql_fetch_skipped,
+            )
+            and complete
+        )
+        if not complete:
+            with self._cache_lock:
+                entry.incomplete = True
+
+    def _enrich_report_dataset(
+        self,
+        project_id: str,
+        report_object: MicroStrategyObject,
+        dataset: DatasetObject,
+        lineage_context: "_LazyProjectLineage",
+        *,
+        metric_expressions_done: bool = False,
+        sql_fetch_skipped: bool = False,
+    ) -> bool:
+        if self.config.extract_metric_expressions and not metric_expressions_done:
+            self._enrich_dataset_metric_expressions(project_id, dataset)
+        complete = not sql_fetch_skipped and self._enrich_report_dataset_sql_lineage(
+            project_id, report_object, dataset, lineage_context
+        )
         model_lineage_index = lineage_context.model_lineage_index
         if model_lineage_index:
             self.mapper.attach_dataset_model_lineage(dataset, model_lineage_index)
+            return complete and not lineage_context.model_lineage_degraded
+        return complete
+
+    def _enrich_report_dataset_sql_lineage(
+        self,
+        project_id: str,
+        report_object: MicroStrategyObject,
+        dataset: DatasetObject,
+        lineage_context: "_LazyProjectLineage",
+    ) -> bool:
+        # False when the report's SQL view failed or the execution limit skipped it.
+        if not self.config.extract_report_sql_lineage:
+            return True
+        context = self._dataset_warehouse_context(
+            project_id, dataset, lineage_context.warehouse_context
+        )
+        if not context:
+            return True
+        complete = self._enrich_report_sql_lineage(
+            project_id=project_id,
+            report_object=report_object,
+            dataset=dataset,
+            context=context,
+        )
+        return complete and not context.connection_unavailable
 
     @timed_phase(MicroStrategyPhase.DASHBOARD_DEFINITION)
     def _get_dashboard_definition(
         self,
         project_id: str,
         dashboard_object: MicroStrategyObject,
+        checkpoint: Optional[ObjectCheckpoint] = None,
         *,
         bind_per_report: bool = True,
     ) -> Optional[DashboardDefinition]:
@@ -2950,16 +3208,22 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             response=response,
             report=self.report,
         )
-        if self._per_report and bind_per_report:
+        if self.config.per_report and bind_per_report:
             # Before enrichment, so every dashboard writes onto the one shared instance.
             dashboard.datasets = [
-                self._bind_report_dataset(project_id, dashboard_object, dataset)
+                self._shared_report_dataset(project_id, dataset)
                 for dataset in dashboard.datasets
             ]
         if is_document_object(dashboard_object) and not dashboard.visualizations:
             self.report.report_document_definition_without_visualizations()
-        if self.config.extract_lineage and self.config.extract_visualization_details:
-            self._enrich_visualization_details(project_id, dashboard_object, dashboard)
+        if (
+            self.config.extract_lineage
+            and self.config.extract_visualization_details
+            and not self._enrich_visualization_details(
+                project_id, dashboard_object, dashboard
+            )
+        ):
+            _mark_incomplete(checkpoint)
         if self.config.extract_lineage:
             self._resolve_visualization_bindings(project_id, dashboard)
         if self.config.extract_dashboard_dependencies:
@@ -3067,6 +3331,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         report_object: MicroStrategyObject,
     ) -> Optional[ReportDefinition]:
+        # None when the definition API failed; callers fall back to search metadata.
         if not self.config.extract_report_definitions:
             return ReportDefinition.from_search_result(report_object)
 
@@ -3090,7 +3355,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 context=f"project_id={project_id}, report_id={report_object.id}",
                 exc=error,
             )
-            return ReportDefinition.from_search_result(report_object)
+            return None
 
         return ReportDefinition.from_api_response(
             object_id=report_object.id,
@@ -3171,11 +3436,24 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     context=f"project_id={project_id}, offset={offset}",
                 )
                 return None
-            model_tables.extend(table for table in tables if isinstance(table, dict))
             total = response.total
-            offset += len(tables)
             if not tables:
+                if isinstance(total, int) and offset < total:
+                    # A partial list would drop the missing tables' lineage
+                    # and let stale removal soft-delete their semantic model.
+                    self.report.failure(
+                        title="MicroStrategy Model Tables Truncated",
+                        message=(
+                            "The model tables API returned an empty page before "
+                            "the reported total; model lineage and the semantic "
+                            "model are skipped for this project."
+                        ),
+                        context=f"project_id={project_id}, offset={offset}, total={total}",
+                    )
+                    return None
                 break
+            model_tables.extend(table for table in tables if isinstance(table, dict))
+            offset += len(tables)
             # Large projects paginate thousands of model tables; log progress so
             # the lineage-index build does not look hung.
             logger.info(
@@ -3200,24 +3478,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         warehouse_context: Optional[WarehouseLineageContext],
         model_tables_provider: Callable[[], Optional[List[Dict[str, object]]]],
-        source_warehouses: Optional[List[Datasource]] = None,
         table_context_resolver: Optional[TableContextResolver] = None,
     ) -> Optional[ModelLineageIndex]:
         if not self.config.extract_lineage or not self.config.extract_model_lineage:
             return None
         if warehouse_context is None and table_context_resolver is None:
-            self.report.warning(
-                title="MicroStrategy Model Lineage Unavailable",
-                message=(
-                    "Skipping logical table lineage because no supported source "
-                    "warehouse context was discovered for this project. "
-                    f"{MSTR_DATASOURCE_MAPPING_HINT}"
-                ),
-                context=(
-                    f"project_id={project_id}, "
-                    f"{self._source_platform_summary(source_warehouses)}"
-                ),
-            )
+            # Warned once when the project warehouse context was resolved.
             return None
 
         # Deferred until here (not called unconditionally by the caller) so the
@@ -3369,11 +3635,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dashboard_object: MicroStrategyObject,
         dashboard: DashboardDefinition,
-    ) -> None:
+    ) -> bool:
+        # False when an API failure or the execution limit left details out.
         if not dashboard.visualizations:
-            return
+            return True
         if self._execution_limit_reached(project_id):
-            return
+            return False
         try:
             instance_id = self._dashboard_instance(project_id, dashboard_object)
         except MicroStrategyAPIError as error:
@@ -3386,7 +3653,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 context=f"project_id={project_id}, dashboard_id={dashboard.id}",
                 exc=error,
             )
-            return
+            return False
+
+        failed_keys: List[str] = []
 
         def fetch_one(visualization: Visualization) -> Visualization:
             if not visualization.chapter_key:
@@ -3417,6 +3686,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     ),
                     exc=error,
                 )
+                failed_keys.append(visualization.key)
                 return visualization
 
             try:
@@ -3457,6 +3727,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             for outcome in outcomes:
                 enriched.append(outcome.unwrap())
         dashboard.visualizations = enriched
+        return not failed_keys
 
     @timed_phase(MicroStrategyPhase.WAREHOUSE_LINEAGE)
     def _fetch_dossier_sql_view_rows(
@@ -3504,20 +3775,23 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dashboard_object: MicroStrategyObject,
         dashboard: DashboardDefinition,
         context: Optional[WarehouseLineageContext],
-    ) -> None:
+    ) -> bool:
+        # False when an API failure or the execution limit left lineage out.
         if not dashboard.datasets:
-            return
+            return True
         if is_document_object(dashboard_object):
             if self.config.extract_document_dataset_sql_lineage:
-                self._enrich_document_warehouse_lineage(project_id, dashboard, context)
-            return
+                return self._enrich_document_warehouse_lineage(
+                    project_id, dashboard, context
+                )
+            return True
         sql_view_rows = self._fetch_dossier_sql_view_rows(
             project_id, dashboard_object, dashboard.id
         )
         if sql_view_rows is None:
-            return
+            return False
         with self.report.phase(MicroStrategyPhase.WAREHOUSE_LINEAGE, count=False):
-            self._attach_dataset_warehouse_upstreams(
+            return self._attach_dataset_warehouse_upstreams(
                 sql_view_rows, dashboard, context, project_id=project_id
             )
 
@@ -3565,7 +3839,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 )
                 if subtype != MSTR_OBJECT_SUBTYPE_REPORT_GRID:
                     continue
-                if self._dataset_warehouse_context(dataset, context) is None:
+                if (
+                    self._dataset_warehouse_context(project_id, dataset, context)
+                    is None
+                ):
                     continue
                 if self._report_lineage_resolved(project_id, dataset.id):
                     continue
@@ -3590,13 +3867,15 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         context: Optional[WarehouseLineageContext],
         *,
         skipped_keys: Optional[Set[str]] = None,
-    ) -> None:
+    ) -> bool:
         """Warehouse lineage for a Report Services document's datasets. They
         are grid reports, so each one's SQL is read through its own report
         instance (the create / sqlView / delete sequence of
         extract_report_sql_lineage, one execution per distinct report per
         run) and attached to the document-scoped dataset. Cubes and datasets
-        of unknown type have no report SQL view and are skipped and counted."""
+        of unknown type have no report SQL view and are skipped and counted.
+        False when a SQL view failed or the execution limit skipped one."""
+        complete = True
         for dataset in dashboard.datasets:
             dataset_object = self._dataset_object_info(project_id, dataset.id)
             subtype = (dataset_object.subtype or "").strip() if dataset_object else ""
@@ -3610,16 +3889,20 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     dashboard.id,
                 )
                 continue
-            dataset_context = self._dataset_warehouse_context(dataset, context)
+            dataset_context = self._dataset_warehouse_context(
+                project_id, dataset, context
+            )
             if dataset_context is None:
                 self.report.report_sql_view_row_without_context()
                 continue
+            if dataset_context.connection_unavailable:
+                complete = False
             if self._report_lineage_resolved(project_id, dataset.id):
-                # Lineage already settled by an earlier dashboard.
                 self.report.report_document_dataset_sql_view_reused()
                 continue
             cache_key = object_cache_key(project_id, dataset.id)
             if skipped_keys is not None and cache_key in skipped_keys:
+                complete = False
                 continue
             fetched = self._prefetch_report_sql(
                 project_id,
@@ -3630,6 +3913,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 ),
             )
             if fetched.skipped:
+                complete = False
                 continue
             sql_statement = fetched.sql
             with self._report_sql_lock:
@@ -3639,6 +3923,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_document_dataset_sql_view_reused()
             elif sql_statement is None:
                 self.report.report_document_dataset_sql_view_failure()
+            if sql_statement is None:
+                complete = False
             if not sql_statement:
                 continue
             self.report.report_document_dataset_sql_view_scanned()
@@ -3648,9 +3934,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
             if lineage.upstream_urns:
                 self.report.report_document_dataset_sql_view_parsed()
+        return complete
 
     def _dataset_warehouse_context(
         self,
+        project_id: str,
         dataset: DatasetObject,
         context: Optional[WarehouseLineageContext],
     ) -> Optional[WarehouseLineageContext]:
@@ -3659,10 +3947,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         to a platform gives None: the project's warehouse may be a different
         platform and database, and its URNs would not be this dataset's."""
         if dataset.source_warehouse:
-            return warehouse_context_from_datasource(
-                dataset.source_warehouse,
-                self.config.env,
-                self.config.datasource_platform_mapping,
+            return self._datasource_warehouse_context(
+                project_id, dataset.source_warehouse
             )
         return context
 
@@ -3671,8 +3957,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         sql_view_rows: List[Dict[str, object]],
         dashboard: DashboardDefinition,
         context: Optional[WarehouseLineageContext],
-        project_id: Optional[str] = None,
-    ) -> None:
+        project_id: str,
+    ) -> bool:
+        # False when a connection lookup failed, leaving a context without its schema.
+        complete = True
         dataset_by_id = {
             normalize_object_id(dataset.id): dataset for dataset in dashboard.datasets
         }
@@ -3698,10 +3986,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-            dataset_context = self._dataset_warehouse_context(dataset, context)
+            dataset_context = self._dataset_warehouse_context(
+                project_id, dataset, context
+            )
             if dataset_context is None:
                 self.report.report_sql_view_row_without_context()
                 continue
+            if dataset_context.connection_unavailable:
+                complete = False
 
             sql_statement = sql_statement_from_sql_view_entry(row)
             if not sql_statement.strip():
@@ -3711,20 +4003,19 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self._attach_sql_view_lineage(
                 sql_statement, dataset, dataset_context, project_id=project_id
             )
+        return complete
 
     def _attach_sql_view_lineage(
         self,
         sql_statement: str,
         dataset: DatasetObject,
         context: WarehouseLineageContext,
-        project_id: Optional[str] = None,
+        project_id: str,
     ) -> SqlViewLineage:
         # Callers are already gated by extract_report_sql_lineage /
         # extract_warehouse_lineage. A single parse yields both the table-level
         # upstreams and the column-level edges on top of them.
-        entry = (
-            self._report_dataset_entry(project_id, dataset.id) if project_id else None
-        )
+        entry = self._report_dataset_entry(project_id, dataset.id)
         if entry is not None and entry.lineage_resolved:
             return SqlViewLineage(
                 upstream_urns=list(dataset.warehouse_upstream_urns),
@@ -3739,11 +4030,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         if result.upstream_urns:
             dataset.warehouse_upstream_urns = result.upstream_urns
-            if entry is not None and project_id:
+            if entry is not None:
                 with self._cache_lock:
-                    self._report_datasets[
-                        _report_dataset_key(project_id, dataset.id)
-                    ] = entry.model_copy(update={"lineage_resolved": True})
+                    entry.lineage_resolved = True
         if result.field_upstreams:
             dataset.field_warehouse_upstreams = result.field_upstreams
         return result
@@ -3754,22 +4043,26 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_object: MicroStrategyObject,
         dataset: DatasetObject,
         context: WarehouseLineageContext,
-    ) -> None:
+    ) -> bool:
+        # False when the SQL view failed or the execution limit skipped it.
         if self._report_lineage_resolved(project_id, report_object.id):
             # A dashboard already settled this report's lineage.
-            return
+            return True
         fetched = self._prefetch_report_sql(
             project_id,
             report_object.id,
             context=f"project_id={project_id}, report_id={report_object.id}",
         )
-        if fetched.skipped or not fetched.sql:
-            return
+        if fetched.skipped or fetched.sql is None:
+            return False
+        if not fetched.sql:
+            return True
 
         self.report.report_warehouse_lineage_sql_views_scanned(1)
         self._attach_sql_view_lineage(
             fetched.sql, dataset, context, project_id=project_id
         )
+        return True
 
     @timed_phase(MicroStrategyPhase.REPORT_SQL_FETCH)
     def _report_sql_statement(
@@ -4005,10 +4298,38 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _linked_report_object(
         self, project_id: str, report_id: str
     ) -> Optional[MicroStrategyObject]:
-        return self._report_object_cache.get_or_load(
-            object_cache_key(project_id, report_id),
+        return self._report_object(
+            project_id,
+            report_id,
+            self._failed_linked_report_keys,
             lambda: self._fetch_linked_report_object(project_id, report_id),
         )
+
+    def _report_object(
+        self,
+        project_id: str,
+        object_id: str,
+        failed_keys: Set[str],
+        fetch: Callable[[], Optional[MicroStrategyObject]],
+    ) -> Optional[MicroStrategyObject]:
+        cache_key = object_cache_key(project_id, object_id)
+        cached = self._report_object_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        if cache_key in failed_keys:
+            return None
+
+        def load() -> MicroStrategyObject:
+            report_object = fetch()
+            if report_object is None:
+                raise _ReportObjectUnavailable
+            return report_object
+
+        try:
+            return self._report_object_cache.get_or_load(cache_key, load)
+        except _ReportObjectUnavailable:
+            failed_keys.add(cache_key)
+            return None
 
     def _fetch_linked_report_object(
         self, project_id: str, report_id: str
@@ -4051,7 +4372,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project: Project,
         dashboard: DashboardDefinition,
     ) -> List[str]:
-        if not self.config.extract_reports or self._per_report:
+        if not self.config.extract_reports or self.config.per_report:
             # No Report chart: the dashboard's visualizations link the dataset.
             return []
         project_id = project.id
@@ -4091,23 +4412,23 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         predefined_folders: Optional[PredefinedFolderResolution] = None,
         checkpoint: Optional[ObjectCheckpoint] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        if self.config.extract_cubes and not self._per_report:
+        if self.config.extract_cubes and not self.config.per_report:
             for dataset in dashboard.datasets:
                 # A dataset is its own catalog object (report or cube) with its
                 # own folder, which is usually not the dossier's folder.
                 dataset_object = self._dataset_object_info(project_id, dataset.id)
-                folder_object = self._folder_object(project_id, dataset_object)
-                if folder_object is not None:
-                    yield from self._folder_containers(
-                        project_id, folder_object, predefined_folders, checkpoint
-                    )
+                dataset_parent_key = yield from self._dataset_folder_workunits(
+                    project_id,
+                    dataset_object,
+                    parent_key,
+                    predefined_folders,
+                    checkpoint,
+                )
                 yield from self.mapper.gen_dataset_workunits(
                     project_id,
                     dashboard,
                     dataset,
-                    self.mapper.dataset_folder_parent_key(
-                        project_id, folder_object, parent_key, predefined_folders
-                    ),
+                    dataset_parent_key,
                     dataset_object=dataset_object,
                 )
 
@@ -4138,15 +4459,18 @@ class _ReportDatasetKey(BaseModel):
 
 
 class _ReportDatasetEntry(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
     dataset: DatasetObject
     first_dashboard_object: Optional[MicroStrategyObject] = None
     dashboard_ids: List[str] = Field(default_factory=list)
     report_object: Optional[MicroStrategyObject] = None
     report_definition: Optional[ReportDefinition] = None
-    from_report_pass: bool = False
     lineage_resolved: bool = False
+    # An API failure left part of this run's read out.
+    incomplete: bool = False
+
+    @property
+    def from_report_pass(self) -> bool:
+        return self.report_object is not None
 
 
 def _report_dataset_key(project_id: str, dataset_id: str) -> _ReportDatasetKey:
@@ -4193,9 +4517,9 @@ class _LazyProjectLineage:
         self._model_tables_resolved = False
         self._table_context_resolver: Optional[TableContextResolver] = None
         self._table_context_resolver_resolved = False
-        self._datasource_contexts: Dict[str, Optional[WarehouseLineageContext]] = {}
         # Object identity: the cached table list is shared by both passes.
         self._counted_tables: Set[int] = set()
+        self._table_connection_unavailable = False
 
     def _resolve(self, part: str, fetch: Callable[[], _T]) -> Optional[_T]:
         """Run a project-level lookup once. An unexpected error is reported
@@ -4253,7 +4577,13 @@ class _LazyProjectLineage:
     ) -> Optional[WarehouseLineageContext]:
         with self._lock:
             datasource = datasource_for_model_table(table, self._source_warehouses)
-            context = self._datasource_context(datasource) if datasource else None
+            context = (
+                self._source._datasource_warehouse_context(self._project_id, datasource)
+                if datasource
+                else None
+            )
+            if context is not None and context.connection_unavailable:
+                self._table_connection_unavailable = True
             if id(table) not in self._counted_tables:
                 self._counted_tables.add(id(table))
                 if context is not None:
@@ -4268,34 +4598,15 @@ class _LazyProjectLineage:
                 title="MicroStrategy Logical Tables Without Source Warehouse",
                 message=(
                     "This project has several source warehouses and some "
-                    "logical tables name no primary datasource that matches "
-                    "one of them, so they are emitted without warehouse "
-                    "lineage. The run report counts them in "
-                    "model_tables_without_warehouse_context."
+                    "logical tables name no matching primary datasource, or "
+                    "one with no supported platform, so they are emitted "
+                    "without warehouse lineage. The run report counts them in "
+                    "model_tables_without_warehouse_context. "
+                    f"{MSTR_DATASOURCE_MAPPING_HINT}"
                 ),
                 context=f"project_id={self._project_id}",
             )
         self._source.report.report_model_table_without_warehouse_context()
-
-    def _datasource_context(
-        self, datasource: Datasource
-    ) -> Optional[WarehouseLineageContext]:
-        key = normalize_object_id(datasource.id)
-        with self._lock:
-            if key not in self._datasource_contexts:
-                context = warehouse_context_from_datasource(
-                    datasource,
-                    self._source.config.env,
-                    self._source.config.datasource_platform_mapping,
-                )
-                self._datasource_contexts[key] = (
-                    self._source._context_with_connection(
-                        self._project_id, context, datasource
-                    )
-                    if context
-                    else None
-                )
-            return self._datasource_contexts[key]
 
     @property
     def model_tables(self) -> Optional[List[Dict[str, object]]]:
@@ -4341,13 +4652,22 @@ class _LazyProjectLineage:
                             self._project_id,
                             self.warehouse_context,
                             lambda: self.model_tables,
-                            self._source_warehouses,
                             self.table_context_resolver,
                         ),
                     )
                 finally:
                     self._index_resolved = True
             return self._index
+
+    @property
+    def model_lineage_degraded(self) -> bool:
+        # A failed connection lookup left some field URNs without their schema.
+        if self.model_lineage_index is None:
+            return False
+        context = self.warehouse_context
+        return self._table_connection_unavailable or bool(
+            context and context.connection_unavailable
+        )
 
 
 def _metric_items(available_objects: Dict[str, object]) -> Iterable[Dict[str, object]]:
@@ -4374,7 +4694,7 @@ def _unique_object_ids(object_ids: Iterable[str]) -> List[str]:
 
 def _recording_urns(
     workunits: Iterable[MetadataWorkUnit],
-    checkpoint: Union[ObjectCheckpoint, ReportDatasetCheckpoint, None],
+    checkpoint: OptionalCheckpoint,
 ) -> Iterable[MetadataWorkUnit]:
     for workunit in workunits:
         if checkpoint is not None and workunit.is_primary_source:
@@ -4382,8 +4702,16 @@ def _recording_urns(
         yield workunit
 
 
+def _mark_incomplete(checkpoint: Optional[ObjectCheckpoint]) -> None:
+    if (
+        checkpoint is not None
+        and checkpoint.outcome == MicroStrategyReadOutcome.COMPLETE
+    ):
+        checkpoint.outcome = MicroStrategyReadOutcome.INCOMPLETE
+
+
 def _checkpoint_fingerprint(
-    checkpoint: Union[ObjectCheckpoint, ReportDatasetCheckpoint, None],
+    checkpoint: OptionalCheckpoint,
 ) -> Optional[str]:
     return checkpoint.fingerprint if checkpoint is not None else None
 

@@ -10,7 +10,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
     TEMPORAL_TAG_URN,
-    USAGE_TARGET_DATASET,
+    UsageTargetKind,
 )
 from datahub.ingestion.source.microstrategy.lineage import WarehouseLineageContext
 from datahub.ingestion.source.microstrategy.mapper import MicroStrategyMapper
@@ -3126,7 +3126,6 @@ def test_report_dataset_without_dashboards_links_cube_to_project() -> None:
     assert properties.customProperties["microstrategyDashboardCount"] == "0"
     assert _aspect(workunits, SubTypesClass).typeNames == ["Cube"]
     assert _maybe_aspect(workunits, OwnershipClass) is None
-    assert mapper.report.report_datasets_emitted == 1
 
 
 def test_usage_bucket_for_report_dataset_emits_dataset_usage_statistics() -> None:
@@ -3141,7 +3140,7 @@ def test_usage_bucket_for_report_dataset_emits_dataset_usage_statistics() -> Non
     )
 
     workunits = list(
-        mapper.gen_usage_workunits(USAGE_TARGET_DATASET, "urn:li:dataset:x", bucket)
+        mapper.gen_usage_workunits(UsageTargetKind.DATASET, "urn:li:dataset:x", bucket)
     )
 
     aspect = _aspect(workunits, DatasetUsageStatisticsClass)

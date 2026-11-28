@@ -1,6 +1,8 @@
 import re
-from typing import Dict, List, Tuple
+from collections.abc import Sequence
+from typing import Dict, Final, FrozenSet, Tuple
 
+from datahub.metadata.urns import GlossaryTermUrn, TagUrn
 from datahub.utilities.str_enum import StrEnum
 
 MICROSTRATEGY_PLATFORM = "microstrategy"
@@ -116,15 +118,44 @@ DIMENSION_TAG_URN = "urn:li:tag:Dimension"
 TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
 DERIVED_TAG_URN = "urn:li:tag:Derived"
 
-# per_report attaches usage to the report's dataset; otherwise only dashboards and charts.
-USAGE_TARGET_DASHBOARD = "dashboard"
-USAGE_TARGET_CHART = "chart"
-USAGE_TARGET_DATASET = "dataset"
+MSTR_PROPERTY_PROJECT_ID = "microstrategyProjectId"
+MSTR_PROPERTY_REPORT_ID = "microstrategyReportId"
+MSTR_PROPERTY_DASHBOARD_COUNT = "microstrategyDashboardCount"
+MSTR_PROPERTY_DASHBOARD_IDS = "microstrategyDashboardIds"
+MSTR_PROPERTY_REPORT_PROMPT_COUNT = "microstrategyReportPromptCount"
+MSTR_PROPERTY_REPORT_HAS_FILTER = "microstrategyReportHasFilter"
+MSTR_PROPERTY_REPORT_SOURCE_ID = "microstrategyReportSourceId"
+MSTR_PROPERTY_REPORT_SOURCE_NAME = "microstrategyReportSourceName"
 
 # Stamped on emitted properties so a skip is trusted only if DataHub still has it.
 MSTR_PROP_FINGERPRINT = "microstrategyFingerprint"
 ENTITY_CHECK_BATCH_SIZE = 100
 MSTR_UNCHANGED_OBJECTS_JOB_ID = "microstrategy_unchanged_objects"
+# Config fields that change how a run reads, not what it emits.
+FINGERPRINT_EXCLUDED_CONFIG_FIELDS: FrozenSet[str] = frozenset(
+    {
+        "stateful_ingestion",
+        "skip_unchanged_objects",
+        "cache_memory_entries",
+        "progress_log_interval_dashboards",
+        "progress_log_interval_seconds",
+        "max_workers",
+    }
+)
+
+
+class MicroStrategyReadOutcome(StrEnum):
+    COMPLETE = "complete"
+    # Read, but an API failure left part of its lineage out.
+    INCOMPLETE = "incomplete"
+    # Not read; its last read still stands.
+    FAILED = "failed"
+
+
+# Shared references rather than an object's own entities.
+SHARED_REFERENCE_ENTITY_TYPES: FrozenSet[str] = frozenset(
+    {TagUrn.ENTITY_TYPE, GlossaryTermUrn.ENTITY_TYPE}
+)
 
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.
@@ -543,10 +574,18 @@ MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] =
 MSTR_MODEL_TABLE_FIELDS = "information,physicalTable,attributes,facts"
 # Requested only for a project with several warehouses.
 MSTR_MODEL_TABLE_DATASOURCE_FIELD = "primaryDataSource"
+MSTR_UNKNOWN_DATASOURCE_TYPE = "unknown"
 MSTR_DATASOURCE_MAPPING_HINT = (
     "Set datasource_platform_mapping, keyed by connection or datasource name, "
     "for datasources of a type the connector does not recognize."
 )
+
+
+# per_report attaches usage to the report's dataset; otherwise only dashboards and charts.
+class UsageTargetKind(StrEnum):
+    DASHBOARD = "dashboard"
+    CHART = "chart"
+    DATASET = "dataset"
 
 
 class MicroStrategyDatasetIdentity(StrEnum):
@@ -589,7 +628,7 @@ class MicroStrategyPhase(StrEnum):
 class MicroStrategyCache(StrEnum):
     SQL_PARSE = "sql_parse"
     REPORT_SQL = "report_sql"
-    DATASET_OBJECT = "dataset_object"
+    REPORT_OBJECT = "report_object"
     REPORT_DERIVED_METRIC = "report_derived_metric"
     METRIC_MODEL = "metric_model"
     REPORT_DEFINITION = "report_definition"
@@ -601,14 +640,39 @@ class MicroStrategyLineageLookup(StrEnum):
     MODEL_LINEAGE_INDEX = "model_lineage_index"
 
 
+# Isolated metric model 500s are expected; a long run of them means the
+# Modeling service is down and every further call would fail too.
+MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT = 20
+
+# Metric search and /api/model/tables are slow on large projects.
+MSTR_MODEL_API_MIN_TIMEOUT_SECONDS = 120
+
 MSTR_TELEMETRY_NO_PHASE = "(no phase)"
 MSTR_TELEMETRY_ERROR_STATUS = "error"
 
-MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS: List[int] = [10, 30, 60, 120, 300, 600, 1800]
+MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS: Final[Sequence[int]] = (
+    10,
+    30,
+    60,
+    120,
+    300,
+    600,
+    1800,
+)
 
 MSTR_SQLGLOT_LOGGER = "sqlglot"
 # One warning per generated statement; they fill the executor's bounded log.
-MSTR_SQLGLOT_SUPPRESSED_PREFIXES: List[str] = ["Unsupported property"]
+MSTR_SQLGLOT_SUPPRESSED_PREFIXES: Final[Sequence[str]] = ("Unsupported property",)
 
 MSTR_ENDPOINT_ID_PLACEHOLDER = "/{id}"
+# 32-hex object ids and UUIDs, so one endpoint is one row.
+MSTR_ENDPOINT_OBJECT_ID_SEGMENT_RE = re.compile(r"/[0-9A-Fa-f]{32}(?=/|$)")
+MSTR_ENDPOINT_UUID_SEGMENT_RE = re.compile(
+    r"/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?=/|$)"
+)
+# Not 32-hex object ids, so a literal match would make one row per visualization.
+# The replacement keeps group 1, the segment kind.
+MSTR_ENDPOINT_DOSSIER_KEY_SEGMENT_RE = re.compile(
+    r"/(chapters|pages|visualizations)/[^/]+"
+)
 MSTR_ENDPOINT_KEY_REPLACEMENT = r"/\1/{key}"

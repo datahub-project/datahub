@@ -1,5 +1,6 @@
 import logging
 from typing import Any, Dict, Iterator, List, Optional
+from unittest import mock
 
 import pytest
 
@@ -8,6 +9,9 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.microstrategy.client import MicroStrategyAPIError
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT,
+)
 from datahub.ingestion.source.microstrategy.lineage import (
     MicroStrategyLineageExtractor,
     WarehouseLineageContext,
@@ -49,12 +53,15 @@ class FakeSemanticModelClient:
         attribute_relationships: Optional[Dict[str, Dict[str, Any]]] = None,
         consolidation_models: Optional[Dict[str, Dict[str, Any]]] = None,
         search_metrics_fails: bool = False,
+        metric_models_fail: bool = False,
     ) -> None:
         self._metrics = metrics or []
         self._metric_models = metric_models or {}
         self._attribute_relationships = attribute_relationships or {}
         self._consolidation_models = consolidation_models or {}
         self._search_metrics_fails = search_metrics_fails
+        self._metric_models_fail = metric_models_fail
+        self.metric_model_calls: List[str] = []
         self.attribute_relationship_calls: List[str] = []
         self.consolidation_calls: List[str] = []
 
@@ -64,6 +71,9 @@ class FakeSemanticModelClient:
         return iter(self._metrics)
 
     def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        self.metric_model_calls.append(metric_id)
+        if self._metric_models_fail:
+            raise MicroStrategyAPIError("metric model unavailable")
         return self._metric_models.get(metric_id, {})
 
     def get_attribute_relationships(
@@ -740,6 +750,58 @@ def test_metric_model_fetch_failure_keeps_the_metric_without_failing_the_run() -
     ]
 
 
+def _emit_metrics(mapper: MicroStrategySemanticModelMapper) -> List[MetadataWorkUnit]:
+    return list(
+        mapper.emit(
+            project_id="project-1",
+            project_name="Project One",
+            model_tables=[
+                _table("SALES", attributes=[], facts=[_fact("FACT1", "Revenue")])
+            ],
+            warehouse_context=None,
+            project_container_key=_project_container_key(),
+        )
+    )
+
+
+def test_metric_model_fetch_failure_keeps_an_existing_metric_untouched() -> None:
+    client = FakeSemanticModelClient(
+        metrics=[_metric_object("BROKEN", "Broken Metric")], metric_models_fail=True
+    )
+    mapper = _mapper(client)
+    graph = mock.Mock()
+    graph.exists.return_value = True
+    mapper.graph = graph
+
+    aspects = _aspects_by_urn(_emit_metrics(mapper))
+
+    metric_urn = "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,BROKEN)"
+    graph.exists.assert_called_once_with(metric_urn)
+    assert list(aspects[metric_urn]) == ["StatusClass"]
+    assert mapper.report.metrics_kept_after_model_failure == 1
+    assert mapper.report.semantic_model_metrics_emitted == 0
+    assert not mapper.report.failures
+
+
+def test_consecutive_metric_model_failures_stop_the_loop_and_fail_the_run() -> None:
+    client = FakeSemanticModelClient(
+        metrics=[
+            _metric_object(f"M{index}", f"Metric {index}")
+            for index in range(MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT + 5)
+        ],
+        metric_models_fail=True,
+    )
+    # Serial, so the call count is exact; parallel workers read a few models ahead.
+    mapper = _mapper(client, max_workers=1)
+
+    _emit_metrics(mapper)
+
+    assert len(client.metric_model_calls) == MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+    assert [failure.title for failure in mapper.report.failures] == [
+        "MicroStrategy Metric Models Unavailable"
+    ]
+
+
 def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
     # Regression: metric discovery is a separate API call from the tables
     # fetch that already succeeded by the time this runs. A failure here
@@ -786,7 +848,6 @@ def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
 def test_metrics_are_emitted_as_they_are_fetched(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # Holding every metric until the last one is built doubled peak memory.
     fetched: List[str] = []
 
     class RecordingClient(FakeSemanticModelClient):
@@ -879,6 +940,7 @@ def test_metric_progress_logs_once_the_interval_has_elapsed(
     progress = _MetricProgress(
         project_id="project-1",
         total=10,
+        every_metrics=1000,
         every_seconds=0,
         report=MicroStrategyReport(),
     )

@@ -37,7 +37,7 @@ Set `extract_report_sql_lineage: true` only when you also want optional coarse r
 
 #### Dataset Identity
 
-By default (`dataset_identity: per_dashboard`) a dataset entity is keyed by the dossier or document that embeds it, so a report used by several dashboards appears once per dashboard, and with `extract_reports` the same report is also a `Report` chart with its own source dataset. Set `dataset_identity: per_report` to emit one dataset entity per MicroStrategy report (grid report or cube) per project, keyed `<project>.<report>`, filed under the report's own folder, with every visualization and document that uses the report pointing at that single entity, so lineage reads `warehouse table -> report dataset -> every dashboard that uses it`. Under `per_report`, `extract_reports` adds independent reports as the same kind of dataset and emits no `Report` chart; report usage statistics attach to the dataset instead. Switching schemes changes every dataset URN: with stateful ingestion the previous entities are soft-deleted on the next run, so raise `stateful_ingestion.fail_safe_threshold` for that run. The `reports_deduplicated` and `report_datasets_emitted` report counters show the effect. The full design is in `metadata-ingestion/src/datahub/ingestion/source/microstrategy/dataset_identity.md` in the DataHub repository.
+By default (`dataset_identity: per_dashboard`) a dataset is keyed by the dossier or document that embeds it, so a report used by several dashboards appears once per dashboard. Set `dataset_identity: per_report` to get one dataset per report per project, keyed `<project>.<report>`, which every visualization that uses the report links to. Independent reports under `per_report` need both `extract_reports` and `extract_independent_reports`. Switching changes every dataset URN, so raise `stateful_ingestion.fail_safe_threshold` for the run that switches. The design note is `dataset_identity.md` in the connector's source directory.
 
 #### Source Warehouses
 
@@ -63,16 +63,26 @@ When `extract_metric_expressions: true`, the connector fetches accessible metric
 
 When `extract_model_lineage: true`, the connector probes modeling table APIs needed for logical table and physical source warehouse lineage. Missing privileges are reported as warnings and counters; the connector continues with dashboard, dataset, metric, and source warehouse metadata.
 
+Logical tables take their warehouse from their primary datasource when a project has several source warehouses. A datasource of an unrecognized type that `datasource_platform_mapping` does not map counts as its own warehouse, so its tables get no warehouse lineage rather than another datasource's platform. The `model_tables_resolved_by_datasource` and `model_tables_without_warehouse_context` report counters show the result.
+
 #### Semantic Model
 
 Set `emit_semantic_model_entities: true` to additionally emit each project's schema as a first-class `semanticModel` entity, separate from the dashboard/report datasets described above. Attributes and Facts are project-wide MicroStrategy schema objects reusable across every report and cube in a project, so the project — not any one report — is the unit of a semantic model:
 
 - One `semanticModel` entity per project.
-- One logical dataset (subtype `Semantic Model Dataset`) per MicroStrategy logical table, with attributes emitted as `Dimension`-annotated fields and facts as `Measure`-annotated fields. Each logical dataset carries coarse upstream lineage to its physical warehouse table when a warehouse context is resolved for the project.
+- One logical dataset (subtype `Semantic Model Dataset`) per MicroStrategy logical table, with attributes emitted as `Dimension`-annotated fields and facts as `Measure`-annotated fields. Each logical dataset carries coarse upstream lineage to its physical warehouse table when a warehouse context is resolved for that table (see Dependency and Model Lineage Enrichment).
 - One `metric` entity per project metric (Base, Derived/Compound, and Consolidated), with lineage resolved from the metric's own expression: a Base metric's `metricUpstreams` point at the logical dataset(s) backing the facts/attributes it reads; a Derived/Compound metric's `metricRelationships.derivedFrom` points at the `metric` entities it is computed from; a Consolidated metric resolves its consolidation's attribute references (one extra API call per distinct consolidation, cached across metrics that share one) and sets `metricUpstreams` from those.
 - Relationships between logical datasets, derived from MicroStrategy's attribute hierarchy API: an attribute shared across more than one logical table triggers a lookup of that attribute's parent/child relationships, and a `semanticModelRelationship` is emitted when the two ends resolve to different tables (a hierarchy encoded entirely within one lookup table's columns has nothing to join, so no relationship is emitted for that case).
 
 This is additive: it does not change the dashboard/report/dataset emission described elsewhere on this page, and is disabled by default. It requires `extract_model_lineage` access to the MicroStrategy modeling APIs (the same access `extract_model_lineage` already needs) and a DataHub server that registers `semanticModel`/`metric` (Cloud >= 2.1.0, or OSS with `METRICS_ENABLED=true`).
+
+A failed metric search or model tables read marks the run as failed and skips stale-entity removal, so previously ingested metrics are kept. A metric whose own model cannot be fetched is listed in `failed_metric_model_ids`. If DataHub already has that metric, its previous expression and upstream lineage are kept and the metric is only marked as seen (`metrics_kept_after_model_failure`); a metric DataHub has never seen is emitted without expression or upstream lineage. After 20 metric model failures in a row the connector stops reading that project's metrics and fails the run. The metric search and model tables API use `model_api_timeout_seconds`, which defaults to `timeout_seconds` raised to at least 120. A 403 on the model tables endpoint for a project fails the run; exclude projects without modeling access with `project_pattern`.
+
+#### Progress Logging and Run Telemetry
+
+The connector logs a line per dashboard, a whole-run progress line every `progress_log_interval_dashboards` dashboards, and a semantic-model line every `progress_log_interval_metrics` metrics, plus a time-based progress line every `progress_log_interval_seconds`. Per-project caches of report SQL and SQL lineage keep `cache_memory_entries` entries in memory and spill older ones to a temporary local file.
+
+The ingestion report carries the timings and counters, for example `api_calls_by_endpoint`, `phase_seconds`, `sql_parse_seconds`, `cache_entries_peak` and `peak_rss_mb`.
 
 #### Subtypes
 
@@ -156,7 +166,7 @@ Requirements and behavior:
 - Report extraction is disabled by default (`extract_reports`) because report libraries can be much larger than curated dossiers.
 - Direct dossier-to-dataset edges are disabled by default; enable `emit_dashboard_dataset_edges` only if you want dashboard-level fallback lineage, which can make lineage views noisy for large dossiers. Report Services documents, which expose no visualizations, are linked to their datasets by default (`emit_document_dataset_edges`).
 - Modeling APIs (logical tables, metric expressions) may return 403 when the principal lacks modeling privileges. The connector degrades gracefully — missing privileges are reported as warnings and counters, and ingestion continues with dashboard, dataset, metric, and source warehouse metadata.
-- Multi-source projects only receive dataset-to-warehouse edges when MicroStrategy exposes dataset-level source warehouse metadata; the connector does not guess a datasource when the project-level warehouse context is ambiguous.
+- In projects with several source warehouses, the connector does not guess a warehouse: a dataset gets SQL-view edges only when MicroStrategy names its warehouse, and a report's source dataset gets one only when a dashboard embeds the report.
 - Dataset `upstreamLineage` is replaced wholesale while any upstream tables remain, but a dataset whose warehouse lineage disappears entirely keeps the previous run's aspect (stale-entity removal deletes entities, not aspects). Remove leftovers with `datahub delete --urn <urn> --aspect upstreamLineage` or a rollback of the earlier run. Avoid pipeline-level incremental-lineage transformers with this source: their patch-add semantics prevent edge reductions from propagating.
 
 ### Troubleshooting
@@ -167,7 +177,7 @@ If charts do not show upstream datasets, the static dashboard definition may not
 
 #### 403 errors on modeling or SQL-view APIs
 
-The connector does not fail ingestion on modeling API 403s — it records warnings and counters in the ingestion report and continues. Check the report counters to see which APIs were inaccessible, and grant the principal instance-creation and SQL-view access (for warehouse lineage) or modeling privileges (for `extract_metric_expressions` / `extract_model_lineage`) as needed.
+Apart from the model tables 403 under `emit_semantic_model_entities` (see above), the connector does not fail ingestion on modeling API 403s — it records warnings and counters in the ingestion report and continues. Check the report counters to see which APIs were inaccessible, and grant the principal instance-creation and SQL-view access (for warehouse lineage) or modeling privileges (for `extract_metric_expressions` / `extract_model_lineage`) as needed.
 
 #### Session invalidation mid-run
 

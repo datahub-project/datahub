@@ -4,7 +4,6 @@ import logging
 from typing import (
     Callable,
     Dict,
-    FrozenSet,
     List,
     Mapping,
     Optional,
@@ -19,7 +18,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from datahub._version import __version__
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.microstrategy.checkpoint_state import (
-    MicroStrategyStateHandler,
     ObjectCheckpoint,
     ReportDatasetCheckpoint,
 )
@@ -27,9 +25,10 @@ from datahub.ingestion.source.microstrategy.client import MicroStrategyAuthError
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     ENTITY_CHECK_BATCH_SIZE,
+    FINGERPRINT_EXCLUDED_CONFIG_FIELDS,
     MSTR_PROP_FINGERPRINT,
+    SHARED_REFERENCE_ENTITY_TYPES,
 )
-from datahub.ingestion.source.microstrategy.mapper import MicroStrategyMapper
 from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     MicroStrategyObject,
@@ -43,28 +42,16 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     StatusClass,
 )
-from datahub.metadata.urns import DatasetUrn, GlossaryTermUrn, TagUrn
+from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
-# Fields that change how a run reads, not what it emits.
-_SALT_EXCLUDED_CONFIG_FIELDS = {
-    "stateful_ingestion",
-    "skip_unchanged_objects",
-    "cache_memory_entries",
-    "progress_log_interval_dashboards",
-    "progress_log_interval_seconds",
-    "max_workers",
-}
-# Shared references rather than an object's own entities.
-SHARED_REFERENCE_ENTITY_TYPES: FrozenSet[str] = frozenset(
-    {TagUrn.ENTITY_TYPE, GlossaryTermUrn.ENTITY_TYPE}
-)
-
 # (project id, object id) -> the object's search/object-info record, or None.
 ObjectLookup = Callable[[str, str], Optional[MicroStrategyObject]]
-_StampedAspect = Union[
+# (project id, object id) -> the URN that carries the object's fingerprint.
+StampedUrnBuilder = Callable[[str, str], str]
+StampedAspect = Union[
     Type[DashboardInfoClass], Type[ChartInfoClass], Type[DatasetPropertiesClass]
 ]
 
@@ -73,23 +60,12 @@ class ChangeCheckResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     unchanged: bool
-    previous: Optional[ObjectCheckpoint] = None
-    failure: Optional[str] = None
-
-
-class ReportDatasetCheckResult(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    unchanged: bool
-    previous: Optional[ReportDatasetCheckpoint] = None
     failure: Optional[str] = None
 
 
 # A per_report dataset merges every embedding dashboard, so it is re-emitted
 # only together with all of them; the sets are filled in place during a run.
 class ReportDatasetPlan(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
     previous_dashboards: Dict[str, ObjectCheckpoint]
     previous_reports: Dict[str, ReportDatasetCheckpoint]
     # Normalized ids of the project's allowed dashboards, in search order.
@@ -105,7 +81,7 @@ class ReportDatasetPlan(BaseModel):
             for dashboard_id, previous in self.previous_dashboards.items()
             if dashboard_id in candidates
             and report_id
-            in {normalize_object_id(dep) for dep in previous.dependency_report_ids}
+            in {normalize_object_id(dep) for dep in previous.dependency_ids}
         }
         previous_report = self.previous_reports.get(report_id)
         if previous_report is not None:
@@ -194,13 +170,17 @@ def entities_present(graph: DataHubGraph, urns: Sequence[str]) -> bool:
             )
             for urn in batch:
                 status = entities.get(urn, {}).get(StatusClass.ASPECT_NAME)
-                if status is None or getattr(status[0], "removed", True):
+                if (
+                    status is None
+                    or not isinstance(status[0], StatusClass)
+                    or status[0].removed
+                ):
                     return False
     return True
 
 
 def _stamped_in_datahub(
-    graph: DataHubGraph, urn: str, aspect_class: _StampedAspect, fingerprint: str
+    graph: DataHubGraph, urn: str, aspect_class: StampedAspect, fingerprint: str
 ) -> bool:
     aspect = graph.get_aspect(urn, aspect_class)
     return (
@@ -209,17 +189,20 @@ def _stamped_in_datahub(
     )
 
 
+def _rows_digest(rows: Optional[Sequence[Mapping[str, object]]]) -> Optional[str]:
+    # Hashed once here; a large project's rows would otherwise go into every fingerprint.
+    if rows is None:
+        return None
+    body = json.dumps(
+        sorted(json.dumps(row, sort_keys=True, default=str) for row in rows)
+    )
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
 # The evaluate methods only read, so they are safe on worker threads.
 class MicroStrategyChangeDetector:
-    def __init__(
-        self,
-        config: MicroStrategyConfig,
-        mapper: MicroStrategyMapper,
-        state: MicroStrategyStateHandler,
-    ) -> None:
+    def __init__(self, config: MicroStrategyConfig) -> None:
         self.config = config
-        self.mapper = mapper
-        self.state = state
         self._salts: Dict[str, str] = {}
 
     def init_project(
@@ -227,19 +210,28 @@ class MicroStrategyChangeDetector:
         project_id: str,
         source_warehouses: Sequence[Datasource],
         predefined_folders: PredefinedFolderResolution,
+        model_tables: Optional[Sequence[Mapping[str, object]]],
     ) -> None:
         # Anything shaping every object's output re-reads the whole project.
         self._salts[project_id] = json.dumps(
             {
                 "version": __version__,
                 "config": self.config.model_dump(
-                    mode="json", exclude=_SALT_EXCLUDED_CONFIG_FIELDS
+                    mode="json", exclude=set(FINGERPRINT_EXCLUDED_CONFIG_FIELDS)
                 ),
+                # Declared fields only: extra="allow" keeps raw API fields too.
                 "warehouses": [
-                    warehouse.model_dump(mode="json") for warehouse in source_warehouses
+                    warehouse.model_dump(
+                        mode="json", include=set(Datasource.model_fields)
+                    )
+                    for warehouse in sorted(
+                        source_warehouses,
+                        key=lambda warehouse: normalize_object_id(warehouse.id),
+                    )
                 ],
                 "folder_labels": sorted(predefined_folders.labels.items()),
                 "hidden_folders": sorted(predefined_folders.hidden_ids),
+                "model_tables": _rows_digest(model_tables),
             },
             sort_keys=True,
             default=str,
@@ -289,47 +281,7 @@ class MicroStrategyChangeDetector:
             },
         )
 
-    def evaluate_dashboard(
-        self,
-        project_id: str,
-        dashboard_object: MicroStrategyObject,
-        folder_path: Optional[str],
-        lookup_report_object: ObjectLookup,
-        graph: Optional[DataHubGraph],
-    ) -> ChangeCheckResult:
-        previous = self.state.previous_dashboard(project_id, dashboard_object.id)
-        return self._evaluate_object(
-            project_id,
-            dashboard_object,
-            folder_path,
-            previous,
-            lookup_report_object,
-            graph,
-            self.mapper.dashboard_urn(project_id, dashboard_object.id),
-            DashboardInfoClass,
-        )
-
-    def evaluate_report(
-        self,
-        project_id: str,
-        report_object: MicroStrategyObject,
-        folder_path: Optional[str],
-        lookup_report_object: ObjectLookup,
-        graph: Optional[DataHubGraph],
-    ) -> ChangeCheckResult:
-        previous = self.state.previous_report(project_id, report_object.id)
-        return self._evaluate_object(
-            project_id,
-            report_object,
-            folder_path,
-            previous,
-            lookup_report_object,
-            graph,
-            self.mapper.report_urn(project_id, report_object.id),
-            ChartInfoClass,
-        )
-
-    def _evaluate_object(
+    def evaluate_object(
         self,
         project_id: str,
         mstr_object: MicroStrategyObject,
@@ -337,8 +289,8 @@ class MicroStrategyChangeDetector:
         previous: Optional[ObjectCheckpoint],
         lookup: ObjectLookup,
         graph: Optional[DataHubGraph],
-        stamped_urn: str,
-        stamped_aspect: _StampedAspect,
+        stamped_urn: StampedUrnBuilder,
+        stamped_aspect: StampedAspect,
     ) -> ChangeCheckResult:
         if (
             previous is None
@@ -346,36 +298,26 @@ class MicroStrategyChangeDetector:
             or previous.fingerprint is None
             or graph is None
         ):
-            return ChangeCheckResult(unchanged=False, previous=previous)
-        try:
+            return ChangeCheckResult(unchanged=False)
+        previous_fingerprint = previous.fingerprint
+
+        def unchanged() -> bool:
             fingerprint = self.object_fingerprint(
-                project_id,
-                mstr_object,
-                folder_path,
-                previous.dependency_report_ids,
-                lookup,
+                project_id, mstr_object, folder_path, previous.dependency_ids, lookup
             )
             # Checkpoints are committed even when the sink failed.
-            unchanged = (
-                fingerprint == previous.fingerprint
-                and _stamped_in_datahub(graph, stamped_urn, stamped_aspect, fingerprint)
+            return (
+                fingerprint == previous_fingerprint
+                and _stamped_in_datahub(
+                    graph,
+                    stamped_urn(project_id, mstr_object.id),
+                    stamped_aspect,
+                    fingerprint,
+                )
                 and entities_present(graph, previous.urns)
             )
-        except MicroStrategyAuthError:
-            raise
-        except Exception as error:
-            logger.debug(
-                "Change check failed for %s in project %s",
-                mstr_object.id,
-                project_id,
-                exc_info=True,
-            )
-            return ChangeCheckResult(
-                unchanged=False,
-                previous=previous,
-                failure=f"{project_id}:{mstr_object.id}: {error}",
-            )
-        return ChangeCheckResult(unchanged=unchanged, previous=previous)
+
+        return _checked(project_id, mstr_object.id, unchanged)
 
     def evaluate_report_dataset(
         self,
@@ -385,44 +327,55 @@ class MicroStrategyChangeDetector:
         dashboard_fingerprints: Mapping[str, Optional[str]],
         lookup_report_object: ObjectLookup,
         graph: Optional[DataHubGraph],
-    ) -> ReportDatasetCheckResult:
+    ) -> ChangeCheckResult:
         if not previous.urns or previous.fingerprint is None or graph is None:
-            return ReportDatasetCheckResult(unchanged=False, previous=previous)
-        try:
+            return ChangeCheckResult(unchanged=False)
+        previous_fingerprint = previous.fingerprint
+        dataset_urn = next(
+            (
+                urn
+                for urn in previous.urns
+                if guess_entity_type(urn) == DatasetUrn.ENTITY_TYPE
+            ),
+            None,
+        )
+        if dataset_urn is None:
+            return ChangeCheckResult(unchanged=False)
+        stamped_urn = dataset_urn
+
+        def unchanged() -> bool:
             fingerprint = self.report_dataset_fingerprint(
                 project_id,
                 lookup_report_object(project_id, report_id),
                 dashboard_fingerprints,
                 previous.from_report_pass,
             )
-            dataset_urn = next(
-                (
-                    urn
-                    for urn in previous.urns
-                    if guess_entity_type(urn) == DatasetUrn.ENTITY_TYPE
-                ),
-                None,
-            )
-            unchanged = (
-                fingerprint == previous.fingerprint
-                and dataset_urn is not None
+            return (
+                fingerprint == previous_fingerprint
                 and _stamped_in_datahub(
-                    graph, dataset_urn, DatasetPropertiesClass, fingerprint
+                    graph, stamped_urn, DatasetPropertiesClass, fingerprint
                 )
                 and entities_present(graph, previous.urns)
             )
-        except MicroStrategyAuthError:
-            raise
-        except Exception as error:
-            logger.debug(
-                "Change check failed for report dataset %s in project %s",
-                report_id,
-                project_id,
-                exc_info=True,
-            )
-            return ReportDatasetCheckResult(
-                unchanged=False,
-                previous=previous,
-                failure=f"{project_id}:{report_id}: {error}",
-            )
-        return ReportDatasetCheckResult(unchanged=unchanged, previous=previous)
+
+        return _checked(project_id, report_id, unchanged)
+
+
+def _checked(
+    project_id: str, object_id: str, unchanged: Callable[[], bool]
+) -> ChangeCheckResult:
+    # A failed check reads the object again rather than failing the run.
+    try:
+        return ChangeCheckResult(unchanged=unchanged())
+    except MicroStrategyAuthError:
+        raise
+    except Exception as error:
+        logger.debug(
+            "Change check failed for %s in project %s",
+            object_id,
+            project_id,
+            exc_info=True,
+        )
+        return ChangeCheckResult(
+            unchanged=False, failure=f"{project_id}:{object_id}: {error}"
+        )

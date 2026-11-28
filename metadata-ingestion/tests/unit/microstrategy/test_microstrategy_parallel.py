@@ -26,6 +26,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_AUTH_TOKEN_HEADER,
     MSTR_IO_THREAD_NAME_PREFIX,
     MicroStrategyDatasetIdentity,
+    MicroStrategyPhase,
 )
 from datahub.ingestion.source.microstrategy.lineage import MicroStrategyLineageExtractor
 from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import (
@@ -361,10 +362,10 @@ def test_report_per_thread_phase_stack_isolates_concurrent_api_attribution() -> 
     report = MicroStrategyReport()
     barrier = threading.Barrier(4)
     phase_names = [
-        "visualization_details",
-        "report_sql_fetch",
-        "metric_models",
-        "dataset_object_lookup",
+        MicroStrategyPhase.VISUALIZATION_DETAILS,
+        MicroStrategyPhase.REPORT_SQL_FETCH,
+        MicroStrategyPhase.METRIC_MODEL_FETCH,
+        MicroStrategyPhase.DATASET_OBJECT_LOOKUP,
     ]
 
     def worker(idx: int) -> None:

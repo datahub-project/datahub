@@ -3,6 +3,7 @@ from typing import Callable, Dict, Generic, Optional, TypeVar, Union
 
 from pydantic import BaseModel, ConfigDict
 
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.microstrategy.constants import MicroStrategyCache
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -33,7 +34,7 @@ def object_cache_key(project_id: str, object_id: str) -> str:
     return f"{project_id}:{normalize_object_id(object_id)}"
 
 
-class SpillCache(Generic[_V]):
+class SpillCache(Closeable, Generic[_V]):
     # __len__ binds one SQL variable per key, and the dict is not thread-safe.
     def __init__(self, memory_entries: int, compress: bool = False) -> None:
         self._memory_entries = max(1, memory_entries)
@@ -59,23 +60,13 @@ class SpillCache(Generic[_V]):
             return CacheLookup(found=False)
         return CacheLookup(found=True, value=value)
 
-    def contains(self, key: str) -> bool:
+    def __contains__(self, key: str) -> bool:
         with self._lock:
             return not isinstance(self._lookup(key), _Missing)
-
-    def __contains__(self, key: str) -> bool:
-        return self.contains(key)
 
     def put(self, key: str, value: _V) -> None:
         with self._lock:
             self._write(key, value)
-
-    def put_if_absent(self, key: str, value: _V) -> bool:
-        with self._lock:
-            if not isinstance(self._lookup(key), _Missing):
-                return False
-            self._write(key, value)
-            return True
 
     def get_or_load(self, key: str, loader: Callable[[], _V]) -> _V:
         # A loader that raises caches nothing, so a waiter runs its own load.
@@ -107,12 +98,14 @@ class SpillCache(Generic[_V]):
         self,
         report: Optional[MicroStrategyReport] = None,
         cache_name: Optional[MicroStrategyCache] = None,
-    ) -> None:
+    ) -> int:
         with self._lock:
+            count = self._entry_count
             if report is not None and cache_name is not None:
-                report.report_cache_entries(cache_name, self._entry_count)
+                report.report_cache_entries(cache_name, count)
             self._close_store()
             self._entry_count = 0
+            return count
 
     def close(self) -> None:
         with self._lock:
