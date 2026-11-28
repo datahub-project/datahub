@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Optional
+import logging
+from typing import Any, Dict, List, NoReturn, Optional
 from unittest import mock
 
 from datahub.ingestion.source.microstrategy.config import (
@@ -7,6 +8,7 @@ from datahub.ingestion.source.microstrategy.config import (
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     MicroStrategyLineageExtractor,
+    SqlglotWarningFilter,
     WarehouseLineageContext,
     bind_visualization_column_sets,
     bind_visualizations_by_derived_objects,
@@ -39,7 +41,22 @@ from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingDebugInfo, SqlParsingResult
+
+_CONTEXT = WarehouseLineageContext(
+    platform="snowflake", env="PROD", database="SALES_DB", schema="SALES"
+)
+_MULTIPASS_SQL = (
+    "CREATE VOLATILE TABLE T0SP000 AS\n"
+    "select region_number as region, net_sales_amt as revenue "
+    "from SALES.fact_sales\n"
+    "\n"
+    "select region, revenue from T0SP000\n"
+)
+_FACT_SALES = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+)
 
 
 def _extractor() -> MicroStrategyLineageExtractor:
@@ -261,7 +278,7 @@ def test_warehouse_upstream_urns_from_sql_reports_parse_failures() -> None:
     )
 
     with mock.patch(
-        "datahub.sql_parsing.sqlglot_lineage.create_lineage_from_sql_statements",
+        "datahub.ingestion.source.microstrategy.lineage.create_lineage_from_sql_statements",
         side_effect=RuntimeError("parser exploded"),
     ):
         upstreams = extractor.warehouse_lineage_from_sql(
@@ -295,7 +312,7 @@ def test_warehouse_lineage_reports_error_carried_in_parse_result() -> None:
     )
 
     with mock.patch(
-        "datahub.sql_parsing.sqlglot_lineage.create_lineage_from_sql_statements",
+        "datahub.ingestion.source.microstrategy.lineage.create_lineage_from_sql_statements",
         return_value=parsed,
     ):
         upstreams = extractor.warehouse_lineage_from_sql(
@@ -1110,7 +1127,7 @@ def test_warehouse_field_upstreams_from_sql_through_temp_tables() -> None:
     }
 
 
-def _schema_lookup_graph(fail_first_lookup: bool) -> mock.Mock:
+def _schema_lookup_graph() -> mock.Mock:
     schema = SchemaMetadataClass(
         schemaName="fact_sales",
         platform="urn:li:dataPlatform:snowflake",
@@ -1126,7 +1143,6 @@ def _schema_lookup_graph(fail_first_lookup: bool) -> mock.Mock:
             for name in ("region_number", "net_sales_amt")
         ],
     )
-    calls: List[List[str]] = []
 
     def get_entities(
         entity_name: str,
@@ -1134,9 +1150,6 @@ def _schema_lookup_graph(fail_first_lookup: bool) -> mock.Mock:
         aspects: List[str],
         with_system_metadata: bool,
     ) -> Dict[str, Dict[str, Any]]:
-        calls.append(urns)
-        if fail_first_lookup and len(calls) == 1:
-            raise ConnectionError("gms unavailable")
         return {
             urn: {"schemaMetadata": (schema, None)}
             for urn in urns
@@ -1148,28 +1161,19 @@ def _schema_lookup_graph(fail_first_lookup: bool) -> mock.Mock:
     return graph
 
 
-def test_failed_schema_lookup_is_retried_and_reported() -> None:
-    context = WarehouseLineageContext(
-        platform="snowflake", env="PROD", database="SALES_DB", schema="SALES"
+def test_schema_resolver_with_a_graph_resolves_a_table() -> None:
+    lineage = _extractor().warehouse_lineage_from_sql(
+        "select * from SALES.fact_sales",
+        _CONTEXT,
+        ["region_number", "net_sales_amt"],
+        graph=_schema_lookup_graph(),
     )
-    sql = "select * from SALES.fact_sales"
-    fields = ["region_number", "net_sales_amt"]
 
-    baseline = _extractor().warehouse_lineage_from_sql(
-        sql, context, fields, graph=_schema_lookup_graph(fail_first_lookup=False)
-    )
-    extractor = _extractor()
-    graph = _schema_lookup_graph(fail_first_lookup=True)
-    failed = extractor.warehouse_lineage_from_sql(sql, context, fields, graph=graph)
-    extractor.reset_project_caches()
-    retried = extractor.warehouse_lineage_from_sql(sql, context, fields, graph=graph)
-
-    assert baseline.field_upstreams
-    assert failed.field_upstreams != baseline.field_upstreams
-    assert retried.field_upstreams == baseline.field_upstreams
-    assert "Failed to fetch upstream schemas from DataHub" in [
-        w.title for w in extractor.report.warnings
-    ]
+    assert lineage.upstream_urns == [_FACT_SALES]
+    assert lineage.field_upstreams == {
+        "region_number": [f"urn:li:schemaField:({_FACT_SALES},region_number)"],
+        "net_sales_amt": [f"urn:li:schemaField:({_FACT_SALES},net_sales_amt)"],
+    }
 
 
 def test_warehouse_field_upstreams_from_sql_requires_final_select() -> None:
@@ -1743,3 +1747,178 @@ def test_model_lineage_index_resolves_each_table_from_its_own_context() -> None:
         "snow_db.snow.snowflake_table,PROD),amount)"
     ]
     assert index.fact_field_urns(["fact-3"]) == []
+
+
+def test_sqlglot_filter_drops_and_counts_unsupported_property_warnings() -> None:
+    report = MicroStrategyReport()
+    log_filter = SqlglotWarningFilter(report)
+
+    def record(message: str) -> logging.LogRecord:
+        return logging.LogRecord("sqlglot", logging.WARNING, "x", 1, message, (), None)
+
+    assert not log_filter.filter(record("Unsupported property volatileproperty"))
+    assert not log_filter.filter(record("Unsupported property volatileproperty"))
+    assert log_filter.filter(record("Something else"))
+    assert report.sqlglot_warnings_suppressed == {
+        "Unsupported property volatileproperty": 2
+    }
+
+
+def test_identical_sql_is_parsed_once_and_matched_per_dataset() -> None:
+    extractor = _extractor()
+
+    first = extractor.warehouse_lineage_from_sql(
+        _MULTIPASS_SQL, _CONTEXT, ["Region", "Revenue"], label="rep-1"
+    )
+    # Same report SQL, different field casing, must reuse the parse.
+    second = extractor.warehouse_lineage_from_sql(
+        _MULTIPASS_SQL, _CONTEXT, ["REVENUE"], label="rep-1"
+    )
+
+    assert first.upstream_urns == second.upstream_urns == [_FACT_SALES]
+    assert first.field_upstreams == {
+        "Region": [f"urn:li:schemaField:({_FACT_SALES},region_number)"],
+        "Revenue": [f"urn:li:schemaField:({_FACT_SALES},net_sales_amt)"],
+    }
+    assert second.field_upstreams == {
+        "REVENUE": [f"urn:li:schemaField:({_FACT_SALES},net_sales_amt)"]
+    }
+    report = extractor.report
+    assert report.sql_parses_executed == 1
+    assert report.sql_parse_cache_hits == 1
+    assert report.sql_views_parsed == 2
+
+
+def test_column_lineage_request_is_part_of_the_cache_key() -> None:
+    extractor = _extractor()
+
+    table_only = extractor.warehouse_lineage_from_sql(_MULTIPASS_SQL, _CONTEXT, [])
+    with_fields = extractor.warehouse_lineage_from_sql(
+        _MULTIPASS_SQL, _CONTEXT, ["Region"]
+    )
+
+    assert table_only.field_upstreams == {}
+    assert with_fields.field_upstreams == {
+        "Region": [f"urn:li:schemaField:({_FACT_SALES},region_number)"]
+    }
+    assert extractor.report.sql_parses_executed == 2
+    assert extractor.report.sql_parse_cache_hits == 0
+
+
+def test_warehouse_context_is_part_of_the_cache_key() -> None:
+    extractor = _extractor()
+    other_context = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database="OTHER_DB", schema="SALES"
+    )
+
+    sales = extractor.warehouse_lineage_from_sql(
+        "select region from fact_sales", _CONTEXT, []
+    )
+    other = extractor.warehouse_lineage_from_sql(
+        "select region from fact_sales", other_context, []
+    )
+
+    assert sales.upstream_urns == [_FACT_SALES]
+    assert other.upstream_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.sales.fact_sales,PROD)"
+    ]
+    assert extractor.report.sql_parses_executed == 2
+    assert extractor.report.sql_parse_cache_hits == 0
+
+
+def test_failed_parse_is_reported_once_and_served_from_the_cache() -> None:
+    extractor = _extractor()
+
+    with mock.patch(
+        "datahub.ingestion.source.microstrategy.lineage.create_lineage_from_sql_statements",
+        side_effect=RuntimeError("parser exploded"),
+    ) as parse:
+        for _ in range(3):
+            assert (
+                extractor.warehouse_lineage_from_sql(
+                    "select * from fact_sales", _CONTEXT, [], label="Sales Cube (ds-1)"
+                ).upstream_urns
+                == []
+            )
+
+    assert parse.call_count == 1
+    report = extractor.report
+    assert report.sql_parse_failure_count == 1
+    assert len(report.warnings) == 1
+    assert any(
+        context.startswith("Sales Cube (ds-1) (cached failure)")
+        for context in report.warnings[0].context or []
+    )
+    assert report.sql_parse_failure_cache_hits == 2
+    assert report.sql_views_parsed == 3
+
+
+def test_parse_cache_spills_past_its_memory_size_without_losing_entries() -> None:
+    with mock.patch(
+        "datahub.ingestion.source.microstrategy.lineage.MSTR_CACHE_MEMORY_ENTRIES", 2
+    ):
+        extractor = _extractor()
+    sqls = [f"select * from fact_{index}" for index in range(6)]
+
+    for sql in sqls:
+        extractor.warehouse_lineage_from_sql(sql, _CONTEXT, [])
+    for sql in sqls:
+        extractor.warehouse_lineage_from_sql(sql, _CONTEXT, [])
+
+    # Spilled entries are served from disk, not evicted.
+    assert extractor.report.sql_parses_executed == 6
+    assert extractor.report.sql_parse_cache_hits == 6
+
+
+def test_project_reset_drops_the_parse_cache() -> None:
+    extractor = _extractor()
+    extractor.warehouse_lineage_from_sql(_MULTIPASS_SQL, _CONTEXT, [])
+
+    extractor.reset_project_caches()
+    extractor.warehouse_lineage_from_sql(_MULTIPASS_SQL, _CONTEXT, [])
+
+    assert extractor.report.sql_parses_executed == 2
+
+
+def test_one_schema_resolver_is_shared_across_parses() -> None:
+    extractor = _extractor()
+    graph = mock.MagicMock()
+    graph.get_entities.return_value = {}
+    resolvers: List[object] = []
+
+    def fake_parse(**kwargs: object) -> NoReturn:
+        resolvers.append(kwargs["schema_resolver"])
+        raise RuntimeError("stop after capturing the resolver")
+
+    with mock.patch(
+        "datahub.ingestion.source.microstrategy.lineage.create_lineage_from_sql_statements",
+        side_effect=fake_parse,
+    ):
+        extractor.warehouse_lineage_from_sql(
+            "select * from a", _CONTEXT, [], graph=graph
+        )
+        extractor.warehouse_lineage_from_sql(
+            "select * from b", _CONTEXT, [], graph=graph
+        )
+
+    assert len(resolvers) == 2
+    assert resolvers[0] is resolvers[1]
+    extractor.close()
+
+
+def test_schema_resolver_is_closed_with_the_extractor() -> None:
+    extractor = _extractor()
+    graph = mock.MagicMock()
+    graph.get_entities.return_value = {}
+
+    with mock.patch.object(
+        SchemaResolver, "close", autospec=True, side_effect=SchemaResolver.close
+    ) as close:
+        extractor.warehouse_lineage_from_sql(
+            "select region from fact_sales", _CONTEXT, [], graph=graph
+        )
+        assert close.call_count == 0
+        extractor.close()
+
+    assert extractor.report.schema_resolver.num_schema_cache_misses == 1
+    assert close.call_count == 1

@@ -675,9 +675,6 @@ def test_request_raises_after_exhausting_retries_on_network_errors(
     assert call_count == 3
     assert error.value.status_code is None
     assert report.api_errors == 1
-    assert report.api_calls == 3
-    assert report.api_responses_by_endpoint_status == {"GET /api/projects error": 3}
-    assert report.api_retries == 2
 
 
 def test_sql_view_and_instance_calls_use_a_single_attempt(
@@ -1164,8 +1161,6 @@ def test_close_without_login_does_not_log_out(monkeypatch: MonkeyPatch) -> None:
     [
         ({"timeout_seconds": 30}, 120),
         ({"timeout_seconds": 300}, 300),
-        ({"timeout_seconds": 300, "model_api_timeout_seconds": 60}, 60),
-        ({"model_api_timeout_seconds": 300}, 300),
     ],
 )
 def test_model_tables_use_the_model_api_timeout(
@@ -1190,8 +1185,6 @@ def test_model_tables_use_the_model_api_timeout(
     [
         ({"timeout_seconds": 30}, 120),
         ({"timeout_seconds": 300}, 300),
-        ({"timeout_seconds": 300, "model_api_timeout_seconds": 60}, 60),
-        ({"model_api_timeout_seconds": 300}, 300),
     ],
 )
 def test_metric_search_uses_the_model_api_timeout(
