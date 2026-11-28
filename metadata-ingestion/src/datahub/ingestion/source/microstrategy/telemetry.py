@@ -2,6 +2,7 @@ import functools
 import inspect
 import logging
 import time
+from collections.abc import Generator
 from typing import Callable, Iterable, Iterator, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict
@@ -85,9 +86,8 @@ def timed_iter(
                     return
             yield item
     finally:
-        close = getattr(iterator, "close", None)
-        if close is not None:
-            close()
+        if isinstance(iterator, Generator):
+            iterator.close()
 
 
 class SqlglotWarningFilter(logging.Filter):
