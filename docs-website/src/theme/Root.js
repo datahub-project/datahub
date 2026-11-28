@@ -1,8 +1,25 @@
 import React, { useEffect } from "react";
-import { useLocation } from "@docusaurus/router";
+import { useHistory, useLocation } from "@docusaurus/router";
+import useBaseUrl from "@docusaurus/useBaseUrl";
+import cliAnchorRedirects from "./cliAnchorRedirects";
 
 export default function Root({ children }) {
   const location = useLocation();
+  const history = useHistory();
+  const cliPath = useBaseUrl("/docs/cli");
+  const baseUrl = useBaseUrl("/");
+
+  // Page redirects can't see the URL fragment, so old links to sections that
+  // moved off the CLI page are sent to the section's new page here.
+  useEffect(() => {
+    if (location.pathname.replace(/\/$/, "") !== cliPath || !location.hash) {
+      return;
+    }
+    const target = cliAnchorRedirects[decodeURIComponent(location.hash.slice(1))];
+    if (target) {
+      history.replace(baseUrl.replace(/\/$/, "") + target);
+    }
+  }, [location.pathname, location.hash]);
 
   useEffect(() => {
     setTimeout(() => {

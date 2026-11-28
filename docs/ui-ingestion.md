@@ -313,7 +313,7 @@ For detailed information about YAML-based configuration, including syntax and ex
 
 ### Deploying Recipes (CLI)
 
-You can deploy recipes using the CLI as mentioned in the [CLI documentation for uploading ingestion recipes](./cli.md#ingest-deploy).
+You can deploy recipes using the CLI as mentioned in the [CLI documentation for uploading ingestion recipes](./cli-commands/ingest.md#ingest-deploy).
 
 ```bash
 datahub ingest deploy --name "My Test Ingestion Source" --schedule "5 * * * *" --time-zone "UTC" -c recipe.yaml

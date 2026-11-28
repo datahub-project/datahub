@@ -507,7 +507,7 @@ Useful flags when testing a new recipe:
 
 There is no offline "validate only" flag: `--dry-run` still connects to the source. To check a recipe without writing to DataHub, use `--dry-run`, or point the recipe at a `file` sink and inspect the output.
 
-See the [CLI Ingestion Guide](cli-ingestion.md) and the [`datahub ingest` reference](../docs/cli.md#ingest).
+See the [CLI Ingestion Guide](cli-ingestion.md) and the [`datahub ingest` reference](../docs/cli-commands/ingest.md).
 
 </TabItem>
 <TabItem value="ui" label="UI">
