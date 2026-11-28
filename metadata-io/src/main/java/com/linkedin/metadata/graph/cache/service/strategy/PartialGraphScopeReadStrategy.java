@@ -40,10 +40,10 @@ public class PartialGraphScopeReadStrategy implements GraphScopeReadStrategy {
     for (String root : normalizedRoots) {
       partialBackend.ensureFreshForRoot(definition, source, root, direction);
     }
-    if (!partialBackend.allRootsActive(definition, source, normalizedRoots)) {
-      return miss(
-          definition,
-          partialBackend.firstRootMissReason(definition, source, direction, normalizedRoots));
+    Optional<ReadMissReason> inactiveRootReason =
+        partialBackend.firstInactiveRootReason(definition, source, direction, normalizedRoots);
+    if (inactiveRootReason.isPresent()) {
+      return miss(definition, inactiveRootReason.get());
     }
 
     List<GraphComponentContext> components =
