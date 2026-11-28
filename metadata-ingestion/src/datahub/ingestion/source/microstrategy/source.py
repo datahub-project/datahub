@@ -542,6 +542,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             client=self.client,
             lineage=self.lineage,
+            graph=self.ctx.graph,
         )
         yield from semantic_model_mapper.emit(
             project_id=project.id,

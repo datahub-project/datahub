@@ -566,6 +566,10 @@ class MicroStrategyCache(StrEnum):
     REPORT_OBJECT = "report_object"
 
 
+# Isolated metric model 500s are expected; a long run of them means the
+# Modeling service is down and every further call would fail too.
+MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT = 20
+
 # Metric search and /api/model/tables are slow on large projects.
 MSTR_MODEL_API_MIN_TIMEOUT_SECONDS = 120
 
