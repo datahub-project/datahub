@@ -43,7 +43,7 @@ By default (`dataset_identity: per_dashboard`) a dataset is keyed by the dossier
 - A report dataset that fails to emit is skipped and reported as a failure, which also skips stale-entity removal for that run.
 - A dashboard's dependency on a report that its datasets do not include is not linked.
 
-Switching changes every dataset URN, so raise `stateful_ingestion.fail_safe_threshold` for the run that switches. The design note is [`dataset_identity.md`](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/microstrategy/dataset_identity.md).
+Switching changes every dataset URN, so raise `stateful_ingestion.fail_safe_threshold` for the run that switches. The design note is `dataset_identity.md` in the connector's source directory (`metadata-ingestion/src/datahub/ingestion/source/microstrategy/`).
 
 #### Source Warehouses
 
