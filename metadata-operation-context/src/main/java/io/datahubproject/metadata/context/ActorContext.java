@@ -106,8 +106,9 @@ public class ActorContext implements ContextInterface {
   }
 
   /**
-   * Groups actor-applicable policies by privilege. Uses the same {@link DataHubPolicyInfo}
-   * references as the policy cache.
+   * Groups actor-applicable policies by privilege, cheapest to evaluate first (see {@link
+   * PolicyEvaluationOrder}). Uses the same {@link DataHubPolicyInfo} references as the policy
+   * cache.
    */
   @Nonnull
   public static Map<String, List<RecordTemplate>> indexPoliciesByPrivilege(
@@ -115,16 +116,21 @@ public class ActorContext implements ContextInterface {
     if (policyInfoSet == null || policyInfoSet.isEmpty()) {
       return Collections.emptyMap();
     }
-    final Map<String, List<RecordTemplate>> byPrivilege = new HashMap<>();
+    final Map<String, List<DataHubPolicyInfo>> grouped = new HashMap<>();
     for (final DataHubPolicyInfo policy : policyInfoSet) {
       if (policy.getPrivileges() == null) {
         continue;
       }
       for (final String privilege : policy.getPrivileges()) {
-        byPrivilege.computeIfAbsent(privilege, ignored -> new ArrayList<>()).add(policy);
+        grouped.computeIfAbsent(privilege, ignored -> new ArrayList<>()).add(policy);
       }
     }
-    byPrivilege.replaceAll((privilege, policies) -> List.copyOf(policies));
+    final Map<String, List<RecordTemplate>> byPrivilege = new HashMap<>();
+    grouped.forEach(
+        (privilege, policies) -> {
+          policies.sort(PolicyEvaluationOrder.CHEAPEST_FIRST);
+          byPrivilege.put(privilege, List.copyOf(policies));
+        });
     return new HashCachingMap<>(Collections.unmodifiableMap(byPrivilege));
   }
 
