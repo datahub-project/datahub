@@ -3,6 +3,7 @@ import json
 import logging
 import pathlib
 import threading
+import time
 from typing import Callable, Dict, Iterator, List, Optional, Set, Type
 from unittest import mock
 
@@ -597,6 +598,59 @@ def test_stop_event_ends_a_retry_wait() -> None:
     ):
         client._request("GET", "/model/metrics/M-1", stop=stop)
     assert request.call_count == 1
+
+
+def test_lost_auth_ends_another_workers_retry_wait() -> None:
+    client = _client()
+
+    def unavailable(*args: object, **kwargs: object) -> requests.Response:
+        # Another worker's re-login failing while this one backs off.
+        client._auth_dead.set()
+        response = _response(503)
+        response.headers["Retry-After"] = "60"
+        return response
+
+    started = time.monotonic()
+    with (
+        mock.patch.object(
+            client.session, "request", side_effect=unavailable
+        ) as request,
+        pytest.raises(MicroStrategyAuthError),
+    ):
+        client._request("GET", "/api/projects")
+    assert request.call_count == 1
+    assert time.monotonic() - started < _WAIT_SECONDS
+
+
+def test_rejected_borrowed_token_still_allows_one_relogin() -> None:
+    # The first 401 is replayed on a token another worker logged in with
+    # meanwhile; when that one is rejected too, this request has not yet
+    # logged in itself, so it must re-login once rather than give up.
+    client = _client()
+    client.session.headers[MSTR_AUTH_TOKEN_HEADER] = "stale"
+    logins: List[str] = []
+
+    def fake_request(
+        method: str,
+        url: str,
+        headers: Optional[Dict[str, str]] = None,
+        **kwargs: object,
+    ) -> requests.Response:
+        if url.endswith("/api/auth/login"):
+            logins.append(url)
+            return _response(204, token="fresh")
+        sent = _sent_token(headers)
+        if sent == "fresh":
+            return _response(200)
+        if sent == "stale":
+            client.session.headers[MSTR_AUTH_TOKEN_HEADER] = "borrowed"
+        return _response(401)
+
+    with mock.patch.object(client.session, "request", side_effect=fake_request):
+        response = client._request("GET", "/api/projects")
+
+    assert response.status_code == 200
+    assert len(logins) == 1
 
 
 def test_concurrent_metadata_searches_do_not_clobber_active_search() -> None:
