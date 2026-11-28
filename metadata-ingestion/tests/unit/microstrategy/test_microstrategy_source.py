@@ -759,6 +759,26 @@ def test_auth_loss_aborts_remaining_projects() -> None:
     assert len(source.report.failures) == 1
 
 
+def test_run_cleanup_closes_the_client_when_an_earlier_close_raises() -> None:
+    source = _source()
+    client = mock.MagicMock()
+    client.list_projects.return_value = []
+    source.client = client
+    sqlglot_logger = logging.getLogger("sqlglot")
+    filters_before = list(sqlglot_logger.filters)
+
+    with (
+        mock.patch.object(
+            source.lineage, "close", side_effect=RuntimeError("lineage close failed")
+        ),
+        pytest.raises(RuntimeError, match="lineage close failed"),
+    ):
+        list(source.get_workunits_internal())
+
+    client.close.assert_called_once_with()
+    assert sqlglot_logger.filters == filters_before
+
+
 def test_reports_not_scoped_without_dashboard_extraction() -> None:
     # Reports-only recipes have no dashboard linkage to scope by.
     source = _report_scope_source({"extract_dashboards": False})
@@ -1211,14 +1231,39 @@ def test_fetch_project_model_tables_unrecognized_payload_is_a_failed_fetch() -> 
     source = _source({"extract_model_lineage": True})
 
     class FakeClient:
-        def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
+        def list_model_tables(
+            self, *args: object, **kwargs: object
+        ) -> ModelTablesResponse:
             return ModelTablesResponse(tables=None, total=None)
 
+    # Duck-typed stand-in for MicroStrategyClient.
     source.client = FakeClient()  # type: ignore[assignment]
 
     assert source._fetch_project_model_tables("project-1") is None
     assert [w.title for w in source.report.warnings] == [
         "Unrecognized model tables response shape"
+    ]
+
+
+def test_fetch_project_model_tables_empty_page_before_total_is_a_failure() -> None:
+    source = _source({"extract_model_lineage": True, "page_size": 1000})
+
+    class FakeClient:
+        def list_model_tables(
+            self, project_id: str, limit: int, offset: int, fields: str
+        ) -> ModelTablesResponse:
+            tables: List[Dict[str, object]] = (
+                []
+                if offset == 2000
+                else [{"id": f"t{offset + i}"} for i in range(limit)]
+            )
+            return ModelTablesResponse(tables=tables, total=5000)
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._fetch_project_model_tables("project-1") is None
+    assert [f.title for f in source.report.failures] == [
+        "MicroStrategy Model Tables Truncated"
     ]
 
 
@@ -1317,7 +1362,7 @@ class _FlakyModelTablesClient:
     def __init__(self) -> None:
         self.model_table_calls = 0
 
-    def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
+    def list_model_tables(self, *args: object, **kwargs: object) -> ModelTablesResponse:
         self.model_table_calls += 1
         if self.model_table_calls == 1:
             raise MicroStrategyAPIError("Read timed out. (read timeout=30)")
@@ -1330,11 +1375,12 @@ class _FlakyModelTablesClient:
 def test_semantic_model_retries_a_failed_model_tables_fetch() -> None:
     source = _source({"emit_semantic_model_entities": True})
     client = _FlakyModelTablesClient()
+    # Duck-typed stand-in for MicroStrategyClient.
     source.client = client  # type: ignore[assignment]
     lineage_context = _LazyProjectLineage(source, "project-1", [])
 
     assert lineage_context.model_tables is None
-    assert lineage_context.model_tables is None  # still one call
+    assert lineage_context.model_tables is None
     tables = lineage_context.model_tables_retrying_failure()
 
     assert tables is not None and len(tables) == 1
@@ -1344,34 +1390,28 @@ def test_semantic_model_retries_a_failed_model_tables_fetch() -> None:
 
 
 def test_semantic_model_runs_after_the_project_caches_are_released() -> None:
-    source = _source({"emit_semantic_model_entities": True})
-    source._metric_model_cache[("project-1", "metric-1")] = {}
-    caches_at_emit: List[int] = []
+    source = _source(
+        {
+            "emit_semantic_model_entities": True,
+            "extract_dashboards": False,
+            "extract_reports": False,
+            "extract_source_warehouses": False,
+        }
+    )
+    resets_at_semantic_model: List[int] = []
 
-    def fake_emit(**kwargs: Any) -> Iterator[Any]:
-        caches_at_emit.append(len(source._metric_model_cache))
+    def fake_process_project_semantic_model(
+        project: Project, lineage_context: _LazyProjectLineage
+    ) -> Iterator[MetadataWorkUnit]:
+        resets_at_semantic_model.append(source.report.cache_project_resets)
         return iter([])
 
-    class FakeLineageContext:
-        def model_tables_retrying_failure(self) -> List[Dict[str, object]]:
-            return [{"physicalTable": {"tableName": "T1"}}]
+    source._process_project_semantic_model = (  # type: ignore[method-assign]
+        fake_process_project_semantic_model
+    )
+    list(source._process_project(_PROJECT))
 
-        warehouse_context = None
-
-    with mock.patch(
-        "datahub.ingestion.source.microstrategy.source."
-        "MicroStrategySemanticModelMapper.emit",
-        side_effect=fake_emit,
-    ):
-        list(
-            source._process_project_semantic_model(
-                _PROJECT,
-                FakeLineageContext(),  # type: ignore[arg-type]
-            )
-        )
-    source._reset_project_caches()
-
-    assert caches_at_emit == [0]
+    assert resets_at_semantic_model == [1]
     assert source.report.cache_project_resets == 1
 
 
@@ -2336,7 +2376,8 @@ def test_every_sql_view_failing_raises_one_loud_warning(
     assert len(loud) == 1
     assert "All 2 SQL views" in loud[0].message
     assert any(
-        "first_failure=platform=snowflake, error=ValueError: boom" in ctx
+        "first_failure=Sales Cube (ds-1), platform=snowflake, error=ValueError: boom"
+        in ctx
         for ctx in (loud[0].context or [])
     )
 
@@ -3662,14 +3703,12 @@ def test_project_caches_are_dropped_at_the_project_boundary() -> None:
     client = _DocumentClient(documents={"doc-1": ["rep-1"]})
     source.client = client  # type: ignore[assignment]
     _run_dashboards(source)
-    source._metric_model_cache[("project-1", "metric-1")] = {}
 
     source._reset_project_caches()
     _run_dashboards(source)
 
     assert client.report_instances_created == ["rep-1", "rep-1"]
     assert source.report.sql_parses_executed == 2
-    assert source._metric_model_cache == {}
     assert source.report.cache_project_resets == 1
     assert source.report.cache_entries_peak["report_sql"] == 1
     assert source.report.cache_entries_peak["sql_parse"] == 1

@@ -31,6 +31,13 @@ from datahub.ingestion.source.microstrategy.models import (
     Visualization,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.metadata.schema_classes import (
+    NumberTypeClass,
+    OtherSchemaClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+)
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingDebugInfo, SqlParsingResult
 
 
@@ -890,20 +897,32 @@ def test_convert_urns_to_lowercase_false_preserves_warehouse_case() -> None:
     ]
 
 
-def test_warehouse_schema_lookup_failure_is_reported_and_falls_back() -> None:
+def test_warehouse_schema_lookup_failure_is_reported_and_retried() -> None:
     extractor = _extractor()
+    urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.tbl,PROD)"
     graph = mock.Mock()
     graph.get_schema_metadata.side_effect = RuntimeError("gms unavailable")
 
-    assert (
-        extractor._warehouse_field_map(
-            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.tbl,PROD)", graph
-        )
-        is None
-    )
+    assert extractor._warehouse_field_map(urn, graph) is None
+    assert extractor._warehouse_field_map(urn, graph) is None
+
+    assert graph.get_schema_metadata.call_count == 2
     assert [w.title for w in extractor.report.warnings] == [
         "Failed to fetch warehouse schema from DataHub"
     ]
+
+
+def test_warehouse_without_schema_is_looked_up_once() -> None:
+    extractor = _extractor()
+    urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.tbl,PROD)"
+    graph = mock.Mock()
+    graph.get_schema_metadata.return_value = None
+
+    assert extractor._warehouse_field_map(urn, graph) is None
+    assert extractor._warehouse_field_map(urn, graph) is None
+
+    assert graph.get_schema_metadata.call_count == 1
+    assert not extractor.report.warnings
 
 
 def test_model_lineage_anchors_columns_to_graph_field_casing() -> None:
@@ -1073,6 +1092,68 @@ def test_warehouse_field_upstreams_from_sql_through_temp_tables() -> None:
         "Region": [f"urn:li:schemaField:({base},region_number)"],
         "Revenue": [f"urn:li:schemaField:({base},net_sales_amt)"],
     }
+
+
+def _schema_lookup_graph(fail_first_lookup: bool) -> mock.Mock:
+    schema = SchemaMetadataClass(
+        schemaName="fact_sales",
+        platform="urn:li:dataPlatform:snowflake",
+        version=0,
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=name,
+                nativeDataType="NUMBER",
+                type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+            )
+            for name in ("region_number", "net_sales_amt")
+        ],
+    )
+    calls: List[List[str]] = []
+
+    def get_entities(
+        entity_name: str,
+        urns: List[str],
+        aspects: List[str],
+        with_system_metadata: bool,
+    ) -> Dict[str, Dict[str, Any]]:
+        calls.append(urns)
+        if fail_first_lookup and len(calls) == 1:
+            raise ConnectionError("gms unavailable")
+        return {
+            urn: {"schemaMetadata": (schema, None)}
+            for urn in urns
+            if urn.endswith("sales_db.sales.fact_sales,PROD)")
+        }
+
+    graph = mock.Mock()
+    graph.get_entities.side_effect = get_entities
+    return graph
+
+
+def test_failed_schema_lookup_is_retried_and_reported() -> None:
+    context = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database="SALES_DB", schema="SALES"
+    )
+    sql = "select * from SALES.fact_sales"
+    fields = ["region_number", "net_sales_amt"]
+
+    baseline = _extractor().warehouse_lineage_from_sql(
+        sql, context, fields, graph=_schema_lookup_graph(fail_first_lookup=False)
+    )
+    extractor = _extractor()
+    graph = _schema_lookup_graph(fail_first_lookup=True)
+    failed = extractor.warehouse_lineage_from_sql(sql, context, fields, graph=graph)
+    extractor.reset_project_caches()
+    retried = extractor.warehouse_lineage_from_sql(sql, context, fields, graph=graph)
+
+    assert baseline.field_upstreams
+    assert failed.field_upstreams != baseline.field_upstreams
+    assert retried.field_upstreams == baseline.field_upstreams
+    assert "Failed to fetch upstream schemas from DataHub" in [
+        w.title for w in extractor.report.warnings
+    ]
 
 
 def test_warehouse_field_upstreams_from_sql_requires_final_select() -> None:

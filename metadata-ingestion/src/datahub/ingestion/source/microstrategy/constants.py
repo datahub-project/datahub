@@ -1,5 +1,6 @@
 import re
-from typing import Dict, List, Tuple
+from collections.abc import Sequence
+from typing import Dict, Final, Tuple
 
 from datahub.utilities.str_enum import StrEnum
 
@@ -574,14 +575,39 @@ class MicroStrategyCache(StrEnum):
     REPORT_OBJECT = "report_object"
 
 
+# Isolated metric model 500s are expected; a long run of them means the
+# Modeling service is down and every further call would fail too.
+MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT = 20
+
+# Metric search and /api/model/tables are slow on large projects.
+MSTR_MODEL_API_MIN_TIMEOUT_SECONDS = 120
+
 MSTR_TELEMETRY_NO_PHASE = "(no phase)"
 MSTR_TELEMETRY_ERROR_STATUS = "error"
 
-MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS: List[int] = [10, 30, 60, 120, 300, 600, 1800]
+MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS: Final[Sequence[int]] = (
+    10,
+    30,
+    60,
+    120,
+    300,
+    600,
+    1800,
+)
 
 MSTR_SQLGLOT_LOGGER = "sqlglot"
 # One warning per generated statement; they fill the executor's bounded log.
-MSTR_SQLGLOT_SUPPRESSED_PREFIXES: List[str] = ["Unsupported property"]
+MSTR_SQLGLOT_SUPPRESSED_PREFIXES: Final[Sequence[str]] = ("Unsupported property",)
 
 MSTR_ENDPOINT_ID_PLACEHOLDER = "/{id}"
+# 32-hex object ids and UUIDs, so one endpoint is one row.
+MSTR_ENDPOINT_OBJECT_ID_SEGMENT_RE = re.compile(r"/[0-9A-Fa-f]{32}(?=/|$)")
+MSTR_ENDPOINT_UUID_SEGMENT_RE = re.compile(
+    r"/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?=/|$)"
+)
+# Not 32-hex object ids, so a literal match would make one row per visualization.
+# The replacement keeps group 1, the segment kind.
+MSTR_ENDPOINT_DOSSIER_KEY_SEGMENT_RE = re.compile(
+    r"/(chapters|pages|visualizations)/[^/]+"
+)
 MSTR_ENDPOINT_KEY_REPLACEMENT = r"/\1/{key}"

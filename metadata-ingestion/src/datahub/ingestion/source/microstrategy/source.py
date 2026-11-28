@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from typing import (
     Callable,
@@ -210,8 +211,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._report_sql_cache: SpillCache[Optional[str]] = SpillCache(
             self.config.cache_memory_entries, compress=True
         )
-        # Released twice per project; both must count as one reset.
-        self._project_caches_released = False
         # (project id, report id) -> derived metric definitions, or None once
         # every definition endpoint failed for it.
         self._report_derived_metric_cache: Dict[
@@ -315,7 +314,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         f"{project.name}: {METADATA_EXTRACTION}"
                     ):
                         yield from self._process_project(project)
-                    self._progress.log_progress()
                 except MicroStrategyAuthError as error:
                     # Auth is dead: every remaining call fails identically, so stop
                     # with one clear failure instead of a per-project cascade.
@@ -345,37 +343,34 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         context=f"project_id={project.id}, project_name={project.name}",
                         exc=error,
                     )
-                finally:
-                    self._reset_project_caches()
             if self.config.extract_usage_statistics and not auth_lost:
                 yield from self._process_usage_statistics(projects)
         finally:
-            self._progress.log_progress()
-            sqlglot_logger.removeFilter(sqlglot_filter)
-            self._warn_if_every_sql_view_failed()
-            self.lineage.close()
-            self._report_sql_cache.close()
-            self.client.close()
+            # Callbacks run last-registered first, each even if an earlier one raises.
+            with contextlib.ExitStack() as cleanup:
+                cleanup.callback(self.client.close)
+                cleanup.callback(self._report_sql_cache.close)
+                cleanup.callback(self.lineage.close)
+                cleanup.callback(self._warn_if_every_sql_view_failed)
+                cleanup.callback(sqlglot_logger.removeFilter, sqlglot_filter)
+                cleanup.callback(self._progress.log_progress)
 
     def _reset_project_caches(self) -> None:
         # Memory and temporary disk track the largest project, not the whole run.
-        if self._project_caches_released:
-            return
-        self._project_caches_released = True
-        for cache, entries in {
-            MicroStrategyCache.REPORT_SQL: self._report_sql_cache.reset(),
-            MicroStrategyCache.DATASET_OBJECT: len(self._dataset_object_cache),
-            MicroStrategyCache.REPORT_DERIVED_METRIC: len(
-                self._report_derived_metric_cache
+        self.report.report_cache_entries(
+            MicroStrategyCache.REPORT_SQL, self._report_sql_cache.reset()
+        )
+        for name, cache in (
+            (MicroStrategyCache.DATASET_OBJECT, self._dataset_object_cache),
+            (
+                MicroStrategyCache.REPORT_DERIVED_METRIC,
+                self._report_derived_metric_cache,
             ),
-            MicroStrategyCache.METRIC_MODEL: len(self._metric_model_cache),
-            MicroStrategyCache.REPORT_OBJECT: len(self._report_objects),
-        }.items():
-            self.report.report_cache_entries(cache, entries)
-        self._dataset_object_cache.clear()
-        self._report_derived_metric_cache.clear()
-        self._metric_model_cache.clear()
-        self._report_objects.clear()
+            (MicroStrategyCache.METRIC_MODEL, self._metric_model_cache),
+            (MicroStrategyCache.REPORT_OBJECT, self._report_objects),
+        ):
+            self.report.report_cache_entries(name, len(cache))
+            cache.clear()
         self._report_datasets.clear()
         self.lineage.reset_project_caches()
         self.report.cache_project_resets += 1
@@ -487,7 +482,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _process_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
-        self._project_caches_released = False
         source_warehouses = self._get_project_source_warehouses(project.id)
         # Warehouse/model-table lookups are deferred until an allowed dashboard/report
         # needs them, so fully-filtered projects don't pay for those API calls.
@@ -499,26 +493,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             project,
             source_warehouses=source_warehouses,
         )
-        if (
-            self.config.extract_dashboards or self.config.extract_reports
-        ) and not self._resolve_project_folders(project):
-            if self.config.emit_semantic_model_entities:
-                yield from self._process_project_semantic_model(
-                    project, lineage_context
-                )
-            return
         try:
-            yield from self._process_project_passes(
-                project, lineage_context, linked_report_ids
-            )
-        except Exception:
-            # Charts and dashboards already emitted point at these datasets. Not
-            # a finally: yielding while the generator closes raises RuntimeError.
-            if self._per_report:
-                yield from self._gen_report_dataset_workunits(project.id)
-            raise
-        if self._per_report:
-            yield from self._gen_report_dataset_workunits(project.id)
+            if (
+                self.config.extract_dashboards or self.config.extract_reports
+            ) and self._resolve_project_folders(project):
+                yield from self._process_project_passes(
+                    project, lineage_context, linked_report_ids
+                )
+        finally:
+            # The semantic model does not read these caches, so free them first.
+            self._reset_project_caches()
         if self.config.emit_semantic_model_entities:
             yield from self._process_project_semantic_model(project, lineage_context)
 
@@ -528,18 +512,27 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         lineage_context: "_LazyProjectLineage",
         linked_report_ids: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
-        if self.config.extract_dashboards:
-            yield from self._process_project_dashboards(
-                project,
-                lineage_context,
-                linked_report_ids,
-            )
-        if self.config.extract_reports:
-            yield from self._process_project_reports(
-                project,
-                lineage_context,
-                linked_report_ids,
-            )
+        try:
+            if self.config.extract_dashboards:
+                yield from self._process_project_dashboards(
+                    project,
+                    lineage_context,
+                    linked_report_ids,
+                )
+            if self.config.extract_reports:
+                yield from self._process_project_reports(
+                    project,
+                    lineage_context,
+                    linked_report_ids,
+                )
+        except Exception:
+            # Charts and dashboards already emitted point at these datasets. Not
+            # a finally: yielding while the generator closes raises RuntimeError.
+            if self._per_report:
+                yield from self._gen_report_dataset_workunits(project.id)
+            raise
+        if self._per_report:
+            yield from self._gen_report_dataset_workunits(project.id)
 
     @timed_generator_phase(MicroStrategyPhase.SEMANTIC_MODEL)
     def _process_project_semantic_model(
@@ -547,8 +540,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project: Project,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
-        # The semantic model does not read the dashboard caches, so release them first.
-        self._reset_project_caches()
         model_tables = lineage_context.model_tables_retrying_failure()
         if model_tables is None:
             # [] would let stale removal soft-delete the semantic model.
@@ -577,6 +568,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             client=self.client,
             lineage=self.lineage,
+            graph=self.ctx.graph,
         )
         yield from semantic_model_mapper.emit(
             project_id=project.id,
@@ -736,7 +728,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 )
             finally:
                 self._progress.dashboard_done(
-                    project.name, dashboard_object.name, dashboard_object.id, before
+                    project_name=project.name,
+                    dashboard_name=dashboard_object.name,
+                    dashboard_id=dashboard_object.id,
+                    before=before,
                 )
 
     def _resolve_project_folders(self, project: Project) -> bool:
@@ -1955,11 +1950,24 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     context=f"project_id={project_id}, offset={offset}",
                 )
                 return None
-            model_tables.extend(table for table in tables if isinstance(table, dict))
             total = response.total
-            offset += len(tables)
             if not tables:
+                if isinstance(total, int) and offset < total:
+                    # A partial list would drop the missing tables' lineage
+                    # and let stale removal soft-delete their semantic model.
+                    self.report.failure(
+                        title="MicroStrategy Model Tables Truncated",
+                        message=(
+                            "The model tables API returned an empty page before "
+                            "the reported total; model lineage and the semantic "
+                            "model are skipped for this project."
+                        ),
+                        context=f"project_id={project_id}, offset={offset}, total={total}",
+                    )
+                    return None
                 break
+            model_tables.extend(table for table in tables if isinstance(table, dict))
+            offset += len(tables)
             # Large projects paginate thousands of model tables; log progress so
             # the lineage-index build does not look hung.
             logger.info(
