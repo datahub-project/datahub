@@ -315,7 +315,7 @@ def test_failed_parse_is_reported_once_and_served_from_the_cache() -> None:
     extractor = _extractor()
 
     with mock.patch(
-        "datahub.sql_parsing.sqlglot_lineage.create_lineage_from_sql_statements",
+        "datahub.ingestion.source.microstrategy.lineage.create_lineage_from_sql_statements",
         side_effect=RuntimeError("parser exploded"),
     ) as parse:
         for _ in range(3):
@@ -389,7 +389,7 @@ def test_one_schema_resolver_is_shared_across_parses() -> None:
         raise RuntimeError("stop after capturing the resolver")
 
     with mock.patch(
-        "datahub.sql_parsing.sqlglot_lineage.create_lineage_from_sql_statements",
+        "datahub.ingestion.source.microstrategy.lineage.create_lineage_from_sql_statements",
         side_effect=fake_parse,
     ):
         extractor.warehouse_lineage_from_sql(

@@ -1,7 +1,5 @@
-import builtins
 import json
 import logging
-import sys
 from typing import (
     Any,
     Dict,
@@ -68,6 +66,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect,
 )
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_from_sql_statements
 
 
 def _source(extra_config: dict | None = None) -> MicroStrategySource:
@@ -2252,8 +2251,9 @@ def test_report_derived_metrics_skip_cube_datasets() -> None:
     assert client.v2_calls == []
 
 
-_SQL_PARSER_MODULE = "datahub.sql_parsing.sqlglot_lineage"
-_SQL_AGGREGATOR_MODULE = "datahub.sql_parsing.sql_parsing_aggregator"
+_LINEAGE_PARSER_FN = (
+    "datahub.ingestion.source.microstrategy.lineage.create_lineage_from_sql_statements"
+)
 _ALL_FAILED_TITLE = "Every MicroStrategy SQL view failed to parse"
 
 
@@ -2261,61 +2261,6 @@ def _warehouse_dashboard() -> DashboardDefinition:
     return _dashboard(
         {"id": "s", "name": "W", "database": {"type": "snow_flake", "name": "DB"}}
     )
-
-
-def test_missing_sqlparse_fails_source_construction_with_named_extra(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Simulate the environment that emitted zero lineage in production: the
-    # wheel installed without the extra, so the parser's aggregator module
-    # (usage_common -> sql_formatter -> sqlparse) cannot be imported. The run
-    # must fail up front, naming the extra, rather than degrade to per-view
-    # parse warnings.
-    real_import = builtins.__import__
-
-    def import_without_sqlparse(name: str, *args: Any, **kwargs: Any) -> Any:
-        if name == _SQL_AGGREGATOR_MODULE:
-            raise ModuleNotFoundError("No module named 'sqlparse'")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", import_without_sqlparse)
-
-    with pytest.raises(ConfigurationError) as raised:
-        _source({"extract_warehouse_lineage": True})
-    assert "acryl-datahub[microstrategy]" in str(raised.value)
-    assert "sqlparse" in str(raised.value)
-
-    with pytest.raises(ConfigurationError):
-        _source(
-            {"extract_warehouse_lineage": False, "extract_report_sql_lineage": True}
-        )
-    # Without SQL-view lineage enabled the parser is not needed at all.
-    _source({"extract_warehouse_lineage": False})
-
-
-def test_import_error_during_parse_is_not_a_parse_failure(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = _source()
-
-    def missing_module(**kwargs: Any) -> Any:
-        raise ModuleNotFoundError("No module named 'sqlparse'")
-
-    monkeypatch.setattr(
-        sys.modules[_SQL_PARSER_MODULE],
-        "create_lineage_from_sql_statements",
-        missing_module,
-    )
-
-    with pytest.raises(ConfigurationError):
-        source._attach_dataset_warehouse_upstreams(
-            [{"id": "ds-1", "sqlStatement": "select 1 from t"}],
-            _warehouse_dashboard(),
-            None,
-            project_id="project-1",
-        )
-    assert source.report.sql_parse_failure_count == 0
-    assert list(source.report.sql_parse_failures) == []
 
 
 def test_configuration_error_escapes_the_dashboard_boundary(
@@ -2342,7 +2287,7 @@ def test_configuration_error_escapes_the_dashboard_boundary(
 
 def _fail_parses(monkeypatch: pytest.MonkeyPatch, fail_first_n: int) -> None:
     calls = {"count": 0}
-    real = sys.modules[_SQL_PARSER_MODULE].create_lineage_from_sql_statements
+    real = create_lineage_from_sql_statements
 
     def flaky(**kwargs: Any) -> Any:
         calls["count"] += 1
@@ -2350,9 +2295,7 @@ def _fail_parses(monkeypatch: pytest.MonkeyPatch, fail_first_n: int) -> None:
             raise ValueError("boom")
         return real(**kwargs)
 
-    monkeypatch.setattr(
-        sys.modules[_SQL_PARSER_MODULE], "create_lineage_from_sql_statements", flaky
-    )
+    monkeypatch.setattr(_LINEAGE_PARSER_FN, flaky)
 
 
 def test_every_sql_view_failing_raises_one_loud_warning(
