@@ -86,9 +86,9 @@ def test_dashboard_seconds_bucket_edges() -> None:
 
 def test_api_calls_are_charged_to_the_innermost_phase() -> None:
     report = MicroStrategyReport()
-    with report.phase("outer"):
+    with report.phase(MicroStrategyPhase.DASHBOARD):
         report.report_api_call("GET", f"/api/objects/{_OBJECT_ID}", 200, 1.5)
-        with report.phase("inner"):
+        with report.phase(MicroStrategyPhase.SQL_PARSE):
             report.report_api_call("GET", f"/api/objects/{_OBJECT_ID}", 404, 0.5)
     report.report_api_call("GET", "/api/projects", None, 2.0)
 
@@ -102,11 +102,11 @@ def test_api_calls_are_charged_to_the_innermost_phase() -> None:
         "GET /api/projects error": 1,
     }
     assert report.api_seconds_by_phase == {
-        "outer": 1.5,
-        "inner": 0.5,
+        "dashboard": 1.5,
+        "sql_parse": 0.5,
         "(no phase)": 2.0,
     }
-    assert report.phase_calls == {"outer": 1, "inner": 1}
+    assert report.phase_calls == {"dashboard": 1, "sql_parse": 1}
 
 
 def test_timed_iter_excludes_consumer_time(monkeypatch: MonkeyPatch) -> None:
@@ -120,11 +120,11 @@ def test_timed_iter_excludes_consumer_time(monkeypatch: MonkeyPatch) -> None:
         clock.now += 3.0  # producing the second item
         yield 2
 
-    for _ in timed_iter(report, "work", produce()):
+    for _ in timed_iter(report, MicroStrategyPhase.DASHBOARD, produce()):
         clock.now += 100.0  # the pipeline writing the item to the sink
 
-    assert report.phase_seconds["work"] == pytest.approx(5.0)
-    assert report.phase_calls["work"] == 1
+    assert report.phase_seconds["dashboard"] == pytest.approx(5.0)
+    assert report.phase_calls["dashboard"] == 1
     assert report._phase_stack == []
 
 
@@ -139,7 +139,7 @@ def test_timed_iter_closes_the_wrapped_generator_when_abandoned() -> None:
         finally:
             closed.append(True)
 
-    wrapped = timed_iter(report, "work", produce())
+    wrapped = timed_iter(report, MicroStrategyPhase.DASHBOARD, produce())
     assert next(wrapped) == 1
     wrapped.close()  # type: ignore[attr-defined]
 
@@ -151,11 +151,11 @@ class _Owner:
     def __init__(self) -> None:
         self.report = MicroStrategyReport()
 
-    @timed_phase("plain")
+    @timed_phase(MicroStrategyPhase.DASHBOARD)
     def plain(self, value: int) -> int:
         return value * 2
 
-    @timed_generator_phase("gen")
+    @timed_generator_phase(MicroStrategyPhase.USAGE)
     def gen(self) -> Iterator[int]:
         yield 1
         yield 2
@@ -167,14 +167,14 @@ def test_phase_decorators_time_methods_and_generators() -> None:
     assert owner.plain(21) == 42
     assert list(owner.gen()) == [1, 2]
 
-    assert owner.report.phase_calls == {"plain": 1, "gen": 1}
-    assert set(owner.report.phase_seconds) == {"plain", "gen"}
+    assert owner.report.phase_calls == {"dashboard": 1, "usage": 1}
+    assert set(owner.report.phase_seconds) == {"dashboard", "usage"}
 
 
 def test_timed_phase_rejects_generators() -> None:
     with pytest.raises(TypeError, match="timed_generator_phase"):
 
-        @timed_phase("oops")
+        @timed_phase(MicroStrategyPhase.DASHBOARD)
         def generator(self: Any) -> Iterator[int]:
             yield 1
 
@@ -412,13 +412,13 @@ def test_slowest_tables_keep_only_the_top_rows() -> None:
 
 def test_report_serializes_telemetry_rounded() -> None:
     report = MicroStrategyReport()
-    with report.phase("x"):
+    with report.phase(MicroStrategyPhase.DASHBOARD):
         report.report_api_call("GET", "/api/projects", 200, 0.123456789)
 
     serialized = report.as_obj()
 
     assert serialized["api_call_seconds"] == 0.123
-    assert serialized["api_seconds_by_phase"] == {"x": 0.123}
+    assert serialized["api_seconds_by_phase"] == {"dashboard": 0.123}
     assert "_phase_stack" not in serialized
 
 

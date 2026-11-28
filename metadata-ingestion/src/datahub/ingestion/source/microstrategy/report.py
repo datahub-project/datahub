@@ -6,6 +6,8 @@ from typing import Dict, Iterator, List, Optional
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_TELEMETRY_ERROR_STATUS,
     MSTR_TELEMETRY_NO_PHASE,
+    MicroStrategyCache,
+    MicroStrategyPhase,
 )
 from datahub.ingestion.source.microstrategy.telemetry import (
     dashboard_seconds_bucket,
@@ -507,20 +509,20 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         self.semantic_model_metric_search_api_failures += 1
 
     @contextmanager
-    def phase(self, name: str, count: bool = True) -> Iterator[None]:
+    def phase(self, name: MicroStrategyPhase, count: bool = True) -> Iterator[None]:
         # Report serializes Enum keys by member name, so keep plain-string keys.
-        name = str(name)
-        self._phase_stack.append(name)
+        key = str(name)
+        self._phase_stack.append(key)
         start = time.perf_counter()
         try:
             yield
         finally:
-            self.phase_seconds[name] += time.perf_counter() - start
+            self.phase_seconds[key] += time.perf_counter() - start
             if count:
-                self.phase_calls[name] += 1
+                self.phase_calls[key] += 1
             # An inner phase can leak its entry, so scan back to this one.
             for index in range(len(self._phase_stack) - 1, -1, -1):
-                if self._phase_stack[index] == name:
+                if self._phase_stack[index] == key:
                     del self._phase_stack[index]
                     break
 
@@ -584,11 +586,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         self.schema_resolution_calls += 1
         self.schema_resolution_seconds += seconds
 
-    def report_cache_entries(self, name: str, entries: int) -> None:
-        name = str(name)
-        self.cache_entries_peak[name] = max(
-            self.cache_entries_peak.get(name, 0), entries
-        )
+    def report_cache_entries(self, name: MicroStrategyCache, entries: int) -> None:
+        key = str(name)
+        self.cache_entries_peak[key] = max(self.cache_entries_peak.get(key, 0), entries)
 
     @staticmethod
     def _keep_slowest(table: "TopKDict[str, float]", key: str, seconds: float) -> None:

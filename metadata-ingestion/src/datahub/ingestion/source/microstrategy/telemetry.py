@@ -79,7 +79,7 @@ def dashboard_seconds_bucket(seconds: float) -> str:
     return f">={lower}s"
 
 
-def timed_phase(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def timed_phase(name: MicroStrategyPhase) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorate(method: Callable[P, R]) -> Callable[P, R]:
         if inspect.isgeneratorfunction(method):
             raise TypeError(
@@ -98,7 +98,7 @@ def timed_phase(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
 
 
 def timed_generator_phase(
-    name: str,
+    name: MicroStrategyPhase,
 ) -> Callable[[Callable[P, Iterable[T]]], Callable[P, Iterator[T]]]:
     def decorate(method: Callable[P, Iterable[T]]) -> Callable[P, Iterator[T]]:
         @functools.wraps(method)
@@ -112,7 +112,7 @@ def timed_generator_phase(
 
 
 def timed_iter(
-    report: "MicroStrategyReport", name: str, iterable: Iterable[T]
+    report: "MicroStrategyReport", name: MicroStrategyPhase, iterable: Iterable[T]
 ) -> Iterator[T]:
     # Step by step, so sink writes between yields are not charged to the phase.
     iterator = iter(iterable)
