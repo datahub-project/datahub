@@ -10,7 +10,7 @@ ARG PYTHON_VERSION=3.11
 # - ingestion-base-slim: Currently the same as base-empty.
 # - ingestion-base-full: Adds a JRE and Oracle client.
 
-FROM ubuntu:24.04 AS python-base
+FROM ubuntu:26.04 AS python-base
 
 # TODO: This may not work on Ubuntu 24.04 due to the new deb822 package format.
 ARG UBUNTU_REPO_URL=http://ports.ubuntu.com/ubuntu-ports
