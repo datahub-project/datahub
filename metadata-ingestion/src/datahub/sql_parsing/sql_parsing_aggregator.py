@@ -455,6 +455,14 @@ class SqlAggregatorReport(Report):
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
     num_lineage_skipped_due_to_filters: int = 0
+    # How much lineage a downstream has before MAX_UPSTREAM_TABLES_COUNT and
+    # MAX_FINEGRAINEDLINEAGE_COUNT apply, and which downstreams were trimmed with
+    # their original counts. Collected so the caps can be set from data.
+    max_upstream_tables_before_trim: int = 0
+    max_fine_grained_lineages_before_trim: int = 0
+    lineage_trimmed_downstreams: LossyDict[str, str] = dataclasses.field(
+        default_factory=LossyDict
+    )
     num_table_lineage_trimmed_due_to_large_size: int = 0
     num_column_lineage_trimmed_due_to_large_size: int = 0
     # Downstreams whose lineage walk stopped once both output caps were full, and
@@ -1856,6 +1864,24 @@ class SqlParsingAggregator(Closeable):
                         ),
                     )
                 )
+
+        num_upstream_tables = len(upstream_aspect.upstreams)
+        num_fine_grained_lineages = len(upstream_aspect.fineGrainedLineages)
+        self.report.max_upstream_tables_before_trim = max(
+            self.report.max_upstream_tables_before_trim, num_upstream_tables
+        )
+        self.report.max_fine_grained_lineages_before_trim = max(
+            self.report.max_fine_grained_lineages_before_trim,
+            num_fine_grained_lineages,
+        )
+        if (
+            num_upstream_tables > MAX_UPSTREAM_TABLES_COUNT
+            or num_fine_grained_lineages > MAX_FINEGRAINEDLINEAGE_COUNT
+        ):
+            self.report.lineage_trimmed_downstreams[downstream_urn] = (
+                f"{num_upstream_tables} upstream tables, "
+                f"{num_fine_grained_lineages} fine-grained lineages"
+            )
 
         if len(upstream_aspect.upstreams) > MAX_UPSTREAM_TABLES_COUNT:
             logger.warning(

@@ -1776,3 +1776,64 @@ def test_upstream_lineage_patch_left_unchanged_when_fits_or_not_trimmable(proces
 
     assert [patch_operations(wu) for wu in results] == original
     assert not processor.report.num_truncations_by_aspect
+
+
+def test_upstream_lineage_sizes_are_reported(processor):
+    small_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,small,DEV)"
+    big_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,big,DEV)"
+    processor.ensure_upstream_lineage_size(small_urn, proper_upstream_lineage())
+    processor.ensure_upstream_lineage_size(big_urn, too_big_upstream_lineage())
+
+    report = processor.report
+    assert report.max_upstream_lineage_urn == big_urn
+    assert report.max_upstream_lineage_bytes > 4 * 1024 * 1024
+    assert report.num_upstream_lineage_over_1mb == 1
+    assert report.num_upstream_lineage_over_4mb == 1
+    assert set(report.largest_upstream_lineage_aspects) == {small_urn, big_urn}
+    assert (
+        report.largest_upstream_lineage_aspects[big_urn]
+        > report.largest_upstream_lineage_aspects[small_urn]
+    )
+
+
+def test_largest_upstream_lineage_aspects_keeps_the_ten_largest(processor):
+    for size in range(1, 12):
+        processor._record_upstream_lineage_size(f"urn:{size}", size * 100)
+
+    assert processor.report.largest_upstream_lineage_aspects == {
+        f"urn:{size}": size * 100 for size in range(2, 12)
+    }
+
+
+def test_rerecording_an_upstream_lineage_keeps_its_largest_size(processor):
+    for size in range(1, 11):
+        processor._record_upstream_lineage_size(f"urn:{size}", size * 100)
+
+    processor._record_upstream_lineage_size("urn:5", 1)
+    processor._record_upstream_lineage_size("urn:6", 2000)
+
+    assert processor.report.largest_upstream_lineage_aspects == {
+        **{f"urn:{size}": size * 100 for size in range(1, 11)},
+        "urn:6": 2000,
+    }
+
+
+def test_rerecording_before_the_sample_is_full_keeps_the_largest_size(processor):
+    processor._record_upstream_lineage_size("urn:a", 500)
+    processor._record_upstream_lineage_size("urn:a", 1)
+
+    assert processor.report.largest_upstream_lineage_aspects == {"urn:a": 500}
+
+
+def test_upstream_lineage_patch_size_is_reported(processor):
+    wu = upstream_lineage_patch_workunit(num_columns=10)
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert isinstance(wu.metadata.aspect, GenericAspectClass)
+    patch_size = len(json.dumps(wu.metadata.aspect.value.decode()))
+
+    list(processor.process([wu]))
+
+    report = processor.report
+    assert report.max_upstream_lineage_urn == wu.get_urn()
+    assert report.max_upstream_lineage_bytes == patch_size
+    assert report.largest_upstream_lineage_aspects == {wu.get_urn(): patch_size}
