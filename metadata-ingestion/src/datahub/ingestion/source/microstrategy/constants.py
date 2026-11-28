@@ -105,10 +105,6 @@ DIMENSION_TAG_URN = "urn:li:tag:Dimension"
 TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
 DERIVED_TAG_URN = "urn:li:tag:Derived"
 
-# per_report attaches usage to the report's dataset; otherwise only dashboards and charts.
-USAGE_TARGET_DASHBOARD = "dashboard"
-USAGE_TARGET_CHART = "chart"
-USAGE_TARGET_DATASET = "dataset"
 
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.
@@ -523,6 +519,13 @@ MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] =
         "1-based position of the visualization's page within its chapter.",
     ),
 )
+
+
+# per_report attaches usage to the report's dataset; otherwise only dashboards and charts.
+class UsageTargetKind(StrEnum):
+    DASHBOARD = "dashboard"
+    CHART = "chart"
+    DATASET = "dataset"
 
 
 class MicroStrategyDatasetIdentity(StrEnum):

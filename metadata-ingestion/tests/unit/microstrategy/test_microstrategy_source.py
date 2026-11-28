@@ -2,7 +2,18 @@ import builtins
 import json
 import logging
 import sys
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+)
 from unittest import mock
 
 import pytest
@@ -17,7 +28,7 @@ from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAuthError,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
-from datahub.ingestion.source.microstrategy.constants import USAGE_TARGET_DATASET
+from datahub.ingestion.source.microstrategy.constants import UsageTargetKind
 from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
     WarehouseLineageContext,
@@ -51,6 +62,7 @@ from datahub.metadata.schema_classes import (
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
     UpstreamLineageClass,
+    _Aspect,
 )
 
 
@@ -141,6 +153,7 @@ def test_attach_dataset_warehouse_upstreams_uses_dataset_source_warehouse() -> N
         ],
         dashboard,
         context=None,
+        project_id="project-1",
     )
 
     assert dashboard.datasets[0].warehouse_upstream_urns == [
@@ -161,6 +174,7 @@ def test_attach_dataset_warehouse_upstreams_skips_without_context() -> None:
         ],
         dashboard,
         context=None,
+        project_id="project-1",
     )
 
     assert dashboard.datasets[0].warehouse_upstream_urns == []
@@ -2257,6 +2271,7 @@ def test_import_error_during_parse_is_not_a_parse_failure(
             [{"id": "ds-1", "sqlStatement": "select 1 from t"}],
             _warehouse_dashboard(),
             None,
+            project_id="project-1",
         )
     assert source.report.sql_parse_failure_count == 0
     assert list(source.report.sql_parse_failures) == []
@@ -2311,6 +2326,7 @@ def test_every_sql_view_failing_raises_one_loud_warning(
         ],
         _warehouse_dashboard(),
         None,
+        project_id="project-1",
     )
     assert source.report.sql_views_parsed == 2
     assert source.report.sql_parse_failure_count == 2
@@ -2339,6 +2355,7 @@ def test_all_failed_warning_counts_reused_failed_sql_views(
             [{"id": "ds-1", "sqlStatement": "select a from DB.S.T"}],
             _warehouse_dashboard(),
             None,
+            project_id="project-1",
         )
     assert source.report.sql_views_parsed == 2
     assert source.report.sql_parse_failure_count == 1
@@ -2365,6 +2382,7 @@ def test_all_failed_warning_is_silent_when_any_sql_view_parses(
         ],
         _warehouse_dashboard(),
         None,
+        project_id="project-1",
     )
     assert source.report.sql_views_parsed == 2
     assert source.report.sql_parse_failure_count == 1
@@ -4185,8 +4203,13 @@ def _per_report_source(
     return _source(config)
 
 
-def _aspects_by_urn(workunits: List[Any], aspect_type: Any) -> Dict[str, Any]:
-    found: Dict[str, Any] = {}
+_AspectT = TypeVar("_AspectT", bound=_Aspect)
+
+
+def _aspects_by_urn(
+    workunits: List[MetadataWorkUnit], aspect_type: Type[_AspectT]
+) -> Dict[str, _AspectT]:
+    found: Dict[str, _AspectT] = {}
     for workunit in workunits:
         aspect = workunit.get_aspect_of_type(aspect_type)
         if aspect is not None:
@@ -4691,7 +4714,7 @@ def test_per_report_one_bad_dataset_does_not_drop_the_rest_or_register_usage() -
     ]
     assert "DS-SHARED" not in source._usage_targets
     assert source._usage_targets["REPORT-SOLO"].urn == _SOLO_URN
-    assert source._usage_targets["REPORT-SOLO"].kind == USAGE_TARGET_DATASET
+    assert source._usage_targets["REPORT-SOLO"].kind == UsageTargetKind.DATASET
 
 
 def test_reset_project_caches_clears_the_report_dataset_registry() -> None:

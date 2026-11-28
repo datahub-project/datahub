@@ -56,12 +56,10 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_PREDEFINED_FOLDER_LABELS,
     MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES,
     MSTR_SQLGLOT_LOGGER,
-    USAGE_TARGET_CHART,
-    USAGE_TARGET_DASHBOARD,
-    USAGE_TARGET_DATASET,
     MicroStrategyCache,
     MicroStrategyDatasetIdentity,
     MicroStrategyPhase,
+    UsageTargetKind,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
@@ -492,7 +490,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _register_usage_target(
         self,
         object_id: str,
-        entity_kind: str,
+        entity_kind: UsageTargetKind,
         entity_urn: str,
     ) -> None:
         if self.config.extract_usage_statistics:
@@ -1116,7 +1114,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 continue
             self._register_usage_target(
                 entry.dataset.id,
-                USAGE_TARGET_DATASET,
+                UsageTargetKind.DATASET,
                 self.lineage.dataset_urn(project_id, None, entry.dataset),
             )
             yield from workunits
@@ -1221,7 +1219,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         extra_chart_urns = self._dashboard_report_chart_urns(project, dashboard)
         self._register_usage_target(
             dashboard_object.id,
-            USAGE_TARGET_DASHBOARD,
+            UsageTargetKind.DASHBOARD,
             self.mapper.dashboard_urn(project_id, dashboard_object.id),
         )
         yield from self._process_dashboard(
@@ -1602,7 +1600,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if not self._per_report:
             self._register_usage_target(
                 report_object.id,
-                USAGE_TARGET_CHART,
+                UsageTargetKind.CHART,
                 self.mapper.report_urn(project_id, report_object.id),
             )
         try:
@@ -1706,7 +1704,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_object: MicroStrategyObject,
         lineage_context: "_LazyProjectLineage",
     ) -> None:
-        # No Report chart: it was a second copy of the report.
         self.report.report_report_scanned()
         report_definition = self._get_report_definition(project_id, report_object)
         entry = self._register_report_dataset(
@@ -2318,7 +2315,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_sql_view_row_without_context()
                 continue
             if self._report_lineage_resolved(project_id, dataset.id):
-                # Lineage already settled by an earlier dashboard.
                 self.report.report_document_dataset_sql_view_reused()
                 continue
             cache_key = _report_sql_cache_key(project_id, dataset.id)
@@ -2375,7 +2371,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         sql_view_rows: List[Dict[str, object]],
         dashboard: DashboardDefinition,
         context: Optional[WarehouseLineageContext],
-        project_id: Optional[str] = None,
+        project_id: str,
     ) -> None:
         dataset_by_id = {
             normalize_object_id(dataset.id): dataset for dataset in dashboard.datasets
@@ -2421,14 +2417,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         sql_statement: str,
         dataset: DatasetObject,
         context: WarehouseLineageContext,
-        project_id: Optional[str] = None,
+        project_id: str,
     ) -> SqlViewLineage:
         # Callers are already gated by extract_report_sql_lineage /
         # extract_warehouse_lineage. A single parse yields both the table-level
         # upstreams and the column-level edges on top of them.
-        entry = (
-            self._report_dataset_entry(project_id, dataset.id) if project_id else None
-        )
+        entry = self._report_dataset_entry(project_id, dataset.id)
         if entry is not None and entry.lineage_resolved:
             return SqlViewLineage(
                 upstream_urns=list(dataset.warehouse_upstream_urns),
@@ -2443,7 +2437,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         if result.upstream_urns:
             dataset.warehouse_upstream_urns = result.upstream_urns
-            if entry is not None and project_id:
+            if entry is not None:
                 self._report_datasets[_report_dataset_key(project_id, dataset.id)] = (
                     entry.model_copy(update={"lineage_resolved": True})
                 )
@@ -2459,7 +2453,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         context: WarehouseLineageContext,
     ) -> None:
         if self._report_lineage_resolved(project_id, report_object.id):
-            # A dashboard already settled this report's lineage.
             return
         cache_key = _report_sql_cache_key(project_id, report_object.id)
         if cache_key in self._report_sql_cache:

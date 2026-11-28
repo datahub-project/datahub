@@ -27,6 +27,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_USAGE_PROJECT_ATTRIBUTE_NAME,
     MSTR_USAGE_USER_ATTRIBUTE_NAME,
     MSTR_USAGE_USER_FORM_NAMES,
+    UsageTargetKind,
 )
 from datahub.ingestion.source.microstrategy.models import Project
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -77,7 +78,7 @@ class UsageBucket:
 class UsageTarget:
     """An ingested entity that usage buckets can attach to, keyed by object GUID."""
 
-    kind: str
+    kind: UsageTargetKind
     urn: str
 
 
