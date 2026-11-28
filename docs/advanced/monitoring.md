@@ -44,6 +44,61 @@ When [GMS HTTP service rate limiting](../deploy/gms-rate-limiting.md) is active 
 
 These metrics are **not** MCP ingestion throttle or Kafka lag backpressure — for pipeline-side 429s and consumer lag, use MCP throttle settings (`MCP_*` env vars) and `/openapi/operations/throttle/*` instead.
 
+### GMS client write metrics
+
+GMS counts accepted metadata writes by the client that sent them, so you can see which client types and versions write to your instance, and which actors still use custom code or old clients. A write is counted once GMS has answered it with a status below 400; requests rejected by authorization or validation, and server errors, are not counted. Tracking is on by default and never rejects a request.
+
+**Metric:** `gms.client_writes` (counter; `gms_client_writes_total` in Prometheus). Tags:
+
+| Tag              | Values                                                                                                                                                                                                                     |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client`         | `python`, `java`, `browser`, `unknown` (custom code or an HTTP library without DataHub client headers)                                                                                                                     |
+| `client_mode`    | `ingestion`, `cli`, `sdk`, `other`, `none`                                                                                                                                                                                 |
+| `client_version` | The client version reduced to its numeric part (`1.9.0rc1` becomes `1.9.0`), `none`, `unparseable` (including Python clients installed in develop mode), or `other` once a pod has seen `maxVersionTags` distinct versions |
+| `api`            | `restli`, `openapi`, `graphql`                                                                                                                                                                                             |
+| `system_actor`   | `true` when the actor is the DataHub system principal, else `false`                                                                                                                                                        |
+
+The metric has no actor tag. Per-actor totals go to the GMS log instead (see below).
+
+**What counts as a write:**
+
+- Rest.li: `/aspects` actions `ingestProposal` and `ingestProposalBatch`; `/entities` actions `ingest`, `batchIngest`, `delete`, `deleteAll` and `deleteReferences`; `/usageStats` action `batchIngest`; `/platform` action `producePlatformEvent`; `DELETE /relationships`
+- OpenAPI: `POST`, `PUT`, `PATCH` and `DELETE` on the entity APIs (`/openapi/v2/entity`, `/openapi/v3/entity`, `/openapi/entities/v1`, `/openapi/v2/platform/entities/v1`) and `/openapi/v3/logical`, except `batchGet` and `scroll` reads; OpenLineage `POST /openapi/openlineage/api/v1/lineage`
+- GraphQL: mutations sent by the Python client (SDK, CLI or ingestion) that return no errors
+
+Out of scope: GraphQL mutations from the UI and other GraphQL clients, the Iceberg catalog API, and admin operations (`setWritable`, `applyRetention`, `restoreIndices`, `truncateTimeseriesAspect`, ingestion run rollback).
+
+**Per-actor summary log.** Once per summary interval, and once at shutdown, each GMS pod logs one INFO line per actor, client, mode, version and API combination seen since the last summary, with the first User-Agent seen for that combination:
+
+```text
+client_write_summary actor=urn:li:corpuser:svc_example client=unknown client_version=none client_mode=none api=openapi count=1520 window_seconds=3600 user_agent="python-requests/2.32.3"
+```
+
+| Field                                            | Meaning                                                                                   |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `actor`                                          | Actor URN, or `anonymous` when the request had no authenticated actor                     |
+| `client`, `client_version`, `client_mode`, `api` | Same values as the metric tags, except that `client_version` is never folded into `other` |
+| `count`                                          | Accepted writes in the window                                                             |
+| `window_seconds`                                 | Length of the window the count covers                                                     |
+| `user_agent`                                     | A sample User-Agent, limited to printable ASCII and 160 characters                        |
+
+When more than `maxTrackedKeys` combinations are seen in one window, writes for the extra combinations are still counted in the metric, and the summary reports them in one line:
+
+```text
+client_write_summary untracked=42 window_seconds=3600 max_tracked_keys=5000
+```
+
+**Configuration** (`ingestion.clientWriteTracking` in `application.yaml`):
+
+| Property                 | Environment variable                                       | Default | Meaning                                                                         |
+| ------------------------ | ---------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- |
+| `enabled`                | `INGESTION_CLIENT_WRITE_TRACKING_ENABLED`                  | `true`  | Turns the metric and the summary on or off                                      |
+| `summaryIntervalSeconds` | `INGESTION_CLIENT_WRITE_TRACKING_SUMMARY_INTERVAL_SECONDS` | `3600`  | How often the summary is logged; `0` or less turns the summary off              |
+| `maxTrackedKeys`         | `INGESTION_CLIENT_WRITE_TRACKING_MAX_TRACKED_KEYS`         | `5000`  | Combinations held per summary window; `0` or less turns the summary off         |
+| `maxVersionTags`         | `INGESTION_CLIENT_WRITE_TRACKING_MAX_VERSION_TAGS`         | `20`    | Distinct `client_version` tag values per pod; later versions are tagged `other` |
+
+GMS logs the effective settings at startup in a line that starts with `Client write tracking:`.
+
 2. Distributed Tracing
 
    **Purpose:** Track individual requests as they flow through multiple services and components

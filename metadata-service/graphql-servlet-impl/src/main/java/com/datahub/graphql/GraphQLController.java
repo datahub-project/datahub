@@ -16,7 +16,12 @@ import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.datahub.graphql.instrumentation.RootFieldNameInstrumentation;
+import com.linkedin.gms.factory.clientwrite.ClientWrite;
+import com.linkedin.gms.factory.clientwrite.ClientWriteClassifier;
+import com.linkedin.gms.factory.clientwrite.ClientWriteRecorder;
+import com.linkedin.gms.factory.clientwrite.ClientWriteTrackingErrors;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.ClientWriteTrackingConfiguration;
 import com.linkedin.metadata.ratelimit.ClientClass;
 import com.linkedin.metadata.ratelimit.ClientClassifier;
 import com.linkedin.metadata.ratelimit.GraphqlDocumentAnalyzer;
@@ -28,6 +33,7 @@ import com.linkedin.metadata.ratelimit.model.RateLimitLease;
 import com.linkedin.metadata.usage.instrumentation.UsageMetricsSessionEnricher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
+import graphql.language.OperationDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.graphql.GraphqlUsageClassificationRegistry;
 import io.opentelemetry.api.trace.Span;
@@ -38,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -84,6 +91,15 @@ public class GraphQLController {
 
   @Autowired(required = false)
   UsageMetricsSessionEnricher usageMetricsSessionEnricher;
+
+  @Autowired(required = false)
+  ClientWriteRecorder clientWriteRecorder;
+
+  @Autowired(required = false)
+  ClientWriteTrackingConfiguration clientWriteTrackingConfiguration;
+
+  private final ClientWriteTrackingErrors clientWriteTrackingErrors =
+      new ClientWriteTrackingErrors(GraphQLController.class.getSimpleName());
 
   @Nonnull
   @Inject
@@ -292,6 +308,10 @@ public class GraphQLController {
       return tooManyRequests(rateLimitDecision, mapper);
     }
 
+    // Classified on the request thread; counted only once the mutation has executed without errors.
+    final Optional<ClientWrite> clientWrite = classifyClientWrite(request, documentMetadata);
+    final boolean clientWriteSystemActor = systemActor;
+
     SpringQueryContext context =
         new SpringQueryContext(
             true,
@@ -356,6 +376,8 @@ public class GraphQLController {
                     _engine.execute(query, operationName, variables, context);
 
                 executionSucceeded.set(executionResult.getErrors().isEmpty());
+                recordClientWrite(
+                    clientWrite, authentication, clientWriteSystemActor, executionResult);
 
                 if (!executionSucceeded.get()) {
                   // There were GraphQL errors. Report in error logs.
@@ -449,6 +471,58 @@ public class GraphQLController {
       if (!asyncStarted) {
         releaseRateLimitOnce.accept(false);
       }
+    }
+  }
+
+  /**
+   * Classifies a mutation sent by the Python client (SDK, CLI or ingestion) as a metadata write,
+   * the same way the client write tracking filter classifies Rest.li and OpenAPI writes. Its
+   * resolvers write in-process, so the filter never sees them. The operation kind comes from the
+   * document already analyzed for rate limiting, so the body is not parsed again. Never fails the
+   * request.
+   */
+  @Nonnull
+  Optional<ClientWrite> classifyClientWrite(
+      @Nonnull HttpServletRequest request, @Nonnull GraphqlDocumentMetadata documentMetadata) {
+    if (clientWriteRecorder == null
+        || clientWriteTrackingConfiguration == null
+        || !clientWriteTrackingConfiguration.isEnabled()) {
+      return Optional.empty();
+    }
+    try {
+      boolean mutation =
+          documentMetadata.selectedOperation().getKind() == OperationDefinition.Operation.MUTATION;
+      return ClientWriteClassifier.classifyGraphQL(mutation, request::getHeader);
+    } catch (RuntimeException e) {
+      clientWriteTrackingErrors.report(e);
+      return Optional.empty();
+    }
+  }
+
+  /**
+   * Counts a classified write once it has executed. A mutation whose result carries errors was not
+   * accepted and is not counted. Never fails the request.
+   */
+  void recordClientWrite(
+      @Nonnull Optional<ClientWrite> clientWrite,
+      @Nullable Authentication authentication,
+      boolean systemActor,
+      @Nonnull ExecutionResult executionResult) {
+    if (clientWrite.isEmpty() || clientWriteRecorder == null) {
+      return;
+    }
+    try {
+      if (!executionResult.getErrors().isEmpty()) {
+        return;
+      }
+      clientWriteRecorder.record(
+          clientWrite.get(),
+          authentication != null && authentication.getActor() != null
+              ? authentication.getActor().toUrnStr()
+              : null,
+          systemActor);
+    } catch (RuntimeException e) {
+      clientWriteTrackingErrors.report(e);
     }
   }
 
