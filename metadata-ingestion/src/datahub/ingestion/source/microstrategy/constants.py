@@ -137,6 +137,19 @@ FINGERPRINT_EXCLUDED_CONFIG_FIELDS: FrozenSet[str] = frozenset(
     {
         "stateful_ingestion",
         "skip_unchanged_objects",
+        "auth",
+        "verify_ssl",
+        "timeout_seconds",
+        "max_retries",
+        "page_size",
+        "warehouse_lineage_sql_timeout_seconds",
+        "max_consecutive_execution_timeouts",
+        # Usage statistics are emitted once per run, outside any object's read.
+        "extract_usage_statistics",
+        "usage_lookback_days",
+        "platform_analytics_project_name",
+        "usage_cube_name",
+        "usage_query_timeout_seconds",
     }
 )
 
