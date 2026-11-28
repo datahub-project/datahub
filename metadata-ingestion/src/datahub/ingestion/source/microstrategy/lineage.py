@@ -42,7 +42,6 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_SQL_VIEW_OUTPUT_SENTINEL,
     MSTR_WHITESPACE_RE,
     MicroStrategyCache,
-    MicroStrategyDatasetIdentity,
     MicroStrategyPhase,
 )
 from datahub.ingestion.source.microstrategy.models import (
@@ -320,8 +319,13 @@ class MicroStrategyLineageExtractor:
         parent_id: Optional[str],
         dataset: DatasetObject,
     ) -> str:
-        if self.config.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT:
+        if self.config.per_report:
             return f"{project_id}.{dataset.id}".lower()
+        if parent_id is None:
+            # Would otherwise build `<project>.none.<dataset>`, a URN nothing links to.
+            raise ValueError(
+                f"A per_dashboard dataset URN needs a parent id: dataset {dataset.id}"
+            )
         return f"{project_id}.{parent_id}.{dataset.id}".lower()
 
     def visualization_inputs(

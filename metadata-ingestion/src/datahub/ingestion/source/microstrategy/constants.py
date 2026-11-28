@@ -106,6 +106,14 @@ DIMENSION_TAG_URN = "urn:li:tag:Dimension"
 TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
 DERIVED_TAG_URN = "urn:li:tag:Derived"
 
+MSTR_PROPERTY_PROJECT_ID = "microstrategyProjectId"
+MSTR_PROPERTY_REPORT_ID = "microstrategyReportId"
+MSTR_PROPERTY_DASHBOARD_COUNT = "microstrategyDashboardCount"
+MSTR_PROPERTY_DASHBOARD_IDS = "microstrategyDashboardIds"
+MSTR_PROPERTY_REPORT_PROMPT_COUNT = "microstrategyReportPromptCount"
+MSTR_PROPERTY_REPORT_HAS_FILTER = "microstrategyReportHasFilter"
+MSTR_PROPERTY_REPORT_SOURCE_ID = "microstrategyReportSourceId"
+MSTR_PROPERTY_REPORT_SOURCE_NAME = "microstrategyReportSourceName"
 
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.

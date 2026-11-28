@@ -625,6 +625,19 @@ class MicroStrategyConfig(
             )
         return self
 
+    @model_validator(mode="after")
+    def _per_report_requires_a_dataset_source(self) -> "MicroStrategyConfig":
+        if self.per_report and not (self.extract_cubes or self.extract_reports):
+            raise ValueError(
+                "dataset_identity: per_report requires extract_cubes or "
+                "extract_reports: without either no dataset is emitted."
+            )
+        return self
+
+    @property
+    def per_report(self) -> bool:
+        return self.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT
+
     def resolve_model_api_timeout_seconds(self) -> int:
         if self.model_api_timeout_seconds is not None:
             return self.model_api_timeout_seconds
