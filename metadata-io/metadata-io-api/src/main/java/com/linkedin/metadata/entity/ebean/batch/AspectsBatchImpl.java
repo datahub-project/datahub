@@ -5,6 +5,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -49,16 +50,49 @@ public class AspectsBatchImpl implements AspectsBatch {
   @Nonnull private final Collection<? extends BatchItem> nonRepeatedItems;
   @Getter @Nonnull private final RetrieverContext retrieverContext;
 
+  private static final int MAX_DESCRIBED_REJECTIONS = 10;
+
   /**
-   * Proposals left out of the batch, each with its error. Only filled by {@link
-   * AspectsBatchImplBuilder#mcpsRecordingRejected} and {@link
-   * AspectsBatchImplBuilder#buildSkippingRejected}.
+   * Proposals left out of the batch, each with its error. Filled by the {@code mcps} builders and
+   * {@link AspectsBatchImplBuilder#buildSkippingRejected}.
    */
   @Nullable private final List<Pair<MetadataChangeProposal, Exception>> rejectedProposals;
 
   @Nonnull
   public List<Pair<MetadataChangeProposal, Exception>> getRejectedProposals() {
     return rejectedProposals == null ? List.of() : rejectedProposals;
+  }
+
+  /** The rejected proposals and their errors, for an API response. */
+  @Nonnull
+  public String describeRejectedProposals() {
+    List<Pair<MetadataChangeProposal, Exception>> rejected = getRejectedProposals();
+    String described =
+        rejected.stream()
+            .limit(MAX_DESCRIBED_REJECTIONS)
+            .map(
+                r ->
+                    String.format(
+                        "%s %s: %s",
+                        r.getFirst().getEntityUrn(),
+                        r.getFirst().getAspectName(),
+                        r.getSecond().getMessage()))
+            .collect(Collectors.joining("; "));
+    return rejected.size() > MAX_DESCRIBED_REJECTIONS
+        ? String.format("%s; and %d more", described, rejected.size() - MAX_DESCRIBED_REJECTIONS)
+        : described;
+  }
+
+  /**
+   * For an API: fails the request when every proposal was rejected, instead of reporting a write
+   * that did not happen. A batch that keeps some proposals is written without the rejected ones.
+   */
+  public AspectsBatchImpl throwIfAllRejected() {
+    if (nonRepeatedItems.isEmpty() && !getRejectedProposals().isEmpty()) {
+      throw new IllegalArgumentException(
+          Constants.ALL_PROPOSALS_REJECTED_MESSAGE + ": " + describeRejectedProposals());
+    }
+    return this;
   }
 
   @Override
@@ -272,6 +306,7 @@ public class AspectsBatchImpl implements AspectsBatch {
                           trustAttributedActor);
                     } catch (IllegalArgumentException e) {
                       log.error("Invalid proposal, skipping and proceeding with batch: {}", mcp, e);
+                      reject(mcp, e);
                       return null;
                     }
                   })

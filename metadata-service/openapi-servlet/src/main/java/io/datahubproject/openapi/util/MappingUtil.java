@@ -518,7 +518,7 @@ public class MappingUtil {
               : AspectsBatchImpl.builder()
                   .mcps(serviceProposals, auditStamp, opContext.getRetrieverContext());
       AspectsBatchImpl batch = builder.build(opContext);
-      if (!batch.getRejectedProposals().isEmpty()) {
+      if (rejectInvalidProposals && !batch.getRejectedProposals().isEmpty()) {
         Exception rejection = batch.getRejectedProposals().get(0).getSecond();
         throw HttpClientErrorException.create(
             rejection instanceof ValidationException
@@ -529,6 +529,8 @@ public class MappingUtil {
             null,
             null);
       }
+      // A batch keeps its valid proposals unless none is left, as Rest.li does.
+      batch.throwIfAllRejected();
 
       Map<Urn, List<IngestResult>> resultMap =
           entityService.ingestProposal(opContext, batch, async).stream()

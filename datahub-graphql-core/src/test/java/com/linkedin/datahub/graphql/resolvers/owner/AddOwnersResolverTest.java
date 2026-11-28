@@ -88,6 +88,40 @@ public class AddOwnersResolverTest {
   }
 
   @Test
+  public void testGetFailsWhenTheProposalIsRejected() throws Exception {
+    // A urn whose origin is not a FabricType symbol can't be written; the mutation must fail
+    // instead of answering true.
+    String invalidEntityUrn =
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,NOT_A_FABRIC_TYPE)";
+    EntityService<?> mockService = getMockEntityService();
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(invalidEntityUrn),
+        Urn.createFromString(TEST_OWNER_1_URN),
+        Urn.createFromString(
+            OwnerUtils.mapOwnershipTypeToEntity(
+                com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER.name())));
+    AddOwnersResolver resolver =
+        new AddOwnersResolver(mockService, Mockito.mock(EntityClient.class));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    AddOwnersInput input =
+        new AddOwnersInput(
+            ImmutableList.of(
+                new OwnerInput(
+                    TEST_OWNER_1_URN,
+                    OwnerEntityType.CORP_USER,
+                    OwnershipType.TECHNICAL_OWNER,
+                    OwnerUtils.mapOwnershipTypeToEntity(OwnershipType.TECHNICAL_OWNER.name()))),
+            invalidEntityUrn);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    verifyNoIngestProposal(mockService);
+  }
+
+  @Test
   public void testGetSuccessExistingOwnerNewType() throws Exception {
     EntityService<?> mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);

@@ -445,9 +445,9 @@ public class AspectResourceTest {
   }
 
   @Test
-  public void testStrictHandlingHasNoUnknownEntityTypePreCheck() throws URISyntaxException {
-    // Without tolerance the proposal goes straight to the authorization checks, as before: it may
-    // fail there, but never with the tolerant 400 for an unknown entity type.
+  public void testUnknownEntityTypeIsBadRequestWithStrictHandling() throws URISyntaxException {
+    // Without tolerance the unknown entity type used to fail in the authorization checks, outside
+    // the task, as a 500.
     UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityType("entityFromNewerBuild");
@@ -458,12 +458,113 @@ public class AspectResourceTest {
     AuthenticationContext.setAuthentication(mockAuthentication);
     when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
 
-    try {
-      aspectResource.ingestProposal(mcp, "false");
-    } catch (RestLiServiceException e) {
-      org.testng.Assert.assertNotEquals(e.getStatus(), HttpStatus.S_400_BAD_REQUEST);
-    } catch (RuntimeException e) {
-      // The pre-tolerance failure resolving the unknown entity type during authorization.
+    RestLiServiceException error =
+        org.testng.Assert.expectThrows(
+            RestLiServiceException.class, () -> aspectResource.ingestProposal(mcp, "false"));
+
+    assertEquals(error.getStatus(), HttpStatus.S_400_BAD_REQUEST);
+  }
+
+  @Test
+  public void testUnsupportedChangeTypeIsBadRequest() throws URISyntaxException {
+    // DELETE is not an ingestable change type. With alternate validation the sync write rejected
+    // it with a 500; without it, building the item failed and the proposal was dropped.
+    MetadataChangeProposal mcp =
+        datasetPropertiesProposal("urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,PROD)");
+    mcp.setChangeType(ChangeType.DELETE);
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+
+    for (OperationContext context :
+        List.of(opContext, TestOperationContexts.systemContextNoValidate())) {
+      aspectResource.setSystemOperationContext(context);
+      try {
+        RestLiServiceException error =
+            org.testng.Assert.expectThrows(
+                RestLiServiceException.class, () -> aspectResource.ingestProposal(mcp, "false"));
+        assertEquals(error.getStatus(), HttpStatus.S_400_BAD_REQUEST, error.getMessage());
+      } finally {
+        aspectResource.setSystemOperationContext(opContext);
+      }
     }
   }
+
+  private static MetadataChangeProposal datasetPropertiesProposal(String urn) {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    mcp.setEntityUrn(com.linkedin.common.urn.UrnUtils.getUrn(urn));
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties().setName("name")));
+    mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.UPSERT);
+    return mcp;
+  }
+
+  private static final String INVALID_ORIGIN_URN =
+      "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,NOT_A_FABRIC_TYPE)";
+
+  @Test
+  public void testInvalidProposalIsBadRequestNotSilentSuccess() throws URISyntaxException {
+    // An origin that is not a FabricType symbol fails item building; the proposal must not be
+    // dropped while the call reports success.
+    reset(producer, aspectDao);
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+    aspectResource.setSystemOperationContext(opContext);
+    MetadataChangeProposal invalidOrigin = datasetPropertiesProposal(INVALID_ORIGIN_URN);
+    // An assertion urn has one key field; a two-part urn doesn't match it.
+    MetadataChangeProposal keyPartsMismatch = new MetadataChangeProposal();
+    keyPartsMismatch.setEntityType("assertion");
+    keyPartsMismatch.setEntityUrn(
+        com.linkedin.common.urn.UrnUtils.getUrn("urn:li:assertion:(my_assertion,NOT_A_FABRIC_TYPE)"));
+    keyPartsMismatch.setAspectName(STATUS_ASPECT_NAME);
+    keyPartsMismatch.setChangeType(ChangeType.UPSERT);
+    keyPartsMismatch.setAspect(GenericRecordUtils.serializeAspect(new com.linkedin.common.Status()));
+
+    for (MetadataChangeProposal invalid : List.of(invalidOrigin, keyPartsMismatch)) {
+      for (String async : List.of("true", "false")) {
+        RestLiServiceException single =
+            org.testng.Assert.expectThrows(
+                RestLiServiceException.class, () -> aspectResource.ingestProposal(invalid, async));
+        RestLiServiceException batch =
+            org.testng.Assert.expectThrows(
+                RestLiServiceException.class,
+                () ->
+                    aspectResource.ingestProposalBatch(
+                        new MetadataChangeProposal[] {invalid, invalid}, async));
+
+        for (RestLiServiceException error : List.of(single, batch)) {
+          assertEquals(error.getStatus(), HttpStatus.S_400_BAD_REQUEST, error.getMessage());
+          org.testng.Assert.assertTrue(error.getMessage().contains("NOT_A_FABRIC_TYPE"), error.getMessage());
+        }
+      }
+    }
+    verifyNoInteractions(producer);
+  }
+
+  @Test
+  public void testMixedBatchWritesValidProposalsAndNamesTheRejectedOnes() throws URISyntaxException {
+    reset(producer, aspectDao);
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+    aspectResource.setSystemOperationContext(opContext);
+    MetadataChangeProposal valid =
+        datasetPropertiesProposal("urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,PROD)");
+
+    Task<String> task =
+        aspectResource.ingestProposalBatch(
+            new MetadataChangeProposal[] {valid, datasetPropertiesProposal(INVALID_ORIGIN_URN)},
+            "true");
+
+    verify(producer, times(1))
+        .produceMetadataChangeProposal(
+            any(OperationContext.class),
+            eq(valid.getEntityUrn()),
+            argThat((MCPItem arg) -> arg.getMetadataChangeProposal().equals(valid)));
+    String response = awaitTask(task);
+    org.testng.Assert.assertTrue(response.contains(INVALID_ORIGIN_URN), response);
+  }
+
 }

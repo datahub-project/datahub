@@ -266,6 +266,33 @@ Rest.li and the `datahub delete` CLI. A bulk delete that removes parents and chi
 reject some parents on the first pass; run it again, or delete the children first. Rolling back an
 ingestion run is not affected.
 
+### Writes that fail validation are no longer reported as successful ([#21458](https://github.com/datahub-project/datahub/pull/21458))
+
+Some writes that could not be accepted, for example for a dataset whose environment is not a known
+value, or with a change type the aspect does not support, were dropped while the request still
+reported success. These now fail with an error that names the write and the reason:
+
+- A Rest.li `ingestProposal` call now fails with HTTP 400. Previously it answered `success`. The same
+  applies to an `ingestProposalBatch` call in which every write is rejected, and to a batch sent to
+  the OpenAPI v1 `/entities` endpoint in which every write is rejected.
+- A batch in which only some writes are rejected still saves the others. The Rest.li response lists
+  the rejected ones after `success`.
+- UI and GraphQL edits, such as adding an owner or a tag, now show an error instead of appearing to
+  succeed. Some edits are not covered yet and can still appear to succeed: descriptions, names, links,
+  related terms, embeds and user settings. These follow in a separate change.
+- When metadata change proposals are read from Kafka one at a time (batch consumption turned off),
+  a rejected write now goes to the failed metadata change proposal topic instead of being logged as
+  processed.
+- A Rest.li write for an entity type the server does not know, and a synchronous Rest.li write with
+  an unsupported change type, now fail with HTTP 400 instead of HTTP 500.
+
+Ingestion recipes and scripts now report a rejected write as a failure when it is sent on its own
+or when every write in its batch is rejected. With the default settings, ingestion sends writes in
+batches, and the Python SDK does not yet read the list of rejected writes in the response. So a
+rejected write that shares a batch with accepted ones is still dropped without a failure in the
+ingestion report; it shows only in the DataHub server log. A follow-up SDK change will report these.
+Upgrade and bootstrap jobs are not affected.
+
 ### Rest.li status codes for rejected writes
 
 When a validator rejects a Rest.li request that was previously answered with HTTP 500, such as

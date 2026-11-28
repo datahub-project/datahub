@@ -1,5 +1,6 @@
 package com.linkedin.entity.client;
 
+import static com.linkedin.metadata.Constants.ALL_PROPOSALS_REJECTED_MESSAGE;
 import static com.linkedin.metadata.Constants.RESTLI_SUCCESS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
@@ -1133,6 +1134,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException {
 
     List<String> response = new ArrayList<>();
+    List<RestLiResponseException> rejectedGroups = Collections.synchronizedList(new ArrayList<>());
 
     Iterable<List<MetadataChangeProposal>> iterable =
         () ->
@@ -1173,7 +1175,19 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
                                       })
                                   .collect(Collectors.toList());
                             }
+                            if (result != null && result.startsWith(RESTLI_SUCCESS)) {
+                              // Written without some of its proposals ("success; skipped ...").
+                              // The response doesn't say which urns were written, so none of
+                              // this group's are reported.
+                              log.warn("batchIngestProposals: {}", result);
+                            }
                             return Collections.<String>emptyList();
+                          } catch (RestLiResponseException e) {
+                            if (isEveryProposalRejected(e)) {
+                              rejectedGroups.add(e);
+                              return Collections.<String>emptyList();
+                            }
+                            throw new RuntimeException(e);
                           } catch (RemoteInvocationException e) {
                             throw new RuntimeException(e);
                           }
@@ -1189,7 +1203,19 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
           }
         });
 
+    // As in JavaEntityClient: a group whose proposals were all rejected fails the call only when
+    // no other group was written.
+    if (!futures.isEmpty() && rejectedGroups.size() == futures.size()) {
+      RestLiResponseException rejected = rejectedGroups.get(0);
+      throw new IllegalArgumentException(rejected.getServiceErrorMessage(), rejected);
+    }
     return response;
+  }
+
+  private static boolean isEveryProposalRejected(@Nonnull RestLiResponseException e) {
+    return e.getStatus() == HttpStatus.S_400_BAD_REQUEST.getCode()
+        && e.getServiceErrorMessage() != null
+        && e.getServiceErrorMessage().startsWith(ALL_PROPOSALS_REJECTED_MESSAGE);
   }
 
   @Override

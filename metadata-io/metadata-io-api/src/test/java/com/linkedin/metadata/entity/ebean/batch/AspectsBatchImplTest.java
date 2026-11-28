@@ -778,6 +778,46 @@ public class AspectsBatchImplTest {
   }
 
   @Test
+  public void mcpsRecordsTheProposalsItSkips() {
+    MetadataChangeProposal valid = datasetStatus("valid");
+    MetadataChangeProposal malformedUrn =
+        datasetStatus("malformed")
+            .setEntityUrn(
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,NOT_A_FABRIC_TYPE)"));
+
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcps(
+                List.of(valid, malformedUrn),
+                AuditStampUtils.createDefaultAuditStamp(),
+                retrieverContext)
+            .build(null);
+
+    assertEquals(batch.getItems().size(), 1);
+    assertEquals(
+        batch.getRejectedProposals().stream().map(Pair::getFirst).toList(), List.of(malformedUrn));
+  }
+
+  @Test
+  public void mcpsStaysLenientUntilACallerAsksToFail() {
+    // Upgrade and bootstrap steps build batches this way and rely on invalid proposals (e.g.
+    // legacy rows) being skipped; only API-facing callers opt into throwIfAllRejected.
+    MetadataChangeProposal malformedUrn =
+        datasetStatus("malformed")
+            .setEntityUrn(
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,NOT_A_FABRIC_TYPE)"));
+
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcps(
+                List.of(malformedUrn), AuditStampUtils.createDefaultAuditStamp(), retrieverContext)
+            .build(null);
+
+    assertTrue(batch.getItems().isEmpty());
+    assertThrows(IllegalArgumentException.class, batch::throwIfAllRejected);
+  }
+
+  @Test
   public void buildSkippingRejectedRejectsFatalProposalsAndDropsFilteredOnes() {
     registerNameBasedValidator();
     MetadataChangeProposal kept = datasetStatus("kept");

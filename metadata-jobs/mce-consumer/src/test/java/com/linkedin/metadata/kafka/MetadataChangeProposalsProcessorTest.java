@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -225,12 +226,10 @@ public class MetadataChangeProposalsProcessorTest {
 
     // Mock conversion from Avro to Pegasus MCP
     eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord)).thenReturn(mcp);
-    when(mockEntityService.ingestProposal(eq(opContext), any(AspectsBatch.class), eq(false)))
-        .thenThrow(
-            new IllegalArgumentException("ERROR :: /origin :: \"INVALID\" is not an enum symbol"));
 
-    // Execute test
+    // Execute test: the urn fails when the proposal is built, before anything is written
     processor.consume(mockConsumerRecord);
+    verify(mockEntityService, never()).ingestProposal(any(), any(AspectsBatch.class), anyBoolean());
 
     ArgumentCaptor<Throwable> exceptionCaptor = ArgumentCaptor.forClass(Throwable.class);
     verify(mockKafkaProducer)
@@ -243,9 +242,10 @@ public class MetadataChangeProposalsProcessorTest {
 
     // Verify error handling
     Throwable validationException = exceptionCaptor.getValue();
+    assertTrue(validationException instanceof IllegalArgumentException);
+    assertTrue(validationException.getMessage().contains(entityUrn.toString()));
     verify(mockSpan).recordException(validationException);
-    verify(mockSpan)
-        .setStatus(StatusCode.ERROR, "ERROR :: /origin :: \"INVALID\" is not an enum symbol");
+    verify(mockSpan).setStatus(StatusCode.ERROR, validationException.getMessage());
   }
 
   @Test

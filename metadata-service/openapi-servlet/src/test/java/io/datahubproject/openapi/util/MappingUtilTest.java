@@ -2,6 +2,7 @@ package io.datahubproject.openapi.util;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -108,6 +109,55 @@ public class MappingUtilTest {
 
     assertEquals(exception.getStatusCode(), HttpStatus.BAD_REQUEST);
     verify(entityService, never()).ingestProposal(any(), any(AspectsBatch.class), anyBoolean());
+  }
+
+  private static com.linkedin.mxe.MetadataChangeProposal datasetStatus(String urn) {
+    return new com.linkedin.mxe.MetadataChangeProposal()
+        .setEntityType(Constants.DATASET_ENTITY_NAME)
+        .setEntityUrn(UrnUtils.getUrn(urn))
+        .setChangeType(com.linkedin.events.metadata.ChangeType.UPSERT)
+        .setAspectName(Constants.STATUS_ASPECT_NAME)
+        .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testIngestBatchProposalFailsWhenEveryProposalIsRejected() {
+    EntityService<ChangeItemImpl> entityService = mock(EntityService.class);
+
+    expectThrows(
+        IllegalArgumentException.class,
+        () ->
+            MappingUtil.ingestBatchProposal(
+                TestOperationContexts.systemContextNoSearchAuthorization(),
+                List.of(
+                    datasetStatus(
+                        "urn:li:dataset:(urn:li:dataPlatform:hive,table,NOT_A_FABRIC_TYPE)")),
+                ACTOR,
+                entityService,
+                false));
+    verify(entityService, never()).ingestProposal(any(), any(AspectsBatch.class), anyBoolean());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testIngestBatchProposalWritesTheValidProposalsOfAMixedBatch() {
+    EntityService<ChangeItemImpl> entityService = mock(EntityService.class);
+    when(entityService.ingestProposal(any(), any(AspectsBatch.class), anyBoolean()))
+        .thenReturn(List.of());
+
+    MappingUtil.ingestBatchProposal(
+        TestOperationContexts.systemContextNoSearchAuthorization(),
+        List.of(
+            datasetStatus("urn:li:dataset:(urn:li:dataPlatform:hive,table,NOT_A_FABRIC_TYPE)"),
+            datasetStatus("urn:li:dataset:(urn:li:dataPlatform:hive,table,PROD)")),
+        ACTOR,
+        entityService,
+        false);
+
+    verify(entityService)
+        .ingestProposal(
+            any(), argThat((AspectsBatch batch) -> batch.getItems().size() == 1), anyBoolean());
   }
 
   @Test

@@ -9,7 +9,6 @@ import static com.linkedin.metadata.resources.operations.OperationsResource.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedIngest;
-import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -29,7 +28,6 @@ import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.operations.Utils;
@@ -307,16 +305,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                   .withUsageQuantity(metadataChangeProposals.size()), _authorizer, authentication, true);
 
     // A proposal for an entity type the registry doesn't know (e.g. sent by a client built for a
-    // newer version) is a bad request; resolving a key-only proposal's urn for it would fail with a
-    // 500 in the authorization checks below.
-    if (handling().toleratesUnknownEntityAspect()) {
-      for (MetadataChangeProposal mcp : metadataChangeProposals) {
-        if (mcp.getEntityType() != null
-            && opContext.getEntityRegistry().findEntitySpec(mcp.getEntityType()).isEmpty()) {
-          throw new RestLiServiceException(
-              HttpStatus.S_400_BAD_REQUEST,
-              String.format("Unknown entity type %s", mcp.getEntityType()));
-        }
+    // newer version) is a bad request; the authorization checks below would fail on it with a 500.
+    for (MetadataChangeProposal mcp : metadataChangeProposals) {
+      if (mcp.getEntityType() != null
+          && opContext.getEntityRegistry().findEntitySpec(mcp.getEntityType()).isEmpty()) {
+        throw new RestLiServiceException(
+            HttpStatus.S_400_BAD_REQUEST,
+            String.format("Unknown entity type %s", mcp.getEntityType()));
       }
     }
 
@@ -337,11 +332,14 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
     return RestliUtils.toTask(opContext, () -> {
       log.debug("Proposals: {}", metadataChangeProposals);
-        final AspectsBatch batch = AspectsBatchImpl.builder()
+        // A proposal that cannot be built (e.g. a malformed urn) is left out of the batch; fail the
+        // request if that leaves nothing to write, and name the left-out ones otherwise.
+        final AspectsBatchImpl batch = AspectsBatchImpl.builder()
                 .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext(),
                     opContext.getValidationContext().isAlternateValidation(),
                     opContext.isSystemAuth())
-                .build(opContext);
+                .build(opContext)
+                .throwIfAllRejected();
 
         batch.getMCPItems().forEach(item ->
             log.debug(
@@ -356,7 +354,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
 
-        // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
+        // Clients read this value: RestliEntityClient matches the "success" prefix of a batch
+        // written without some of its proposals. Keep the format.
+        if (!batch.getRejectedProposals().isEmpty()) {
+          return String.format("%s; skipped %d invalid proposal(s): %s", RESTLI_SUCCESS,
+              batch.getRejectedProposals().size(), batch.describeRejectedProposals());
+        }
         return RESTLI_SUCCESS;
       },
         MetricRegistry.name(this.getClass(), "ingestProposal"));
