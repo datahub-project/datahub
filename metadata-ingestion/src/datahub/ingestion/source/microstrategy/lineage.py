@@ -867,7 +867,7 @@ def datasource_for_model_table(
     reference = table.get(MSTR_MODEL_TABLE_DATASOURCE_FIELD)
     if not isinstance(reference, dict):
         return None
-    reference_id = reference.get("objectId") or reference.get("id")
+    reference_id = _object_id(reference)
     if reference_id:
         wanted = normalize_object_id(reference_id)
         by_id = [d for d in datasources if normalize_object_id(d.id) == wanted]

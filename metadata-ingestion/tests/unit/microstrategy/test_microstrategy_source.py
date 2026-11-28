@@ -4704,6 +4704,31 @@ def test_mixed_warehouse_project_warning_names_platforms_and_mapping() -> None:
     assert "datasource_platform_mapping" in str(warning.message)
 
 
+@pytest.mark.parametrize(
+    "datasources, expected_title",
+    [
+        (
+            [{"id": "CCC333", "name": "legacy_ds", "database": {"type": "unknown_db"}}],
+            "MicroStrategy Project Has No Supported Source Warehouse",
+        ),
+        ([], "MicroStrategy Model Lineage Unavailable"),
+    ],
+)
+def test_project_without_warehouse_context_warns_once(
+    datasources: List[Dict[str, object]], expected_title: str
+) -> None:
+    source = _source({"extract_model_lineage": True})
+    source.client = _ModelTablesClient([])  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(
+        source,
+        "project-1",
+        [Datasource.model_validate(datasource) for datasource in datasources],
+    )
+
+    assert lineage_context.model_lineage_index is None
+    assert [str(w.title) for w in source.report.warnings] == [expected_title]
+
+
 def test_unmapped_second_datasource_resolves_model_lineage_per_table() -> None:
     source = _source({"extract_model_lineage": True})
     client = _ModelTablesClient(

@@ -60,6 +60,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_PREDEFINED_FOLDER_LABELS,
     MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES,
     MSTR_SQLGLOT_LOGGER,
+    MSTR_UNKNOWN_DATASOURCE_TYPE,
     USAGE_TARGET_CHART,
     USAGE_TARGET_DASHBOARD,
     USAGE_TARGET_DATASET,
@@ -652,13 +653,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
 
     @staticmethod
-    def _source_platform_summary(source_warehouses: Optional[List[Datasource]]) -> str:
+    def _source_platform_summary(source_warehouses: List[Datasource]) -> str:
         types = Counter(
             datasource.database_type
             or datasource.datasource_type
             or datasource.dbms_name
-            or "unknown"
-            for datasource in source_warehouses or []
+            or MSTR_UNKNOWN_DATASOURCE_TYPE
+            for datasource in source_warehouses
         )
         return "datasource_types=" + ", ".join(
             f"{name}:{count}" for name, count in sorted(types.items())
@@ -668,6 +669,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self, project_id: str, source_warehouses: List[Datasource]
     ) -> None:
         if not source_warehouses:
+            if self.config.extract_model_lineage:
+                self.report.warning(
+                    title="MicroStrategy Model Lineage Unavailable",
+                    message=(
+                        "Skipping logical table lineage because no source "
+                        "warehouse was listed for this project. It needs "
+                        "extract_source_warehouses and access to the project's "
+                        "datasources."
+                    ),
+                    context=f"project_id={project_id}",
+                )
             return
         several = self._project_has_several_warehouse_contexts(source_warehouses)
         self.report.warning(
@@ -685,9 +697,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 f"lineage. {MSTR_DATASOURCE_MAPPING_HINT}"
                 if several
                 else "None of the project's datasources maps to a supported "
-                "platform, so warehouse lineage is skipped. Set "
-                "datasource_platform_mapping, keyed by connection or "
-                "datasource name, to map them."
+                "platform, so warehouse lineage is skipped. "
+                f"{MSTR_DATASOURCE_MAPPING_HINT}"
             ),
             context=(
                 f"project_id={project_id}, "
@@ -2074,24 +2085,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         warehouse_context: Optional[WarehouseLineageContext],
         model_tables_provider: Callable[[], Optional[List[Dict[str, object]]]],
-        source_warehouses: Optional[List[Datasource]] = None,
         table_context_resolver: Optional[TableContextResolver] = None,
     ) -> Optional[ModelLineageIndex]:
         if not self.config.extract_lineage or not self.config.extract_model_lineage:
             return None
         if warehouse_context is None and table_context_resolver is None:
-            self.report.warning(
-                title="MicroStrategy Model Lineage Unavailable",
-                message=(
-                    "Skipping logical table lineage because no supported source "
-                    "warehouse context was discovered for this project. "
-                    f"{MSTR_DATASOURCE_MAPPING_HINT}"
-                ),
-                context=(
-                    f"project_id={project_id}, "
-                    f"{self._source_platform_summary(source_warehouses)}"
-                ),
-            )
+            # Warned once when the project warehouse context was resolved.
             return None
 
         # Deferred until here (not called unconditionally by the caller) so the
@@ -3038,10 +3037,11 @@ class _LazyProjectLineage:
                 title="MicroStrategy Logical Tables Without Source Warehouse",
                 message=(
                     "This project has several source warehouses and some "
-                    "logical tables name no primary datasource that matches "
-                    "one of them, so they are emitted without warehouse "
-                    "lineage. The run report counts them in "
-                    "model_tables_without_warehouse_context."
+                    "logical tables name no matching primary datasource, or "
+                    "one with no supported platform, so they are emitted "
+                    "without warehouse lineage. The run report counts them in "
+                    "model_tables_without_warehouse_context. "
+                    f"{MSTR_DATASOURCE_MAPPING_HINT}"
                 ),
                 context=f"project_id={self._project_id}",
             )
@@ -3086,7 +3086,6 @@ class _LazyProjectLineage:
                     self._project_id,
                     self.warehouse_context,
                     lambda: self.model_tables,
-                    self._source_warehouses,
                     self.table_context_resolver,
                 ),
             )

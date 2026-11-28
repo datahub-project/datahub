@@ -60,7 +60,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     metric_expression_api_failures: int = 0
     model_tables_scanned: int = 0
     model_lineage_api_failures: int = 0
-    # Tables whose primary datasource matches none get no warehouse lineage.
+    # Set only in projects with several source warehouses, where each logical
+    # table takes its warehouse from its primary datasource; tables whose
+    # datasource is missing or unmapped get no warehouse lineage.
     model_tables_resolved_by_datasource: int = 0
     model_tables_without_warehouse_context: int = 0
     model_lineage_edges: int = 0
