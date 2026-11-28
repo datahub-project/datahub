@@ -676,7 +676,6 @@ When `platform_instance` is set it is folded into the path segment of these urns
 
 ##### Limitations
 
-- **dbt Cloud has no `metrics:` block.** The Discovery API does not expose it, so only metrics from `create_metric: true` measures are ingested there. The ingestion report says so on every dbt Cloud run that emits these entities. Use the dbt Core source if you need the `metrics:` block.
 - **Metric type, filters and cumulative windows have no field of their own on `metricInfo`.** The type becomes a subtype; a filter is folded into the metric's expression as a `FILTER (WHERE ...)` clause, or stated as a trailing SQL comment where the expression cannot carry one (a ratio, or an author-written `expr`); a cumulative window becomes a trailing comment such as `/* cumulative over 7 day */`. dbt keeps filters as Jinja templates, so a folded filter is not always parseable SQL.
 - **Time-dimension granularity** is recorded only as "this is a time dimension" - the annotation has no field for the grain itself.
 
