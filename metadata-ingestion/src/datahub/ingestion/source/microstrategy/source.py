@@ -3251,7 +3251,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         model_lineage_index = lineage_context.model_lineage_index
         if model_lineage_index:
             self.mapper.attach_dataset_model_lineage(dataset, model_lineage_index)
-        return complete and not lineage_context.lineage_degraded
+        return (
+            complete
+            and not lineage_context.lineage_degraded
+            and not self._failed_transiently(project_id, _enrichment_ids(dataset))
+        )
 
     def _enrich_report_dataset_sql_lineage(
         self,
