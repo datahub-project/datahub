@@ -1,5 +1,10 @@
+import threading
 from dataclasses import dataclass, field
+from typing import Optional
 
+from typing_extensions import LiteralString
+
+from datahub.ingestion.api.source import StructuredLogCategory, StructuredLogLevel
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_SQLGLOT_WARNINGS_TOP_K,
 )
@@ -189,316 +194,521 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         default_factory=lambda: TopKDict(int, top_k=MSTR_SQLGLOT_WARNINGS_TOP_K)
     )
 
+    def __post_init__(self) -> None:
+        self._lock = threading.RLock()
+        super().__post_init__()
+
+    def warning(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
+    ) -> None:
+        self._report_log(
+            StructuredLogLevel.WARN, message, context, title, exc, log, log_category
+        )
+
+    def failure(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
+    ) -> None:
+        self._report_log(
+            StructuredLogLevel.ERROR, message, context, title, exc, log, log_category
+        )
+
+    def info(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
+    ) -> None:
+        self._report_log(
+            StructuredLogLevel.INFO, message, context, title, exc, log, log_category
+        )
+
+    def _report_log(
+        self,
+        level: StructuredLogLevel,
+        message: LiteralString,
+        context: Optional[str],
+        title: Optional[LiteralString],
+        exc: Optional[BaseException],
+        log: bool,
+        log_category: Optional[StructuredLogCategory],
+    ) -> None:
+        with self._lock:
+            # stacklevel 2 skips this helper and the public wrapper, so the
+            # log line names the connector code that reported it.
+            self._structured_logs.report_log(
+                level,
+                message,
+                title,
+                context,
+                exc,
+                log=log,
+                stacklevel=2,
+                log_category=log_category,
+            )
+
     def report_project_scanned(self) -> None:
-        self.projects_scanned += 1
+        with self._lock:
+            self.projects_scanned += 1
 
     def report_folder_scanned(self) -> None:
-        self.folders_scanned += 1
+        with self._lock:
+            self.folders_scanned += 1
 
     def report_dashboard_scanned(self) -> None:
-        self.dashboards_scanned += 1
+        with self._lock:
+            self.dashboards_scanned += 1
 
     def report_report_scanned(self) -> None:
-        self.reports_scanned += 1
+        with self._lock:
+            self.reports_scanned += 1
 
     def report_chart_scanned(self) -> None:
-        self.charts_scanned += 1
+        with self._lock:
+            self.charts_scanned += 1
 
     def report_dataset_scanned(self) -> None:
-        self.datasets_scanned += 1
+        with self._lock:
+            self.datasets_scanned += 1
 
     def report_source_warehouses_scanned(self, count: int) -> None:
-        self.source_warehouses_scanned += count
+        with self._lock:
+            self.source_warehouses_scanned += count
 
     def report_source_warehouse_api_failure(self) -> None:
-        self.source_warehouse_api_failures += 1
+        with self._lock:
+            self.source_warehouse_api_failures += 1
 
     def report_dashboard_dependencies_scanned(self, count: int) -> None:
-        self.dashboard_dependencies_scanned += count
+        with self._lock:
+            self.dashboard_dependencies_scanned += count
 
     def report_report_definition_api_failure(self) -> None:
-        self.report_definition_api_failures += 1
+        with self._lock:
+            self.report_definition_api_failures += 1
 
     def report_report_sql_view_api_failure(self) -> None:
-        self.report_sql_view_api_failures += 1
+        with self._lock:
+            self.report_sql_view_api_failures += 1
 
     def report_metric_expression_scanned(self) -> None:
-        self.metric_expressions_scanned += 1
+        with self._lock:
+            self.metric_expressions_scanned += 1
 
     def report_metric_expression_api_failure(self) -> None:
-        self.metric_expression_api_failures += 1
+        with self._lock:
+            self.metric_expression_api_failures += 1
 
     def report_model_tables_scanned(self, count: int) -> None:
-        self.model_tables_scanned += count
+        with self._lock:
+            self.model_tables_scanned += count
 
     def report_model_table_resolved_by_datasource(self) -> None:
-        self.model_tables_resolved_by_datasource += 1
+        with self._lock:
+            self.model_tables_resolved_by_datasource += 1
 
     def report_model_table_without_warehouse_context(self) -> None:
-        self.model_tables_without_warehouse_context += 1
+        with self._lock:
+            self.model_tables_without_warehouse_context += 1
 
     def report_model_lineage_api_failure(self) -> None:
-        self.model_lineage_api_failures += 1
+        with self._lock:
+            self.model_lineage_api_failures += 1
 
     def report_model_lineage_edges(self, count: int) -> None:
-        self.model_lineage_edges += count
+        with self._lock:
+            self.model_lineage_edges += count
 
     def report_warehouse_lineage_sql_views_scanned(self, count: int) -> None:
-        self.warehouse_lineage_sql_views_scanned += count
+        with self._lock:
+            self.warehouse_lineage_sql_views_scanned += count
 
     def report_warehouse_lineage_edges(self, count: int) -> None:
-        self.warehouse_lineage_edges += count
+        with self._lock:
+            self.warehouse_lineage_edges += count
 
     def report_warehouse_lineage_api_failure(self) -> None:
-        self.warehouse_lineage_api_failures += 1
+        with self._lock:
+            self.warehouse_lineage_api_failures += 1
 
     def report_datasource_skipped_without_database(self) -> None:
-        self.datasources_skipped_without_database += 1
+        with self._lock:
+            self.datasources_skipped_without_database += 1
 
     def report_metric_field(self) -> None:
-        self.metric_fields_scanned += 1
+        with self._lock:
+            self.metric_fields_scanned += 1
 
     def report_attribute_field(self, temporal: bool = False) -> None:
-        self.attribute_fields_scanned += 1
-        if temporal:
-            self.temporal_fields_scanned += 1
+        with self._lock:
+            self.attribute_fields_scanned += 1
+            if temporal:
+                self.temporal_fields_scanned += 1
 
     def report_chart_lineage_edges(self, count: int) -> None:
-        self.chart_lineage_edges += count
+        with self._lock:
+            self.chart_lineage_edges += count
 
     def report_dashboard_dataset_edges(self, count: int) -> None:
-        self.dashboard_dataset_edges += count
+        with self._lock:
+            self.dashboard_dataset_edges += count
 
     def report_document_dataset_edges(self, count: int) -> None:
-        self.document_dataset_edges += count
+        with self._lock:
+            self.document_dataset_edges += count
 
     def report_chapter_page_structured_property_definition_emitted(self) -> None:
-        self.chapter_page_structured_property_definitions_emitted += 1
+        with self._lock:
+            self.chapter_page_structured_property_definitions_emitted += 1
 
     def report_chart_with_chapter_page_structured_properties(self) -> None:
-        self.charts_with_chapter_page_structured_properties += 1
+        with self._lock:
+            self.charts_with_chapter_page_structured_properties += 1
 
     def report_unresolved_visualization(self) -> None:
-        self.unresolved_visualizations += 1
+        with self._lock:
+            self.unresolved_visualizations += 1
 
     def report_visualizations_bound_by_derived_objects(self, count: int) -> None:
-        self.visualizations_bound_by_derived_objects += count
+        with self._lock:
+            self.visualizations_bound_by_derived_objects += count
 
     def report_visualization_bound_by_column_sets(self) -> None:
-        self.visualizations_bound_by_column_sets += 1
+        with self._lock:
+            self.visualizations_bound_by_column_sets += 1
 
     def report_column_sets_unbound(self, count: int) -> None:
-        self.column_sets_unbound += count
+        with self._lock:
+            self.column_sets_unbound += count
 
     def report_derived_metric_field(self) -> None:
-        self.derived_metric_fields_scanned += 1
+        with self._lock:
+            self.derived_metric_fields_scanned += 1
 
     def report_derived_metric_unattached(self) -> None:
-        self.derived_metrics_unattached += 1
+        with self._lock:
+            self.derived_metrics_unattached += 1
 
     def report_report_derived_metrics_extracted(self, count: int) -> None:
-        self.report_derived_metrics_extracted += count
+        with self._lock:
+            self.report_derived_metrics_extracted += count
 
     def report_report_definition_failure(self) -> None:
-        self.report_definition_failures += 1
+        with self._lock:
+            self.report_definition_failures += 1
 
     def report_report_model_definition_failure(self, context: str) -> None:
-        self.report_model_definition_failures += 1
-        self.report_model_definition_failure_samples.append(context)
+        with self._lock:
+            self.report_model_definition_failures += 1
+            self.report_model_definition_failure_samples.append(context)
 
     def report_report_definition_without_expressions(self) -> None:
-        self.report_definitions_without_expressions += 1
+        with self._lock:
+            self.report_definitions_without_expressions += 1
 
     def report_report_model_definition_empty(self) -> None:
-        self.report_model_definitions_empty += 1
+        with self._lock:
+            self.report_model_definitions_empty += 1
 
     def report_report_derived_metric_model_resolved(self) -> None:
-        self.report_derived_metric_models_resolved += 1
+        with self._lock:
+            self.report_derived_metric_models_resolved += 1
 
     def report_report_model_instance_created(self) -> None:
-        self.report_model_instances_created += 1
+        with self._lock:
+            self.report_model_instances_created += 1
 
     def report_dashboard_instance_reused(self) -> None:
-        self.dashboard_instances_reused += 1
+        with self._lock:
+            self.dashboard_instances_reused += 1
 
     def report_execution_timeout(self) -> None:
-        self.execution_timeouts += 1
+        with self._lock:
+            self.execution_timeouts += 1
 
     def report_execution_skipped_after_timeouts(self) -> None:
-        self.executions_skipped_after_timeouts += 1
+        with self._lock:
+            self.executions_skipped_after_timeouts += 1
 
     def report_execution_timeout_limit_reached(self, project_id: str) -> None:
-        self.execution_timeout_limit_projects.append(project_id)
+        with self._lock:
+            self.execution_timeout_limit_projects.append(project_id)
 
     def report_report_model_instance_failure(self, context: str) -> None:
-        self.report_model_instance_failures += 1
-        self.report_model_instance_failure_samples.append(context)
+        with self._lock:
+            self.report_model_instance_failures += 1
+            self.report_model_instance_failure_samples.append(context)
 
     def report_document_model_definition_failure(self) -> None:
-        self.document_model_definition_failures += 1
+        with self._lock:
+            self.document_model_definition_failures += 1
 
     def report_instance_cleanup_failure(self) -> None:
-        self.instance_cleanup_failures += 1
+        with self._lock:
+            self.instance_cleanup_failures += 1
 
     def report_document_definition_without_visualizations(self) -> None:
-        self.document_definitions_without_visualizations += 1
+        with self._lock:
+            self.document_definitions_without_visualizations += 1
 
     def report_document_derived_metric_definitions(
         self, found: int, with_expression: int
     ) -> None:
-        self.document_derived_metric_definitions += found
-        self.document_derived_metric_expressions += with_expression
+        with self._lock:
+            self.document_derived_metric_definitions += found
+            self.document_derived_metric_expressions += with_expression
 
     def report_metric_formula_lineage_edges(self, count: int) -> None:
-        self.metric_formula_lineage_edges += count
+        with self._lock:
+            self.metric_formula_lineage_edges += count
 
     def report_metric_formula_refs_unresolved(self, count: int) -> None:
-        self.metric_formula_refs_unresolved += count
+        with self._lock:
+            self.metric_formula_refs_unresolved += count
 
     def report_metric_formula_unresolved_ref(self, context: str) -> None:
-        self.metric_formula_unresolved_ref_samples.append(context)
+        with self._lock:
+            self.metric_formula_unresolved_ref_samples.append(context)
 
     def report_visualization_suppressed_ambiguous(self) -> None:
-        self.visualizations_suppressed_ambiguous += 1
+        with self._lock:
+            self.visualizations_suppressed_ambiguous += 1
 
     def report_session_reauthenticated(self) -> None:
-        self.sessions_reauthenticated += 1
+        with self._lock:
+            self.sessions_reauthenticated += 1
 
     def report_usage_rows_scanned(self, count: int) -> None:
-        self.usage_rows_scanned += count
+        with self._lock:
+            self.usage_rows_scanned += count
 
     def report_usage_bucket_emitted(self) -> None:
-        self.usage_buckets_emitted += 1
+        with self._lock:
+            self.usage_buckets_emitted += 1
 
     def report_usage_object_unmatched(self) -> None:
-        self.usage_objects_unmatched += 1
+        with self._lock:
+            self.usage_objects_unmatched += 1
 
     def report_usage_date_unparsed(self) -> None:
-        self.usage_dates_unparsed += 1
+        with self._lock:
+            self.usage_dates_unparsed += 1
 
     def report_warehouse_upstreams_pruned(self, count: int) -> None:
-        self.warehouse_upstreams_pruned_by_field_evidence += count
+        with self._lock:
+            self.warehouse_upstreams_pruned_by_field_evidence += count
 
     def report_predefined_folder_labels_resolved(self, count: int) -> None:
-        self.predefined_folder_labels_resolved += count
+        with self._lock:
+            self.predefined_folder_labels_resolved += count
 
     def report_personal_folder_root_resolved(self) -> None:
-        self.personal_folder_roots_resolved += 1
+        with self._lock:
+            self.personal_folder_roots_resolved += 1
 
     def report_personal_folder_object_skipped(self, context: str) -> None:
-        self.personal_folder_objects_skipped += 1
-        self.personal_folder_objects_skipped_samples.append(context)
+        with self._lock:
+            self.personal_folder_objects_skipped += 1
+            self.personal_folder_objects_skipped_samples.append(context)
 
     def report_dashboard_filtered_by_folder_path(self, context: str) -> None:
-        self.dashboards_filtered_by_folder_path += 1
-        self.folder_path_filtered_samples.append(context)
+        with self._lock:
+            self.dashboards_filtered_by_folder_path += 1
+            self.folder_path_filtered_samples.append(context)
 
     def report_report_filtered_by_folder_path(self, context: str) -> None:
-        self.reports_filtered_by_folder_path += 1
-        self.folder_path_filtered_samples.append(context)
+        with self._lock:
+            self.reports_filtered_by_folder_path += 1
+            self.folder_path_filtered_samples.append(context)
 
     def report_folder_path_unresolved(self) -> None:
-        self.folder_paths_unresolved += 1
+        with self._lock:
+            self.folder_paths_unresolved += 1
 
     def report_dataset_object_lookup(self) -> None:
-        self.dataset_object_lookups += 1
+        with self._lock:
+            self.dataset_object_lookups += 1
 
     def report_dataset_object_lookup_failure(self) -> None:
-        self.dataset_object_lookup_failures += 1
+        with self._lock:
+            self.dataset_object_lookup_failures += 1
 
     def report_api_error(self) -> None:
-        self.api_errors += 1
+        with self._lock:
+            self.api_errors += 1
 
     def report_malformed_object(self, context: str) -> None:
-        self.malformed_objects_skipped.append(context)
+        with self._lock:
+            self.malformed_objects_skipped.append(context)
 
     def report_sql_parse_failure(self, context: str) -> None:
-        self.sql_parse_failures.append(context)
-        self.sql_parse_failure_count += 1
+        with self._lock:
+            self.sql_parse_failures.append(context)
+            self.sql_parse_failure_count += 1
 
     def report_sql_view_parsed(self) -> None:
-        self.sql_views_parsed += 1
+        with self._lock:
+            self.sql_views_parsed += 1
 
     def report_sql_view_row_unmatched(self) -> None:
-        self.sql_view_rows_unmatched += 1
+        with self._lock:
+            self.sql_view_rows_unmatched += 1
 
     def report_sql_view_row_without_context(self) -> None:
-        self.sql_view_rows_without_context += 1
+        with self._lock:
+            self.sql_view_rows_without_context += 1
 
     def report_sql_view_without_statement(self) -> None:
-        self.sql_views_without_statement += 1
+        with self._lock:
+            self.sql_views_without_statement += 1
 
     def report_document_dataset_sql_view_scanned(self) -> None:
-        self.document_dataset_sql_views_scanned += 1
+        with self._lock:
+            self.document_dataset_sql_views_scanned += 1
 
     def report_document_dataset_sql_view_parsed(self) -> None:
-        self.document_dataset_sql_views_parsed += 1
+        with self._lock:
+            self.document_dataset_sql_views_parsed += 1
 
     def report_document_dataset_sql_view_reused(self) -> None:
-        self.document_dataset_sql_views_reused += 1
+        with self._lock:
+            self.document_dataset_sql_views_reused += 1
 
     def report_document_dataset_sql_view_failure(self) -> None:
-        self.document_dataset_sql_view_failures += 1
+        with self._lock:
+            self.document_dataset_sql_view_failures += 1
 
     def report_document_dataset_skipped_not_grid_report(self) -> None:
-        self.document_datasets_skipped_not_grid_report += 1
+        with self._lock:
+            self.document_datasets_skipped_not_grid_report += 1
 
     def report_reports_skipped_not_dashboard_linked(self) -> None:
-        self.reports_skipped_not_dashboard_linked += 1
+        with self._lock:
+            self.reports_skipped_not_dashboard_linked += 1
 
     def report_report_deduplicated(self) -> None:
-        self.reports_deduplicated += 1
+        with self._lock:
+            self.reports_deduplicated += 1
 
     def report_report_dataset_emitted(self) -> None:
-        self.report_datasets_emitted += 1
+        with self._lock:
+            self.report_datasets_emitted += 1
 
     def report_failed_metric_model(self, metric_id: str) -> None:
-        self.failed_metric_model_ids.append(metric_id)
+        with self._lock:
+            self.failed_metric_model_ids.append(metric_id)
 
     def report_metric_kept_after_model_failure(self) -> None:
-        self.metrics_kept_after_model_failure += 1
+        with self._lock:
+            self.metrics_kept_after_model_failure += 1
 
     def report_metric_skipped_after_model_failure(self) -> None:
-        self.metrics_skipped_after_model_failure += 1
+        with self._lock:
+            self.metrics_skipped_after_model_failure += 1
 
-    def report_metric_presence_check_failure(self) -> None:
-        self.metric_presence_check_failures += 1
+    def report_metric_presence_check_failure(self) -> bool:
+        """Counts the failure; True for the run's first, so it is reported once."""
+        with self._lock:
+            self.metric_presence_check_failures += 1
+            return self.metric_presence_check_failures == 1
 
     def report_semantic_model_emitted(self) -> None:
-        self.semantic_models_emitted += 1
+        with self._lock:
+            self.semantic_models_emitted += 1
 
     def report_semantic_model_datasets_emitted(self, count: int) -> None:
-        self.semantic_model_datasets_emitted += count
+        with self._lock:
+            self.semantic_model_datasets_emitted += count
 
     def report_semantic_model_metrics_emitted(self, count: int) -> None:
-        self.semantic_model_metrics_emitted += count
+        with self._lock:
+            self.semantic_model_metrics_emitted += count
 
     def report_semantic_model_relationships_emitted(self, count: int) -> None:
-        self.semantic_model_relationships_emitted += count
+        with self._lock:
+            self.semantic_model_relationships_emitted += count
 
     def report_semantic_model_attribute_relationship_api_failure(self) -> None:
-        self.semantic_model_attribute_relationship_api_failures += 1
+        with self._lock:
+            self.semantic_model_attribute_relationship_api_failures += 1
 
     def report_semantic_model_consolidation_api_failure(self) -> None:
-        self.semantic_model_consolidation_api_failures += 1
+        with self._lock:
+            self.semantic_model_consolidation_api_failures += 1
 
     def report_semantic_model_metric_search_api_failure(self) -> None:
-        self.semantic_model_metric_search_api_failures += 1
+        with self._lock:
+            self.semantic_model_metric_search_api_failures += 1
 
     def report_sql_parse_executed(self, statements: int) -> None:
-        self.sql_parses_executed += 1
-        self.sql_statements_parsed += statements
+        with self._lock:
+            self.sql_parses_executed += 1
+            self.sql_statements_parsed += statements
 
     def report_sql_parse_cache_hit(self) -> None:
-        self.sql_parse_cache_hits += 1
+        with self._lock:
+            self.sql_parse_cache_hits += 1
 
     def report_sql_parse_failure_cache_hit(self) -> None:
-        self.sql_parse_cache_hits += 1
-        self.sql_parse_failure_cache_hits += 1
+        with self._lock:
+            self.sql_parse_cache_hits += 1
+            self.sql_parse_failure_cache_hits += 1
 
     def report_warehouse_schema_lookup_failures(self, count: int) -> None:
-        self.warehouse_schema_lookup_failures += count
+        with self._lock:
+            self.warehouse_schema_lookup_failures += count
 
     # Not named report_sql_fetched: that is the counter's own attribute.
     def report_sql_view_fetched(self) -> None:
-        self.report_sql_fetched += 1
+        with self._lock:
+            self.report_sql_fetched += 1
+
+    def report_filtered_project(self, name: str) -> None:
+        with self._lock:
+            self.filtered_projects.append(name)
+
+    def report_filtered_dashboard(self, name: str) -> None:
+        with self._lock:
+            self.filtered_dashboards.append(name)
+
+    def report_filtered_report(self, name: str) -> None:
+        with self._lock:
+            self.filtered_reports.append(name)
+
+    def report_sqlglot_warning_suppressed(self, message: str) -> None:
+        with self._lock:
+            self.sqlglot_warnings_suppressed[message] += 1
+
+    def report_cache_project_reset(self) -> None:
+        with self._lock:
+            self.cache_project_resets += 1
+
+    def report_change_check_failure(self) -> None:
+        with self._lock:
+            self.change_check_failures += 1
+
+    def report_dashboards_skipped_unchanged(self, delta: int = 1) -> None:
+        with self._lock:
+            self.dashboards_skipped_unchanged += delta
+
+    def report_report_skipped_unchanged(self) -> None:
+        with self._lock:
+            self.reports_skipped_unchanged += 1
+
+    def report_report_dataset_skipped_unchanged(self) -> None:
+        with self._lock:
+            self.report_datasets_skipped_unchanged += 1

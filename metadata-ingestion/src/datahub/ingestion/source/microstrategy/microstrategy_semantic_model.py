@@ -1,7 +1,9 @@
 import logging
+import threading
 from dataclasses import dataclass
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
+from pydantic import BaseModel, ConfigDict
 from typing_extensions import LiteralString
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -39,6 +41,7 @@ from datahub.ingestion.source.microstrategy.models import (
     MicroStrategyObject,
     normalize_object_id,
 )
+from datahub.ingestion.source.microstrategy.parallel import ordered_parallel_map
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -94,6 +97,20 @@ _METRIC_MODEL_FAILURE_MESSAGES: Dict[MetricPresence, str] = {
 }
 
 logger = logging.getLogger(__name__)
+
+
+class _MetricModelRead(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    model: Dict[str, object]
+    live: bool
+
+
+class _AttributeRelationshipPair(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    parent_attribute_id: str
+    child_attribute_id: str
 
 
 @dataclass
@@ -478,43 +495,49 @@ class MicroStrategySemanticModelMapper:
         )
 
         relationships: List[SemanticModelRelationshipInput] = []
-        seen_pairs: Set[Tuple[str, str]] = set()
-        for attribute_id in shared_attribute_ids:
-            try:
-                response = self.client.get_attribute_relationships(
-                    project_id, attribute_id
-                )
-            except MicroStrategyAPIError as error:
-                self.report.report_semantic_model_attribute_relationship_api_failure()
-                self.report.warning(
-                    title="MicroStrategy Attribute Relationship Unavailable",
-                    message=(
-                        "Skipping this attribute's hierarchy relationships for "
-                        "the semantic model."
-                    ),
-                    context=f"project_id={project_id}, attribute_id={attribute_id}",
-                    exc=error,
-                )
-                continue
+        seen_pairs: Set[_AttributeRelationshipPair] = set()
+        with ordered_parallel_map(
+            lambda attr_id: self.client.get_attribute_relationships(
+                project_id, attr_id
+            ),
+            shared_attribute_ids,
+            max_workers=self.config.max_workers,
+        ) as outcomes:
+            for outcome in outcomes:
+                attribute_id = outcome.item
+                try:
+                    response = outcome.unwrap()
+                except MicroStrategyAPIError as error:
+                    self.report.report_semantic_model_attribute_relationship_api_failure()
+                    self.report.warning(
+                        title="MicroStrategy Attribute Relationship Unavailable",
+                        message=(
+                            "Skipping this attribute's hierarchy relationships for "
+                            "the semantic model."
+                        ),
+                        context=f"project_id={project_id}, attribute_id={attribute_id}",
+                        exc=error,
+                    )
+                    continue
 
-            for relationship in parse_attribute_relationships(response):
-                pair = (
-                    relationship.parent_attribute_id,
-                    relationship.child_attribute_id,
-                )
-                if pair in seen_pairs:
-                    continue
-                built = self._relationship_input(
-                    project_id,
-                    relationship,
-                    table_alias_by_logical_id,
-                    attribute_table_aliases,
-                    table_info_by_alias,
-                )
-                if built is None:
-                    continue
-                seen_pairs.add(pair)
-                relationships.append(built)
+                for relationship in parse_attribute_relationships(response):
+                    pair = _AttributeRelationshipPair(
+                        parent_attribute_id=relationship.parent_attribute_id,
+                        child_attribute_id=relationship.child_attribute_id,
+                    )
+                    if pair in seen_pairs:
+                        continue
+                    built = self._relationship_input(
+                        project_id,
+                        relationship,
+                        table_alias_by_logical_id,
+                        attribute_table_aliases,
+                        table_info_by_alias,
+                    )
+                    if built is None:
+                        continue
+                    seen_pairs.add(pair)
+                    relationships.append(built)
         return relationships
 
     def _relationship_input(
@@ -614,70 +637,97 @@ class MicroStrategySemanticModelMapper:
         if metric_objects is None:
             return
         consolidation_cache: Dict[str, List[str]] = {}
+        # Set when the breaker trips, so a worker mid-read stops at its next
+        # request or retry wait instead of holding up the pool's shutdown.
+        stopped = threading.Event()
+
+        def fetch_metric(metric_object: MicroStrategyObject) -> _MetricModelRead:
+            cached = self._cached_model(project_id, metric_object.id)
+            if cached is not None:
+                return _MetricModelRead(model=cached, live=False)
+            return _MetricModelRead(
+                model=self.client.get_metric_model(
+                    project_id, metric_object.id, stop=stopped
+                ),
+                live=True,
+            )
+
         consecutive_failures = 0
         failed = 0
-        for read, metric_object in enumerate(metric_objects):
-            if read and read % MSTR_PROGRESS_LOG_INTERVAL_METRICS == 0:
-                logger.info(
-                    "Semantic model metrics: %d/%d read, %d failed (project=%s)",
-                    read,
-                    len(metric_objects),
-                    failed,
-                    project_id,
-                )
-            model = self._cached_model(project_id, metric_object.id)
-            try:
-                if model is None:
-                    model = self.client.get_metric_model(project_id, metric_object.id)
+        # One pending read per worker bounds the reads past a tripped breaker.
+        with ordered_parallel_map(
+            fetch_metric,
+            metric_objects,
+            max_workers=self.config.max_workers,
+            max_pending=self.config.max_workers,
+        ) as outcomes:
+            for read, outcome in enumerate(outcomes):
+                metric_object = outcome.item
+                if read and read % MSTR_PROGRESS_LOG_INTERVAL_METRICS == 0:
+                    logger.info(
+                        "Semantic model metrics: %d/%d read, %d failed (project=%s)",
+                        read,
+                        len(metric_objects),
+                        failed,
+                        project_id,
+                    )
+                try:
+                    model_read = outcome.unwrap()
+                    model = model_read.model
                     # Cache hits must not reset the streak, or live failures
                     # interleaved with them would never trip the stop.
-                    consecutive_failures = 0
-            except MicroStrategyAPIError as error:
-                failed += 1
-                consecutive_failures += 1
-                metric_urn = self._metric_urn(
-                    project_id, normalize_object_id(metric_object.id)
-                )
-                presence = self._metric_presence(metric_urn)
-                yield from self._on_metric_model_failure(
-                    project_id=project_id,
-                    metric_id=metric_object.id,
-                    metric_urn=metric_urn,
-                    presence=presence,
-                    error=error,
-                )
-                if consecutive_failures >= MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT:
-                    self.report.failure(
-                        title="MicroStrategy Metric Models Unavailable",
-                        message=(
-                            "Stopped reading metric models after repeated "
-                            "consecutive failures; the remaining metrics were "
-                            "not emitted. Stale-entity removal is skipped for "
-                            "this run."
-                        ),
-                        context=(
-                            f"project_id={project_id}, "
-                            f"consecutive_failures={consecutive_failures}, "
-                            f"metrics_not_read={len(metric_objects) - read - 1}"
-                        ),
+                    if model_read.live:
+                        consecutive_failures = 0
+                except MicroStrategyAPIError as error:
+                    failed += 1
+                    consecutive_failures += 1
+                    metric_urn = self._metric_urn(
+                        project_id, normalize_object_id(metric_object.id)
                     )
-                    return
-                if presence != MetricPresence.ABSENT:
-                    continue
-                model = {}
+                    presence = self._metric_presence(metric_urn)
+                    yield from self._on_metric_model_failure(
+                        project_id=project_id,
+                        metric_id=metric_object.id,
+                        metric_urn=metric_urn,
+                        presence=presence,
+                        error=error,
+                    )
+                    if (
+                        consecutive_failures
+                        >= MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+                    ):
+                        stopped.set()
+                        self.report.failure(
+                            title="MicroStrategy Metric Models Unavailable",
+                            message=(
+                                "Stopped reading metric models after repeated "
+                                "consecutive failures; the remaining metrics were "
+                                "not emitted. Stale-entity removal is skipped for "
+                                "this run."
+                            ),
+                            context=(
+                                f"project_id={project_id}, "
+                                f"consecutive_failures={consecutive_failures}, "
+                                f"metrics_not_read={len(metric_objects) - read - 1}"
+                            ),
+                        )
+                        return
+                    if presence != MetricPresence.ABSENT:
+                        continue
+                    model = {}
 
-            metric = self._build_metric(
-                project_id=project_id,
-                model_urn=model_urn,
-                metric_object=metric_object,
-                model=model,
-                fact_table_aliases=fact_table_aliases,
-                attribute_table_aliases=attribute_table_aliases,
-                alias_to_dataset=alias_to_dataset,
-                consolidation_cache=consolidation_cache,
-            )
-            yield from metric.as_workunits()
-            self.report.report_semantic_model_metrics_emitted(1)
+                metric = self._build_metric(
+                    project_id=project_id,
+                    model_urn=model_urn,
+                    metric_object=metric_object,
+                    model=model,
+                    fact_table_aliases=fact_table_aliases,
+                    attribute_table_aliases=attribute_table_aliases,
+                    alias_to_dataset=alias_to_dataset,
+                    consolidation_cache=consolidation_cache,
+                )
+                yield from metric.as_workunits()
+                self.report.report_semantic_model_metrics_emitted(1)
 
     def _search_metrics(self, project_id: str) -> Optional[List[MicroStrategyObject]]:
         try:
@@ -845,14 +895,13 @@ class MicroStrategySemanticModelMapper:
             return
         # A failure makes stale removal skip the run; without it the metrics
         # skipped here would be soft-deleted. Reported once per run.
-        if not self.report.metric_presence_check_failures:
+        if self.report.report_metric_presence_check_failure():
             self.report.failure(
                 title="Failed to check MicroStrategy metrics in DataHub",
                 message=message,
                 context=metric_urn,
                 exc=error,
             )
-        self.report.report_metric_presence_check_failure()
 
     def _stale_removal_enabled(self) -> bool:
         stateful = self.config.stateful_ingestion

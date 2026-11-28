@@ -1177,12 +1177,13 @@ def _fail_after_emitting(method: str) -> AbstractContextManager[object]:
     return patch.object(MicroStrategySource, method, failing)
 
 
+@pytest.mark.parametrize("max_workers", [1, 4])
 @pytest.mark.parametrize(
     "method, urn, aspect_type, reads",
     [
         ("_process_dashboard", DASH_1_URN, DashboardInfoClass, "definition_reads"),
         (
-            "_process_report_object",
+            "_emit_prefetched_report_object",
             REPORT_CHART_URN,
             ChartInfoClass,
             "report_definition_reads",
@@ -1195,19 +1196,22 @@ def test_object_whose_read_failed_after_writing_its_stamp_is_read_again(
     urn: str,
     aspect_type: Type[_Aspect],
     reads: str,
+    max_workers: int,
 ) -> None:
     first = _first_run(mock_datahub_graph)
     del first.datahub.aspects[(urn, aspect_type.ASPECT_NAME)]
 
     with _fail_after_emitting(method):
-        second = _run(mock_datahub_graph, first.server, "run-2")
+        second = _run(
+            mock_datahub_graph, first.server, "run-2", max_workers=max_workers
+        )
     first.datahub.write(second.workunits)
 
     assert _soft_deleted_urns(second.workunits) == set()
     assert _stale_urns(second.source) == _stale_urns(first.source)
     getattr(first.server, reads).clear()
 
-    third = _run(mock_datahub_graph, first.server, "run-3")
+    third = _run(mock_datahub_graph, first.server, "run-3", max_workers=max_workers)
 
     assert getattr(first.server, reads)
     assert not third.source.report.failures

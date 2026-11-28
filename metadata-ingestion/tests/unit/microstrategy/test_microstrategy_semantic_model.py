@@ -70,7 +70,9 @@ class FakeSemanticModelClient:
             raise MicroStrategyAPIError("metric search unavailable")
         return iter(self._metrics)
 
-    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+    def get_metric_model(
+        self, project_id: str, metric_id: str, stop: object = None
+    ) -> Dict[str, Any]:
         self.metric_model_calls.append(metric_id)
         if self._metric_models_fail:
             raise MicroStrategyAPIError("metric model unavailable")
@@ -846,7 +848,8 @@ def test_consecutive_metric_model_failures_stop_the_loop_and_fail_the_run() -> N
         ],
         metric_models_fail=True,
     )
-    mapper = _mapper(client)
+    # Serial, so the call count is exact; parallel workers read a few models ahead.
+    mapper = _mapper(client, max_workers=1)
 
     _emit_metrics(mapper)
 
@@ -861,7 +864,9 @@ class _FlakyMetricClient(FakeSemanticModelClient):
         super().__init__(**kwargs)
         self._failing_ids = failing_ids
 
-    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+    def get_metric_model(
+        self, project_id: str, metric_id: str, stop: object = None
+    ) -> Dict[str, Any]:
         if metric_id in self._failing_ids:
             self.metric_model_calls.append(metric_id)
             raise MicroStrategyAPIError("metric model unavailable")
@@ -884,7 +889,10 @@ def test_a_successful_metric_model_resets_the_consecutive_failure_count() -> Non
     assert not mapper.report.failures
 
 
-def test_cached_models_between_live_failures_do_not_reset_the_failure_count() -> None:
+@pytest.mark.parametrize("max_workers", [1, 4])
+def test_cached_models_between_live_failures_do_not_reset_the_failure_count(
+    max_workers: int,
+) -> None:
     limit = MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
     ids = [f"M{index}" for index in range(4 * limit)]
     cached_ids = {metric_id for index, metric_id in enumerate(ids) if index % 2}
@@ -892,7 +900,7 @@ def test_cached_models_between_live_failures_do_not_reset_the_failure_count() ->
         metrics=[_metric_object(metric_id, metric_id) for metric_id in ids],
         metric_models_fail=True,
     )
-    config = _config()
+    config = _config(max_workers=max_workers)
     report = MicroStrategyReport()
     mapper = MicroStrategySemanticModelMapper(
         config=config,
@@ -907,7 +915,8 @@ def test_cached_models_between_live_failures_do_not_reset_the_failure_count() ->
 
     _emit_metrics(mapper)
 
-    assert len(client.metric_model_calls) == limit
+    # Parallel workers read a few models past the point the breaker trips.
+    assert limit <= len(client.metric_model_calls) <= limit + max_workers
     assert [failure.title for failure in report.failures] == [
         "MicroStrategy Metric Models Unavailable"
     ]
@@ -978,7 +987,9 @@ def test_metrics_are_emitted_as_they_are_fetched(
     fetched: List[str] = []
 
     class RecordingClient(FakeSemanticModelClient):
-        def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        def get_metric_model(
+            self, project_id: str, metric_id: str, stop: object = None
+        ) -> Dict[str, Any]:
             fetched.append(metric_id)
             return {"expression": {"text": f"Sum({metric_id})", "tokens": []}}
 

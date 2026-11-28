@@ -14,6 +14,19 @@ MICROSTRATEGY_PLATFORM = "microstrategy"
 # executed instance is the vendor's suggested route to metric expressions that
 # the static definition omits.
 MSTR_MS_INSTANCE_HEADER = "X-MSTR-MS-Instance"
+MSTR_AUTH_TOKEN_HEADER = "X-MSTR-AuthToken"
+MSTR_PROJECT_ID_HEADER = "X-MSTR-ProjectID"
+MSTR_IO_THREAD_NAME_PREFIX = "mstr-io"
+MSTR_UNRESOLVED_FOLDER_LABEL = "unresolved"
+
+MSTR_MAX_WORKERS_LIMIT = 32
+# Bounds how far submitted work runs ahead of the consumer, and with it the
+# memory held by results waiting to be emitted in input order.
+MSTR_PENDING_TASKS_PER_WORKER = 2
+# requests' default pool of 10 would make concurrent workers discard and
+# reopen connections; each worker can hold one connection per request in flight.
+MSTR_MIN_HTTP_POOL_SIZE = 16
+MSTR_HTTP_CONNECTIONS_PER_WORKER = 2
 
 MSTR_API_AUTH_PREFIX = "/api/auth/"
 MSTR_API_AUTH_LOGIN = "/api/auth/login"
@@ -144,6 +157,7 @@ FINGERPRINT_EXCLUDED_CONFIG_FIELDS: FrozenSet[str] = frozenset(
         "page_size",
         "warehouse_lineage_sql_timeout_seconds",
         "max_consecutive_execution_timeouts",
+        "max_workers",
         # Usage statistics are emitted once per run, outside any object's read.
         "extract_usage_statistics",
         "usage_lookback_days",
@@ -160,6 +174,11 @@ class MicroStrategyReadOutcome(StrEnum):
     INCOMPLETE = "incomplete"
     # Not read; its last read still stands.
     FAILED = "failed"
+
+
+class ExecutionOutcome(StrEnum):
+    SUCCEEDED = "succeeded"
+    TIMED_OUT = "timed_out"
 
 
 # Shared references rather than an object's own entities.
@@ -612,6 +631,12 @@ class MetricPresence(StrEnum):
     PRESENT = "present"
     ABSENT = "absent"
     UNKNOWN = "unknown"
+
+
+class MicroStrategyLineageLookup(StrEnum):
+    WAREHOUSE_CONTEXT = "warehouse_context"
+    MODEL_TABLES = "model_tables"
+    MODEL_LINEAGE_INDEX = "model_lineage_index"
 
 
 # Isolated metric model 500s are expected; a long run of them means the

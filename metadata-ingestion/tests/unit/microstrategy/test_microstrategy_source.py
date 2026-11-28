@@ -513,7 +513,9 @@ def test_metric_model_fact_ids_terminates_on_metric_cycles() -> None:
     }
 
     class FakeClient:
-        def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        def get_metric_model(
+            self, project_id: str, metric_id: str, stop: object = None
+        ) -> Dict[str, Any]:
             return models[metric_id.upper()]
 
     source.client = FakeClient()  # type: ignore[assignment]
@@ -531,7 +533,9 @@ def test_get_metric_model_failure_warns_and_degrades() -> None:
     source = _source()
 
     class FakeClient:
-        def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        def get_metric_model(
+            self, project_id: str, metric_id: str, stop: object = None
+        ) -> Dict[str, Any]:
             raise MicroStrategyAPIError("404 Not Found")
 
     source.client = FakeClient()  # type: ignore[assignment]
@@ -1528,8 +1532,8 @@ def _fill_project_caches(source: MicroStrategySource) -> None:
     source._report_derived_metrics.put(_REPORT_KEY, None)
     source._report_v2_payloads.put(_REPORT_KEY, {})
     source._metric_models.put(_METRIC_KEY, None)
-    source._model_document_key = ("project-1", "doc")
-    source._model_document_value = {}
+    source._model_document_slot.key = object_cache_key("project-1", "doc")
+    source._model_document_slot.value = {}
     source.lineage.warehouse_lineage_from_sql(
         "select a from t",
         WarehouseLineageContext(platform="snowflake", env="PROD"),
@@ -1545,7 +1549,7 @@ def _project_cache_values(source: MicroStrategySource) -> List[object]:
         source._report_derived_metrics.get(_REPORT_KEY),
         source._report_v2_payloads.get(_REPORT_KEY),
         source._metric_models.get(_METRIC_KEY),
-        source._model_document_value,
+        source._model_document_slot.value,
     ]
 
 
@@ -2190,11 +2194,11 @@ def test_model_definition_failure_is_counted_per_report_and_warned_once() -> Non
         )
     )
 
-    assert client.model_calls == ["ds-dash-1", "ds-dash-2"]
-    assert client.v2_calls == ["ds-dash-1", "ds-dash-2"]
+    assert sorted(client.model_calls) == ["ds-dash-1", "ds-dash-2"]
+    assert sorted(client.v2_calls) == ["ds-dash-1", "ds-dash-2"]
     assert source.report.report_model_definition_failures == 2
     samples = list(source.report.report_model_definition_failure_samples)
-    assert [s.split(":")[0] for s in samples] == ["ds-dash-1", "ds-dash-2"]
+    assert sorted(s.split(":")[0] for s in samples) == ["ds-dash-1", "ds-dash-2"]
     # The HTTP status the client recorded is what tells 403 (privilege) from
     # 404 (server without the Modeling service) apart in the report.
     assert all("HTTP 403" in s for s in samples)
@@ -2202,7 +2206,10 @@ def test_model_definition_failure_is_counted_per_report_and_warned_once() -> Non
         w for w in source.report.warnings if w.title == _MODEL_UNAVAILABLE_TITLE
     ]
     assert len(warnings) == 1
-    assert "first_report_id=ds-dash-1" in (warnings[0].context or [""])[0]
+    assert any(
+        f"first_report_id={report_id}" in (warnings[0].context or [""])[0]
+        for report_id in ["ds-dash-1", "ds-dash-2"]
+    )
 
 
 class _ModelWithoutExpressionClient(_ReportDerivedClient):
@@ -2393,7 +2400,9 @@ class _ModelEmbeddedClient(_ReportDerivedClient):
             },
         }
 
-    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+    def get_metric_model(
+        self, project_id: str, metric_id: str, stop: object = None
+    ) -> Dict[str, Any]:
         self.metric_model_calls.append(metric_id)
         if self.metric_model_fails:
             raise MicroStrategyAPIError("404 Not Found", status_code=404, url="x")
@@ -2540,7 +2549,7 @@ def test_configuration_error_escapes_the_dashboard_boundary(
     def boom(*args: Any, **kwargs: Any) -> Any:
         raise ConfigurationError("parser missing")
 
-    monkeypatch.setattr(source, "_process_dashboard_object", boom)
+    monkeypatch.setattr(source, "_consume_prefetched_dashboard", boom)
     source.client = _DatasetLookupClient()  # type: ignore[assignment]
 
     with pytest.raises(ConfigurationError):
@@ -2859,7 +2868,7 @@ def test_include_personal_folders_keeps_everything_and_skips_resolution() -> Non
     workunits = _run_dashboards(source)
 
     assert [19, 20] not in client.predefined_calls
-    assert client.definition_calls == ["dash-personal", "dash-shared"]
+    assert sorted(client.definition_calls) == ["dash-personal", "dash-shared"]
     assert source.report.personal_folder_objects_skipped == 0
     urns = {workunit.get_urn() for workunit in workunits}
     assert source.mapper.dashboard_urn("project-1", "dash-personal") in urns
@@ -3099,7 +3108,11 @@ def test_folder_path_pattern_default_ingests_everything() -> None:
 
     # Default allow-all: no behaviour change, and the unfiled dossier is let
     # through rather than silently dropped, with the gap recorded.
-    assert client.definition_calls == ["dash-company", "dash-other", "dash-unknown"]
+    assert sorted(client.definition_calls) == [
+        "dash-company",
+        "dash-other",
+        "dash-unknown",
+    ]
     assert source.report.dashboards_filtered_by_folder_path == 0
     assert source.report.folder_paths_unresolved == 1
     assert [w.title for w in source.report.warnings] == [_UNRESOLVED_TITLE]
@@ -3116,7 +3129,7 @@ def test_folder_path_unresolved_is_skipped_once_a_pattern_is_set() -> None:
 
     # Both filed dossiers match; the unfiled one cannot be shown to, so it
     # is skipped and counted rather than widening the scope.
-    assert client.definition_calls == ["dash-company", "dash-other"]
+    assert sorted(client.definition_calls) == ["dash-company", "dash-other"]
     assert source.report.folder_paths_unresolved == 1
     assert source.report.dashboards_filtered_by_folder_path == 1
     assert list(source.report.folder_path_filtered_samples) == ["Unfiled (unresolved)"]
@@ -4455,6 +4468,19 @@ _SHARING_DASHBOARD = MicroStrategyObject.model_validate(
 )
 
 
+def _read_report_as_dataset(
+    source: MicroStrategySource,
+    report_object: MicroStrategyObject,
+    lineage_context: _LazyProjectLineage,
+) -> None:
+    source._process_report_as_dataset(
+        _PROJECT.id,
+        report_object,
+        lineage_context,
+        source._prefetch_report(_PROJECT, report_object, lineage_context),
+    )
+
+
 def _per_report_source(
     extra_config: Optional[Mapping[str, object]] = None,
 ) -> MicroStrategySource:
@@ -4699,7 +4725,7 @@ def test_per_report_report_pass_upgrades_schema_and_emits_no_chart() -> None:
     assert source.mapper.report_urn("project-1", "report-solo") not in {
         workunit.get_urn() for workunit in workunits
     }
-    assert client.report_definitions == ["ds-shared", "report-solo"]
+    assert sorted(client.report_definitions) == ["ds-shared", "report-solo"]
     assert source.report.reports_scanned == 2
     assert source.report.charts_scanned == 1
     assert source.report.report_datasets_emitted == 2
@@ -4743,7 +4769,7 @@ def test_per_report_parses_a_shared_report_sql_view_once() -> None:
         workunits = list(source._process_project(_PROJECT))
 
     # The shared report's SQL is parsed for the first dossier only.
-    assert client.sql_view_reads == ["dash-1", "dash-2"]
+    assert sorted(client.sql_view_reads) == ["dash-1", "dash-2"]
     assert parse.call_count == 1
     lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
     assert [upstream.dataset for upstream in lineage[_SHARED_URN].upstreams] == [
@@ -4957,7 +4983,9 @@ class _MetricModelRecordingClient(_SharedReportClient):
         super().__init__()
         self.metric_models: List[str] = []
 
-    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+    def get_metric_model(
+        self, project_id: str, metric_id: str, stop: object = None
+    ) -> Dict[str, Any]:
         self.metric_models.append(metric_id)
         return {}
 
@@ -4968,8 +4996,8 @@ def test_per_report_report_pass_enriches_the_report_metrics() -> None:
     install_client(source, client)
     report_object = client.get_object_info("project-1", "ds-shared", 3)
 
-    source._process_report_as_dataset(
-        "project-1", report_object, _LazyProjectLineage(source, "project-1", [])
+    _read_report_as_dataset(
+        source, report_object, _LazyProjectLineage(source, "project-1", [])
     )
 
     assert client.metric_models == ["M-NET", "M-GROSS"]
@@ -5012,8 +5040,8 @@ def test_per_report_report_pass_attaches_model_lineage() -> None:
         new_callable=mock.PropertyMock,
         return_value=index,
     ):
-        source._process_report_as_dataset(
-            "project-1",
+        _read_report_as_dataset(
+            source,
             client.get_object_info("project-1", "ds-shared", 3),
             _LazyProjectLineage(source, "project-1", []),
         )
@@ -5167,8 +5195,8 @@ def test_per_report_report_pass_drops_stale_field_lineage_and_reads_the_sql_agai
     entry.dataset.field_warehouse_upstreams["Ghost Field"] = []
     assert client.report_instances == []
 
-    source._process_report_as_dataset(
-        "project-1",
+    _read_report_as_dataset(
+        source,
         client.get_object_info("project-1", "ds-shared", 3),
         lineage_context,
     )
@@ -5553,7 +5581,9 @@ class _MetricModelClient:
     def __init__(self) -> None:
         self.metric_model_calls: List[str] = []
 
-    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
+    def get_metric_model(
+        self, project_id: str, metric_id: str, stop: object = None
+    ) -> Dict[str, object]:
         self.metric_model_calls.append(metric_id)
         if metric_id.upper() == "M-BROKEN":
             raise MicroStrategyAPIError("404 Not Found", status_code=404)
@@ -5918,6 +5948,58 @@ def test_cached_only_dataset_emission_uses_a_stored_report_object() -> None:
     assert source.report.report_datasets_emitted == 1
 
 
+def test_cached_only_dataset_emission_with_workers_makes_no_lookups() -> None:
+    source = _per_report_source({"max_workers": 4})
+    for dataset_id in ("ds-a", "ds-b"):
+        source._shared_report_dataset(
+            "project-1",
+            _SHARING_DASHBOARD,
+            DatasetObject.model_validate({"id": dataset_id, "name": dataset_id}),
+        )
+    lookups: List[str] = []
+
+    def record_lookup(
+        project_id: str, object_id: str, object_type: int
+    ) -> Optional[MicroStrategyObject]:
+        lookups.append(object_id)
+        return None
+
+    with mock.patch.object(source.client, "get_object_info", side_effect=record_lookup):
+        list(source._gen_report_dataset_workunits("project-1", cached_only=True))
+
+    assert lookups == []
+    assert source.report.report_datasets_emitted == 2
+
+
+class _SecondDossierWithoutWarehouseClient(_SharedReportClient):
+    def __init__(self) -> None:
+        super().__init__(second="dossier", with_sql=True)
+
+    def list_project_datasources(self, project_id: str) -> List[Datasource]:
+        return []
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        response = super().get_dossier_definition(project_id, dossier_id)
+        if dossier_id == "dash-2":
+            for dataset in response["result"]["definition"]["datasets"]:
+                dataset.pop("sourceWarehouse")
+        return response
+
+
+def test_per_report_dossier_reads_its_sql_view_when_a_shared_dataset_brings_a_warehouse() -> (
+    None
+):
+    source = _per_report_source({"extract_warehouse_lineage": True, "max_workers": 4})
+    client = _SecondDossierWithoutWarehouseClient()
+    install_client(source, client)
+
+    list(source._process_project(_PROJECT))
+
+    assert client.sql_view_reads == ["dash-1", "dash-2"]
+
+
 def test_a_failed_report_v2_payload_is_not_cached() -> None:
     source = _source()
     calls: List[str] = []
@@ -6197,7 +6279,7 @@ def test_report_dataset_in_mixed_project_uses_its_own_warehouse_context(
         {"id": "ds-1", "name": "Sales Cube", "type": "3"}
     )
 
-    source._process_report_as_dataset("project-1", report_object, lineage_context)
+    _read_report_as_dataset(source, report_object, lineage_context)
 
     assert lineage_context.warehouse_context is None
     table_urn = (

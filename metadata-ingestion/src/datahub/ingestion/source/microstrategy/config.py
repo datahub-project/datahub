@@ -9,6 +9,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
+    MSTR_MAX_WORKERS_LIMIT,
     MSTR_MODEL_API_MIN_TIMEOUT_SECONDS,
     MicroStrategyDatasetIdentity,
 )
@@ -108,6 +109,16 @@ class MicroStrategyConfig(
         default=100,
         gt=0,
         description="Number of objects requested per paginated metadata search call.",
+    )
+    max_workers: int = Field(
+        default=4,
+        ge=1,
+        le=MSTR_MAX_WORKERS_LIMIT,
+        description=(
+            "How many requests the connector sends to the Intelligence Server "
+            "at once while reading dashboards, reports and metrics. Output is "
+            "the same for any value. Set to 1 to send one request at a time."
+        ),
     )
 
     project_pattern: AllowDenyPattern = Field(
