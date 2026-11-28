@@ -17,7 +17,6 @@ from typing import (
 from pydantic import BaseModel, ConfigDict, Field
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.openapi import EntityAspects
@@ -63,6 +62,9 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverReport,
 )
+from datahub.sql_parsing.split_statements import split_statements
+from datahub.sql_parsing.sql_parsing_common import get_dialect_str
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_from_sql_statements
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
@@ -493,17 +495,6 @@ class MicroStrategyLineageExtractor:
         graph: Optional[DataHubGraph],
         label: str,
     ) -> _ParsedSqlView:
-        # Deferred import: sqlglot_lineage pulls in the full sqlglot parser,
-        # which is expensive to import and only needed for opt-in SQL lineage.
-        # A missing module here is an installation problem, never a
-        # per-statement parse failure, so it must surface as one.
-        try:
-            from datahub.sql_parsing.sqlglot_lineage import (
-                create_lineage_from_sql_statements,
-            )
-        except ImportError as error:
-            raise _sql_lineage_dependency_error(error) from error
-
         started = time.perf_counter()
         statements = _sql_statements(sql, context)
         if not statements:
@@ -534,9 +525,6 @@ class MicroStrategyLineageExtractor:
                 is_temp_table=lambda name: _leaf_identifier(name) in created_tables,
                 schema_resolver=schema_resolver,
             )
-        except ImportError as error:
-            # A lazy import failure would hit every statement.
-            raise _sql_lineage_dependency_error(error) from error
         except Exception as error:
             self._report_sql_parse_failure(
                 sql=sql, context=context, error=error, label=label
@@ -820,13 +808,6 @@ class MicroStrategyLineageExtractor:
 
 
 def _sql_statements(sql: str, context: WarehouseLineageContext) -> List[str]:
-    # Deferred for the same reason as sqlglot_lineage in _parse_sql_view.
-    try:
-        from datahub.sql_parsing.split_statements import split_statements
-        from datahub.sql_parsing.sql_parsing_common import get_dialect_str
-    except ImportError as error:
-        raise _sql_lineage_dependency_error(error) from error
-
     return [
         statement
         for statement in split_statements(
@@ -834,30 +815,6 @@ def _sql_statements(sql: str, context: WarehouseLineageContext) -> List[str]:
         )
         if statement.strip() and not _is_lineage_irrelevant_statement(statement)
     ]
-
-
-def ensure_sql_lineage_dependencies() -> None:
-    """Import the SQL-view lineage parser eagerly so a broken install fails the
-    run at startup with a clear message instead of silently emitting zero
-    lineage. create_lineage_from_sql_statements lazily imports the
-    SqlParsingAggregator module on first use, and that module transitively
-    needs sqlparse (usage_common -> sql_formatter), which the `microstrategy`
-    extra now declares; an environment built from an older extra, or from a
-    bare wheel, lacks it and used to fail one SQL view at a time."""
-    try:
-        import datahub.sql_parsing.sql_parsing_aggregator
-        import datahub.sql_parsing.sqlglot_lineage  # noqa: F401
-    except ImportError as error:
-        raise _sql_lineage_dependency_error(error) from error
-
-
-def _sql_lineage_dependency_error(error: ImportError) -> ConfigurationError:
-    return ConfigurationError(
-        "MicroStrategy SQL-view lineage (extract_warehouse_lineage / "
-        "extract_report_sql_lineage) needs DataHub's SQL parsing dependencies, "
-        f"which are not installed: {error}. Install the connector with its extra, "
-        "`pip install 'acryl-datahub[microstrategy]'`, or disable those flags."
-    )
 
 
 def datahub_platform_for_datasource(

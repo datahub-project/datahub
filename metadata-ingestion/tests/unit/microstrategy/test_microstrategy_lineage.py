@@ -245,7 +245,7 @@ def test_warehouse_upstream_urns_from_sql_reports_parse_failures() -> None:
     )
 
     with mock.patch(
-        "datahub.sql_parsing.sqlglot_lineage.create_lineage_from_sql_statements",
+        "datahub.ingestion.source.microstrategy.lineage.create_lineage_from_sql_statements",
         side_effect=RuntimeError("parser exploded"),
     ):
         upstreams = extractor.warehouse_lineage_from_sql(
@@ -279,7 +279,7 @@ def test_warehouse_lineage_reports_error_carried_in_parse_result() -> None:
     )
 
     with mock.patch(
-        "datahub.sql_parsing.sqlglot_lineage.create_lineage_from_sql_statements",
+        "datahub.ingestion.source.microstrategy.lineage.create_lineage_from_sql_statements",
         return_value=parsed,
     ):
         upstreams = extractor.warehouse_lineage_from_sql(

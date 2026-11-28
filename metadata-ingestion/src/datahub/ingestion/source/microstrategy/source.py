@@ -67,7 +67,6 @@ from datahub.ingestion.source.microstrategy.lineage import (
     SqlViewLineage,
     WarehouseLineageContext,
     bind_visualizations_by_derived_objects,
-    ensure_sql_lineage_dependencies,
     matching_datasource_for_context,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
@@ -180,14 +179,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.client = MicroStrategyClient(config, self.report)
         self.mapper = MicroStrategyMapper(config, self.report)
         self.lineage = self.mapper.lineage
-        if self.config.extract_lineage and (
-            self.config.extract_warehouse_lineage
-            or self.config.extract_report_sql_lineage
-        ):
-            # Fail at construction, not per SQL view: a missing parser module
-            # would otherwise be swallowed into per-statement parse warnings
-            # and the run would report SUCCESS with zero warehouse lineage.
-            ensure_sql_lineage_dependencies()
         # (project id, metric id) -> model; {} once a fetch failed.
         self._metric_model_cache: Dict[Tuple[str, str], Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
