@@ -2006,17 +2006,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             linked_report_ids.update(
                 report_id.upper() for report_id in report_dependency_ids
             )
-        if self._failed_transiently(
-            project_id,
-            [
-                dashboard.id,
-                *(
-                    object_id
-                    for dataset in dashboard.datasets
-                    for object_id in _enrichment_ids(dataset)
-                ),
-            ],
-        ):
+        if self._dashboard_failed_transiently(project_id, dashboard):
             _mark_incomplete(checkpoint)
         extra_chart_urns = self._dashboard_report_chart_urns(project, dashboard)
         usage_target = RecordedUsageTarget(
@@ -2122,6 +2112,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             object_cache_key(project_id, object_id) in self._transient_failure_keys
             for object_id in object_ids
         )
+
+    def _dashboard_failed_transiently(
+        self, project_id: str, dashboard: DashboardDefinition
+    ) -> bool:
+        object_ids = [dashboard.id]
+        for dataset in dashboard.datasets:
+            object_ids.extend(_enrichment_ids(dataset))
+        return self._failed_transiently(project_id, object_ids)
 
     def _enrich_report_derived_metrics(
         self,
