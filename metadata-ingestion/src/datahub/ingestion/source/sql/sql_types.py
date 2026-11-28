@@ -622,18 +622,52 @@ _merged_mapping = {
     **SQL_SERVER_TYPES_MAP,
 }
 
+# Per-platform type maps consulted ahead of the merged mapping. Needed because
+# the merged mapping unpacks platform maps in a fixed order (SQL_SERVER last),
+# so a type like `TIMESTAMP` always resolved to BytesType, even though for
+# BigQuery, Snowflake, Spark, Trino, Athena, Vertica and Dataplex it is a
+# time type. Keys cover DataHub platform URN names and the dbt adapter names
+# that reach this function via the `platform` argument.
+_PLATFORM_TYPES_MAP: Dict[str, Dict[str, Any]] = {
+    "postgres": POSTGRES_TYPES_MAP,
+    "redshift": POSTGRES_TYPES_MAP,
+    "snowflake": SNOWFLAKE_TYPES_MAP,
+    "bigquery": BIGQUERY_TYPES_MAP,
+    "spark": SPARK_SQL_TYPES_MAP,
+    "databricks": SPARK_SQL_TYPES_MAP,
+    "hive": SPARK_SQL_TYPES_MAP,
+    "trino": TRINO_SQL_TYPES_MAP,
+    "presto": TRINO_SQL_TYPES_MAP,
+    "athena": ATHENA_SQL_TYPES_MAP,
+    "vertica": VERTICA_SQL_TYPES_MAP,
+    "neo4j": NEO4J_TYPES_MAP,
+    "dataplex": DATAPLEX_TYPES_MAP,
+    "mssql": SQL_SERVER_TYPES_MAP,
+    "sqlserver": SQL_SERVER_TYPES_MAP,
+    "fabric": SQL_SERVER_TYPES_MAP,
+    "synapse": SQL_SERVER_TYPES_MAP,
+    "fabric-onelake": SQL_SERVER_TYPES_MAP,
+}
+
 
 def resolve_sql_type(
     column_type: Optional[str],
     platform: Optional[str] = None,
 ) -> Optional[DATAHUB_FIELD_TYPE]:
-    # In theory, we should use the platform-specific mapping where available.
-    # However, the types don't ever conflict, so the merged mapping is fine.
-    # Wrong assumption - there ARE conflicts as the test_type_conflicts_across_platforms in test_sql_types.py shows.
-    # TODO: revisit this and make platform-specific mappings work.
-    TypeClass: Optional[Type[DATAHUB_FIELD_TYPE]] = (
-        _merged_mapping.get(column_type) if column_type else None
-    )
+    TypeClass: Optional[Type[DATAHUB_FIELD_TYPE]] = None
+
+    if column_type:
+        # Consult the caller's platform map first so a type that different
+        # platforms disagree on (e.g. SQL Server `TIMESTAMP` = BytesType vs
+        # BigQuery `TIMESTAMP` = TimeType) resolves against that platform's
+        # own definition. Fall back to the merged mapping for callers that
+        # didn't pass a platform or for shared primitives the platform map
+        # doesn't cover.
+        if platform is not None and platform in _PLATFORM_TYPES_MAP:
+            TypeClass = _PLATFORM_TYPES_MAP[platform].get(column_type)
+
+        if TypeClass is None:
+            TypeClass = _merged_mapping.get(column_type)
 
     if TypeClass is None and column_type:
         # resolve a modified type
