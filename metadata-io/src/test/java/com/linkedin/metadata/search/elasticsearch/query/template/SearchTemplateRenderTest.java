@@ -195,6 +195,47 @@ public class SearchTemplateRenderTest {
     assertFalse(should.contains(harness.property("certification.status").fieldPath() + ".keyword"));
   }
 
+  /**
+   * A should-only body keeps needing one of its clauses through the whole render, and an explicit
+   * minimum written in the template is kept.
+   */
+  @Test
+  public void testShouldOnlyBodyStaysRequiredThroughTheRender() throws Exception {
+    String clauses = "{ \"must\": [ { \"match_all\": { \"boost\": 0.0 } } ] }";
+    String functionScore =
+        "{ \"functions\": [], \"score_mode\": \"multiply\", \"boost_mode\": \"multiply\" }";
+    SearchTemplateProperties required =
+        template(
+            "ShouldOnly",
+            "{ \"bool\": { \"should\": [ { \"term\": { \"urn\": \"{{unquoted}}\" } } ] } }");
+    required.setClauses(clauses);
+    required.setFunctionScore(functionScore);
+    harness.store("urn:li:searchTemplate:shouldOnly", required);
+    JsonNode bool =
+        SearchTemplateFixtures.JSON
+            .readTree(render("urn:li:searchTemplate:shouldOnly", "orders", true))
+            .get("function_score")
+            .get("query")
+            .get("bool");
+    assertEquals(bool.get("minimum_should_match").asText(), "1");
+
+    SearchTemplateProperties optional =
+        template(
+            "ShouldOnlyOptOut",
+            "{ \"bool\": { \"should\": [ { \"term\": { \"urn\": \"{{unquoted}}\" } } ],"
+                + " \"minimum_should_match\": 0 } }");
+    optional.setClauses(clauses);
+    optional.setFunctionScore(functionScore);
+    harness.store("urn:li:searchTemplate:shouldOnlyOptOut", optional);
+    JsonNode optOut =
+        SearchTemplateFixtures.JSON
+            .readTree(render("urn:li:searchTemplate:shouldOnlyOptOut", "orders", true))
+            .get("function_score")
+            .get("query")
+            .get("bool");
+    assertEquals(optOut.get("minimum_should_match").asText(), "0");
+  }
+
   @Test
   public void testBoostListRendersOneWeightAndCannotBeSpoofed() {
     SearchTemplateProperties weighted = template("Viewer", "{ \"match_all\": {} }");
