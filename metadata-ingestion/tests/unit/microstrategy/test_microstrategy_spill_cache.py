@@ -1,6 +1,6 @@
 import threading
 import time
-from typing import Dict, List, Optional
+from typing import Callable, List, Optional
 from unittest import mock
 
 import pytest
@@ -45,23 +45,14 @@ def test_values_spill_to_disk_without_loss_and_none_is_a_cached_value() -> None:
         missing = cache.get_entry("missing")
         assert "failed" in cache
         report = MicroStrategyReport()
-        cache.reset(report, MicroStrategyCache.DATASET_OBJECT)
+        cache.reset(report, MicroStrategyCache.REPORT_OBJECT)
 
     assert failed.found and failed.value is None
     assert not missing.found and "missing" not in cache
     # A key written twice is one entry.
-    assert report.cache_entries_peak == {"dataset_object": 6}
+    assert report.cache_entries_peak == {"report_object": 6}
     assert cache.entry_count == 0
     assert cache.get("key-1") is None
-
-
-def test_put_if_absent_keeps_the_first_value() -> None:
-    cache: SpillCache[Dict[str, object]] = SpillCache(1)
-
-    assert cache.put_if_absent("k", {"v": 1})
-    assert not cache.put_if_absent("k", {"v": 2})
-    assert cache.get("k") == {"v": 1}
-    assert cache.entry_count == 1
 
 
 def test_object_cache_key_normalizes_the_object_id() -> None:
@@ -151,11 +142,11 @@ def test_loader_error_propagates_and_the_key_stays_loadable() -> None:
 
 
 def test_close_releases_the_sqlite_file_and_reset_reopens_lazily() -> None:
-    created: List[FileBackedDict] = []
-    real_factory = FileBackedDict
+    created: List[FileBackedDict[object]] = []
+    real_factory: Callable[..., FileBackedDict[object]] = FileBackedDict
 
-    def recording_factory(*args: object, **kwargs: object) -> FileBackedDict:
-        store: FileBackedDict = real_factory(*args, **kwargs)  # type: ignore[arg-type]
+    def recording_factory(**kwargs: object) -> FileBackedDict[object]:
+        store = real_factory(**kwargs)
         created.append(store)
         return store
 

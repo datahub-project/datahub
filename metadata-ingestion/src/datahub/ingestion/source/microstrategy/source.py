@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter.emit_mode import EmitMode
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -176,6 +177,10 @@ _ERROR_SUMMARY_MAX_CHARS = 300
 _MODEL_DOCUMENT_PROJECT_WIDE_STATUSES = frozenset({403, 501})
 
 
+class _ReportObjectUnavailable(Exception):
+    pass
+
+
 class _PredefinedFoldersUnavailable(Exception):
     """Predefined folders could not be resolved, so the project's dashboards
     and reports are skipped rather than filed under raw folder names."""
@@ -242,10 +247,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._model_document_value: Optional[Dict[str, object]] = None
         self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
         self._personal_folder_cache: Dict[str, PersonalFolderResolution] = {}
-        # A failed lookup is cached as None, so it is not fetched again.
-        self._report_object_cache: SpillCache[Optional[MicroStrategyObject]] = (
-            SpillCache(memory_entries)
+        # Only found objects are shared; each lookup keeps its own failed keys,
+        # because a dataset and a linked report fail and warn differently.
+        self._report_object_cache: SpillCache[MicroStrategyObject] = SpillCache(
+            memory_entries
         )
+        self._failed_dataset_object_keys: Set[str] = set()
+        self._failed_linked_report_keys: Set[str] = set()
         # A failed read is cached, so a shared report is not executed again.
         self._report_sql_cache: SpillCache[Optional[str]] = SpillCache(
             memory_entries, compress=True
@@ -461,7 +469,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 cache.close()
             self.client.close()
 
-    def _spill_caches(self) -> List[SpillCache]:
+    def _spill_caches(self) -> List[Closeable]:
         return [
             self._metric_model_cache,
             self._report_object_cache,
@@ -476,7 +484,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return
         self._report_caches_released = True
         self._report_sql_cache.reset(self.report, MicroStrategyCache.REPORT_SQL)
-        self._report_object_cache.reset(self.report, MicroStrategyCache.DATASET_OBJECT)
+        self._report_object_cache.reset(self.report, MicroStrategyCache.REPORT_OBJECT)
+        self._failed_dataset_object_keys.clear()
+        self._failed_linked_report_keys.clear()
         self._report_derived_metric_cache.reset(
             self.report, MicroStrategyCache.REPORT_DERIVED_METRIC
         )
@@ -1765,8 +1775,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         Reports and cubes share object type 3, so one lookup covers both. Any
         failure degrades to the pre-lookup behaviour (dataset parented under
         the dossier's folder, linking to the dossier) and is counted."""
-        return self._report_object_cache.get_or_load(
-            object_cache_key(project_id, dataset_id),
+        return self._report_object(
+            project_id,
+            dataset_id,
+            self._failed_dataset_object_keys,
             lambda: self._fetch_dataset_object(project_id, dataset_id),
         )
 
@@ -2097,10 +2109,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _remember_searched_report(
         self, project_id: str, report_object: MicroStrategyObject
     ) -> None:
-        # A search result carries what an object lookup returns, so it replaces a failed one.
-        cache_key = object_cache_key(project_id, report_object.id)
-        if self._report_object_cache.get(cache_key) is None:
-            self._report_object_cache.put(cache_key, report_object)
+        # A search result carries what an object lookup returns, so it also covers a failed one.
+        self._report_object_cache.put(
+            object_cache_key(project_id, report_object.id), report_object
+        )
 
     def _process_linked_reports(
         self,
@@ -3329,10 +3341,38 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _linked_report_object(
         self, project_id: str, report_id: str
     ) -> Optional[MicroStrategyObject]:
-        return self._report_object_cache.get_or_load(
-            object_cache_key(project_id, report_id),
+        return self._report_object(
+            project_id,
+            report_id,
+            self._failed_linked_report_keys,
             lambda: self._fetch_linked_report_object(project_id, report_id),
         )
+
+    def _report_object(
+        self,
+        project_id: str,
+        object_id: str,
+        failed_keys: Set[str],
+        fetch: Callable[[], Optional[MicroStrategyObject]],
+    ) -> Optional[MicroStrategyObject]:
+        cache_key = object_cache_key(project_id, object_id)
+        cached = self._report_object_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        if cache_key in failed_keys:
+            return None
+
+        def load() -> MicroStrategyObject:
+            report_object = fetch()
+            if report_object is None:
+                raise _ReportObjectUnavailable
+            return report_object
+
+        try:
+            return self._report_object_cache.get_or_load(cache_key, load)
+        except _ReportObjectUnavailable:
+            failed_keys.add(cache_key)
+            return None
 
     def _fetch_linked_report_object(
         self, project_id: str, report_id: str
