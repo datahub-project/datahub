@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Iterator, List
+from typing import Dict, Iterator, List, NoReturn
 from unittest import mock
 
 import pytest
@@ -19,16 +19,18 @@ from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.telemetry import (
     RunProgress,
     SqlglotWarningFilter,
-    dashboard_seconds_bucket,
-    endpoint_template,
     timed_generator_phase,
     timed_iter,
     timed_phase,
 )
+from datahub.ingestion.source.microstrategy.telemetry_helpers import (
+    dashboard_seconds_bucket,
+    endpoint_template,
+)
 from datahub.utilities.file_backed_collections import FileBackedDict
 
-_OBJECT_ID = "975C6B213B4DBCA9E59CAB80ABBA98FE"
-_INSTANCE_ID = "5EF5353155407668866F609421112F2D"
+_OBJECT_ID = "0123456789ABCDEF0123456789ABCDEF"
+_INSTANCE_ID = "FEDCBA9876543210FEDCBA9876543210"
 _CONTEXT = WarehouseLineageContext(
     platform="snowflake", env="PROD", database="SALES_DB", schema="SALES"
 )
@@ -52,13 +54,13 @@ class _FakeClock:
         return self.now
 
 
-def _config(**overrides: Any) -> MicroStrategyConfig:
+def _config(**overrides: object) -> MicroStrategyConfig:
     return MicroStrategyConfig.model_validate(
         {"base_url": "https://mstr.example.com/MicroStrategyLibrary", **overrides}
     )
 
 
-def _extractor(**overrides: Any) -> MicroStrategyLineageExtractor:
+def _extractor(**overrides: object) -> MicroStrategyLineageExtractor:
     return MicroStrategyLineageExtractor(_config(**overrides), MicroStrategyReport())
 
 
@@ -175,7 +177,7 @@ def test_timed_phase_rejects_generators() -> None:
     with pytest.raises(TypeError, match="timed_generator_phase"):
 
         @timed_phase(MicroStrategyPhase.DASHBOARD)
-        def generator(self: Any) -> Iterator[int]:
+        def generator(self: _Owner) -> Iterator[int]:
             yield 1
 
 
@@ -203,7 +205,7 @@ def test_client_records_every_attempt_and_retry_backoff(
     class _Response:
         def __init__(self, status_code: int) -> None:
             self.status_code = status_code
-            self.headers: dict = {}
+            self.headers: Dict[str, str] = {}
             self.content = b"{}"
 
         def raise_for_status(self) -> None:
@@ -317,7 +319,6 @@ def test_project_reset_drops_the_parse_cache_and_records_its_size() -> None:
 
 
 def test_project_reset_counts_a_spilled_cache_without_calling_len() -> None:
-    # Reset must not call FileBackedDict.__len__, which binds one SQL variable per key.
     extractor = _extractor(cache_memory_entries=2)
     for index in range(5):
         extractor.warehouse_lineage_from_sql(
@@ -336,9 +337,9 @@ def test_one_schema_resolver_is_shared_across_parses() -> None:
     extractor = _extractor()
     graph = mock.MagicMock()
     graph.get_entities.return_value = {}
-    resolvers: List[Any] = []
+    resolvers: List[object] = []
 
-    def fake_parse(**kwargs: Any) -> Any:
+    def fake_parse(**kwargs: object) -> NoReturn:
         resolvers.append(kwargs["schema_resolver"])
         raise RuntimeError("stop after capturing the resolver")
 
@@ -385,13 +386,13 @@ def test_run_progress_logs_each_dashboard_and_periodic_progress(
         report.report_api_call("GET", "/api/projects", 200, 4.0)
         report.datasets_scanned += 3
         with caplog.at_level(logging.INFO):
-            progress.dashboard_done("Adhoc_RMA", f"Doc {index}", f"id-{index}", before)
+            progress.dashboard_done("my_project", f"Doc {index}", f"id-{index}", before)
 
     assert report.dashboards_timed == 2
     assert report.dashboard_seconds_histogram == {"10-30s": 2}
     assert report.datasets_by_slow_dashboard == {
-        "Adhoc_RMA/Doc 0 (id-0)": 3,
-        "Adhoc_RMA/Doc 1 (id-1)": 3,
+        "my_project/Doc 0 (id-0)": 3,
+        "my_project/Doc 1 (id-1)": 3,
     }
     messages = [record.getMessage() for record in caplog.records]
     assert any(
@@ -420,6 +421,7 @@ def test_report_serializes_telemetry_rounded() -> None:
     assert serialized["api_call_seconds"] == 0.123
     assert serialized["api_seconds_by_phase"] == {"dashboard": 0.123}
     assert "_phase_stack" not in serialized
+    assert report.api_call_seconds == 0.123456789
 
 
 def test_enum_phase_and_cache_names_serialize_by_value() -> None:
@@ -436,7 +438,6 @@ def test_enum_phase_and_cache_names_serialize_by_value() -> None:
 
 
 def test_endpoint_template_replaces_dossier_chapter_and_visualization_keys() -> None:
-    # Visualization keys are not object ids and made one row per visualization.
     base = f"/api/v2/dossiers/{_OBJECT_ID}/instances/{_INSTANCE_ID}"
     expected = (
         "GET /api/v2/dossiers/{id}/instances/{id}/chapters/{key}/visualizations/{key}"
@@ -447,8 +448,8 @@ def test_endpoint_template_replaces_dossier_chapter_and_visualization_keys() -> 
     assert (
         endpoint_template(
             "GET",
-            f"{base}/chapters/W305FE5BF92C64F2CA6D26C8BE05DABA2/visualizations/"
-            "K83D395FF5640E145258BC2B1E1CA12FC",
+            f"{base}/chapters/W00112233445566778899AABBCCDDEEFF/visualizations/"
+            "KFFEEDDCCBBAA99887766554433221100",
         )
         == expected
     )

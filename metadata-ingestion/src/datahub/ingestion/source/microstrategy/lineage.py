@@ -54,13 +54,13 @@ from datahub.ingestion.source.microstrategy.models import (
     normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import SpillCache
 from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
     SchemaResolverReport,
 )
-from datahub.utilities.file_backed_collections import FileBackedDict
 
 logger = logging.getLogger(__name__)
 
@@ -139,14 +139,6 @@ class _TimedSchemaResolver(SchemaResolver):
             self._timing_report.report_schema_resolution(time.perf_counter() - started)
 
 
-def new_spill_cache(memory_entries: int, compress: bool = False) -> FileBackedDict:
-    return FileBackedDict(
-        cache_max_size=memory_entries,
-        cache_eviction_batch_size=max(1, min(150, memory_entries // 4)),
-        should_compress_value=compress,
-    )
-
-
 @dataclass(frozen=True)
 class ColumnSetBinding:
     """Per-column-group dataset attribution for a compound-grid visualization.
@@ -210,21 +202,16 @@ class MicroStrategyLineageExtractor:
         # fetched at most once per run.
         self._warehouse_field_cache: Dict[str, Optional[Dict[str, str]]] = {}
         # Same report SQL is parsed once per project.
-        self._parse_cache: FileBackedDict[_ParsedSqlView] = new_spill_cache(
+        self._parse_cache: SpillCache[_ParsedSqlView] = SpillCache(
             config.cache_memory_entries
         )
-        # Counted on insert: FileBackedDict.__len__ binds one SQL variable per key.
-        self._parse_cache_entries = 0
         # One resolver per warehouse, so each table schema is fetched once per run.
         self._schema_resolvers: Dict[_WarehouseKey, _TimedSchemaResolver] = {}
 
     def reset_project_caches(self) -> None:
         self.report.report_cache_entries(
-            MicroStrategyCache.SQL_PARSE, self._parse_cache_entries
+            MicroStrategyCache.SQL_PARSE, self._parse_cache.reset()
         )
-        self._parse_cache.close()
-        self._parse_cache = new_spill_cache(self.config.cache_memory_entries)
-        self._parse_cache_entries = 0
 
     def close(self) -> None:
         self._parse_cache.close()
@@ -433,8 +420,7 @@ class MicroStrategyLineageExtractor:
                 self.report.report_sql_parse_cache_hit(failed=cached.failed)
             return cached
         parsed = self._parse_sql_view(sql, context, want_field_columns, graph, label)
-        self._parse_cache[cache_key] = parsed
-        self._parse_cache_entries += 1
+        self._parse_cache.put(cache_key, parsed)
         return parsed
 
     def _parse_sql_view(
@@ -745,8 +731,16 @@ class MicroStrategyLineageExtractor:
         return unique_inputs
 
 
+_PARSE_LABEL_PREFIX = "sql "
+_PARSE_LABEL_HASH_CHARS = 12
+
+
 def _parse_label(label: Optional[str], sql: str, statements: int) -> str:
-    name = label or "sql " + hashlib.sha256(sql.encode("utf-8")).hexdigest()[:12]
+    name = (
+        label
+        or _PARSE_LABEL_PREFIX
+        + (hashlib.sha256(sql.encode("utf-8")).hexdigest()[:_PARSE_LABEL_HASH_CHARS])
+    )
     return f"{name} ({statements} statements, {len(sql)} chars)"
 
 

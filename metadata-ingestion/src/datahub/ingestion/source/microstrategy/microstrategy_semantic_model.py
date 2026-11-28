@@ -27,7 +27,10 @@ from datahub.ingestion.source.microstrategy.lineage import (
 )
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-from datahub.ingestion.source.microstrategy.telemetry import peak_rss_mb
+from datahub.ingestion.source.microstrategy.telemetry_helpers import (
+    IntervalGate,
+    peak_rss_mb,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -65,8 +68,6 @@ _INVERT_CARDINALITY: Dict[str, str] = {
 
 _SEMANTIC_MODEL_ID = "schema"
 
-_METRIC_PROGRESS_EVERY = 1000
-
 logger = logging.getLogger(__name__)
 
 
@@ -76,35 +77,32 @@ class _MetricProgress:
         *,
         project_id: str,
         total: int,
+        every_metrics: int,
         every_seconds: float,
         report: MicroStrategyReport,
     ) -> None:
         self._project_id = project_id
         self._total = total
-        self._every_seconds = every_seconds
+        self._gate = IntervalGate(every_metrics, every_seconds)
         self._report = report
         self._started = time.perf_counter()
-        self._last_logged = self._started
         self.done = 0
         self.failed = 0
 
     def step(self) -> None:
-        if self.done and (
-            self.done % _METRIC_PROGRESS_EVERY == 0
-            or time.perf_counter() - self._last_logged >= self._every_seconds
-        ):
+        if self.done and self._gate.due(self.done):
             self.log()
         self.done += 1
 
     def log(self) -> None:
-        self._last_logged = time.perf_counter()
+        self._gate.mark(self.done)
         self._report.peak_rss_mb = peak_rss_mb()
         logger.info(
             "Semantic model metrics: %d/%d in %.0fs, %d failed; peak RSS %s MB "
             "(project=%s)",
             self.done,
             self._total,
-            self._last_logged - self._started,
+            time.perf_counter() - self._started,
             self.failed,
             self._report.peak_rss_mb,
             self._project_id,
@@ -207,7 +205,6 @@ class MicroStrategySemanticModelMapper:
         yield from model.as_workunits()
         for dataset in datasets:
             yield from dataset.as_workunits()
-        # Holding every metric until the last one doubled peak memory.
         metrics_emitted = 0
         for metric in self._metrics(
             project_id=project_id,
@@ -642,6 +639,7 @@ class MicroStrategySemanticModelMapper:
         progress = _MetricProgress(
             project_id=project_id,
             total=len(metric_objects),
+            every_metrics=self.config.progress_log_interval_metrics,
             every_seconds=self.config.progress_log_interval_seconds,
             report=self.report,
         )

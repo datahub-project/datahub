@@ -66,12 +66,6 @@ _METRIC_MODEL_RETRYABLE_STATUS_CODES = _RETRYABLE_STATUS_CODES - {500}
 # stall ingestion for minutes per request.
 _MAX_RETRY_DELAY_SECONDS = 60
 
-# A busy Modeling service has missed four 30s timeouts, and model work hangs on this call.
-_MODEL_TABLES_MIN_TIMEOUT_SECONDS = 120
-
-# A large metric search has missed every 30s attempt, and losing it drops every metric.
-_METRIC_SEARCH_MIN_TIMEOUT_SECONDS = 120
-
 
 class MicroStrategyAPIError(RuntimeError):
     """An API call failed. `status_code` and `url` are set when the failure
@@ -287,7 +281,7 @@ class MicroStrategyClient:
             project_id,
             MSTR_OBJECT_TYPE_METRIC,
             "metric search",
-            timeout_seconds=self._timeout_at_least(_METRIC_SEARCH_MIN_TIMEOUT_SECONDS),
+            timeout_seconds=self.config.model_api_timeout_seconds,
         )
 
     def get_report_object(
@@ -467,7 +461,7 @@ class MicroStrategyClient:
             "/api/model/tables",
             project_id=project_id,
             params=params,
-            timeout_seconds=self._timeout_at_least(_MODEL_TABLES_MIN_TIMEOUT_SECONDS),
+            timeout_seconds=self.config.model_api_timeout_seconds,
         )
         return ModelTablesResponse.model_validate(
             payload if isinstance(payload, dict) else {}
@@ -1096,9 +1090,6 @@ class MicroStrategyClient:
     def _sleep_before_retry(self, delay: float) -> None:
         self.report.report_api_retry(delay)
         time.sleep(delay)
-
-    def _timeout_at_least(self, floor_seconds: int) -> int:
-        return max(self.config.timeout_seconds, floor_seconds)
 
     @staticmethod
     def _retry_delay(response: requests.Response, attempt: int) -> float:
