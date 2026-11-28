@@ -70,7 +70,6 @@ from datahub.ingestion.source.microstrategy.lineage import (
     matching_datasource_for_context,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
-    new_spill_cache,
     sql_statement_from_sql_view_entry,
     sql_view_dataset_key,
     sql_view_dataset_name,
@@ -105,6 +104,7 @@ from datahub.ingestion.source.microstrategy.models import (
     normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.spill_cache import SpillCache
 from datahub.ingestion.source.microstrategy.telemetry import (
     RunProgress,
     SqlglotWarningFilter,
@@ -121,7 +121,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source_report.ingestion_stage import METADATA_EXTRACTION
-from datahub.utilities.file_backed_collections import FileBackedDict
 
 logger = logging.getLogger(__name__)
 
@@ -207,9 +206,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             Tuple[str, str], Optional[MicroStrategyObject]
         ] = {}
         # Report SQL is large and reused across documents; a failed read is not retried.
-        self._report_sql_cache = self._new_report_sql_cache()
-        # Counted on insert: FileBackedDict.__len__ binds one SQL variable per key.
-        self._report_sql_cache_entries = 0
+        self._report_sql_cache: SpillCache[Optional[str]] = SpillCache(
+            self.config.cache_memory_entries, compress=True
+        )
         # Released twice per project; both must count as one reset.
         self._project_caches_released = False
         # (project id, report id) -> derived metric definitions, or None once
@@ -359,7 +358,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return
         self._project_caches_released = True
         for cache, entries in {
-            MicroStrategyCache.REPORT_SQL: self._report_sql_cache_entries,
+            MicroStrategyCache.REPORT_SQL: self._report_sql_cache.reset(),
             MicroStrategyCache.DATASET_OBJECT: len(self._dataset_object_cache),
             MicroStrategyCache.REPORT_DERIVED_METRIC: len(
                 self._report_derived_metric_cache
@@ -368,22 +367,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             MicroStrategyCache.REPORT_OBJECT: len(self._report_objects),
         }.items():
             self.report.report_cache_entries(cache, entries)
-        self._report_sql_cache.close()
-        self._report_sql_cache = self._new_report_sql_cache()
-        self._report_sql_cache_entries = 0
         self._dataset_object_cache.clear()
         self._report_derived_metric_cache.clear()
         self._metric_model_cache.clear()
         self._report_objects.clear()
         self.lineage.reset_project_caches()
         self.report.cache_project_resets += 1
-
-    def _new_report_sql_cache(self) -> FileBackedDict[Optional[str]]:
-        return new_spill_cache(self.config.cache_memory_entries, compress=True)
-
-    def _remember_report_sql(self, cache_key: str, sql: Optional[str]) -> None:
-        self._report_sql_cache[cache_key] = sql
-        self._report_sql_cache_entries += 1
 
     def _emit_chapter_page_structured_property_definitions(
         self,
@@ -2092,7 +2081,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 # not, so a report shared by many documents is read once and
                 # its lineage attached to each; a remembered failure is not
                 # retried and not counted again.
-                sql_statement = self._report_sql_cache[cache_key]
+                sql_statement = self._report_sql_cache.get(cache_key)
                 self.report.report_document_dataset_sql_view_reused()
             else:
                 if self._execution_limit_reached(project_id):
@@ -2105,7 +2094,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         f"dataset_id={dataset.id}"
                     ),
                 )
-                self._remember_report_sql(cache_key, sql_statement)
+                self._report_sql_cache.put(cache_key, sql_statement)
                 if sql_statement is None:
                     self.report.report_document_dataset_sql_view_failure()
             if not sql_statement:
@@ -2208,7 +2197,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         cache_key = _report_sql_cache_key(project_id, report_object.id)
         if cache_key in self._report_sql_cache:
             # Already read this run as the dataset of a document.
-            sql_statement = self._report_sql_cache[cache_key]
+            sql_statement = self._report_sql_cache.get(cache_key)
         else:
             if self._execution_limit_reached(project_id):
                 return
@@ -2217,7 +2206,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 report_object.id,
                 context=f"project_id={project_id}, report_id={report_object.id}",
             )
-            self._remember_report_sql(cache_key, sql_statement)
+            self._report_sql_cache.put(cache_key, sql_statement)
         if not sql_statement:
             return
 
