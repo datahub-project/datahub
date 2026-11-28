@@ -583,6 +583,12 @@ class MicroStrategyCache(StrEnum):
     REPORT_OBJECT = "report_object"
 
 
+class MetricPresence(StrEnum):
+    PRESENT = "present"
+    ABSENT = "absent"
+    UNKNOWN = "unknown"
+
+
 # Isolated metric model 500s are expected; a long run of them means the
 # Modeling service is down and every further call would fail too.
 MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT = 20

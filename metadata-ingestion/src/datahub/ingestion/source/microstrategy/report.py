@@ -196,6 +196,8 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     report_datasets_emitted: int = 0
     failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)
     metrics_kept_after_model_failure: int = 0
+    metrics_skipped_after_model_failure: int = 0
+    metric_presence_check_failures: int = 0
     semantic_models_emitted: int = 0
     semantic_model_datasets_emitted: int = 0
     semantic_model_metrics_emitted: int = 0
@@ -511,6 +513,12 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_metric_kept_after_model_failure(self) -> None:
         self.metrics_kept_after_model_failure += 1
+
+    def report_metric_skipped_after_model_failure(self) -> None:
+        self.metrics_skipped_after_model_failure += 1
+
+    def report_metric_presence_check_failure(self) -> None:
+        self.metric_presence_check_failures += 1
 
     def report_semantic_model_emitted(self) -> None:
         self.semantic_models_emitted += 1

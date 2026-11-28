@@ -721,6 +721,7 @@ def test_metric_model_fetch_failure_keeps_the_metric_without_failing_the_run() -
 
     client.get_metric_model = _raise  # type: ignore[method-assign]
     mapper = _mapper(client)
+    mapper.graph = _graph_with_exists(False)
     model_tables = [_table("SALES", attributes=[], facts=[_fact("FACT1", "Revenue")])]
 
     aspects = _aspects_by_urn(
@@ -760,23 +761,101 @@ def _emit_metrics(mapper: MicroStrategySemanticModelMapper) -> List[MetadataWork
     )
 
 
-def test_metric_model_fetch_failure_keeps_an_existing_metric_untouched() -> None:
-    client = FakeSemanticModelClient(
-        metrics=[_metric_object("BROKEN", "Broken Metric")], metric_models_fail=True
+_BROKEN_METRIC_URN = (
+    "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,BROKEN)"
+)
+
+
+def _failing_metric_mapper(
+    *, graph: Optional[mock.Mock], metric_count: int = 1
+) -> MicroStrategySemanticModelMapper:
+    metrics = (
+        [_metric_object("BROKEN", "Broken Metric")]
+        if metric_count == 1
+        else [
+            _metric_object(f"M{index}", f"Metric {index}")
+            for index in range(metric_count)
+        ]
     )
-    mapper = _mapper(client)
-    graph = mock.Mock()
-    graph.exists.return_value = True
+    mapper = _mapper(FakeSemanticModelClient(metrics=metrics, metric_models_fail=True))
     mapper.graph = graph
+    return mapper
+
+
+def _graph_with_exists(result: bool) -> mock.Mock:
+    graph = mock.Mock()
+    graph.exists.return_value = result
+    return graph
+
+
+def test_metric_model_fetch_failure_keeps_an_existing_metric_untouched() -> None:
+    graph = _graph_with_exists(True)
+    mapper = _failing_metric_mapper(graph=graph)
 
     aspects = _aspects_by_urn(_emit_metrics(mapper))
 
-    metric_urn = "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,BROKEN)"
-    graph.exists.assert_called_once_with(metric_urn)
-    assert list(aspects[metric_urn]) == ["StatusClass"]
+    graph.exists.assert_called_once_with(_BROKEN_METRIC_URN)
+    assert list(aspects[_BROKEN_METRIC_URN]) == ["StatusClass"]
     assert mapper.report.metrics_kept_after_model_failure == 1
     assert mapper.report.semantic_model_metrics_emitted == 0
     assert not mapper.report.failures
+
+
+def test_metric_model_fetch_failure_emits_shell_for_an_absent_metric() -> None:
+    mapper = _failing_metric_mapper(graph=_graph_with_exists(False))
+
+    aspects = _aspects_by_urn(_emit_metrics(mapper))
+
+    assert "MetricInfoClass" in aspects[_BROKEN_METRIC_URN]
+    assert mapper.report.metrics_kept_after_model_failure == 0
+    assert not mapper.report.failures
+
+
+def test_metric_model_fetch_failure_without_graph_emits_nothing_for_the_metric() -> (
+    None
+):
+    mapper = _failing_metric_mapper(graph=None)
+
+    aspects = _aspects_by_urn(_emit_metrics(mapper))
+
+    assert _BROKEN_METRIC_URN not in aspects
+    assert mapper.report.metrics_skipped_after_model_failure == 1
+    assert not mapper.report.failures
+    assert [w.title for w in mapper.report.warnings] == [
+        "MicroStrategy Metric Model Unavailable"
+    ]
+    assert "metric_id=BROKEN" in str(mapper.report.warnings[0].context)
+
+
+def test_metric_presence_check_failure_emits_nothing_and_fails_the_run_once() -> None:
+    graph = mock.Mock()
+    graph.exists.side_effect = RuntimeError("graph down")
+    mapper = _failing_metric_mapper(graph=graph, metric_count=3)
+
+    aspects = _aspects_by_urn(_emit_metrics(mapper))
+
+    assert not [urn for urn in aspects if urn.startswith("urn:li:metric:")]
+    assert mapper.report.metrics_skipped_after_model_failure == 3
+    assert mapper.report.metric_presence_check_failures == 3
+    assert [failure.title for failure in mapper.report.failures] == [
+        "Failed to check MicroStrategy metrics in DataHub"
+    ]
+
+
+def test_metric_presence_check_failures_count_toward_the_consecutive_limit() -> None:
+    graph = mock.Mock()
+    graph.exists.side_effect = RuntimeError("graph down")
+    mapper = _failing_metric_mapper(
+        graph=graph, metric_count=MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT + 5
+    )
+
+    _emit_metrics(mapper)
+
+    assert graph.exists.call_count == MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+    assert {failure.title for failure in mapper.report.failures} == {
+        "Failed to check MicroStrategy metrics in DataHub",
+        "MicroStrategy Metric Models Unavailable",
+    }
 
 
 def test_consecutive_metric_model_failures_stop_the_loop_and_fail_the_run() -> None:
