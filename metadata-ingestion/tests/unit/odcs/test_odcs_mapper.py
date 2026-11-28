@@ -3006,3 +3006,20 @@ def test_latency_slas_sharing_an_id_on_different_tables_are_not_duplicates() -> 
     )
     assert _tables_with_assertion(contract) == ["orders", "customers"]
     assert duplicate_latency_slas(contract) == []
+
+
+@pytest.mark.parametrize(
+    "element,tables",
+    [
+        ("sales.orders.updated_at", ["orders"]),
+        ("sales.orders", ["orders"]),
+        ("sales.id", ["customers"]),
+    ],
+)
+def test_sla_element_matches_only_the_longest_dotted_table_name(
+    element: str, tables: List[str]
+) -> None:
+    contract = _sla_contract(_latency(element=element))
+    _schema_named(contract, "orders").physicalName = "sales.orders"
+    _schema_named(contract, "customers").physicalName = "sales"
+    assert _tables_with_assertion(contract) == tables
