@@ -103,7 +103,7 @@ class ReportDatasetPlan(BaseModel):
             for dashboard_id, previous in self.previous_dashboards.items()
             if dashboard_id in candidates
             and report_id
-            in {normalize_object_id(dep) for dep in previous.dependency_report_ids}
+            in {normalize_object_id(dep) for dep in previous.dependency_ids}
         }
         previous_report = self.previous_reports.get(report_id)
         if previous_report is not None:
@@ -350,7 +350,7 @@ class MicroStrategyChangeDetector:
                 project_id,
                 mstr_object,
                 folder_path,
-                previous.dependency_report_ids,
+                previous.dependency_ids,
                 lookup,
             )
             # Checkpoints are committed even when the sink failed.

@@ -1730,7 +1730,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             dependency_ids = _unique_object_ids(
                 [dataset.id for dataset in dashboard.datasets] + report_dependency_ids
             )
-            checkpoint.dependency_report_ids = dependency_ids
+            checkpoint.dependency_ids = dependency_ids
             checkpoint.linked_report_ids = sorted(
                 {report_id.upper() for report_id in report_dependency_ids}
             )
@@ -2278,7 +2278,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 if report_definition and report_definition.source_id
                 else []
             )
-            checkpoint.dependency_report_ids = dependency_ids
+            checkpoint.dependency_ids = dependency_ids
             checkpoint.usage_targets = [
                 RecordedUsageTarget(
                     object_id=report_object.id,

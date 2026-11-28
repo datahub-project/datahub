@@ -33,7 +33,7 @@ class ObjectCheckpoint(BaseModel):
     fingerprint: Optional[str] = None
     urns: List[str] = Field(default_factory=list)
     # Reports and cubes the object reads, re-checked for changes on every run.
-    dependency_report_ids: List[str] = Field(default_factory=list)
+    dependency_ids: List[str] = Field(default_factory=list)
     # Report ids a dashboard adds to the dashboard-linked report scope.
     linked_report_ids: List[str] = Field(default_factory=list)
     usage_targets: List[RecordedUsageTarget] = Field(default_factory=list)
