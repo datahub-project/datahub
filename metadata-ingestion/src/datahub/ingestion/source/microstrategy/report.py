@@ -148,7 +148,6 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     document_dataset_sql_view_failures: int = 0
     document_datasets_skipped_not_grid_report: int = 0
     reports_skipped_not_dashboard_linked: int = 0
-    # per_report: extra sightings of a report already counted, and datasets emitted.
     reports_deduplicated: int = 0
     report_datasets_emitted: int = 0
     failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)

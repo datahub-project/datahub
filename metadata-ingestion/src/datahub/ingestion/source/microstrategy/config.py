@@ -599,10 +599,14 @@ class MicroStrategyConfig(
 
     @model_validator(mode="after")
     def _per_report_requires_a_dataset_source(self) -> "MicroStrategyConfig":
-        if self.per_report and not (self.extract_cubes or self.extract_reports):
+        has_dataset_source = (
+            self.extract_dashboards and self.extract_cubes
+        ) or self.extract_reports
+        if self.per_report and not has_dataset_source:
             raise ValueError(
-                "dataset_identity: per_report requires extract_cubes or "
-                "extract_reports: without either no dataset is emitted."
+                "dataset_identity: per_report requires extract_reports, or both "
+                "extract_dashboards and extract_cubes: without them no dataset "
+                "is emitted."
             )
         return self
 

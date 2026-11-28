@@ -37,7 +37,13 @@ Set `extract_report_sql_lineage: true` only when you also want optional coarse r
 
 #### Dataset Identity
 
-By default (`dataset_identity: per_dashboard`) a dataset is keyed by the dossier or document that embeds it, so a report used by several dashboards appears once per dashboard. Set `dataset_identity: per_report` to get one dataset per report per project, keyed `<project>.<report>`, which every visualization that uses the report links to. Independent reports under `per_report` need both `extract_reports` and `extract_independent_reports`. Switching changes every dataset URN, so raise `stateful_ingestion.fail_safe_threshold` for the run that switches. The design note is `dataset_identity.md` in the connector's source directory.
+By default (`dataset_identity: per_dashboard`) a dataset is keyed by the dossier or document that embeds it, so a report used by several dashboards appears once per dashboard. Set `dataset_identity: per_report` to get one dataset per report per project, keyed `<project>.<report>`, which every visualization that uses the report links to. Independent reports under `per_report` need both `extract_reports` and `extract_independent_reports`. Under `per_report`:
+
+- With `extract_reports`, no `Report` chart or report-scoped source dataset is emitted. The report's owner (with `ingest_owner`) is set on the report dataset, and the report's usage is emitted as `DatasetUsageStatistics` on that dataset instead of `ChartUsageStatistics` (`totalSqlQueries` is not set).
+- A report dataset that fails to emit is skipped and reported as a failure, which also skips stale-entity removal for that run.
+- A dashboard's dependency on a report that its datasets do not include is not linked.
+
+Switching changes every dataset URN, so raise `stateful_ingestion.fail_safe_threshold` for the run that switches. The design note is [`dataset_identity.md`](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/microstrategy/dataset_identity.md).
 
 #### Source Warehouses
 

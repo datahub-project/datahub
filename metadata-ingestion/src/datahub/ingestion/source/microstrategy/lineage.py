@@ -315,30 +315,39 @@ class MicroStrategyLineageExtractor:
     def dataset_urn(
         self,
         project_id: str,
-        parent_id: Optional[str],
+        parent_id: str,
         dataset: DatasetObject,
     ) -> str:
-        return make_dataset_urn_with_platform_instance(
-            platform=self.config.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            name=self.dataset_qualified_name(project_id, parent_id, dataset),
+        return self._make_dataset_urn(
+            self.dataset_qualified_name(project_id, parent_id, dataset)
+        )
+
+    def report_dataset_urn(self, project_id: str, dataset: DatasetObject) -> str:
+        return self._make_dataset_urn(
+            self.report_dataset_qualified_name(project_id, dataset)
         )
 
     def dataset_qualified_name(
         self,
         project_id: str,
-        parent_id: Optional[str],
+        parent_id: str,
         dataset: DatasetObject,
     ) -> str:
         if self.config.per_report:
-            return f"{project_id}.{dataset.id}".lower()
-        if parent_id is None:
-            # Would otherwise build `<project>.none.<dataset>`, a URN nothing links to.
-            raise ValueError(
-                f"A per_dashboard dataset URN needs a parent id: dataset {dataset.id}"
-            )
+            return self.report_dataset_qualified_name(project_id, dataset)
         return f"{project_id}.{parent_id}.{dataset.id}".lower()
+
+    @staticmethod
+    def report_dataset_qualified_name(project_id: str, dataset: DatasetObject) -> str:
+        return f"{project_id}.{dataset.id}".lower()
+
+    def _make_dataset_urn(self, name: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.config.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            name=name,
+        )
 
     def visualization_inputs(
         self,
