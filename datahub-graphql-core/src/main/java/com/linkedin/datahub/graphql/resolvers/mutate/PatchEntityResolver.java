@@ -14,9 +14,9 @@ import com.linkedin.datahub.graphql.generated.PatchEntityResult;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.PatchResolverUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -77,16 +77,17 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
     // Apply the patch
     try {
       Urn actor = UrnUtils.getUrn(authentication.getActor().toUrnStr());
-      IngestResult result =
-          entityService.ingestProposal(
+      final List<IngestResult> results =
+          EntityUtils.ingestChangeProposals(
               context.getOperationContext(),
-              mcps.get(0),
-              AuditStampUtils.createAuditStamp(actor.toString()),
+              mcps,
+              entityService,
+              actor,
               false); // synchronous for GraphQL
 
-      if (result == null) {
+      if (results.isEmpty()) {
         return new PatchEntityResult(
-            input.getUrn(), null, false, "Failed to apply patch: ingestProposal returned null");
+            input.getUrn(), null, false, "Failed to apply patch: nothing was written");
       }
 
       // Extract entity name from the patch operations

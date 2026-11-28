@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import static com.linkedin.datahub.graphql.TestUtils.verifyNoIngestProposal;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
@@ -12,19 +14,21 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PatchEntityInput;
 import com.linkedin.datahub.graphql.generated.PatchEntityResult;
 import com.linkedin.datahub.graphql.generated.PatchOperationInput;
 import com.linkedin.datahub.graphql.generated.PatchOperationType;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -36,7 +40,6 @@ public class PatchEntityResolverTest {
   private EntityService _entityService;
   private EntityClient _entityClient;
   private EntityRegistry _entityRegistry;
-  private ObjectMapper _objectMapper;
   private PatchEntityResolver _resolver;
   private DataFetchingEnvironment _environment;
   private QueryContext _context;
@@ -48,19 +51,22 @@ public class PatchEntityResolverTest {
     _entityService = mock(EntityService.class);
     _entityClient = mock(EntityClient.class);
     _entityRegistry = mock(EntityRegistry.class);
-    _objectMapper = new ObjectMapper();
     _resolver = new PatchEntityResolver(_entityService, _entityClient, _entityRegistry);
 
     _environment = mock(DataFetchingEnvironment.class);
     _context = mock(QueryContext.class);
     _authentication = mock(Authentication.class);
-    _operationContext = mock(OperationContext.class);
+    when(_authentication.getActor()).thenReturn(new Actor(ActorType.USER, "test-user"));
+    // A real context, so the proposal is built and validated against the entity registry as in
+    // production. Authorization is stubbed per test.
+    _operationContext =
+        spy(
+            TestOperationContexts.userContextNoSearchAuthorization(
+                mock(Authorizer.class), _authentication));
 
     when(_environment.getContext()).thenReturn(_context);
     when(_context.getAuthentication()).thenReturn(_authentication);
     when(_context.getOperationContext()).thenReturn(_operationContext);
-    when(_operationContext.getObjectMapper()).thenReturn(_objectMapper);
-    when(_authentication.getActor()).thenReturn(new Actor(ActorType.USER, "test-user"));
     // Existing tests authorize an update of an entity that is already there.
     when(_entityService.exists(any(), any(com.linkedin.common.urn.Urn.class), eq(true)))
         .thenReturn(true);
@@ -78,7 +84,8 @@ public class PatchEntityResolverTest {
     when(_environment.getArgument("input")).thenReturn(input);
 
     IngestResult mockResult = mock(IngestResult.class);
-    when(_entityService.ingestProposal(any(), any(), any(), eq(false))).thenReturn(mockResult);
+    when(_entityService.ingestProposal(any(), any(AspectsBatch.class), eq(false)))
+        .thenReturn(List.of(mockResult));
 
     // Mock entity registry
     com.linkedin.metadata.models.EntitySpec mockEntitySpec =
@@ -90,7 +97,7 @@ public class PatchEntityResolverTest {
     // Mock authorization result
     AuthorizationResult mockAuthResult = mock(AuthorizationResult.class);
     when(mockAuthResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(_operationContext.authorize(any(), any(), any())).thenReturn(mockAuthResult);
+    doReturn(mockAuthResult).when(_operationContext).authorize(any(), any(), any());
 
     // Act
     CompletableFuture<PatchEntityResult> future = _resolver.get(_environment);
@@ -115,6 +122,7 @@ public class PatchEntityResolverTest {
     assertNull(result.getError());
   }
 
+  /** The entity service wrote nothing for an accepted proposal. */
   @Test
   public void testPatchEntityFailure() throws Exception {
     // Arrange
@@ -126,7 +134,8 @@ public class PatchEntityResolverTest {
 
     when(_environment.getArgument("input")).thenReturn(input);
 
-    when(_entityService.ingestProposal(any(), any(), any(), eq(false))).thenReturn(null);
+    when(_entityService.ingestProposal(any(), any(AspectsBatch.class), eq(false)))
+        .thenReturn(List.of());
 
     // Mock entity registry
     com.linkedin.metadata.models.EntitySpec mockEntitySpec =
@@ -138,7 +147,7 @@ public class PatchEntityResolverTest {
     // Mock authorization result
     AuthorizationResult mockAuthResult = mock(AuthorizationResult.class);
     when(mockAuthResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(_operationContext.authorize(any(), any(), any())).thenReturn(mockAuthResult);
+    doReturn(mockAuthResult).when(_operationContext).authorize(any(), any(), any());
 
     // Act
     CompletableFuture<PatchEntityResult> future = _resolver.get(_environment);
@@ -149,6 +158,29 @@ public class PatchEntityResolverTest {
     assertEquals(result.getUrn(), "urn:li:glossaryTerm:test-term");
     assertFalse(result.getSuccess());
     assertNotNull(result.getError());
+  }
+
+  /** A proposal GMS cannot accept is reported as a failure with its reason, and not written. */
+  @Test
+  public void testPatchEntityFailsWhenProposalRejected() throws Exception {
+    // A urn whose parts do not match the glossary term key cannot be written.
+    PatchEntityInput input = new PatchEntityInput();
+    input.setUrn("urn:li:glossaryTerm:(test-term,extra)");
+    input.setAspectName("glossaryTermInfo");
+    input.setPatch(
+        List.of(createPatchOperation(PatchOperationType.REPLACE, "/name", "\"Updated Name\"")));
+    when(_environment.getArgument("input")).thenReturn(input);
+    setupRegistryMock("glossaryTerm", "glossaryTermInfo");
+    allowAll();
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertFalse(result.getSuccess());
+    assertNotNull(result.getError());
+    assertTrue(
+        result.getError().contains("urn:li:glossaryTerm:(test-term,extra)"),
+        "error=" + result.getError());
+    verifyNoIngestProposal(_entityService);
   }
 
   /**
@@ -171,7 +203,7 @@ public class PatchEntityResolverTest {
     assertFalse(result.getSuccess());
     assertNotNull(result.getError());
     assertTrue(result.getError().contains("unauthorized"));
-    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+    verifyNoIngestProposal(_entityService);
   }
 
   @Test
@@ -187,7 +219,7 @@ public class PatchEntityResolverTest {
     PatchEntityResult result = _resolver.get(_environment).get();
 
     assertFalse(result.getSuccess());
-    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+    verifyNoIngestProposal(_entityService);
   }
 
   /** The type's own management privilege is enough, matching the dedicated policy mutations. */
@@ -197,8 +229,8 @@ public class PatchEntityResolverTest {
     when(_environment.getArgument("input")).thenReturn(input);
     setupRegistryMock("dataHubPolicy", "dataHubPolicyInfo");
     grantOnly(Set.of("MANAGE_POLICIES"));
-    when(_entityService.ingestProposal(any(), any(), any(), eq(false)))
-        .thenReturn(mock(IngestResult.class));
+    when(_entityService.ingestProposal(any(), any(AspectsBatch.class), eq(false)))
+        .thenReturn(List.of(mock(IngestResult.class)));
 
     PatchEntityResult result = _resolver.get(_environment).get();
 
@@ -212,8 +244,8 @@ public class PatchEntityResolverTest {
     when(_environment.getArgument("input")).thenReturn(input);
     setupRegistryMock("dataHubPolicy", "dataHubPolicyInfo");
     grantOnly(Set.of("EDIT_ENTITY"));
-    when(_entityService.ingestProposal(any(), any(), any(), eq(false)))
-        .thenReturn(mock(IngestResult.class));
+    when(_entityService.ingestProposal(any(), any(AspectsBatch.class), eq(false)))
+        .thenReturn(List.of(mock(IngestResult.class)));
 
     PatchEntityResult result = _resolver.get(_environment).get();
 
@@ -232,8 +264,8 @@ public class PatchEntityResolverTest {
     when(_entityService.exists(any(), any(com.linkedin.common.urn.Urn.class), eq(true)))
         .thenReturn(false);
     grantOnly(Set.of("CREATE_ENTITY"));
-    when(_entityService.ingestProposal(any(), any(), any(), eq(false)))
-        .thenReturn(mock(IngestResult.class));
+    when(_entityService.ingestProposal(any(), any(AspectsBatch.class), eq(false)))
+        .thenReturn(List.of(mock(IngestResult.class)));
 
     PatchEntityResult result = _resolver.get(_environment).get();
 
@@ -256,7 +288,7 @@ public class PatchEntityResolverTest {
     PatchEntityResult result = _resolver.get(_environment).get();
 
     assertFalse(result.getSuccess());
-    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+    verifyNoIngestProposal(_entityService);
   }
 
   /**
@@ -278,7 +310,7 @@ public class PatchEntityResolverTest {
     PatchEntityResult result = _resolver.get(_environment).get();
 
     assertFalse(result.getSuccess());
-    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+    verifyNoIngestProposal(_entityService);
   }
 
   /**
@@ -300,7 +332,7 @@ public class PatchEntityResolverTest {
     PatchEntityResult result = _resolver.get(_environment).get();
 
     assertFalse(result.getSuccess());
-    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+    verifyNoIngestProposal(_entityService);
   }
 
   @Test
@@ -315,8 +347,8 @@ public class PatchEntityResolverTest {
     when(_entityService.exists(any(), any(com.linkedin.common.urn.Urn.class), eq(true)))
         .thenReturn(true);
     grantOnly(Set.of("UPDATE_USERS_AND_GROUPS"));
-    when(_entityService.ingestProposal(any(), any(), any(), eq(false)))
-        .thenReturn(mock(IngestResult.class));
+    when(_entityService.ingestProposal(any(), any(AspectsBatch.class), eq(false)))
+        .thenReturn(List.of(mock(IngestResult.class)));
 
     PatchEntityResult result = _resolver.get(_environment).get();
 
@@ -333,7 +365,7 @@ public class PatchEntityResolverTest {
     PatchEntityResult result = _resolver.get(_environment).get();
 
     assertFalse(result.getSuccess());
-    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+    verifyNoIngestProposal(_entityService);
   }
 
   private PatchEntityInput createPolicyInput() {
@@ -354,8 +386,7 @@ public class PatchEntityResolverTest {
 
   /** Answers ALLOW only for the named privileges, DENY for everything else. */
   private void grantOnly(Set<String> privileges) {
-    when(_operationContext.authorize(any(), any(), any()))
-        .thenAnswer(
+    doAnswer(
             invocation -> {
               Object privilege = invocation.getArgument(0);
               return new AuthorizationResult(
@@ -364,13 +395,15 @@ public class PatchEntityResolverTest {
                       ? AuthorizationResult.Type.ALLOW
                       : AuthorizationResult.Type.DENY,
                   "");
-            });
+            })
+        .when(_operationContext)
+        .authorize(any(), any(), any());
   }
 
   private void allowAll() {
     AuthorizationResult allow = mock(AuthorizationResult.class);
     when(allow.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(_operationContext.authorize(any(), any(), any())).thenReturn(allow);
+    doReturn(allow).when(_operationContext).authorize(any(), any(), any());
   }
 
   private PatchOperationInput createPatchOperation(

@@ -45,6 +45,9 @@ public class UpdateNameResolverTest {
   private static final UpdateNameInput INPUT_FOR_DOMAIN = new UpdateNameInput(NEW_NAME, DOMAIN_URN);
   private static final UpdateNameInput INPUT_FOR_DATA_PRODUCT =
       new UpdateNameInput(NEW_NAME, DATA_PRODUCT_URN);
+  // Required on glossary records, so every stored term or node has them.
+  private static final String DEFINITION = "test definition";
+  private static final String TERM_SOURCE = "INTERNAL";
   private static final CorpuserUrn TEST_ACTOR_URN = new CorpuserUrn("test");
 
   private MetadataChangeProposal setupTests(
@@ -61,10 +64,16 @@ public class UpdateNameResolverTest {
                 eq(Urn.createFromString(TERM_URN)),
                 eq(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
                 eq(0L)))
-        .thenReturn(new GlossaryTermInfo().setName(name));
+        .thenReturn(
+            new GlossaryTermInfo()
+                .setName(name)
+                .setDefinition(DEFINITION)
+                .setTermSource(TERM_SOURCE));
 
     GlossaryTermInfo info = new GlossaryTermInfo();
+    info.setTermSource(TERM_SOURCE);
     info.setName(NEW_NAME);
+    info.setDefinition(DEFINITION);
     return MutationUtils.buildMetadataChangeProposalWithUrn(
         Urn.createFromString(TERM_URN), GLOSSARY_TERM_INFO_ASPECT_NAME, info);
   }
@@ -108,10 +117,11 @@ public class UpdateNameResolverTest {
                 eq(Urn.createFromString(NODE_URN)),
                 eq(GLOSSARY_NODE_INFO_ASPECT_NAME),
                 eq(0L)))
-        .thenReturn(new GlossaryNodeInfo().setName(name));
+        .thenReturn(new GlossaryNodeInfo().setName(name).setDefinition(DEFINITION));
 
     GlossaryNodeInfo info = new GlossaryNodeInfo();
     info.setName(NEW_NAME);
+    info.setDefinition(DEFINITION);
     final MetadataChangeProposal proposal =
         MutationUtils.buildMetadataChangeProposalWithUrn(
             Urn.createFromString(NODE_URN), GLOSSARY_NODE_INFO_ASPECT_NAME, info);

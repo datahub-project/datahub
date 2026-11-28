@@ -4,7 +4,6 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Embed;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -20,6 +19,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -61,12 +61,11 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
 
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithUrn(entityUrn, EMBED_ASPECT_NAME, embed);
-            _entityService.ingestProposal(
+            EntityUtils.ingestChangeProposals(
                 context.getOperationContext(),
-                proposal,
-                new AuditStamp()
-                    .setActor(UrnUtils.getUrn(context.getActorUrn()))
-                    .setTime(System.currentTimeMillis()),
+                List.of(proposal),
+                _entityService,
+                UrnUtils.getUrn(context.getActorUrn()),
                 false);
             return true;
           } catch (Exception e) {

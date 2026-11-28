@@ -10,7 +10,6 @@ import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Authentication;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
@@ -27,14 +26,12 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.DataProductService;
-import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
-import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 public class MoveDataProductResolverTest {
@@ -113,12 +110,7 @@ public class MoveDataProductResolverTest {
     MoveDataProductResolver resolver =
         new MoveDataProductResolver(mockService, mockClient, mockDataProductService);
     assertTrue(resolver.get(mockEnv).get());
-    Mockito.verify(mockService, Mockito.times(1))
-        .ingestProposal(
-            any(),
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(AuditStamp.class),
-            Mockito.eq(false));
+    verifySingleIngestProposal(mockService, 1);
   }
 
   @Test

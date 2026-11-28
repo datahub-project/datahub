@@ -1,14 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.group;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.verifySingleIngestProposal;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertTrue;
 
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
@@ -16,7 +15,6 @@ import com.linkedin.datahub.graphql.resolvers.mutate.UpdateNameResolver;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import org.testng.annotations.BeforeMethod;
@@ -64,8 +62,7 @@ public class UpdateGroupNameResolverTest {
 
     // Verify
     assertTrue(result.get());
-    verify(_entityService)
-        .ingestProposal(any(), any(MetadataChangeProposal.class), any(AuditStamp.class), eq(false));
+    verifySingleIngestProposal(_entityService, 1);
   }
 
   @Test
@@ -82,7 +79,6 @@ public class UpdateGroupNameResolverTest {
 
     // Verify
     assertTrue(result.get());
-    verify(_entityService)
-        .ingestProposal(any(), any(MetadataChangeProposal.class), any(AuditStamp.class), eq(false));
+    verifySingleIngestProposal(_entityService, 1);
   }
 }
