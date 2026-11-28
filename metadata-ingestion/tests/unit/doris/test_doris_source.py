@@ -798,6 +798,10 @@ class TestDorisSourceMethods:
         assert len(source.report.failures) == 2
         assert "Can't connect" in str(source.report.failures)
         assert source.report.tables_skipped_after_connection_loss == 2
+        assert source.report.objects_skipped_after_connection_loss == 2
+        # Later steps (views, procedures) skip the database without touching it.
+        assert not source.recover_lost_connection(inspector, context="db1")
+        assert inspector.bind.execute.call_count == 1
 
     def test_get_inspectors_exception_handling(self):
         config = DorisConfig(host_port="localhost:9030")

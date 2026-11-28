@@ -1,9 +1,19 @@
 import json
 import subprocess
+import time
+from pathlib import Path
+from typing import Iterable, List, Optional, Set, Union
 
 import pytest
 import time_machine
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine.reflection import Inspector
 
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.common.data_reader import DataReader
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, SqlWorkUnit
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
@@ -128,3 +138,119 @@ def test_postgres_test_connection(
     with open(tmp_path / "postgres_test_connection.json") as f:
         expected = json.load(f)
     assert expected == {"basic_connectivity": {"capable": True}}
+
+
+def _drop_ingestion_connections() -> None:
+    """Kill every other session on the test database, as a database restart or an
+    idle-session or firewall timeout would (Oracle reports the same as ORA-03113).
+
+    pg_terminate_backend only signals the backend, so wait until the sessions are
+    gone; otherwise the next query can still run before the drop lands.
+    """
+    engine = create_engine(
+        f"postgresql+psycopg2://postgres:example@localhost:{POSTGRES_PORT}/postgres",
+        isolation_level="AUTOCOMMIT",
+    )
+    others = (
+        "FROM pg_stat_activity "
+        "WHERE datname = 'postgrestest' AND pid <> pg_backend_pid()"
+    )
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(f"SELECT pg_terminate_backend(pid) {others}"))
+            deadline = time.monotonic() + 10
+            while conn.execute(text(f"SELECT count(*) {others}")).scalar():
+                assert time.monotonic() < deadline, "sessions were not terminated"
+                time.sleep(0.1)
+    finally:
+        engine.dispose()
+
+
+def _datasets_with_schema(output_file: Path) -> Set[str]:
+    return {
+        record["entityUrn"]
+        for record in json.loads(output_file.read_text())
+        if record.get("aspectName") == "schemaMetadata"
+    }
+
+
+@pytest.mark.integration
+def test_postgres_ingestion_survives_dropped_connection(
+    postgres_runner: object, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output_file = tmp_path / "postgres_mces.json"
+    original_process_table = SQLAlchemySource._process_table
+    tables_seen: List[str] = []
+    drop_errors: List[BaseException] = []
+
+    def process_table_dropping_connection(
+        self: SQLAlchemySource,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        tables_seen.append(dataset_name)
+        if len(tables_seen) == 2:
+            # Raised here, an error would be swallowed by loop_tables as a table
+            # warning and the test would fail later for the wrong reason.
+            try:
+                _drop_ingestion_connections()
+            except Exception as e:
+                drop_errors.append(e)
+        yield from original_process_table(
+            self, dataset_name, inspector, schema, table, sql_config, data_reader
+        )
+
+    monkeypatch.setattr(
+        SQLAlchemySource, "_process_table", process_table_dropping_connection
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "postgres-dropped-connection",
+            "source": {
+                "type": "postgres",
+                "config": {
+                    "host_port": f"localhost:{POSTGRES_PORT}",
+                    "database": "postgrestest",
+                    "username": "postgres",
+                    "password": "example",
+                    "include_views": True,
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": str(output_file)}},
+        }
+    )
+    pipeline.run()
+    report = pipeline.source.get_report()
+
+    assert not drop_errors, drop_errors
+    assert len(tables_seen) >= 3, "need at least one table after the drop"
+    dropped_table = tables_seen[1].split(".", 1)[-1]
+
+    # The drop is a failure against the table being read, so the run doesn't look
+    # complete and stale-entity removal doesn't delete that table.
+    assert [f.title for f in report.failures] == ["Database connection lost"]
+    assert [c.split(" ", 1)[0] for c in report.failures[0].context] == [tables_seen[1]]
+
+    # The table being read when the connection dropped is lost and reported...
+    assert any(
+        dropped_table in context
+        for warning in report.warnings
+        for context in warning.context
+    )
+    # ...but every table after it, and the view, are read over the re-opened
+    # connection. Before the fix each of them failed with PendingRollbackError.
+    ingested = _datasets_with_schema(output_file)
+    for table in tables_seen[2:]:
+        assert any(table in urn for urn in ingested), f"{table} was not ingested"
+    assert any("metadata_aspect_view" in urn for urn in ingested)
+    assert not [
+        context
+        for warning in report.warnings
+        for context in warning.context
+        if "PendingRollbackError" in context and dropped_table not in context
+    ]
