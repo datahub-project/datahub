@@ -2,10 +2,14 @@ import contextlib
 import logging
 import re
 from typing import (
+    TYPE_CHECKING,
     Any,
     Dict,
     Iterable,
+    List,
     Optional,
+    Type,
+    Union,
 )
 
 from datahub.emitter.mce_builder import (
@@ -77,6 +81,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk import Dataset
+
+if TYPE_CHECKING:
+    from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +179,18 @@ class SqlmeshSource(
 
     def get_report(self) -> SqlmeshSourceReport:
         return self.report
+
+    def get_excluded_workunit_processors(
+        self,
+    ) -> "List[Union[str, Type[WorkunitProcessor]]]":
+        from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+            AutoIncrementalLineageProcessor,
+        )
+
+        # As in dbt: SQLMesh is the only writer of lineage on its own datasets, so
+        # it is restated each run and dependencies removed from the project drop
+        # out. Edges onto warehouse tables are patched explicitly in siblings.py.
+        return [AutoIncrementalLineageProcessor]
 
     def _report_tobiko_local_state_fallback(self, reason: str) -> None:
         self.report.warning(
@@ -471,7 +490,11 @@ class SqlmeshSource(
         for fqn, model in sample:
             model_effective = self._effective_for_model(model)
             sqlmesh_urn = self._make_sqlmesh_urn(fqn, model_effective)
-            warehouse_urn = self._make_warehouse_urn(fqn, model_effective)
+            warehouse_urn = self._make_warehouse_urn(
+                fqn,
+                model_effective,
+                managed=self._get_kind_name(model) != MODEL_KIND_EXTERNAL,
+            )
             # Always show the gateway label so multi-gateway routing is
             # diagnosable. The default-gateway effective has gateway=None
             # because the top-level config field can be unset; fall back to
@@ -553,6 +576,14 @@ class SqlmeshSource(
             if key:
                 self._sqlmesh_urn_by_model_key[key] = sqlmesh_urn
 
+        is_external = kind_name == MODEL_KIND_EXTERNAL
+        # EMBEDDED models have no warehouse object to link to.
+        warehouse_urn = (
+            self._make_warehouse_urn(fqn, effective, managed=not is_external)
+            if not is_embedded and self._has_resolved_platform(effective)
+            else None
+        )
+
         # Combine table- and column-level lineage into a single UpstreamLineage
         # aspect to avoid emitting two competing writes for the same aspect.
         combined_upstreams: Optional[UpstreamLineageClass] = None
@@ -575,6 +606,11 @@ class SqlmeshSource(
                     upstreams=table_lineage.upstreams if table_lineage else [],
                     fineGrainedLineages=fine_grained if fine_grained else None,
                 )
+
+        if warehouse_urn is not None and is_external and self.config.include_lineage:
+            combined_upstreams = self._with_warehouse_upstream(
+                combined_upstreams, sqlmesh_urn, warehouse_urn, model, effective
+            )
 
         # Emit status FIRST so the MAE consumer can always hydrate the entity,
         # even if it processes this MCL before other aspects are committed.
@@ -624,11 +660,10 @@ class SqlmeshSource(
         if schema_key is not None:
             yield from add_dataset_to_container(schema_key, str(dataset.urn))
 
-        # EMBEDDED models have no warehouse object — skip sibling.
-        # All other kinds (including EXTERNAL) have a warehouse view to link to.
-        if not is_embedded:
-            warehouse_urn = self._make_warehouse_urn(fqn, effective)
-            yield from self._emit_siblings(sqlmesh_urn, warehouse_urn)
+        if warehouse_urn is not None:
+            yield from self._emit_warehouse_links(
+                sqlmesh_urn, warehouse_urn, model, effective, is_external
+            )
 
         # Audits are properties of the SQLMesh model definition, not of any
         # particular materialized output. In SQLMesh the "physical counterpart"
@@ -637,7 +672,7 @@ class SqlmeshSource(
         # dbt's model→table mapping. The SQLMesh URN is the only stable,
         # semantically meaningful target for the audit; siblings let users
         # navigate from the logical model to its current materialization.
-        yield from self._emit_assertions(model, sqlmesh_urn)
+        yield from self._emit_assertions(model, sqlmesh_urn, effective)
 
         # Freshness and volume monitoring is left to DataHub monitors the user
         # creates against these two timeseries aspects. We don't synthesise
