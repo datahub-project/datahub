@@ -139,15 +139,15 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
         .flatMap(
             scrollResult ->
                 scrollResult.getEntities().stream()
-                    // Skip hits of entity types unknown to this build (e.g. after a version
-                    // rollback); their properties cannot be patched here.
+                    // Skip hits whose entity type, or one nested in their key, is unknown to
+                    // this build (e.g. after a version rollback); their properties cannot be
+                    // patched here, and a patch for one would fail the whole cleanup.
                     .filter(
                         entity ->
                             !handling()
-                                .isUnknown(
+                                .referencesUnknownEntityType(
                                     retrieverContext.getAspectRetriever().getEntityRegistry(),
-                                    entity.getEntity().getEntityType(),
-                                    null))
+                                    entity.getEntity()))
                     .map(
                         entity -> {
                           GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();

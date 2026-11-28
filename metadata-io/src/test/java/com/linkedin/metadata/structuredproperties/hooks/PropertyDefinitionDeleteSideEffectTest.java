@@ -259,6 +259,39 @@ public class PropertyDefinitionDeleteSideEffectTest {
   }
 
   @Test
+  public void testDeletePropertyDefinitionSkipsHitsWhoseKeyNestsAnUnknownEntityType()
+      throws Exception {
+    // A schema field keyed on an entity only a newer build registered can't be patched here; its
+    // patch would fail the whole cleanup, leaving the property on the known carriers too.
+    Urn knownField = UrnUtils.getUrn("urn:li:schemaField:(" + TEST_DATASET_URN + ",col_known)");
+    Urn newerField =
+        UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:abc,col_newer)");
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition(TEST_PROPERTY_DEFINITION.data().copy())
+            .setEntityTypes(
+                new UrnArray(
+                    List.of(
+                        UrnUtils.getUrn("urn:li:entityType:datahub.dataset"),
+                        UrnUtils.getUrn("urn:li:entityType:datahub.schemaField"))));
+    ScrollResult scrollResult = new ScrollResult();
+    scrollResult.setPageSize(3);
+    scrollResult.setNumEntities(3);
+    scrollResult.setEntities(
+        new SearchEntityArray(
+            List.of(
+                new SearchEntity().setEntity(TEST_DATASET_URN),
+                new SearchEntity().setEntity(newerField),
+                new SearchEntity().setEntity(knownField))));
+    when(mockSearchRetriever.scroll(any(), eq(expectedFilter()), nullable(String.class), anyInt()))
+        .thenReturn(scrollResult);
+
+    List<MCPItem> result = runDefinitionDelete(definition);
+
+    assertEquals(
+        result.stream().map(MCPItem::getUrn).toList(), List.of(TEST_DATASET_URN, knownField));
+  }
+
+  @Test
   public void testDeletePropertyDefinitionWithOnlyUnknownEntityTypesDoesNotScroll()
       throws Exception {
     // An empty type list must not reach the scroll, where it would search every entity type.
