@@ -99,10 +99,7 @@ class MicroStrategyConfig(
         default=120,
         gt=0,
         description=(
-            "HTTP timeout in seconds for the project-wide metric search and the "
-            "model tables API (`/api/model/tables`). Both answer slowly on large "
-            "projects, and losing either one skips every semantic-model metric "
-            "or the semantic model itself for that project."
+            "HTTP timeout in seconds for the project metric search and the model tables API."
         ),
     )
     max_retries: int = Field(
@@ -119,37 +116,24 @@ class MicroStrategyConfig(
         default=2000,
         gt=0,
         description=(
-            "Entries the large per-project caches (report SQL text and parsed "
-            "SQL lineage) keep in memory. Older entries spill to a temporary "
-            "local SQLite file instead of being dropped, so memory stays "
-            "bounded on large projects without re-fetching or re-parsing "
-            "anything; the caches are discarded when each project finishes."
+            "Entries kept in memory by each per-project cache of report SQL and parsed SQL lineage. "
+            "Older entries spill to a temporary local file."
         ),
     )
     progress_log_interval_dashboards: int = Field(
         default=25,
         gt=0,
-        description=(
-            "Log a whole-run progress line (rates, API and SQL parse time, "
-            "cache hits, peak memory) after this many dashboards."
-        ),
+        description="Log a whole-run progress line every N dashboards.",
     )
     progress_log_interval_metrics: int = Field(
         default=1000,
         gt=0,
-        description=(
-            "Log a semantic-model progress line (metrics fetched and failed, "
-            "peak memory) after this many metrics."
-        ),
+        description="Log a semantic-model progress line every N metrics.",
     )
     progress_log_interval_seconds: int = Field(
         default=300,
         gt=0,
-        description=(
-            "Also log the dashboard and semantic-model progress lines when this "
-            "many seconds have passed since the last one, so slow dashboards or "
-            "metrics never leave the log silent."
-        ),
+        description="Also log a progress line when this many seconds pass without one.",
     )
 
     project_pattern: AllowDenyPattern = Field(
