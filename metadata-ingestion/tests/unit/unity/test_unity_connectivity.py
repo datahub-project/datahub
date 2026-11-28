@@ -6,8 +6,8 @@ from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-from databricks.sdk.errors import NotFound, PermissionDenied
-from databricks.sdk.service.catalog import CatalogInfo
+from databricks.sdk.errors import NotFound, PermissionDenied, Unauthenticated
+from databricks.sdk.service.catalog import CatalogInfo, CatalogsAPI
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import (
@@ -99,6 +99,28 @@ def test_catalog_listing_failure_is_a_basic_connectivity_failure(
 
     assert not _basic(report).capable
     assert _basic(report).failure_reason
+
+
+def test_basic_connectivity_fails_with_invalid_token(
+    workspace_client: MagicMock,
+) -> None:
+    # The SDK's real CatalogsAPI is used so its lazy generator is exercised;
+    # a list-returning mock would hide a check that never issues the request.
+    api_client = MagicMock()
+    api_client._cfg.host_type = None
+    api_client._cfg.workspace_id = None
+    api_client.do.side_effect = Unauthenticated(
+        "Invalid access token.", error_code="UNAUTHENTICATED"
+    )
+    workspace_client.catalogs = CatalogsAPI(api_client)
+
+    report = _connection_test(
+        workspace_client, include_usage_statistics=False
+    ).get_connection_test()
+
+    assert not _basic(report).capable
+    assert "Invalid access token" in (_basic(report).failure_reason or "")
+    api_client.do.assert_called_once()
 
 
 def test_empty_query_history_is_a_usage_failure(workspace_client: MagicMock) -> None:
