@@ -15,6 +15,7 @@ from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
     MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT,
+    MetricPresence,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     AttributeRelationship,
@@ -70,6 +71,24 @@ _INVERT_CARDINALITY: Dict[str, str] = {
 }
 
 _SEMANTIC_MODEL_ID = "schema"
+
+_REASON_NO_GRAPH = "no DataHub connection"
+_REASON_PRESENCE_CHECK_FAILED = "DataHub lookup failed"
+
+_METRIC_MODEL_FAILURE_MESSAGES: Dict[MetricPresence, str] = {
+    MetricPresence.PRESENT: (
+        "Kept this metric's previously ingested definition; its model could "
+        "not be fetched."
+    ),
+    MetricPresence.ABSENT: (
+        "Emitting this metric without an expression or upstream lineage; its "
+        "model could not be fetched."
+    ),
+    MetricPresence.UNKNOWN: (
+        "Skipped this metric so an existing definition is not overwritten; its "
+        "model could not be fetched and DataHub could not be queried."
+    ),
+}
 
 logger = logging.getLogger(__name__)
 
@@ -679,28 +698,32 @@ class MicroStrategySemanticModelMapper:
                         platform=MICROSTRATEGY_PLATFORM, path=project_id, id=metric_id
                     )
                 )
-                kept = self._metric_exists_in_datahub(metric_urn)
+                presence = self._metric_presence(metric_urn)
+                reason_suffix = (
+                    f", reason={self._unknown_presence_reason()}"
+                    if presence == MetricPresence.UNKNOWN
+                    else ""
+                )
                 # Deterministic 500s; failing the run skips stale removal forever.
                 self.report.warning(
                     title="MicroStrategy Metric Model Unavailable",
-                    message=(
-                        "Kept this metric's previously ingested definition; its "
-                        "model could not be fetched."
-                        if kept
-                        else "Emitting this metric without an expression or "
-                        "upstream lineage; its model could not be fetched."
+                    message=_METRIC_MODEL_FAILURE_MESSAGES[presence],
+                    context=(
+                        f"project_id={project_id}, metric_id={metric_object.id}"
+                        f"{reason_suffix}"
                     ),
-                    context=f"project_id={project_id}, metric_id={metric_object.id}",
                     exc=error,
                     log=False,
                 )
-                if kept:
+                if presence == MetricPresence.PRESENT:
                     # A Status write marks the metric as seen for stale removal
                     # without overwriting its expression and upstreams.
                     self.report.report_metric_kept_after_model_failure()
                     yield MetadataChangeProposalWrapper(
                         entityUrn=metric_urn, aspect=StatusClass(removed=False)
                     ).as_workunit()
+                if presence == MetricPresence.UNKNOWN:
+                    self.report.report_metric_skipped_after_model_failure()
                 if consecutive_failures >= MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT:
                     self.report.failure(
                         title="MicroStrategy Metric Models Unavailable",
@@ -717,7 +740,7 @@ class MicroStrategySemanticModelMapper:
                         ),
                     )
                     break
-                if kept:
+                if presence != MetricPresence.ABSENT:
                     continue
                 model = {}
 
@@ -776,21 +799,30 @@ class MicroStrategySemanticModelMapper:
             )
         progress.log()
 
-    def _metric_exists_in_datahub(self, metric_urn: str) -> bool:
+    def _unknown_presence_reason(self) -> str:
+        return _REASON_NO_GRAPH if self.graph is None else _REASON_PRESENCE_CHECK_FAILED
+
+    def _metric_presence(self, metric_urn: str) -> MetricPresence:
         if self.graph is None:
-            return False
+            return MetricPresence.UNKNOWN
         try:
-            return self.graph.exists(metric_urn)
+            exists = self.graph.exists(metric_urn)
         except Exception as error:
-            # Overwriting a good definition is worse than skipping one update.
-            self.report.warning(
-                title="Failed to check MicroStrategy metric in DataHub",
-                message="Kept the metric without overwriting its definition.",
-                context=metric_urn,
-                exc=error,
-                log=False,
-            )
-            return True
+            if not self.report.metric_presence_check_failures:
+                # Stale removal needs the graph too, so it must be skipped.
+                self.report.failure(
+                    title="Failed to check MicroStrategy metrics in DataHub",
+                    message=(
+                        "DataHub could not be queried, so metrics whose model "
+                        "cannot be fetched are skipped. Stale-entity removal is "
+                        "skipped for this run."
+                    ),
+                    context=metric_urn,
+                    exc=error,
+                )
+            self.report.report_metric_presence_check_failure()
+            return MetricPresence.UNKNOWN
+        return MetricPresence.PRESENT if exists else MetricPresence.ABSENT
 
     def _resolve_consolidation(
         self,
