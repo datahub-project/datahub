@@ -2,6 +2,7 @@ import logging
 import time
 from typing import (
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -991,20 +992,20 @@ class MicroStrategyClient:
         reauth_attempted = False
         attempt = 0
         while attempt < attempts:
-            started = time.perf_counter()
             try:
-                response = self.session.request(
-                    method=method,
-                    url=url,
-                    headers=headers,
-                    timeout=timeout_seconds or self.config.timeout_seconds,
-                    verify=self.config.verify_ssl,
-                    **kwargs,
+                response = self._timed_request(
+                    method,
+                    path,
+                    lambda: self.session.request(
+                        method=method,
+                        url=url,
+                        headers=headers,
+                        timeout=timeout_seconds or self.config.timeout_seconds,
+                        verify=self.config.verify_ssl,
+                        **kwargs,
+                    ),
                 )
             except requests.RequestException as error:
-                self.report.report_api_call(
-                    method, path, None, time.perf_counter() - started
-                )
                 # Network-level failures (connection errors, timeouts) are
                 # transient; HTTP error statuses are handled below so that
                 # non-retryable 4xx responses fail fast.
@@ -1020,9 +1021,6 @@ class MicroStrategyClient:
                     f"MicroStrategy API request failed: {method} {path}: {error}"
                 ) from error
 
-            self.report.report_api_call(
-                method, path, response.status_code, time.perf_counter() - started
-            )
             if expected_statuses and response.status_code in expected_statuses:
                 return response
             if response.status_code == 401 and not path.startswith(
@@ -1086,6 +1084,20 @@ class MicroStrategyClient:
                 f"{method} {path}: {error}"
             ) from error
         self.report.report_session_reauthenticated()
+
+    def _timed_request(
+        self, method: str, path: str, send: Callable[[], requests.Response]
+    ) -> requests.Response:
+        started = time.perf_counter()
+        status: Optional[int] = None
+        try:
+            response = send()
+            status = response.status_code
+            return response
+        finally:
+            self.report.report_api_call(
+                method, path, status, time.perf_counter() - started
+            )
 
     def _sleep_before_retry(self, delay: float) -> None:
         self.report.report_api_retry(delay)

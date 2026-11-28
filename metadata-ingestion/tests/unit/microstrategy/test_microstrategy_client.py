@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from unittest import mock
 
 import pytest
@@ -635,9 +635,12 @@ def test_request_retries_network_error_then_succeeds(
     monkeypatch: MonkeyPatch,
 ) -> None:
     client, report = _make_client()
-    outcomes: List[Any] = [requests.ConnectionError("reset"), StatusResponse(200)]
+    outcomes: List[Union[requests.RequestException, StatusResponse]] = [
+        requests.ConnectionError("reset"),
+        StatusResponse(200),
+    ]
 
-    def fake_request(**kwargs: Any) -> StatusResponse:
+    def fake_request(**kwargs: object) -> StatusResponse:
         outcome = outcomes.pop(0)
         if isinstance(outcome, Exception):
             raise outcome
@@ -659,7 +662,7 @@ def test_request_raises_after_exhausting_retries_on_network_errors(
     client, report = _make_client({"max_retries": 2})
     call_count = 0
 
-    def fake_request(**kwargs: Any) -> StatusResponse:
+    def fake_request(**kwargs: object) -> StatusResponse:
         nonlocal call_count
         call_count += 1
         raise requests.Timeout("timed out")
@@ -672,6 +675,9 @@ def test_request_raises_after_exhausting_retries_on_network_errors(
     assert call_count == 3
     assert error.value.status_code is None
     assert report.api_errors == 1
+    assert report.api_calls == 3
+    assert report.api_responses_by_endpoint_status == {"GET /api/projects error": 3}
+    assert report.api_retries == 2
 
 
 def test_sql_view_and_instance_calls_use_a_single_attempt(
@@ -1137,9 +1143,9 @@ def test_model_tables_use_the_model_api_timeout(
     monkeypatch: MonkeyPatch, overrides: Dict[str, int], expected: int
 ) -> None:
     client, _ = _make_client(overrides)
-    timeouts: list[Optional[int]] = []
+    timeouts: List[object] = []
 
-    def fake_get_json(path: str, **kwargs: Any) -> Dict[str, Any]:
+    def fake_get_json(path: str, **kwargs: object) -> Dict[str, object]:
         timeouts.append(kwargs.get("timeout_seconds"))
         return {"tables": [], "total": 0}
 
@@ -1158,9 +1164,9 @@ def test_metric_search_uses_the_model_api_timeout(
     monkeypatch: MonkeyPatch, overrides: Dict[str, int], expected: int
 ) -> None:
     client, _ = _make_client(overrides)
-    timeouts: list[Optional[int]] = []
+    timeouts: List[object] = []
 
-    def fake_get_json(path: str, **kwargs: Any) -> Dict[str, Any]:
+    def fake_get_json(path: str, **kwargs: object) -> Dict[str, object]:
         timeouts.append(kwargs.get("timeout_seconds"))
         return {"result": [], "totalItems": 0}
 
@@ -1174,9 +1180,9 @@ def test_other_searches_keep_the_configured_timeout(
     monkeypatch: MonkeyPatch,
 ) -> None:
     client, _ = _make_client({"timeout_seconds": 30})
-    timeouts: list[Optional[int]] = []
+    timeouts: List[object] = []
 
-    def fake_get_json(path: str, **kwargs: Any) -> Dict[str, Any]:
+    def fake_get_json(path: str, **kwargs: object) -> Dict[str, object]:
         timeouts.append(kwargs.get("timeout_seconds"))
         return {"result": [], "totalItems": 0}
 
