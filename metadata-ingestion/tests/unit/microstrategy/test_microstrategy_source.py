@@ -1497,7 +1497,7 @@ class _DatasetLookupClient:
         return {
             "result": {
                 "definition": {
-                    "datasets": [{"id": "ds-shared", "name": "Retail Sales Yesterday"}],
+                    "datasets": [{"id": "ds-shared", "name": "Daily Sales Report"}],
                     "chapters": [],
                 }
             }
@@ -1512,12 +1512,12 @@ class _DatasetLookupClient:
         return MicroStrategyObject.model_validate(
             {
                 "id": object_id,
-                "name": "Retail Sales Yesterday",
+                "name": "Daily Sales Report",
                 "type": "3",
                 "subtype": "768",
                 "ancestors": [
                     {"id": "f-1", "name": "Shared Reports"},
-                    {"id": "f-2", "name": "Store Retail Sales"},
+                    {"id": "f-2", "name": "Regional Sales"},
                 ],
             }
         )
@@ -1559,7 +1559,7 @@ def test_dataset_object_info_is_fetched_once_per_dataset_across_dossiers() -> No
     assert client.lookups == ["ds-shared"]
     assert source.report.dataset_object_lookups == 1
     own_folder = source.mapper.folder_key(
-        "project-1", "Shared Reports/Store Retail Sales"
+        "project-1", "Shared Reports/Regional Sales"
     ).as_urn()
     parents = _dataset_container_parents(workunits)
     assert len(parents) == 2
@@ -1634,7 +1634,7 @@ class _ReportDerivedClient(_DatasetLookupClient):
                 "datasets": [
                     {
                         "id": "ds-shared",
-                        "name": "Retail Sales Yesterday",
+                        "name": "Daily Sales Report",
                         "availableObjects": {
                             "metrics": [{"id": "M-NET", "name": "Net Sales Amt"}]
                         },
@@ -1697,7 +1697,7 @@ class _ReportDerivedClient(_DatasetLookupClient):
         return MicroStrategyObject.model_validate(
             {
                 "id": object_id,
-                "name": "Retail Sales Yesterday",
+                "name": "Daily Sales Report",
                 "type": "3",
                 "subtype": self.subtype,
             }
@@ -1713,7 +1713,7 @@ class _ReportDerivedClient(_DatasetLookupClient):
         if self.model_fails:
             raise MicroStrategyAPIError("404")
         return {
-            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "information": {"objectId": report_id, "name": "Daily Sales Report"},
             "dataSource": {
                 "dataTemplate": {
                     "units": [
@@ -1894,7 +1894,7 @@ class _ModelWithoutExpressionClient(_ReportDerivedClient):
     ) -> Dict[str, Any]:
         self.model_calls.append(report_id)
         return {
-            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "information": {"objectId": report_id, "name": "Daily Sales Report"},
             "dataSource": {
                 "dataTemplate": {
                     "units": [
@@ -1951,7 +1951,7 @@ class _ModelEmptyClient(_ReportDerivedClient):
     ) -> Dict[str, Any]:
         self.model_calls.append(report_id)
         return {
-            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "information": {"objectId": report_id, "name": "Daily Sales Report"},
             "sourceType": "normal",
             "dataSource": {
                 "dataTemplate": {
@@ -2010,7 +2010,7 @@ class _ModelEmbeddedClient(_ReportDerivedClient):
     ) -> Dict[str, Any]:
         self.model_calls.append(report_id)
         return {
-            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "information": {"objectId": report_id, "name": "Daily Sales Report"},
             "sourceType": "normal",
             "dataSource": {
                 "dataTemplate": {
@@ -4014,13 +4014,13 @@ class _SharedReportClient:
     def _dataset(self) -> Dict[str, Any]:
         dataset: Dict[str, Any] = {
             "id": "ds-shared",
-            "name": "Retail Sales Yesterday",
+            "name": "Daily Sales Report",
             "description": "Embedded copy",
             "availableObjects": {
                 "metrics": [
                     {
                         "id": "M-NET",
-                        "name": "Net Sales Retail Amt",
+                        "name": "Net Sales Amt",
                         "dataType": "double",
                     }
                 ]
@@ -4087,13 +4087,13 @@ class _SharedReportClient:
         return MicroStrategyObject.model_validate(
             {
                 "id": object_id,
-                "name": "Retail Sales Yesterday",
+                "name": "Daily Sales Report",
                 "type": "3",
                 "subtype": "768",
                 "owner": {"username": "report_owner"},
                 "ancestors": [
                     {"id": "f-1", "name": "Shared Reports"},
-                    {"id": "f-2", "name": "Salon Retail Sales"},
+                    {"id": "f-2", "name": "Regional Sales"},
                 ],
             }
         )
@@ -4128,7 +4128,7 @@ class _SharedReportClient:
                         "metrics": [
                             {
                                 "id": "M-NET",
-                                "name": "Net Sales Retail Amt",
+                                "name": "Net Sales Amt",
                                 "dataType": "double",
                             },
                             {
@@ -4208,7 +4208,7 @@ def test_per_report_shared_report_is_one_dataset_linked_from_both_dashboards() -
     assert list(properties) == [_SHARED_URN]
     shared = properties[_SHARED_URN]
     assert shared.qualifiedName == "project-1.ds-shared"
-    assert shared.name == "Retail Sales Yesterday"
+    assert shared.name == "Daily Sales Report"
     assert shared.customProperties["microstrategyReportId"] == "ds-shared"
     assert shared.customProperties["microstrategyDashboardCount"] == "2"
     assert shared.customProperties["microstrategyDashboardIds"] == "dash-1,doc-1"
@@ -4226,7 +4226,7 @@ def test_per_report_shared_report_is_one_dataset_linked_from_both_dashboards() -
     dossier = dashboards[source.mapper.dashboard_urn("project-1", "dash-1")]
     assert dossier.datasetEdges is None
     own_folder = source.mapper.folder_key(
-        "project-1", "Shared Reports/Salon Retail Sales"
+        "project-1", "Shared Reports/Regional Sales"
     ).as_urn()
     assert _dataset_container_parents(workunits) == {_SHARED_URN: own_folder}
     ownership = _aspects_by_urn(workunits, OwnershipClass)
@@ -4281,7 +4281,7 @@ def test_per_report_report_pass_upgrades_schema_and_emits_no_chart() -> None:
     schemas = _aspects_by_urn(workunits, SchemaMetadataClass)
     assert [f.fieldPath for f in schemas[_SHARED_URN].fields] == [
         "Gross Sales Amt",
-        "Net Sales Retail Amt",
+        "Net Sales Amt",
     ]
     shared = properties[_SHARED_URN]
     assert shared.description == "The report's own description"
@@ -4500,7 +4500,7 @@ def test_per_report_report_pass_without_a_schema_keeps_dossier_lineage() -> None
 
     assert client.report_instances == ["report-solo"]
     schema = _aspects_by_urn(workunits, SchemaMetadataClass)[_SHARED_URN]
-    assert [field.fieldPath for field in schema.fields] == ["Net Sales Retail Amt"]
+    assert [field.fieldPath for field in schema.fields] == ["Net Sales Amt"]
     lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
     assert [upstream.dataset for upstream in lineage[_SHARED_URN].upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"

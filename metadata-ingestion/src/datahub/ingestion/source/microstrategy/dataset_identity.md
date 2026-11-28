@@ -4,7 +4,7 @@ The `dataset_identity` setting decides what one DataHub dataset entity stands fo
 
 ## The problem
 
-A MicroStrategy report (object type 3: grid report subtype 768, intelligent cube 776, super cube 779) is a catalog object in its own right, filed in its own folder. Dossiers and Report Services documents embed it as a dataset. Under `per_dashboard` the dataset entity is keyed by the dashboard that embeds it, so a report used by N dashboards becomes N dataset entities with the same name and the same schema. On one tenant a single report ("DCS - Dataset") existed 18 times. With `extract_reports: true` the same report is also emitted as a chart (subtype `Report`) plus a report-scoped source dataset, which doubles it again. Users do not navigate by "dataset or dossier"; they look for the report and its lineage.
+A MicroStrategy report (object type 3: grid report subtype 768, intelligent cube 776, super cube 779) is a catalog object in its own right, filed in its own folder. Dossiers and Report Services documents embed it as a dataset. Under `per_dashboard` the dataset entity is keyed by the dashboard that embeds it, so a report used by N dashboards becomes N dataset entities with the same name and the same schema. For example, a report named "Sales Report" used by 18 dashboards becomes 18 dataset entities. With `extract_reports: true` the same report is also emitted as a chart (subtype `Report`) plus a report-scoped source dataset, which doubles it again. Users do not navigate by "dataset or dossier"; they look for the report and its lineage.
 
 ## Scheme `per_dashboard` (default)
 
