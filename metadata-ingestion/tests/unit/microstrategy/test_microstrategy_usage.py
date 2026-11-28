@@ -318,7 +318,7 @@ def test_source_emits_dataset_usage_for_a_report_dataset_target() -> None:
     assert [workunit.get_urn() for workunit in workunits] == [dataset_urn]
     aspect = workunits[0].get_aspect_of_type(DatasetUsageStatisticsClass)
     assert aspect is not None
-    assert aspect.totalSqlQueries == 4
+    assert aspect.totalSqlQueries is None
 
 
 def test_source_warns_when_platform_analytics_project_missing() -> None:

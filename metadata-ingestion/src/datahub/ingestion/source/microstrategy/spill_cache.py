@@ -4,14 +4,16 @@ from typing import Callable, Dict, Generic, Optional, TypeVar, Union
 from pydantic import BaseModel, ConfigDict
 
 from datahub.ingestion.api.closeable import Closeable
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_EVICTION_BATCH_DIVISOR,
+    MSTR_MAX_EVICTION_BATCH,
+)
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.utilities.file_backed_collections import FileBackedDict
 
 _V = TypeVar("_V")
 
 _TABLE_NAME = "cache"
-_MAX_EVICTION_BATCH = 150
-_EVICTION_BATCH_DIVISOR = 4
 
 
 class _Missing:
@@ -122,8 +124,8 @@ class SpillCache(Closeable, Generic[_V]):
                 cache_eviction_batch_size=max(
                     1,
                     min(
-                        _MAX_EVICTION_BATCH,
-                        self._memory_entries // _EVICTION_BATCH_DIVISOR,
+                        MSTR_MAX_EVICTION_BATCH,
+                        self._memory_entries // MSTR_EVICTION_BATCH_DIVISOR,
                     ),
                 ),
                 should_compress_value=self._compress,

@@ -991,7 +991,7 @@ def test_dataset_workunits_include_model_fine_grained_lineage() -> None:
                 ],
             }
         ],
-        WarehouseLineageContext(
+        lambda _: WarehouseLineageContext(
             platform="snowflake",
             env="PROD",
             database="SALES_DB",
@@ -1060,7 +1060,7 @@ def test_dataset_workunits_skip_model_lineage_without_dataset_sql_context() -> N
                 ],
             }
         ],
-        WarehouseLineageContext(
+        lambda _: WarehouseLineageContext(
             platform="snowflake",
             env="PROD",
             database="SALES_DB",
@@ -3088,15 +3088,11 @@ def test_dataset_urn_is_dashboard_scoped_by_default_and_report_scoped_per_report
     )
 
     per_report = _mapper(dataset_identity="per_report").lineage
-    # The parent plays no part in the URN.
-    assert per_report.dataset_urn("project-1", "dash-1", dataset) == (
+    assert per_report.report_dataset_urn("project-1", dataset) == (
         "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.ds-1,PROD)"
     )
-    assert per_report.dataset_urn("project-1", "dash-2", dataset) == (
-        per_report.dataset_urn("project-1", None, dataset)
-    )
     assert (
-        per_report.dataset_qualified_name("project-1", None, dataset)
+        per_report.report_dataset_qualified_name("project-1", dataset)
         == "project-1.ds-1"
     )
 
@@ -3144,7 +3140,7 @@ def test_usage_bucket_for_report_dataset_emits_dataset_usage_statistics() -> Non
     )
 
     aspect = _aspect(workunits, DatasetUsageStatisticsClass)
-    assert aspect.totalSqlQueries == 5
+    assert aspect.totalSqlQueries is None
     assert aspect.uniqueUserCount == 2
     assert aspect.userCounts is not None
     assert [(count.user, count.count) for count in aspect.userCounts] == [
@@ -3152,3 +3148,45 @@ def test_usage_bucket_for_report_dataset_emits_dataset_usage_statistics() -> Non
         ("urn:li:corpuser:bob", 3),
     ]
     assert mapper.report.usage_buckets_emitted == 1
+
+
+def test_usage_bucket_without_users_emits_no_user_counts() -> None:
+    mapper = _mapper(dataset_identity="per_report")
+    bucket = UsageBucket(
+        object_guid="DS-1",
+        project_guid="P-1",
+        object_name="Sales Cube",
+        bucket_start_ms=1_700_000_000_000,
+        view_count=5,
+    )
+
+    workunits = list(
+        mapper.gen_usage_workunits(UsageTargetKind.DATASET, "urn:li:dataset:x", bucket)
+    )
+
+    aspect = _aspect(workunits, DatasetUsageStatisticsClass)
+    assert aspect.uniqueUserCount is None
+    assert aspect.userCounts is None
+
+
+def test_per_report_dashboard_dataset_edges_point_at_the_shared_dataset() -> None:
+    mapper = _mapper(emit_dashboard_dataset_edges=True, dataset_identity="per_report")
+    dashboard = _definition()
+    dashboard_object = MicroStrategyObject.model_validate(
+        {"id": dashboard.id, "name": dashboard.name}
+    )
+
+    dashboard_info = _aspect(
+        mapper.gen_dashboard_workunits(
+            "project-1",
+            dashboard_object,
+            dashboard,
+            mapper.project_key("project-1"),
+        ),
+        DashboardInfoClass,
+    )
+
+    assert dashboard_info.datasetEdges is not None
+    assert [edge.destinationUrn for edge in dashboard_info.datasetEdges] == [
+        mapper.lineage.report_dataset_urn("project-1", dashboard.datasets[0])
+    ]
