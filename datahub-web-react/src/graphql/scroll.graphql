@@ -1,3 +1,64 @@
+# Download as CSV fetches every row of a result set, so these fragments select only the
+# fields the CSV writes. The shared display fragments resolve ownership types, attribution,
+# term hierarchies and parent domains for every row, none of which the CSV uses. For the same
+# reason downloadSearchResults leaves out entityDataProduct (a relationships lookup per row)
+# and the download queries leave out facets (recomputed for the whole result set on every page).
+fragment downloadOwnershipFields on Ownership {
+    owners {
+        owner {
+            ... on CorpUser {
+                urn
+                type
+                properties {
+                    displayName
+                    fullName
+                    email
+                }
+                editableProperties {
+                    displayName
+                    email
+                }
+            }
+            ... on CorpGroup {
+                urn
+                type
+                name
+                properties {
+                    email
+                }
+            }
+        }
+    }
+}
+
+fragment downloadGlobalTagsFields on GlobalTags {
+    tags {
+        tag {
+            urn
+            name
+        }
+    }
+}
+
+fragment downloadGlossaryTermsFields on GlossaryTerms {
+    terms {
+        term {
+            urn
+            name
+        }
+    }
+}
+
+fragment downloadDomainFields on DomainAssociation {
+    domain {
+        urn
+        type
+        properties {
+            name
+        }
+    }
+}
+
 fragment downloadSearchResults on Entity {
     urn
     type
@@ -21,12 +82,12 @@ fragment downloadSearchResults on Entity {
     }
     ... on HasOwnership {
         ownership {
-            ...ownershipFields
+            ...downloadOwnershipFields
         }
     }
     ... on HasGlossaryTerms {
         glossaryTerms {
-            ...glossaryTerms
+            ...downloadGlossaryTermsFields
         }
     }
     ... on HasSubTypes {
@@ -36,7 +97,7 @@ fragment downloadSearchResults on Entity {
     }
     ... on HasDomain {
         domain {
-            ...entityDomainWithoutCounts
+            ...downloadDomainFields
         }
     }
     ... on HasDeprecation {
@@ -46,7 +107,7 @@ fragment downloadSearchResults on Entity {
     }
     ... on HasTags {
         tags {
-            ...globalTagsFields
+            ...downloadGlobalTagsFields
         }
     }
     ... on HasDescription {
@@ -67,9 +128,8 @@ fragment downloadSearchResults on Entity {
             externalUrl
         }
         globalTags {
-            ...globalTagsFields
+            ...downloadGlobalTagsFields
         }
-        ...entityDataProduct
     }
     ... on CorpUser {
         username
@@ -115,9 +175,8 @@ fragment downloadSearchResults on Entity {
             }
         }
         globalTags {
-            ...globalTagsFields
+            ...downloadGlobalTagsFields
         }
-        ...entityDataProduct
     }
     ... on Chart {
         chartId
@@ -135,9 +194,8 @@ fragment downloadSearchResults on Entity {
             }
         }
         globalTags {
-            ...globalTagsFields
+            ...downloadGlobalTagsFields
         }
-        ...entityDataProduct
     }
     ... on DataFlow {
         flowId
@@ -149,9 +207,8 @@ fragment downloadSearchResults on Entity {
             externalUrl
         }
         globalTags {
-            ...globalTagsFields
+            ...downloadGlobalTagsFields
         }
-        ...entityDataProduct
     }
     ... on DataJob {
         dataFlow {
@@ -164,9 +221,8 @@ fragment downloadSearchResults on Entity {
             externalUrl
         }
         globalTags {
-            ...globalTagsFields
+            ...downloadGlobalTagsFields
         }
-        ...entityDataProduct
     }
     ... on GlossaryTerm {
         name
@@ -266,9 +322,6 @@ fragment downloadScrollResult on ScrollResults {
             icon
         }
     }
-    facets {
-        ...facetFields
-    }
 }
 
 query getDownloadScrollResults($input: ScrollAcrossEntitiesInput!) {
@@ -294,9 +347,6 @@ fragment downloadScrollAcrossLineageResult on ScrollAcrossLineageResults {
             text
             icon
         }
-    }
-    facets {
-        ...facetFields
     }
 }
 
