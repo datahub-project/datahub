@@ -89,24 +89,32 @@ class _MetricProgress:
         self._gate = IntervalGate(every_metrics, every_seconds)
         self._report = report
         self._started = time.perf_counter()
-        self.done = 0
+        self._done = 0
         self._failed = 0
 
+    @property
+    def done(self) -> int:
+        return self._done
+
+    @property
+    def failed(self) -> int:
+        return self._failed
+
     def step(self) -> None:
-        if self.done and self._gate.due(self.done):
+        if self._done and self._gate.due(self._done):
             self.log()
-        self.done += 1
+        self._done += 1
 
     def record_failure(self) -> None:
         self._failed += 1
 
     def log(self) -> None:
-        self._gate.mark(self.done)
+        self._gate.mark(self._done)
         self._report.update_peak_rss()
         logger.info(
             "Semantic model metrics: %d/%d in %.0fs, %d failed; peak RSS %s MB "
             "(project=%s)",
-            self.done,
+            self._done,
             self._total,
             time.perf_counter() - self._started,
             self._failed,
