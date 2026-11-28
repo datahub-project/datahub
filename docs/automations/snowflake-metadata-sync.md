@@ -1,0 +1,178 @@
+
+# Snowflake Metadata Sync Automation
+
+> **Availability:** DataHub Cloud only
+
+:::info
+
+This feature is currently in Public Beta in DataHub Cloud. Reach out to your DataHub Cloud representative to get access.
+
+:::
+
+## Introduction
+
+Snowflake Metadata Sync is an automation that allows you to sync DataHub Glossary Terms, Tags, and Descriptions on
+both columns and tables back to Snowflake. This automation is available in DataHub Cloud only.
+
+## Capabilities
+
+- Automatically Add DataHub Glossary Terms to Snowflake Tables and Columns
+- Automatically Add DataHub Tags to Snowflake Tables and Columns
+- Automatically Sync DataHub Descriptions to Snowflake Tables and Columns as Comments
+- Optionally sync the descriptions that Snowflake Tables and Columns get from a logical model (see [Logical model descriptions](#logical-model-descriptions))
+- Automatically Remove DataHub Glossary Terms and Tags from Snowflake Tables and Columns when they are removed in DataHub
+- Support for both Username/Password and Private Key authentication
+
+## Prerequisites
+
+### Permissions Required for Tag Management
+
+- `CREATE TAG`: Required to create new tags in Snowflake.
+  Ensure the user or role has this privilege on the specific schema or database where tags will be created.
+- `APPLY TAG`: Required to assign tags to Snowflake objects such as tables, columns, or other database objects.
+  **This permission must be granted at the ACCOUNT level** - it cannot be granted on individual schemas, tables, or views.
+- `OWNERSHIP` on objects: Required to apply tags to tables and columns, as well as to update comments/descriptions. This is the most comprehensive permission and is necessary for tag operations.
+
+### Permissions Required for Object Access
+
+- `USAGE` on the database and schema: Allows access to the database and schema to view and apply changes.
+- `SELECT` on the objects (tables, views, etc.): Enables the automation to read metadata and verify existing tags.
+
+### Example Permission Grant Statements
+
+To grant the necessary permissions for a specific role (DATAHUB_AUTOMATION_ROLE), you can use the following SQL commands:
+
+```sql
+-- Database and schema access
+GRANT USAGE ON DATABASE your_database TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT USAGE ON SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+
+-- Tag management permissions
+GRANT CREATE TAG ON SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+-- APPLY TAG must be granted at ACCOUNT level
+GRANT APPLY TAG ON ACCOUNT TO ROLE DATAHUB_AUTOMATION_ROLE;
+
+-- Object access and modification permissions
+GRANT SELECT ON ALL TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT SELECT ON ALL VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+
+-- OWNERSHIP is required for applying tags and updating comments/descriptions
+GRANT OWNERSHIP ON ALL TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT OWNERSHIP ON ALL VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+
+-- Future privileges for new objects
+GRANT SELECT ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT SELECT ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT OWNERSHIP ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+-- Note: APPLY TAG is granted at ACCOUNT level above and applies to all objects
+```
+
+## Enabling Snowflake Metadata Sync
+
+1. **Navigate to Automations**: Click on 'Govern' > 'Automations' in the navigation bar.
+
+<p align="center">
+  <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automations-nav-link.png"/>
+</p>
+
+2. **Create An Automation**: Click on 'Create' and select 'Snowflake Metadata Sync'.
+
+<p align="center">
+  <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/automation-type.png"/>
+</p>
+
+3. **Configure Automation**: Fill in the required fields to connect to Snowflake, along with the name, description, and category.
+
+   **Authentication Options:**
+
+   - **Username/Password**: Traditional authentication using Snowflake username and password
+   - **Private Key**: Key pair authentication using RSA private key (more secure for automated processes)
+
+   **Sync Options:**
+
+   - **Tags & Terms**: You can limit propagation based on specific Tags and Glossary Terms. If none are selected, then ALL Tags or Glossary Terms will be automatically propagated to Snowflake tables and columns.
+   - **Descriptions**: Enable description sync to automatically update Snowflake table and column comments with DataHub descriptions.
+   - **Sync descriptions from logical models**: Shown when **Descriptions** is selected. Off by default. See [Logical model descriptions](#logical-model-descriptions).
+
+   Finally, click 'Save and Run' to start the automation
+
+<p align="center">
+  <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/automation-form.png"/>
+</p>
+
+## Propagating for Existing Assets
+
+You can back-fill existing assets so that their current glossary terms and descriptions reach Snowflake.
+Note that it may take some time to complete the initial back-filling process, depending on the number of Snowflake assets you have.
+
+To do so, navigate to the Automation you created in Step 3 above, click the 3-dot "More" menu
+
+<p align="left">
+  <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-more-menu.png"/>
+</p>
+
+and then click "Initialize".
+
+<p align="left">
+  <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-initialize.png"/>
+</p>
+
+This step back-fills existing terms and descriptions. If you only want to propagate changes from now on, you can skip it.
+
+As of DataHub Cloud v2.3.3, Initialize also fills in Snowflake comments from descriptions written in DataHub:
+
+- For each table and column with a description written in DataHub, it writes that description where the Snowflake comment is empty or different.
+- It leaves matching comments alone, and it never clears a comment.
+- It doesn't write descriptions from ingestion or from a YAML file applied with `datahub dataset upsert`. Those reach Snowflake only when their text changes.
+- It skips objects that Snowflake doesn't have, or that the automation's role can't see.
+- Running Initialize again writes only the comments that no longer match.
+- With **Sync descriptions from logical models** turned on, it also writes logical-model descriptions. See [Logical model descriptions](#logical-model-descriptions).
+- On the Automations page, Initialize stays greyed out until the run finishes.
+
+:::info
+
+The back-filling of tags will be available in a future release.
+
+:::
+
+## Viewing Synced Metadata
+
+You can view propagated Tags, Terms, and updated Comments (and corresponding DataHub URNs) inside the Snowflake UI to confirm the automation is working as expected.
+
+### Tags and Terms
+
+Tags and glossary terms will appear as Snowflake tags on your tables and columns:
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/view-snowflake-tags.png"/>
+</p>
+
+### Descriptions
+
+DataHub descriptions will be synced as Snowflake comments on tables and columns, visible in the Snowflake UI and accessible via `SHOW TABLES` and `DESCRIBE TABLE` commands.
+
+As of DataHub Cloud v2.3.3, descriptions written in DataHub come first. If someone wrote a description in DataHub, in the UI or through the API, that is what Snowflake gets, even when ingestion later brings in different text. If nobody wrote one, Snowflake gets the description from ingestion or from a YAML file applied with `datahub dataset upsert`, each time that text changes.
+
+When you delete a description you wrote in DataHub, the Snowflake comment is cleared too. What happens next depends on how it was deleted:
+
+- **Deleted in the UI**, or with the GraphQL `updateDescription` mutation: DataHub saves an empty description, which still counts as yours. DataHub writes nothing else to the comment until someone writes a new description.
+- **Set to null** in the `editableDatasetProperties` or `editableSchemaMetadata` aspect, for example with the OpenAPI or Rest.li aspect endpoints or the Python SDK: no description of yours is left, so a later change to the description from ingestion is synced again.
+
+The Snowflake comment is not cleared when:
+
+- an ingestion run is rolled back, or the dataset is deleted in DataHub
+- a description from ingestion is removed in DataHub, for example when a later ingestion run no longer brings it
+- you remove a description from a YAML file
+- the whole `editableDatasetProperties` or `editableSchemaMetadata` aspect is deleted (setting a description to null or to an empty string clears it)
+
+## Logical model descriptions
+
+When you sync Descriptions, you can also select **Sync descriptions from logical models** (off by default, since it replaces existing comments). Descriptions that a table or column gets from its logical model are then synced as comments, unless it has a description edited in DataHub, which always wins. Descriptions that arrive through lineage are not synced. Initialize writes the logical-model description of every linked table and column.
+
+:::note Limitations
+
+- Removing a logical-model description does not clear the comment in Snowflake. Clear it there too, or the next ingestion imports it back.
+- Clearing a description edited in DataHub clears the Snowflake comment instead of restoring the logical-model description. Run Initialize to write it again.
+
+:::
