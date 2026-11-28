@@ -12,6 +12,7 @@ from typing import (
     Set,
     Type,
     TypeVar,
+    Union,
 )
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -381,6 +382,30 @@ class ModelTablesResponse(MicroStrategyBaseModel):
     # None (absent) differs from [] (empty page) so pagination can spot an unrecognized shape.
     tables: Optional[List[MicroStrategyDict]] = None
     total: Optional[int] = None
+
+
+class ReportPrompt(MicroStrategyBaseModel):
+    """A prompt of a report instance."""
+
+    id: Optional[str] = None
+    key: Optional[str] = None
+    name: Optional[str] = None
+    type: Optional[str] = None
+    required: bool = False
+    default_answer: Optional[object] = Field(default=None, alias="defaultAnswer")
+
+    def has_default(self) -> bool:
+        return self.default_answer not in (None, [], "")
+
+    def label(self) -> str:
+        return self.name or self.key or self.id or "unnamed"
+
+    def default_answer_payload(self) -> Dict[str, Union[str, bool]]:
+        payload: Dict[str, Union[str, bool]] = {"useDefault": True}
+        for name, value in (("key", self.key), ("id", self.id), ("type", self.type)):
+            if value is not None:
+                payload[name] = value
+        return payload
 
 
 class SqlView(MicroStrategyBaseModel):

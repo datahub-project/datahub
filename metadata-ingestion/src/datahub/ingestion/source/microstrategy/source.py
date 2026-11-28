@@ -138,6 +138,7 @@ from datahub.ingestion.source.microstrategy.models import (
     ProjectKey,
     ReportDefinition,
     ReportDerivedMetric,
+    SqlView,
     Visualization,
     extract_document_derived_metric_definitions,
     extract_embedded_metric_definitions,
@@ -204,6 +205,9 @@ _ERROR_SUMMARY_MAX_CHARS = 300
 # Modeling document answers that mean the whole project lacks access. 404 is
 # left out: the endpoint can answer it for a single unmodelled document.
 _MODEL_DOCUMENT_PROJECT_WIDE_STATUSES = frozenset({403, 501})
+# Strategy answers a report instance's SQL view with 406 Not Acceptable
+# while the report's prompts are unanswered.
+_PROMPTED_SQL_VIEW_STATUS = 406
 
 # Model tables answers that a second request will not change.
 _MODEL_TABLES_NON_RETRYABLE_STATUSES = frozenset({403, 501})
@@ -4224,11 +4228,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return _ReportSqlOutcome(execution=_execution_outcome(error))
 
         try:
-            sql_view = self.client.get_report_sql_view(
-                project_id=project_id,
-                report_id=report_id,
-                instance_id=instance_id,
+            sql_view = self._report_sql_view_answering_prompts(
+                project_id, report_id, instance_id, context
             )
+            if isinstance(sql_view, _ReportSqlOutcome):
+                return sql_view
         except (MicroStrategyAPIError, ValidationError) as error:
             # ValidationError: a response body that does not fit SqlView.
             self.report.report_report_sql_view_api_failure()
@@ -4250,6 +4254,93 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             sql=sql_statement,
             execution=ExecutionOutcome.SUCCEEDED,
         )
+
+    def _report_sql_view_answering_prompts(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+        context: str,
+    ) -> Union[SqlView, "_ReportSqlOutcome"]:
+        """An outcome without SQL when a prompted report is skipped or its
+        answers fail (counted and warned here); other failures raise."""
+        try:
+            return self.client.get_report_sql_view(
+                project_id=project_id,
+                report_id=report_id,
+                instance_id=instance_id,
+            )
+        except MicroStrategyAPIError as error:
+            if error.status_code != _PROMPTED_SQL_VIEW_STATUS:
+                raise
+            refused = error
+        self.report.report_prompted_report_sql_view()
+        if not self.config.answer_report_prompts_with_defaults:
+            self.report.warning(
+                title="Prompted Report Skipped for Warehouse Lineage",
+                message=(
+                    "The report's SQL view needs its prompts answered; enable "
+                    "answer_report_prompts_with_defaults to answer them with "
+                    "their defaults."
+                ),
+                context=context,
+                exc=refused,
+            )
+            return _ReportSqlOutcome()
+        prompts = self.client.get_report_instance_prompts(
+            project_id, report_id, instance_id
+        )
+        unanswerable = [
+            prompt.label()
+            for prompt in prompts
+            if prompt.required and not prompt.has_default()
+        ]
+        # Optional prompts without a default are closed by leaving them out.
+        defaulted = [prompt for prompt in prompts if prompt.has_default()]
+        if unanswerable or not defaulted:
+            return self._prompted_report_without_defaults(
+                context, unanswerable or "none with defaults"
+            )
+        try:
+            self.client.answer_report_prompts_with_defaults(
+                project_id, report_id, instance_id, defaulted
+            )
+            sql_view = self.client.get_report_sql_view(
+                project_id=project_id,
+                report_id=report_id,
+                instance_id=instance_id,
+            )
+        except MicroStrategyAPIError as error:
+            if error.status_code == _PROMPTED_SQL_VIEW_STATUS:
+                return self._prompted_report_without_defaults(
+                    context, "still prompted after answering"
+                )
+            self.report.report_report_sql_view_api_failure()
+            self.report.warning(
+                title="Failed to Answer Report Prompts",
+                message="Skipping source warehouse lineage for this report.",
+                context=context,
+                exc=error,
+            )
+            # The instance stops at its prompts, so answering them is the
+            # call that executes the report.
+            return _ReportSqlOutcome(execution=_execution_outcome(error))
+        self.report.report_prompted_report_answered()
+        return sql_view
+
+    def _prompted_report_without_defaults(
+        self, context: str, prompts: Union[List[str], str]
+    ) -> "_ReportSqlOutcome":
+        self.report.report_prompted_report_without_defaults()
+        self.report.warning(
+            title="Prompted Report Has No Default Answers",
+            message=(
+                "Skipping warehouse lineage for this report: its prompts "
+                "cannot all be answered with defaults."
+            ),
+            context=f"{context}, prompts={prompts}",
+        )
+        return _ReportSqlOutcome()
 
     def _dashboard_instance(
         self,

@@ -53,6 +53,7 @@ from datahub.ingestion.source.microstrategy.models import (
     ModelTablesResponse,
     PredefinedFolder,
     Project,
+    ReportPrompt,
     SqlView,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -705,6 +706,41 @@ class MicroStrategyClient:
             max_attempts=1,
         )
         return SqlView.model_validate(payload if isinstance(payload, dict) else {})
+
+    def get_report_instance_prompts(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+    ) -> List[ReportPrompt]:
+        payload = self._get_json(
+            f"/api/reports/{report_id}/instances/{instance_id}/prompts",
+            project_id=project_id,
+            timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+            max_attempts=1,
+        )
+        return [
+            ReportPrompt.model_validate(prompt)
+            for prompt in self._extract_list(payload, "prompts")
+            if isinstance(prompt, dict)
+        ]
+
+    def answer_report_prompts_with_defaults(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+        prompts: List[ReportPrompt],
+    ) -> None:
+        self._request(
+            "PUT",
+            f"/api/reports/{report_id}/instances/{instance_id}/prompts/answers",
+            project_id=project_id,
+            expected_statuses={200, 204},
+            json={"prompts": [prompt.default_answer_payload() for prompt in prompts]},
+            timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+            max_attempts=1,
+        )
 
     def delete_dossier_instance(
         self,
