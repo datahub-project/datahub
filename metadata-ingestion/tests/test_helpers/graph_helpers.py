@@ -188,3 +188,48 @@ class MockDataHubGraph(DataHubGraph):
 
     def sink_to_file(self, file: Path) -> None:
         write_metadata_file(file, self.emitted)
+
+
+class MockDataHubGraphWithSearch(MockDataHubGraph):
+    """MockDataHubGraph that answers exists and get_urns_by_filter from
+    entity_graph, instead of through execute_graphql as the base class does."""
+
+    def exists(self, entity_urn: str) -> bool:
+        return entity_urn in self.entity_graph
+
+    def get_urns_by_filter(  # type: ignore[override]
+        self,
+        *,
+        entity_types: Optional[List[str]] = None,
+        extraFilters: Optional[List[Dict[str, Any]]] = None,
+        **kwargs: Any,
+    ) -> Iterable[str]:
+        """Supports EQUAL filters on top-level fields of the entity's properties
+        aspect, including their ``.keyword`` subfield and ``has<Field>`` flags
+        (e.g. domainProperties ``name``, ``parentDomain.keyword``,
+        ``hasParentDomain``)."""
+
+        def field_value(properties: Any, field: str) -> Any:
+            field = field.removesuffix(".keyword")
+            if hasattr(properties, field):
+                return getattr(properties, field)
+            if field.startswith("has"):
+                flag_of = field[3].lower() + field[4:]
+                return "true" if getattr(properties, flag_of, None) else "false"
+            return None
+
+        for urn, aspects in self.entity_graph.items():
+            entity_type = urn.split(":")[2]
+            if entity_types and entity_type not in entity_types:
+                continue
+            aspect_name = f"{entity_type}Properties"
+            properties = aspects.get(aspect_name)
+            if isinstance(properties, dict):
+                # import_file stores raw dict aspects; normalize them like get_aspect.
+                properties = ASPECT_NAME_MAP[aspect_name].from_obj(properties)
+            if all(
+                properties is not None
+                and field_value(properties, rule["field"]) in rule["values"]
+                for rule in extraFilters or []
+            ):
+                yield urn
