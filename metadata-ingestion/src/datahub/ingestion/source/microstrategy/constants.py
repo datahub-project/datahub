@@ -1,7 +1,8 @@
 import re
 from collections.abc import Sequence
-from typing import Dict, Final, Tuple
+from typing import Dict, Final, FrozenSet, Tuple
 
+from datahub.metadata.urns import GlossaryTermUrn, TagUrn
 from datahub.utilities.str_enum import StrEnum
 
 MICROSTRATEGY_PLATFORM = "microstrategy"
@@ -126,6 +127,45 @@ MSTR_PROPERTY_MODEL_LINEAGE_UPSTREAM_DATASET_COUNT = (
 
 MSTR_AVAILABLE_OBJECTS_METRICS = "metrics"
 MSTR_AVAILABLE_OBJECTS_ATTRIBUTES = "attributes"
+
+# Stamped on emitted properties so a skip is trusted only if DataHub still has it.
+MSTR_PROP_FINGERPRINT = "microstrategyFingerprint"
+ENTITY_CHECK_BATCH_SIZE = 100
+MSTR_UNCHANGED_OBJECTS_JOB_ID = "microstrategy_unchanged_objects"
+# Config fields that change how a run reads, not what it emits.
+FINGERPRINT_EXCLUDED_CONFIG_FIELDS: FrozenSet[str] = frozenset(
+    {
+        "stateful_ingestion",
+        "skip_unchanged_objects",
+        "auth",
+        "verify_ssl",
+        "timeout_seconds",
+        "max_retries",
+        "page_size",
+        "warehouse_lineage_sql_timeout_seconds",
+        "max_consecutive_execution_timeouts",
+        # Usage statistics are emitted once per run, outside any object's read.
+        "extract_usage_statistics",
+        "usage_lookback_days",
+        "platform_analytics_project_name",
+        "usage_cube_name",
+        "usage_query_timeout_seconds",
+    }
+)
+
+
+class MicroStrategyReadOutcome(StrEnum):
+    COMPLETE = "complete"
+    # Read, but an API failure left part of its lineage out.
+    INCOMPLETE = "incomplete"
+    # Not read; its last read still stands.
+    FAILED = "failed"
+
+
+# Shared references rather than an object's own entities.
+SHARED_REFERENCE_ENTITY_TYPES: FrozenSet[str] = frozenset(
+    {TagUrn.ENTITY_TYPE, GlossaryTermUrn.ENTITY_TYPE}
+)
 
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.

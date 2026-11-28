@@ -158,6 +158,11 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     reports_skipped_not_dashboard_linked: int = 0
     reports_deduplicated: int = 0
     report_datasets_emitted: int = 0
+    # skip_unchanged_objects; an errored change check reads the object instead.
+    dashboards_skipped_unchanged: int = 0
+    reports_skipped_unchanged: int = 0
+    report_datasets_skipped_unchanged: int = 0
+    change_check_failures: int = 0
     failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)
     metrics_kept_after_model_failure: int = 0
     metrics_skipped_after_model_failure: int = 0

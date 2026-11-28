@@ -1521,6 +1521,10 @@ def _fill_project_caches(source: MicroStrategySource) -> None:
         _REPORT_KEY,
         _ReportObjectLookup.from_fetch(ReportObjectLookupKind.DATASET, None),
     )
+    source._fingerprint_objects.put(
+        _REPORT_KEY,
+        _ReportObjectLookup.from_fetch(ReportObjectLookupKind.DATASET, None),
+    )
     source._report_derived_metrics.put(_REPORT_KEY, None)
     source._report_v2_payloads.put(_REPORT_KEY, {})
     source._metric_models.put(_METRIC_KEY, None)
@@ -1537,6 +1541,7 @@ def _project_cache_values(source: MicroStrategySource) -> List[object]:
     return [
         source._report_sql_statements.get(_REPORT_KEY),
         source._type3_objects.get(_REPORT_KEY),
+        source._fingerprint_objects.get(_REPORT_KEY),
         source._report_derived_metrics.get(_REPORT_KEY),
         source._report_v2_payloads.get(_REPORT_KEY),
         source._metric_models.get(_METRIC_KEY),
@@ -1544,7 +1549,7 @@ def _project_cache_values(source: MicroStrategySource) -> List[object]:
     ]
 
 
-_EMPTY_PROJECT_CACHES: List[object] = [unset, unset, unset, unset, unset, None]
+_EMPTY_PROJECT_CACHES: List[object] = [unset, unset, unset, unset, unset, unset, None]
 
 
 def _assert_project_caches_empty(source: MicroStrategySource) -> None:
@@ -1606,7 +1611,15 @@ def test_report_caches_are_released_when_project_content_raises() -> None:
         list(source._process_project(_PROJECT))
 
     # Metric models stay for the semantic model until the project is done.
-    assert _project_cache_values(source) == [unset, unset, unset, unset, None, None]
+    assert _project_cache_values(source) == [
+        unset,
+        unset,
+        unset,
+        unset,
+        unset,
+        None,
+        None,
+    ]
 
 
 def test_each_project_starts_with_empty_caches_and_the_run_closes_them() -> None:
@@ -4432,6 +4445,16 @@ class _SharedReportClient:
         ]
 
 
+_SHARING_DASHBOARD = MicroStrategyObject.model_validate(
+    {"id": "dash-sharing", "name": "Sharing Dashboard"}
+)
+
+
+_SHARING_DASHBOARD = MicroStrategyObject.model_validate(
+    {"id": "dash-sharing", "name": "Sharing Dashboard"}
+)
+
+
 def _per_report_source(
     extra_config: Optional[Mapping[str, object]] = None,
 ) -> MicroStrategySource:
@@ -4970,7 +4993,9 @@ def test_per_report_report_pass_attaches_model_lineage() -> None:
     )
     region_column = f"urn:li:schemaField:({warehouse_table},region_name)"
     seeded = source._shared_report_dataset(
-        "project-1", DatasetObject.model_validate({"id": "ds-shared", "name": "R"})
+        "project-1",
+        _SHARING_DASHBOARD,
+        DatasetObject.model_validate({"id": "ds-shared", "name": "R"}),
     )
     seeded.warehouse_upstream_urns = [warehouse_table]
     index = ModelLineageIndex(
@@ -5706,13 +5731,13 @@ def test_report_v2_definition_is_fetched_once_for_derived_metrics_and_reports() 
     install_client(source, client)
 
     _run_dashboards(source)
-    shared = source._get_report_definition(
+    shared = source._fetch_report_definition(
         "project-1",
         MicroStrategyObject.model_validate(
             {"id": "DS-SHARED", "name": "Retail Sales Yesterday"}
         ),
     )
-    other = source._get_report_definition(
+    other = source._fetch_report_definition(
         "project-1",
         MicroStrategyObject.model_validate({"id": "rep-2", "name": "Other"}),
     )
@@ -5861,6 +5886,7 @@ def test_cached_only_dataset_emission_uses_a_stored_report_object() -> None:
     source = _per_report_source()
     source._shared_report_dataset(
         "project-1",
+        _SHARING_DASHBOARD,
         DatasetObject.model_validate({"id": "ds-shared", "name": "Shared Report"}),
     )
     source._remember_searched_report(
@@ -6163,7 +6189,9 @@ def test_report_dataset_in_mixed_project_uses_its_own_warehouse_context(
         source, "project-1", _connected_oracle_datasources(mixed_datasources)
     )
     dataset = source._shared_report_dataset(
-        "project-1", _dashboard_with_fact_metric().datasets[0]
+        "project-1",
+        _SHARING_DASHBOARD,
+        _dashboard_with_fact_metric().datasets[0],
     )
     report_object = MicroStrategyObject.model_validate(
         {"id": "ds-1", "name": "Sales Cube", "type": "3"}
@@ -6215,6 +6243,7 @@ def test_failed_connection_lookup_keeps_unenriched_context_and_is_cached(
     ]
     assert client.connection_requests == ["conn-ora"]
     assert source.report.warehouse_lineage_api_failures == 1
+    assert lineage_context.lineage_degraded
     assert [
         w
         for w in source.report.warnings

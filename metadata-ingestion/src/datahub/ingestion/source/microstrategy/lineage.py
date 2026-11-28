@@ -1,7 +1,7 @@
 import contextlib
 import hashlib
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import (
     Callable,
     Dict,
@@ -96,6 +96,8 @@ class WarehouseLineageContext:
     database: Optional[str] = None
     schema: Optional[str] = None
     convert_urns_to_lowercase: bool = True
+    # The connection lookup failed, so database and schema may be missing.
+    connection_unavailable: bool = False
 
 
 TableContextResolver = Callable[[Dict[str, object]], Optional[WarehouseLineageContext]]
@@ -124,8 +126,22 @@ def project_warehouse_contexts(
     datasource_contexts: Iterable[Optional[WarehouseLineageContext]],
 ) -> ProjectWarehouseContexts:
     contexts = list(datasource_contexts)
+    # A failed connection lookup must not make an otherwise identical warehouse
+    # count twice; the merged context stays flagged if any lookup failed.
+    unavailable_by_warehouse: Dict[WarehouseLineageContext, bool] = {}
+    for context in contexts:
+        if context is None:
+            continue
+        warehouse = replace(context, connection_unavailable=False)
+        unavailable_by_warehouse[warehouse] = (
+            unavailable_by_warehouse.get(warehouse, False)
+            or context.connection_unavailable
+        )
     return ProjectWarehouseContexts(
-        supported=frozenset(context for context in contexts if context is not None),
+        supported=frozenset(
+            replace(warehouse, connection_unavailable=unavailable)
+            for warehouse, unavailable in unavailable_by_warehouse.items()
+        ),
         has_unsupported=any(context is None for context in contexts),
     )
 

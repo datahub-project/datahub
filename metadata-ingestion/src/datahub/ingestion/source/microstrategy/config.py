@@ -565,6 +565,15 @@ class MicroStrategyConfig(
         default=None,
         description="Stateful ingestion config with stale entity removal support.",
     )
+    skip_unchanged_objects: bool = Field(
+        default=False,
+        description=(
+            "Skip re-reading dashboards and standalone reports that have not "
+            "changed since the last run, keeping what they emitted. Requires "
+            "stateful ingestion and a DataHub graph connection; otherwise a "
+            "warning is reported and everything is read."
+        ),
+    )
 
     @model_validator(mode="after")
     def _formula_lineage_requires_metric_expressions(self) -> "MicroStrategyConfig":

@@ -150,6 +150,11 @@ class MicroStrategyObject(MicroStrategyBaseModel):
     # that tells a dossier from a Report Services document (both are type 55,
     # subtype 14081).
     view_media: Optional[int] = Field(default=None, alias="viewMedia")
+    # Regenerated on every save; the dossier definition API does not return it.
+    version: Optional[str] = None
+    certified_info: Optional[Dict[str, object]] = Field(
+        default=None, alias="certifiedInfo"
+    )
 
     @model_validator(mode="before")
     @classmethod

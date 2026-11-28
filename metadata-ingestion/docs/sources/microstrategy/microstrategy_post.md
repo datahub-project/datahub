@@ -94,6 +94,18 @@ Identical SQL is parsed once per project and reused for every dataset that share
 
 `Failed to fetch upstream schemas from DataHub` and `Failed to fetch warehouse schema from DataHub` are warnings. Column lineage from the affected upstream tables is skipped for that SQL view, and the lookup is retried the next time the table is used (`warehouse_schema_lookup_failures`).
 
+#### Incremental runs
+
+Set `skip_unchanged_objects: true` to skip re-reading dashboards, standalone reports and per-report datasets that have not changed since the last run. It needs stateful ingestion and a DataHub connection (so not a file sink); without them a warning is reported and every object is read.
+
+Each object's entities are stamped with a `microstrategyFingerprint` custom property, and an extra checkpoint job, `microstrategy_unchanged_objects`, records what each object emitted. On the next run an object is skipped only when its fingerprint matches, the stamp is still in DataHub, and every entity recorded for it still exists and is not soft-deleted. Otherwise it is read again.
+
+The fingerprint covers the object's own metadata (name, owner, description, version, modification date, certification, folder path) and the same for every report or cube it depends on, the project's source warehouses, the recipe options that shape the output, and the connector version. Changing the recipe or upgrading the connector therefore reads everything once; `auth`, timeouts, retries, page size and the usage statistics options do not count as changes. Patterns such as `dashboard_pattern` count too.
+
+A read that did not complete (a failed definition, SQL view, dependency or model table call, or a malformed visualization) is never stamped, so it is read again on the next run, and its previous entities are kept instead of being soft-deleted. The checkpoint is also recorded when `skip_unchanged_objects` is off but stale-entity removal is on, for the same reason. If the saved checkpoint cannot be read, or is over `stateful_ingestion.max_checkpoint_state_size`, a warning is reported and the next run reads every object.
+
+Removals are still detected: a dashboard or report that disappears from MicroStrategy, or is excluded by a pattern, has its previous entities soft-deleted by stale-entity removal as in a full run.
+
 #### Subtypes
 
 Entity subtypes follow MicroStrategy's own vocabulary, so a business user can filter DataHub by the kind of object they know. Dashboards are `Dossier` for a dossier (what Strategy now calls a dashboard) and `Document` for a Report Services document (object subtype 14081). Datasets are `Cube` for intelligent and super cubes (object subtypes 776 and 779) and `MicroStrategy Dataset` for a report used as a dataset; the distinction comes from the dataset's own object info lookup described under Folder Navigation, so a dataset whose lookup failed keeps `MicroStrategy Dataset`. Visualizations are `Visualization` and reports are `Report`.
