@@ -26,6 +26,7 @@ from datahub.ingestion.source.microstrategy.client import (
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_API_METADATA_SEARCHES,
     MSTR_AUTH_TOKEN_HEADER,
     MSTR_IO_THREAD_NAME_PREFIX,
     MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT,
@@ -223,10 +224,16 @@ def _client(max_workers: int = 4) -> MicroStrategyClient:
     return MicroStrategyClient(config, MicroStrategyReport())
 
 
-def _response(status_code: int, token: Optional[str] = None) -> requests.Response:
+def _response(
+    status_code: int,
+    token: Optional[str] = None,
+    payload: Optional[Dict[str, object]] = None,
+) -> requests.Response:
     response = requests.Response()
     response.status_code = status_code
-    response._content = b"" if status_code == 204 else json.dumps({}).encode()
+    response._content = (
+        b"" if status_code == 204 else json.dumps(payload or {}).encode()
+    )
     response.headers["Content-Type"] = "application/json"
     if token:
         response.headers[MSTR_AUTH_TOKEN_HEADER] = token
@@ -405,6 +412,67 @@ def test_stop_event_ends_a_retry_wait() -> None:
     ):
         client._request("GET", "/model/metrics/M-1", stop=stop)
     assert request.call_count == 1
+
+
+def test_concurrent_metadata_searches_do_not_clobber_active_search() -> None:
+    client = _client()
+    client.session.headers[MSTR_AUTH_TOKEN_HEADER] = "token-1"
+    barrier = threading.Barrier(4)
+    second_post = threading.Event()
+    lock = threading.Lock()
+    active_search_id: Optional[str] = None
+    search_targets: Dict[str, str] = {}
+
+    def fake_request(
+        method: str,
+        url: str,
+        params: Optional[Dict[str, object]] = None,
+        **kwargs: object,
+    ) -> requests.Response:
+        nonlocal active_search_id
+        assert url.endswith(MSTR_API_METADATA_SEARCHES)
+        assert params is not None
+        if method == "POST":
+            used_by = str(params["usedByObject"]).split(";")[0]
+            with lock:
+                search_id = f"search-{len(search_targets)}"
+                search_targets[search_id] = used_by
+                active_search_id = search_id
+                is_first = len(search_targets) == 1
+                if not is_first:
+                    second_post.set()
+            if is_first:
+                second_post.wait(timeout=0.05)
+            return _response(200, payload={"id": search_id})
+        search_id = str(params["searchId"])
+        with lock:
+            current = active_search_id
+            target = search_targets[search_id]
+        if search_id != current:
+            return _response(404)
+        return _response(
+            200,
+            payload={"result": [{"id": f"dep-{target}", "name": f"Dep {target}"}]},
+        )
+
+    results: Dict[int, List[str]] = {}
+    errors: List[BaseException] = []
+
+    def worker(idx: int) -> None:
+        barrier.wait(timeout=_WAIT_SECONDS)
+        try:
+            deps = client.get_object_dependencies("proj-1", f"doc-{idx}", "55")
+            with lock:
+                results[idx] = [dep.id for dep in deps]
+        except BaseException as error:
+            with lock:
+                errors.append(error)
+
+    with mock.patch.object(client.session, "request", side_effect=fake_request):
+        _run_threads(4, worker)
+
+    assert errors == []
+    assert results == {idx: [f"dep-doc-{idx}"] for idx in range(4)}
 
 
 def _source(
