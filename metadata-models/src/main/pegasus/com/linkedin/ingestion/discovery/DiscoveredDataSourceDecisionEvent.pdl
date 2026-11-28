@@ -1,0 +1,38 @@
+namespace com.linkedin.ingestion.discovery
+
+import com.linkedin.common.Urn
+
+/**
+ * One transition in the recommendation lifecycle of a discovered data source.
+ */
+record DiscoveredDataSourceDecisionEvent {
+  /**
+   * The status the source moved to.
+   */
+  status: DiscoveredDataSourceStatus
+
+  /**
+   * Who made the change: a user, an agent, or the system.
+   */
+  actor: Urn
+
+  /**
+   * Where the change came from, e.g. "ingestion-agent", "ui" or "system".
+   */
+  channel: optional string
+
+  /**
+   * When the change happened, in epoch milliseconds.
+   */
+  time: long
+
+  /**
+   * Free-text reason, e.g. what the customer said when declining.
+   */
+  reason: optional string
+
+  /**
+   * The evidence tier at the time of the change.
+   */
+  tier: optional DiscoveredDataSourceTier
+}
