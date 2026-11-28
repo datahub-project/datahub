@@ -217,6 +217,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
         urn
         type
         origin
+        env
         platform {
             ...platformFields
         }
@@ -236,6 +237,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
         urn
         type
         origin
+        env
         platform {
             ...platformFields
         }

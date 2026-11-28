@@ -17,6 +17,14 @@ public abstract class SparkDataset {
     this.urn = DatahubUtils.createDatasetUrn(platform, platformInstance, name, fabricType);
   }
 
+  /**
+   * @param env a FabricType value or the id of a registered customFabricType
+   */
+  public SparkDataset(String platform, String platformInstance, String name, String env) {
+    super();
+    this.urn = DatahubUtils.createDatasetUrn(platform, platformInstance, name, env);
+  }
+
   public SparkDataset(String platform, String name, DatahubOpenlineageConfig datahubConfig) {
     super();
     this.urn =
@@ -24,7 +32,7 @@ public abstract class SparkDataset {
             platform,
             datahubConfig.getCommonDatasetPlatformInstance(),
             name,
-            datahubConfig.getFabricType());
+            datahubConfig.getEnv());
   }
 
   public DatasetUrn urn() {

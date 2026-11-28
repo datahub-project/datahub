@@ -772,6 +772,49 @@ public class OpenAPIV3GeneratorTest {
     assertTrue(componentKeys.contains("CrossEntitiesResponse_v3"));
   }
 
+  /**
+   * Env / origin fields are now a string typeref bound to FabricType, but clients that never use
+   * custom environments see the spec as before: each field still references the FabricType enum
+   * component, whose symbols are unchanged.
+   */
+  @Test
+  public void testFabricTypeNameFieldsKeepTheFabricTypeEnum() {
+    Map<String, Schema> schemas = openAPI.getComponents().getSchemas();
+    String fabricTypeRef = "#/components/schemas/FabricType";
+    Map<String, String> fields =
+        Map.of(
+            "DatasetKey", "origin",
+            "MLModelKey", "origin",
+            "MLModelGroupKey", "origin",
+            "MLModelDeploymentKey", "origin",
+            "DataProcessKey", "origin",
+            "ContainerProperties", "env",
+            "DataFlowInfo", "env",
+            "DataJobInfo", "env",
+            "IcebergWarehouseInfo", "env");
+
+    fields.forEach(
+        (schemaName, fieldName) -> {
+          Schema<?> property = (Schema<?>) schemas.get(schemaName).getProperties().get(fieldName);
+          boolean refersToEnum =
+              fabricTypeRef.equals(property.get$ref())
+                  || (property.getOneOf() != null
+                      && property.getOneOf().stream()
+                          .anyMatch(s -> fabricTypeRef.equals(s.get$ref())))
+                  || (property.getAllOf() != null
+                      && property.getAllOf().stream()
+                          .anyMatch(s -> fabricTypeRef.equals(s.get$ref())));
+          assertTrue(refersToEnum, schemaName + "." + fieldName + " -> " + property);
+        });
+
+    List<String> expectedSymbols =
+        ((com.linkedin.data.schema.EnumDataSchema)
+                com.linkedin.data.template.DataTemplateUtil.getSchema(
+                    com.linkedin.common.FabricType.class))
+            .getSymbols();
+    assertEquals(schemas.get("FabricType").getEnum(), expectedSymbols);
+  }
+
   @Test
   public void testCrossEntityArraysAreOptional() {
     String[] schemas = {"CrossEntitiesRequest_v3", "CrossEntitiesPatch_v3"};

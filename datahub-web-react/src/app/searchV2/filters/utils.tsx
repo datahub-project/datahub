@@ -51,6 +51,7 @@ import {
     TYPE_NAMES_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '@app/searchV2/utils/constants';
+import { getEnvironmentLabel } from '@app/sharedV2/customFabricType/customFabricType.utils';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { stripMarkdown } from '@app/sharedV2/stripMarkdown';
@@ -231,6 +232,8 @@ function getFilterWithEntityIconAndLabel(
         );
         icon = newIcon;
         label = newLabel;
+    } else if (filterEntity.type === EntityType.CustomFabricType) {
+        label = getEnvironmentLabel(filterValue, filterEntity);
     } else if (entityRegistry.hasEntity(filterEntity.type)) {
         icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT);
         label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);

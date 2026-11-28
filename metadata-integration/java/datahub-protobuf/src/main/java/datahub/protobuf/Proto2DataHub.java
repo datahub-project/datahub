@@ -1,7 +1,7 @@
 package datahub.protobuf;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.FabricType;
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import datahub.client.Emitter;
@@ -172,7 +172,7 @@ public class Proto2DataHub {
   static class AppConfig {
 
     private final String datahubUser;
-    private final FabricType fabricType;
+    private final String datahubEnv;
     private final String datahubAPI;
     private final String datahubToken;
     private final String githubOrg;
@@ -197,10 +197,16 @@ public class Proto2DataHub {
           cli.getOptionValue(OPTION_DATAHUB_TOKEN, env.getOrDefault("DATAHUB_TOKEN", ""));
       datahubUser =
           cli.getOptionValue(OPTION_DATAHUB_USER, env.getOrDefault("DATAHUB_USER", "datahub"));
-      fabricType =
-          FabricType.valueOf(
-              cli.getOptionValue(OPTION_ENV, env.getOrDefault("DATAHUB_ENV", "DEV"))
-                  .toUpperCase(Locale.ROOT));
+      // A FabricType value (any case, as before) or a registered custom environment.
+      String envValue = cli.getOptionValue(OPTION_ENV, env.getOrDefault("DATAHUB_ENV", "DEV"));
+      datahubEnv =
+          FabricTypeNames.canonical(envValue)
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          "Invalid env "
+                              + envValue
+                              + ": use a FabricType value or a registered custom environment"));
       githubOrg =
           cli.getOptionValue(OPTION_GITHUB_ORG, env.getOrDefault("DATAHUB_GITHUBORG", null));
       slackId = cli.getOptionValue(OPTION_SLACK_ID, env.getOrDefault("DATAHUB_SLACKID", null));
@@ -371,7 +377,7 @@ public class Proto2DataHub {
                       .setFilename(filePath.toString())
                       .setSchema(textSchema)
                       .setAuditStamp(auditStamp)
-                      .setFabricType(config.fabricType)
+                      .setEnv(config.datahubEnv)
                       .setGithubOrganization(config.githubOrg)
                       .setSlackTeamId(config.slackId)
                       .setSubType(config.subType)

@@ -263,6 +263,12 @@
         "field" : "title"
       } ]
     },
+    "customFabricType" : {
+      "queryFields" : [ {
+        "boost" : 1.0,
+        "field" : "note"
+      } ]
+    },
     "dashboard" : {
       "queryFields" : [ {
         "boost" : 0.5,

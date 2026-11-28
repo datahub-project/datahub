@@ -25,6 +25,6 @@ public class AliasesUtils {
     return new DatasetUrn(
         dataset.getPlatformEntity(),
         dataset.getDatasetNameEntity().toLowerCase(Locale.ROOT),
-        dataset.getOriginEntity());
+        dataset.getEnv());
   }
 }

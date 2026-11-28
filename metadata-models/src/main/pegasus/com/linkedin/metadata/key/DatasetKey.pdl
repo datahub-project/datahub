@@ -1,14 +1,14 @@
 namespace com.linkedin.metadata.key
 
 import com.linkedin.common.Urn
-import com.linkedin.common.FabricType
+import com.linkedin.common.FabricTypeName
 
 /**
  * Key for a Dataset
  */
 @Aspect = {
   "name": "datasetKey",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record DatasetKey {
   /**
@@ -61,5 +61,5 @@ record DatasetKey {
       ]
     }
   }
-  origin: FabricType
+  origin: FabricTypeName
 }

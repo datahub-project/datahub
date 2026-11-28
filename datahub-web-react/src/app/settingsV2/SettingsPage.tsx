@@ -5,6 +5,7 @@ import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { House } from '@phosphor-icons/react/dist/csr/House';
 import { ShieldCheck } from '@phosphor-icons/react/dist/csr/ShieldCheck';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import { Star } from '@phosphor-icons/react/dist/csr/Star';
 import { ToggleRight } from '@phosphor-icons/react/dist/csr/ToggleRight';
 import { Users } from '@phosphor-icons/react/dist/csr/Users';
@@ -139,6 +140,8 @@ const SettingsPageContent = () => {
     const showPolicies = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;
     const showUsersGroups = (isIdentityManagementEnabled && me && me?.platformPrivileges?.manageIdentities) || false;
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
+    const showEnvironments =
+        !!config.featureFlags.customFabricTypesEnabled && !!me?.platformPrivileges?.manageCustomFabricTypes;
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
     const showAccessTokens = me && me?.platformPrivileges?.generatePersonalAccessTokens;
     const showFeatures = me?.platformPrivileges?.manageIngestion; // TODO: Add feature flag for this
@@ -256,6 +259,15 @@ const SettingsPageContent = () => {
                         isHidden: !showOwnershipTypes,
                         icon: <Users />,
                         selectedIcon: fillIcon(<Users />),
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: t('nav.environments'),
+                        key: 'environments',
+                        link: `${url}/environments`,
+                        isHidden: !showEnvironments,
+                        icon: <Stack />,
+                        selectedIcon: fillIcon(<Stack />),
                     },
                 ],
             },

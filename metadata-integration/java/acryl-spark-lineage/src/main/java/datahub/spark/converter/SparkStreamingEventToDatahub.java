@@ -229,10 +229,7 @@ public class SparkStreamingEventToDatahub {
           sparkLineageConf.getOpenLineageConf().getCommonDatasetPlatformInstance();
       return Optional.of(
           createDatasetUrn(
-              platform,
-              platformInstance,
-              path,
-              sparkLineageConf.getOpenLineageConf().getFabricType()));
+              platform, platformInstance, path, sparkLineageConf.getOpenLineageConf().getEnv()));
     } else {
       return Optional.empty();
     }

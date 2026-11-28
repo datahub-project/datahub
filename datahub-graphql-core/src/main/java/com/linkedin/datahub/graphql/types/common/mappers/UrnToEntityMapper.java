@@ -217,6 +217,10 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((OwnershipTypeEntity) partialEntity).setUrn(input.toString());
       ((OwnershipTypeEntity) partialEntity).setType(EntityType.CUSTOM_OWNERSHIP_TYPE);
     }
+    if (input.getEntityType().equals(CUSTOM_FABRIC_TYPE_ENTITY_NAME)) {
+      partialEntity =
+          com.linkedin.datahub.graphql.types.customfabrictype.CustomFabricTypeMapper.fromUrn(input);
+    }
     if (input.getEntityType().equals(STRUCTURED_PROPERTY_ENTITY_NAME)) {
       partialEntity = new StructuredPropertyEntity();
       ((StructuredPropertyEntity) partialEntity).setUrn(input.toString());

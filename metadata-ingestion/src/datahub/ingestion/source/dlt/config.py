@@ -11,6 +11,7 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
+    validate_env,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
@@ -67,23 +68,22 @@ class DestinationPlatformConfig(ConfigModel):
         description=(
             "DataHub environment for this destination (PROD, DEV, STAGING, etc.). "
             "Must match the env used by the destination platform's own connector. "
-            f"One of {sorted(ALL_ENV_TYPES)}."
+            f"One of {sorted(ALL_ENV_TYPES)}, or a registered custom environment."
         ),
     )
 
     @field_validator("env", mode="after")
     @classmethod
     def _env_must_be_valid(cls, v: str) -> str:
-        """Reject typos like 'PORD' / 'prd' at config-load time.
+        """Reject malformed env values (e.g. 'prd-1') at config-load time.
 
-        A bad env value silently produces unstitched lineage URNs (the dlt
-        outlet URN won't match the destination connector's URN), so failing
-        fast here prevents a confusing-to-debug ingestion result. Mirrors the
+        A bad env value produces unstitched lineage URNs (the dlt outlet URN
+        won't match the destination connector's URN). A well-formed value that
+        is neither built-in nor a registered custom env, e.g. the typo 'PORD',
+        is rejected by DataHub when the lineage is written. Mirrors the
         validator on EnvConfigMixin.env in datahub.configuration.source_common.
         """
-        if v.upper() not in ALL_ENV_TYPES:
-            raise ValueError(f"env must be one of {sorted(ALL_ENV_TYPES)}, got {v!r}")
-        return v.upper()
+        return validate_env(v)
 
 
 class DltRunHistoryConfig(BaseTimeWindowConfig):

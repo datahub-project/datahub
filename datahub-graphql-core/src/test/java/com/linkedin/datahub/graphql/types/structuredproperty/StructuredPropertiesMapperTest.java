@@ -98,7 +98,7 @@ public class StructuredPropertiesMapperTest {
 
   @Test
   public void testUrnValueRejectedByEntityRegistryProducesNoValueEntity() {
-    String invalidFabricUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,foo,NOT_A_FABRIC)";
+    String invalidFabricUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,foo,not_a_fabric)";
     com.linkedin.datahub.graphql.generated.StructuredProperties mapped =
         StructuredPropertiesMapper.map(
             TestUtils.getMockAllowContext(), propertiesWithValue(invalidFabricUrn), ENTITY_URN);

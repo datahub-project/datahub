@@ -274,6 +274,7 @@ export const dataset1 = {
     platformNativeType: 'TABLE',
     name: 'The Great Test Dataset',
     origin: 'PROD',
+    env: 'PROD',
     tags: ['Private', 'PII'],
     uri: 'www.google.com',
     privileges: {
@@ -407,6 +408,7 @@ export const dataset2 = {
     platformNativeType: 'TABLE',
     name: 'Some Other Dataset',
     origin: 'PROD',
+    env: 'PROD',
     tags: ['Outdated'],
     uri: 'www.google.com',
     properties: {
@@ -414,6 +416,7 @@ export const dataset2 = {
         description: 'This is some other dataset, so who cares!',
         customProperties: [],
         origin: 'PROD',
+        env: 'PROD',
         externalUrl: null,
     },
     editableProperties: null,
@@ -519,6 +522,7 @@ export const dataset3 = {
     platformNativeType: 'STREAM',
     name: 'Yet Another Dataset',
     origin: 'PROD',
+    env: 'PROD',
     uri: 'www.google.com',
     properties: {
         __typename: 'DatasetProperties',
@@ -526,6 +530,7 @@ export const dataset3 = {
         qualifiedName: 'Yet Another Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
+        env: 'PROD',
         customProperties: [
             {
                 __typename: 'CustomPropertiesEntry',
@@ -834,6 +839,7 @@ const dataset4 = {
         name: 'Fourth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
+        env: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
         externalUrl: 'https://data.hub',
     },
@@ -847,6 +853,7 @@ const dataset5 = {
         name: 'Fifth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
+        env: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:5' }],
         externalUrl: 'https://data.hub',
         lastModified: dataset3.properties?.lastModified,
@@ -862,6 +869,7 @@ const dataset6 = {
         qualifiedName: 'Fully Qualified Name of Sixth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
+        env: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:6' }],
         externalUrl: 'https://data.hub',
         lastModified: dataset3.properties?.lastModified,
@@ -1514,6 +1522,7 @@ const mlModel = {
     name: 'trust model',
     description: 'a ml trust model',
     origin: 'PROD',
+    env: 'PROD',
     lastIngested: null,
     exists: true,
     platform: {
@@ -1601,6 +1610,7 @@ const mlModelGroup = {
     name: 'trust model group',
     description: 'a ml trust model group',
     origin: 'PROD',
+    env: 'PROD',
     platform: {
         urn: 'urn:li:dataPlatform:kafka',
         name: 'Kafka',
@@ -3512,6 +3522,7 @@ export const mocks = [
                         manageDocuments: true,
                         createDocuments: true,
                         manageServiceAccounts: true,
+                        manageCustomFabricTypes: true,
                     },
                 },
             },
@@ -3777,6 +3788,7 @@ export const platformPrivileges: PlatformPrivileges = {
     managePolicies: true,
     manageIdentities: true,
     manageServiceAccounts: true,
+    manageCustomFabricTypes: true,
     generatePersonalAccessTokens: true,
     manageDomains: true,
     manageAllDataProducts: true,

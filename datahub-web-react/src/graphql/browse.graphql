@@ -42,6 +42,7 @@ query getBrowseResults($input: BrowseInput!) {
             }
             ... on Dataset {
                 origin
+                env
                 properties {
                     name
                     description
@@ -167,12 +168,14 @@ query getBrowseResults($input: BrowseInput!) {
             }
             ... on MLModel {
                 origin
+                env
                 globalTags {
                     ...globalTagsFields
                 }
             }
             ... on MLModelGroup {
                 origin
+                env
             }
         }
         groups {

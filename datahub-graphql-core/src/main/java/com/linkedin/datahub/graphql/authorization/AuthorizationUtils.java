@@ -195,6 +195,12 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_SETTINGS);
   }
 
+  /** Whether the actor holds the platform Manage Environments privilege. */
+  public static boolean canManageCustomFabricTypes(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_CUSTOM_FABRIC_TYPES_PRIVILEGE);
+  }
+
   public static boolean canManageOwnershipTypes(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES);
@@ -500,6 +506,18 @@ public class AuthorizationUtils {
   public static boolean canManageStructuredProperties(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorizedEntityType(
         context.getOperationContext(), MANAGE, List.of(STRUCTURED_PROPERTY_ENTITY_NAME));
+  }
+
+  /**
+   * Whether the actor may perform an operation on one custom environment (customFabricType): with
+   * the entity privilege for that operation, or Manage Environments once the entity privilege map
+   * grants it.
+   */
+  public static boolean canManageCustomFabricType(
+      @Nonnull QueryContext context, @Nonnull ApiOperation operation, @Nonnull Urn urn) {
+    // isAuthorizedEntityUrns, not isAPIAuthorized*: the latter allows everything when REST API
+    // authorization is disabled, and GraphQL must always enforce.
+    return AuthUtil.isAuthorizedEntityUrns(context.getOperationContext(), operation, List.of(urn));
   }
 
   public static boolean canViewStructuredPropertiesPage(@Nonnull QueryContext context) {

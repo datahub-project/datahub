@@ -239,6 +239,11 @@ type PlatformPrivileges {
   Whether the user can create, update, and delete service accounts.
   """
   manageServiceAccounts: Boolean!
+
+  """
+  Whether the user can create, edit, deprecate and delete custom environments.
+  """
+  manageCustomFabricTypes: Boolean!
 }
 
 """
@@ -977,6 +982,12 @@ type FeatureFlagsConfig {
   If enabled, shows the "Star us on GitHub" asks.
   """
   showGithubStarPrompt: Boolean!
+
+  """
+  Whether custom environments (beyond the built-in FabricType values) can be registered and used.
+  Controlled by CUSTOM_FABRIC_TYPES_ENABLED.
+  """
+  customFabricTypesEnabled: Boolean!
 }
 
 """

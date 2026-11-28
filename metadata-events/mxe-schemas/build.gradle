@@ -20,7 +20,9 @@ mainCopySchemas.dependsOn copyMetadataModels
 processResources.dependsOn copyMetadataModels
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
 
-task renameNamespace(type: Sync, dependsOn: generateAvroSchema) {
+apply from: '../../gradle/schema/standalone-enum-avro-schemas.gradle'
+
+task renameNamespace(type: Sync, dependsOn: [generateAvroSchema, copyStandaloneEnumAvroSchemas]) {
   from("src/mainGeneratedAvroSchema/avro")
   into file("src/renamed/avro")
 

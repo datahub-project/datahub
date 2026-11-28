@@ -17,9 +17,10 @@ from datahub.ingestion.source.kinesis.kinesis_schema_registry import (
 
 class TestDestinationPlatformDetail:
     def test_env_must_be_valid_fabric_type(self):
-        # FabricType is an enum (PROD/DEV/QA/STG/etc.). Non-enum strings should fail validation.
+        # A FabricType value (PROD/DEV/QA/STG/etc.) or a custom env shaped like one;
+        # anything else fails validation.
         with pytest.raises(ValidationError):
-            DestinationPlatformDetail(env="NOTAFABRIC")
+            DestinationPlatformDetail(env="not-a-fabric")
 
     def test_env_is_uppercased_like_top_level_env(self):
         # Lowercase env must be normalized (not rejected), matching EnvConfigMixin's

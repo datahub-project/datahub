@@ -1,8 +1,11 @@
 package io.datahubproject.openapi.openlineage.config;
 
 import com.linkedin.common.FabricType;
+import com.linkedin.common.FabricTypeNames;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import java.util.Arrays;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,14 +29,18 @@ public class OpenLineageServletConfig {
             ? properties.getCommonDatasetEnv()
             : properties.getEnv();
 
-    FabricType fabricType = FabricType.PROD; // default
+    // A FabricType value or the id of a registered customFabricType, upper-cased.
+    String env = FabricType.PROD.name(); // default
     if (envValue != null && !envValue.isEmpty()) {
-      try {
-        fabricType = FabricType.valueOf(envValue.toUpperCase());
-      } catch (IllegalArgumentException e) {
+      Optional<String> canonical = FabricTypeNames.canonical(envValue);
+      if (canonical.isPresent()) {
+        env = canonical.get();
+      } else {
         log.warn(
-            "Invalid env value '{}'. Using default PROD. Valid values: PROD, DEV, TEST, QA, UAT, EI, PRE, STG, NON_PROD, CORP, RVW, PRD, TST, SIT, SBX, SANDBOX, CERT",
-            envValue);
+            "Invalid env value '{}'. Using default PROD. Valid values: {}, or a registered custom"
+                + " environment",
+            envValue,
+            Arrays.toString(FabricType.values()));
       }
     }
 
@@ -57,7 +64,7 @@ public class OpenLineageServletConfig {
             .includeSchemaMetadata(properties.isIncludeSchemaMetadata())
             .captureColumnLevelLineage(properties.isCaptureColumnLevelLineage())
             .usePatch(properties.isUsePatch())
-            .fabricType(fabricType)
+            .env(env)
             .orchestrator(properties.getOrchestrator())
             .domains(properties.getDomains())
             .parentJobUrn(null)

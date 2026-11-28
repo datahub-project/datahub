@@ -4,13 +4,14 @@ import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 import com.linkedin.common.Urn
 import com.linkedin.common.TimeStamp
-import com.linkedin.common.FabricType
+import com.linkedin.common.FabricTypeName
 
 /**
  * Information about a Data processing flow
  */
 @Aspect = {
-  "name": "dataFlowInfo"
+  "name": "dataFlowInfo",
+  "schemaVersion": 2
 }
 record DataFlowInfo includes CustomProperties, ExternalReference {
 
@@ -106,5 +107,5 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
     "filterNameOverride": "Environment",
     "queryByDefault": false
   }
-  env: optional FabricType
+  env: optional FabricTypeName
 }

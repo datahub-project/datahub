@@ -65,7 +65,7 @@ class TestLookerConnectionDefinition:
         )
         with pytest.raises(ValueError):
             LookerConnectionDefinition(
-                platform="postgres", default_db="db", platform_env="nope"
+                platform="postgres", default_db="db", platform_env="no-pe"
             )
 
 

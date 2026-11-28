@@ -1,0 +1,39 @@
+query listCustomFabricTypes($input: ListCustomFabricTypesInput!) {
+    listCustomFabricTypes(input: $input) {
+        start
+        count
+        total
+        customFabricTypes {
+            ...customFabricTypeFields
+        }
+    }
+}
+
+mutation createCustomFabricType($input: CreateCustomFabricTypeInput!) {
+    createCustomFabricType(input: $input) {
+        ...customFabricTypeFields
+    }
+}
+
+mutation updateCustomFabricType($input: UpdateCustomFabricTypeInput!) {
+    updateCustomFabricType(input: $input) {
+        ...customFabricTypeFields
+    }
+}
+
+mutation deleteCustomFabricType($urn: String!) {
+    deleteCustomFabricType(urn: $urn)
+}
+
+fragment customFabricTypeFields on CustomFabricType {
+    urn
+    type
+    id
+    properties {
+        displayName
+        description
+    }
+    deprecation {
+        ...deprecationFields
+    }
+}

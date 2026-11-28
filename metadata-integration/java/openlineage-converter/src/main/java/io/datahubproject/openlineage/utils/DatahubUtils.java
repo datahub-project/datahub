@@ -34,4 +34,13 @@ public class DatahubUtils {
     String datasteName = platformInstance == null ? name : platformInstance + "." + name;
     return new DatasetUrn(new DataPlatformUrn(platform), datasteName, fabricType);
   }
+
+  /**
+   * @param env a FabricType value or the id of a registered customFabricType
+   */
+  public static DatasetUrn createDatasetUrn(
+      String platform, String platformInstance, String name, String env) {
+    String datasetName = platformInstance == null ? name : platformInstance + "." + name;
+    return new DatasetUrn(new DataPlatformUrn(platform), datasetName, env);
+  }
 }

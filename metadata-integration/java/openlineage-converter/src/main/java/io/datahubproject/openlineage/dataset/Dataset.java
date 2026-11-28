@@ -20,7 +20,7 @@ public abstract class Dataset {
     super();
     this.urn =
         DatahubUtils.createDatasetUrn(
-            platform, datahubConfig.getPlatformInstance(), name, datahubConfig.getFabricType());
+            platform, datahubConfig.getPlatformInstance(), name, datahubConfig.getEnv());
   }
 
   public DatasetUrn urn() {

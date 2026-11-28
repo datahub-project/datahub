@@ -23,7 +23,7 @@ namespace com.linkedin.common
     "type" : "string",
     "maxLength" : 210
   }, {
-    "type" : "com.linkedin.common.FabricType",
+    "type" : "com.linkedin.common.FabricTypeName",
     "name" : "origin",
     "doc" : "Fabric type where dataset belongs to or where it was generated."
   } ],

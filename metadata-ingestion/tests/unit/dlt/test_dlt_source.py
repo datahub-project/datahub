@@ -997,19 +997,23 @@ def test_urn_validators_accept_valid_urns() -> None:
 
 
 def test_destination_platform_env_typo_rejected() -> None:
-    """A typo'd env (e.g. 'PORD') must raise ValidationError so lineage URNs cannot silently mismatch."""
+    """A malformed env must raise ValidationError so lineage URNs cannot silently mismatch.
+
+    A well-formed typo such as 'PORD' could be a registered custom env, so it is
+    rejected by DataHub when the lineage is written instead.
+    """
     with pytest.raises(ValidationError) as exc_info:
         DltSourceConfig.model_validate(
             {
                 "pipelines_dir": "/tmp",
                 "env": "DEV",
                 "destination_platform_map": {
-                    "postgres": {"env": "PORD"},  # typo
+                    "postgres": {"env": "P0RD-"},  # typo
                 },
             }
         )
     msg = str(exc_info.value)
-    assert "PORD" in msg
+    assert "P0RD-" in msg
     # Pydantic's location path must point the operator at the offending entry
     # so they don't have to grep through their config to find the broken key.
     assert "destination_platform_map" in msg or "postgres" in msg

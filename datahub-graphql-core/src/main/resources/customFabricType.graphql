@@ -1,0 +1,190 @@
+# GraphQL schema for custom environments (custom fabric types).
+# Entities can use an environment name beyond the built-in FabricType values once it is
+# registered as a customFabricType entity, and while that entity is neither deleted nor
+# deprecated.
+
+"""
+A custom environment name, beyond the built-in FabricType values
+"""
+type CustomFabricType implements Entity {
+  """
+  The primary key, e.g. urn:li:customFabricType:MY_ENV
+  """
+  urn: String! @noAspects
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType! @noAspects
+
+  """
+  Whether or not this entity exists on DataHub
+  """
+  exists: Boolean @noAspects
+
+  """
+  The environment name entities store in their env / origin, e.g. MY_ENV
+  """
+  id: String! @noAspects
+
+  """
+  Display name and description of the environment
+  """
+  properties: CustomFabricTypeProperties
+    @aspectMapping(aspects: ["customFabricTypeInfo"])
+
+  """
+  Ownership metadata of the environment
+  """
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
+
+  """
+  Whether the environment has been soft-deleted
+  """
+  status: Status @aspectMapping(aspects: ["status"])
+
+  """
+  Deprecation of the environment. A deprecated environment can't be newly used, but entities
+  already in it are kept and stay editable.
+  """
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
+
+  """
+  Granular API for querying edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
+}
+
+"""
+Display information about a custom environment
+"""
+type CustomFabricTypeProperties {
+  """
+  Human-facing name of the environment. Defaults to the id when absent.
+  """
+  displayName: String
+
+  """
+  What this environment represents
+  """
+  description: String
+}
+
+"""
+Input for listing custom environments
+"""
+input ListCustomFabricTypesInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  Whether to include deprecated environments. Defaults to true.
+  """
+  includeDeprecated: Boolean = true
+}
+
+"""
+The registered custom environments
+"""
+type ListCustomFabricTypesResult {
+  """
+  The starting offset of the result set
+  """
+  start: Int!
+
+  """
+  The number of results returned
+  """
+  count: Int!
+
+  """
+  The total number of matching custom environments
+  """
+  total: Int!
+
+  """
+  The custom environments, ordered by id
+  """
+  customFabricTypes: [CustomFabricType!]!
+}
+
+"""
+Input for registering a custom environment
+"""
+input CreateCustomFabricTypeInput {
+  """
+  The environment name: uppercase letters, digits and underscores, starting with a letter, at
+  most 64 characters, and not a built-in FabricType value in any case
+  """
+  id: String!
+
+  """
+  Optional human-facing name of the environment
+  """
+  displayName: String
+
+  """
+  Optional description of what the environment represents
+  """
+  description: String
+}
+
+"""
+Input for editing the display information of a custom environment
+"""
+input UpdateCustomFabricTypeInput {
+  """
+  The urn of the custom environment
+  """
+  urn: String!
+
+  """
+  New human-facing name of the environment
+  """
+  displayName: String
+
+  """
+  New description of the environment
+  """
+  description: String
+}
+
+extend type Query {
+  """
+  Fetch a custom environment by urn
+  """
+  customFabricType(urn: String!): CustomFabricType
+
+  """
+  The registered custom environments. Soft-deleted ones are left out.
+  """
+  listCustomFabricTypes(
+    input: ListCustomFabricTypesInput!
+  ): ListCustomFabricTypesResult!
+}
+
+extend type Mutation {
+  """
+  Register a custom environment. Fails when custom environments are not enabled on the server.
+  """
+  createCustomFabricType(input: CreateCustomFabricTypeInput!): CustomFabricType!
+
+  """
+  Edit the display name or description of a custom environment
+  """
+  updateCustomFabricType(input: UpdateCustomFabricTypeInput!): CustomFabricType!
+
+  """
+  Delete a custom environment. Fails while any entity still uses it; deprecate it instead.
+  Deprecate or un-deprecate it with updateDeprecation.
+  """
+  deleteCustomFabricType(urn: String!): Boolean!
+}

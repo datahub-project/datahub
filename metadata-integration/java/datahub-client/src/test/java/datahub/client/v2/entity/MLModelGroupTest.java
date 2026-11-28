@@ -637,4 +637,12 @@ public class MLModelGroupTest {
       // expected
     }
   }
+
+  @Test
+  public void testCustomEnvironment() {
+    MLModelGroup group =
+        MLModelGroup.builder().platform("mlflow").groupId("g").env("MY_ENV").build();
+
+    assertTrue(group.getUrn().toString().endsWith(",MY_ENV)"));
+  }
 }

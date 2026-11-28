@@ -1008,7 +1008,7 @@ public class MLModel extends Entity
     public Builder urn(@Nonnull MLModelUrn urn) {
       this.platform = urn.getPlatformEntity().getPlatformNameEntity();
       this.name = urn.getMlModelNameEntity();
-      this.env = urn.getOriginEntity().name();
+      this.env = urn.getEnv();
       return this;
     }
 
@@ -1029,8 +1029,8 @@ public class MLModel extends Entity
 
       try {
         DataPlatformUrn platformUrn = new DataPlatformUrn(platform);
-        FabricType fabricType = FabricType.valueOf(env);
-        MLModelUrn urn = new MLModelUrn(platformUrn, name, fabricType);
+        // A FabricType value or a registered custom environment; malformed values throw.
+        MLModelUrn urn = new MLModelUrn(platformUrn, name, env);
         MLModel model = new MLModel(urn);
 
         // Cache MLModelProperties aspect if any builder properties are set
@@ -1082,7 +1082,8 @@ public class MLModel extends Entity
                 + ". Must be one of: "
                 + Arrays.stream(FabricType.values())
                     .map(Enum::name)
-                    .collect(Collectors.joining(", ")),
+                    .collect(Collectors.joining(", "))
+                + ", or a registered custom environment",
             e);
       }
     }

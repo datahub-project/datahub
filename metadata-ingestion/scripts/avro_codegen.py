@@ -49,6 +49,10 @@ def load_schemas(schemas_path: str) -> Dict[str, dict]:
         "platform/event/v1/EntityChangeEvent.avsc",
         "platform/event/v1/RelationshipChangeEvent.avsc",
         "metadata/query/filter/Filter.avsc",  # temporarily added to test reserved keywords support
+        # No field references FabricType since env / origin became the FabricTypeName typeref, so
+        # the build adds it standalone (gradle/schema/standalone-enum-avro-schemas.gradle) to keep
+        # FabricTypeClass.
+        "common/FabricType.avsc",
     }
 
     # Find all the aspect schemas / other important schemas.

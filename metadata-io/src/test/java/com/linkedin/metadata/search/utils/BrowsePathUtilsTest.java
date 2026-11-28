@@ -62,6 +62,19 @@ public class BrowsePathUtilsTest {
   }
 
   @Test
+  public void testDatasetBrowsePathKeepsCustomEnv() throws URISyntaxException {
+    Urn datasetUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,Test.A.B,MY_ENV)");
+
+    Assert.assertEquals(
+        BrowsePathUtils.getDefaultBrowsePath(datasetUrn, this.registry, '.'),
+        "/my_env/kafka/test/a");
+    Assert.assertEquals(
+        BrowsePathUtils.getLegacyDefaultBrowsePath(datasetUrn, this.registry),
+        "/my_env/kafka/test/a/b");
+  }
+
+  @Test
   public void testBuildDataPlatformUrn() throws URISyntaxException {
     // Datasets
     DatasetKey datasetKey =

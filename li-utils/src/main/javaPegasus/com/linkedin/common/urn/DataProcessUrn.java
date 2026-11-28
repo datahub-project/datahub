@@ -11,13 +11,26 @@ public class DataProcessUrn extends Urn {
 
   private final String _name;
   private final String _orchestrator;
-  private final FabricType _origin;
+  private final String _env;
 
   public DataProcessUrn(String orchestrator, String name, FabricType origin) {
-    super(ENTITY_TYPE, TupleKey.create(orchestrator, name, origin));
+    this(orchestrator, name, origin.name(), false);
+  }
+
+  /**
+   * @param env a FabricType symbol, or the id of a registered customFabricType
+   */
+  public DataProcessUrn(String orchestrator, String name, String env) {
+    this(orchestrator, name, env, true);
+  }
+
+  private DataProcessUrn(String orchestrator, String name, String env, boolean checkEnv) {
+    super(
+        ENTITY_TYPE,
+        TupleKey.create(orchestrator, name, checkEnv ? FabricTypeUrnParts.checkEnv(env) : env));
     this._orchestrator = orchestrator;
     this._name = name;
-    this._origin = origin;
+    this._env = env;
   }
 
   public String getNameEntity() {
@@ -28,8 +41,14 @@ public class DataProcessUrn extends Urn {
     return _orchestrator;
   }
 
+  /** The FabricType of this URN's env, or {@code $UNKNOWN} when the env is a custom value. */
   public FabricType getOriginEntity() {
-    return _origin;
+    return FabricTypeUrnParts.origin(_env);
+  }
+
+  /** The env exactly as in the URN: a FabricType symbol or a custom value. */
+  public String getEnv() {
+    return _env;
   }
 
   public static DataProcessUrn createFromString(String rawUrn) throws URISyntaxException {
@@ -54,7 +73,7 @@ public class DataProcessUrn extends Urn {
           return new DataProcessUrn(
               (String) key.getAs(0, String.class),
               (String) key.getAs(1, String.class),
-              (FabricType) key.getAs(2, FabricType.class));
+              (String) key.getAs(2, String.class));
         } catch (Exception var3) {
           throw new URISyntaxException(
               urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());

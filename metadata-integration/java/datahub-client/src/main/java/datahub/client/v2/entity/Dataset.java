@@ -604,7 +604,7 @@ public class Dataset extends Entity
     public Builder urn(@Nonnull DatasetUrn urn) {
       this.platform = urn.getPlatformEntity().getPlatformNameEntity();
       this.name = urn.getDatasetNameEntity();
-      this.env = urn.getOriginEntity().name();
+      this.env = urn.getEnv();
       return this;
     }
 

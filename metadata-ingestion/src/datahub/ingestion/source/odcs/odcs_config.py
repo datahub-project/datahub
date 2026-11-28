@@ -6,9 +6,9 @@ from pydantic import Field, field_validator, model_validator
 from datahub.configuration._config_enum import ConfigEnum
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.git import GitInfo
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import EnvConfigMixin, validate_env
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
@@ -90,9 +90,7 @@ class ServerMapping(ConfigModel):
     @field_validator("env")
     @classmethod
     def env_must_be_one_of(cls, v: str) -> str:
-        if v.upper() not in ALL_ENV_TYPES:
-            raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
-        return v.upper()
+        return validate_env(v)
 
 
 class SchemaAssertionCompatibility(ConfigEnum):

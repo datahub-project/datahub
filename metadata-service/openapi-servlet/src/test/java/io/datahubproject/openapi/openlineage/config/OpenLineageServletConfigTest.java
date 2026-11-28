@@ -35,9 +35,12 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
     }
   }
 
-  /** Test configuration with invalid environment (should default to PROD with warning) */
+  /**
+   * Test configuration with a malformed environment (should default to PROD with warning). A
+   * well-formed unknown value such as INVALID_ENV may be a registered custom environment.
+   */
   @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigInvalid.class})
-  @TestPropertySource(properties = {"datahub.openlineage.env=INVALID_ENV"})
+  @TestPropertySource(properties = {"datahub.openlineage.env=invalid-env"})
   public static class InvalidEnvTest extends AbstractTestNGSpringContextTests {
 
     @Autowired private RunEventMapper.MappingConfig mappingConfig;
@@ -48,6 +51,19 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
       assertNotNull(mappingConfig.getDatahubConfig());
       // Should default to PROD when invalid value is provided
       assertEquals(mappingConfig.getDatahubConfig().getFabricType(), FabricType.PROD);
+    }
+  }
+
+  /** A custom environment is kept, upper-cased; its FabricType view is $UNKNOWN. */
+  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigCustom.class})
+  public static class CustomEnvTest extends AbstractTestNGSpringContextTests {
+
+    @Autowired private RunEventMapper.MappingConfig mappingConfig;
+
+    @Test
+    public void testCustomEnv() {
+      assertEquals(mappingConfig.getDatahubConfig().getEnv(), "MY_ENV");
+      assertEquals(mappingConfig.getDatahubConfig().getFabricType(), FabricType.$UNKNOWN);
     }
   }
 
@@ -243,7 +259,17 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
     @Bean
     public DatahubOpenlineageProperties datahubOpenlineageProperties() {
       DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
-      props.setEnv("INVALID_ENV");
+      props.setEnv("invalid-env");
+      return props;
+    }
+  }
+
+  @Configuration
+  static class TestConfigCustom {
+    @Bean
+    public DatahubOpenlineageProperties datahubOpenlineageProperties() {
+      DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
+      props.setCommonDatasetEnv("my_env");
       return props;
     }
   }

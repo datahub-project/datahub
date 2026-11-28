@@ -1,3 +1,5 @@
+import logging
+import re
 from typing import Dict, Optional
 
 import pydantic
@@ -5,6 +7,43 @@ from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
+
+logger = logging.getLogger(__name__)
+
+# The shape of a custom environment id, as the server checks it (FabricTypeNames).
+_CUSTOM_ENV_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
+
+
+def is_env_name(env: str) -> bool:
+    """Whether a value, exactly as written, can be an env in a URN: a built-in FabricType
+    value or shaped like a custom environment id. URNs are identity, so `prod` is not."""
+    return env in ALL_ENV_TYPES or _CUSTOM_ENV_PATTERN.match(env) is not None
+
+
+def validate_env(env: str) -> str:
+    """Normalize an env from a config: a built-in FabricType value or a custom env id.
+
+    The value is upper-cased, as built-in values always have been. A custom value must
+    have the shape of an environment id; whether it is registered, and whether custom
+    environments are enabled, is checked by the server when metadata is written.
+
+    Raises:
+        ValueError: if the value is neither built-in nor shaped like an environment id.
+    """
+    normalized = env.upper()
+    if normalized in ALL_ENV_TYPES:
+        return normalized
+    if is_env_name(normalized):
+        logger.info(
+            f"env {normalized!r} is not a built-in environment; DataHub accepts it only "
+            "if it is a registered custom environment"
+        )
+        return normalized
+    raise ValueError(
+        f"env must be one of {sorted(ALL_ENV_TYPES)}, or a custom environment id "
+        "(letters, digits and underscores, starting with a letter, at most 64 "
+        f"characters); found {env!r}"
+    )
 
 
 class PlatformInstanceConfigMixin(ConfigModel):
@@ -33,9 +72,7 @@ class EnvConfigMixin(ConfigModel):
     @pydantic.field_validator("env", mode="after")
     @classmethod
     def env_must_be_one_of(cls, v: str) -> str:
-        if v.upper() not in ALL_ENV_TYPES:
-            raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
-        return v.upper()
+        return validate_env(v)
 
 
 class DatasetSourceConfigMixin(PlatformInstanceConfigMixin, EnvConfigMixin):

@@ -79,6 +79,7 @@ query getMe {
             manageDocuments
             createDocuments
             manageServiceAccounts
+            manageCustomFabricTypes
         }
     }
 }

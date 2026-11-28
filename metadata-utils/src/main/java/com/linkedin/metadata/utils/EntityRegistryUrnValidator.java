@@ -5,6 +5,7 @@
 
 package com.linkedin.metadata.utils;
 
+import com.linkedin.common.FabricTypeNames;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.message.Message;
 import com.linkedin.data.schema.DataSchema.Type;
@@ -35,6 +36,7 @@ public class EntityRegistryUrnValidator implements Validator {
     if (currentEntitySpec == null) {
       throw new IllegalStateException("Current entity spec must be set");
     }
+    FabricTypeNames.validate(context);
     validateUrnField(context);
   }
 

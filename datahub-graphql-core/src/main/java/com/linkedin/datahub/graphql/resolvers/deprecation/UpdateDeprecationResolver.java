@@ -1,23 +1,18 @@
 package com.linkedin.datahub.graphql.resolvers.deprecation;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateDeprecationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DeprecationUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -53,7 +48,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!isAuthorizedToUpdateDeprecationForEntity(context, entityUrn)) {
+          if (!DeprecationUtils.isAuthorizedToUpdateDeprecationForEntity(context, entityUrn)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
@@ -88,19 +83,6 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
         },
         this.getClass().getSimpleName(),
         "get");
-  }
-
-  private boolean isAuthorizedToUpdateDeprecationForEntity(
-      final QueryContext context, final Urn entityUrn) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                ALL_PRIVILEGES_GROUP,
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DEPRECATION_PRIVILEGE.getType()))));
-
-    return AuthorizationUtils.isAuthorized(
-        context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 
   public static Boolean validateUpdateDeprecationInput(

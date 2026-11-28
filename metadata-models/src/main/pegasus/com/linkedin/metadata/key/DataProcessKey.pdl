@@ -1,12 +1,13 @@
 namespace com.linkedin.metadata.key
 
-import com.linkedin.common.FabricType
+import com.linkedin.common.FabricTypeName
 
 /**
  * Key for a Data Process
  */
 @Aspect = {
-  "name": "dataProcessKey"
+  "name": "dataProcessKey",
+  "schemaVersion": 2
 }
 record DataProcessKey {
   /**
@@ -59,5 +60,5 @@ record DataProcessKey {
       ]
     }
   }
-  origin: FabricType
+  origin: FabricTypeName
 }

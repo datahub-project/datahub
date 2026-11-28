@@ -6,6 +6,8 @@ import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.ARRAY_PRIMARY_
 import static io.datahubproject.openapi.util.ReflectionCache.toUpperFirst;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.fge.processing.ProcessingUtil;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.avro.SchemaTranslator;
@@ -16,6 +18,7 @@ import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.schema.UnionDataSchema;
+import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.models.AspectSpec;
@@ -1146,6 +1149,86 @@ public class OpenAPIV3Generator {
         .schema(schema);
   }
 
+  /**
+   * A field of a string typeref (e.g. FabricTypeName) bound to its built-in enum with {@code
+   * @java.class}, which Avro keeps as a "java" property on the string field. Give such a field the
+   * enum type back, so the spec is the same as before the field became a string typeref and users
+   * who define no extensions see no change.
+   */
+  static String rewriteBoundEnums(String avroJson) {
+    try {
+      JsonNode root = Json.mapper().readTree(avroJson);
+      Set<String> defined = new HashSet<>();
+      collectEnumNames(root, defined);
+      rewriteBoundEnums(root, defined);
+      return Json.mapper().writeValueAsString(root);
+    } catch (java.io.IOException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private static void collectEnumNames(JsonNode node, Set<String> names) {
+    if (node.isObject() && "enum".equals(node.path("type").asText(null)) && node.has("name")) {
+      String ns = node.path("namespace").asText("");
+      names.add(ns.isEmpty() ? node.get("name").asText() : ns + "." + node.get("name").asText());
+    }
+    node.forEach(child -> collectEnumNames(child, names));
+  }
+
+  private static void rewriteBoundEnums(JsonNode node, Set<String> defined) {
+    if (node.isObject()) {
+      ObjectNode obj = (ObjectNode) node;
+      JsonNode javaClass = obj.path("java").path("class");
+      if (javaClass.isTextual() && obj.has("type")) {
+        EnumDataSchema enumSchema = boundEnumSchema(javaClass.asText());
+        if (enumSchema != null) {
+          JsonNode replacement;
+          if (defined.add(enumSchema.getFullName())) {
+            ObjectNode e = Json.mapper().createObjectNode();
+            e.put("type", "enum");
+            e.put("name", enumSchema.getName());
+            e.put("namespace", enumSchema.getNamespace());
+            if (enumSchema.getDoc() != null && !enumSchema.getDoc().isEmpty()) {
+              e.put("doc", enumSchema.getDoc());
+            }
+            ArrayNode symbols = e.putArray("symbols");
+            enumSchema.getSymbols().forEach(symbols::add);
+            replacement = e;
+          } else {
+            replacement = Json.mapper().getNodeFactory().textNode(enumSchema.getFullName());
+          }
+          JsonNode type = obj.get("type");
+          if (type.isTextual() && "string".equals(type.asText())) {
+            obj.set("type", replacement);
+          } else if (type.isArray()) {
+            ArrayNode union = (ArrayNode) type;
+            for (int i = 0; i < union.size(); i++) {
+              if ("string".equals(union.get(i).asText(null))) {
+                union.set(i, replacement);
+              }
+            }
+          }
+          obj.remove("java");
+        }
+      }
+    }
+    node.forEach(child -> rewriteBoundEnums(child, defined));
+  }
+
+  @Nullable
+  private static EnumDataSchema boundEnumSchema(String className) {
+    try {
+      Class<?> cls = Class.forName(className);
+      if (cls.isEnum()) {
+        DataSchema schema = DataTemplateUtil.getSchema(cls);
+        return schema instanceof EnumDataSchema ? (EnumDataSchema) schema : null;
+      }
+    } catch (ClassNotFoundException | RuntimeException e) {
+      return null;
+    }
+    return null;
+  }
+
   private static void addAspectSchemas(
       final Components components, final AspectSpec aspect, final UnionSchemaIndex unionSchemas) {
     final DataSchema pegasusSchema = aspect.getPegasusSchema().getDereferencedDataSchema();
@@ -1154,7 +1237,8 @@ public class OpenAPIV3Generator {
     // nested record is walked once per spec, not once per aspect that references it.
     final Map<String, RecordDataSchema> recordsByName = unionSchemas.recordsUnder(pegasusSchema);
     try {
-      final JsonNode apiSchema = ProcessingUtil.buildResult(avroSchema.toString());
+      final JsonNode apiSchema =
+          ProcessingUtil.buildResult(rewriteBoundEnums(avroSchema.toString()));
       final JsonNode definitions = apiSchema.get("definitions");
       definitions
           .fieldNames()

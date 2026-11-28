@@ -214,6 +214,32 @@ public class OpenLineageEventToDatahubTest {
   }
 
   @Test
+  public void testSparkConfigAcceptsCustomEnvs() {
+    Config datahubConfig =
+        ConfigFactory.parseString(
+            "metadata.dataset.env = \"my_env\"\n"
+                + "metadata.dataset.connections {\n"
+                + "  \"snowflake://acme\" { env = \"other_env\" }\n"
+                + "  \"snowflake://typo\" { platformInstance = \"t\", env = \"bad-env\" }\n"
+                + "}");
+
+    DatahubOpenlineageConfig conf =
+        SparkConfigParser.sparkConfigToDatahubOpenlineageConf(datahubConfig, new SparkAppContext());
+
+    // Custom envs are kept, upper-cased like built-in ones; DataHub checks registration on write.
+    assertEquals("MY_ENV", conf.getEnv());
+    assertEquals(
+        Optional.of("OTHER_ENV"),
+        conf.getConnectionInstanceMap().get("snowflake://acme").getEnvName());
+    // A malformed connection env is still ignored, falling back to the job env.
+    assertEquals(
+        Optional.empty(), conf.getConnectionInstanceMap().get("snowflake://typo").getEnvName());
+
+    Config malformed = ConfigFactory.parseString("metadata.dataset.env = \"bad-env\"");
+    assertEquals("PROD", SparkConfigParser.getCommonEnv(malformed));
+  }
+
+  @Test
   public void testGenerateUrnFromStreamingDescriptionGCSWithPathSpec()
       throws InstantiationException, IllegalArgumentException, URISyntaxException {
     Config datahubConfig =
@@ -811,12 +837,13 @@ public class OpenLineageEventToDatahubTest {
   @Test
   public void testConnectionInstanceMapEnvNormalizedAndValidated() {
     // env is normalized (case-insensitive) and validated at parse time: a lowercase value is
-    // accepted; an unparseable value is dropped (left empty) rather than silently corrupting URNs.
+    // accepted; a malformed value is dropped (left empty) rather than silently corrupting URNs. A
+    // well-formed unknown value (e.g. NONSENSE) may be a registered custom env, so it is kept.
     Config datahubConfig =
         ConfigFactory.parseString(
             "metadata.dataset.connections {\n"
                 + "  \"postgres://h1:5432\" { platformInstance = \"a\", env = \"prod\" }\n"
-                + "  \"postgres://h2:5432\" { platformInstance = \"b\", env = \"NONSENSE\" }\n"
+                + "  \"postgres://h2:5432\" { platformInstance = \"b\", env = \"non-sense\" }\n"
                 + "}");
 
     DatahubOpenlineageConfig conf =

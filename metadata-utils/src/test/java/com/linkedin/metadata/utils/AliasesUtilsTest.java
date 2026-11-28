@@ -38,6 +38,14 @@ public class AliasesUtilsTest {
   }
 
   @Test
+  public void testPreservesCustomEnv() throws URISyntaxException {
+    Urn custom = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.Table,MY_ENV)");
+    assertEquals(
+        AliasesUtils.lowercaseDatasetUrn(custom).toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,MY_ENV)");
+  }
+
+  @Test
   public void testLowercasesEmbeddedPlatformInstanceAsPartOfName() throws URISyntaxException {
     Urn withInstance =
         UrnUtils.getUrn(

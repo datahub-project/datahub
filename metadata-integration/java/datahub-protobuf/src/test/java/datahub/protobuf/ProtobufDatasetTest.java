@@ -932,4 +932,34 @@ public class ProtobufDatasetTest {
             .findFirst()
             .orElseThrow());
   }
+
+  @Test
+  public void testEnvMatchesFabricTypeForBuiltInsAndAcceptsCustom() throws IOException {
+    ProtobufDataset byFabricType =
+        ProtobufDataset.builder()
+            .setDataPlatformUrn(new DataPlatformUrn("kafka"))
+            .setProtocIn(getTestProtoc("protobuf", "messageA"))
+            .setAuditStamp(TEST_AUDIT_STAMP)
+            .setFabricType(FabricType.DEV)
+            .build();
+    ProtobufDataset byName =
+        ProtobufDataset.builder()
+            .setDataPlatformUrn(new DataPlatformUrn("kafka"))
+            .setProtocIn(getTestProtoc("protobuf", "messageA"))
+            .setAuditStamp(TEST_AUDIT_STAMP)
+            .setEnv("DEV")
+            .build();
+    ProtobufDataset custom =
+        ProtobufDataset.builder()
+            .setDataPlatformUrn(new DataPlatformUrn("kafka"))
+            .setProtocIn(getTestProtoc("protobuf", "messageA"))
+            .setAuditStamp(TEST_AUDIT_STAMP)
+            .setEnv("MY_ENV")
+            .build();
+
+    assertEquals(byFabricType.getDatasetUrn(), byName.getDatasetUrn());
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,protobuf.MessageA,MY_ENV)",
+        custom.getDatasetUrn().toString());
+  }
 }
