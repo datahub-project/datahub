@@ -4704,6 +4704,36 @@ def test_mixed_warehouse_project_warning_names_platforms_and_mapping() -> None:
     assert "datasource_platform_mapping" in str(warning.message)
 
 
+def test_unmapped_second_datasource_resolves_model_lineage_per_table() -> None:
+    source = _source({"extract_model_lineage": True})
+    client = _ModelTablesClient(
+        [
+            _model_table("ora_orders", "fact-1", "AAA111"),
+            _model_table("legacy_orders", "fact-2", "CCC333"),
+            _model_table("unlinked_orders", "fact-3", None),
+        ]
+    )
+    source.client = client  # type: ignore[assignment]
+    unmapped = Datasource.model_validate(
+        {"id": "CCC333", "name": "legacy_ds", "database": {"type": "unknown_db"}}
+    )
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", [_mixed_warehouse_datasources()[0], unmapped]
+    )
+
+    index = lineage_context.model_lineage_index
+
+    assert index is not None
+    assert lineage_context.warehouse_context is None
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,"
+        "ora_db.ora.ora_orders,PROD),amount)"
+    ]
+    assert index.fact_field_urns(["fact-2", "fact-3"]) == []
+    assert source.report.model_tables_resolved_by_datasource == 1
+    assert source.report.model_tables_without_warehouse_context == 2
+
+
 def test_single_warehouse_project_keeps_project_level_context() -> None:
     source = _source({"extract_model_lineage": True})
     client = _ModelTablesClient([_model_table("orders", "fact-1", None)])

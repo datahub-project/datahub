@@ -843,21 +843,20 @@ def warehouse_context_from_datasources(
     mapping: DatasourcePlatformMapping = None,
 ) -> Optional[WarehouseLineageContext]:
     contexts = distinct_warehouse_contexts(datasources, env, mapping)
-    if len(contexts) == 1:
-        return next(iter(contexts))
-    return None
+    return next(iter(contexts)) if len(contexts) == 1 else None
 
 
 def distinct_warehouse_contexts(
     datasources: List[Datasource],
     env: str,
     mapping: DatasourcePlatformMapping = None,
-) -> Set[WarehouseLineageContext]:
-    resolved = (
+) -> Set[Optional[WarehouseLineageContext]]:
+    # None stays in: a datasource with no platform makes the project mixed,
+    # so its tables must not inherit the other datasource's platform.
+    return {
         warehouse_context_from_datasource(datasource, env, mapping)
         for datasource in datasources
-    )
-    return {context for context in resolved if context is not None}
+    }
 
 
 def datasource_for_model_table(

@@ -190,6 +190,21 @@ def test_warehouse_context_from_datasources_requires_unique_context() -> None:
     assert warehouse_context_from_datasources(datasources, "PROD") is None
 
 
+def test_warehouse_context_from_datasources_rejects_an_unmapped_second_datasource() -> (
+    None
+):
+    mapped = Datasource.model_validate(
+        {"id": "source-1", "name": "Sales Warehouse", "database": {"type": "oracle"}}
+    )
+    unmapped = Datasource.model_validate(
+        {"id": "source-2", "name": "Legacy DB", "database": {"type": "unknown_db"}}
+    )
+
+    assert warehouse_context_from_datasources([mapped], "PROD") is not None
+    assert warehouse_context_from_datasources([mapped, unmapped], "PROD") is None
+    assert warehouse_context_from_datasources([unmapped], "PROD") is None
+
+
 def test_qualify_table_name_uses_connection_database_and_schema() -> None:
     assert (
         qualify_table_name("fact_sales", database="SALES_DB", schema="SALES")
