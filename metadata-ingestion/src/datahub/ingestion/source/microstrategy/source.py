@@ -412,6 +412,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             Tuple[str, str], Optional[DatasourceConnection]
         ] = {}
         self._connection_lock = threading.Lock()
+        self._connection_fetches: Dict[Tuple[str, str], threading.Event] = {}
         self._failed_connection_keys: Set[Tuple[str, str]] = set()
         self._dashboards_processed = 0
         # Owned here so entities of objects skipped as unchanged stay in state.
@@ -1264,31 +1265,53 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _datasource_connection(
         self, project_id: str, connection_id: str
     ) -> Optional[DatasourceConnection]:
-        # Held across the fetch so concurrent workers share one lookup and one warning.
-        with self._connection_lock:
-            key = (project_id, normalize_object_id(connection_id))
-            if key in self._datasource_connections:
-                return self._datasource_connections[key]
-            connection: Optional[DatasourceConnection] = None
-            try:
-                connection = self.client.get_datasource_connection(
-                    connection_id,
-                    project_id=project_id,
-                )
-            except MicroStrategyAPIError as error:
-                self._failed_connection_keys.add(key)
-                self.report.report_warehouse_lineage_api_failure()
-                self.report.warning(
-                    title="Failed to Fetch Datasource Connection",
-                    message=(
-                        "Continuing without connection-level database/schema "
-                        "context; warehouse lineage may be less precise."
-                    ),
-                    context=f"project_id={project_id}, connection_id={connection_id}",
-                    exc=error,
-                )
-            self._datasource_connections[key] = connection
+        key = (project_id, normalize_object_id(connection_id))
+        # Concurrent workers wait for one fetch and one warning per key; other
+        # keys and cache hits never wait on the request.
+        while True:
+            with self._connection_lock:
+                if key in self._datasource_connections:
+                    return self._datasource_connections[key]
+                pending = self._connection_fetches.get(key)
+                if pending is None:
+                    pending = threading.Event()
+                    self._connection_fetches[key] = pending
+                    break
+            pending.wait()
+        try:
+            connection = self._fetch_datasource_connection(
+                key, project_id, connection_id
+            )
+            with self._connection_lock:
+                self._datasource_connections[key] = connection
             return connection
+        finally:
+            with self._connection_lock:
+                del self._connection_fetches[key]
+            pending.set()
+
+    def _fetch_datasource_connection(
+        self, key: Tuple[str, str], project_id: str, connection_id: str
+    ) -> Optional[DatasourceConnection]:
+        try:
+            return self.client.get_datasource_connection(
+                connection_id,
+                project_id=project_id,
+            )
+        except MicroStrategyAPIError as error:
+            with self._connection_lock:
+                self._failed_connection_keys.add(key)
+            self.report.report_warehouse_lineage_api_failure()
+            self.report.warning(
+                title="Failed to Fetch Datasource Connection",
+                message=(
+                    "Continuing without connection-level database/schema "
+                    "context; warehouse lineage may be less precise."
+                ),
+                context=f"project_id={project_id}, connection_id={connection_id}",
+                exc=error,
+            )
+            return None
 
     def _allowed_candidates(
         self,

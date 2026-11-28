@@ -36,6 +36,7 @@ from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import 
     MicroStrategySemanticModelMapper,
 )
 from datahub.ingestion.source.microstrategy.models import (
+    DatasourceConnection,
     MicroStrategyObject,
     PredefinedFolder,
 )
@@ -778,6 +779,54 @@ def test_concurrent_personal_folder_lookups_fetch_once() -> None:
         _run_threads(4, lookup)
 
     assert calls == ["proj-1"]
+
+
+def test_slow_connection_lookup_blocks_only_callers_of_that_connection() -> None:
+    source = _source(4)
+    release_slow = threading.Event()
+    slow_started = threading.Event()
+    calls: List[str] = []
+
+    def get_datasource_connection(
+        connection_id: str, project_id: Optional[str] = None
+    ) -> DatasourceConnection:
+        calls.append(connection_id)
+        if connection_id == "conn-slow":
+            slow_started.set()
+            assert release_slow.wait(2 * _WAIT_SECONDS)
+        return DatasourceConnection.model_validate(
+            {"id": connection_id, "name": connection_id}
+        )
+
+    with mock.patch.object(
+        source.client,
+        "get_datasource_connection",
+        side_effect=get_datasource_connection,
+        create=True,
+    ):
+        waiters = [
+            threading.Thread(
+                target=source._datasource_connection, args=("proj-1", "conn-slow")
+            )
+            for _ in range(3)
+        ]
+        for waiter in waiters:
+            waiter.start()
+        assert slow_started.wait(_WAIT_SECONDS)
+        fast = threading.Thread(
+            target=source._datasource_connection, args=("proj-1", "conn-fast")
+        )
+        fast.start()
+        fast.join(timeout=_WAIT_SECONDS)
+        fast_finished_first = not fast.is_alive()
+        release_slow.set()
+        fast.join(timeout=_WAIT_SECONDS)
+        assert fast_finished_first
+        for waiter in waiters:
+            waiter.join(timeout=_WAIT_SECONDS)
+            assert not waiter.is_alive()
+
+    assert sorted(calls) == ["conn-fast", "conn-slow"]
 
 
 def test_report_counters_and_first_failure_flag_are_exact_under_threads(
