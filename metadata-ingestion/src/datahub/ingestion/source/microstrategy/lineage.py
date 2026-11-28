@@ -1021,17 +1021,25 @@ def datasource_for_model_table(
     table: Dict[str, object],
     datasources: List[Datasource],
 ) -> Optional[Datasource]:
-    # Exact id first, else exact name; an ambiguous match resolves to nothing.
     reference = ModelTableDatasourceRef.from_table(table)
     if reference is None:
         return None
-    if reference.id:
-        wanted = normalize_object_id(reference.id)
+    return matching_datasource(reference.id, reference.name, datasources)
+
+
+def matching_datasource(
+    datasource_id: Optional[str],
+    name: Optional[str],
+    datasources: List[Datasource],
+) -> Optional[Datasource]:
+    # Exact id first, else exact name; an ambiguous match resolves to nothing.
+    if datasource_id:
+        wanted = normalize_object_id(datasource_id)
         by_id = [d for d in datasources if normalize_object_id(d.id) == wanted]
         if by_id:
             return by_id[0] if len(by_id) == 1 else None
-    if reference.name:
-        by_name = [d for d in datasources if d.name == reference.name]
+    if name:
+        by_name = [d for d in datasources if d.name == name]
         return by_name[0] if len(by_name) == 1 else None
     return None
 

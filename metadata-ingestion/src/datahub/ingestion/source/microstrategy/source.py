@@ -108,6 +108,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
     WarehouseLineageContext,
     bind_visualizations_by_derived_objects,
     datasource_for_model_table,
+    matching_datasource,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
     object_id,
@@ -210,6 +211,11 @@ _PROMPTED_SQL_VIEW_STATUS = 406
 
 # Model tables answers that a second request will not change.
 _MODEL_TABLES_NON_RETRYABLE_STATUSES = frozenset({403, 501})
+
+# Enrichment failures a later read can recover from. Other 4xx and 500 repeat
+# on every read (the Modeling service answers 500 for a metric in another
+# project), so they must not keep an unchanged object from being skipped.
+_TRANSIENT_FAILURE_STATUSES = frozenset({429, 502, 503, 504})
 
 
 class _PredefinedFoldersUnavailable(Exception):
@@ -349,6 +355,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._model_tables_non_retryable_projects: Set[str] = set()
         self._model_document_slot = _ModelDocumentSlot()
         self._prefetch_execution_slot = _PrefetchExecutionSlot()
+        # object_cache_key of enrichment reads that failed transiently.
+        self._transient_failure_keys: Set[str] = set()
+        self._project_datasources: List[Datasource] = []
         self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
         self._personal_folder_cache: Dict[str, PersonalFolderResolution] = {}
         # Object info of type-3 objects (reports and cubes), shared by dataset
@@ -1073,6 +1082,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _process_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
         self._changes = _ProjectChangeState()
         source_warehouses = self._get_project_source_warehouses(project.id)
+        self._project_datasources = source_warehouses
         # Warehouse/model-table lookups are deferred until an allowed dashboard/report
         # needs them, so fully-filtered projects don't pay for those API calls.
         lineage_context = _LazyProjectLineage(self, project.id, source_warehouses)
@@ -2428,14 +2438,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
         if model_lineage_index:
             self.mapper.attach_model_lineage(dashboard, model_lineage_index)
-        if lineage_context.lineage_degraded:
-            _mark_incomplete(checkpoint)
         if self.config.extract_derived_metrics:
             self.mapper.attach_derived_metrics(dashboard)
             self._enrich_report_derived_metrics(project_id, dashboard)
             self._enrich_document_derived_metrics(
                 project_id, dashboard_object, dashboard
             )
+        if lineage_context.lineage_degraded or self._dashboard_failed_transiently(
+            project_id, dashboard
+        ):
+            _mark_incomplete(checkpoint)
         report_dependency_ids = [
             dependency.id
             for dependency in dashboard.dependencies
@@ -2536,6 +2548,27 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if dataset_object is None:
                 self.report.report_dataset_object_lookup_failure()
         return dataset_object
+
+    def _note_failure(
+        self, project_id: str, object_id: str, *errors: Optional[Exception]
+    ) -> None:
+        if any(_is_transient_failure(error) for error in errors):
+            self._transient_failure_keys.add(object_cache_key(project_id, object_id))
+
+    def _failed_transiently(self, project_id: str, object_ids: Iterable[str]) -> bool:
+        # Membership checks only: other workers add keys concurrently.
+        return any(
+            object_cache_key(project_id, object_id) in self._transient_failure_keys
+            for object_id in object_ids
+        )
+
+    def _dashboard_failed_transiently(
+        self, project_id: str, dashboard: DashboardDefinition
+    ) -> bool:
+        object_ids = [dashboard.id]
+        for dataset in dashboard.datasets:
+            object_ids.extend(_enrichment_ids(dataset))
+        return self._failed_transiently(project_id, object_ids)
 
     def _enrich_report_derived_metrics(
         self,
@@ -2669,6 +2702,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         result: Optional[List[ReportDerivedMetric]] = definitions
         if model_error is not None and v2_error is not None:
             result = None
+            self._note_failure(project_id, report_id, model_error, v2_error)
             self.report.report_report_definition_failure()
             self.report.warning(
                 title="Report definition unavailable for derived metrics",
@@ -3196,6 +3230,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
             if definitions:
                 self.mapper.attach_report_derived_metrics(entry.dataset, definitions)
+        if self._failed_transiently(project_id, _enrichment_ids(entry.dataset)):
+            complete = False
         if not complete:
             with self._cache_lock:
                 entry.incomplete = True
@@ -3349,6 +3385,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         except MicroStrategyAuthError:
             raise
         except Exception as error:
+            self._note_failure(project_id, dashboard_id, error)
             self.report.report_document_model_definition_failure()
             # Missing privilege or an unsupported endpoint applies to the whole
             # project; other failures (the endpoint answers 500 for some
@@ -3664,6 +3701,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         try:
             model = self.client.get_metric_model(project_id, metric_id)
         except MicroStrategyAPIError as error:
+            self._note_failure(project_id, metric_id, error)
             self.report.report_metric_expression_api_failure()
             self.report.report_failed_metric_model(
                 f"{metric_id} (HTTP {getattr(error, 'status_code', None)})"
@@ -4028,9 +4066,15 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         else the project-level context. A named warehouse that does not map
         to a platform gives None: the project's warehouse may be a different
         platform and database, and its URNs would not be this dataset's."""
-        if dataset.source_warehouse:
+        reference = dataset.source_warehouse
+        if reference:
+            # The project's entry carries the connection a dataset reference
+            # can omit; model tables resolve through it, so must SQL views.
+            datasource = matching_datasource(
+                reference.id, reference.name, self._project_datasources
+            )
             return self.datasource_warehouse_context(
-                project_id, dataset.source_warehouse
+                project_id, datasource or reference
             )
         return context
 
@@ -4183,8 +4227,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             sql_view = self._report_sql_view_answering_prompts(
                 project_id, report_id, instance_id, context
             )
-            if sql_view is None:
-                return _ReportSqlOutcome()
+            if isinstance(sql_view, _ReportSqlOutcome):
+                return sql_view
         except (MicroStrategyAPIError, ValidationError) as error:
             # ValidationError: a response body that does not fit SqlView.
             self.report.report_report_sql_view_api_failure()
@@ -4213,9 +4257,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_id: str,
         instance_id: str,
         context: str,
-    ) -> Optional[SqlView]:
-        """None when a prompted report is skipped (counted and warned here);
-        other failures raise."""
+    ) -> Union[SqlView, "_ReportSqlOutcome"]:
+        """An outcome without SQL when a prompted report is skipped or its
+        answers fail (counted and warned here); other failures raise."""
         try:
             return self.client.get_report_sql_view(
                 project_id=project_id,
@@ -4238,7 +4282,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 context=context,
                 exc=refused,
             )
-            return None
+            return _ReportSqlOutcome()
         prompts = self.client.get_report_instance_prompts(
             project_id, report_id, instance_id
         )
@@ -4247,27 +4291,52 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             for prompt in prompts
             if prompt.required and not prompt.has_default()
         ]
-        if not prompts or unanswerable:
-            self.report.report_prompted_report_without_defaults()
-            self.report.warning(
-                title="Prompted Report Has No Default Answers",
-                message=(
-                    "Skipping warehouse lineage for this report: its prompts "
-                    "cannot all be answered with defaults."
-                ),
-                context=f"{context}, prompts={unanswerable or 'none listed'}",
+        # Optional prompts without a default are closed by leaving them out.
+        defaulted = [prompt for prompt in prompts if prompt.has_default()]
+        if unanswerable or not defaulted:
+            return self._prompted_report_without_defaults(
+                context, unanswerable or "none with defaults"
             )
-            return None
-        self.client.answer_report_prompts_with_defaults(
-            project_id, report_id, instance_id, prompts
-        )
-        sql_view = self.client.get_report_sql_view(
-            project_id=project_id,
-            report_id=report_id,
-            instance_id=instance_id,
-        )
+        try:
+            self.client.answer_report_prompts_with_defaults(
+                project_id, report_id, instance_id, defaulted
+            )
+            sql_view = self.client.get_report_sql_view(
+                project_id=project_id,
+                report_id=report_id,
+                instance_id=instance_id,
+            )
+        except MicroStrategyAPIError as error:
+            if error.status_code == _PROMPTED_SQL_VIEW_STATUS:
+                return self._prompted_report_without_defaults(
+                    context, "still prompted after answering"
+                )
+            self.report.report_report_sql_view_api_failure()
+            self.report.warning(
+                title="Failed to Answer Report Prompts",
+                message="Skipping source warehouse lineage for this report.",
+                context=context,
+                exc=error,
+            )
+            # The instance stops at its prompts, so answering them is the
+            # call that executes the report.
+            return _ReportSqlOutcome(execution=_execution_outcome(error))
         self.report.report_prompted_report_answered()
         return sql_view
+
+    def _prompted_report_without_defaults(
+        self, context: str, prompts: Union[List[str], str]
+    ) -> "_ReportSqlOutcome":
+        self.report.report_prompted_report_without_defaults()
+        self.report.warning(
+            title="Prompted Report Has No Default Answers",
+            message=(
+                "Skipping warehouse lineage for this report: its prompts "
+                "cannot all be answered with defaults."
+            ),
+            context=f"{context}, prompts={prompts}",
+        )
+        return _ReportSqlOutcome()
 
     def _dashboard_instance(
         self,
@@ -4942,6 +5011,24 @@ def _recording_urns(
 def _mark_incomplete(checkpoint: Optional[CheckpointDraft]) -> None:
     if checkpoint is not None:
         checkpoint.mark_incomplete()
+
+
+def _enrichment_ids(dataset: DatasetObject) -> List[str]:
+    # The dataset's report definition and its metrics' models.
+    return [
+        dataset.id,
+        *(
+            str(metric.get("id") or "")
+            for metric in _metric_items(dataset.available_objects)
+        ),
+    ]
+
+
+def _is_transient_failure(error: Optional[Exception]) -> bool:
+    # A timeout or dropped connection reaches callers without a status code.
+    return isinstance(error, MicroStrategyAPIError) and (
+        error.status_code is None or error.status_code in _TRANSIENT_FAILURE_STATUSES
+    )
 
 
 def _checkpoint_urns(workunit: MetadataWorkUnit) -> Iterable[str]:
