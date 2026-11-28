@@ -5,11 +5,12 @@ import styled from 'styled-components';
 
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import ClickableForeignKeyLabel from '@app/entityV2/shared/tabs/Dataset/Schema/components/ClickableForeignKeyLabel';
 import NullableLabel, {
-    ForeignKeyLabel,
     PartitioningKeyLabel,
     PrimaryKeyLabel,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/ConstraintLabels';
+import getFieldForeignKeyConstraints from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldForeignKeyConstraints';
 import Highlight from '@app/sharedV2/text/Highlight';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 
@@ -59,6 +60,7 @@ type InteriorTitleProps = {
     record: ExtendedSchemaFields;
     isCompact?: boolean;
     isPrimaryKey: boolean;
+    openFieldDrawer?: (fieldPath: string) => void;
 };
 
 export const InteriorTitleContent = ({
@@ -69,6 +71,7 @@ export const InteriorTitleContent = ({
     record,
     isCompact,
     isPrimaryKey,
+    openFieldDrawer,
 }: InteriorTitleProps) => {
     const fieldPathWithoutAnnotations = translateFieldPath(fieldPath);
     const parentPathWithoutAnnotations = translateFieldPath(record.parent?.fieldPath || '');
@@ -120,14 +123,9 @@ export const InteriorTitleContent = ({
                     {record.isPartitioningKey && <PartitioningKeyLabel />}
                     {record.nullable && <NullableLabel />}
                     {/* {record.nullable && <NullableLabel />} */}
-                    {schemaMetadata?.foreignKeys
-                        ?.filter(
-                            (constraint) =>
-                                (constraint?.sourceFields?.filter(
-                                    (sourceField) => sourceField?.fieldPath?.trim() === fieldPath.trim(),
-                                ).length || 0) > 0,
-                        )
-                        .map((constraint) => <ForeignKeyLabel key={constraint?.name} />)}
+                    {openFieldDrawer && getFieldForeignKeyConstraints(schemaMetadata, fieldPath).length > 0 && (
+                        <ClickableForeignKeyLabel onClick={() => openFieldDrawer(fieldPath)} />
+                    )}
                 </>
             )}
         </FieldTitleWrapper>

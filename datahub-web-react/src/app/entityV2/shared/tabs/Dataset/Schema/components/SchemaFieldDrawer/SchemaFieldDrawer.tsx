@@ -20,6 +20,7 @@ import {
     TABS_WIDTH,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawerTabs';
 import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
+import { ForeignKeySchemaMetadata } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldForeignKeyConstraints';
 import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -36,7 +37,7 @@ const SchemaFieldQueriesSidebarTab = lazyProfileComponent(
     () => import('@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab'),
 );
 
-const DEFAULT_SELECTED_TAB_KEY = 'About';
+export const ABOUT_FIELD_TAB_KEY = 'About';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -89,6 +90,7 @@ const Tabs = styled.div``;
 
 interface Props {
     schemaFields: SchemaField[];
+    schemaMetadata?: ForeignKeySchemaMetadata | null;
     // primaryKeys declared by the source schema, for the effective primary key badge
     schemaPrimaryKeys?: string[] | null;
     // primary key declared by users (editablePrimaryKeys aspect), used when the source declares none
@@ -105,10 +107,12 @@ interface Props {
     refetch?: () => void;
     mask?: boolean;
     defaultSelectedTabKey?: string;
+    tabSelection?: { key: string; onSelect: (key: string) => void };
 }
 
 export default function SchemaFieldDrawer({
     schemaFields,
+    schemaMetadata,
     schemaPrimaryKeys,
     editedPrimaryKeys,
     editableSchemaMetadata,
@@ -122,7 +126,8 @@ export default function SchemaFieldDrawer({
     displayedRows,
     refetch,
     mask = false,
-    defaultSelectedTabKey = DEFAULT_SELECTED_TAB_KEY,
+    defaultSelectedTabKey = ABOUT_FIELD_TAB_KEY,
+    tabSelection,
 }: Props) {
     const { t } = useTranslation('entity.profile.schema');
     const expandedFieldIndex = useMemo(
@@ -187,7 +192,9 @@ export default function SchemaFieldDrawer({
     }, [displayedRows, expandedDrawerFieldPath, setExpandedDrawerFieldPath]);
 
     const profiles = profilesData?.dataset?.datasetProfiles || [];
-    const [selectedTabKey, setSelectedTabKey] = useState(defaultSelectedTabKey);
+    const [localTabKey, setLocalTabKey] = useState(defaultSelectedTabKey);
+    const selectedTabKey = tabSelection?.key ?? localTabKey;
+    const selectTab = tabSelection?.onSelect ?? setLocalTabKey;
 
     const fetchDataWithLookbackWindow = useCallback(
         (lookbackWindow: TimeWindow) => {
@@ -202,12 +209,13 @@ export default function SchemaFieldDrawer({
 
     const tabs: any = [
         {
-            key: 'About',
+            key: ABOUT_FIELD_TAB_KEY,
             name: t('fieldDrawerTabs.about'),
             icon: BookOpen,
             component: AboutFieldTab,
             properties: {
                 schemaFields,
+                schemaMetadata,
                 editableSchemaMetadata,
                 expandedDrawerFieldPath,
                 usageStats,
@@ -216,7 +224,7 @@ export default function SchemaFieldDrawer({
                 fetchDataWithLookbackWindow,
                 profilesDataLoading,
                 notes,
-                setSelectedTabName: setSelectedTabKey,
+                setSelectedTabName: selectTab,
                 refetch,
                 refetchNotes,
                 fieldUrn: expandedField?.schemaFieldEntity?.urn,
@@ -282,6 +290,7 @@ export default function SchemaFieldDrawer({
                             <FieldHeader
                                 setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 expandedField={expandedField}
+                                schemaMetadata={schemaMetadata}
                                 isPrimaryKey={isPrimaryKeyField(primaryKeys, expandedField)}
                             />
                             <Body onKeyDown={(e) => e.stopPropagation()}>
@@ -298,7 +307,7 @@ export default function SchemaFieldDrawer({
                                     <SchemaFieldDrawerTabs
                                         tabs={tabs}
                                         selectedTab={selectedTab}
-                                        onSelectTab={(key) => setSelectedTabKey(key)}
+                                        onSelectTab={selectTab}
                                     />
                                 </Tabs>
                             </Body>

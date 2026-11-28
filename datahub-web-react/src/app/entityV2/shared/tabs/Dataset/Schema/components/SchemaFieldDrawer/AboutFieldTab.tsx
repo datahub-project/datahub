@@ -10,8 +10,10 @@ import { FieldDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/component
 import FieldLogicalSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldLogicalSection';
 import FieldTags from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTags';
 import FieldTerms from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTerms';
+import ForeignKeySection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/ForeignKeySection';
 import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import { ForeignKeySchemaMetadata } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldForeignKeyConstraints';
 import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';
 import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
@@ -37,6 +39,7 @@ interface AboutFieldTabProps {
         schemaFields: SchemaField[];
         expandedDrawerFieldPath: string | null;
         editableSchemaMetadata?: EditableSchemaMetadata | null;
+        schemaMetadata?: ForeignKeySchemaMetadata | null;
         usageStats?: UsageQueryResult | null;
         fieldProfile: DatasetFieldProfile | undefined;
         profiles: DatasetProfile[];
@@ -105,6 +108,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                         />
                         {!!notes?.length && <StyledDivider />}
                         <FieldLogicalSection expandedField={expandedField} />
+                        <ForeignKeySection expandedField={expandedField} schemaMetadata={properties.schemaMetadata} />
                         <FieldDescription
                             expandedField={expandedField}
                             editableFieldInfo={editableFieldInfo}

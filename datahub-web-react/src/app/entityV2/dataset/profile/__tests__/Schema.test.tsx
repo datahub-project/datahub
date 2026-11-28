@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import React from 'react';
 
 import {
@@ -216,8 +216,8 @@ describe('Schema', () => {
         expect(getByText('Primary Key')).toBeInTheDocument();
     });
 
-    it.skip('renders foreign keys', () => {
-        const { getByText, getAllByText } = render(
+    it('opens About when the Foreign Key button is clicked', async () => {
+        render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <EntityContext.Provider
@@ -244,14 +244,22 @@ describe('Schema', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(getByText('Foreign Key')).toBeInTheDocument();
-
-        const fkButton = getByText('Foreign Key');
+        const fkButton = screen.getByRole('button', { name: 'Foreign Key' });
         fireEvent.click(fkButton);
 
-        expect(getByText('Foreign Key to')).toBeInTheDocument();
-        expect(getAllByText('Yet Another Dataset')).toHaveLength(2);
-    });
+        expect(await screen.findByText('Foreign Key to')).toBeInTheDocument();
+        const constraint = screen.getByTestId('foreign-key-constraint');
+        expect(within(constraint).getByRole('link', { name: /Yet Another Dataset/ })).toBeInTheDocument();
+
+        const statisticsTab = screen.getByRole('tab', { name: 'Statistics' });
+        fireEvent.click(statisticsTab);
+        expect(statisticsTab).toHaveAttribute('aria-selected', 'true');
+        expect(screen.queryByText('Foreign Key to')).not.toBeInTheDocument();
+
+        fireEvent.click(fkButton);
+        expect(screen.getByRole('tab', { name: 'About' })).toHaveAttribute('aria-selected', 'true');
+        expect(await screen.findByRole('link', { name: /Yet Another Dataset/ })).toBeInTheDocument();
+    }, 30_000);
 
     it('renders key/value toggle', () => {
         const { getByText, queryByText } = render(

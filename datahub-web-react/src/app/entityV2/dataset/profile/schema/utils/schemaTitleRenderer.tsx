@@ -12,6 +12,7 @@ export default function useSchemaTitleRenderer(
     editedPrimaryKeys: string[] | undefined | null,
     filterText: string,
     isCompact?: boolean,
+    openFieldDrawer?: (fieldPath: string) => void,
 ) {
     const primaryKeys = useMemo(
         () => getEffectivePrimaryKeys(schemaMetadata, editedPrimaryKeys),
@@ -28,9 +29,10 @@ export default function useSchemaTitleRenderer(
                     record={record}
                     schemaMetadata={schemaMetadata}
                     isPrimaryKey={isPrimaryKeyField(primaryKeys, record)}
+                    openFieldDrawer={openFieldDrawer}
                 />
             );
         },
-        [parentUrn, isCompact, filterText, schemaMetadata, primaryKeys],
+        [parentUrn, isCompact, filterText, schemaMetadata, primaryKeys, openFieldDrawer],
     );
 }

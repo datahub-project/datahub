@@ -201,5 +201,8 @@
     "fieldLogical.physicalChildrenInfo": "Physical implementations of this Logical Model column. Changes to this column's metadata propagate automatically to these child columns.",
     "fieldLogical.physicalChildrenTitle": "Physical Children",
     "fieldLogical.viewAllPhysicalChildren": "View All Physical Children",
+    "fieldForeignKey.foreignKeyTo": "Foreign Key to",
+    "fieldForeignKey.sourceFields": "Source fields",
+    "fieldForeignKey.targetFields": "Target fields",
     "historySidebar.categoryLifecycle": "Lifecycle stage"
 }
