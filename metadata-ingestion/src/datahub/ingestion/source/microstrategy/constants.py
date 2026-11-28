@@ -1,5 +1,6 @@
 import re
-from typing import Dict, List, Tuple
+from collections.abc import Sequence
+from typing import Dict, Final, Tuple
 
 from datahub.utilities.str_enum import StrEnum
 
@@ -576,11 +577,19 @@ MSTR_MODEL_API_MIN_TIMEOUT_SECONDS = 120
 MSTR_TELEMETRY_NO_PHASE = "(no phase)"
 MSTR_TELEMETRY_ERROR_STATUS = "error"
 
-MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS: List[int] = [10, 30, 60, 120, 300, 600, 1800]
+MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS: Final[Sequence[int]] = (
+    10,
+    30,
+    60,
+    120,
+    300,
+    600,
+    1800,
+)
 
 MSTR_SQLGLOT_LOGGER = "sqlglot"
 # One warning per generated statement; they fill the executor's bounded log.
-MSTR_SQLGLOT_SUPPRESSED_PREFIXES: List[str] = ["Unsupported property"]
+MSTR_SQLGLOT_SUPPRESSED_PREFIXES: Final[Sequence[str]] = ("Unsupported property",)
 
 MSTR_ENDPOINT_ID_PLACEHOLDER = "/{id}"
 # 32-hex object ids and UUIDs, so one endpoint is one row.
