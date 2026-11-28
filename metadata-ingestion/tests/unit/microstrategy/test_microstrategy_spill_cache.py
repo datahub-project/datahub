@@ -5,9 +5,7 @@ from unittest import mock
 
 import pytest
 
-from datahub.ingestion.source.microstrategy.constants import MicroStrategyCache
 from datahub.ingestion.source.microstrategy.models import MicroStrategyObject
-from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.spill_cache import (
     SpillCache,
     object_cache_key,
@@ -44,13 +42,12 @@ def test_values_spill_to_disk_without_loss_and_none_is_a_cached_value() -> None:
         failed = cache.get_entry("failed")
         missing = cache.get_entry("missing")
         assert "failed" in cache
-        report = MicroStrategyReport()
-        cache.reset(report, MicroStrategyCache.REPORT_OBJECT)
+        # A key written twice is one entry.
+        assert cache.entry_count == 6
+        cache.reset()
 
     assert failed.found and failed.value is None
     assert not missing.found and "missing" not in cache
-    # A key written twice is one entry.
-    assert report.cache_entries_peak == {"report_object": 6}
     assert cache.entry_count == 0
     assert cache.get("key-1") is None
 
