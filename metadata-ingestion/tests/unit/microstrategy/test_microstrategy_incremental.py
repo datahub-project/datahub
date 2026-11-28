@@ -907,6 +907,28 @@ def test_dashboard_with_a_transient_metric_model_failure_is_read_again(
     assert first.server.definition_reads == (["dash-2"] if read_again else [])
 
 
+@pytest.mark.parametrize("status, read_again", [(503, True), (500, False)])
+def test_report_with_a_transient_metric_model_failure_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    status: int,
+    read_again: bool,
+) -> None:
+    first = _first_run(mock_datahub_graph, extract_metric_expressions=True)
+    first.server.bump("report-1")
+    first.server.failing_metric_models["metric-1"] = status
+
+    second = _run(
+        mock_datahub_graph, first.server, "run-2", extract_metric_expressions=True
+    )
+    first.datahub.write(second.workunits)
+    first.server.failing_metric_models.clear()
+    first.server.report_definition_reads.clear()
+
+    _run(mock_datahub_graph, first.server, "run-3", extract_metric_expressions=True)
+
+    assert first.server.report_definition_reads == (["report-1"] if read_again else [])
+
+
 def test_per_report_shared_report_keeps_every_dashboard(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
