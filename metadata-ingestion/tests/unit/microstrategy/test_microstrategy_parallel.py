@@ -533,6 +533,157 @@ def test_auth_error_in_a_worker_stops_the_run_with_one_failure() -> None:
     assert _live_worker_threads() == []
 
 
+def _timeout_error() -> MicroStrategyAPIError:
+    error = MicroStrategyAPIError("Read timed out")
+    error.__cause__ = requests.ReadTimeout()
+    return error
+
+
+class _TimeoutStreakClient(ConcurrentFakeClient):
+    def __init__(
+        self,
+        timed_out_ids: Set[str],
+        *,
+        reports_only: bool = False,
+        reorder_completions: bool,
+    ) -> None:
+        super().__init__()
+        self._timed_out_ids = timed_out_ids
+        self._reports_only = reports_only
+        self._reorder = reorder_completions
+        self._first_event = threading.Event()
+        self._second_event = threading.Event()
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        if self._reports_only:
+            return iter([])
+        return iter(
+            [
+                self._dashboard_object(f"dossier-{idx}", f"Dossier {idx}", 1879072805)
+                for idx in range(5)
+            ]
+        )
+
+    def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        if self._reports_only:
+            return iter([self._report_object(f"rpt-{idx}") for idx in range(10)])
+        return iter([self._report_object("rpt-standalone")])
+
+    def _create_instance(self, object_id: str, prefix: str) -> str:
+        self._record()
+        if self._reorder:
+            if self._timed_out_ids == {f"{prefix}-0", f"{prefix}-2"}:
+                # Let item 1 succeed first so both timeouts finish back-to-back.
+                if object_id == f"{prefix}-1":
+                    self._first_event.set()
+                elif object_id in self._timed_out_ids:
+                    assert self._first_event.wait(_WAIT_SECONDS)
+            elif self._timed_out_ids == {f"{prefix}-0", f"{prefix}-1"}:
+                # Place item 2's fast success between the two consecutive timeouts.
+                if object_id == f"{prefix}-0":
+                    self._first_event.set()
+                elif object_id == f"{prefix}-2":
+                    assert self._first_event.wait(_WAIT_SECONDS)
+                    self._second_event.set()
+                elif object_id == f"{prefix}-1":
+                    assert self._second_event.wait(_WAIT_SECONDS)
+        if object_id in self._timed_out_ids:
+            raise _timeout_error()
+        return f"inst-{object_id}"
+
+    def create_document_instance(self, project_id: str, document_id: str) -> str:
+        return self._create_instance(document_id, "dossier")
+
+    def create_dossier_instance(self, project_id: str, dossier_id: str) -> str:
+        return self._create_instance(dossier_id, "dossier")
+
+    def create_report_instance(self, project_id: str, report_id: str) -> str:
+        return self._create_instance(report_id, "rpt")
+
+    def get_report_definition(
+        self, project_id: str, report_id: str
+    ) -> Dict[str, object]:
+        return {
+            **super().get_report_definition(project_id, report_id),
+            "dataSource": {"id": f"src-{report_id}", "name": f"Source {report_id}"},
+        }
+
+
+def _run_timeout_streak(
+    max_workers: int,
+    timed_out_ids: Set[str],
+    *,
+    reports_only: bool = False,
+) -> _SourceRun:
+    client = _TimeoutStreakClient(
+        timed_out_ids,
+        reports_only=reports_only,
+        reorder_completions=max_workers > 1,
+    )
+    config = MicroStrategyConfig.model_validate(
+        {
+            "base_url": _BASE_URL,
+            "extract_lineage": True,
+            "extract_warehouse_lineage": True,
+            "extract_report_sql_lineage": True,
+            "extract_reports": True,
+            "extract_independent_reports": True,
+            "max_consecutive_execution_timeouts": 2,
+            "max_workers": max_workers,
+        }
+    )
+    source = MicroStrategySource(config, PipelineContext(run_id=f"t-{max_workers}"))
+    source.client.close()
+    install_client(source, client)
+    workunits = list(source.get_workunits_internal())
+    return _SourceRun(
+        workunits=workunits,
+        source=source,
+        client=client,
+        sql_parse_threads=set(),
+    )
+
+
+@pytest.mark.parametrize("reports_only", [False, True], ids=["dashboards", "reports"])
+@pytest.mark.parametrize("max_workers", [1, 4])
+def test_execution_timeout_limiter_trips_in_input_order(
+    max_workers: int,
+    reports_only: bool,
+) -> None:
+    prefix = "rpt" if reports_only else "dossier"
+    interleaved = _run_timeout_streak(
+        max_workers, {f"{prefix}-0", f"{prefix}-2"}, reports_only=reports_only
+    )
+    consecutive = _run_timeout_streak(
+        max_workers, {f"{prefix}-0", f"{prefix}-1"}, reports_only=reports_only
+    )
+
+    assert interleaved.source.report.execution_timeouts == 2
+    assert list(interleaved.source.report.execution_timeout_limit_projects) == []
+    assert interleaved.source.report.executions_skipped_after_timeouts == 0
+
+    assert consecutive.source.report.execution_timeouts == 2
+    assert list(consecutive.source.report.execution_timeout_limit_projects) == [
+        "proj-1"
+    ]
+    assert consecutive.source.report.executions_skipped_after_timeouts >= 1
+    if not reports_only:
+        assert interleaved.client.report_sql_calls == ["rpt-standalone"]
+        assert consecutive.client.report_sql_calls == []
+    else:
+        assert len(interleaved.client.report_sql_calls) == 8
+        assert len(consecutive.client.report_sql_calls) < 8
+
+
+def test_interleaved_parallel_timeouts_emit_same_workunits_as_serial() -> None:
+    serial = _run_timeout_streak(1, {"dossier-0", "dossier-2"})
+    parallel = _run_timeout_streak(4, {"dossier-0", "dossier-2"})
+
+    assert workunit_signatures(parallel.workunits) == workunit_signatures(
+        serial.workunits
+    )
+
+
 class _FailingLookupClient:
     def __init__(self, workers: int) -> None:
         self._lock = threading.Lock()

@@ -176,6 +176,11 @@ class MicroStrategyReadOutcome(StrEnum):
     FAILED = "failed"
 
 
+class ExecutionOutcome(StrEnum):
+    SUCCEEDED = "succeeded"
+    TIMED_OUT = "timed_out"
+
+
 # Shared references rather than an object's own entities.
 SHARED_REFERENCE_ENTITY_TYPES: FrozenSet[str] = frozenset(
     {TagUrn.ENTITY_TYPE, GlossaryTermUrn.ENTITY_TYPE}

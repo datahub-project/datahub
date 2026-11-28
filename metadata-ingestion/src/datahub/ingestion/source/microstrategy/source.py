@@ -85,6 +85,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_UNKNOWN_DATASOURCE_TYPE,
     MSTR_UNRESOLVED_FOLDER_LABEL,
     SHARED_REFERENCE_ENTITY_TYPES,
+    ExecutionOutcome,
     MicroStrategyLineageLookup,
     MicroStrategyReadOutcome,
     ReportObjectLookupKind,
@@ -217,6 +218,46 @@ class _ModelDocumentSlot(threading.local):
     value: Optional[Dict[str, object]] = None
 
 
+class _PrefetchExecutions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dashboard_execution: Optional[ExecutionOutcome] = None
+    consecutive_timeouts: int = 0
+
+    def record(
+        self,
+        outcome: Optional[ExecutionOutcome],
+        *,
+        is_dashboard: bool = False,
+    ) -> None:
+        if is_dashboard:
+            self.dashboard_execution = outcome
+        if outcome == ExecutionOutcome.SUCCEEDED:
+            self.consecutive_timeouts = 0
+        elif outcome == ExecutionOutcome.TIMED_OUT:
+            self.consecutive_timeouts += 1
+
+    def limit_reached(self, limit: int) -> bool:
+        return bool(limit and self.consecutive_timeouts >= limit)
+
+
+class _PrefetchExecutionSlot(threading.local):
+    # Active while _prefetch_dashboard runs, so worker instance outcomes are
+    # replayed on the consumer thread in input order instead of completion
+    # order; None on the consumer thread so direct calls record immediately.
+    active: Optional[_PrefetchExecutions] = None
+
+
+def _execution_outcome(
+    error: Optional[MicroStrategyAPIError],
+) -> Optional[ExecutionOutcome]:
+    if error is None:
+        return ExecutionOutcome.SUCCEEDED
+    if isinstance(error.__cause__, requests.Timeout):
+        return ExecutionOutcome.TIMED_OUT
+    return None
+
+
 class _PrefetchedDashboard(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
@@ -228,6 +269,7 @@ class _PrefetchedDashboard(BaseModel):
     dossier_sql_rows: Optional[List[Dict[str, object]]] = None
     sql_view_attempted: bool = False
     skipped_report_sql_keys: FrozenSet[str] = frozenset()
+    dashboard_execution: Optional[ExecutionOutcome] = None
     incomplete: bool = False
 
 
@@ -300,6 +342,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._model_document_unavailable_projects: Set[str] = set()
         self._model_tables_non_retryable_projects: Set[str] = set()
         self._model_document_slot = _ModelDocumentSlot()
+        self._prefetch_execution_slot = _PrefetchExecutionSlot()
         self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
         self._personal_folder_cache: Dict[str, PersonalFolderResolution] = {}
         # Object info of type-3 objects (reports and cubes), shared by dataset
@@ -1194,11 +1237,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         connection = self._datasource_connection(project_id, datasource.connection_id)
         if connection is None:
             if context.database:
+                with self._connection_lock:
+                    failed = (
+                        project_id,
+                        normalize_object_id(datasource.connection_id),
+                    ) in self._failed_connection_keys
                 return (
-                    replace(context, connection_unavailable=True)
-                    if (project_id, normalize_object_id(datasource.connection_id))
-                    in self._failed_connection_keys
-                    else context
+                    replace(context, connection_unavailable=True) if failed else context
                 )
             # Without a database the table URNs would be guesses.
             self.report.report_datasource_skipped_without_database()
@@ -1210,10 +1255,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def connection_lookup_failed(self, project_id: str) -> bool:
-        return any(
-            failed_project == project_id
-            for failed_project, _ in self._failed_connection_keys
-        )
+        with self._connection_lock:
+            return any(
+                failed_project == project_id
+                for failed_project, _ in self._failed_connection_keys
+            )
 
     def _datasource_connection(
         self, project_id: str, connection_id: str
@@ -2118,6 +2164,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         skipped_report_sql_keys: FrozenSet[str] = frozenset()
         # The checkpoint belongs to the consumer, so the read outcome travels back.
         read = CheckpointDraft()
+        executions = _PrefetchExecutions()
+        self._prefetch_execution_slot.active = executions
         _ = lineage_context.model_lineage_index
         try:
             dashboard = self._get_dashboard_definition(
@@ -2183,6 +2231,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     for dataset in dashboard.datasets:
                         self._dataset_object_info(project_id, dataset.id)
         finally:
+            self._prefetch_execution_slot.active = None
             self._release_dashboard_instance(project_id, dashboard_object)
         return _PrefetchedDashboard(
             dashboard_object=dashboard_object,
@@ -2191,6 +2240,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             dossier_sql_rows=dossier_sql_rows,
             sql_view_attempted=sql_view_attempted,
             skipped_report_sql_keys=skipped_report_sql_keys,
+            dashboard_execution=executions.dashboard_execution,
             incomplete=read.outcome != MicroStrategyReadOutcome.COMPLETE,
         )
 
@@ -2213,6 +2263,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         model_lineage_index = lineage_context.model_lineage_index
         prefetched = outcome.unwrap()
+        self._record_execution_outcome(project_id, prefetched.dashboard_execution)
         if not isinstance(prefetched.model_document, Unset):
             self._model_document_slot.key = object_cache_key(
                 project_id, dashboard_object.id
@@ -3724,20 +3775,31 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return cached
         if self._execution_limit_reached(project_id):
             return None
-        return self._report_sql_statements.get_or_load(
-            cache_key,
-            lambda: _ReportSqlOutcome(
-                sql=self._report_sql_statement(project_id, report_id, context=context)
-            ),
-        )
+        loaded_live = False
 
-    def _mark_report_sql_consumed(self, cache_key: str) -> bool:
+        def load() -> _ReportSqlOutcome:
+            nonlocal loaded_live
+            loaded_live = True
+            return self._report_sql_outcome(project_id, report_id, context=context)
+
+        outcome = self._report_sql_statements.get_or_load(cache_key, load)
+        active = self._prefetch_execution_slot.active
+        if loaded_live and active is not None:
+            active.record(outcome.execution)
+        return outcome
+
+    def _consume_report_sql(
+        self, project_id: str, cache_key: str, fetched: "_ReportSqlOutcome"
+    ) -> bool:
         # Whether an earlier consumer already used this report's SQL: workers
-        # fill the cache in any order, so reuse is decided in consume order.
+        # fill the cache in any order, so reuse and timeout streaks follow
+        # consume order.
         with self._report_sql_lock:
-            consumed = cache_key in self._report_sql_consumed
+            reused = cache_key in self._report_sql_consumed
             self._report_sql_consumed.add(cache_key)
-        return consumed
+        if not reused:
+            self._record_execution_outcome(project_id, fetched.execution)
+        return reused
 
     def _prefetch_document_warehouse_sql(
         self,
@@ -3826,7 +3888,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 complete = False
                 continue
             sql_statement = fetched.sql
-            if self._mark_report_sql_consumed(cache_key):
+            if self._consume_report_sql(project_id, cache_key, fetched):
                 # Dataset URNs are document-scoped but the report's SQL is
                 # not, so a report shared by many documents is read once and
                 # its lineage attached to each; a remembered failure is not
@@ -3970,7 +4032,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         if fetched is None:
             return False
-        self._mark_report_sql_consumed(object_cache_key(project_id, report_object.id))
+        self._consume_report_sql(
+            project_id, object_cache_key(project_id, report_object.id), fetched
+        )
         if fetched.sql is None:
             return False
         if not fetched.sql:
@@ -3980,24 +4044,23 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._attach_sql_view_lineage(fetched.sql, dataset, context, entry)
         return True
 
-    def _report_sql_statement(
+    def _report_sql_outcome(
         self,
         project_id: str,
         report_id: str,
         context: str,
-    ) -> Optional[str]:
+    ) -> "_ReportSqlOutcome":
         """One report's SQL, read through a report execution instance that is
-        deleted again afterwards. None when the instance could not be created
-        or its SQL view not read (counted in report_sql_view_api_failures and
-        warned with `context`); otherwise the statement, empty (and counted
+        deleted again afterwards. sql is None when the instance could not be
+        created or its SQL view not read (counted in report_sql_view_api_failures
+        and warned with `context`); otherwise the statement, empty (and counted
         in sql_views_without_statement) when the view carried none. The
-        instance creation is the call that may execute the report, and the
-        one that counts towards max_consecutive_execution_timeouts. Callers
-        memoize the result in _report_sql_statements."""
+        instance creation is the call that may execute the report, and its
+        outcome counts towards max_consecutive_execution_timeouts when first
+        consumed. Callers memoize the result in _report_sql_statements."""
         try:
             instance_id = self.client.create_report_instance(project_id, report_id)
         except MicroStrategyAPIError as error:
-            self._record_execution(project_id, error)
             self.report.report_report_sql_view_api_failure()
             self.report.warning(
                 title="Failed to Create Report Instance for Warehouse Lineage",
@@ -4005,9 +4068,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 context=context,
                 exc=error,
             )
-            return None
-
-        self._record_execution(project_id, None)
+            return _ReportSqlOutcome(execution=_execution_outcome(error))
 
         try:
             sql_view = self.client.get_report_sql_view(
@@ -4024,7 +4085,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 context=context,
                 exc=error,
             )
-            return None
+            return _ReportSqlOutcome(execution=ExecutionOutcome.SUCCEEDED)
         finally:
             self._delete_report_instance(project_id, report_id, instance_id)
 
@@ -4032,7 +4093,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.report.report_sql_view_fetched()
         if not sql_statement:
             self.report.report_sql_view_without_statement()
-        return sql_statement
+        return _ReportSqlOutcome(
+            sql=sql_statement,
+            execution=ExecutionOutcome.SUCCEEDED,
+        )
 
     def _dashboard_instance(
         self,
@@ -4059,13 +4123,25 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
         except MicroStrategyAPIError as error:
             with self._execution_lock:
-                self._record_execution(project_id, error)
                 self._dashboard_instances[dashboard_object.id] = error
+            self._note_dashboard_execution(project_id, error)
             raise
         with self._execution_lock:
-            self._record_execution(project_id, None)
             self._dashboard_instances[dashboard_object.id] = instance_id
+        self._note_dashboard_execution(project_id, None)
         return instance_id
+
+    def _note_dashboard_execution(
+        self,
+        project_id: str,
+        error: Optional[MicroStrategyAPIError],
+    ) -> None:
+        outcome = _execution_outcome(error)
+        active = self._prefetch_execution_slot.active
+        if active is not None:
+            active.record(outcome, is_dashboard=True)
+            return
+        self._record_execution_outcome(project_id, outcome)
 
     def _release_dashboard_instance(
         self,
@@ -4084,24 +4160,29 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project; the caller then skips its execution and counts the skip."""
         with self._execution_lock:
             limited = project_id in self._execution_limited_projects
+        active = self._prefetch_execution_slot.active
+        if not limited and active is not None:
+            limited = active.limit_reached(
+                self.config.max_consecutive_execution_timeouts
+            )
         if not limited:
             return False
         self.report.report_execution_skipped_after_timeouts()
         return True
 
-    def _record_execution(
+    def _record_execution_outcome(
         self,
         project_id: str,
-        error: Optional[MicroStrategyAPIError],
+        outcome: Optional[ExecutionOutcome],
     ) -> None:
-        """Track consecutive execution timeouts per project. A success resets
-        the run; any other failure (a fast 4xx/5xx) costs no wait and neither
-        counts nor resets."""
+        """Track consecutive execution timeouts per project in consume order.
+        A success resets the streak; fast 4xx/5xx failures cost no wait and
+        neither count nor reset."""
+        if outcome is None:
+            return
         with self._execution_lock:
-            if error is None:
+            if outcome == ExecutionOutcome.SUCCEEDED:
                 self._consecutive_execution_timeouts[project_id] = 0
-                return
-            if not isinstance(error.__cause__, requests.Timeout):
                 return
             self.report.report_execution_timeout()
             count = self._consecutive_execution_timeouts.get(project_id, 0) + 1
@@ -4441,6 +4522,7 @@ class _ReportSqlOutcome(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     sql: Optional[str] = None
+    execution: Optional[ExecutionOutcome] = None
 
 
 class _LazyProjectLineage:
