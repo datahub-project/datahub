@@ -16,6 +16,7 @@ from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.microstrategy import lineage as lineage_module
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAuthError,
     MicroStrategyClient,
@@ -26,7 +27,6 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_AUTH_TOKEN_HEADER,
     MSTR_IO_THREAD_NAME_PREFIX,
     MicroStrategyDatasetIdentity,
-    MicroStrategyPhase,
 )
 from datahub.ingestion.source.microstrategy.lineage import MicroStrategyLineageExtractor
 from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import (
@@ -51,7 +51,6 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     _Aspect,
 )
-from datahub.sql_parsing import sqlglot_lineage as sqlglot_lineage_module
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 
@@ -356,40 +355,6 @@ def test_client_pool_size_and_coalesced_concurrent_401_reauthentication() -> Non
         assert all(r.json()["token"] == "fresh-token-1" for r in results)
     finally:
         client.session.close()
-
-
-def test_report_per_thread_phase_stack_isolates_concurrent_api_attribution() -> None:
-    report = MicroStrategyReport()
-    barrier = threading.Barrier(4)
-    phase_names = [
-        MicroStrategyPhase.VISUALIZATION_DETAILS,
-        MicroStrategyPhase.REPORT_SQL_FETCH,
-        MicroStrategyPhase.METRIC_MODEL_FETCH,
-        MicroStrategyPhase.DATASET_OBJECT_LOOKUP,
-    ]
-
-    def worker(idx: int) -> None:
-        phase_name = phase_names[idx]
-        duration = float(idx + 1) * 0.1
-        with report.phase(phase_name):
-            barrier.wait(timeout=2.0)
-            for _ in range(3):
-                report.report_api_call("GET", f"/api/v2/{phase_name}", 200, duration)
-
-    threads = [threading.Thread(target=worker, args=(i,)) for i in range(4)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join(timeout=3.0)
-
-    assert report._current_phase_stack() == []
-    assert report.api_calls == 12
-    for idx, phase_name in enumerate(phase_names):
-        expected_secs = round(3 * float(idx + 1) * 0.1, 3)
-        assert report.api_seconds_by_phase[phase_name] == pytest.approx(
-            expected_secs, abs=1e-3
-        )
-        assert report.phase_calls[phase_name] == 1
 
 
 class _ConcurrentFakeClient:
@@ -962,14 +927,14 @@ def test_end_to_end_parallel_workers_keep_sqlglot_on_main_thread_and_match_seria
         source.client = fake_client  # type: ignore[assignment]
 
         sql_parse_threads: Set[Optional[int]] = set()
-        original_sql_parse = sqlglot_lineage_module.create_lineage_from_sql_statements
+        original_sql_parse = lineage_module.create_lineage_from_sql_statements
 
         def tracked_sql_parse(*args: object, **kwargs: object) -> object:
             sql_parse_threads.add(threading.current_thread().ident)
             return original_sql_parse(*args, **kwargs)  # type: ignore[arg-type]
 
         with mock.patch.object(
-            sqlglot_lineage_module,
+            lineage_module,
             "create_lineage_from_sql_statements",
             side_effect=tracked_sql_parse,
         ):

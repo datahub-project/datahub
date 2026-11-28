@@ -11,7 +11,6 @@ from typing import (
     Iterator,
     Optional,
     TypeVar,
-    cast,
 )
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -34,7 +33,8 @@ class TaskOutcome(BaseModel, Generic[_T, _R]):
     def unwrap(self) -> _R:
         if self.error is not None:
             raise self.error
-        return cast(_R, self.value)
+        # value is None only on the error path, and _R may itself be Optional.
+        return self.value  # type: ignore[return-value]
 
 
 class _PendingTask(BaseModel, Generic[_T, _R]):
@@ -185,7 +185,7 @@ class SingleFlight(Generic[_K, _V]):
             call.event.wait()
             if call.error is not None:
                 raise call.error
-            return cast(_V, call.value)
+            return call.value  # type: ignore[return-value]
 
         try:
             call.value = fn()
@@ -196,7 +196,7 @@ class SingleFlight(Generic[_K, _V]):
             with self._lock:
                 self._calls.pop(key, None)
                 call.event.set()
-        return cast(_V, call.value)
+        return call.value  # type: ignore[return-value]
 
     def get_or_load(
         self,

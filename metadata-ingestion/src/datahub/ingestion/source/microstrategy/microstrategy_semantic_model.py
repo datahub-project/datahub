@@ -1,6 +1,5 @@
 import logging
 import threading
-import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
@@ -18,6 +17,8 @@ from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
     MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT,
+    MSTR_PROGRESS_LOG_INTERVAL_METRICS,
+    MetricPresence,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     AttributeRelationship,
@@ -47,9 +48,6 @@ from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.spill_cache import (
     SpillCache,
     object_cache_key,
-)
-from datahub.ingestion.source.microstrategy.telemetry_helpers import (
-    IntervalGate,
 )
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -89,56 +87,25 @@ _INVERT_CARDINALITY: Dict[str, str] = {
 
 _SEMANTIC_MODEL_ID = "schema"
 
+_REASON_NO_GRAPH = "no DataHub connection"
+_REASON_PRESENCE_CHECK_FAILED = "DataHub lookup failed"
+
+_METRIC_MODEL_FAILURE_MESSAGES: Dict[MetricPresence, str] = {
+    MetricPresence.PRESENT: (
+        "Kept this metric's previously ingested definition; its model could "
+        "not be fetched."
+    ),
+    MetricPresence.ABSENT: (
+        "Emitting this metric without an expression or upstream lineage; its "
+        "model could not be fetched."
+    ),
+    MetricPresence.UNKNOWN: (
+        "Skipped this metric so an existing definition is not overwritten; its "
+        "model could not be fetched and DataHub could not be queried."
+    ),
+}
+
 logger = logging.getLogger(__name__)
-
-
-class _MetricProgress:
-    def __init__(
-        self,
-        *,
-        project_id: str,
-        total: int,
-        every_metrics: int,
-        every_seconds: float,
-        report: MicroStrategyReport,
-    ) -> None:
-        self._project_id = project_id
-        self._total = total
-        self._gate = IntervalGate(every_metrics, every_seconds)
-        self._report = report
-        self._started = time.perf_counter()
-        self._done = 0
-        self._failed = 0
-
-    @property
-    def done(self) -> int:
-        return self._done
-
-    @property
-    def failed(self) -> int:
-        return self._failed
-
-    def step(self) -> None:
-        if self._done and self._gate.due(self._done):
-            self.log()
-        self._done += 1
-
-    def record_failure(self) -> None:
-        self._failed += 1
-
-    def log(self) -> None:
-        self._gate.mark(self._done)
-        self._report.update_peak_rss()
-        logger.info(
-            "Semantic model metrics: %d/%d in %.0fs, %d failed; peak RSS %s MB "
-            "(project=%s)",
-            self._done,
-            self._total,
-            time.perf_counter() - self._started,
-            self._failed,
-            self._report.peak_rss_mb,
-            self._project_id,
-        )
 
 
 class _FetchedMetricModel(BaseModel):
@@ -703,13 +670,6 @@ class MicroStrategySemanticModelMapper:
                 exc=error,
             )
             return
-        progress = _MetricProgress(
-            project_id=project_id,
-            total=len(metric_objects),
-            every_metrics=self.config.progress_log_interval_metrics,
-            every_seconds=self.config.progress_log_interval_seconds,
-            report=self.report,
-        )
 
         def fetch_metric(metric_object: MicroStrategyObject) -> _FetchedMetricModel:
             model = self._metric_model(project_id, metric_object.id)
@@ -729,14 +689,22 @@ class MicroStrategySemanticModelMapper:
             )
 
         consecutive_failures = 0
+        failed = 0
         with ordered_parallel_map(
             fetch_metric,
             metric_objects,
             max_workers=self.config.max_workers,
         ) as outcomes:
-            for outcome in outcomes:
+            for read, outcome in enumerate(outcomes):
                 metric_object = outcome.item
-                progress.step()
+                if read and read % MSTR_PROGRESS_LOG_INTERVAL_METRICS == 0:
+                    logger.info(
+                        "Semantic model metrics: %d/%d read, %d failed (project=%s)",
+                        read,
+                        len(metric_objects),
+                        failed,
+                        project_id,
+                    )
                 metric_id = normalize_object_id(metric_object.id)
                 try:
                     fetched = outcome.unwrap()
@@ -744,7 +712,7 @@ class MicroStrategySemanticModelMapper:
                     consolidation_attributes = fetched.consolidation_attributes
                     consecutive_failures = 0
                 except MicroStrategyAPIError as error:
-                    progress.record_failure()
+                    failed += 1
                     consecutive_failures += 1
                     self.report.report_metric_expression_api_failure()
                     self.report.report_failed_metric_model(metric_object.id)
@@ -755,28 +723,32 @@ class MicroStrategySemanticModelMapper:
                             id=metric_id,
                         )
                     )
-                    kept = self._metric_exists_in_datahub(metric_urn)
+                    presence = self._metric_presence(metric_urn)
+                    reason_suffix = (
+                        f", reason={self._unknown_presence_reason()}"
+                        if presence == MetricPresence.UNKNOWN
+                        else ""
+                    )
                     # Deterministic 500s; failing the run skips stale removal forever.
                     self.report.warning(
                         title="MicroStrategy Metric Model Unavailable",
-                        message=(
-                            "Kept this metric's previously ingested definition; its "
-                            "model could not be fetched."
-                            if kept
-                            else "Emitting this metric without an expression or "
-                            "upstream lineage; its model could not be fetched."
+                        message=_METRIC_MODEL_FAILURE_MESSAGES[presence],
+                        context=(
+                            f"project_id={project_id}, metric_id={metric_object.id}"
+                            f"{reason_suffix}"
                         ),
-                        context=f"project_id={project_id}, metric_id={metric_object.id}",
                         exc=error,
                         log=False,
                     )
-                    if kept:
+                    if presence == MetricPresence.PRESENT:
                         # A Status write marks the metric as seen for stale removal
                         # without overwriting its expression and upstreams.
                         self.report.report_metric_kept_after_model_failure()
                         yield MetadataChangeProposalWrapper(
                             entityUrn=metric_urn, aspect=StatusClass(removed=False)
                         ).as_workunit()
+                    if presence == MetricPresence.UNKNOWN:
+                        self.report.report_metric_skipped_after_model_failure()
                     if (
                         consecutive_failures
                         >= MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
@@ -792,11 +764,11 @@ class MicroStrategySemanticModelMapper:
                             context=(
                                 f"project_id={project_id}, "
                                 f"consecutive_failures={consecutive_failures}, "
-                                f"metrics_not_read={len(metric_objects) - progress.done}"
+                                f"metrics_not_read={len(metric_objects) - read - 1}"
                             ),
                         )
                         break
-                    if kept:
+                    if presence != MetricPresence.ABSENT:
                         continue
                     model = {}
                     consolidation_attributes = {}
@@ -856,7 +828,6 @@ class MicroStrategySemanticModelMapper:
                     upstream_datasets=upstream_dataset_urns,
                     derived_from=derived_from,
                 )
-        progress.log()
 
     def _metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
         # Last pass to need a model, so a fetch here is not written back.
@@ -868,21 +839,30 @@ class MicroStrategySemanticModelMapper:
                 return cached
         return self.client.get_metric_model(project_id, metric_id)
 
-    def _metric_exists_in_datahub(self, metric_urn: str) -> bool:
+    def _unknown_presence_reason(self) -> str:
+        return _REASON_NO_GRAPH if self.graph is None else _REASON_PRESENCE_CHECK_FAILED
+
+    def _metric_presence(self, metric_urn: str) -> MetricPresence:
         if self.graph is None:
-            return False
+            return MetricPresence.UNKNOWN
         try:
-            return self.graph.exists(metric_urn)
+            exists = self.graph.exists(metric_urn)
         except Exception as error:
-            # Overwriting a good definition is worse than skipping one update.
-            self.report.warning(
-                title="Failed to check MicroStrategy metric in DataHub",
-                message="Kept the metric without overwriting its definition.",
-                context=metric_urn,
-                exc=error,
-                log=False,
-            )
-            return True
+            if not self.report.metric_presence_check_failures:
+                # Stale removal needs the graph too, so it must be skipped.
+                self.report.failure(
+                    title="Failed to check MicroStrategy metrics in DataHub",
+                    message=(
+                        "DataHub could not be queried, so metrics whose model "
+                        "cannot be fetched are skipped. Stale-entity removal is "
+                        "skipped for this run."
+                    ),
+                    context=metric_urn,
+                    exc=error,
+                )
+            self.report.report_metric_presence_check_failure()
+            return MetricPresence.UNKNOWN
+        return MetricPresence.PRESENT if exists else MetricPresence.ABSENT
 
     def _resolve_consolidation_parallel(
         self,

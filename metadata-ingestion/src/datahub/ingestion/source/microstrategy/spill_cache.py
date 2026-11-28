@@ -4,9 +4,7 @@ from typing import Callable, Dict, Generic, Optional, TypeVar, Union
 from pydantic import BaseModel, ConfigDict
 
 from datahub.ingestion.api.closeable import Closeable
-from datahub.ingestion.source.microstrategy.constants import MicroStrategyCache
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
-from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.utilities.file_backed_collections import FileBackedDict
 
 _V = TypeVar("_V")
@@ -94,18 +92,10 @@ class SpillCache(Closeable, Generic[_V]):
         pending.set()
         return loaded
 
-    def reset(
-        self,
-        report: Optional[MicroStrategyReport] = None,
-        cache_name: Optional[MicroStrategyCache] = None,
-    ) -> int:
+    def reset(self) -> None:
         with self._lock:
-            count = self._entry_count
-            if report is not None and cache_name is not None:
-                report.report_cache_entries(cache_name, count)
             self._close_store()
             self._entry_count = 0
-            return count
 
     def close(self) -> None:
         with self._lock:

@@ -682,7 +682,16 @@ def test_runtime_only_option_change_still_skips(
 ) -> None:
     first = _first_run(mock_datahub_graph)
 
-    _run(mock_datahub_graph, first.server, "run-2", progress_log_interval_dashboards=7)
+    _run(
+        mock_datahub_graph,
+        first.server,
+        "run-2",
+        stateful_ingestion={
+            "enabled": True,
+            "remove_stale_metadata": True,
+            "fail_safe_threshold": 50.0,
+        },
+    )
 
     assert first.server.definition_reads == []
 

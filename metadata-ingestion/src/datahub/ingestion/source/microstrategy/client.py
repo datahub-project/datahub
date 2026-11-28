@@ -1,10 +1,8 @@
 import logging
 import threading
 import time
-from functools import partial
 from typing import (
     Any,
-    Callable,
     Dict,
     Iterable,
     List,
@@ -1054,18 +1052,13 @@ class MicroStrategyClient:
             ):
                 request_headers[MSTR_AUTH_TOKEN_HEADER] = sent_token
             try:
-                response = self._timed_request(
-                    method,
-                    path,
-                    partial(
-                        self.session.request,
-                        method=method,
-                        url=url,
-                        headers=request_headers,
-                        timeout=timeout_seconds or self.config.timeout_seconds,
-                        verify=self.config.verify_ssl,
-                        **kwargs,
-                    ),
+                response = self.session.request(
+                    method=method,
+                    url=url,
+                    headers=request_headers,
+                    timeout=timeout_seconds or self.config.timeout_seconds,
+                    verify=self.config.verify_ssl,
+                    **kwargs,
                 )
             except requests.RequestException as error:
                 # Network-level failures (connection errors, timeouts) are
@@ -1073,9 +1066,7 @@ class MicroStrategyClient:
                 # non-retryable 4xx responses fail fast.
                 last_error = error
                 if attempt < attempts - 1:
-                    self._sleep_before_retry(
-                        float(min(2**attempt, _MAX_RETRY_DELAY_SECONDS))
-                    )
+                    time.sleep(min(2**attempt, _MAX_RETRY_DELAY_SECONDS))
                     attempt += 1
                     continue
                 self.report.report_api_error()
@@ -1100,7 +1091,7 @@ class MicroStrategyClient:
                 reauth_attempted = True
                 continue
             if response.status_code in retry_statuses and attempt < attempts - 1:
-                self._sleep_before_retry(self._retry_delay(response, attempt))
+                time.sleep(self._retry_delay(response, attempt))
                 attempt += 1
                 continue
             try:
@@ -1155,27 +1146,6 @@ class MicroStrategyClient:
                     f"{method} {path}: {error}"
                 ) from error
             self.report.report_session_reauthenticated()
-
-    def _timed_request(
-        self, method: str, path: str, send: Callable[[], requests.Response]
-    ) -> requests.Response:
-        started = time.perf_counter()
-        status: Optional[int] = None
-        try:
-            response = send()
-            status = response.status_code
-            return response
-        finally:
-            self.report.report_api_call(
-                method=method,
-                path=path,
-                status=status,
-                seconds=time.perf_counter() - started,
-            )
-
-    def _sleep_before_retry(self, delay: float) -> None:
-        self.report.report_api_retry(delay)
-        time.sleep(delay)
 
     @staticmethod
     def _retry_delay(response: requests.Response, attempt: int) -> float:

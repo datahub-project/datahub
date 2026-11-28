@@ -96,14 +96,6 @@ class MicroStrategyConfig(
         gt=0,
         description="HTTP request timeout in seconds.",
     )
-    model_api_timeout_seconds: Optional[int] = Field(
-        default=None,
-        gt=0,
-        description=(
-            "HTTP timeout in seconds for the project metric search and the model tables API. "
-            f"Defaults to `timeout_seconds`, raised to at least {MSTR_MODEL_API_MIN_TIMEOUT_SECONDS}."
-        ),
-    )
     max_retries: int = Field(
         default=3,
         ge=0,
@@ -125,29 +117,6 @@ class MicroStrategyConfig(
             "single-threaded with bounded in-flight queues and deterministic "
             "output order. Set to 1 for serial execution."
         ),
-    )
-    cache_memory_entries: int = Field(
-        default=2000,
-        gt=0,
-        description=(
-            "Entries kept in memory by each per-project cache of report SQL and parsed SQL lineage. "
-            "Older entries spill to a temporary local file."
-        ),
-    )
-    progress_log_interval_dashboards: int = Field(
-        default=25,
-        gt=0,
-        description="Log a whole-run progress line every N dashboards.",
-    )
-    progress_log_interval_metrics: int = Field(
-        default=1000,
-        gt=0,
-        description="Log a semantic-model progress line every N metrics.",
-    )
-    progress_log_interval_seconds: int = Field(
-        default=300,
-        gt=0,
-        description="Also log a progress line when this many seconds pass without one.",
     )
 
     project_pattern: AllowDenyPattern = Field(
@@ -680,8 +649,6 @@ class MicroStrategyConfig(
         return self.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT
 
     def resolve_model_api_timeout_seconds(self) -> int:
-        if self.model_api_timeout_seconds is not None:
-            return self.model_api_timeout_seconds
         return max(self.timeout_seconds, MSTR_MODEL_API_MIN_TIMEOUT_SECONDS)
 
     @field_validator("base_url", mode="after")

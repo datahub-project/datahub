@@ -1,7 +1,5 @@
-import builtins
 import json
 import logging
-import sys
 from typing import (
     Any,
     Callable,
@@ -73,6 +71,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect,
 )
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_from_sql_statements
 from datahub.utilities.file_backed_collections import FileBackedDict
 
 
@@ -2281,8 +2280,9 @@ def test_report_derived_metrics_skip_cube_datasets() -> None:
     assert client.v2_calls == []
 
 
-_SQL_PARSER_MODULE = "datahub.sql_parsing.sqlglot_lineage"
-_SQL_AGGREGATOR_MODULE = "datahub.sql_parsing.sql_parsing_aggregator"
+_LINEAGE_PARSER_FN = (
+    "datahub.ingestion.source.microstrategy.lineage.create_lineage_from_sql_statements"
+)
 _ALL_FAILED_TITLE = "Every MicroStrategy SQL view failed to parse"
 
 
@@ -2290,61 +2290,6 @@ def _warehouse_dashboard() -> DashboardDefinition:
     return _dashboard(
         {"id": "s", "name": "W", "database": {"type": "snow_flake", "name": "DB"}}
     )
-
-
-def test_missing_sqlparse_fails_source_construction_with_named_extra(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Simulate the environment that emitted zero lineage in production: the
-    # wheel installed without the extra, so the parser's aggregator module
-    # (usage_common -> sql_formatter -> sqlparse) cannot be imported. The run
-    # must fail up front, naming the extra, rather than degrade to per-view
-    # parse warnings.
-    real_import = builtins.__import__
-
-    def import_without_sqlparse(name: str, *args: Any, **kwargs: Any) -> Any:
-        if name == _SQL_AGGREGATOR_MODULE:
-            raise ModuleNotFoundError("No module named 'sqlparse'")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", import_without_sqlparse)
-
-    with pytest.raises(ConfigurationError) as raised:
-        _source({"extract_warehouse_lineage": True})
-    assert "acryl-datahub[microstrategy]" in str(raised.value)
-    assert "sqlparse" in str(raised.value)
-
-    with pytest.raises(ConfigurationError):
-        _source(
-            {"extract_warehouse_lineage": False, "extract_report_sql_lineage": True}
-        )
-    # Without SQL-view lineage enabled the parser is not needed at all.
-    _source({"extract_warehouse_lineage": False})
-
-
-def test_import_error_during_parse_is_not_a_parse_failure(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = _source()
-
-    def missing_module(**kwargs: Any) -> Any:
-        raise ModuleNotFoundError("No module named 'sqlparse'")
-
-    monkeypatch.setattr(
-        sys.modules[_SQL_PARSER_MODULE],
-        "create_lineage_from_sql_statements",
-        missing_module,
-    )
-
-    with pytest.raises(ConfigurationError):
-        source._attach_dataset_warehouse_upstreams(
-            [{"id": "ds-1", "sqlStatement": "select 1 from t"}],
-            _warehouse_dashboard(),
-            None,
-            project_id="project-1",
-        )
-    assert source.report.sql_parse_failure_count == 0
-    assert list(source.report.sql_parse_failures) == []
 
 
 def test_configuration_error_escapes_the_dashboard_boundary(
@@ -2371,7 +2316,7 @@ def test_configuration_error_escapes_the_dashboard_boundary(
 
 def _fail_parses(monkeypatch: pytest.MonkeyPatch, fail_first_n: int) -> None:
     calls = {"count": 0}
-    real = sys.modules[_SQL_PARSER_MODULE].create_lineage_from_sql_statements
+    real = create_lineage_from_sql_statements
 
     def flaky(**kwargs: Any) -> Any:
         calls["count"] += 1
@@ -2379,9 +2324,7 @@ def _fail_parses(monkeypatch: pytest.MonkeyPatch, fail_first_n: int) -> None:
             raise ValueError("boom")
         return real(**kwargs)
 
-    monkeypatch.setattr(
-        sys.modules[_SQL_PARSER_MODULE], "create_lineage_from_sql_statements", flaky
-    )
+    monkeypatch.setattr(_LINEAGE_PARSER_FN, flaky)
 
 
 def test_every_sql_view_failing_raises_one_loud_warning(
@@ -3715,24 +3658,34 @@ def test_grid_report_shared_by_documents_is_executed_once() -> None:
     assert source.report.warehouse_lineage_edges == 2
 
 
-def test_shared_report_sql_is_parsed_once_and_dashboards_are_timed() -> None:
+def test_shared_report_sql_is_parsed_once_and_progress_is_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     source = _document_source({"extract_document_dataset_sql_lineage": True})
     client = _DocumentClient(documents={"doc-1": ["rep-1"], "doc-2": ["rep-1"]})
     source.client = client  # type: ignore[assignment]
 
-    _run_dashboards(source)
+    with (
+        caplog.at_level(logging.INFO),
+        mock.patch(
+            "datahub.ingestion.source.microstrategy.source."
+            "MSTR_PROGRESS_LOG_INTERVAL_DASHBOARDS",
+            2,
+        ),
+    ):
+        _run_dashboards(source)
 
     report = source.report
     assert report.report_sql_fetched == 1
     assert report.sql_parses_executed == 1
     assert report.sql_parse_cache_hits == 1
-    assert report.dashboards_timed == 2
-    assert sum(report.dashboard_seconds_histogram.values()) == 2
-    assert {"dashboard", "dashboard_search", "report_sql_fetch", "sql_parse"} <= set(
-        report.phase_calls
-    )
-    assert report.phase_calls["dashboard"] == 2
-    assert report._phase_stack == []
+    progress_lines = [
+        record.getMessage()
+        for record in caplog.records
+        if record.getMessage().startswith("MicroStrategy progress:")
+    ]
+    assert len(progress_lines) == 1
+    assert progress_lines[0].startswith("MicroStrategy progress: 2 dashboards")
 
 
 def test_project_caches_are_dropped_at_the_project_boundary() -> None:
@@ -3749,10 +3702,7 @@ def test_project_caches_are_dropped_at_the_project_boundary() -> None:
     assert client.report_instances_created == ["rep-1", "rep-1"]
     assert source.report.sql_parses_executed == 2
     assert source._metric_model_cache.entry_count == 0
-    assert source.report.cache_entries_peak["metric_model"] == 1
     assert source.report.cache_project_resets == 1
-    assert source.report.cache_entries_peak["report_sql"] == 1
-    assert source.report.cache_entries_peak["sql_parse"] == 1
 
 
 def test_failed_shared_report_is_not_retried_for_the_next_document() -> None:
@@ -4987,7 +4937,6 @@ def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
 
     assert seen_during_run == [len(filters_before) + 1]
     assert sqlglot_logger.filters == filters_before
-    assert source.report.peak_rss_mb is not None
 
 
 # One metric's model endpoint always fails.
@@ -5048,14 +4997,14 @@ def test_semantic_model_reuses_metric_models_from_dashboard_enrichment() -> None
     )
 
     # M-NET is fetched once for both passes; the failed M-BROKEN is retried by
-    # the semantic model and still emitted without a model, and only the metric
-    # the dashboards never saw is new.
+    # the semantic model and, with no graph to confirm it exists, skipped, and
+    # only the metric the dashboards never saw is new.
     assert client.metric_model_calls == ["M-NET", "M-BROKEN", "M-BROKEN", "M-CATALOG"]
     assert not source.report.failures
     assert "MicroStrategy Metric Model Unavailable" in {
         warning.title for warning in source.report.warnings
     }
-    assert source.report.semantic_model_metrics_emitted == 3
+    assert source.report.semantic_model_metrics_emitted == 2
     metric_urns = {
         workunit.get_urn()
         for workunit in workunits
@@ -5063,7 +5012,6 @@ def test_semantic_model_reuses_metric_models_from_dashboard_enrichment() -> None
     }
     assert metric_urns == {
         "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,M-NET)",
-        "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,M-BROKEN)",
         "urn:li:metric:(urn:li:dataPlatform:microstrategy,project-1,M-CATALOG)",
     }
 
@@ -5238,14 +5186,6 @@ def test_project_failure_still_closes_every_spill_cache() -> None:
         "Failed to Process Project"
     ]
     assert source.report.cache_project_resets == 1
-    assert source.report.cache_entries_peak == {
-        "report_sql": 1,
-        "report_object": 1,
-        "report_derived_metric": 1,
-        "report_definition": 1,
-        "sql_parse": 1,
-        "metric_model": 1,
-    }
 
 
 def _model_table(
