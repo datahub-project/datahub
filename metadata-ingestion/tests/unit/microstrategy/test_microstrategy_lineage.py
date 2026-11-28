@@ -206,6 +206,19 @@ def test_project_warehouse_contexts_single_requires_one_supported_context() -> N
     assert project_warehouse_contexts([first, second]).has_several
 
 
+def test_project_warehouse_contexts_failed_connection_does_not_split_a_warehouse() -> (
+    None
+):
+    resolved = WarehouseLineageContext(platform="snowflake", env="PROD", database="A")
+    failed = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database="A", connection_unavailable=True
+    )
+
+    contexts = project_warehouse_contexts([resolved, failed])
+    assert not contexts.has_several
+    assert contexts.single == failed
+
+
 def test_project_warehouse_contexts_unsupported_datasource_blocks_a_single_context() -> (
     None
 ):
