@@ -383,6 +383,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._report_derived_metric_cache.clear()
         self._metric_model_cache.clear()
         self._report_objects.clear()
+        self._report_datasets.clear()
         self.lineage.reset_project_caches()
         self.report.cache_project_resets += 1
 
@@ -520,6 +521,27 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     project, lineage_context
                 )
             return
+        try:
+            yield from self._process_project_passes(
+                project, lineage_context, linked_report_ids
+            )
+        except Exception:
+            # Charts and dashboards already emitted point at these datasets. Not
+            # a finally: yielding while the generator closes raises RuntimeError.
+            if self._per_report:
+                yield from self._gen_report_dataset_workunits(project.id)
+            raise
+        if self._per_report:
+            yield from self._gen_report_dataset_workunits(project.id)
+        if self.config.emit_semantic_model_entities:
+            yield from self._process_project_semantic_model(project, lineage_context)
+
+    def _process_project_passes(
+        self,
+        project: Project,
+        lineage_context: "_LazyProjectLineage",
+        linked_report_ids: Set[str],
+    ) -> Iterable[MetadataWorkUnit]:
         if self.config.extract_dashboards:
             yield from self._process_project_dashboards(
                 project,
@@ -532,10 +554,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 lineage_context,
                 linked_report_ids,
             )
-        if self._per_report:
-            yield from self._gen_report_dataset_workunits(project.id)
-        if self.config.emit_semantic_model_entities:
-            yield from self._process_project_semantic_model(project, lineage_context)
 
     @timed_generator_phase(MicroStrategyPhase.SEMANTIC_MODEL)
     def _process_project_semantic_model(

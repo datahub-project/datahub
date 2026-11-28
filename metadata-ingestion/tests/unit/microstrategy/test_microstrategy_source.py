@@ -11,6 +11,7 @@ import requests
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.emit_mode import EmitMode
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
     MicroStrategyAuthError,
@@ -36,6 +37,7 @@ from datahub.ingestion.source.microstrategy.source import (
     MicroStrategySource,
     _LazyProjectLineage,
     _report_dataset_key,
+    _ReportDatasetEntry,
 )
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -4572,6 +4574,64 @@ def test_per_report_document_reuses_lineage_a_dossier_settled() -> None:
     assert source.report.document_dataset_sql_views_reused == 1
     lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
     assert len(lineage[_SHARED_URN].upstreams) == 1
+
+
+class _FailingReportSearchClient(_SharedReportClient):
+    def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        yield self.get_object_info(project_id, "ds-shared", 3)
+        raise RuntimeError("report search failed")
+
+
+def test_per_report_report_pass_failure_still_emits_registered_datasets() -> None:
+    source = _per_report_source(
+        {"extract_reports": True, "extract_independent_reports": True}
+    )
+    source.client = _FailingReportSearchClient()  # type: ignore[assignment]
+    workunits: List[MetadataWorkUnit] = []
+
+    with pytest.raises(RuntimeError, match="report search failed"):
+        for workunit in source._process_project(_PROJECT):
+            workunits.append(workunit)
+
+    # Charts and dashboards already point at these datasets.
+    assert list(_aspects_by_urn(workunits, DatasetPropertiesClass)) == [_SHARED_URN]
+    assert source.report.report_datasets_emitted == 1
+
+
+def test_per_report_dashboard_pass_auth_failure_still_emits_registered_datasets() -> (
+    None
+):
+    source = _per_report_source()
+    client = _SharedReportClient()
+    source.client = client  # type: ignore[assignment]
+    first_dossier = client.get_dossier_definition
+
+    def fail_second_dashboard(project_id: str, dossier_id: str) -> Dict[str, Any]:
+        if dossier_id == "doc-1":
+            raise MicroStrategyAuthError("session lost")
+        return first_dossier(project_id, dossier_id)
+
+    client.get_dossier_definition = fail_second_dashboard  # type: ignore[method-assign]
+    workunits: List[MetadataWorkUnit] = []
+
+    with pytest.raises(MicroStrategyAuthError):
+        for workunit in source._process_project(_PROJECT):
+            workunits.append(workunit)
+
+    assert list(_aspects_by_urn(workunits, DatasetPropertiesClass)) == [_SHARED_URN]
+
+
+def test_reset_project_caches_clears_the_report_dataset_registry() -> None:
+    source = _per_report_source()
+    source._report_datasets[_report_dataset_key("project-1", "ds-shared")] = (
+        _ReportDatasetEntry(
+            dataset=DatasetObject.model_validate({"id": "ds-shared", "name": "R"})
+        )
+    )
+
+    source._reset_project_caches()
+
+    assert source._report_datasets == {}
 
 
 def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
