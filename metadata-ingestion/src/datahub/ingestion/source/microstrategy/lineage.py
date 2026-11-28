@@ -167,7 +167,7 @@ class _TimedSchemaResolver(SchemaResolver):
         env: str,
         graph: Optional[DataHubGraph],
         report: SchemaResolverReport,
-    ):
+    ) -> None:
         self._lookup_recorder = _FailureRecordingGraph(graph) if graph else None
         super().__init__(
             platform=platform,
