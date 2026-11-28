@@ -167,8 +167,10 @@ public class UpdateLogicalModelSchemaResolver implements DataFetcher<Completable
           }
           // Clear the dataset-level link only when every mapping the child had is being torn down
           // (i.e. no column edge survives). A child that mapped columns unaffected by this change
-          // keeps both its surviving edges and its dataset-level link.
-          final boolean clearDatasetLevel = childFieldsToClear.size() == childMappings.size();
+          // keeps both its surviving edges and its dataset-level link, as does a child with no
+          // column mappings to this model (linked at dataset level only, or schema not ingested).
+          final boolean clearDatasetLevel =
+              !childFieldsToClear.isEmpty() && childFieldsToClear.size() == childMappings.size();
           proposals.addAll(
               LogicalModelUtils.buildPartialUnlinkProposals(
                   childUrn, childFieldsToClear, clearDatasetLevel, opContext));
