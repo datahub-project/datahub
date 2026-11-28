@@ -94,7 +94,10 @@ class MicroStrategyConfig(
     timeout_seconds: int = Field(
         default=30,
         gt=0,
-        description="HTTP request timeout in seconds.",
+        description=(
+            "HTTP request timeout in seconds. Model and metric search calls use "
+            f"the larger of this and {MSTR_MODEL_API_MIN_TIMEOUT_SECONDS} seconds."
+        ),
     )
     max_retries: int = Field(
         default=3,
@@ -625,10 +628,14 @@ class MicroStrategyConfig(
 
     @model_validator(mode="after")
     def _per_report_requires_a_dataset_source(self) -> "MicroStrategyConfig":
-        if self.per_report and not (self.extract_cubes or self.extract_reports):
+        has_dataset_source = (
+            self.extract_dashboards and self.extract_cubes
+        ) or self.extract_reports
+        if self.per_report and not has_dataset_source:
             raise ValueError(
-                "dataset_identity: per_report requires extract_cubes or "
-                "extract_reports: without either no dataset is emitted."
+                "dataset_identity: per_report requires extract_reports, or both "
+                "extract_dashboards and extract_cubes: without them no dataset "
+                "is emitted."
             )
         return self
 
@@ -637,6 +644,8 @@ class MicroStrategyConfig(
         return self.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT
 
     def resolve_model_api_timeout_seconds(self) -> int:
+        # Metric search and /api/model/tables are slow on large projects, so a
+        # short timeout_seconds must not apply to them.
         return max(self.timeout_seconds, MSTR_MODEL_API_MIN_TIMEOUT_SECONDS)
 
     @field_validator("base_url", mode="after")

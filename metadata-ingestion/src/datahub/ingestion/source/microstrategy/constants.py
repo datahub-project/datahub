@@ -108,6 +108,8 @@ TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
 DERIVED_TAG_URN = "urn:li:tag:Derived"
 
 MSTR_PROPERTY_PROJECT_ID = "microstrategyProjectId"
+MSTR_PROPERTY_DASHBOARD_ID = "microstrategyDashboardId"
+MSTR_PROPERTY_DATASET_ID = "microstrategyDatasetId"
 MSTR_PROPERTY_REPORT_ID = "microstrategyReportId"
 MSTR_PROPERTY_DASHBOARD_COUNT = "microstrategyDashboardCount"
 MSTR_PROPERTY_DASHBOARD_IDS = "microstrategyDashboardIds"
@@ -115,6 +117,16 @@ MSTR_PROPERTY_REPORT_PROMPT_COUNT = "microstrategyReportPromptCount"
 MSTR_PROPERTY_REPORT_HAS_FILTER = "microstrategyReportHasFilter"
 MSTR_PROPERTY_REPORT_SOURCE_ID = "microstrategyReportSourceId"
 MSTR_PROPERTY_REPORT_SOURCE_NAME = "microstrategyReportSourceName"
+MSTR_PROPERTY_MODEL_LINEAGE_FIELD_COUNT = "microstrategyModelLineageFieldCount"
+MSTR_PROPERTY_MODEL_LINEAGE_UPSTREAM_FIELD_COUNT = (
+    "microstrategyModelLineageUpstreamFieldCount"
+)
+MSTR_PROPERTY_MODEL_LINEAGE_UPSTREAM_DATASET_COUNT = (
+    "microstrategyModelLineageUpstreamDatasetCount"
+)
+
+MSTR_AVAILABLE_OBJECTS_METRICS = "metrics"
+MSTR_AVAILABLE_OBJECTS_ATTRIBUTES = "attributes"
 
 # Stamped on emitted properties so a skip is trusted only if DataHub still has it.
 MSTR_PROP_FINGERPRINT = "microstrategyFingerprint"
@@ -556,9 +568,15 @@ MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] =
     ),
 )
 
-MSTR_MODEL_TABLE_FIELDS = "information,physicalTable,attributes,facts"
-# Requested only for a project with several warehouses.
 MSTR_MODEL_TABLE_DATASOURCE_FIELD = "primaryDataSource"
+MSTR_MODEL_TABLE_FIELDS = ",".join(
+    ("information", "physicalTable", "attributes", "facts")
+)
+# Only a project with several warehouses needs the primary datasource.
+MSTR_MODEL_TABLE_FIELDS_WITH_DATASOURCE = (
+    f"{MSTR_MODEL_TABLE_FIELDS},{MSTR_MODEL_TABLE_DATASOURCE_FIELD}"
+)
+MSTR_VISUALIZATION_RESULT_ROW_LIMIT = 0
 MSTR_UNKNOWN_DATASOURCE_TYPE = "unknown"
 MSTR_DATASOURCE_MAPPING_HINT = (
     "Set datasource_platform_mapping, keyed by connection or datasource name, "
@@ -566,7 +584,6 @@ MSTR_DATASOURCE_MAPPING_HINT = (
 )
 
 
-# per_report attaches usage to the report's dataset; otherwise only dashboards and charts.
 class UsageTargetKind(StrEnum):
     DASHBOARD = "dashboard"
     CHART = "chart"
@@ -594,10 +611,31 @@ MSTR_MODEL_API_MIN_TIMEOUT_SECONDS = 120
 MSTR_PROGRESS_LOG_INTERVAL_DASHBOARDS = 25
 MSTR_PROGRESS_LOG_INTERVAL_METRICS = 1000
 
-# Per-project report SQL and parsed SQL lineage entries kept in memory before
-# older ones spill to a temporary local file.
+# Entries each per-project cache keeps in memory before older ones spill to a
+# temporary local file. Full JSON payloads (report v2 definitions, metric
+# models) can be large, so those caches keep fewer.
 MSTR_CACHE_MEMORY_ENTRIES = 2000
+MSTR_PAYLOAD_CACHE_MEMORY_ENTRIES = 200
 
 MSTR_SQLGLOT_LOGGER = "sqlglot"
 # One warning per generated statement; they fill the executor's bounded log.
 MSTR_SQLGLOT_SUPPRESSED_PREFIXES: Final[Sequence[str]] = ("Unsupported property",)
+
+MSTR_PARSE_LABEL_PREFIX = "sql "
+MSTR_PARSE_LABEL_HASH_CHARS = 12
+
+# A spilling cache writes evicted entries in batches of a quarter of its memory
+# cap, at most this many, so one eviction never stalls on a huge write.
+MSTR_MAX_EVICTION_BATCH = 150
+MSTR_EVICTION_BATCH_DIVISOR = 4
+
+
+class ReportObjectLookupKind(StrEnum):
+    DATASET = "dataset"
+    LINKED_REPORT = "linked_report"
+
+
+MSTR_SQLGLOT_WARNINGS_TOP_K = 10
+
+MSTR_REASON_NO_GRAPH = "no DataHub connection"
+MSTR_REASON_PRESENCE_CHECK_FAILED = "DataHub lookup failed"

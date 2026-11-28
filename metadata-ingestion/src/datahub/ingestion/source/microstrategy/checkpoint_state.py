@@ -10,7 +10,10 @@ from datahub.ingestion.source.microstrategy.constants import (
     MicroStrategyReadOutcome,
     UsageTargetKind,
 )
-from datahub.ingestion.source.microstrategy.spill_cache import object_cache_key
+from datahub.ingestion.source.microstrategy.models import (
+    normalize_object_id,
+    object_cache_key,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -83,7 +86,7 @@ def _report_datasets(
 
 
 def _in_project(entries: Dict[str, _Entry], project_id: str) -> Dict[str, _Entry]:
-    prefix = f"{project_id}:"
+    prefix = f"{normalize_object_id(project_id)}:"
     return {
         key[len(prefix) :]: entry
         for key, entry in entries.items()

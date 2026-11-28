@@ -6,9 +6,11 @@ from functools import partial
 from typing import (
     Callable,
     Dict,
+    FrozenSet,
     Generator,
     Iterable,
     List,
+    Mapping,
     Optional,
     Sequence,
     Set,
@@ -65,21 +67,22 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_FOLDER_TYPE_PROFILE_OBJECTS,
     MSTR_FOLDER_TYPE_PROFILE_REPORTS,
-    MSTR_MODEL_TABLE_DATASOURCE_FIELD,
     MSTR_MODEL_TABLE_FIELDS,
+    MSTR_MODEL_TABLE_FIELDS_WITH_DATASOURCE,
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
     MSTR_OBJECT_SUBTYPE_REPORT_GRID,
     MSTR_OBJECT_TYPE_FOLDER,
     MSTR_OBJECT_TYPE_REPORT,
+    MSTR_PAYLOAD_CACHE_MEMORY_ENTRIES,
     MSTR_PERSONAL_FOLDER_NAMES,
     MSTR_PERSONAL_FOLDER_TYPES,
     MSTR_PREDEFINED_FOLDER_LABELS,
     MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES,
     MSTR_PROGRESS_LOG_INTERVAL_DASHBOARDS,
-    MSTR_SQLGLOT_LOGGER,
     MSTR_UNKNOWN_DATASOURCE_TYPE,
     SHARED_REFERENCE_ENTITY_TYPES,
     MicroStrategyReadOutcome,
+    ReportObjectLookupKind,
     UsageTargetKind,
 )
 from datahub.ingestion.source.microstrategy.incremental import (
@@ -91,22 +94,21 @@ from datahub.ingestion.source.microstrategy.incremental import (
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
-    SqlglotWarningFilter,
+    ProjectWarehouseContexts,
     SqlViewLineage,
     TableContextResolver,
     WarehouseLineageContext,
     bind_visualizations_by_derived_objects,
     datasource_for_model_table,
-    distinct_warehouse_contexts,
-    matching_datasource_for_context,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
+    object_id,
+    project_warehouse_contexts,
     sql_statement_from_sql_view_entry,
     sql_view_dataset_key,
     sql_view_dataset_name,
     unique_derived_object_owners,
     warehouse_context_from_datasource,
-    warehouse_context_from_datasources,
     warehouse_context_with_connection,
 )
 from datahub.ingestion.source.microstrategy.mapper import MicroStrategyMapper
@@ -120,7 +122,6 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasourceConnection,
     DatasourceReference,
     MetricEnrichment,
-    MicroStrategyDict,
     MicroStrategyObject,
     PersonalFolderResolution,
     PredefinedFolderResolution,
@@ -136,11 +137,15 @@ from datahub.ingestion.source.microstrategy.models import (
     is_personal_folder_object,
     metric_enrichment_from_expression,
     normalize_object_id,
+    object_cache_key,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.spill_cache import (
     SpillCache,
-    object_cache_key,
+    SpillConnection,
+)
+from datahub.ingestion.source.microstrategy.sqlglot_warnings import (
+    suppress_sqlglot_warnings,
 )
 from datahub.ingestion.source.microstrategy.usage import (
     MicroStrategyUsageExtractor,
@@ -163,6 +168,7 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import ChartInfoClass, DashboardInfoClass
+from datahub.utilities.sentinels import Unset
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
 
@@ -177,9 +183,8 @@ _ERROR_SUMMARY_MAX_CHARS = 300
 # left out: the endpoint can answer it for a single unmodelled document.
 _MODEL_DOCUMENT_PROJECT_WIDE_STATUSES = frozenset({403, 501})
 
-
-class _ReportObjectUnavailable(Exception):
-    pass
+# Model tables answers that a second request will not change.
+_MODEL_TABLES_NON_RETRYABLE_STATUSES = frozenset({403, 501})
 
 
 class _PredefinedFoldersUnavailable(Exception):
@@ -225,13 +230,18 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report = MicroStrategyReport()
         self.client = MicroStrategyClient(config, self.report)
-        self.mapper = MicroStrategyMapper(config, self.report)
+        self._spill_connection = SpillConnection()
+        self.mapper = MicroStrategyMapper(config, self.report, self._spill_connection)
         self.lineage = self.mapper.lineage
         # A failed fetch is cached as None and reused, except by the semantic model.
-        self._metric_model_cache: SpillCache[Optional[Dict[str, object]]] = SpillCache(
-            MSTR_CACHE_MEMORY_ENTRIES, compress=True
+        self._metric_models: SpillCache[Optional[Dict[str, object]]] = SpillCache(
+            self._spill_connection,
+            "metric_models",
+            MSTR_PAYLOAD_CACHE_MEMORY_ENTRIES,
+            compress=True,
         )
         self._model_document_unavailable_projects: Set[str] = set()
+        self._model_tables_non_retryable_projects: Set[str] = set()
         # The Modeling document of the dashboard in flight, so binding and
         # document derived metrics share one GET. Dashboards are processed one
         # at a time, so only the latest is kept.
@@ -239,28 +249,34 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._model_document_value: Optional[Dict[str, object]] = None
         self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
         self._personal_folder_cache: Dict[str, PersonalFolderResolution] = {}
-        # Only found objects are shared; each lookup keeps its own failed keys,
-        # because a dataset and a linked report fail and warn differently.
-        self._report_object_cache: SpillCache[MicroStrategyObject] = SpillCache(
-            MSTR_CACHE_MEMORY_ENTRIES
+        # Object info of type-3 objects (reports and cubes), shared by dataset
+        # and linked-report lookups.
+        self._type3_objects: SpillCache[_ReportObjectLookup] = SpillCache(
+            self._spill_connection, "type3_objects", MSTR_CACHE_MEMORY_ENTRIES
         )
-        self._failed_dataset_object_keys: Set[str] = set()
-        self._failed_linked_report_keys: Set[str] = set()
         # A failed read is cached, so a shared report is not executed again.
-        self._report_sql_cache: SpillCache[Optional[str]] = SpillCache(
-            MSTR_CACHE_MEMORY_ENTRIES, compress=True
+        self._report_sql_statements: SpillCache[_ReportSqlOutcome] = SpillCache(
+            self._spill_connection,
+            "report_sql_statements",
+            MSTR_CACHE_MEMORY_ENTRIES,
+            compress=True,
         )
-        self._report_v2_payload_cache: SpillCache[Dict[str, object]] = SpillCache(
-            MSTR_CACHE_MEMORY_ENTRIES, compress=True
+        self._report_v2_payloads: SpillCache[Dict[str, object]] = SpillCache(
+            self._spill_connection,
+            "report_v2_payloads",
+            MSTR_PAYLOAD_CACHE_MEMORY_ENTRIES,
+            compress=True,
         )
-        # Released twice per project; both must count as one reset.
-        self._report_caches_released = False
-        self._project_caches_released = False
-        # "project id:report id" -> derived metric definitions, or None once
-        # every definition endpoint failed for it.
-        self._report_derived_metric_cache: SpillCache[
+        # Derived metric definitions per report, or None once every definition
+        # endpoint failed for it.
+        self._report_derived_metrics: SpillCache[
             Optional[List[ReportDerivedMetric]]
-        ] = SpillCache(MSTR_CACHE_MEMORY_ENTRIES, compress=True)
+        ] = SpillCache(
+            self._spill_connection,
+            "report_derived_metrics",
+            MSTR_CACHE_MEMORY_ENTRIES,
+            compress=True,
+        )
         # Projects already warned about the Modeling report definition
         # endpoint failing (one structured warning per project, not per
         # report), and projects whose v2 payload shape was already logged.
@@ -292,10 +308,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # Object GUID (upper) -> usage target for entities ingested this run;
         # usage buckets only attach to these.
         self._usage_targets: Dict[str, UsageTarget] = {}
-        # Normalized connection id -> connection, or None once a fetch failed.
-        # Connections are environment-level objects, so this spans projects.
-        self._datasource_connections: Dict[str, Optional[DatasourceConnection]] = {}
-        self._failed_connection_keys: Set[str] = set()
+        # (project id, normalized connection id) -> connection, or None once a
+        # fetch failed. Keyed by project because the request is sent under one
+        # project and a later project must report its own failure.
+        self._datasource_connections: Dict[
+            Tuple[str, str], Optional[DatasourceConnection]
+        ] = {}
+        self._failed_connection_keys: Set[Tuple[str, str]] = set()
         self._dashboards_processed = 0
         # Owned here so entities of objects skipped as unchanged stay in state.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
@@ -384,106 +403,115 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.client.login()
-        auth_lost = False
-        sqlglot_filter = SqlglotWarningFilter(self.report)
-        sqlglot_logger = logging.getLogger(MSTR_SQLGLOT_LOGGER)
-        sqlglot_logger.addFilter(sqlglot_filter)
         try:
-            if self.config.emit_chapter_page_structured_properties:
-                yield from self._emit_chapter_page_structured_property_definitions()
-            projects = self.client.list_projects()
-            for index, project in enumerate(projects, start=1):
-                if not self.config.project_pattern.allowed(project.name):
-                    self.report.filtered_projects.append(project.name)
-                    continue
-                # A project can take minutes (paginated searches plus per-object
-                # execution), so show which project is in flight and how far along.
-                logger.info(
-                    "Processing project %r (%s) [%d/%d]",
-                    project.name,
-                    project.id,
-                    index,
-                    len(projects),
-                )
-                try:
-                    with self.report.new_stage(
-                        f"{project.name}: {METADATA_EXTRACTION}"
-                    ):
-                        yield from self._process_project(project)
-                except MicroStrategyAuthError as error:
-                    # Auth is dead: every remaining call fails identically, so stop
-                    # with one clear failure instead of a per-project cascade.
-                    self.report.failure(
-                        title="MicroStrategy Authentication Lost",
-                        message=(
-                            "The session was invalidated mid-run and could not "
-                            "be re-established; aborting the remaining projects."
-                        ),
-                        context=f"project_id={project.id}, project_name={project.name}",
-                        exc=error,
-                    )
-                    auth_lost = True
-                    break
-                except ConfigurationError:
-                    # Environmental (e.g. a missing parser dependency): every
-                    # remaining project would fail identically, so surface it
-                    # as a run failure instead of per-project noise.
-                    raise
-                except Exception as error:
-                    self.report.failure(
-                        title="Failed to Process Project",
-                        message=(
-                            "Skipping the rest of this project after an unexpected "
-                            "error; other projects will still be processed."
-                        ),
-                        context=f"project_id={project.id}, project_name={project.name}",
-                        exc=error,
-                    )
-                finally:
-                    self._reset_project_caches()
-            if self.config.extract_usage_statistics and not auth_lost:
-                yield from self._process_usage_statistics(projects)
+            with suppress_sqlglot_warnings(self.report):
+                yield from self._process_projects()
         finally:
-            # Callbacks run last-registered first, each even if an earlier one raises.
-            with contextlib.ExitStack() as cleanup:
-                cleanup.callback(self.client.close)
-                for cache in self._spill_caches():
-                    cleanup.callback(cache.close)
-                cleanup.callback(self.lineage.close)
-                cleanup.callback(self._warn_if_every_sql_view_failed)
-                cleanup.callback(sqlglot_logger.removeFilter, sqlglot_filter)
-                cleanup.callback(self._finish_checkpoint)
+            self._cleanup()
+
+    def _process_projects(self) -> Iterable[MetadataWorkUnit]:
+        auth_lost = False
+        if self.config.emit_chapter_page_structured_properties:
+            yield from self._emit_chapter_page_structured_property_definitions()
+        projects = self.client.list_projects()
+        for index, project in enumerate(projects, start=1):
+            if not self.config.project_pattern.allowed(project.name):
+                self.report.filtered_projects.append(project.name)
+                continue
+            # A project can take minutes (paginated searches plus per-object
+            # execution), so show which project is in flight and how far along.
+            logger.info(
+                "Processing project %r (%s) [%d/%d]",
+                project.name,
+                project.id,
+                index,
+                len(projects),
+            )
+            try:
+                with self.report.new_stage(f"{project.name}: {METADATA_EXTRACTION}"):
+                    yield from self._process_project(project)
+            except MicroStrategyAuthError as error:
+                # Auth is dead: every remaining call fails identically, so stop
+                # with one clear failure instead of a per-project cascade.
+                self.report.failure(
+                    title="MicroStrategy Authentication Lost",
+                    message=(
+                        "The session was invalidated mid-run and could not "
+                        "be re-established; aborting the remaining projects."
+                    ),
+                    context=f"project_id={project.id}, project_name={project.name}",
+                    exc=error,
+                )
+                auth_lost = True
+                break
+            except ConfigurationError:
+                # Environmental (e.g. a missing parser dependency): every
+                # remaining project would fail identically, so surface it
+                # as a run failure instead of per-project noise.
+                raise
+            except Exception as error:
+                self.report.failure(
+                    title="Failed to Process Project",
+                    message=(
+                        "Skipping the rest of this project after an unexpected "
+                        "error; other projects will still be processed."
+                    ),
+                    context=f"project_id={project.id}, project_name={project.name}",
+                    exc=error,
+                )
+            finally:
+                self._reset_project_caches()
+        if self.config.extract_usage_statistics and not auth_lost:
+            yield from self._process_usage_statistics(projects)
+
+    def _cleanup(self) -> None:
+        # Callbacks run last-registered first, each even if an earlier one raises.
+        with contextlib.ExitStack() as cleanup:
+            cleanup.callback(self.client.close)
+            for cache in self._spill_caches():
+                cleanup.callback(cache.close)
+            cleanup.callback(self.lineage.close)
+            cleanup.callback(self._warn_if_every_sql_view_failed)
+            cleanup.callback(self._finish_checkpoint)
 
     def _spill_caches(self) -> List[Closeable]:
         return [
-            self._metric_model_cache,
-            self._report_object_cache,
-            self._report_sql_cache,
-            self._report_v2_payload_cache,
-            self._report_derived_metric_cache,
+            self._metric_models,
+            self._type3_objects,
+            self._report_sql_statements,
+            self._report_v2_payloads,
+            self._report_derived_metrics,
+            self._spill_connection,
         ]
 
     def _release_report_caches(self) -> None:
-        # The semantic model does not read these, so its per-metric work does not stack on them.
-        if self._report_caches_released:
-            return
-        self._report_caches_released = True
-        self._report_sql_cache.reset()
-        self._report_object_cache.reset()
-        self._failed_dataset_object_keys.clear()
-        self._failed_linked_report_keys.clear()
-        self._report_derived_metric_cache.reset()
-        self._report_v2_payload_cache.reset()
-        self._report_datasets.clear()
-        self.lineage.reset_project_caches()
+        # The semantic model does not read these, so its per-metric work does not
+        # stack on them. Each reset runs even if an earlier one raises.
+        with contextlib.ExitStack() as resets:
+            resets.callback(self.lineage.reset_project_caches)
+            resets.callback(self._report_datasets.clear)
+            resets.callback(self._clear_model_document)
+            for cache in (
+                self._report_sql_statements,
+                self._type3_objects,
+                self._report_derived_metrics,
+                self._report_v2_payloads,
+            ):
+                resets.callback(cache.reset)
+
+    def _clear_model_document(self) -> None:
+        self._model_document_key = None
+        self._model_document_value = None
 
     def _reset_project_caches(self) -> None:
         # Memory and temporary disk track the largest project, not the whole run.
-        if self._project_caches_released:
-            return
-        self._project_caches_released = True
-        self._release_report_caches()
-        self._metric_model_cache.reset()
+        with contextlib.ExitStack() as resets:
+            resets.callback(self._count_project_reset)
+            resets.callback(self._spill_connection.close)
+            resets.callback(self._metric_models.reset)
+            resets.callback(self._release_report_caches)
+
+    def _count_project_reset(self) -> None:
         self.report.cache_project_resets += 1
 
     def _emit_chapter_page_structured_property_definitions(
@@ -777,12 +805,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 plan.dirty.add(report_id)
         return plan
 
-    def _emits_report_dataset(self, entry: "_ReportDatasetEntry") -> bool:
-        # Dashboard-only datasets follow extract_cubes; report-pass ones always emit.
-        return entry.from_report_pass or bool(
-            entry.dashboard_ids and self.config.extract_cubes
-        )
-
     def _mark_bound_reports_changed(self, project_id: str) -> None:
         # Re-emit report datasets a changed dashboard built or the last run missed.
         plan = self._report_plan
@@ -851,8 +873,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _process_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
-        self._report_caches_released = False
-        self._project_caches_released = False
         self._dashboard_candidates = {}
         self._read_dashboards = set()
         self._dashboard_fingerprints = {}
@@ -861,23 +881,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # Warehouse/model-table lookups are deferred until an allowed dashboard/report
         # needs them, so fully-filtered projects don't pay for those API calls.
         lineage_context = _LazyProjectLineage(self, project.id, source_warehouses)
-        # Report ids referenced by allowed dashboards, collected during the
-        # dashboard pass so the report pass can scope to them.
-        linked_report_ids: Set[str] = set()
         yield from self.mapper.gen_project_container(
             project,
             source_warehouses=source_warehouses,
         )
         try:
-            if (
-                self.config.extract_dashboards or self.config.extract_reports
-            ) and self._resolve_project_folders(project):
-                self._start_change_tracking(
-                    project.id, source_warehouses, lineage_context
-                )
-                yield from self._process_project_passes(
-                    project, lineage_context, linked_report_ids
-                )
+            yield from self._process_project_content(project, lineage_context)
         finally:
             self._release_report_caches()
         if self.config.emit_semantic_model_entities:
@@ -903,12 +912,21 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if self.config.per_report and not self.config.extract_dashboards:
             self._report_plan = self._start_report_plan(project_id, [], {})
 
-    def _process_project_passes(
+    def _process_project_content(
         self,
         project: Project,
         lineage_context: "_LazyProjectLineage",
-        linked_report_ids: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
+        if not (self.config.extract_dashboards or self.config.extract_reports):
+            return
+        if not self._resolve_project_folders(project):
+            return
+        self._start_change_tracking(
+            project.id, lineage_context.source_warehouses, lineage_context
+        )
+        # Report ids referenced by allowed dashboards, collected during the
+        # dashboard pass so the report pass can scope to them.
+        linked_report_ids: Set[str] = set()
         try:
             if self.config.extract_dashboards:
                 yield from self._process_project_dashboards(
@@ -930,13 +948,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self.report.dashboards_skipped_unchanged += len(
                 self._dashboard_candidates.keys() - self._read_dashboards
             )
-        except Exception as error:
+        except Exception:
             # Charts and dashboards already emitted point at these datasets. Not
             # a finally: yielding while the generator closes raises RuntimeError.
             if self.config.per_report:
-                yield from self._gen_report_dataset_workunits(
-                    project.id, cached_only=isinstance(error, MicroStrategyAuthError)
-                )
+                yield from self._gen_report_datasets_after_error(project.id)
             raise
         if self.config.per_report:
             yield from self._gen_report_dataset_workunits(project.id)
@@ -976,16 +992,15 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             client=self.client,
             lineage=self.lineage,
-            metric_model_cache=self._metric_model_cache,
+            cached_metric_model=self._cached_metric_model,
             graph=self.ctx.graph,
         )
         yield from semantic_model_mapper.emit(
             project_id=project.id,
             project_name=project.name,
             model_tables=model_tables,
-            warehouse_context=lineage_context.warehouse_context,
-            project_container_key=self.mapper.project_key(project.id),
             table_context_resolver=lineage_context.table_context_resolver,
+            project_container_key=self.mapper.project_key(project.id),
         )
 
     def _get_project_source_warehouses(self, project_id: str) -> List[Datasource]:
@@ -1021,43 +1036,18 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.report.report_source_warehouses_scanned(len(source_warehouses))
         return source_warehouses
 
-    def _warehouse_lineage_enabled(self) -> bool:
+    def warehouse_lineage_enabled(self) -> bool:
         return self.config.extract_lineage and (
             self.config.extract_warehouse_lineage
             or self.config.extract_model_lineage
             or self.config.extract_report_sql_lineage
         )
 
-    def _project_has_several_warehouse_contexts(
-        self, source_warehouses: List[Datasource]
-    ) -> bool:
-        return (
-            self._warehouse_lineage_enabled()
-            and len(
-                distinct_warehouse_contexts(
-                    source_warehouses,
-                    self.config.env,
-                    self.config.datasource_platform_mapping,
-                )
-            )
-            > 1
-        )
-
-    @staticmethod
-    def _source_platform_summary(source_warehouses: List[Datasource]) -> str:
-        types = Counter(
-            datasource.database_type
-            or datasource.datasource_type
-            or datasource.dbms_name
-            or MSTR_UNKNOWN_DATASOURCE_TYPE
-            for datasource in source_warehouses
-        )
-        return "datasource_types=" + ", ".join(
-            f"{name}:{count}" for name, count in sorted(types.items())
-        )
-
-    def _warn_unresolved_project_warehouse(
-        self, project_id: str, source_warehouses: List[Datasource]
+    def warn_unresolved_project_warehouse(
+        self,
+        project_id: str,
+        source_warehouses: List[Datasource],
+        contexts: ProjectWarehouseContexts,
     ) -> None:
         if not source_warehouses:
             if self.config.extract_model_lineage:
@@ -1072,58 +1062,32 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     context=f"project_id={project_id}",
                 )
             return
-        several = self._project_has_several_warehouse_contexts(source_warehouses)
+        context = (
+            f"project_id={project_id}, "
+            f"{_source_platform_summary(source_warehouses)}, "
+            f"{MSTR_DATASOURCE_MAPPING_HINT}"
+        )
+        if contexts.has_several:
+            self.report.warning(
+                title="MicroStrategy Project Has Several Source Warehouses",
+                message=(
+                    "No single project-level warehouse can be chosen, so "
+                    "warehouse lineage only covers datasets and logical tables "
+                    "whose own datasource maps to a platform."
+                ),
+                context=context,
+            )
+            return
         self.report.warning(
-            title=(
-                "MicroStrategy Project Has Several Source Warehouses"
-                if several
-                else "MicroStrategy Project Has No Supported Source Warehouse"
-            ),
+            title="MicroStrategy Project Has No Supported Source Warehouse",
             message=(
-                "No single project-level warehouse can be chosen, so warehouse "
-                "lineage only covers datasets that name their own source "
-                "warehouse and logical tables whose primary datasource maps "
-                "to a platform. A report's dataset names one only when a "
-                "dashboard embeds it, so other reports get no warehouse "
-                f"lineage. {MSTR_DATASOURCE_MAPPING_HINT}"
-                if several
-                else "None of the project's datasources maps to a supported "
-                "platform, so warehouse lineage is skipped. "
-                f"{MSTR_DATASOURCE_MAPPING_HINT}"
+                "None of the project's datasources maps to a supported "
+                "platform, so warehouse lineage is skipped."
             ),
-            context=(
-                f"project_id={project_id}, "
-                f"{self._source_platform_summary(source_warehouses)}"
-            ),
+            context=context,
         )
 
-    def _get_project_warehouse_context(
-        self,
-        project_id: str,
-        source_warehouses: List[Datasource],
-    ) -> Optional[WarehouseLineageContext]:
-        if not self._warehouse_lineage_enabled():
-            return None
-
-        context = warehouse_context_from_datasources(
-            source_warehouses,
-            self.config.env,
-            self.config.datasource_platform_mapping,
-        )
-        if not context:
-            self._warn_unresolved_project_warehouse(project_id, source_warehouses)
-            return None
-
-        datasource = matching_datasource_for_context(
-            source_warehouses,
-            context,
-            self.config.datasource_platform_mapping,
-        )
-        if datasource:
-            context = self._context_with_connection(project_id, context, datasource)
-        return context
-
-    def _datasource_warehouse_context(
+    def datasource_warehouse_context(
         self,
         project_id: str,
         datasource: DatasourceReference,
@@ -1144,17 +1108,21 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         context: WarehouseLineageContext,
         datasource: DatasourceReference,
-    ) -> WarehouseLineageContext:
+    ) -> Optional[WarehouseLineageContext]:
         if not datasource.connection_id:
             return context
         connection = self._datasource_connection(project_id, datasource.connection_id)
         if connection is None:
-            return (
-                replace(context, connection_unavailable=True)
-                if normalize_object_id(datasource.connection_id)
-                in self._failed_connection_keys
-                else context
-            )
+            if context.database:
+                return (
+                    replace(context, connection_unavailable=True)
+                    if (project_id, normalize_object_id(datasource.connection_id))
+                    in self._failed_connection_keys
+                    else context
+                )
+            # Without a database the table URNs would be guesses.
+            self.report.report_datasource_skipped_without_database()
+            return None
         return warehouse_context_with_connection(
             context,
             connection,
@@ -1164,7 +1132,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _datasource_connection(
         self, project_id: str, connection_id: str
     ) -> Optional[DatasourceConnection]:
-        key = normalize_object_id(connection_id)
+        key = (project_id, normalize_object_id(connection_id))
         if key in self._datasource_connections:
             return self._datasource_connections[key]
         connection: Optional[DatasourceConnection] = None
@@ -1584,11 +1552,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return None
         return self._report_datasets.get(_report_dataset_key(project_id, dataset_id))
 
-    def _report_lineage_resolved(self, project_id: str, dataset_id: str) -> bool:
-        # A parsed SQL view means this report is not executed again.
-        entry = self._report_dataset_entry(project_id, dataset_id)
-        return entry is not None and entry.lineage_resolved
-
     def _shared_report_dataset(
         self, project_id: str, dataset: DatasetObject
     ) -> DatasetObject:
@@ -1600,6 +1563,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self._report_datasets[cache_key] = entry
         elif entry.dataset.source_warehouse is None:
             entry.dataset.source_warehouse = dataset.source_warehouse
+        # Set before the dashboard's charts are emitted, so a dashboard that fails
+        # part-way cannot leave charts pointing at a dataset that is never emitted.
+        entry.referenced_by_dashboard = True
         return entry.dataset
 
     def _record_report_dataset_dashboard(
@@ -1608,16 +1574,26 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dashboard_object: MicroStrategyObject,
         dashboard: DashboardDefinition,
     ) -> None:
-        # Only once the dashboard is emitted, so a failed one never shows on the dataset.
+        # Only once the dashboard is emitted, so a failed one is never listed in the
+        # dataset's dashboard ids. Its warehouse lineage, derived metrics and
+        # first-sighting schema stay on the shared dataset.
         for dataset in dashboard.datasets:
-            entry = self._report_datasets[_report_dataset_key(project_id, dataset.id)]
-            if dashboard_object.id in entry.dashboard_ids:
+            entry = self._report_dataset_entry(project_id, dataset.id)
+            if entry is None:
+                self.report.warning(
+                    title="Report Dataset Not Registered",
+                    message=(
+                        "A dashboard's dataset has no shared report dataset, so "
+                        "the dashboard is not listed on it."
+                    ),
+                    context=(
+                        f"project_id={project_id}, "
+                        f"dashboard_id={dashboard_object.id}, dataset_id={dataset.id}"
+                    ),
+                )
                 continue
-            if entry.dashboard_ids:
+            if entry.add_dashboard(dashboard_object):
                 self.report.report_report_deduplicated()
-            else:
-                entry.first_dashboard_object = dashboard_object
-            entry.dashboard_ids.append(dashboard_object.id)
 
     def _register_report_dataset(
         self,
@@ -1632,23 +1608,26 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         description = (
             report_definition.description if report_definition else None
         ) or report_object.description
-        fresh = _report_dataset_object(report_object, available_objects, description)
+        fresh = DatasetObject.from_available_objects(
+            report_object.id, report_object.name, description, available_objects
+        )
         entry = self._report_datasets.get(cache_key)
         if entry is None:
             entry = _ReportDatasetEntry(dataset=fresh)
             self._report_datasets[cache_key] = entry
-        elif available_objects:
-            # Merged, not replaced: charts already emitted reference the dossier's fields.
-            entry.dataset.available_objects = self.mapper.merge_dataset_fields(
-                fresh, entry.dataset
-            )
-            entry.dataset.object_ids = sorted(
-                {*fresh.object_ids, *entry.dataset.object_ids}
-            )
+        else:
+            if available_objects:
+                # Merged, not replaced: charts already emitted reference the dossier's fields.
+                entry.dataset.available_objects = self.mapper.merge_dataset_fields(
+                    fresh, entry.dataset
+                )
+                entry.dataset.object_ids = sorted(
+                    {*fresh.object_ids, *entry.dataset.object_ids}
+                )
+                if self._drop_stale_field_lineage(entry.dataset):
+                    entry.lineage_resolved = False
             if description:
                 entry.dataset.description = description
-            if self._drop_stale_field_lineage(entry.dataset):
-                entry.lineage_resolved = False
         entry.report_object = report_object
         entry.report_definition = report_definition
         return entry
@@ -1663,6 +1642,29 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         for path in stale_paths:
             del dataset.field_warehouse_upstreams[path]
         return bool(stale_paths)
+
+    def _emits_report_dataset(self, entry: "_ReportDatasetEntry") -> bool:
+        return entry.from_report_pass or (
+            entry.referenced_by_dashboard and self.config.extract_cubes
+        )
+
+    def _gen_report_datasets_after_error(
+        self, project_id: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # The original error is re-raised by the caller, so a failure here is
+        # reported rather than raised, or it would replace the original cause.
+        try:
+            yield from self._gen_report_dataset_workunits(project_id, cached_only=True)
+        except Exception as emit_error:
+            self.report.failure(
+                title="Failed to Emit Report Datasets After Error",
+                message=(
+                    "Report datasets could not be emitted after the project failed; "
+                    "stale-entity removal is skipped for this run."
+                ),
+                context=f"project_id={project_id}",
+                exc=emit_error,
+            )
 
     def _gen_report_dataset_workunits(
         self, project_id: str, cached_only: bool = False
@@ -1692,30 +1694,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 if self._records_checkpoints()
                 else None
             )
-            try:
-                # Built whole so a failure part-way emits nothing for this report.
-                workunits = list(
-                    self._report_dataset_entry_workunits(
-                        project_id, entry, predefined_folders, checkpoint, cached_only
-                    )
-                )
-            except (MicroStrategyAuthError, ConfigurationError):
-                # Swallowing these would let stale removal delete datasets charts use.
-                raise
-            except Exception as error:
-                self.report.warning(
-                    title="Failed to Emit Report Dataset",
-                    message=(
-                        "Skipping this report dataset after an unexpected error; "
-                        "dashboards and charts that use it will show a missing "
-                        "upstream. Other report datasets will still be emitted."
-                    ),
-                    context=(
-                        f"project_id={project_id}, report_id={entry.dataset.id}, "
-                        f"report_name={entry.dataset.name}"
-                    ),
-                    exc=error,
-                )
+            workunits = self._build_report_dataset_workunits(
+                project_id, entry, predefined_folders, checkpoint, cached_only
+            )
+            if workunits is None:
                 previous = self._object_state.previous_report_dataset(
                     project_id, entry.dataset.id
                 )
@@ -1726,7 +1708,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             usage_target = RecordedUsageTarget(
                 object_id=entry.dataset.id,
                 kind=UsageTargetKind.DATASET,
-                urn=self.lineage.dataset_urn(project_id, None, entry.dataset),
+                urn=self.lineage.report_dataset_urn(project_id, entry.dataset),
             )
             self._register_recorded_target(usage_target)
             yield from workunits
@@ -1747,6 +1729,43 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._keep_entities(previous.urns, previous.usage_targets)
         self._object_state.record_report_dataset(project_id, report_id, previous)
 
+    def _build_report_dataset_workunits(
+        self,
+        project_id: str,
+        entry: "_ReportDatasetEntry",
+        predefined_folders: PredefinedFolderResolution,
+        checkpoint: Optional[ReportDatasetCheckpoint],
+        cached_only: bool,
+    ) -> Optional[List[MetadataWorkUnit]]:
+        # Built whole so a failure part-way emits nothing for this report.
+        try:
+            return list(
+                self._report_dataset_entry_workunits(
+                    project_id, entry, predefined_folders, checkpoint, cached_only
+                )
+            )
+        except (MicroStrategyAuthError, ConfigurationError):
+            # Swallowing these would let stale removal delete datasets charts use.
+            raise
+        except Exception as error:
+            # A failure, not a warning, so stale removal skips this run instead of
+            # soft-deleting a dataset that charts still point at.
+            self.report.failure(
+                title="Failed to Emit Report Dataset",
+                message=(
+                    "Skipping this report dataset after an unexpected error; "
+                    "dashboards and charts that use it will show a missing "
+                    "upstream, and stale-entity removal is skipped for this run. "
+                    "Other report datasets will still be emitted."
+                ),
+                context=(
+                    f"project_id={project_id}, report_id={entry.dataset.id}, "
+                    f"report_name={entry.dataset.name}"
+                ),
+                exc=error,
+            )
+            return None
+
     def _report_dataset_entry_workunits(
         self,
         project_id: str,
@@ -1759,9 +1778,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dataset_object = entry.report_object
         if dataset_object is None and cached_only:
             # The session is gone, so a lookup would only fail again.
-            dataset_object = self._report_object_cache.get(
-                object_cache_key(project_id, dataset.id)
-            )
+            cached = self._type3_objects.get(object_cache_key(project_id, dataset.id))
+            if not isinstance(cached, Unset):
+                dataset_object = cached.report_object
         elif dataset_object is None:
             dataset_object = self._dataset_object_info(project_id, dataset.id)
         fallback_key = (
@@ -1957,7 +1976,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         return self._report_object(
             project_id,
             dataset_id,
-            self._failed_dataset_object_keys,
+            ReportObjectLookupKind.DATASET,
             lambda: self._fetch_dataset_object(project_id, dataset_id),
         )
 
@@ -2061,7 +2080,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         it carries expressions; the v2 definition (GET /api/v2/reports/{id})
         is the fallback and may name derived metrics without a formula. None
         means both failed (counted in report_definition_failures)."""
-        return self._report_derived_metric_cache.get_or_load(
+        return self._report_derived_metrics.get_or_load(
             object_cache_key(project_id, report_id),
             lambda: self._fetch_report_derived_metric_definitions(
                 project_id, report_id
@@ -2141,7 +2160,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def _report_v2_payload(self, project_id: str, report_id: str) -> Dict[str, object]:
         # Failures are not cached; each caller reports them its own way.
-        return self._report_v2_payload_cache.get_or_load(
+        return self._report_v2_payloads.get_or_load(
             object_cache_key(project_id, report_id),
             lambda: self.client.get_report_definition(project_id, report_id),
         )
@@ -2283,9 +2302,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _remember_searched_report(
         self, project_id: str, report_object: MicroStrategyObject
     ) -> None:
-        # A search result carries what an object lookup returns, so it also covers a failed one.
-        self._report_object_cache.put(
-            object_cache_key(project_id, report_object.id), report_object
+        # A search result carries what an object lookup returns, so it replaces a failed one.
+        self._type3_objects.put(
+            object_cache_key(project_id, report_object.id),
+            _ReportObjectLookup(report_object=report_object),
         )
 
     def _process_linked_reports(
@@ -2426,9 +2446,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report_object,
             predefined_folders,
         )
-        report_definition = self._get_report_definition(project_id, report_object)
+        report_definition = self._fetch_report_definition(project_id, report_object)
         if report_definition is None:
-            _mark_incomplete(checkpoint)
+            if self.config.extract_report_definitions:
+                _mark_incomplete(checkpoint)
             report_definition = ReportDefinition.from_search_result(report_object)
         source_dataset = self._report_source_dataset(
             report_object,
@@ -2489,24 +2510,32 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         lineage_context: "_LazyProjectLineage",
     ) -> None:
         self.report.report_report_scanned()
-        report_definition = self._get_report_definition(project_id, report_object)
-        complete = report_definition is not None
+        # Only a definition the API returned: the search-result fallback carries
+        # prompt and filter values that were never read.
+        report_definition = self._fetch_report_definition(project_id, report_object)
+        complete = (
+            report_definition is not None or not self.config.extract_report_definitions
+        )
         entry = self._register_report_dataset(
-            project_id,
-            report_object,
-            report_definition or ReportDefinition.from_search_result(report_object),
+            project_id, report_object, report_definition
         )
         complete = (
             self._enrich_report_dataset(
-                project_id, report_object, entry.dataset, lineage_context
+                project_id, report_object, entry.dataset, lineage_context, entry
             )
             and complete
         )
-        if not complete:
-            key = _report_dataset_key(project_id, report_object.id)
-            self._report_datasets[key] = self._report_datasets[key].model_copy(
-                update={"incomplete": True}
+        if (
+            self.config.extract_derived_metrics
+            and (report_object.subtype or "").strip() not in MSTR_CUBE_SUBTYPES
+        ):
+            definitions = self._report_derived_metric_definitions(
+                project_id, report_object.id
             )
+            if definitions:
+                self.mapper.attach_report_derived_metrics(entry.dataset, definitions)
+        if not complete:
+            entry.incomplete = True
 
     def _enrich_report_dataset(
         self,
@@ -2514,11 +2543,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_object: MicroStrategyObject,
         dataset: DatasetObject,
         lineage_context: "_LazyProjectLineage",
+        entry: Optional["_ReportDatasetEntry"] = None,
     ) -> bool:
         if self.config.extract_metric_expressions:
             self._enrich_dataset_metric_expressions(project_id, dataset)
         complete = self._enrich_report_dataset_sql_lineage(
-            project_id, report_object, dataset, lineage_context
+            project_id, report_object, dataset, lineage_context, entry
         )
         model_lineage_index = lineage_context.model_lineage_index
         if model_lineage_index:
@@ -2532,6 +2562,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_object: MicroStrategyObject,
         dataset: DatasetObject,
         lineage_context: "_LazyProjectLineage",
+        entry: Optional["_ReportDatasetEntry"],
     ) -> bool:
         # False when the report's SQL view failed or the execution limit skipped it.
         if not self.config.extract_report_sql_lineage:
@@ -2546,6 +2577,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report_object=report_object,
             dataset=dataset,
             context=context,
+            entry=entry,
         )
         return complete and not context.connection_unavailable
 
@@ -2696,24 +2728,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if bound:
             self.report.report_visualizations_bound_by_derived_objects(bound)
 
-    def _get_report_definition(
+    def _fetch_report_definition(
         self,
         project_id: str,
         report_object: MicroStrategyObject,
     ) -> Optional[ReportDefinition]:
-        # None when the definition API failed; callers fall back to search metadata.
+        """The definition API's answer, None when it is off or failed."""
         if not self.config.extract_report_definitions:
-            return ReportDefinition.from_search_result(report_object)
+            return None
 
-        # Last reader, so a miss is fetched without being cached.
-        response = self._report_v2_payload_cache.get(
-            object_cache_key(project_id, report_object.id)
-        )
         try:
-            if response is None:
-                response = self.client.get_report_definition(
-                    project_id, report_object.id
-                )
+            response = self._report_v2_payload(project_id, report_object.id)
         except MicroStrategyAPIError as error:
             self.report.report_report_definition_api_failure()
             self.report.warning(
@@ -2743,19 +2768,18 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return None
         if not report_definition.source_id and not report_definition.available_objects:
             return None
-        return DatasetObject.model_validate(
-            {
-                "id": report_definition.source_id or "source",
-                "name": report_definition.source_name or f"{report_object.name} Source",
-                "description": report_definition.description,
-                "availableObjects": report_definition.available_objects,
-            }
+        return DatasetObject.from_available_objects(
+            report_definition.source_id or "source",
+            report_definition.source_name or f"{report_object.name} Source",
+            report_definition.description,
+            report_definition.available_objects,
         )
 
-    def _fetch_project_model_tables(
+    def fetch_project_model_tables(
         self, project_id: str, include_datasource: bool = False
     ) -> Optional[List[Dict[str, object]]]:
-        """Paginate /api/model/tables for a project.
+        """Paginate /api/model/tables for a project, also requesting each table's
+        primary datasource when include_datasource is set.
 
         Returns None on API failure (already reported/warned); an empty list is
         a genuine "no model tables" result, distinct from a failed fetch.
@@ -2766,7 +2790,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         model_tables: List[Dict[str, object]] = []
         offset = 0
         fields = (
-            f"{MSTR_MODEL_TABLE_FIELDS},{MSTR_MODEL_TABLE_DATASOURCE_FIELD}"
+            MSTR_MODEL_TABLE_FIELDS_WITH_DATASOURCE
             if include_datasource
             else MSTR_MODEL_TABLE_FIELDS
         )
@@ -2779,6 +2803,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     fields=fields,
                 )
             except MicroStrategyAPIError as error:
+                if error.status_code in _MODEL_TABLES_NON_RETRYABLE_STATUSES:
+                    self._model_tables_non_retryable_projects.add(project_id)
                 self.report.report_model_lineage_api_failure()
                 self.report.warning(
                     title="MicroStrategy Model Lineage Unavailable",
@@ -2794,8 +2820,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
             tables = response.tables
             if tables is None:
+                # A second request returns the same payload.
+                self._model_tables_non_retryable_projects.add(project_id)
                 # [] would let stale removal soft-delete the semantic model.
-                self.report.warning(
+                self.report.failure(
                     title="Unrecognized model tables response shape",
                     message=(
                         "The model tables API returned a payload without a "
@@ -2841,29 +2869,25 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.report.report_model_tables_scanned(len(model_tables))
         return model_tables
 
-    def _get_project_model_lineage_index(
-        self,
-        project_id: str,
-        warehouse_context: Optional[WarehouseLineageContext],
-        model_tables_provider: Callable[[], Optional[List[Dict[str, object]]]],
-        table_context_resolver: Optional[TableContextResolver] = None,
+    def build_project_model_lineage_index(
+        self, lineage_context: "_LazyProjectLineage"
     ) -> Optional[ModelLineageIndex]:
         if not self.config.extract_lineage or not self.config.extract_model_lineage:
             return None
-        if warehouse_context is None and table_context_resolver is None:
-            # Warned once when the project warehouse context was resolved.
+        # The unresolved warehouse was warned about when the contexts resolved;
+        # with no platform there is nothing to resolve the tables against.
+        if not lineage_context.contexts.supported:
             return None
 
         # Deferred until here (not called unconditionally by the caller) so the
         # fetch stays skipped when these flags are off, exactly as before.
-        model_tables = model_tables_provider()
+        model_tables = lineage_context.model_tables
         if not model_tables:
             return None
         return self.lineage.model_lineage_index_from_tables(
             model_tables,
-            warehouse_context,
+            lineage_context.table_context_resolver,
             graph=self.ctx.graph,
-            table_context_resolver=table_context_resolver,
         )
 
     def _enrich_dashboard_dependencies(
@@ -2931,11 +2955,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         metric_id: str,
     ) -> Dict[str, object]:
-        model = self._metric_model_cache.get_or_load(
+        model = self._metric_models.get_or_load(
             object_cache_key(project_id, metric_id),
             lambda: self._fetch_metric_model(project_id, metric_id),
         )
         return model if model is not None else {}
+
+    def _cached_metric_model(
+        self, project_id: str, metric_id: str
+    ) -> Optional[Dict[str, object]]:
+        model = self._metric_models.get(object_cache_key(project_id, metric_id))
+        return None if isinstance(model, Unset) else model
 
     def _fetch_metric_model(
         self, project_id: str, metric_id: str
@@ -3131,8 +3161,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return False
 
         self.report.report_warehouse_lineage_sql_views_scanned(len(sql_view_rows))
+        entries = {
+            normalize_object_id(dataset.id): self._report_dataset_entry(
+                project_id, dataset.id
+            )
+            for dataset in dashboard.datasets
+        }
         return self._attach_dataset_warehouse_upstreams(
-            sql_view_rows, dashboard, context, project_id=project_id
+            sql_view_rows, dashboard, context, entries, project_id
         )
 
     def _enrich_document_warehouse_lineage(
@@ -3170,17 +3206,19 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 continue
             if dataset_context.connection_unavailable:
                 complete = False
-            if self._report_lineage_resolved(project_id, dataset.id):
+            entry = self._report_dataset_entry(project_id, dataset.id)
+            # A parsed SQL view means this report is not executed again.
+            if entry is not None and entry.lineage_resolved:
                 self.report.report_document_dataset_sql_view_reused()
                 continue
             cache_key = object_cache_key(project_id, dataset.id)
-            cached = self._report_sql_cache.get_entry(cache_key)
-            if cached.found:
+            cached = self._report_sql_statements.get(cache_key)
+            if not isinstance(cached, Unset):
                 # Dataset URNs are document-scoped but the report's SQL is
                 # not, so a report shared by many documents is read once and
                 # its lineage attached to each; a remembered failure is not
                 # retried and not counted again.
-                sql_statement = cached.value
+                sql_statement = cached.sql
                 self.report.report_document_dataset_sql_view_reused()
             else:
                 if self._execution_limit_reached(project_id):
@@ -3194,7 +3232,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         f"dataset_id={dataset.id}"
                     ),
                 )
-                self._report_sql_cache.put(cache_key, sql_statement)
+                self._report_sql_statements.put(
+                    cache_key, _ReportSqlOutcome(sql=sql_statement)
+                )
                 if sql_statement is None:
                     self.report.report_document_dataset_sql_view_failure()
             if sql_statement is None:
@@ -3204,7 +3244,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_document_dataset_sql_view_scanned()
             self.report.report_warehouse_lineage_sql_views_scanned(1)
             lineage = self._attach_sql_view_lineage(
-                sql_statement, dataset, dataset_context, project_id=project_id
+                sql_statement, dataset, dataset_context, entry
             )
             if lineage.upstream_urns:
                 self.report.report_document_dataset_sql_view_parsed()
@@ -3221,7 +3261,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         to a platform gives None: the project's warehouse may be a different
         platform and database, and its URNs would not be this dataset's."""
         if dataset.source_warehouse:
-            return self._datasource_warehouse_context(
+            return self.datasource_warehouse_context(
                 project_id, dataset.source_warehouse
             )
         return context
@@ -3231,6 +3271,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         sql_view_rows: List[Dict[str, object]],
         dashboard: DashboardDefinition,
         context: Optional[WarehouseLineageContext],
+        entries: Mapping[str, Optional["_ReportDatasetEntry"]],
         project_id: str,
     ) -> bool:
         # False when a connection lookup failed, leaving a context without its schema.
@@ -3275,7 +3316,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 continue
 
             self._attach_sql_view_lineage(
-                sql_statement, dataset, dataset_context, project_id=project_id
+                sql_statement,
+                dataset,
+                dataset_context,
+                entries.get(normalize_object_id(dataset.id)),
             )
         return complete
 
@@ -3284,12 +3328,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         sql_statement: str,
         dataset: DatasetObject,
         context: WarehouseLineageContext,
-        project_id: str,
+        entry: Optional["_ReportDatasetEntry"],
     ) -> SqlViewLineage:
         # Callers are already gated by extract_report_sql_lineage /
         # extract_warehouse_lineage. A single parse yields both the table-level
         # upstreams and the column-level edges on top of them.
-        entry = self._report_dataset_entry(project_id, dataset.id)
         if entry is not None and entry.lineage_resolved:
             return SqlViewLineage(
                 upstream_urns=list(dataset.warehouse_upstream_urns),
@@ -3316,16 +3359,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_object: MicroStrategyObject,
         dataset: DatasetObject,
         context: WarehouseLineageContext,
+        entry: Optional["_ReportDatasetEntry"],
     ) -> bool:
         # False when the SQL view failed or the execution limit skipped it.
-        if self._report_lineage_resolved(project_id, report_object.id):
+        if entry is not None and entry.lineage_resolved:
             # A dashboard already settled this report's lineage.
             return True
         cache_key = object_cache_key(project_id, report_object.id)
-        cached = self._report_sql_cache.get_entry(cache_key)
-        if cached.found:
+        cached = self._report_sql_statements.get(cache_key)
+        if not isinstance(cached, Unset):
             # Already read this run as the dataset of a document.
-            sql_statement = cached.value
+            sql_statement = cached.sql
         else:
             if self._execution_limit_reached(project_id):
                 return False
@@ -3334,16 +3378,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 report_object.id,
                 context=f"project_id={project_id}, report_id={report_object.id}",
             )
-            self._report_sql_cache.put(cache_key, sql_statement)
+            self._report_sql_statements.put(
+                cache_key, _ReportSqlOutcome(sql=sql_statement)
+            )
         if sql_statement is None:
             return False
         if not sql_statement:
             return True
 
         self.report.report_warehouse_lineage_sql_views_scanned(1)
-        self._attach_sql_view_lineage(
-            sql_statement, dataset, context, project_id=project_id
-        )
+        self._attach_sql_view_lineage(sql_statement, dataset, context, entry)
         return True
 
     def _report_sql_statement(
@@ -3359,7 +3403,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         in sql_views_without_statement) when the view carried none. The
         instance creation is the call that may execute the report, and the
         one that counts towards max_consecutive_execution_timeouts. Callers
-        memoize the result in _report_sql_cache."""
+        memoize the result in _report_sql_statements."""
         try:
             instance_id = self.client.create_report_instance(project_id, report_id)
         except MicroStrategyAPIError as error:
@@ -3395,7 +3439,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self._delete_report_instance(project_id, report_id, instance_id)
 
         sql_statement = sql_view.get_statement()
-        self.report.report_report_sql_fetched()
+        self.report.report_sql_view_fetched()
         if not sql_statement:
             self.report.report_sql_view_without_statement()
         return sql_statement
@@ -3563,7 +3607,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         return self._report_object(
             project_id,
             report_id,
-            self._failed_linked_report_keys,
+            ReportObjectLookupKind.LINKED_REPORT,
             lambda: self._fetch_linked_report_object(project_id, report_id),
         )
 
@@ -3571,27 +3615,20 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self,
         project_id: str,
         object_id: str,
-        failed_keys: Set[str],
+        kind: ReportObjectLookupKind,
         fetch: Callable[[], Optional[MicroStrategyObject]],
     ) -> Optional[MicroStrategyObject]:
         cache_key = object_cache_key(project_id, object_id)
-        cached = self._report_object_cache.get(cache_key)
-        if cached is not None:
-            return cached
-        if cache_key in failed_keys:
-            return None
-
-        def load() -> MicroStrategyObject:
-            report_object = fetch()
-            if report_object is None:
-                raise _ReportObjectUnavailable
-            return report_object
-
-        try:
-            return self._report_object_cache.get_or_load(cache_key, load)
-        except _ReportObjectUnavailable:
-            failed_keys.add(cache_key)
-            return None
+        lookup = self._type3_objects.get_or_load(
+            cache_key, lambda: _ReportObjectLookup.from_fetch(kind, fetch())
+        )
+        if lookup.report_object is not None or kind in lookup.failed_kinds:
+            return lookup.report_object
+        # The other lookup kind failed. This one warns differently, so it
+        # tries on its own rather than reusing that failure.
+        retried = _ReportObjectLookup.from_fetch(kind, fetch())
+        self._type3_objects.put(cache_key, retried.merged_with(lookup))
+        return retried.report_object
 
     def _fetch_linked_report_object(
         self, project_id: str, report_id: str
@@ -3727,12 +3764,24 @@ class _ReportDatasetEntry(BaseModel):
     report_object: Optional[MicroStrategyObject] = None
     report_definition: Optional[ReportDefinition] = None
     lineage_resolved: bool = False
+    referenced_by_dashboard: bool = False
     # An API failure left part of this run's read out.
     incomplete: bool = False
 
     @property
     def from_report_pass(self) -> bool:
         return self.report_object is not None
+
+    def add_dashboard(self, dashboard_object: MicroStrategyObject) -> bool:
+        """Records a dashboard that uses the report. True when another dashboard
+        already did, so this one is a repeat sighting of the same report."""
+        if dashboard_object.id in self.dashboard_ids:
+            return False
+        repeat = bool(self.dashboard_ids)
+        if not repeat:
+            self.first_dashboard_object = dashboard_object
+        self.dashboard_ids.append(dashboard_object.id)
+        return repeat
 
 
 def _report_dataset_key(project_id: str, dataset_id: str) -> _ReportDatasetKey:
@@ -3741,19 +3790,37 @@ def _report_dataset_key(project_id: str, dataset_id: str) -> _ReportDatasetKey:
     )
 
 
-def _report_dataset_object(
-    report_object: MicroStrategyObject,
-    available_objects: MicroStrategyDict,
-    description: Optional[str],
-) -> DatasetObject:
-    return DatasetObject.model_validate(
-        {
-            "id": report_object.id,
-            "name": report_object.name,
-            "description": description,
-            "availableObjects": available_objects,
-        }
-    )
+class _ReportObjectLookup(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    report_object: Optional[MicroStrategyObject] = None
+    failed_kinds: FrozenSet[ReportObjectLookupKind] = frozenset()
+
+    @classmethod
+    def from_fetch(
+        cls,
+        kind: ReportObjectLookupKind,
+        report_object: Optional[MicroStrategyObject],
+    ) -> "_ReportObjectLookup":
+        if report_object is not None:
+            return cls(report_object=report_object)
+        return cls(failed_kinds=frozenset({kind}))
+
+    def merged_with(self, earlier: "_ReportObjectLookup") -> "_ReportObjectLookup":
+        if self.report_object is not None:
+            return self
+        return _ReportObjectLookup(
+            failed_kinds=self.failed_kinds | earlier.failed_kinds
+        )
+
+
+class _ReportSqlOutcome(BaseModel):
+    """A report's SQL read; sql is None when the read failed, so the failure is
+    remembered rather than retried."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    sql: Optional[str] = None
 
 
 class _LazyProjectLineage:
@@ -3770,16 +3837,18 @@ class _LazyProjectLineage:
         self._source = source
         self._project_id = project_id
         self._source_warehouses = source_warehouses
-        self._context: Optional[WarehouseLineageContext] = None
-        self._context_resolved = False
+        self._contexts: Optional[ProjectWarehouseContexts] = None
         self._index: Optional[ModelLineageIndex] = None
         self._index_resolved = False
         self._model_tables: Optional[List[Dict[str, object]]] = None
         self._model_tables_resolved = False
-        self._table_context_resolver: Optional[TableContextResolver] = None
-        self._table_context_resolver_resolved = False
-        # Object identity: the cached table list is shared by both passes.
-        self._counted_tables: Set[int] = set()
+        self._context_by_datasource_id: Dict[
+            str, Optional[WarehouseLineageContext]
+        ] = {}
+        self._warned_unresolved_table = False
+        # Logical table ids already counted: the cached table list is read by
+        # both the lineage index and the semantic model, and refetched on retry.
+        self._counted_tables: Set[str] = set()
         self._table_connection_unavailable = False
 
     def _resolve(self, part: str, fetch: Callable[[], _T]) -> Optional[_T]:
@@ -3803,64 +3872,89 @@ class _LazyProjectLineage:
             return None
 
     @property
-    def warehouse_context(self) -> Optional[WarehouseLineageContext]:
-        # Resolved once even on failure (functools.cached_property would retry).
-        if not self._context_resolved:
-            self._context_resolved = True
-            self._context = self._resolve(
-                "warehouse_context",
-                lambda: self._source._get_project_warehouse_context(
-                    self._project_id, self._source_warehouses
-                ),
-            )
-        return self._context
+    def source_warehouses(self) -> List[Datasource]:
+        return self._source_warehouses
 
     @property
-    def table_context_resolver(self) -> Optional[TableContextResolver]:
-        # Only for a project whose several datasources give no single context.
-        if not self._table_context_resolver_resolved:
-            self._table_context_resolver_resolved = True
-            if (
-                self.warehouse_context is None
-                and self._source._project_has_several_warehouse_contexts(
-                    self._source_warehouses
-                )
-            ):
-                self._table_context_resolver = self._table_context
-        return self._table_context_resolver
+    def contexts(self) -> ProjectWarehouseContexts:
+        # Resolved once even on failure (functools.cached_property would retry).
+        if self._contexts is None:
+            self._contexts = self._resolve(
+                "warehouse_context", self._resolve_contexts
+            ) or project_warehouse_contexts([])
+        return self._contexts
+
+    def _resolve_contexts(self) -> ProjectWarehouseContexts:
+        if not self._source.warehouse_lineage_enabled():
+            return project_warehouse_contexts([])
+        contexts = project_warehouse_contexts(
+            self._datasource_context(datasource)
+            for datasource in self._source_warehouses
+        )
+        if contexts.single is None:
+            self._source.warn_unresolved_project_warehouse(
+                self._project_id, self._source_warehouses, contexts
+            )
+        return contexts
+
+    def _datasource_context(
+        self, datasource: Datasource
+    ) -> Optional[WarehouseLineageContext]:
+        key = normalize_object_id(datasource.id)
+        if key not in self._context_by_datasource_id:
+            self._context_by_datasource_id[key] = (
+                self._source.datasource_warehouse_context(self._project_id, datasource)
+            )
+        return self._context_by_datasource_id[key]
+
+    @property
+    def warehouse_context(self) -> Optional[WarehouseLineageContext]:
+        return self.contexts.single
+
+    @property
+    def table_context_resolver(self) -> TableContextResolver:
+        single = self.contexts.single
+        if single is not None:
+            return lambda _: single
+        if self.contexts.has_several:
+            return self._table_context
+        return lambda _: None
 
     def _table_context(
         self, table: Dict[str, object]
     ) -> Optional[WarehouseLineageContext]:
         datasource = datasource_for_model_table(table, self._source_warehouses)
-        context = (
-            self._source._datasource_warehouse_context(self._project_id, datasource)
-            if datasource
-            else None
-        )
+        context = self._datasource_context(datasource) if datasource else None
         if context is not None and context.connection_unavailable:
             self._table_connection_unavailable = True
-        if id(table) not in self._counted_tables:
-            self._counted_tables.add(id(table))
-            if context is not None:
+        return context
+
+    def _count_table_contexts(self, tables: List[Dict[str, object]]) -> None:
+        for table in tables:
+            table_id = object_id(table.get("information"))
+            if table_id:
+                key = normalize_object_id(table_id)
+                if key in self._counted_tables:
+                    continue
+                self._counted_tables.add(key)
+            if self._table_context(table) is not None:
                 self._source.report.report_model_table_resolved_by_datasource()
             else:
                 self._report_unresolved_table()
-        return context
 
     def _report_unresolved_table(self) -> None:
-        if not self._source.report.model_tables_without_warehouse_context:
+        if not self._warned_unresolved_table:
+            self._warned_unresolved_table = True
             self._source.report.warning(
                 title="MicroStrategy Logical Tables Without Source Warehouse",
                 message=(
-                    "This project has several source warehouses and some "
-                    "logical tables name no matching primary datasource, or "
-                    "one with no supported platform, so they are emitted "
-                    "without warehouse lineage. The run report counts them in "
-                    "model_tables_without_warehouse_context. "
-                    f"{MSTR_DATASOURCE_MAPPING_HINT}"
+                    "Some logical tables name no matching primary datasource, "
+                    "or one with no supported platform, so they are emitted "
+                    "without warehouse lineage."
                 ),
-                context=f"project_id={self._project_id}",
+                context=(
+                    f"project_id={self._project_id}, {MSTR_DATASOURCE_MAPPING_HINT}"
+                ),
             )
         self._source.report.report_model_table_without_warehouse_context()
 
@@ -3873,18 +3967,27 @@ class _LazyProjectLineage:
         """
         if not self._model_tables_resolved:
             self._model_tables_resolved = True
-            self._model_tables = self._resolve(
-                "model_tables",
-                lambda: self._source._fetch_project_model_tables(
-                    self._project_id,
-                    include_datasource=self.table_context_resolver is not None,
-                ),
-            )
+            self._model_tables = self._resolve("model_tables", self._fetch_tables)
         return self._model_tables
+
+    def _fetch_tables(self) -> Optional[List[Dict[str, object]]]:
+        several = self.contexts.has_several
+        tables = self._source.fetch_project_model_tables(
+            self._project_id, include_datasource=several
+        )
+        if tables and several:
+            self._count_table_contexts(tables)
+        return tables
 
     def model_tables_retrying_failure(self) -> Optional[List[Dict[str, object]]]:
         # The first fetch is hours earlier; one failure drops the semantic model.
-        if self._model_tables_resolved and self._model_tables is None:
+        # A refusal such as a 403 is not worth a second request.
+        if (
+            self._model_tables_resolved
+            and self._model_tables is None
+            and self._project_id
+            not in self._source._model_tables_non_retryable_projects
+        ):
             logger.info(
                 "Retrying the model tables fetch for the semantic model "
                 "(project=%s); the earlier fetch failed",
@@ -3899,12 +4002,7 @@ class _LazyProjectLineage:
             self._index_resolved = True
             self._index = self._resolve(
                 "model_lineage_index",
-                lambda: self._source._get_project_model_lineage_index(
-                    self._project_id,
-                    self.warehouse_context,
-                    lambda: self.model_tables,
-                    self.table_context_resolver,
-                ),
+                lambda: self._source.build_project_model_lineage_index(self),
             )
         return self._index
 
@@ -3936,8 +4034,8 @@ def _is_default_pattern(pattern: AllowDenyPattern) -> bool:
 def _unique_object_ids(object_ids: Iterable[str]) -> List[str]:
     # Keeps the first spelling so lookups reuse the casing the API returned.
     unique: Dict[str, str] = {}
-    for object_id in object_ids:
-        unique.setdefault(normalize_object_id(object_id), object_id)
+    for candidate in object_ids:
+        unique.setdefault(normalize_object_id(candidate), candidate)
     return [unique[key] for key in sorted(unique)]
 
 
@@ -3977,6 +4075,19 @@ def _is_report_dependency(dependency: MicroStrategyObject) -> bool:
     # Match on the MicroStrategy object type only; a name-substring heuristic
     # would fabricate report chart URNs for anything named "...Report...".
     return (dependency.type or "").strip() == str(MSTR_OBJECT_TYPE_REPORT)
+
+
+def _source_platform_summary(source_warehouses: List[Datasource]) -> str:
+    types = Counter(
+        datasource.database_type
+        or datasource.datasource_type
+        or datasource.dbms_name
+        or MSTR_UNKNOWN_DATASOURCE_TYPE
+        for datasource in source_warehouses
+    )
+    return "datasource_types=" + ", ".join(
+        f"{name}:{count}" for name, count in sorted(types.items())
+    )
 
 
 def _error_summary(error: Exception) -> str:

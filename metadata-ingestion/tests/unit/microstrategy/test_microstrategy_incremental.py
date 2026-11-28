@@ -262,6 +262,7 @@ class _MicroStrategy:
             faked("create_dossier_instance"),
             faked("get_dossier_visualization"),
             faked("get_report_definition"),
+            fixed("get_model_report", {}),
             faked("get_report_sql_view"),
             faked("list_model_tables"),
             patch.object(
