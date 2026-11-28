@@ -7,9 +7,7 @@ Fixtures are picked up by pytest; the plain builders are imported with
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, cast
 from unittest.mock import MagicMock
 
-# jpype.imports must be loaded before the kafka_connect modules: transform_plugins
-# resolves java.util.regex at import time, and without it RegexRouter support is
-# switched off for the whole process.
+# jpype.imports enables `from java... import` in the tests below.
 import jpype
 import jpype.imports
 import pytest

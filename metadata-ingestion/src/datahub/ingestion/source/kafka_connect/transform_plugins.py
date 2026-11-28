@@ -15,7 +15,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
@@ -25,31 +25,41 @@ from datahub.utilities.java_runtime import prepare_jvm_settings
 
 logger = logging.getLogger(__name__)
 
-# Initialize JVM for Java regex support at module level. prepare_jvm_settings
-# prefers a system JVM and only falls back to jdk4py (pip-installable JVM) when
-# none is discoverable, so the plugin stays self-contained without a system JDK.
-try:
-    import jpype
 
-    if not jpype.isJVMStarted():
-        jpype.startJVM(*prepare_jvm_settings())
-    from java.util.regex import Pattern as JavaPattern
+@lru_cache(maxsize=1)
+def _java_pattern_class() -> Optional[Any]:
+    """Return java.util.regex.Pattern (a dynamic JPype proxy, hence Any), or None
+    when no JVM can be started.
 
-    JAVA_REGEX_AVAILABLE = True
-except (
-    ImportError,
-    RuntimeError,
-    # startJVM raises jpype's JVMNotFoundException/JVMNotSupportedException when no
-    # usable JVM exists; both subclass ValueError. They cannot be named here: when
-    # the `import jpype` above is what failed, evaluating this tuple would raise
-    # NameError on `jpype` instead of degrading gracefully.
-    ValueError,
-) as e:
-    logger.warning(
-        f"Java regex not available: {e}. RegexRouter transforms will be skipped."
-    )
-    JAVA_REGEX_AVAILABLE = False
-    JavaPattern = None  # type: ignore
+    The JVM is started on first use, not at import. Importing this module (plugin
+    discovery, pytest collection) must not leave a JVM running in a process that
+    never evaluates a Java regex: a JVM still alive at interpreter shutdown can
+    call back into the finalized interpreter from a GC thread and abort the
+    process. prepare_jvm_settings prefers a system JVM and only falls back to
+    jdk4py (pip-installable JVM) when none is discoverable.
+    """
+    try:
+        import jpype
+        import jpype.imports  # enables `from java... import`
+
+        if not jpype.isJVMStarted():
+            jpype.startJVM(*prepare_jvm_settings())
+        from java.util.regex import Pattern
+
+        return Pattern
+    except (
+        ImportError,
+        RuntimeError,
+        # startJVM raises jpype's JVMNotFoundException/JVMNotSupportedException when
+        # no usable JVM exists; both subclass ValueError. They cannot be named here:
+        # when the `import jpype` above is what failed, evaluating this tuple would
+        # raise NameError on `jpype` instead of degrading gracefully.
+        ValueError,
+    ) as e:
+        logger.warning(
+            f"Java regex not available: {e}. RegexRouter transforms will be skipped."
+        )
+        return None
 
 
 @dataclass
@@ -113,7 +123,8 @@ class RegexRouterPlugin(TransformPlugin):
 
     def apply_forward(self, topics: List[str], config: TransformConfig) -> List[str]:
         """Apply RegexRouter transform forward."""
-        if not JAVA_REGEX_AVAILABLE:
+        java_pattern = _java_pattern_class()
+        if java_pattern is None:
             raise ValueError(
                 "RegexRouter transform requires JPype and JVM. "
                 "Install with: pip install 'acryl-datahub[kafka-connect]'"
@@ -136,7 +147,7 @@ class RegexRouterPlugin(TransformPlugin):
         transformed_topics = []
         for topic in topics:
             try:
-                pattern = JavaPattern.compile(regex_pattern)
+                pattern = java_pattern.compile(regex_pattern)
                 matcher = pattern.matcher(topic)
                 transformed_topic = str(matcher.replaceFirst(replacement))
 
@@ -198,7 +209,8 @@ class ByLogicalTableRouterPlugin(TransformPlugin):
         return transform_type in cls.SUPPORTED_TYPES
 
     def apply_forward(self, topics: List[str], config: TransformConfig) -> List[str]:
-        if not JAVA_REGEX_AVAILABLE:
+        java_pattern = _java_pattern_class()
+        if java_pattern is None:
             raise ValueError(
                 "ByLogicalTableRouter transform requires JPype and JVM. "
                 "Install with: pip install 'acryl-datahub[kafka-connect]'"
@@ -213,7 +225,7 @@ class ByLogicalTableRouterPlugin(TransformPlugin):
             )
             return topics
 
-        pattern = JavaPattern.compile(regex_pattern)
+        pattern = java_pattern.compile(regex_pattern)
         transformed_topics = []
         for topic in topics:
             # Mirrors Debezium: the regex must match the whole topic, and an empty

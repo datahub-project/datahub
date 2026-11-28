@@ -195,7 +195,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 jpype.startJVM(*prepare_jvm_settings())
             except (RuntimeError, ValueError) as e:
                 # The JVM only powers Java-regex transform evaluation; degrade
-                # like transform_plugins does at import instead of failing the
+                # like transform_plugins does on first use instead of failing the
                 # source. ValueError covers jpype's JVMNotFoundException.
                 logger.warning(
                     f"Could not start a JVM: {e}. RegexRouter transforms will be skipped."

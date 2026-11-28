@@ -1,5 +1,7 @@
 """Comprehensive tests for transform_plugins module."""
 
+import subprocess
+import sys
 from typing import Dict, List
 from unittest.mock import Mock, patch
 
@@ -172,8 +174,8 @@ class TestRegexRouterPlugin:
         assert result == ["customer_events"]
 
     @patch(
-        "datahub.ingestion.source.kafka_connect.transform_plugins.JAVA_REGEX_AVAILABLE",
-        False,
+        "datahub.ingestion.source.kafka_connect.transform_plugins._java_pattern_class",
+        lambda: None,
     )
     def test_apply_forward_jpype_not_available(self) -> None:
         """Test error when JPype is not available."""
@@ -688,3 +690,19 @@ class TestGetTransformPipeline:
 
         # Should be the same instance (cached)
         assert pipeline1 is pipeline2
+
+
+def test_import_does_not_start_jvm() -> None:
+    # A JVM left running by a bare import outlives the interpreter and can abort
+    # the process at exit from a JPype GC callback, so the JVM must only start
+    # when a Java regex is first needed. A fresh interpreter is required: the
+    # session fixture in conftest.py has already started a JVM in this one.
+    probe = (
+        "import jpype\n"
+        "import datahub.ingestion.source.kafka_connect.transform_plugins\n"
+        "print(jpype.isJVMStarted())\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip().splitlines()[-1] == "False"
