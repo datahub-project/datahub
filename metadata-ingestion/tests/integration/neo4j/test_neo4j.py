@@ -38,19 +38,20 @@ def check_neo4j_setup_completed(bolt_port: int) -> bool:
             f"bolt://localhost:{bolt_port}", auth=("neo4j", "testpassword")
         )
         with driver.session() as session:
-            # Check if test data is loaded
-            result = session.run("MATCH (n) RETURN count(n) as count")
+            # init.cypher creates nodes first and the FOLLOWS / SIMILAR_TO
+            # relationships last, so a node-count check can pass while
+            # neo4j-init is still running and the golden file then misses
+            # those two relationship types. Wait for the final statements.
+            result = session.run(
+                "OPTIONAL MATCH ()-[f:FOLLOWS]->() WITH count(f) AS follows "
+                "OPTIONAL MATCH ()-[s:SIMILAR_TO]->() "
+                "RETURN follows, count(s) AS similar_to"
+            )
             record = result.single()
-            if record is None:
-                driver.close()
-                return False
-            count = record["count"]
-
             driver.close()
-            # Waiting for count > 0 is not enough, the test is very flaky with that
-            # check. count > 9 typically take one extra pause (2s) to satisfy and makes
-            # the test a lot less flaky.
-            return count > 9
+            if record is None:
+                return False
+            return record["follows"] > 0 and record["similar_to"] > 0
     except Exception:
         return False
 
