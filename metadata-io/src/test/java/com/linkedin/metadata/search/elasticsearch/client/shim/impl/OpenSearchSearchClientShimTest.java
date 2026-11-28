@@ -99,6 +99,38 @@ public class OpenSearchSearchClientShimTest {
   }
 
   @Test
+  public void getRawTaskReturnsTaskJson() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    String body = "{\"completed\":true,\"response\":{\"failures\":[]}}";
+    Response ok = jsonResponse(200, body);
+    when(restClient.performRequest(any(Request.class))).thenReturn(ok);
+
+    assertEquals(
+        shimWith(restClient).getRawTask(OP, "node1:7", RequestOptions.DEFAULT),
+        java.util.Optional.of(body));
+  }
+
+  @Test
+  public void getRawTaskMaps404ToEmpty() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    ResponseException re404 = responseException(404, "{\"error\":\"not found\"}");
+    when(restClient.performRequest(any(Request.class))).thenThrow(re404);
+
+    assertTrue(shimWith(restClient).getRawTask(OP, "node1:7", RequestOptions.DEFAULT).isEmpty());
+  }
+
+  @Test
+  public void getRawTaskRethrowsOtherErrors() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    ResponseException re500 = responseException(500, "{}");
+    when(restClient.performRequest(any(Request.class))).thenThrow(re500);
+
+    org.testng.Assert.assertThrows(
+        ResponseException.class,
+        () -> shimWith(restClient).getRawTask(OP, "node1:7", RequestOptions.DEFAULT));
+  }
+
+  @Test
   public void searchParsesResponseThroughServerParsers() throws Exception {
     RestClient restClient = mock(RestClient.class);
     String body =
