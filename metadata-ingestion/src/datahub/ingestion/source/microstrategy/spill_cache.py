@@ -98,12 +98,14 @@ class SpillCache(Closeable, Generic[_V]):
         self,
         report: Optional[MicroStrategyReport] = None,
         cache_name: Optional[MicroStrategyCache] = None,
-    ) -> None:
+    ) -> int:
         with self._lock:
+            count = self._entry_count
             if report is not None and cache_name is not None:
-                report.report_cache_entries(cache_name, self._entry_count)
+                report.report_cache_entries(cache_name, count)
             self._close_store()
             self._entry_count = 0
+            return count
 
     def close(self) -> None:
         with self._lock:

@@ -9,7 +9,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MicroStrategyCache,
     MicroStrategyPhase,
 )
-from datahub.ingestion.source.microstrategy.telemetry import (
+from datahub.ingestion.source.microstrategy.telemetry_helpers import (
     dashboard_seconds_bucket,
     endpoint_template,
     peak_rss_mb,
@@ -24,15 +24,7 @@ from datahub.utilities.stats_collections import TopKDict
 _TELEMETRY_TOP_K = 40
 _SLOWEST_TOP_K = 25
 _SQLGLOT_WARNINGS_TOP_K = 10
-_SECONDS_PRECISION = 3
-_ROUNDED_SECONDS_FIELDS: List[str] = [
-    "api_call_seconds",
-    "api_retry_sleep_seconds",
-    "dashboard_seconds_total",
-    "sql_parse_seconds",
-    "sql_parse_max_seconds",
-    "schema_resolution_seconds",
-]
+_FLOAT_PRECISION = 3
 
 
 def _float_top_k(top_k: int = _TELEMETRY_TOP_K) -> "TopKDict[str, float]":
@@ -41,6 +33,16 @@ def _float_top_k(top_k: int = _TELEMETRY_TOP_K) -> "TopKDict[str, float]":
 
 def _int_top_k(top_k: int = _TELEMETRY_TOP_K) -> "TopKDict[str, int]":
     return TopKDict(int, top_k=top_k)
+
+
+def _round_floats(value: object) -> object:
+    if isinstance(value, float):
+        return round(value, _FLOAT_PRECISION)
+    if isinstance(value, dict):
+        return {key: _round_floats(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_round_floats(item) for item in value]
+    return value
 
 
 @dataclass
@@ -60,7 +62,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     metric_expression_api_failures: int = 0
     model_tables_scanned: int = 0
     model_lineage_api_failures: int = 0
-    # Tables whose primary datasource matches none get no warehouse lineage.
+    # Set only in projects with several source warehouses, where each logical
+    # table takes its warehouse from its primary datasource; tables whose
+    # datasource is missing or unmapped get no warehouse lineage.
     model_tables_resolved_by_datasource: int = 0
     model_tables_without_warehouse_context: int = 0
     model_lineage_edges: int = 0
@@ -626,15 +630,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         current_rss = peak_rss_mb()
         if current_rss is not None:
             self.peak_rss_mb = current_rss
-        for name in _ROUNDED_SECONDS_FIELDS:
-            setattr(self, name, round(getattr(self, name), _SECONDS_PRECISION))
-        for table in [
-            self.api_seconds_by_endpoint,
-            self.api_max_seconds_by_endpoint,
-            self.api_seconds_by_phase,
-            self.phase_seconds,
-            self.slowest_dashboards,
-            self.slowest_sql_parses,
-        ]:
-            for key in table:
-                table[key] = round(table[key], _SECONDS_PRECISION)
+
+    def as_obj(self) -> dict:
+        # Accumulators stay exact; only the serialized copy is rounded.
+        return {key: _round_floats(value) for key, value in super().as_obj().items()}

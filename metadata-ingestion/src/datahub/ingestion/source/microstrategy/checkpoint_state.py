@@ -8,6 +8,7 @@ from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_UNCHANGED_OBJECTS_JOB_ID,
     MicroStrategyReadOutcome,
+    UsageTargetKind,
 )
 from datahub.ingestion.source.microstrategy.spill_cache import object_cache_key
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
@@ -24,7 +25,7 @@ class RecordedUsageTarget(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     object_id: str
-    kind: str
+    kind: UsageTargetKind
     urn: str
 
 

@@ -2,6 +2,7 @@ from typing import Callable, Dict, List, Set
 
 import pytest
 
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_from_sql_statements,
@@ -996,8 +997,6 @@ class TestSnowflakeCopyGrantMultiStatementLineage:
 
 
 def test_caller_supplied_schema_resolver_is_used_and_left_open() -> None:
-    from datahub.sql_parsing.schema_resolver import SchemaResolver
-
     resolver = SchemaResolver(platform="postgres", env="PROD")
     resolver.add_raw_schema_info(
         "urn:li:dataset:(urn:li:dataPlatform:postgres,dev.public.src,PROD)",
