@@ -929,13 +929,32 @@ class LineageClient:
                 for path_entry in path["path"]:
                     # Only include schema fields in the path (exclude other types like Query)
                     if path_entry["type"] == "SCHEMA_FIELD":
-                        schema_field_urn = SchemaFieldUrn.from_string(path_entry["urn"])
+                        try:
+                            schema_field_urn = SchemaFieldUrn.from_string(
+                                path_entry["urn"]
+                            )
+                            # A schema field's parent is not always a dataset:
+                            # e.g. Tableau charts also parent schema fields.
+                            parent_urn = Urn.from_string(schema_field_urn.parent)
+                        except InvalidUrnError as e:
+                            logger.warning(
+                                "Skipping unparseable schema field urn in lineage path: %s (%s)",
+                                path_entry["urn"],
+                                e,
+                            )
+                            continue
+                        # Non-dataset parents use their bare last id, like
+                        # DatasetUrn.name: e.g. a chart's chart_id. This
+                        # mirrors _name_from_urn in datahub.cli.lineage_cli.
+                        entity_name = (
+                            parent_urn.name
+                            if isinstance(parent_urn, DatasetUrn)
+                            else parent_urn.entity_ids[-1]
+                        )
                         result.paths.append(
                             LineagePath(
                                 urn=path_entry["urn"],
-                                entity_name=DatasetUrn.from_string(
-                                    schema_field_urn.parent
-                                ).name,
+                                entity_name=entity_name,
                                 column_name=schema_field_urn.field_path,
                             )
                         )
