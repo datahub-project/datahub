@@ -704,6 +704,68 @@ def test_validate_path_spec_compression_extension() -> None:
     assert path_spec.enable_compression is True
 
 
+def test_extension_map_normalizes_keys() -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.js", extension_map={".JS": "json"}
+    )
+    assert path_spec.extension_map == {"js": "json"}
+    assert path_spec.resolve_extension(".js") == ".json"
+
+
+@pytest.mark.parametrize(
+    "path, extension",
+    [
+        ("s3://bucket/t/data.js", ".json"),
+        ("s3://bucket/t/data.js.gz", ".json"),
+        ("s3://bucket/t/data.js.zip", ".json"),
+        ("s3://bucket/t/data.csv", ".csv"),
+    ],
+)
+def test_extension_map_selects_and_resolves_mapped_files(
+    path: str, extension: str
+) -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.*", extension_map={"js": "json"}
+    )
+    assert path_spec.allowed(path)
+    assert path_spec.resolve_format_extension(path) == extension
+
+
+def test_extension_map_target_must_be_in_file_types() -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.*",
+        file_types=["csv"],
+        extension_map={"js": "json"},
+    )
+    assert path_spec.rejection_reason("s3://bucket/t/data.js") == "file_types"
+    assert path_spec.zip_member_types == ["csv"]
+
+
+def test_extension_map_wins_over_default_extension() -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.*",
+        default_extension="csv",
+        extension_map={"js": "json"},
+    )
+    assert path_spec.resolve_format_extension("s3://bucket/t/data.js") == ".json"
+    assert path_spec.resolve_format_extension("s3://bucket/t/data.txt") == ".csv"
+
+
+def test_extension_map_rejects_empty_key() -> None:
+    with pytest.raises(ValidationError):
+        PathSpec(include="s3://bucket/{table}/*.js", extension_map={".": "json"})
+
+
+def test_extension_map_rejects_colliding_keys() -> None:
+    # A bare and a dot-prefixed key normalize to the same form; without a guard
+    # the last one would silently win. Reject the ambiguous config instead.
+    with pytest.raises(ValidationError):
+        PathSpec(
+            include="s3://bucket/{table}/*.js",
+            extension_map={"js": "json", ".js": "parquet"},
+        )
+
+
 @pytest.mark.parametrize(
     "path, enable_compression, allowed, extension",
     [
@@ -877,6 +939,49 @@ def test_extract_table_name_and_path_with_table() -> None:
 
     assert table_name == "users"
     assert table_path == "s3://bucket/users"
+
+
+# extension_map tests
+
+
+def test_extension_map_valid() -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.js",
+        extension_map={"js": "json"},
+    )
+    assert path_spec.extension_map == {"js": "json"}
+
+
+def test_extension_map_invalid_value_raises() -> None:
+    with pytest.raises(ValidationError, match="not a supported file type"):
+        PathSpec(
+            include="s3://bucket/{table}/*.js",
+            extension_map={"js": "excel"},
+        )
+
+
+def test_extension_map_allows_include_with_mapped_ext() -> None:
+    # *.js in include is only valid because js is mapped; must not raise
+    PathSpec(include="s3://bucket/{table}/*.js", extension_map={"js": "json"})
+
+
+def test_include_unknown_ext_without_extension_map_raises() -> None:
+    with pytest.raises(ValidationError):
+        PathSpec(include="s3://bucket/{table}/*.js")
+
+
+def test_resolve_extension_mapped() -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.js",
+        extension_map={"js": "json"},
+    )
+    assert path_spec.resolve_extension(".js") == ".json"
+
+
+def test_resolve_extension_passthrough() -> None:
+    path_spec = PathSpec(include="s3://bucket/{table}/*.csv")
+    assert path_spec.resolve_extension(".csv") == ".csv"
+    assert path_spec.resolve_extension(".unknown") == ".unknown"
 
 
 # The precompiled include/exclude matchers must give the same verdicts as the

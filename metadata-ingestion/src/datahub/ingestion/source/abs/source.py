@@ -210,7 +210,7 @@ class ABSSource(StatefulIngestionSourceBase):
                 zip_file,
                 context=table_data.full_path,
                 report=self.report,
-                file_types=path_spec.file_types,
+                file_types=path_spec.zip_member_types,
                 max_entry_size=path_spec.max_zip_entry_size,
             )
 
@@ -245,7 +245,7 @@ class ABSSource(StatefulIngestionSourceBase):
             if entry is None:
                 return []
             file: IO[bytes] = io.BytesIO(entry.data)
-            extension = entry.suffix
+            extension = path_spec.resolve_extension(entry.suffix)
         else:
             # smart_open decompresses .gz / .bz2 transparently
             file = self._smart_open(table_data, blob_service_client)

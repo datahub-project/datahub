@@ -1,4 +1,5 @@
 import dataclasses
+import gzip
 import io
 import zipfile
 from pathlib import Path
@@ -245,6 +246,52 @@ def _write_zip(path: Path, entries: dict) -> None:
             zf.writestr(name, data)
 
 
+@pytest.mark.parametrize(
+    "name, payload",
+    [
+        ("events.js", b'{"id": 1}\n{"id": 2}\n'),
+        ("events.js.gz", gzip.compress(b'{"id": 1}\n{"id": 2}\n')),
+        ("events.csv.gz", gzip.compress(b"id\n1\n2\n")),
+    ],
+)
+def test_profiles_mapped_and_compressed_files(
+    tmp_path: Path, name: str, payload: bytes
+) -> None:
+    # The profiler resolves the format like get_fields does: compression is
+    # stripped and extension_map applied, so these are not skipped as unsupported.
+    path = tmp_path / name
+    path.write_bytes(payload)
+    path_spec = PathSpec(include=f"{tmp_path}/*.*", extension_map={"js": "json"})
+
+    profiler = make_profiler()
+    work_units = list(
+        profiler.get_table_profile(
+            make_table_data(str(path)), "urn:li:dataset:test", path_spec
+        )
+    )
+
+    assert get_profile(work_units[0]).rowCount == 2
+
+
+def test_profiles_mapped_extension_inside_zip(tmp_path: Path) -> None:
+    path = tmp_path / "events.zip"
+    _write_zip(path, {"events.js": '{"id": 1}\n{"id": 2}\n'})
+    path_spec = PathSpec(
+        include=f"{tmp_path}/*.zip",
+        enable_compression=True,
+        extension_map={"js": "json"},
+    )
+
+    profiler = make_profiler()
+    work_units = list(
+        profiler.get_table_profile(
+            make_table_data(str(path)), "urn:li:dataset:test", path_spec
+        )
+    )
+
+    assert get_profile(work_units[0]).rowCount == 2
+
+
 def test_profiles_zip_archive_first_supported_entry(tmp_path: Path) -> None:
     # A .zip containing a CSV is profiled by extracting the inner entry when
     # compression is enabled on the PathSpec.
@@ -290,7 +337,9 @@ def test_unreadable_zip_partition_drops_the_table_profile(
 
     profiler = make_profiler()
     monkeypatch.setattr(
-        profiler, "_iter_table_paths", lambda table_data: [str(good), str(bad)]
+        profiler,
+        "_iter_table_paths",
+        lambda table_data, path_spec=None: [str(good), str(bad)],
     )
     work_units = list(
         profiler.get_table_profile(
@@ -431,6 +480,54 @@ def test_profiles_partitioned_local_directory(tmp_path: Path) -> None:
     work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
 
     assert get_profile(work_units[0]).rowCount == 400
+
+
+def test_iter_table_paths_keeps_underscore_named_data_files(tmp_path: Path) -> None:
+    # An explicit extension makes a leading-underscore basename a real data file
+    # (e.g. `_events.parquet`), not a Spark side-car; it must not be dropped.
+    table_dir = tmp_path / "events"
+    table_dir.mkdir()
+    for name in ("part.parquet", "_events.parquet", "_SUCCESS", ".crc"):
+        (table_dir / name).write_bytes(b"x")
+
+    table_data = StubTableData(
+        display_name="events",
+        full_path=str(table_dir / "part.parquet"),
+        table_path=str(table_dir),
+        partitions=["year=2023"],
+    )
+    names = sorted(Path(p).name for p in make_profiler()._iter_table_paths(table_data))
+    assert names == ["_events.parquet", "part.parquet"]
+
+
+def test_iter_table_paths_sidecar_handling_honors_include_hidden(
+    tmp_path: Path,
+) -> None:
+    # With default_extension (no suffix) the sidecar exclusion still applies, but
+    # include_hidden_folders=True opts back into every listed file.
+    table_dir = tmp_path / "events"
+    table_dir.mkdir()
+    for name in ("part", "_SUCCESS", ".crc"):
+        (table_dir / name).write_bytes(b"x")
+
+    table_data = StubTableData(
+        display_name="events",
+        full_path=str(table_dir / "part"),
+        table_path=str(table_dir),
+        partitions=["year=2023"],
+    )
+    default = sorted(
+        Path(p).name for p in make_profiler()._iter_table_paths(table_data)
+    )
+    assert default == ["part"]
+
+    hidden_spec = PathSpec(
+        include="s3://bucket/{table}/*.parquet", include_hidden_folders=True
+    )
+    with_hidden = sorted(
+        Path(p).name for p in make_profiler()._iter_table_paths(table_data, hidden_spec)
+    )
+    assert with_hidden == [".crc", "_SUCCESS", "part"]
 
 
 @pytest.mark.parametrize(

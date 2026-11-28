@@ -105,6 +105,32 @@ class TestGetFieldsZip:
         field_names = {f.fieldPath for f in fields}
         assert {"product", "price"}.issubset(field_names)
 
+    def test_extension_map_in_zip_infers_schema(self, tmp_path):
+        zip_path = tmp_path / "archive.zip"
+        self._write_zip(zip_path, "data.js", b'[{"event": "click", "user": "alice"}]')
+
+        fields = _make_local_source().get_fields(
+            self._table_data(str(zip_path)),
+            PathSpec(
+                include=str(tmp_path / "*.zip"),
+                enable_compression=True,
+                extension_map={"js": "json"},
+            ),
+        )
+
+        assert {"event", "user"}.issubset({f.fieldPath for f in fields})
+
+    def test_extension_map_plain_file_infers_schema(self, tmp_path):
+        js_path = tmp_path / "data.js"
+        js_path.write_bytes(b'[{"product": "widget", "price": 9.99}]')
+
+        fields = _make_local_source().get_fields(
+            self._table_data(str(js_path)),
+            PathSpec(include=str(tmp_path / "*.js"), extension_map={"js": "json"}),
+        )
+
+        assert {"product", "price"}.issubset({f.fieldPath for f in fields})
+
     def test_compression_disabled_skips_zip(self, tmp_path):
         zip_path = tmp_path / "data.csv.zip"
         self._write_zip(zip_path, "data.csv", b"name,age\nAlice,30\n")

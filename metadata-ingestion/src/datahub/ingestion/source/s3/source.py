@@ -381,7 +381,7 @@ class S3Source(StatefulIngestionSourceBase):
                 zip_file,
                 context=full_path,
                 report=self.report,
-                file_types=path_spec.file_types,
+                file_types=path_spec.zip_member_types,
                 max_entry_size=path_spec.max_zip_entry_size,
             )
 
@@ -406,7 +406,7 @@ class S3Source(StatefulIngestionSourceBase):
             if entry is None:
                 return []
             file: IO[bytes] = io.BytesIO(entry.data)
-            extension = entry.suffix
+            extension = path_spec.resolve_extension(entry.suffix)
             # A zip's content type describes the archive, not the member we
             # just unwrapped, so it must not drive inference of the inner file.
             content_type = None

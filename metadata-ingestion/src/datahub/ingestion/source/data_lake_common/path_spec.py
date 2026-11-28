@@ -4,7 +4,7 @@ import logging
 import os
 import re
 from enum import Enum
-from typing import List, NamedTuple, Optional, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 import parse
 from cached_property import cached_property
@@ -152,6 +152,14 @@ class PathSpec(ConfigModel):
         description="Sort key to use when sorting the partitions. This is useful when the partitions are not sorted in the order of the data. The key can be a compound key based on the path_spec variables.",
     )
 
+    extension_map: Dict[str, str] = Field(
+        default={},
+        description="Map non-standard file extensions to a supported type. Keys are the custom "
+        "extensions (without leading dot, e.g. 'js'), values must be one of "
+        f'{SUPPORTED_FILE_TYPES} (e.g. \'json\'). Example: {{"js": "json"}} treats .js files as JSON, '
+        "including inside .gz, .bz2 and .zip archives.",
+    )
+
     enable_compression: bool = Field(
         True,
         description="Enable or disable processing compressed files. Supported formats: .gz, .bz2, and .zip. "
@@ -295,7 +303,22 @@ class PathSpec(ConfigModel):
         ext = os.path.splitext(path)[1].strip(".").lower()
         if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
             ext = os.path.splitext(os.path.splitext(path)[0])[1].strip(".").lower()
+        ext = self.extension_map.get(ext, ext)
         return ext if ext in SUPPORTED_FILE_TYPES else None
+
+    def resolve_extension(self, ext: str) -> str:
+        """Map a leading-dot suffix through ``extension_map`` (``.js`` -> ``.json``)."""
+        mapped = self.extension_map.get(ext.lstrip(".").lower())
+        return f".{mapped}" if mapped else ext
+
+    @property
+    def zip_member_types(self) -> List[str]:
+        """Member suffixes to look for inside a .zip: ``file_types`` plus mapped extensions."""
+        return self.file_types + [
+            ext
+            for ext, target in self.extension_map.items()
+            if target in self.file_types
+        ]
 
     def resolve_format_extension(self, path: str) -> str:
         """Resolve the format extension (e.g. ``.json``) for a file name.
@@ -564,6 +587,7 @@ class PathSpec(ConfigModel):
             and include_ext not in ["*", ""]
             and not self.default_extension
             and include_ext not in SUPPORTED_COMPRESSIONS
+            and include_ext.lower() not in self.extension_map
         ):
             raise ValueError(
                 f"file type specified ({include_ext}) in path_spec.include is not in specified file "
@@ -593,6 +617,30 @@ class PathSpec(ConfigModel):
                 f"default extension {v} not in supported default file extension. Please specify one from {SUPPORTED_FILE_TYPES}"
             )
         return v
+
+    @field_validator("extension_map", mode="after")
+    @classmethod
+    def validate_extension_map(cls, v: Dict[str, str]) -> Dict[str, str]:
+        # Keys are stored bare and lower-cased because lookups use the lower-cased
+        # suffix without its dot; a ".js" or "JS" key would otherwise never match.
+        normalized: Dict[str, str] = {}
+        for ext, target in v.items():
+            key = ext.lstrip(".").lower()
+            if not key:
+                raise ValueError(
+                    f"extension_map key '{ext}' is empty; specify a bare extension like 'js'"
+                )
+            if key in normalized:
+                raise ValueError(
+                    f"extension_map has more than one key for '{key}'; declare each extension once"
+                )
+            if target not in SUPPORTED_FILE_TYPES:
+                raise ValueError(
+                    f"extension_map value '{target}' for key '{ext}' is not a supported file type. "
+                    f"Please specify one from {SUPPORTED_FILE_TYPES}"
+                )
+            normalized[key] = target
+        return normalized
 
     @field_validator("exclude", mode="after")
     @classmethod
