@@ -577,6 +577,32 @@ def test_calculated_table_reading_an_unknown_table_is_reported() -> None:
     assert _warnings(mapper) == ["Model.By_State.By State -> 'Archive'"]
 
 
+def test_calculated_table_lineage_is_not_withheld_when_scan_keeps_its_dax() -> None:
+    # The admin scan stores a calculated table's DAX in `expression`; the M
+    # parser finds nothing there, which must not withhold the DAX table edges.
+    mapper = _mapper()
+    policies = Table(name="Policies", full_name="Model.Policies")
+    dax = "FILTER('Policies', 'Policies'[State] = \"CA\")"
+    by_state = Table(
+        name="By State",
+        full_name="Model.By_State",
+        expression=dax,
+        calculated_expression=dax,
+    )
+    _dataset([policies, by_state])
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
+        return_value=[],
+    ):
+        aspect = _lineage_aspect(
+            mapper.extract_lineage(by_state, _urn(mapper, by_state), _workspace())
+        )
+
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [_urn(mapper, policies)]
+    assert mapper._Mapper__reporter.model_internal_lineage_withheld == 0  # type: ignore[attr-defined]
+
+
 def test_dax_references_are_counted_once_per_reference() -> None:
     mapper = _dax_mapper()
     policies, kpis = _dax_model(mapper)
@@ -655,6 +681,34 @@ def test_relationships_become_foreign_keys_with_datahub_field_semantics() -> Non
     ].aspect
     assert isinstance(policies_schema, SchemaMetadataClass)
     assert not policies_schema.foreignKeys
+
+
+def test_relationships_match_tables_and_columns_case_insensitively() -> None:
+    # Under enrich_from_item_definitions the relationship comes from the TMDL
+    # while the tables and columns keep the admin scan's spelling.
+    mapper = _mapper(_config(extract_model_relationships=True))
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("PolicyId")]
+    )
+    claims = Table(
+        name="Claims", full_name="Model.Claims", columns=[_column("PolicyId")]
+    )
+    _dataset(
+        [policies, claims],
+        relationships=[
+            Relationship("r1", "CLAIMS", "policyid", "policies", "POLICYID")
+        ],
+    )
+    claims_urn = _urn(mapper, claims)
+    schema = mapper.extract_dataset_schema(claims, claims_urn)[0].aspect
+    assert isinstance(schema, SchemaMetadataClass)
+    assert schema.foreignKeys is not None
+    fk = schema.foreignKeys[0]
+    # Field URNs use the schema's own column names, so they resolve.
+    assert fk.sourceFields == [f"urn:li:schemaField:({claims_urn},PolicyId)"]
+    assert fk.foreignFields == [
+        f"urn:li:schemaField:({_urn(mapper, policies)},PolicyId)"
+    ]
 
 
 def test_refresh_operation_only_for_completed_refresh_with_parseable_time() -> None:
@@ -931,6 +985,29 @@ def test_model_internal_lineage_withheld_when_m_source_unresolved() -> None:
 
     assert _lineage_aspect(mcps) is None
     assert mapper._Mapper__reporter.model_internal_lineage_withheld == 1  # type: ignore[attr-defined]
+
+
+def test_lineage_withheld_when_model_definition_fetch_failed() -> None:
+    """enrich_from_item_definitions: lineage from the bare scan would replace
+    the sourceColumn, DAX and composite edges an earlier enriched run stored."""
+    mapper = _mapper()
+    _, orders = _fact_with_measure()
+    assert orders.dataset is not None
+    orders.dataset.definition_fetch_failed = True
+    lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(SupportedDataPlatform.SNOWFLAKE.value, SNOWFLAKE_A)
+        ],
+        column_lineage=[],
+    )
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
+        return_value=[lineage],
+    ):
+        mcps = mapper.extract_lineage(orders, _urn(mapper, orders), _workspace())
+
+    assert _lineage_aspect(mcps) is None
+    assert mapper._Mapper__reporter.definition_lineage_withheld == 1  # type: ignore[attr-defined]
 
 
 def test_model_internal_lineage_merged_with_resolved_m_source() -> None:

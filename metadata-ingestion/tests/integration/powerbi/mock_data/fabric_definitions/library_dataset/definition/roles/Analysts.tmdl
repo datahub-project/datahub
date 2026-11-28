@@ -1,0 +1,11 @@
+role Analysts
+	modelPermission: read
+
+	tablePermission SNOWFLAKE_TESTTABLE = 'SNOWFLAKE_TESTTABLE'[NAME] <> "hidden"
+
+	member 'analysts@example.com'
+		memberId: 00000000-0000-4000-8000-000000000060
+		identityProvider: AzureAD
+		memberType: group
+
+	annotation PBI_Id = 00000061-1111-4222-8333-000000000061

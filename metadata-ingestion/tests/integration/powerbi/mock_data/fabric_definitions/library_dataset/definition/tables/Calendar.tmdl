@@ -1,0 +1,16 @@
+/// Date table that exists only in the definition, not in the admin scan.
+table Calendar
+	lineageTag: 00000040-1111-4222-8333-000000000040
+
+	column Date
+		dataType: dateTime
+		isKey
+		lineageTag: 00000041-1111-4222-8333-000000000041
+		summarizeBy: none
+		sourceColumn: [Date]
+
+	partition Calendar = calculated
+		mode: import
+		source = CALENDAR(DATE(2020, 1, 1), DATE(2030, 12, 31))
+
+	annotation PBI_ResultType = Table

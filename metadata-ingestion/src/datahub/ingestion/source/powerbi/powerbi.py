@@ -446,12 +446,15 @@ class Mapper:
         """Semantic-model relationships whose `from` side is this table."""
         if not self.__config.extract_model_relationships or table.dataset is None:
             return []
-        tables_by_name = {t.name: t for t in table.dataset.tables}
+        # TMDL names are case-insensitive, and under enrich_from_item_definitions
+        # the relationships come from the definition while the tables and
+        # columns keep the admin scan's spelling.
+        tables_by_name = {t.name.casefold(): t for t in table.dataset.tables}
         constraints: List[ForeignKeyConstraintClass] = []
         for relationship in table.dataset.relationships:
-            if relationship.from_table != table.name:
+            if relationship.from_table.casefold() != table.name.casefold():
                 continue
-            to_table = tables_by_name.get(relationship.to_table)
+            to_table = tables_by_name.get(relationship.to_table.casefold())
             if to_table is None:
                 self._skip_relationship(
                     relationship, table, f"unknown table {relationship.to_table}"
@@ -459,16 +462,16 @@ class Mapper:
                 continue
             # A key to a field the schema does not expose would be a dangling
             # schemaField URN; renamed columns are the common cause.
-            if not any(c.name == relationship.from_column for c in table.columns or []):
+            from_column = _column_names(table).get(relationship.from_column.casefold())
+            if from_column is None:
                 self._skip_relationship(
                     relationship,
                     table,
                     f"unknown column {relationship.from_table}.{relationship.from_column}",
                 )
                 continue
-            if not any(
-                c.name == relationship.to_column for c in to_table.columns or []
-            ):
+            to_column = _column_names(to_table).get(relationship.to_column.casefold())
+            if to_column is None:
                 self._skip_relationship(
                     relationship,
                     table,
@@ -487,12 +490,8 @@ class Mapper:
             constraints.append(
                 ForeignKeyConstraintClass(
                     name=name,
-                    sourceFields=[
-                        builder.make_schema_field_urn(ds_urn, relationship.from_column)
-                    ],
-                    foreignFields=[
-                        builder.make_schema_field_urn(to_urn, relationship.to_column)
-                    ],
+                    sourceFields=[builder.make_schema_field_urn(ds_urn, from_column)],
+                    foreignFields=[builder.make_schema_field_urn(to_urn, to_column)],
                     foreignDataset=to_urn,
                 )
             )
@@ -790,13 +789,24 @@ class Mapper:
         if (
             (upstream or cll_lineage)
             and table.expression
+            and not table.calculated_expression
             and not any(lineage.upstreams for lineage in upstream_lineage)
         ):
             # The M source resolved to nothing this run (parse failure or an
             # unsupported source). An aspect with only the model-internal edges
             # would replace external lineage emitted by earlier runs, so keep
-            # the stored lineage.
+            # the stored lineage. A calculated table has no M source: the admin
+            # scan stores its DAX in `expression`, and its DAX table edges are
+            # its whole lineage.
             self.__reporter.model_internal_lineage_withheld += 1
+            return mcps
+        if (upstream or cll_lineage) and (
+            table.dataset is not None and table.dataset.definition_fetch_failed
+        ):
+            # The definition did not load this run (enrich_from_item_definitions):
+            # lineage from the bare scan lacks sourceColumn, DAX and composite
+            # edges and would replace what an earlier enriched run stored.
+            self.__reporter.definition_lineage_withheld += 1
             return mcps
         if (upstream or cll_lineage) and not composite_resolved:
             # The remote table's source model did not resolve this run. An
@@ -2673,16 +2683,32 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
+        reporter = PowerBiDashboardSourceReport()
         try:
             PowerBiAPI(
                 PowerBiDashboardSourceConfig.parse_obj_allow_extras(config_dict),
-                PowerBiDashboardSourceReport(),
+                reporter,
             )
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=str(e)
             )
+            return test_report
+        # enrich_from_item_definitions only warns when the Fabric token cannot
+        # be acquired (the scan still works); surface it here so a recipe
+        # whose enrichment would silently do nothing is caught up front.
+        token_warnings = [
+            warning.message
+            for warning in reporter.warnings
+            if warning.title == Constant.FABRIC_TOKEN_NOT_ACQUIRED
+        ]
+        if token_warnings:
+            test_report.capability_report = {
+                SourceCapability.LINEAGE_FINE: CapabilityReport(
+                    capable=False, failure_reason=token_warnings[0]
+                )
+            }
         return test_report
 
     @classmethod
@@ -3025,10 +3051,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 for ws in batch_workspaces:
                     workspaces[ws.id] = ws
 
-            if (
-                self.source_config.metadata_api_mode
-                == PowerBiMetadataApiMode.WORKSPACE_APIS
-            ):
+            if self.source_config.item_definitions_available:
                 self.powerbi_client.report_if_no_definitions_fetched()
 
             # Phase 2: fetch the rest of the metadata per workspace. We skip

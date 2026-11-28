@@ -413,6 +413,10 @@ class PowerBIDataset:
     # Populated only in workspace_apis mode (from TMDL / refresh history).
     relationships: List["Relationship"] = field(default_factory=list)
     last_refresh: Optional["DatasetRefresh"] = None
+    # enrich_from_item_definitions: getDefinition failed transiently this run,
+    # so lineage built from the bare scan would replace richer lineage stored
+    # by an earlier enriched run.
+    definition_fetch_failed: bool = False
 
     def get_urn_part(self):
         return f"datasets.{self.id}"
