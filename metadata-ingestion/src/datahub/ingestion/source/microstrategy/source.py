@@ -178,6 +178,13 @@ logger = logging.getLogger(__name__)
 _T = TypeVar("_T")
 _Record = TypeVar("_Record", ObjectCheckpoint, ReportDatasetCheckpoint)
 
+
+def _without_fingerprint(previous: _Record) -> _Record:
+    # A failed read may have written the object's stamp and entities before
+    # failing, so the old fingerprint would let the next run skip it.
+    return previous.model_copy(update={"fingerprint": None})
+
+
 _ERROR_SUMMARY_MAX_CHARS = 300
 
 
@@ -759,7 +766,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         its last entities too. False when nothing new was recorded."""
         if checkpoint.outcome == MicroStrategyReadOutcome.FAILED:
             if previous is not None:
-                keep(previous)
+                keep(_without_fingerprint(previous))
             return False
         if checkpoint.outcome == MicroStrategyReadOutcome.INCOMPLETE:
             self._keep_previous_urns(checkpoint, previous)
@@ -1721,7 +1728,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     project_id, entry.dataset.id
                 )
                 if checkpoint is not None and previous is not None:
-                    self._keep_report_dataset(project_id, entry.dataset.id, previous)
+                    self._keep_report_dataset(
+                        project_id, entry.dataset.id, _without_fingerprint(previous)
+                    )
                 continue
             self.report.report_report_dataset_emitted()
             usage_target = RecordedUsageTarget(
@@ -1760,7 +1769,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 and report_id not in unchanged
                 and failed.intersection(previous.dashboard_ids)
             ):
-                self._keep_report_dataset(project_id, report_id, previous)
+                self._keep_report_dataset(
+                    project_id, report_id, _without_fingerprint(previous)
+                )
 
     def _build_report_dataset_workunits(
         self,
@@ -2487,7 +2498,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return
         previous = self._object_state.previous_report_dataset(project_id, report_id)
         if previous is not None:
-            self._keep_report_dataset(project_id, report_id, previous)
+            self._keep_report_dataset(
+                project_id, report_id, _without_fingerprint(previous)
+            )
 
     def _process_report_object(
         self,
