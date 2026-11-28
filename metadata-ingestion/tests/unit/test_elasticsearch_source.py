@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, List, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 from unittest.mock import MagicMock, create_autospec, patch
 
 import boto3
@@ -2620,6 +2620,26 @@ def test_index_apis_use_keyword_only_opensearch_3_api(mock_opensearch: Any) -> N
     list(source.get_workunits_internal())
     assert client.indices.get_alias.call_args.args == ()
     assert client.indices.get_alias.call_args.kwargs == {}
+
+
+def test_password_without_username_is_rejected() -> None:
+    with pytest.raises(pydantic.ValidationError, match="username"):
+        ElasticsearchSourceConfig.model_validate({"password": "pass"})
+
+
+@pytest.mark.parametrize(
+    "credentials, expected_http_auth",
+    [
+        ({"username": "user", "password": "pass"}, ("user", "pass")),
+        ({"username": "user"}, ("user", "")),
+        ({"password": ""}, None),
+    ],
+)
+def test_credentials_without_a_dropped_password_are_accepted(
+    credentials: Dict[str, Any], expected_http_auth: Optional[Tuple[str, str]]
+) -> None:
+    config = ElasticsearchSourceConfig.model_validate(credentials)
+    assert config.http_auth == expected_http_auth
 
 
 _AWS_KEYS_CONFIG: Dict[str, Any] = {

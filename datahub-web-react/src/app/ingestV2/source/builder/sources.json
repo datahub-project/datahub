@@ -861,7 +861,7 @@
         "displayName": "Elasticsearch",
         "description": "Import Indices, Index Templates, and Data Streams from Elasticsearch.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/elasticsearch/",
-        "recipe": "source:\n    type: elasticsearch\n    config:\n        # Coordinates\n        host: # Your Elasticsearch host and port, e.g. localhost:9200\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Elasticsearch username, e.g. elastic\n        password: \"${ELASTICSEARCH_PASSWORD}\"\n\n        # SSL (enable both for HTTPS clusters)\n        use_ssl: false\n        verify_certs: false\n\n        # Options\n        index_pattern:\n            deny:\n                - '^\\..*'\n        ingest_index_templates: false\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source:\n    type: elasticsearch\n    config:\n        # Coordinates\n        host: # Your Elasticsearch host and port, e.g. localhost:9200\n\n        # Credentials: set username and password together, or remove both if the cluster has no authentication\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Elasticsearch username, e.g. elastic\n        password: \"${ELASTICSEARCH_PASSWORD}\"\n\n        # SSL (enable both for HTTPS clusters)\n        use_ssl: false\n        verify_certs: false\n\n        # Options\n        index_pattern:\n            deny:\n                - '^\\..*'\n        ingest_index_templates: false\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
         "isPopular": false
     },

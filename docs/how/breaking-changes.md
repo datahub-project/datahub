@@ -162,6 +162,13 @@ by another script or agent. To connect to another instance, use a separate name,
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
 
+### Elasticsearch source: password requires username
+
+An Elasticsearch ingestion recipe that sets `password` without `username` now fails to start
+instead of running ([PR #21330](https://github.com/datahub-project/datahub/pull/21330)). Previously the password was ignored and DataHub connected to the cluster
+without logging in. To fix an affected recipe, add the matching `username`, or remove `password`
+if the cluster does not need a username and password.
+
 ### Structured property writes follow the policy ([#21453](https://github.com/datahub-project/datahub/pull/21453))
 
 A `privilegeConstraints` list filters the sub-resources an action names. An action that names none
