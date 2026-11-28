@@ -88,8 +88,6 @@ class ReportDatasetCheckResult(BaseModel):
 # A per_report dataset merges every embedding dashboard, so it is re-emitted
 # only together with all of them; the sets are filled in place during a run.
 class ReportDatasetPlan(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
     previous_dashboards: Dict[str, ObjectCheckpoint]
     previous_reports: Dict[str, ReportDatasetCheckpoint]
     # Normalized ids of the project's allowed dashboards, in search order.
