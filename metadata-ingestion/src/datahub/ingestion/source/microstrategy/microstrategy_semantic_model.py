@@ -42,10 +42,7 @@ from datahub.ingestion.source.microstrategy.models import (
     MicroStrategyObject,
     normalize_object_id,
 )
-from datahub.ingestion.source.microstrategy.parallel import (
-    SingleFlight,
-    ordered_parallel_map,
-)
+from datahub.ingestion.source.microstrategy.parallel import ordered_parallel_map
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -101,13 +98,6 @@ _METRIC_MODEL_FAILURE_MESSAGES: Dict[MetricPresence, str] = {
 }
 
 logger = logging.getLogger(__name__)
-
-
-class _FetchedMetricModel(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    model: Dict[str, object]
-    consolidation_attributes: Dict[str, List[str]]
 
 
 class _AttributeRelationshipPair(BaseModel):
@@ -642,32 +632,21 @@ class MicroStrategySemanticModelMapper:
         if metric_objects is None:
             return
         consolidation_cache: Dict[str, List[str]] = {}
-        consolidation_lock = threading.RLock()
-        consolidation_flight: SingleFlight[str, List[str]] = SingleFlight()
+        # Set when the breaker trips, so a worker mid-read stops at its next
+        # request or retry wait instead of holding up the pool's shutdown.
+        stopped = threading.Event()
 
-        def fetch_metric(metric_object: MicroStrategyObject) -> _FetchedMetricModel:
-            model = self._metric_model(project_id, metric_object.id)
-            consolidation_attributes = {
-                consolidation_id: self._resolve_consolidation_parallel(
-                    project_id,
-                    consolidation_id,
-                    consolidation_cache,
-                    consolidation_lock,
-                    consolidation_flight,
-                )
-                for consolidation_id in metric_consolidation_ids_from_model(model)
-            }
-            return _FetchedMetricModel(
-                model=model,
-                consolidation_attributes=consolidation_attributes,
-            )
+        def fetch_metric(metric_object: MicroStrategyObject) -> Dict[str, object]:
+            return self._metric_model(project_id, metric_object.id, stopped)
 
         consecutive_failures = 0
         failed = 0
+        # One pending read per worker bounds the reads past a tripped breaker.
         with ordered_parallel_map(
             fetch_metric,
             metric_objects,
             max_workers=self.config.max_workers,
+            max_pending=self.config.max_workers,
         ) as outcomes:
             for read, outcome in enumerate(outcomes):
                 metric_object = outcome.item
@@ -680,7 +659,7 @@ class MicroStrategySemanticModelMapper:
                         project_id,
                     )
                 try:
-                    fetched = outcome.unwrap()
+                    model = outcome.unwrap()
                     consecutive_failures = 0
                 except MicroStrategyAPIError as error:
                     failed += 1
@@ -700,6 +679,7 @@ class MicroStrategySemanticModelMapper:
                         consecutive_failures
                         >= MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
                     ):
+                        stopped.set()
                         self.report.failure(
                             title="MicroStrategy Metric Models Unavailable",
                             message=(
@@ -717,16 +697,17 @@ class MicroStrategySemanticModelMapper:
                         return
                     if presence != MetricPresence.ABSENT:
                         continue
-                    fetched = _FetchedMetricModel(model={}, consolidation_attributes={})
+                    model = {}
 
                 metric = self._build_metric(
                     project_id=project_id,
                     model_urn=model_urn,
                     metric_object=metric_object,
-                    fetched=fetched,
+                    model=model,
                     fact_table_aliases=fact_table_aliases,
                     attribute_table_aliases=attribute_table_aliases,
                     alias_to_dataset=alias_to_dataset,
+                    consolidation_cache=consolidation_cache,
                 )
                 yield from metric.as_workunits()
                 self.report.report_semantic_model_metrics_emitted(1)
@@ -799,20 +780,20 @@ class MicroStrategySemanticModelMapper:
         project_id: str,
         model_urn: str,
         metric_object: MicroStrategyObject,
-        fetched: _FetchedMetricModel,
+        model: Dict[str, object],
         fact_table_aliases: Dict[str, Set[str]],
         attribute_table_aliases: Dict[str, Set[str]],
         alias_to_dataset: Dict[str, SemanticModelDataset],
+        consolidation_cache: Dict[str, List[str]],
     ) -> Metric:
-        model = fetched.model
         upstream_aliases: Set[str] = set()
         for fact_id in metric_fact_ids_from_model(model):
             upstream_aliases |= fact_table_aliases.get(fact_id, set())
         for attribute_id in metric_attribute_ids_from_model(model):
             upstream_aliases |= attribute_table_aliases.get(attribute_id, set())
         for consolidation_id in metric_consolidation_ids_from_model(model):
-            for attribute_id in fetched.consolidation_attributes.get(
-                consolidation_id, []
+            for attribute_id in self._resolve_consolidation(
+                project_id, consolidation_id, consolidation_cache
             ):
                 upstream_aliases |= attribute_table_aliases.get(attribute_id, set())
 
@@ -846,13 +827,15 @@ class MicroStrategySemanticModelMapper:
             ],
         )
 
-    def _metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
+    def _metric_model(
+        self, project_id: str, metric_id: str, stop: threading.Event
+    ) -> Dict[str, object]:
         # Last pass to need a model, so a fetch here is not written back.
         if self.cached_metric_model is not None:
             cached = self.cached_metric_model(project_id, metric_id)
             if cached is not None:
                 return cached
-        return self.client.get_metric_model(project_id, metric_id)
+        return self.client.get_metric_model(project_id, metric_id, stop=stop)
 
     def _unknown_presence_reason(self) -> str:
         return (
@@ -897,39 +880,26 @@ class MicroStrategySemanticModelMapper:
             return
         # A failure makes stale removal skip the run; without it the metrics
         # skipped here would be soft-deleted. Reported once per run.
-        if not self.report.metric_presence_check_failures:
+        if self.report.report_metric_presence_check_failure():
             self.report.failure(
                 title="Failed to check MicroStrategy metrics in DataHub",
                 message=message,
                 context=metric_urn,
                 exc=error,
             )
-        self.report.report_metric_presence_check_failure()
 
     def _stale_removal_enabled(self) -> bool:
         stateful = self.config.stateful_ingestion
         return bool(stateful and stateful.enabled and stateful.remove_stale_metadata)
 
-    def _resolve_consolidation_parallel(
+    def _resolve_consolidation(
         self,
         project_id: str,
         consolidation_id: str,
         cache: Dict[str, List[str]],
-        lock: threading.RLock,
-        flight: SingleFlight[str, List[str]],
     ) -> List[str]:
-        return flight.get_or_load(
-            consolidation_id,
-            cache,
-            lock,
-            lambda: self._fetch_consolidation_attributes(project_id, consolidation_id),
-        )
-
-    def _fetch_consolidation_attributes(
-        self,
-        project_id: str,
-        consolidation_id: str,
-    ) -> List[str]:
+        if consolidation_id in cache:
+            return cache[consolidation_id]
         try:
             model = self.client.get_consolidation_model(project_id, consolidation_id)
         except MicroStrategyAPIError as error:
@@ -943,5 +913,8 @@ class MicroStrategySemanticModelMapper:
                 context=f"project_id={project_id}, consolidation_id={consolidation_id}",
                 exc=error,
             )
+            cache[consolidation_id] = []
             return []
-        return consolidation_attribute_ids(model)
+        attribute_ids = consolidation_attribute_ids(model)
+        cache[consolidation_id] = attribute_ids
+        return attribute_ids

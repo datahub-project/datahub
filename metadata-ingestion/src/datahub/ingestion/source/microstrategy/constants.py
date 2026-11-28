@@ -16,15 +16,17 @@ MICROSTRATEGY_PLATFORM = "microstrategy"
 MSTR_MS_INSTANCE_HEADER = "X-MSTR-MS-Instance"
 MSTR_AUTH_TOKEN_HEADER = "X-MSTR-AuthToken"
 MSTR_PROJECT_ID_HEADER = "X-MSTR-ProjectID"
-MSTR_HEADER_ACCEPT = "Accept"
-MSTR_HEADER_CONTENT_TYPE = "Content-Type"
-MSTR_CONTENT_TYPE_JSON = "application/json"
-MSTR_HTTP_SCHEME_HTTPS = "https://"
-MSTR_HTTP_SCHEME_HTTP = "http://"
-MSTR_TEXT_ENCODING = "utf-8"
 MSTR_IO_THREAD_NAME_PREFIX = "mstr-io"
 MSTR_UNRESOLVED_FOLDER_LABEL = "unresolved"
-DATAHUB_GRAPH_SESSION_ATTR = "_session"
+
+MSTR_MAX_WORKERS_LIMIT = 32
+# Bounds how far submitted work runs ahead of the consumer, and with it the
+# memory held by results waiting to be emitted in input order.
+MSTR_PENDING_TASKS_PER_WORKER = 2
+# requests' default pool of 10 would make concurrent workers discard and
+# reopen connections; each worker can hold one connection per request in flight.
+MSTR_MIN_HTTP_POOL_SIZE = 16
+MSTR_HTTP_CONNECTIONS_PER_WORKER = 2
 
 MSTR_API_AUTH_PREFIX = "/api/auth/"
 MSTR_API_AUTH_LOGIN = "/api/auth/login"

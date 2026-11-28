@@ -1,54 +1,75 @@
-import threading
 from collections import deque
+from collections.abc import Generator
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import AbstractContextManager
+from types import TracebackType
 from typing import (
     Callable,
     Deque,
-    Dict,
     Generic,
     Iterable,
     Iterator,
+    NoReturn,
     Optional,
+    Type,
     TypeVar,
+    Union,
 )
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
-from datahub.ingestion.source.microstrategy.constants import MSTR_IO_THREAD_NAME_PREFIX
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_IO_THREAD_NAME_PREFIX,
+    MSTR_PENDING_TASKS_PER_WORKER,
+)
 
 _T = TypeVar("_T")
 _R = TypeVar("_R")
-_K = TypeVar("_K")
-_V = TypeVar("_V")
 
 
-class TaskOutcome(BaseModel, Generic[_T, _R]):
+class TaskSuccess(BaseModel, Generic[_T, _R]):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
     item: _T
-    value: Optional[_R] = None
-    error: Optional[BaseException] = None
+    value: _R
 
     def unwrap(self) -> _R:
-        if self.error is not None:
-            raise self.error
-        # value is None only on the error path, and _R may itself be Optional.
-        return self.value  # type: ignore[return-value]
+        return self.value
 
 
-class _PendingTask(BaseModel, Generic[_T, _R]):
+class TaskFailure(BaseModel, Generic[_T]):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
     item: _T
-    future: Future[_R]
+    error: Exception
+
+    def unwrap(self) -> NoReturn:
+        raise self.error
+
+
+# Pydantic generics do not carry type parameters into a typing.Union, so the
+# alias can only be subscripted in quoted annotations.
+TaskOutcome = Union[TaskSuccess[_T, _R], TaskFailure[_T]]
+
+
+class _PendingTask(Generic[_T, _R]):
+    __slots__ = ("item", "future")
+
+    def __init__(self, item: _T, future: "Future[_R]") -> None:
+        self.item = item
+        self.future = future
 
 
 class OrderedParallelIterator(
-    Iterator[TaskOutcome[_T, _R]],
+    Iterator["TaskOutcome[_T, _R]"],
     AbstractContextManager["OrderedParallelIterator[_T, _R]"],
     Generic[_T, _R],
 ):
+    """Runs fn over items on a thread pool and yields outcomes in input
+    order, keeping at most max_pending items submitted ahead of the
+    consumer. An exception from fn becomes a TaskFailure; one from the
+    items iterator is raised after the already-submitted items are yielded."""
+
     def __init__(
         self,
         fn: Callable[[_T], _R],
@@ -56,14 +77,19 @@ class OrderedParallelIterator(
         max_workers: int,
         max_pending: Optional[int] = None,
     ) -> None:
+        if max_workers < 1:
+            raise ValueError(f"max_workers must be at least 1, got {max_workers}")
         self._fn = fn
         self._iterator = iter(items)
-        self._max_workers = max_workers
         self._pending_limit = max(
-            1, max_pending if max_pending is not None else max_workers * 2
+            1,
+            max_pending
+            if max_pending is not None
+            else max_workers * MSTR_PENDING_TASKS_PER_WORKER,
         )
         self._pending: Deque[_PendingTask[_T, _R]] = deque()
         self._exhausted = False
+        self._upstream_error: Optional[Exception] = None
         self._closed = False
         self._executor: Optional[ThreadPoolExecutor] = (
             ThreadPoolExecutor(
@@ -79,67 +105,70 @@ class OrderedParallelIterator(
 
     def __exit__(
         self,
-        exc_type: object,
-        exc_val: object,
-        exc_tb: object,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
     ) -> None:
         self.close()
 
     def __iter__(self) -> "OrderedParallelIterator[_T, _R]":
         return self
 
-    def __next__(self) -> TaskOutcome[_T, _R]:
+    def __next__(self) -> "TaskOutcome[_T, _R]":
         if self._closed:
             raise StopIteration
-
-        if self._executor is None:
-            next_item = next(self._iterator)
-            try:
-                value = self._fn(next_item)
-            except Exception as exc:
-                return TaskOutcome.model_construct(
-                    item=next_item, value=None, error=exc
-                )
-            return TaskOutcome.model_construct(item=next_item, value=value, error=None)
-
         try:
-            while not self._exhausted and len(self._pending) < self._pending_limit:
-                try:
-                    next_item = next(self._iterator)
-                except StopIteration:
-                    self._exhausted = True
-                    break
-                self._pending.append(
-                    _PendingTask.model_construct(
-                        item=next_item,
-                        future=self._executor.submit(self._fn, next_item),
-                    )
-                )
+            if self._executor is None:
+                return self._run(next(self._iterator))
+            self._fill(self._executor)
             if not self._pending:
+                upstream_error = self._upstream_error
                 self.close()
+                if upstream_error is not None:
+                    raise upstream_error
                 raise StopIteration
-
             head = self._pending.popleft()
             try:
-                result = head.future.result()
-            except Exception as exc:
-                return TaskOutcome.model_construct(
-                    item=head.item, value=None, error=exc
-                )
-            return TaskOutcome.model_construct(item=head.item, value=result, error=None)
+                return TaskSuccess(item=head.item, value=head.future.result())
+            except Exception as error:
+                return TaskFailure(item=head.item, error=error)
         except BaseException:
             self.close()
             raise
+
+    def _run(self, item: _T) -> "TaskOutcome[_T, _R]":
+        try:
+            return TaskSuccess(item=item, value=self._fn(item))
+        except Exception as error:
+            return TaskFailure(item=item, error=error)
+
+    def _fill(self, executor: ThreadPoolExecutor) -> None:
+        while not self._exhausted and len(self._pending) < self._pending_limit:
+            try:
+                item = next(self._iterator)
+            except StopIteration:
+                self._exhausted = True
+                return
+            except Exception as error:
+                self._exhausted = True
+                self._upstream_error = error
+                return
+            self._pending.append(
+                _PendingTask(item=item, future=executor.submit(self._fn, item))
+            )
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
-        executor = self._executor
-        self._executor = None
+        executor, self._executor = self._executor, None
         self._pending.clear()
-        if executor is not None:
-            executor.shutdown(wait=True, cancel_futures=True)
+        try:
+            if executor is not None:
+                executor.shutdown(wait=True, cancel_futures=True)
+        finally:
+            if isinstance(self._iterator, Generator):
+                self._iterator.close()
 
 
 def ordered_parallel_map(
@@ -154,68 +183,3 @@ def ordered_parallel_map(
         max_workers=max_workers,
         max_pending=max_pending,
     )
-
-
-# Mutable: leader writes the result before releasing waiting followers.
-class _InFlightCall(BaseModel, Generic[_V]):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    event: threading.Event = Field(default_factory=threading.Event)
-    value: Optional[_V] = None
-    error: Optional[BaseException] = None
-
-
-class SingleFlight(Generic[_K, _V]):
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._calls: Dict[_K, _InFlightCall[_V]] = {}
-
-    def do(self, key: _K, fn: Callable[[], _V]) -> _V:
-        with self._lock:
-            existing = self._calls.get(key)
-            if existing is not None:
-                leader = False
-                call = existing
-            else:
-                leader = True
-                call = _InFlightCall()
-                self._calls[key] = call
-
-        if not leader:
-            call.event.wait()
-            if call.error is not None:
-                raise call.error
-            return call.value  # type: ignore[return-value]
-
-        try:
-            call.value = fn()
-        except BaseException as exc:
-            call.error = exc
-            raise
-        finally:
-            with self._lock:
-                self._calls.pop(key, None)
-                call.event.set()
-        return call.value  # type: ignore[return-value]
-
-    def get_or_load(
-        self,
-        key: _K,
-        cache: Dict[_K, _V],
-        lock: threading.RLock,
-        loader: Callable[[], _V],
-    ) -> _V:
-        with lock:
-            if key in cache:
-                return cache[key]
-
-        def fetch() -> _V:
-            with lock:
-                if key in cache:
-                    return cache[key]
-            value = loader()
-            with lock:
-                cache[key] = value
-            return value
-
-        return self.do(key, fetch)

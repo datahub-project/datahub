@@ -70,7 +70,9 @@ class FakeSemanticModelClient:
             raise MicroStrategyAPIError("metric search unavailable")
         return iter(self._metrics)
 
-    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+    def get_metric_model(
+        self, project_id: str, metric_id: str, stop: object = None
+    ) -> Dict[str, Any]:
         self.metric_model_calls.append(metric_id)
         if self._metric_models_fail:
             raise MicroStrategyAPIError("metric model unavailable")
@@ -862,7 +864,9 @@ class _FlakyMetricClient(FakeSemanticModelClient):
         super().__init__(**kwargs)
         self._failing_ids = failing_ids
 
-    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+    def get_metric_model(
+        self, project_id: str, metric_id: str, stop: object = None
+    ) -> Dict[str, Any]:
         if metric_id in self._failing_ids:
             self.metric_model_calls.append(metric_id)
             raise MicroStrategyAPIError("metric model unavailable")
@@ -950,7 +954,9 @@ def test_metrics_are_emitted_as_they_are_fetched(
     fetched: List[str] = []
 
     class RecordingClient(FakeSemanticModelClient):
-        def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        def get_metric_model(
+            self, project_id: str, metric_id: str, stop: object = None
+        ) -> Dict[str, Any]:
             fetched.append(metric_id)
             return {"expression": {"text": f"Sum({metric_id})", "tokens": []}}
 

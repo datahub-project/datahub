@@ -1,8 +1,8 @@
 import json
+import logging
 import pathlib
 import threading
-import time
-from typing import Dict, Iterator, List, Optional, Set, Type
+from typing import Callable, Dict, Iterator, List, Optional, Set, Type
 from unittest import mock
 
 import pytest
@@ -18,14 +18,17 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.microstrategy import lineage as lineage_module
 from datahub.ingestion.source.microstrategy.client import (
+    MicroStrategyAPIError,
     MicroStrategyAuthError,
     MicroStrategyClient,
-    ensure_session_pool_size,
+    MicroStrategyRequestStopped,
+    http_pool_size,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_AUTH_TOKEN_HEADER,
     MSTR_IO_THREAD_NAME_PREFIX,
+    MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT,
     MicroStrategyDatasetIdentity,
 )
 from datahub.ingestion.source.microstrategy.lineage import MicroStrategyLineageExtractor
@@ -33,15 +36,11 @@ from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import 
     MicroStrategySemanticModelMapper,
 )
 from datahub.ingestion.source.microstrategy.models import (
-    Datasource,
     MicroStrategyObject,
-    ModelTablesResponse,
     PredefinedFolder,
-    Project,
-    SqlView,
 )
 from datahub.ingestion.source.microstrategy.parallel import (
-    SingleFlight,
+    TaskFailure,
     ordered_parallel_map,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -53,24 +52,18 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from tests.unit.microstrategy.conftest import (
+    ConcurrentFakeClient,
+    install_client,
+    workunit_signatures,
+)
+
+_BASE_URL = "https://mstr.example.com/MicroStrategyLibrary"
+_WAIT_SECONDS = 5.0
 
 
 class _ProjectKey(ContainerKey):
     project_id: str
-
-
-class _WorkunitSignature(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    id: str
-    payload: str
-
-
-class _MappedItem(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    item: int
-    value: int
 
 
 class _AspectKey(BaseModel):
@@ -80,821 +73,407 @@ class _AspectKey(BaseModel):
     aspect_name: str
 
 
-def _workunit_signatures(
-    workunits: List[MetadataWorkUnit],
-) -> List[_WorkunitSignature]:
+def _run_threads(count: int, target: Callable[[int], None]) -> None:
+    threads = [threading.Thread(target=target, args=(idx,)) for idx in range(count)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=_WAIT_SECONDS)
+        assert not thread.is_alive()
+
+
+def _live_worker_threads() -> List[str]:
     return [
-        _WorkunitSignature(
-            id=wu.id,
-            payload=json.dumps(wu.metadata.to_obj(), sort_keys=True, default=str),
-        )
-        for wu in workunits
+        thread.name
+        for thread in threading.enumerate()
+        if thread.name.startswith(MSTR_IO_THREAD_NAME_PREFIX)
     ]
 
 
-def test_ordered_parallel_map_preserves_order_and_inline_serial_mode() -> None:
-    caller_thread = threading.current_thread()
-    serial_threads: Set[Optional[int]] = set()
-
-    def serial_fn(x: int) -> int:
-        serial_threads.add(threading.current_thread().ident)
-        return x * 10
-
-    serial_results = [
-        _MappedItem(item=outcome.item, value=outcome.unwrap())
-        for outcome in ordered_parallel_map(serial_fn, [1, 2, 3], max_workers=1)
-    ]
-    assert serial_results == [
-        _MappedItem(item=1, value=10),
-        _MappedItem(item=2, value=20),
-        _MappedItem(item=3, value=30),
-    ]
-    assert serial_threads == {caller_thread.ident}
-
-    worker_threads: Set[str] = set()
-    lock = threading.Lock()
-
-    def staggered_fn(x: int) -> int:
-        with lock:
-            worker_threads.add(threading.current_thread().name)
-        # Earlier items sleep longer so completions finish out of input order.
-        time.sleep((5 - x) * 0.015)
-        return x * 100
-
-    parallel_results = [
-        _MappedItem(item=outcome.item, value=outcome.unwrap())
-        for outcome in ordered_parallel_map(
-            staggered_fn, [0, 1, 2, 3, 4, 5], max_workers=4
-        )
-    ]
-    assert parallel_results == [
-        _MappedItem(item=0, value=0),
-        _MappedItem(item=1, value=100),
-        _MappedItem(item=2, value=200),
-        _MappedItem(item=3, value=300),
-        _MappedItem(item=4, value=400),
-        _MappedItem(item=5, value=500),
-    ]
-    assert any(name.startswith(MSTR_IO_THREAD_NAME_PREFIX) for name in worker_threads)
-
-
-def test_ordered_parallel_map_caps_max_pending_and_cancels_on_abort() -> None:
-    lock = threading.Lock()
-    in_flight = 0
-    max_observed_in_flight = 0
-    started_items: List[int] = []
-    release_wave = threading.Event()
-    wave_started = threading.Event()
+@pytest.mark.parametrize("max_workers", [1, 4])
+def test_outcomes_keep_input_order(max_workers: int) -> None:
+    last_done = threading.Event()
 
     def work(item: int) -> int:
-        nonlocal in_flight, max_observed_in_flight
-        with lock:
-            in_flight += 1
-            max_observed_in_flight = max(max_observed_in_flight, in_flight)
-            started_items.append(item)
-            if len(started_items) >= 3:
-                wave_started.set()
-        try:
-            if item >= 1:
-                release_wave.wait(timeout=2.0)
-            return item
-        finally:
-            with lock:
-                in_flight -= 1
+        # The first item finishes last whenever it can run concurrently.
+        if item == 0 and max_workers > 1:
+            assert last_done.wait(_WAIT_SECONDS)
+        if item == 3:
+            last_done.set()
+        return item * 10
 
-    iterator = ordered_parallel_map(work, range(20), max_workers=2, max_pending=3)
-    try:
-        first = next(iterator)
-        assert first.unwrap() == 0
-        assert wave_started.wait(timeout=2.0)
-        time.sleep(0.03)
-        with lock:
-            assert max_observed_in_flight <= 2
-            assert started_items == [0, 1, 2]
-    finally:
-        release_wave.set()
-        iterator.close()
+    with ordered_parallel_map(work, range(4), max_workers=max_workers) as outcomes:
+        assert [outcome.unwrap() for outcome in outcomes] == [0, 10, 20, 30]
 
-    with lock:
-        assert len(started_items) < 20
 
-    executed_after_auth: List[int] = []
+def test_inline_mode_runs_on_the_calling_thread() -> None:
+    threads: Set[Optional[int]] = set()
 
-    def auth_failing(item: int) -> int:
-        if item == 0:
-            raise MicroStrategyAuthError("401 session expired")
-        time.sleep(0.05)
-        with lock:
-            executed_after_auth.append(item)
+    def work(item: int) -> int:
+        threads.add(threading.current_thread().ident)
         return item
 
-    with pytest.raises(MicroStrategyAuthError):
-        stream = ordered_parallel_map(
-            auth_failing, range(30), max_workers=2, max_pending=4
-        )
-        try:
-            for outcome in stream:
-                outcome.unwrap()
-        finally:
-            stream.close()
-
-    assert len(executed_after_auth) < 10
+    with ordered_parallel_map(work, range(3), max_workers=1) as outcomes:
+        list(outcomes)
+    assert threads == {threading.current_thread().ident}
 
 
-def test_single_flight_deduplicates_and_propagates_errors() -> None:
-    flight: SingleFlight[str, str] = SingleFlight()
-    barrier = threading.Barrier(4)
-    call_count = 0
+def test_items_pulled_ahead_of_the_consumer_stay_within_max_pending() -> None:
+    pulled = 0
+
+    def items() -> Iterator[int]:
+        nonlocal pulled
+        for item in range(20):
+            pulled += 1
+            yield item
+
+    with ordered_parallel_map(
+        lambda item: item, items(), max_workers=2, max_pending=3
+    ) as outcomes:
+        for consumed, _ in enumerate(outcomes, start=1):
+            assert pulled <= consumed + 3
+    assert pulled == 20
+
+
+def test_a_task_error_is_isolated_to_its_outcome() -> None:
+    def work(item: int) -> int:
+        if item == 1:
+            raise MicroStrategyAPIError("boom")
+        return item
+
+    with ordered_parallel_map(work, range(3), max_workers=2) as outcomes:
+        results = list(outcomes)
+
+    assert [isinstance(outcome, TaskFailure) for outcome in results] == [
+        False,
+        True,
+        False,
+    ]
+    with pytest.raises(MicroStrategyAPIError):
+        results[1].unwrap()
+
+
+def test_close_cancels_work_that_has_not_started() -> None:
+    started: List[int] = []
     lock = threading.Lock()
 
-    def fetch_once() -> str:
-        nonlocal call_count
+    def work(item: int) -> int:
         with lock:
-            call_count += 1
-        time.sleep(0.03)
-        return "shared-payload"
+            started.append(item)
+        return item
 
-    results: List[str] = []
+    with ordered_parallel_map(
+        work, range(50), max_workers=2, max_pending=4
+    ) as outcomes:
+        assert next(outcomes).unwrap() == 0
 
-    def caller() -> None:
-        barrier.wait(timeout=2.0)
-        res = flight.do("same-key", fetch_once)
-        with lock:
-            results.append(res)
+    assert len(started) <= 1 + 4
+    assert _live_worker_threads() == []
 
-    threads = [threading.Thread(target=caller) for _ in range(4)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join(timeout=3.0)
 
-    assert call_count == 1
-    assert results == ["shared-payload"] * 4
+@pytest.mark.parametrize("max_workers", [1, 3])
+def test_upstream_error_is_raised_after_submitted_items(max_workers: int) -> None:
+    def items() -> Iterator[int]:
+        yield from range(3)
+        raise ValueError("search failed")
 
-    err_barrier = threading.Barrier(3)
-    err_calls = 0
-    caught: List[str] = []
+    seen: List[int] = []
+    with pytest.raises(ValueError, match="search failed"):
+        with ordered_parallel_map(
+            lambda item: item, items(), max_workers=max_workers
+        ) as outcomes:
+            for outcome in outcomes:
+                seen.append(outcome.unwrap())
 
-    def failing_fetch() -> str:
-        nonlocal err_calls
-        with lock:
-            err_calls += 1
-        time.sleep(0.02)
-        raise RuntimeError("boom")
+    assert seen == [0, 1, 2]
 
-    def err_caller() -> None:
-        err_barrier.wait(timeout=2.0)
+
+@pytest.mark.parametrize("max_workers", [1, 3])
+def test_close_closes_the_upstream_generator(max_workers: int) -> None:
+    closed = threading.Event()
+
+    def items() -> Iterator[int]:
         try:
-            flight.do("failing-key", failing_fetch)
-        except RuntimeError as exc:
-            with lock:
-                caught.append(str(exc))
+            yield from range(10)
+        finally:
+            closed.set()
 
-    err_threads = [threading.Thread(target=err_caller) for _ in range(3)]
-    for t in err_threads:
-        t.start()
-    for t in err_threads:
-        t.join(timeout=3.0)
+    with ordered_parallel_map(
+        lambda item: item, items(), max_workers=max_workers
+    ) as outcomes:
+        next(outcomes)
 
-    assert err_calls == 1
-    assert caught == ["boom"] * 3
-    assert flight.do("failing-key", lambda: "recovered") == "recovered"
+    assert closed.is_set()
 
 
-def test_client_pool_size_and_coalesced_concurrent_401_reauthentication() -> None:
+def test_max_workers_below_one_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        ordered_parallel_map(lambda item: item, [1], max_workers=0)
+
+
+def _client(max_workers: int = 4) -> MicroStrategyClient:
     config = MicroStrategyConfig.model_validate(
         {
-            "base_url": "https://mstr.example.com/MicroStrategyLibrary",
-            "auth": {
-                "type": "password",
-                "username": "svc_user",
-                "password": "secret",
-            },
-            "max_workers": 10,
+            "base_url": _BASE_URL,
+            "auth": {"type": "password", "username": "svc_user", "password": "pw"},
+            "max_workers": max_workers,
         }
     )
-    report = MicroStrategyReport()
-    client = MicroStrategyClient(config, report)
+    return MicroStrategyClient(config, MicroStrategyReport())
+
+
+def _response(status_code: int, token: Optional[str] = None) -> requests.Response:
+    response = requests.Response()
+    response.status_code = status_code
+    response._content = b"" if status_code == 204 else json.dumps({}).encode()
+    response.headers["Content-Type"] = "application/json"
+    if token:
+        response.headers[MSTR_AUTH_TOKEN_HEADER] = token
+    return response
+
+
+def _sent_token(headers: Optional[Dict[str, str]]) -> Optional[str]:
+    return (headers or {}).get(MSTR_AUTH_TOKEN_HEADER)
+
+
+def test_client_pool_fits_every_worker_and_keeps_session_defaults() -> None:
+    client = _client(max_workers=10)
     try:
-        https_adapter = client.session.get_adapter("https://")
-        assert isinstance(https_adapter, HTTPAdapter)
-        assert https_adapter.poolmanager.connection_pool_kw["maxsize"] == 20
-
-        extra_session = requests.Session()
-        try:
-            ensure_session_pool_size(extra_session, 24)
-            mounted = extra_session.get_adapter("https://")
-            assert isinstance(mounted, HTTPAdapter)
-            assert mounted.poolmanager.connection_pool_kw["maxsize"] == 24
-        finally:
-            extra_session.close()
-
-        client.session.headers[MSTR_AUTH_TOKEN_HEADER] = "stale-token"
-
-        barrier = threading.Barrier(4)
-        lock = threading.Lock()
-        login_calls = 0
-
-        def fake_response(
-            status_code: int, payload: Dict[str, object]
-        ) -> requests.Response:
-            resp = requests.Response()
-            resp.status_code = status_code
-            resp._content = json.dumps(payload).encode("utf-8")
-            resp.headers["Content-Type"] = "application/json"
-            if status_code == 204:
-                resp._content = b""
-            return resp
-
-        def fake_request(
-            method: str,
-            url: str,
-            headers: Optional[Dict[str, str]] = None,
-            **kwargs: object,
-        ) -> requests.Response:
-            nonlocal login_calls
-            if url.endswith("/api/auth/login"):
-                with lock:
-                    login_calls += 1
-                    token_num = login_calls
-                resp = fake_response(204, {})
-                resp.headers[MSTR_AUTH_TOKEN_HEADER] = f"fresh-token-{token_num}"
-                return resp
-            if url.endswith("/api/auth/logout"):
-                return fake_response(204, {})
-
-            sent = (headers or {}).get(MSTR_AUTH_TOKEN_HEADER)
-            if sent == "stale-token":
-                barrier.wait(timeout=2.0)
-                return fake_response(401, {"message": "Auth token expired"})
-            assert sent == "fresh-token-1"
-            return fake_response(200, {"ok": True, "token": sent})
-
-        results: List[requests.Response] = []
-        errors: List[BaseException] = []
-
-        def worker(idx: int) -> None:
-            try:
-                res = client._request("GET", f"/projects/p-{idx}")
-                with lock:
-                    results.append(res)
-            except BaseException as exc:
-                with lock:
-                    errors.append(exc)
-
-        with mock.patch.object(client.session, "request", side_effect=fake_request):
-            threads = [threading.Thread(target=worker, args=(i,)) for i in range(4)]
-            for t in threads:
-                t.start()
-            for t in threads:
-                t.join(timeout=3.0)
-            client.close()
-
-        assert errors == []
-        assert login_calls == 1
-        assert len(results) == 4
-        assert all(r.json()["token"] == "fresh-token-1" for r in results)
+        adapter = client.session.get_adapter("https://")
+        assert isinstance(adapter, HTTPAdapter)
+        assert adapter.poolmanager.connection_pool_kw["maxsize"] == http_pool_size(10)
+        assert http_pool_size(10) >= 10 * 2
+        for header in requests.utils.default_headers():
+            assert header in client.session.headers
+        assert client.session.headers["Accept"] == "application/json"
     finally:
         client.session.close()
 
 
-class _ConcurrentFakeClient:
-    def __init__(self, modified_overrides: Optional[Dict[str, str]] = None) -> None:
-        self._lock = threading.Lock()
-        self._modified_overrides: Dict[str, str] = dict(modified_overrides or {})
-        self.http_thread_names: Set[str] = set()
-        self._active_http = 0
-        self.max_concurrent_http = 0
-        self.dataset_lookup_calls: List[str] = []
-        self.report_sql_calls: List[str] = []
-        self.metric_model_calls: List[str] = []
-        self.definition_reads: List[str] = []
+def test_source_leaves_the_datahub_graph_session_alone() -> None:
+    graph_session = requests.Session()
+    adapter = graph_session.get_adapter("https://")
+    graph = mock.MagicMock(spec=DataHubGraph)
+    graph._session = graph_session
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": _BASE_URL, "max_workers": 16}
+    )
+    try:
+        MicroStrategySource(config, PipelineContext(run_id="graph", graph=graph))
+        assert graph_session.get_adapter("https://") is adapter
+    finally:
+        graph_session.close()
 
-    def _modified_at(self, object_id: str) -> str:
-        return self._modified_overrides.get(
-            object_id.lower(), "2026-01-01T00:00:00.000+0000"
-        )
 
-    def _enter_http(self, delay: float = 0.015) -> None:
-        with self._lock:
-            self.http_thread_names.add(threading.current_thread().name)
-            self._active_http += 1
-            self.max_concurrent_http = max(self.max_concurrent_http, self._active_http)
+def test_concurrent_401s_relogin_once() -> None:
+    client = _client()
+    client.session.headers[MSTR_AUTH_TOKEN_HEADER] = "stale"
+    barrier = threading.Barrier(4)
+    lock = threading.Lock()
+    logins: List[str] = []
+
+    def fake_request(
+        method: str,
+        url: str,
+        headers: Optional[Dict[str, str]] = None,
+        **kwargs: object,
+    ) -> requests.Response:
+        if url.endswith("/api/auth/login"):
+            with lock:
+                logins.append(url)
+            return _response(204, token="fresh")
+        if _sent_token(headers) == "stale":
+            barrier.wait(timeout=_WAIT_SECONDS)
+            return _response(401)
+        assert _sent_token(headers) == "fresh"
+        return _response(200)
+
+    errors: List[BaseException] = []
+
+    def worker(idx: int) -> None:
         try:
-            time.sleep(delay)
-        finally:
-            with self._lock:
-                self._active_http -= 1
+            client._request("GET", f"/projects/p-{idx}")
+        except BaseException as error:
+            errors.append(error)
 
-    def login(self) -> None:
-        return None
+    with mock.patch.object(client.session, "request", side_effect=fake_request):
+        _run_threads(4, worker)
 
-    def close(self) -> None:
-        return None
+    assert errors == []
+    assert len(logins) == 1
 
-    def list_projects(self) -> List[Project]:
-        return [Project.model_validate({"id": "proj-1", "name": "Retail Analytics"})]
 
-    def list_project_datasources(self, project_id: str) -> List[Datasource]:
-        self._enter_http(0.005)
-        return [
-            Datasource.model_validate(
-                {
-                    "id": "wh-1",
-                    "name": "Analytics Snowflake",
-                    "dbms": {"name": "Snowflake"},
-                    "database": {
-                        "type": "snowflake",
-                        "connection": {
-                            "database": "RETAIL_DB",
-                            "schema": "CORE",
-                        },
-                    },
-                }
-            )
-        ]
+def test_401_after_another_workers_relogin_replays_with_the_new_token() -> None:
+    # A replays with token-1 and is rejected only because B's re-login replaced
+    # token-1 meanwhile; A must replay with token-2, not declare auth dead.
+    client = _client()
+    client.session.headers[MSTR_AUTH_TOKEN_HEADER] = "stale"
+    first_login_done = threading.Event()
+    second_login_done = threading.Event()
+    lock = threading.Lock()
+    logins: List[str] = []
 
-    def list_datasources(self, project_id: Optional[str] = None) -> List[Datasource]:
-        return self.list_project_datasources(project_id or "proj-1")
+    def fake_request(
+        method: str,
+        url: str,
+        headers: Optional[Dict[str, str]] = None,
+        **kwargs: object,
+    ) -> requests.Response:
+        sent = _sent_token(headers)
+        if url.endswith("/api/auth/login"):
+            with lock:
+                logins.append(url)
+                token = f"token-{len(logins)}"
+            (first_login_done if token == "token-1" else second_login_done).set()
+            return _response(204, token=token)
+        if sent == "token-2":
+            return _response(200)
+        if url.endswith("/a") and sent == "token-1":
+            assert second_login_done.wait(_WAIT_SECONDS)
+        return _response(401)
 
-    def list_model_tables(
-        self,
-        project_id: str,
-        *,
-        limit: int = 1000,
-        offset: int = 0,
-        fields: Optional[str] = None,
-    ) -> ModelTablesResponse:
-        self._enter_http(0.005)
-        if offset > 0:
-            return ModelTablesResponse(tables=[], total=1)
-        return ModelTablesResponse(
-            tables=[
-                {
-                    "information": {"objectId": "LGT-ORDERS", "name": "ORDERS"},
-                    "physicalTable": {
-                        "tableName": "ORDERS",
-                        "information": {"objectId": "TBL-ORDERS", "name": "ORDERS"},
-                    },
-                    "attributes": [
-                        {
-                            "information": {
-                                "objectId": "ATTR-REGION",
-                                "name": "Region",
-                            },
-                            "forms": [],
-                        }
-                    ],
-                    "facts": [
-                        {
-                            "information": {
-                                "objectId": "FACT-REV",
-                                "name": "Revenue",
-                            }
-                        }
-                    ],
-                }
-            ],
-            total=1,
-        )
+    errors: List[BaseException] = []
 
-    def get_predefined_folders(
-        self, project_id: str, folder_types: List[int]
-    ) -> List[PredefinedFolder]:
-        if 7 in folder_types:
-            return [
-                PredefinedFolder.model_validate(
-                    {"id": "folder-shared", "name": "Shared Reports", "folderType": 7}
-                )
-            ]
-        return []
+    def worker(idx: int) -> None:
+        try:
+            if idx == 1:
+                assert first_login_done.wait(_WAIT_SECONDS)
+            client._request("GET", "/a" if idx == 0 else "/b")
+        except BaseException as error:
+            errors.append(error)
 
-    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
-        return iter(
-            [
-                MicroStrategyObject.model_validate(
-                    {
-                        "id": "doc-alpha",
-                        "name": "Alpha Document",
-                        "type": 55,
-                        "subtype": "14081",
-                        "viewMedia": 1,
-                        "dateModified": self._modified_at("doc-alpha"),
-                        "ancestors": [
-                            {"id": "folder-shared", "name": "Shared Reports"}
-                        ],
-                    }
-                ),
-                MicroStrategyObject.model_validate(
-                    {
-                        "id": "doc-beta",
-                        "name": "Beta Document",
-                        "type": 55,
-                        "subtype": "14081",
-                        "viewMedia": 1,
-                        "dateModified": self._modified_at("doc-beta"),
-                        "ancestors": [
-                            {"id": "folder-shared", "name": "Shared Reports"}
-                        ],
-                    }
-                ),
-                MicroStrategyObject.model_validate(
-                    {
-                        "id": "dossier-gamma",
-                        "name": "Gamma Dossier",
-                        "type": 55,
-                        "subtype": "14081",
-                        "viewMedia": 1879072805,
-                        "dateModified": self._modified_at("dossier-gamma"),
-                        "ancestors": [
-                            {"id": "folder-shared", "name": "Shared Reports"}
-                        ],
-                    }
-                ),
-            ]
-        )
+    with mock.patch.object(client.session, "request", side_effect=fake_request):
+        _run_threads(2, worker)
 
-    def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
-        return iter(
-            [
-                self._build_report_object("ds-shared-rpt"),
-                self._build_report_object("rpt-standalone"),
-            ]
-        )
+    assert errors == []
+    assert len(logins) == 2
 
-    def create_document_instance(self, project_id: str, document_id: str) -> str:
-        self._enter_http(0.005)
-        return f"inst-{document_id}"
 
-    def create_dossier_instance(self, project_id: str, dossier_id: str) -> str:
-        self._enter_http(0.005)
-        return f"inst-{dossier_id}"
+def test_failed_relogin_runs_login_once_and_every_waiter_raises() -> None:
+    client = _client()
+    client.session.headers[MSTR_AUTH_TOKEN_HEADER] = "stale"
+    barrier = threading.Barrier(4)
+    lock = threading.Lock()
+    logins: List[str] = []
 
-    def delete_dossier_instance(
-        self, project_id: str, dossier_id: str, instance_id: str
-    ) -> bool:
-        return True
+    def fake_request(
+        method: str,
+        url: str,
+        headers: Optional[Dict[str, str]] = None,
+        **kwargs: object,
+    ) -> requests.Response:
+        if url.endswith("/api/auth/login"):
+            with lock:
+                logins.append(url)
+            return _response(401)
+        barrier.wait(timeout=_WAIT_SECONDS)
+        return _response(401)
 
-    def delete_document_instance(
-        self, project_id: str, document_id: str, instance_id: str
-    ) -> bool:
-        return True
+    errors: List[BaseException] = []
 
-    def get_document_definition(
-        self,
-        project_id: str,
-        document_id: str,
-    ) -> Dict[str, object]:
-        self._enter_http(0.02)
-        with self._lock:
-            self.definition_reads.append(document_id)
-        suffix = "ALPHA" if document_id == "doc-alpha" else "BETA"
-        return {
-            "id": document_id,
-            "datasets": [
-                {
-                    "id": "ds-shared-rpt",
-                    "name": "Shared Orders Report",
-                    "availableObjects": {
-                        "attributes": [{"id": "ATTR-REGION", "name": "Region"}],
-                        "metrics": [
-                            {
-                                "id": "MET-REV",
-                                "name": "Total Revenue",
-                                "dataType": "double",
-                            }
-                        ],
-                    },
-                }
-            ],
-            "chapters": [
-                {
-                    "key": "ch-1",
-                    "name": "Overview",
-                    "pages": [
-                        {
-                            "key": "pg-1",
-                            "name": "Main",
-                            "visualizations": [
-                                {
-                                    "key": f"viz-{suffix}-1",
-                                    "name": f"{suffix} Grid 1",
-                                    "visualizationType": "grid",
-                                },
-                                {
-                                    "key": f"viz-{suffix}-2",
-                                    "name": f"{suffix} Grid 2",
-                                    "visualizationType": "grid",
-                                },
-                            ],
-                        }
-                    ],
-                }
-            ],
+    def worker(idx: int) -> None:
+        try:
+            client._request("GET", f"/projects/p-{idx}")
+        except BaseException as error:
+            with lock:
+                errors.append(error)
+
+    with mock.patch.object(client.session, "request", side_effect=fake_request):
+        _run_threads(4, worker)
+
+    assert len(logins) == 1
+    assert len(errors) == 4
+    assert all(isinstance(error, MicroStrategyAuthError) for error in errors)
+
+
+def test_stop_event_ends_a_retry_wait() -> None:
+    client = _client()
+    stop = threading.Event()
+
+    def unavailable(*args: object, **kwargs: object) -> requests.Response:
+        stop.set()
+        response = _response(503)
+        response.headers["Retry-After"] = "60"
+        return response
+
+    with (
+        mock.patch.object(
+            client.session, "request", side_effect=unavailable
+        ) as request,
+        pytest.raises(MicroStrategyRequestStopped),
+    ):
+        client._request("GET", "/model/metrics/M-1", stop=stop)
+    assert request.call_count == 1
+
+
+def _source(
+    max_workers: int,
+    dataset_identity: str = MicroStrategyDatasetIdentity.PER_DASHBOARD,
+    client: Optional[ConcurrentFakeClient] = None,
+) -> MicroStrategySource:
+    config = MicroStrategyConfig.model_validate(
+        {
+            "base_url": _BASE_URL,
+            "extract_lineage": True,
+            "extract_warehouse_lineage": True,
+            "extract_document_dataset_sql_lineage": True,
+            "extract_report_sql_lineage": True,
+            "extract_reports": True,
+            "extract_derived_metrics": True,
+            "resolve_report_metrics_via_instance": True,
+            "dataset_identity": dataset_identity,
+            "max_workers": max_workers,
         }
-
-    def get_dossier_definition(
-        self,
-        project_id: str,
-        dossier_id: str,
-    ) -> Dict[str, object]:
-        self._enter_http(0.02)
-        with self._lock:
-            self.definition_reads.append(dossier_id)
-        return {
-            "result": {
-                "definition": {
-                    "datasets": [
-                        {
-                            "id": "ds-shared-rpt",
-                            "name": "Shared Orders Report",
-                            "availableObjects": {
-                                "attributes": [{"id": "ATTR-REGION", "name": "Region"}],
-                                "metrics": [
-                                    {
-                                        "id": "MET-REV",
-                                        "name": "Total Revenue",
-                                        "dataType": "double",
-                                    }
-                                ],
-                            },
-                        }
-                    ],
-                    "chapters": [
-                        {
-                            "key": "ch-g",
-                            "name": "Summary",
-                            "pages": [
-                                {
-                                    "key": "pg-g",
-                                    "name": "Summary Page",
-                                    "visualizations": [
-                                        {
-                                            "key": "viz-g-1",
-                                            "name": "Gamma Chart 1",
-                                            "visualizationType": "bar",
-                                        },
-                                        {
-                                            "key": "viz-g-2",
-                                            "name": "Gamma Chart 2",
-                                            "visualizationType": "line",
-                                        },
-                                        {
-                                            "key": "viz-g-3",
-                                            "name": "Gamma Chart 3",
-                                            "visualizationType": "kpi",
-                                        },
-                                    ],
-                                }
-                            ],
-                        }
-                    ],
-                }
-            }
-        }
-
-    def get_dossier_visualization(
-        self,
-        project_id: str,
-        dossier_id: str,
-        instance_id: str,
-        chapter_key: str,
-        visualization_key: str,
-    ) -> Dict[str, object]:
-        self._enter_http(0.015)
-        return {
-            "datasets": [{"id": "ds-shared-rpt", "name": "Shared Orders Report"}],
-            "definition": {
-                "grid": {
-                    "rows": [
-                        {
-                            "id": "ATTR-REGION",
-                            "name": "Region",
-                            "type": "attribute",
-                        }
-                    ],
-                    "columns": [
-                        {
-                            "id": "MET-REV",
-                            "name": "Total Revenue",
-                            "type": "metric",
-                        }
-                    ],
-                }
-            },
-        }
-
-    def get_object_dependencies(
-        self, project_id: str, object_id: str, object_type: int
-    ) -> List[MicroStrategyObject]:
-        self._enter_http(0.005)
-        return [
-            MicroStrategyObject.model_validate(
-                {
-                    "id": "ds-shared-rpt",
-                    "name": "Shared Orders Report",
-                    "type": 3,
-                    "subtype": 768,
-                    "dateModified": self._modified_at("ds-shared-rpt"),
-                }
-            )
-        ]
-
-    def _build_report_object(self, report_id: str) -> MicroStrategyObject:
-        canonical_id = report_id.lower()
-        name = (
-            "Standalone Margin Report"
-            if canonical_id == "rpt-standalone"
-            else "Shared Orders Report"
-        )
-        return MicroStrategyObject.model_validate(
-            {
-                "id": canonical_id,
-                "name": name,
-                "type": 3,
-                "subtype": 768,
-                "dateModified": self._modified_at(canonical_id),
-                "ancestors": [{"id": "folder-shared", "name": "Shared Reports"}],
-            }
-        )
-
-    def get_object_info(
-        self, project_id: str, object_id: str, object_type: int
-    ) -> Optional[MicroStrategyObject]:
-        self._enter_http(0.01)
-        if object_type != 3:
-            return None
-        with self._lock:
-            self.dataset_lookup_calls.append(object_id)
-        return self._build_report_object(object_id)
-
-    def get_report_object(
-        self, project_id: str, report_id: str
-    ) -> Optional[MicroStrategyObject]:
-        self._enter_http(0.01)
-        return self._build_report_object(report_id)
-
-    def get_model_document(
-        self,
-        project_id: str,
-        document_id: str,
-        instance_id: Optional[str] = None,
-    ) -> Dict[str, object]:
-        # Distinct formulas per document verify concurrent workers do not overwrite slots.
-        self._enter_http(0.025)
-        if document_id == "doc-alpha":
-            metric_id = "1" * 32
-            metric_name = "Alpha Margin"
-            formula = "[Total Revenue] * 0.25"
-        elif document_id == "doc-beta":
-            metric_id = "2" * 32
-            metric_name = "Beta Margin"
-            formula = "[Total Revenue] * 0.40"
-        else:
-            return {"datasets": []}
-        return {
-            "datasets": [
-                {
-                    "information": {
-                        "objectId": "ds-shared-rpt",
-                        "name": "Shared Orders Report",
-                    },
-                    "derivedMetrics": [
-                        {
-                            "information": {
-                                "objectId": metric_id,
-                                "name": metric_name,
-                            },
-                            "expression": {"text": formula},
-                        }
-                    ],
-                }
-            ]
-        }
-
-    def create_model_report_instance(self, project_id: str, report_id: str) -> str:
-        return f"minst-{report_id}"
-
-    def delete_model_report_instance(
-        self, project_id: str, report_id: str, instance_id: str
-    ) -> bool:
-        return True
-
-    def get_model_report(
-        self,
-        project_id: str,
-        report_id: str,
-        instance_id: Optional[str] = None,
-    ) -> Dict[str, object]:
-        self._enter_http(0.01)
-        return {
-            "information": {"objectId": report_id, "name": "Shared Orders Report"},
-            "sourceType": "normal",
-            "dataSource": {"dataTemplate": {"units": []}},
-        }
-
-    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
-        self._enter_http(0.01)
-        with self._lock:
-            self.metric_model_calls.append(metric_id)
-        return {
-            "expression": {
-                "text": "Sum(Revenue)",
-                "tokens": [{"objectId": "FACT-REV", "subType": "fact"}],
-            }
-        }
-
-    def get_dossier_datasets_sql(
-        self, project_id: str, dossier_id: str, instance_id: str
-    ) -> List[Dict[str, object]]:
-        self._enter_http(0.015)
-        return [
-            {
-                "id": "ds-shared-rpt",
-                "name": "Shared Orders Report",
-                "sqlStatement": (
-                    "select a11.REGION as REGION, sum(a11.REVENUE) as TOTAL_REVENUE "
-                    "from RETAIL_DB.CORE.ORDERS a11 group by a11.REGION"
-                ),
-            }
-        ]
-
-    def create_report_instance(self, project_id: str, report_id: str) -> str:
-        return f"rinst-{report_id}"
-
-    def delete_report_instance(
-        self, project_id: str, report_id: str, instance_id: str
-    ) -> None:
-        return None
-
-    def get_report_sql_view(
-        self, project_id: str, report_id: str, instance_id: str
-    ) -> SqlView:
-        self._enter_http(0.015)
-        with self._lock:
-            self.report_sql_calls.append(report_id)
-        if report_id.lower() == "rpt-standalone":
-            return SqlView.model_validate(
-                {
-                    "sqlStatement": (
-                        "select a11.REGION as REGION, sum(a11.MARGIN) as TOTAL_MARGIN "
-                        "from RETAIL_DB.CORE.MARGINS a11 group by a11.REGION"
-                    )
-                }
-            )
-        return SqlView.model_validate(
-            {
-                "sqlStatement": (
-                    "select a11.REGION as REGION, sum(a11.REVENUE) as TOTAL_REVENUE "
-                    "from RETAIL_DB.CORE.ORDERS a11 group by a11.REGION"
-                )
-            }
-        )
-
-    def get_report_definition(
-        self, project_id: str, report_id: str
-    ) -> Dict[str, object]:
-        self._enter_http(0.015)
-        return {
-            "id": report_id,
-            "name": "Shared Orders Report",
-            "definition": {
-                "grid": {
-                    "rows": [
-                        {
-                            "name": "Attributes",
-                            "elements": [
-                                {
-                                    "id": "ATTR-REGION",
-                                    "name": "Region",
-                                    "type": "attribute",
-                                }
-                            ],
-                        }
-                    ],
-                    "columns": [
-                        {
-                            "name": "Metrics",
-                            "elements": [
-                                {
-                                    "id": "MET-REV",
-                                    "name": "Total Revenue",
-                                    "type": "metric",
-                                }
-                            ],
-                        }
-                    ],
-                }
-            },
-        }
+    )
+    source = MicroStrategySource(config, PipelineContext(run_id=f"w-{max_workers}"))
+    source.client.close()
+    install_client(source, client or ConcurrentFakeClient())
+    return source
 
 
-class _SourceRunResult(BaseModel):
+class _SourceRun(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
     workunits: List[MetadataWorkUnit]
-    client: _ConcurrentFakeClient
+    source: MicroStrategySource
+    client: ConcurrentFakeClient
     sql_parse_threads: Set[Optional[int]]
+
+
+def _run_source(
+    max_workers: int,
+    dataset_identity: str = MicroStrategyDatasetIdentity.PER_DASHBOARD,
+    failures: Optional[Dict[str, Exception]] = None,
+) -> _SourceRun:
+    client = ConcurrentFakeClient(failures=failures)
+    source = _source(max_workers, dataset_identity, client)
+    sql_parse_threads: Set[Optional[int]] = set()
+    original_sql_parse = lineage_module.create_lineage_from_sql_statements
+
+    def tracked_sql_parse(*args: object, **kwargs: object) -> object:
+        sql_parse_threads.add(threading.current_thread().ident)
+        return original_sql_parse(*args, **kwargs)  # type: ignore[arg-type]  # pass-through
+
+    with mock.patch.object(
+        lineage_module,
+        "create_lineage_from_sql_statements",
+        side_effect=tracked_sql_parse,
+    ):
+        workunits = list(source.get_workunits_internal())
+    return _SourceRun(
+        workunits=workunits,
+        source=source,
+        client=client,
+        sql_parse_threads=sql_parse_threads,
+    )
+
+
+def _schema_fields(workunits: List[MetadataWorkUnit], urn_part: str) -> Set[str]:
+    for wu in workunits:
+        schema = wu.get_aspect_of_type(SchemaMetadataClass)
+        if schema is not None and urn_part in wu.get_urn():
+            return {field.fieldPath for field in schema.fields}
+    raise AssertionError(f"no schema for {urn_part}")
 
 
 @pytest.mark.parametrize(
@@ -904,108 +483,186 @@ class _SourceRunResult(BaseModel):
         MicroStrategyDatasetIdentity.PER_REPORT,
     ],
 )
-def test_end_to_end_parallel_workers_keep_sqlglot_on_main_thread_and_match_serial(
+def test_parallel_run_matches_serial_and_parses_sql_on_the_main_thread(
     dataset_identity: str,
 ) -> None:
-    def run_source(max_workers: int) -> _SourceRunResult:
-        config = MicroStrategyConfig.model_validate(
-            {
-                "base_url": "https://mstr.example.com/MicroStrategyLibrary",
-                "extract_lineage": True,
-                "extract_warehouse_lineage": True,
-                "extract_document_dataset_sql_lineage": True,
-                "extract_report_sql_lineage": True,
-                "extract_reports": True,
-                "extract_derived_metrics": True,
-                "resolve_report_metrics_via_instance": True,
-                "dataset_identity": dataset_identity,
-                "max_workers": max_workers,
-            }
-        )
-        source = MicroStrategySource(config, PipelineContext(run_id=f"w-{max_workers}"))
-        fake_client = _ConcurrentFakeClient()
-        source.client.close()
-        source.client = fake_client  # type: ignore[assignment]
-
-        sql_parse_threads: Set[Optional[int]] = set()
-        original_sql_parse = lineage_module.create_lineage_from_sql_statements
-
-        def tracked_sql_parse(*args: object, **kwargs: object) -> object:
-            sql_parse_threads.add(threading.current_thread().ident)
-            return original_sql_parse(*args, **kwargs)  # type: ignore[arg-type]
-
-        with mock.patch.object(
-            lineage_module,
-            "create_lineage_from_sql_statements",
-            side_effect=tracked_sql_parse,
-        ):
-            workunits = list(source.get_workunits_internal())
-        return _SourceRunResult(
-            workunits=workunits,
-            client=fake_client,
-            sql_parse_threads=sql_parse_threads,
-        )
-
-    main_ident = threading.current_thread().ident
-    serial_run = run_source(max_workers=1)
-    parallel_run = run_source(max_workers=4)
+    serial = _run_source(1, dataset_identity)
+    parallel = _run_source(4, dataset_identity)
 
     assert any(
         name.startswith(MSTR_IO_THREAD_NAME_PREFIX)
-        for name in parallel_run.client.http_thread_names
+        for name in parallel.client.http_thread_names
     )
-    assert parallel_run.client.max_concurrent_http >= 2
-    assert serial_run.sql_parse_threads == {main_ident}
-    assert parallel_run.sql_parse_threads == {main_ident}
-
-    assert parallel_run.client.dataset_lookup_calls == ["ds-shared-rpt"]
-    assert parallel_run.client.metric_model_calls == ["MET-REV"]
-    assert parallel_run.client.report_sql_calls.count("ds-shared-rpt") == 1
-
-    assert _workunit_signatures(parallel_run.workunits) == _workunit_signatures(
-        serial_run.workunits
+    main_thread = {threading.current_thread().ident}
+    assert serial.sql_parse_threads == parallel.sql_parse_threads == main_thread
+    assert parallel.client.dataset_lookup_calls == ["ds-shared-rpt"]
+    assert parallel.client.metric_model_calls == ["MET-REV"]
+    assert parallel.client.report_sql_calls.count("ds-shared-rpt") == 1
+    assert workunit_signatures(parallel.workunits) == workunit_signatures(
+        serial.workunits
     )
-
-    schemas_by_urn: Dict[str, SchemaMetadataClass] = {}
-    for wu in parallel_run.workunits:
-        schema = wu.get_aspect_of_type(SchemaMetadataClass)
-        if schema is not None:
-            schemas_by_urn[wu.get_urn()] = schema
-
     if dataset_identity == MicroStrategyDatasetIdentity.PER_DASHBOARD:
-        alpha_ds = next(u for u in schemas_by_urn if "doc-alpha.ds-shared-rpt" in u)
-        beta_ds = next(u for u in schemas_by_urn if "doc-beta.ds-shared-rpt" in u)
-        alpha_fields = {
-            f.fieldPath: f.description or "" for f in schemas_by_urn[alpha_ds].fields
-        }
-        beta_fields = {
-            f.fieldPath: f.description or "" for f in schemas_by_urn[beta_ds].fields
-        }
-        assert "0.25" in alpha_fields["Alpha Margin"]
-        assert "Beta Margin" not in alpha_fields
-        assert "0.40" in beta_fields["Beta Margin"]
-        assert "Alpha Margin" not in beta_fields
+        alpha = _schema_fields(parallel.workunits, "doc-alpha.ds-shared-rpt")
+        beta = _schema_fields(parallel.workunits, "doc-beta.ds-shared-rpt")
+        assert "Alpha Margin" in alpha and "Beta Margin" not in alpha
+        assert "Beta Margin" in beta and "Alpha Margin" not in beta
     else:
-        shared_ds = next(u for u in schemas_by_urn if "proj-1.ds-shared-rpt" in u)
-        shared_fields = {
-            f.fieldPath: f.description or "" for f in schemas_by_urn[shared_ds].fields
-        }
-        assert "0.25" in shared_fields["Alpha Margin"]
-        assert "0.40" in shared_fields["Beta Margin"]
+        shared = _schema_fields(parallel.workunits, "proj-1.ds-shared-rpt")
+        assert {"Alpha Margin", "Beta Margin"} <= shared
+
+
+def test_api_error_in_one_worker_leaves_the_other_dashboards_as_serial() -> None:
+    failures: Dict[str, Exception] = {"doc-beta": MicroStrategyAPIError("boom")}
+    serial = _run_source(1, failures=failures)
+    parallel = _run_source(4, failures=failures)
+
+    assert workunit_signatures(parallel.workunits) == workunit_signatures(
+        serial.workunits
+    )
+    assert [w.title for w in parallel.source.report.warnings] == [
+        w.title for w in serial.source.report.warnings
+    ]
+    assert parallel.source.report.failures == serial.source.report.failures == []
+    assert any("doc-alpha" in wu.get_urn() for wu in parallel.workunits)
+
+
+def test_auth_error_in_a_worker_stops_the_run_with_one_failure() -> None:
+    run = _run_source(4, failures={"doc-beta": MicroStrategyAuthError("lost")})
+
+    assert len(run.source.report.failures) == 1
+    assert _live_worker_threads() == []
+
+
+class _FailingLookupClient:
+    def __init__(self, workers: int) -> None:
+        self._lock = threading.Lock()
+        self._barrier = threading.Barrier(workers)
+        self.calls: List[str] = []
+
+    def _fail(self, project_id: str, object_id: str) -> None:
+        with self._lock:
+            self.calls.append(f"{project_id}:{object_id}")
+        raise MicroStrategyAPIError("lookup failed")
+
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> Optional[MicroStrategyObject]:
+        self._fail(project_id, object_id)
+        return None
+
+    def get_report_object(
+        self, project_id: str, report_id: str
+    ) -> Optional[MicroStrategyObject]:
+        self._fail(project_id, report_id)
+        return None
+
+    def wait(self) -> None:
+        self._barrier.wait(timeout=_WAIT_SECONDS)
+
+
+class _LookupRun(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    calls: List[str]
+    lookup_failures: int
+    warning_contexts: Dict[str, List[str]]
+
+
+def _failed_lookups(projects: List[str], concurrent: bool) -> _LookupRun:
+    source = _source(len(projects))
+    client = _FailingLookupClient(len(projects) if concurrent else 1)
+    install_client(source, client)
+
+    def lookup(idx: int) -> None:
+        client.wait()
+        source._dataset_object_info(projects[idx], "ds-1")
+        client.wait()
+        source._linked_report_object(projects[idx], "ds-1")
+
+    if concurrent:
+        _run_threads(len(projects), lookup)
+    else:
+        for idx in range(len(projects)):
+            lookup(idx)
+    return _LookupRun(
+        calls=sorted(client.calls),
+        lookup_failures=source.report.dataset_object_lookup_failures,
+        warning_contexts={
+            str(w.title): sorted(w.context) for w in source.report.warnings
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "projects", [["p1"] * 4, ["p1", "p2", "p1", "p2"]], ids=["one", "two"]
+)
+def test_concurrent_failed_lookups_fetch_and_warn_once_per_project(
+    projects: List[str],
+) -> None:
+    serial = _failed_lookups(projects, concurrent=False)
+    concurrent = _failed_lookups(projects, concurrent=True)
+
+    assert concurrent == serial
+    assert len(concurrent.calls) == 2 * len(set(projects))
+
+
+def test_concurrent_personal_folder_lookups_fetch_once() -> None:
+    source = _source(4)
+    calls: List[str] = []
+    barrier = threading.Barrier(4)
+
+    def predefined_folders(
+        project_id: str, folder_types: List[int]
+    ) -> List[PredefinedFolder]:
+        calls.append(project_id)
+        return []
+
+    def lookup(idx: int) -> None:
+        barrier.wait(timeout=_WAIT_SECONDS)
+        source._personal_folders("proj-1")
+
+    with mock.patch.object(
+        source.client, "get_predefined_folders", side_effect=predefined_folders
+    ):
+        _run_threads(4, lookup)
+
+    assert calls == ["proj-1"]
+
+
+def test_report_counters_and_first_failure_flag_are_exact_under_threads(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    report = MicroStrategyReport()
+    barrier = threading.Barrier(8)
+    firsts: List[bool] = []
+
+    def worker(idx: int) -> None:
+        barrier.wait(timeout=_WAIT_SECONDS)
+        for _ in range(500):
+            report.report_dashboard_scanned()
+        firsts.append(report.report_metric_presence_check_failure())
+        report.warning(title="Worker warning", message="m", context=f"worker={idx}")
+
+    _run_threads(8, worker)
+
+    assert report.dashboards_scanned == 8 * 500
+    assert firsts.count(True) == 1
+    assert report.metric_presence_check_failures == 8
+
+    with caplog.at_level(logging.WARNING):
+        report.warning(title="Located", message="m", context="c")
+    assert caplog.records[-1].funcName == (
+        "test_report_counters_and_first_failure_flag_are_exact_under_threads"
+    )
 
 
 class _InMemoryGraphStore:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._aspects: Dict[_AspectKey, _Aspect] = {}
-        self.session = requests.Session()
-
-    def close(self) -> None:
-        self.session.close()
 
     def build_graph(self) -> mock.MagicMock:
         graph = mock.MagicMock(spec=DataHubGraph)
-        graph._session = self.session
         graph.get_aspect.side_effect = self.get_aspect
         graph.get_entities.side_effect = self.get_entities
         graph._make_schema_resolver.side_effect = (
@@ -1058,12 +715,82 @@ class _InMemoryGraphStore:
                     ] = wu.metadata.aspect
 
 
-class _IncrementalPassResult(BaseModel):
+class _IncrementalPass(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
     workunits: List[MetadataWorkUnit]
     report: MicroStrategyReport
-    client: _ConcurrentFakeClient
+    client: ConcurrentFakeClient
+
+
+_MODIFIED_SCHEDULE: List[Dict[str, str]] = [
+    {},
+    {"doc-beta": "2026-02-01T00:00:00.000+0000"},
+    {
+        "doc-beta": "2026-02-01T00:00:00.000+0000",
+        "rpt-standalone": "2026-03-01T00:00:00.000+0000",
+    },
+    {
+        "doc-beta": "2026-02-01T00:00:00.000+0000",
+        "rpt-standalone": "2026-03-01T00:00:00.000+0000",
+    },
+]
+
+
+def _incremental_series(
+    state_file: pathlib.Path, dataset_identity: str, worker_counts: List[int]
+) -> List[_IncrementalPass]:
+    store = _InMemoryGraphStore()
+    graph = store.build_graph()
+    passes: List[_IncrementalPass] = []
+    for idx, (max_workers, modified) in enumerate(
+        zip(worker_counts, _MODIFIED_SCHEDULE, strict=True), start=1
+    ):
+        with time_machine.travel(f"2026-06-0{idx}T00:00:00Z", tick=False):
+            config = MicroStrategyConfig.model_validate(
+                {
+                    "base_url": _BASE_URL,
+                    "extract_lineage": True,
+                    "extract_warehouse_lineage": True,
+                    "extract_document_dataset_sql_lineage": True,
+                    "extract_report_sql_lineage": True,
+                    "extract_reports": True,
+                    "extract_independent_reports": True,
+                    "extract_derived_metrics": True,
+                    "resolve_report_metrics_via_instance": True,
+                    "dataset_identity": dataset_identity,
+                    "skip_unchanged_objects": True,
+                    "max_workers": max_workers,
+                    "stateful_ingestion": {
+                        "enabled": True,
+                        "remove_stale_metadata": True,
+                        "state_provider": {
+                            "type": "file",
+                            "config": {"filename": str(state_file)},
+                        },
+                    },
+                }
+            )
+            ctx = PipelineContext(
+                run_id=f"inc-{idx}",
+                pipeline_name=f"mstr-inc-{dataset_identity}",
+                graph=graph,
+            )
+            source = MicroStrategySource(config, ctx)
+            client = ConcurrentFakeClient(modified_overrides=modified)
+            source.client.close()
+            install_client(source, client)
+            workunits = list(source.get_workunits())
+            source.close()
+            for _, committable in ctx.get_committables():
+                committable.commit()
+            store.write(workunits)
+            passes.append(
+                _IncrementalPass(
+                    workunits=workunits, report=source.report, client=client
+                )
+            )
+    return passes
 
 
 @pytest.mark.parametrize(
@@ -1073,145 +800,45 @@ class _IncrementalPassResult(BaseModel):
         MicroStrategyDatasetIdentity.PER_REPORT,
     ],
 )
-def test_incremental_skip_unchanged_parallel_matches_serial(
-    tmp_path: pathlib.Path,
-    dataset_identity: str,
+def test_checkpoint_written_with_one_worker_still_skips_with_four(
+    tmp_path: pathlib.Path, dataset_identity: str
 ) -> None:
-    def execute_series(max_workers: int) -> List[_IncrementalPassResult]:
-        state_file = tmp_path / f"state-{dataset_identity}-{max_workers}.json"
-        store = _InMemoryGraphStore()
-        try:
-            graph = store.build_graph()
-            schedules: List[Dict[str, str]] = [
-                {},
-                {"doc-beta": "2026-02-01T00:00:00.000+0000"},
-                {
-                    "doc-beta": "2026-02-01T00:00:00.000+0000",
-                    "rpt-standalone": "2026-03-01T00:00:00.000+0000",
-                },
-                {
-                    "doc-beta": "2026-02-01T00:00:00.000+0000",
-                    "rpt-standalone": "2026-03-01T00:00:00.000+0000",
-                },
-            ]
-            passes: List[_IncrementalPassResult] = []
-            for idx, modified_overrides in enumerate(schedules, start=1):
-                with time_machine.travel(f"2026-06-0{idx}T00:00:00Z", tick=False):
-                    config = MicroStrategyConfig.model_validate(
-                        {
-                            "base_url": "https://mstr.example.com/MicroStrategyLibrary",
-                            "extract_lineage": True,
-                            "extract_warehouse_lineage": True,
-                            "extract_document_dataset_sql_lineage": True,
-                            "extract_report_sql_lineage": True,
-                            "extract_reports": True,
-                            "extract_independent_reports": True,
-                            "extract_derived_metrics": True,
-                            "resolve_report_metrics_via_instance": True,
-                            "dataset_identity": dataset_identity,
-                            "skip_unchanged_objects": True,
-                            "max_workers": max_workers,
-                            "stateful_ingestion": {
-                                "enabled": True,
-                                "remove_stale_metadata": True,
-                                "state_provider": {
-                                    "type": "file",
-                                    "config": {"filename": str(state_file)},
-                                },
-                            },
-                        }
-                    )
-                    ctx = PipelineContext(
-                        run_id=f"inc-{idx}",
-                        pipeline_name=f"mstr-inc-{dataset_identity}",
-                        graph=graph,
-                    )
-                    source = MicroStrategySource(config, ctx)
-                    fake_client = _ConcurrentFakeClient(
-                        modified_overrides=modified_overrides
-                    )
-                    source.client.close()
-                    source.client = fake_client  # type: ignore[assignment]
-                    workunits = list(source.get_workunits())
-                    source.close()
-                    for _, committable in ctx.get_committables():
-                        committable.commit()
-                    store.write(workunits)
-                    passes.append(
-                        _IncrementalPassResult(
-                            workunits=workunits,
-                            report=source.report,
-                            client=fake_client,
-                        )
-                    )
-            return passes
-        finally:
-            store.close()
+    serial = _incremental_series(tmp_path / "serial.json", dataset_identity, [1] * 4)
+    mixed = _incremental_series(tmp_path / "mixed.json", dataset_identity, [1, 4, 1, 4])
 
-    serial_passes = execute_series(max_workers=1)
-    parallel_passes = execute_series(max_workers=4)
-
-    for serial_pass, parallel_pass in zip(serial_passes, parallel_passes, strict=True):
-        assert _workunit_signatures(parallel_pass.workunits) == _workunit_signatures(
+    for serial_pass, mixed_pass in zip(serial, mixed, strict=True):
+        assert workunit_signatures(mixed_pass.workunits) == workunit_signatures(
             serial_pass.workunits
         )
-        assert (
-            parallel_pass.report.dashboards_skipped_unchanged
-            == serial_pass.report.dashboards_skipped_unchanged
-        )
-        assert (
-            parallel_pass.report.reports_skipped_unchanged
-            == serial_pass.report.reports_skipped_unchanged
-        )
-        assert (
-            parallel_pass.report.report_datasets_skipped_unchanged
-            == serial_pass.report.report_datasets_skipped_unchanged
-        )
-        assert {
-            wu.get_urn()
-            for wu in parallel_pass.workunits
-            if wu.id.startswith("soft-delete-")
-        } == set()
+        for counter in (
+            "dashboards_skipped_unchanged",
+            "reports_skipped_unchanged",
+            "report_datasets_skipped_unchanged",
+        ):
+            assert getattr(mixed_pass.report, counter) == getattr(
+                serial_pass.report, counter
+            )
+        assert not any(wu.id.startswith("soft-delete-") for wu in mixed_pass.workunits)
 
     if dataset_identity == MicroStrategyDatasetIdentity.PER_DASHBOARD:
-        assert parallel_passes[1].report.dashboards_skipped_unchanged == 2
-        assert parallel_passes[1].report.reports_skipped_unchanged == 2
-        assert parallel_passes[1].client.definition_reads == ["doc-beta"]
-        assert parallel_passes[2].report.dashboards_skipped_unchanged == 3
-        assert parallel_passes[2].report.reports_skipped_unchanged == 1
-        assert parallel_passes[2].client.definition_reads == []
-        assert parallel_passes[3].report.dashboards_skipped_unchanged == 3
-        assert parallel_passes[3].report.reports_skipped_unchanged == 2
-        assert parallel_passes[3].client.definition_reads == []
+        assert mixed[1].report.dashboards_skipped_unchanged == 2
+        assert mixed[1].client.definition_reads == ["doc-beta"]
+        assert mixed[3].report.dashboards_skipped_unchanged == 3
+        assert mixed[3].report.reports_skipped_unchanged == 2
     else:
-        assert parallel_passes[1].report.dashboards_skipped_unchanged == 0
-        assert parallel_passes[1].report.report_datasets_skipped_unchanged == 1
-        assert parallel_passes[2].report.dashboards_skipped_unchanged == 3
-        assert parallel_passes[2].report.report_datasets_skipped_unchanged == 1
-        assert parallel_passes[2].client.definition_reads == []
-        assert parallel_passes[3].report.dashboards_skipped_unchanged == 3
-        assert parallel_passes[3].report.report_datasets_skipped_unchanged == 2
-        assert parallel_passes[3].client.definition_reads == []
+        assert mixed[1].report.report_datasets_skipped_unchanged == 1
+        assert mixed[3].report.dashboards_skipped_unchanged == 3
+        assert mixed[3].report.report_datasets_skipped_unchanged == 2
+    assert mixed[3].client.definition_reads == []
 
 
-class _ParallelSemanticClient:
-    def __init__(self) -> None:
+class _SemanticClient:
+    def __init__(self, fail: bool = False) -> None:
         self._lock = threading.Lock()
+        self._fail = fail
         self.metric_threads: Set[str] = set()
+        self.metric_calls: List[str] = []
         self.consolidation_calls: List[str] = []
-        self._active = 0
-        self.max_concurrent = 0
-
-    def _enter(self) -> None:
-        with self._lock:
-            self.metric_threads.add(threading.current_thread().name)
-            self._active += 1
-            self.max_concurrent = max(self.max_concurrent, self._active)
-        try:
-            time.sleep(0.02)
-        finally:
-            with self._lock:
-                self._active -= 1
 
     def search_metrics(self, project_id: str) -> Iterator[MicroStrategyObject]:
         return iter(
@@ -1219,12 +846,18 @@ class _ParallelSemanticClient:
                 MicroStrategyObject.model_validate(
                     {"id": f"MET-{idx}", "name": f"Metric {idx}", "type": 4}
                 )
-                for idx in range(6)
+                for idx in range(100 if self._fail else 6)
             ]
         )
 
-    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
-        self._enter()
+    def get_metric_model(
+        self, project_id: str, metric_id: str, stop: object = None
+    ) -> Dict[str, object]:
+        with self._lock:
+            self.metric_threads.add(threading.current_thread().name)
+            self.metric_calls.append(metric_id)
+        if self._fail:
+            raise MicroStrategyAPIError("metric model unavailable")
         idx = int(metric_id.split("-")[1])
         if idx % 2 == 0:
             return {
@@ -1243,26 +876,21 @@ class _ParallelSemanticClient:
     def get_attribute_relationships(
         self, project_id: str, attribute_id: str
     ) -> Dict[str, object]:
-        self._enter()
-        if attribute_id == "ATTR-1":
-            return {
-                "children": [
-                    {
-                        "attribute": {"objectId": "ATTR-2", "name": "Store"},
-                        "relationshipTable": {
-                            "objectId": "LGT-STORE",
-                            "name": "STORE",
-                        },
-                        "relationshipType": "one_to_many",
-                    }
-                ]
-            }
-        return {"children": []}
+        if attribute_id != "ATTR-1":
+            return {"children": []}
+        return {
+            "children": [
+                {
+                    "attribute": {"objectId": "ATTR-2", "name": "Store"},
+                    "relationshipTable": {"objectId": "LGT-STORE", "name": "STORE"},
+                    "relationshipType": "one_to_many",
+                }
+            ]
+        }
 
     def get_consolidation_model(
         self, project_id: str, consolidation_id: str
     ) -> Dict[str, object]:
-        self._enter()
         with self._lock:
             self.consolidation_calls.append(consolidation_id)
         return {
@@ -1286,82 +914,82 @@ class _ParallelSemanticClient:
         }
 
 
-class _SemanticEmitResult(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
-
-    workunits: List[MetadataWorkUnit]
-    client: _ParallelSemanticClient
-
-
-def test_semantic_model_parallel_emit_matches_serial_and_coalesces_consolidations() -> (
-    None
-):
-    model_tables: List[Dict[str, object]] = [
-        {
-            "information": {"objectId": "LGT-SALES", "name": "SALES"},
-            "physicalTable": {
-                "tableName": "SALES",
-                "information": {"objectId": "TBL-SALES", "name": "SALES"},
-            },
-            "attributes": [
-                {"information": {"objectId": "ATTR-1", "name": "Region"}, "forms": []}
-            ],
-            "facts": [{"information": {"objectId": "FACT-1", "name": "Revenue"}}],
+_SEMANTIC_MODEL_TABLES: List[Dict[str, object]] = [
+    {
+        "information": {"objectId": "LGT-SALES", "name": "SALES"},
+        "physicalTable": {
+            "tableName": "SALES",
+            "information": {"objectId": "TBL-SALES", "name": "SALES"},
         },
-        {
-            "information": {"objectId": "LGT-STORE", "name": "STORE"},
-            "physicalTable": {
-                "tableName": "STORE",
-                "information": {"objectId": "TBL-STORE", "name": "STORE"},
-            },
-            "attributes": [
-                {"information": {"objectId": "ATTR-2", "name": "Store"}, "forms": []}
-            ],
-            "facts": [],
+        "attributes": [
+            {"information": {"objectId": "ATTR-1", "name": "Region"}, "forms": []}
+        ],
+        "facts": [{"information": {"objectId": "FACT-1", "name": "Revenue"}}],
+    },
+    {
+        "information": {"objectId": "LGT-STORE", "name": "STORE"},
+        "physicalTable": {
+            "tableName": "STORE",
+            "information": {"objectId": "TBL-STORE", "name": "STORE"},
         },
-    ]
+        "attributes": [
+            {"information": {"objectId": "ATTR-2", "name": "Store"}, "forms": []}
+        ],
+        "facts": [],
+    },
+]
 
-    def run_emit(max_workers: int) -> _SemanticEmitResult:
-        config = MicroStrategyConfig.model_validate(
-            {
-                "base_url": "https://mstr.example.com/MicroStrategyLibrary",
-                "emit_semantic_model_entities": True,
-                "max_workers": max_workers,
-            }
-        )
-        report = MicroStrategyReport()
-        client = _ParallelSemanticClient()
-        mapper = MicroStrategySemanticModelMapper(
-            config=config,
-            report=report,
-            client=client,  # type: ignore[arg-type]
-            lineage=MicroStrategyLineageExtractor(config, report, SpillConnection()),
-        )
-        wus = list(
-            mapper.emit(
-                project_id="proj-1",
-                project_name="Retail Project",
-                model_tables=model_tables,
-                table_context_resolver=lambda _: None,
-                project_container_key=_ProjectKey(
-                    platform="microstrategy",
-                    instance=None,
-                    env="PROD",
-                    project_id="proj-1",
-                ),
-            )
-        )
-        return _SemanticEmitResult(workunits=wus, client=client)
 
-    serial_emit = run_emit(max_workers=1)
-    parallel_emit = run_emit(max_workers=4)
+def _emit_semantic_model(
+    client: _SemanticClient, max_workers: int
+) -> List[MetadataWorkUnit]:
+    config = MicroStrategyConfig.model_validate(
+        {
+            "base_url": _BASE_URL,
+            "emit_semantic_model_entities": True,
+            "max_workers": max_workers,
+        }
+    )
+    report = MicroStrategyReport()
+    mapper = MicroStrategySemanticModelMapper(
+        config=config,
+        report=report,
+        client=client,  # type: ignore[arg-type]  # duck-typed fake
+        lineage=MicroStrategyLineageExtractor(config, report, SpillConnection()),
+    )
+    return list(
+        mapper.emit(
+            project_id="proj-1",
+            project_name="Retail Project",
+            model_tables=_SEMANTIC_MODEL_TABLES,
+            table_context_resolver=lambda _: None,
+            project_container_key=_ProjectKey(
+                platform="microstrategy", instance=None, env="PROD", project_id="proj-1"
+            ),
+        )
+    )
+
+
+def test_semantic_model_parallel_emit_matches_serial_and_resolves_once() -> None:
+    serial_client = _SemanticClient()
+    parallel_client = _SemanticClient()
+    serial = _emit_semantic_model(serial_client, max_workers=1)
+    parallel = _emit_semantic_model(parallel_client, max_workers=4)
 
     assert any(
         name.startswith(MSTR_IO_THREAD_NAME_PREFIX)
-        for name in parallel_emit.client.metric_threads
+        for name in parallel_client.metric_threads
     )
-    assert parallel_emit.client.max_concurrent >= 2
-    assert parallel_emit.client.consolidation_calls == ["CONSOL-SHARED"]
-    assert _workunit_signatures(parallel_emit.workunits) == _workunit_signatures(
-        serial_emit.workunits
+    assert parallel_client.consolidation_calls == ["CONSOL-SHARED"]
+    assert workunit_signatures(parallel) == workunit_signatures(serial)
+
+
+def test_metric_breaker_bounds_requests_past_the_limit() -> None:
+    client = _SemanticClient(fail=True)
+    _emit_semantic_model(client, max_workers=4)
+
+    assert (
+        MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+        <= len(client.metric_calls)
+        <= MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT + 4
     )

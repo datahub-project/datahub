@@ -9,6 +9,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
+    MSTR_MAX_WORKERS_LIMIT,
     MSTR_MODEL_API_MIN_TIMEOUT_SECONDS,
     MicroStrategyDatasetIdentity,
 )
@@ -112,13 +113,11 @@ class MicroStrategyConfig(
     max_workers: int = Field(
         default=4,
         ge=1,
+        le=MSTR_MAX_WORKERS_LIMIT,
         description=(
-            "Number of worker threads used for concurrent MicroStrategy HTTP "
-            "requests across candidate checks, dashboard/visualization/report "
-            "metadata fetches, SQL-view reads, and semantic-model metric "
-            "models. SQL lineage parsing and MetadataWorkUnit emission remain "
-            "single-threaded with bounded in-flight queues and deterministic "
-            "output order. Set to 1 for serial execution."
+            "How many requests the connector sends to the Intelligence Server "
+            "at once while reading dashboards, reports and metrics. Output is "
+            "the same for any value. Set to 1 to send one request at a time."
         ),
     )
 

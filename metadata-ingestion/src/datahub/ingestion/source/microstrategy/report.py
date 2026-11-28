@@ -4,7 +4,7 @@ from typing import Optional
 
 from typing_extensions import LiteralString
 
-from datahub.ingestion.api.source import StructuredLogCategory
+from datahub.ingestion.api.source import StructuredLogCategory, StructuredLogLevel
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_SQLGLOT_WARNINGS_TOP_K,
 )
@@ -207,15 +207,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         log: bool = True,
         log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
-        with self._lock:
-            super().warning(
-                message=message,
-                context=context,
-                title=title,
-                exc=exc,
-                log=log,
-                log_category=log_category,
-            )
+        self._report_log(
+            StructuredLogLevel.WARN, message, context, title, exc, log, log_category
+        )
 
     def failure(
         self,
@@ -226,15 +220,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         log: bool = True,
         log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
-        with self._lock:
-            super().failure(
-                message=message,
-                context=context,
-                title=title,
-                exc=exc,
-                log=log,
-                log_category=log_category,
-            )
+        self._report_log(
+            StructuredLogLevel.ERROR, message, context, title, exc, log, log_category
+        )
 
     def info(
         self,
@@ -245,13 +233,31 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         log: bool = True,
         log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
+        self._report_log(
+            StructuredLogLevel.INFO, message, context, title, exc, log, log_category
+        )
+
+    def _report_log(
+        self,
+        level: StructuredLogLevel,
+        message: LiteralString,
+        context: Optional[str],
+        title: Optional[LiteralString],
+        exc: Optional[BaseException],
+        log: bool,
+        log_category: Optional[StructuredLogCategory],
+    ) -> None:
         with self._lock:
-            super().info(
-                message=message,
-                context=context,
-                title=title,
-                exc=exc,
+            # stacklevel 2 skips this helper and the public wrapper, so the
+            # log line names the connector code that reported it.
+            self._structured_logs.report_log(
+                level,
+                message,
+                title,
+                context,
+                exc,
                 log=log,
+                stacklevel=2,
                 log_category=log_category,
             )
 
@@ -613,9 +619,11 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         with self._lock:
             self.metrics_skipped_after_model_failure += 1
 
-    def report_metric_presence_check_failure(self) -> None:
+    def report_metric_presence_check_failure(self) -> bool:
+        """Counts the failure; True for the run's first, so it is reported once."""
         with self._lock:
             self.metric_presence_check_failures += 1
+            return self.metric_presence_check_failures == 1
 
     def report_semantic_model_emitted(self) -> None:
         with self._lock:

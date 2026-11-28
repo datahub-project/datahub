@@ -36,19 +36,15 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_API_PROJECTS,
     MSTR_API_SEARCHES,
     MSTR_AUTH_TOKEN_HEADER,
-    MSTR_CONTENT_TYPE_JSON,
-    MSTR_HEADER_ACCEPT,
-    MSTR_HEADER_CONTENT_TYPE,
-    MSTR_HTTP_SCHEME_HTTP,
-    MSTR_HTTP_SCHEME_HTTPS,
+    MSTR_HTTP_CONNECTIONS_PER_WORKER,
     MSTR_LOGIN_MODE_GUEST,
     MSTR_LOGIN_MODE_STANDARD,
+    MSTR_MIN_HTTP_POOL_SIZE,
     MSTR_MS_INSTANCE_HEADER,
     MSTR_OBJECT_TYPE_DASHBOARD,
     MSTR_OBJECT_TYPE_METRIC,
     MSTR_OBJECT_TYPE_REPORT,
     MSTR_PROJECT_ID_HEADER,
-    MSTR_TEXT_ENCODING,
     MSTR_VISUALIZATION_RESULT_ROW_LIMIT,
 )
 from datahub.ingestion.source.microstrategy.models import (
@@ -110,11 +106,18 @@ class MicroStrategyAuthError(RuntimeError):
     to the project loop and abort the run."""
 
 
-def ensure_session_pool_size(session: requests.Session, min_size: int) -> None:
-    pool_size = max(1, min_size)
-    adapter = HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
-    session.mount(MSTR_HTTP_SCHEME_HTTPS, adapter)
-    session.mount(MSTR_HTTP_SCHEME_HTTP, adapter)
+class MicroStrategyRequestStopped(MicroStrategyAPIError):
+    """The caller asked for no further attempts (e.g. a circuit breaker
+    tripped) while this request was still retrying."""
+
+
+def http_pool_size(max_workers: int) -> int:
+    # The extra max_workers covers a worker's re-login or instance cleanup
+    # running while its pooled connections are checked out.
+    return (
+        max(MSTR_MIN_HTTP_POOL_SIZE, max_workers * MSTR_HTTP_CONNECTIONS_PER_WORKER)
+        + max_workers
+    )
 
 
 class MicroStrategyClient:
@@ -125,11 +128,14 @@ class MicroStrategyClient:
         self._auth_lock = threading.RLock()
         self._auth_dead = False
         self.session = requests.Session()
-        ensure_session_pool_size(self.session, max(16, config.max_workers * 2))
-        self.session.headers = CaseInsensitiveDict(
+        pool_size = http_pool_size(config.max_workers)
+        adapter = HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
+        self.session.headers.update(
             {
-                MSTR_HEADER_ACCEPT: MSTR_CONTENT_TYPE_JSON,
-                MSTR_HEADER_CONTENT_TYPE: MSTR_CONTENT_TYPE_JSON,
+                "Accept": "application/json",
+                "Content-Type": "application/json",
             }
         )
         if not config.verify_ssl:
@@ -405,13 +411,19 @@ class MicroStrategyClient:
             f"object dependencies object_id={object_id}",
         )
 
-    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
+    def get_metric_model(
+        self,
+        project_id: str,
+        metric_id: str,
+        stop: Optional[threading.Event] = None,
+    ) -> Dict[str, object]:
         """Raw model JSON; shape varies by version, parsed by the lineage helpers."""
         return self._get_json(
             f"/api/model/metrics/{metric_id}",
             project_id=project_id,
             params={"showExpressionAs": "tokens"},
             retry_statuses=_METRIC_MODEL_RETRYABLE_STATUS_CODES,
+            stop=stop,
         )
 
     def get_attribute_relationships(
@@ -969,6 +981,7 @@ class MicroStrategyClient:
         max_attempts: Optional[int] = None,
         headers: Optional[Dict[str, str]] = None,
         retry_statuses: Optional[Set[int]] = None,
+        stop: Optional[threading.Event] = None,
     ) -> Dict[str, Any]:
         response = self._request(
             method,
@@ -980,6 +993,7 @@ class MicroStrategyClient:
             max_attempts=max_attempts,
             retry_statuses=retry_statuses,
             headers=dict(headers) if headers else {},
+            stop=stop,
         )
         if not response.content:
             return {}
@@ -1008,11 +1022,7 @@ class MicroStrategyClient:
 
     def _session_auth_token(self) -> Optional[str]:
         raw_token = self.session.headers.get(MSTR_AUTH_TOKEN_HEADER)
-        return (
-            raw_token.decode(MSTR_TEXT_ENCODING)
-            if isinstance(raw_token, bytes)
-            else raw_token
-        )
+        return raw_token.decode("utf-8") if isinstance(raw_token, bytes) else raw_token
 
     def _raise_if_auth_dead(self, method: str, path: str) -> None:
         if self._auth_dead:
@@ -1032,6 +1042,7 @@ class MicroStrategyClient:
         expected_statuses: Optional[Set[int]] = None,
         *,
         headers: Optional[Dict[str, str]] = None,
+        stop: Optional[threading.Event] = None,
         **kwargs: Any,
     ) -> requests.Response:
         with self._auth_lock:
@@ -1051,6 +1062,7 @@ class MicroStrategyClient:
         reauth_attempted = False
         attempt = 0
         while attempt < attempts:
+            self._raise_if_stopped(stop, method, path)
             with self._auth_lock:
                 self._raise_if_auth_dead(method, path)
                 sent_token = self._session_auth_token()
@@ -1076,7 +1088,9 @@ class MicroStrategyClient:
                 # non-retryable 4xx responses fail fast.
                 last_error = error
                 if attempt < attempts - 1:
-                    time.sleep(min(2**attempt, _MAX_RETRY_DELAY_SECONDS))
+                    self._wait_before_retry(
+                        min(2**attempt, _MAX_RETRY_DELAY_SECONDS), stop, method, path
+                    )
                     attempt += 1
                     continue
                 self.report.report_api_error()
@@ -1101,7 +1115,9 @@ class MicroStrategyClient:
                 reauth_attempted = True
                 continue
             if response.status_code in retry_statuses and attempt < attempts - 1:
-                time.sleep(self._retry_delay(response, attempt))
+                self._wait_before_retry(
+                    self._retry_delay(response, attempt), stop, method, path
+                )
                 attempt += 1
                 continue
             try:
@@ -1129,6 +1145,11 @@ class MicroStrategyClient:
         """Re-login after a mid-run 401; a second 401 means auth is dead, so give up."""
         with self._auth_lock:
             self._raise_if_auth_dead(method, path)
+            current_token = self._session_auth_token()
+            if current_token and current_token != sent_token:
+                # Another worker re-logged in after this request was sent, so
+                # its 401 says nothing about the new token: replay with it.
+                return
             if reauth_attempted:
                 self._auth_dead = True
                 self.report.report_api_error()
@@ -1136,10 +1157,6 @@ class MicroStrategyClient:
                     "MicroStrategy rejected the request again immediately after "
                     f"a successful re-login; aborting: {method} {path}"
                 )
-            current_token = self._session_auth_token()
-            if current_token and current_token != sent_token:
-                # Another worker already refreshed the token while we waited.
-                return
             logger.info(
                 "MicroStrategy session was rejected (401) on %s %s; "
                 "re-authenticating and replaying the request",
@@ -1156,6 +1173,29 @@ class MicroStrategyClient:
                     f"{method} {path}: {error}"
                 ) from error
             self.report.report_session_reauthenticated()
+
+    @staticmethod
+    def _raise_if_stopped(
+        stop: Optional[threading.Event], method: str, path: str
+    ) -> None:
+        if stop is not None and stop.is_set():
+            raise MicroStrategyRequestStopped(
+                f"MicroStrategy request stopped by the caller: {method} {path}"
+            )
+
+    @classmethod
+    def _wait_before_retry(
+        cls,
+        delay: float,
+        stop: Optional[threading.Event],
+        method: str,
+        path: str,
+    ) -> None:
+        if stop is None:
+            time.sleep(delay)
+            return
+        stop.wait(delay)
+        cls._raise_if_stopped(stop, method, path)
 
     @staticmethod
     def _retry_delay(response: requests.Response, attempt: int) -> float:

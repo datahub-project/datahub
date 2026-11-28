@@ -419,7 +419,7 @@ class MicroStrategyChangeDetector:
         except MicroStrategyAuthError:
             raise
         except Exception as error:
-            self.report.change_check_failures += 1
+            self.report.report_change_check_failure()
             self.report.warning(
                 title="Unchanged-object check failed",
                 message=(

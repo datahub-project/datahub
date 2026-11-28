@@ -18,7 +18,7 @@ class SqlglotWarningFilter(logging.Filter):
         message = record.getMessage()
         for prefix in MSTR_SQLGLOT_SUPPRESSED_PREFIXES:
             if message.startswith(prefix):
-                self._report.sqlglot_warnings_suppressed[prefix] += 1
+                self._report.report_sqlglot_warning_suppressed(prefix)
                 return False
         return True
 
