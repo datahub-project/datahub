@@ -105,10 +105,6 @@ DIMENSION_TAG_URN = "urn:li:tag:Dimension"
 TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
 DERIVED_TAG_URN = "urn:li:tag:Derived"
 
-# per_report attaches usage to the report's dataset; otherwise only dashboards and charts.
-USAGE_TARGET_DASHBOARD = "dashboard"
-USAGE_TARGET_CHART = "chart"
-USAGE_TARGET_DATASET = "dataset"
 
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.
@@ -527,10 +523,18 @@ MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] =
 MSTR_MODEL_TABLE_FIELDS = "information,physicalTable,attributes,facts"
 # Requested only for a project with several warehouses.
 MSTR_MODEL_TABLE_DATASOURCE_FIELD = "primaryDataSource"
+MSTR_UNKNOWN_DATASOURCE_TYPE = "unknown"
 MSTR_DATASOURCE_MAPPING_HINT = (
     "Set datasource_platform_mapping, keyed by connection or datasource name, "
     "for datasources of a type the connector does not recognize."
 )
+
+
+# per_report attaches usage to the report's dataset; otherwise only dashboards and charts.
+class UsageTargetKind(StrEnum):
+    DASHBOARD = "dashboard"
+    CHART = "chart"
+    DATASET = "dataset"
 
 
 class MicroStrategyDatasetIdentity(StrEnum):

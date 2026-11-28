@@ -95,6 +95,16 @@ class MicroStrategyConfig(
         gt=0,
         description="HTTP request timeout in seconds.",
     )
+    model_api_timeout_seconds: int = Field(
+        default=120,
+        gt=0,
+        description=(
+            "HTTP timeout in seconds for the project-wide metric search and the "
+            "model tables API (`/api/model/tables`). Both answer slowly on large "
+            "projects, and losing either one skips every semantic-model metric "
+            "or the semantic model itself for that project."
+        ),
+    )
     max_retries: int = Field(
         default=3,
         ge=0,
@@ -124,12 +134,21 @@ class MicroStrategyConfig(
             "cache hits, peak memory) after this many dashboards."
         ),
     )
+    progress_log_interval_metrics: int = Field(
+        default=1000,
+        gt=0,
+        description=(
+            "Log a semantic-model progress line (metrics fetched and failed, "
+            "peak memory) after this many metrics."
+        ),
+    )
     progress_log_interval_seconds: int = Field(
         default=300,
         gt=0,
         description=(
-            "Also log the progress line when this many seconds have passed "
-            "since the last one, so slow dashboards never leave the log silent."
+            "Also log the dashboard and semantic-model progress lines when this "
+            "many seconds have passed since the last one, so slow dashboards or "
+            "metrics never leave the log silent."
         ),
     )
 
@@ -560,8 +579,10 @@ class MicroStrategyConfig(
             "cube) per project, filed under the report's own folder, with its "
             "schema from its own definition when `extract_reports` fetched "
             "one (else the first dashboard that embeds it), warehouse lineage "
-            "computed once, and every visualization and document that uses "
-            "the report linking to that single entity; with `extract_reports` "
+            "attached once a SQL view parses to upstream tables, and every "
+            "visualization (and, with `emit_document_dataset_edges`, every "
+            "document) that uses the report linking to that single entity; "
+            "with `extract_reports` "
             "the `Report` chart is not emitted and report usage statistics "
             "attach to the dataset. Switching schemes changes every dataset "
             "URN: with stateful ingestion the previous scheme's entities are "

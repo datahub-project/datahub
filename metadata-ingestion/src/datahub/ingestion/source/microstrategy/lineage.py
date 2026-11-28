@@ -747,8 +747,16 @@ class MicroStrategyLineageExtractor:
         return unique_inputs
 
 
+_PARSE_LABEL_PREFIX = "sql "
+_PARSE_LABEL_HASH_CHARS = 12
+
+
 def _parse_label(label: Optional[str], sql: str, statements: int) -> str:
-    name = label or "sql " + hashlib.sha256(sql.encode("utf-8")).hexdigest()[:12]
+    name = (
+        label
+        or _PARSE_LABEL_PREFIX
+        + (hashlib.sha256(sql.encode("utf-8")).hexdigest()[:_PARSE_LABEL_HASH_CHARS])
+    )
     return f"{name} ({statements} statements, {len(sql)} chars)"
 
 
@@ -827,21 +835,20 @@ def warehouse_context_from_datasources(
     mapping: DatasourcePlatformMapping = None,
 ) -> Optional[WarehouseLineageContext]:
     contexts = distinct_warehouse_contexts(datasources, env, mapping)
-    if len(contexts) == 1:
-        return next(iter(contexts))
-    return None
+    return next(iter(contexts)) if len(contexts) == 1 else None
 
 
 def distinct_warehouse_contexts(
     datasources: List[Datasource],
     env: str,
     mapping: DatasourcePlatformMapping = None,
-) -> Set[WarehouseLineageContext]:
-    resolved = (
+) -> Set[Optional[WarehouseLineageContext]]:
+    # None stays in: a datasource with no platform makes the project mixed,
+    # so its tables must not inherit the other datasource's platform.
+    return {
         warehouse_context_from_datasource(datasource, env, mapping)
         for datasource in datasources
-    )
-    return {context for context in resolved if context is not None}
+    }
 
 
 def datasource_for_model_table(
@@ -852,7 +859,7 @@ def datasource_for_model_table(
     reference = table.get(MSTR_MODEL_TABLE_DATASOURCE_FIELD)
     if not isinstance(reference, dict):
         return None
-    reference_id = reference.get("objectId") or reference.get("id")
+    reference_id = _object_id(reference)
     if reference_id:
         wanted = normalize_object_id(reference_id)
         by_id = [d for d in datasources if normalize_object_id(d.id) == wanted]

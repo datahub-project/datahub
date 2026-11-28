@@ -2,7 +2,19 @@ import builtins
 import json
 import logging
 import sys
-from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+)
 from unittest import mock
 
 import pytest
@@ -18,6 +30,7 @@ from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAuthError,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.constants import UsageTargetKind
 from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
     WarehouseLineageContext,
@@ -26,6 +39,8 @@ from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
     Datasource,
+    DatasourceConnection,
+    MetricEnrichment,
     MicroStrategyObject,
     ModelTablesResponse,
     PredefinedFolder,
@@ -38,6 +53,7 @@ from datahub.ingestion.source.microstrategy.source import (
     MicroStrategySource,
     _LazyProjectLineage,
     _report_dataset_key,
+    _ReportDatasetEntry,
 )
 from datahub.ingestion.source.microstrategy.spill_cache import object_cache_key
 from datahub.metadata.schema_classes import (
@@ -51,6 +67,7 @@ from datahub.metadata.schema_classes import (
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
     UpstreamLineageClass,
+    _Aspect,
 )
 from datahub.utilities.file_backed_collections import FileBackedDict
 
@@ -112,9 +129,13 @@ def test_unmapped_dataset_warehouse_does_not_borrow_project_context() -> None:
     ).datasets[0]
     project_context = WarehouseLineageContext(platform="snowflake", env="PROD")
 
-    assert source._dataset_warehouse_context(dataset, project_context) is None
     assert (
-        source._dataset_warehouse_context(_dashboard().datasets[0], project_context)
+        source._dataset_warehouse_context("project-1", dataset, project_context) is None
+    )
+    assert (
+        source._dataset_warehouse_context(
+            "project-1", _dashboard().datasets[0], project_context
+        )
         == project_context
     )
 
@@ -142,6 +163,7 @@ def test_attach_dataset_warehouse_upstreams_uses_dataset_source_warehouse() -> N
         ],
         dashboard,
         context=None,
+        project_id="project-1",
     )
 
     assert dashboard.datasets[0].warehouse_upstream_urns == [
@@ -162,6 +184,7 @@ def test_attach_dataset_warehouse_upstreams_skips_without_context() -> None:
         ],
         dashboard,
         context=None,
+        project_id="project-1",
     )
 
     assert dashboard.datasets[0].warehouse_upstream_urns == []
@@ -1301,8 +1324,6 @@ def test_model_tables_shared_between_lineage_and_semantic_model() -> None:
 
 
 class _FlakyModelTablesClient:
-    """Fails the first list_model_tables call, answers the rest."""
-
     def __init__(self) -> None:
         self.model_table_calls = 0
 
@@ -1317,7 +1338,6 @@ class _FlakyModelTablesClient:
 
 
 def test_semantic_model_retries_a_failed_model_tables_fetch() -> None:
-    # The first fetch is hours earlier; one failure used to drop the semantic model.
     source = _source({"emit_semantic_model_entities": True})
     client = _FlakyModelTablesClient()
     source.client = client  # type: ignore[assignment]
@@ -1511,7 +1531,7 @@ class _DatasetLookupClient:
         return {
             "result": {
                 "definition": {
-                    "datasets": [{"id": "ds-shared", "name": "Retail Sales Yesterday"}],
+                    "datasets": [{"id": "ds-shared", "name": "Daily Sales Report"}],
                     "chapters": [],
                 }
             }
@@ -1526,12 +1546,12 @@ class _DatasetLookupClient:
         return MicroStrategyObject.model_validate(
             {
                 "id": object_id,
-                "name": "Retail Sales Yesterday",
+                "name": "Daily Sales Report",
                 "type": "3",
                 "subtype": "768",
                 "ancestors": [
                     {"id": "f-1", "name": "Shared Reports"},
-                    {"id": "f-2", "name": "Store Retail Sales"},
+                    {"id": "f-2", "name": "Regional Sales"},
                 ],
             }
         )
@@ -1573,7 +1593,7 @@ def test_dataset_object_info_is_fetched_once_per_dataset_across_dossiers() -> No
     assert client.lookups == ["ds-shared"]
     assert source.report.dataset_object_lookups == 1
     own_folder = source.mapper.folder_key(
-        "project-1", "Shared Reports/Store Retail Sales"
+        "project-1", "Shared Reports/Regional Sales"
     ).as_urn()
     parents = _dataset_container_parents(workunits)
     assert len(parents) == 2
@@ -1648,7 +1668,7 @@ class _ReportDerivedClient(_DatasetLookupClient):
                 "datasets": [
                     {
                         "id": "ds-shared",
-                        "name": "Retail Sales Yesterday",
+                        "name": "Daily Sales Report",
                         "availableObjects": {
                             "metrics": [{"id": "M-NET", "name": "Net Sales Amt"}]
                         },
@@ -1711,7 +1731,7 @@ class _ReportDerivedClient(_DatasetLookupClient):
         return MicroStrategyObject.model_validate(
             {
                 "id": object_id,
-                "name": "Retail Sales Yesterday",
+                "name": "Daily Sales Report",
                 "type": "3",
                 "subtype": self.subtype,
             }
@@ -1727,7 +1747,7 @@ class _ReportDerivedClient(_DatasetLookupClient):
         if self.model_fails:
             raise MicroStrategyAPIError("404")
         return {
-            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "information": {"objectId": report_id, "name": "Daily Sales Report"},
             "dataSource": {
                 "dataTemplate": {
                     "units": [
@@ -1908,7 +1928,7 @@ class _ModelWithoutExpressionClient(_ReportDerivedClient):
     ) -> Dict[str, Any]:
         self.model_calls.append(report_id)
         return {
-            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "information": {"objectId": report_id, "name": "Daily Sales Report"},
             "dataSource": {
                 "dataTemplate": {
                     "units": [
@@ -1965,7 +1985,7 @@ class _ModelEmptyClient(_ReportDerivedClient):
     ) -> Dict[str, Any]:
         self.model_calls.append(report_id)
         return {
-            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "information": {"objectId": report_id, "name": "Daily Sales Report"},
             "sourceType": "normal",
             "dataSource": {
                 "dataTemplate": {
@@ -2024,7 +2044,7 @@ class _ModelEmbeddedClient(_ReportDerivedClient):
     ) -> Dict[str, Any]:
         self.model_calls.append(report_id)
         return {
-            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "information": {"objectId": report_id, "name": "Daily Sales Report"},
             "sourceType": "normal",
             "dataSource": {
                 "dataTemplate": {
@@ -2268,6 +2288,7 @@ def test_import_error_during_parse_is_not_a_parse_failure(
             [{"id": "ds-1", "sqlStatement": "select 1 from t"}],
             _warehouse_dashboard(),
             None,
+            project_id="project-1",
         )
     assert source.report.sql_parse_failure_count == 0
     assert list(source.report.sql_parse_failures) == []
@@ -2322,6 +2343,7 @@ def test_every_sql_view_failing_raises_one_loud_warning(
         ],
         _warehouse_dashboard(),
         None,
+        project_id="project-1",
     )
     assert source.report.sql_views_parsed == 2
     assert source.report.sql_parse_failure_count == 2
@@ -2350,6 +2372,7 @@ def test_all_failed_warning_counts_reused_failed_sql_views(
             [{"id": "ds-1", "sqlStatement": "select a from DB.S.T"}],
             _warehouse_dashboard(),
             None,
+            project_id="project-1",
         )
     assert source.report.sql_views_parsed == 2
     assert source.report.sql_parse_failure_count == 1
@@ -2376,6 +2399,7 @@ def test_all_failed_warning_is_silent_when_any_sql_view_parses(
         ],
         _warehouse_dashboard(),
         None,
+        project_id="project-1",
     )
     assert source.report.sql_views_parsed == 2
     assert source.report.sql_parse_failure_count == 1
@@ -3664,7 +3688,6 @@ def test_project_caches_are_dropped_at_the_project_boundary() -> None:
     source._reset_project_caches()
     _run_dashboards(source)
 
-    # Caches are per project.
     assert client.report_instances_created == ["rep-1", "rep-1"]
     assert source.report.sql_parses_executed == 2
     assert source._metric_model_cache.entry_count == 0
@@ -4030,13 +4053,13 @@ class _SharedReportClient:
     def _dataset(self) -> Dict[str, Any]:
         dataset: Dict[str, Any] = {
             "id": "ds-shared",
-            "name": "Retail Sales Yesterday",
+            "name": "Daily Sales Report",
             "description": "Embedded copy",
             "availableObjects": {
                 "metrics": [
                     {
                         "id": "M-NET",
-                        "name": "Net Sales Retail Amt",
+                        "name": "Net Sales Amt",
                         "dataType": "double",
                     }
                 ]
@@ -4103,13 +4126,13 @@ class _SharedReportClient:
         return MicroStrategyObject.model_validate(
             {
                 "id": object_id,
-                "name": "Retail Sales Yesterday",
+                "name": "Daily Sales Report",
                 "type": "3",
                 "subtype": "768",
                 "owner": {"username": "report_owner"},
                 "ancestors": [
                     {"id": "f-1", "name": "Shared Reports"},
-                    {"id": "f-2", "name": "Salon Retail Sales"},
+                    {"id": "f-2", "name": "Regional Sales"},
                 ],
             }
         )
@@ -4144,7 +4167,7 @@ class _SharedReportClient:
                         "metrics": [
                             {
                                 "id": "M-NET",
-                                "name": "Net Sales Retail Amt",
+                                "name": "Net Sales Amt",
                                 "dataType": "double",
                             },
                             {
@@ -4198,8 +4221,13 @@ def _per_report_source(
     return _source(config)
 
 
-def _aspects_by_urn(workunits: List[Any], aspect_type: Any) -> Dict[str, Any]:
-    found: Dict[str, Any] = {}
+_AspectT = TypeVar("_AspectT", bound=_Aspect)
+
+
+def _aspects_by_urn(
+    workunits: List[MetadataWorkUnit], aspect_type: Type[_AspectT]
+) -> Dict[str, _AspectT]:
+    found: Dict[str, _AspectT] = {}
     for workunit in workunits:
         aspect = workunit.get_aspect_of_type(aspect_type)
         if aspect is not None:
@@ -4224,7 +4252,7 @@ def test_per_report_shared_report_is_one_dataset_linked_from_both_dashboards() -
     assert list(properties) == [_SHARED_URN]
     shared = properties[_SHARED_URN]
     assert shared.qualifiedName == "project-1.ds-shared"
-    assert shared.name == "Retail Sales Yesterday"
+    assert shared.name == "Daily Sales Report"
     assert shared.customProperties["microstrategyReportId"] == "ds-shared"
     assert shared.customProperties["microstrategyDashboardCount"] == "2"
     assert shared.customProperties["microstrategyDashboardIds"] == "dash-1,doc-1"
@@ -4242,7 +4270,7 @@ def test_per_report_shared_report_is_one_dataset_linked_from_both_dashboards() -
     dossier = dashboards[source.mapper.dashboard_urn("project-1", "dash-1")]
     assert dossier.datasetEdges is None
     own_folder = source.mapper.folder_key(
-        "project-1", "Shared Reports/Salon Retail Sales"
+        "project-1", "Shared Reports/Regional Sales"
     ).as_urn()
     assert _dataset_container_parents(workunits) == {_SHARED_URN: own_folder}
     ownership = _aspects_by_urn(workunits, OwnershipClass)
@@ -4297,7 +4325,7 @@ def test_per_report_report_pass_upgrades_schema_and_emits_no_chart() -> None:
     schemas = _aspects_by_urn(workunits, SchemaMetadataClass)
     assert [f.fieldPath for f in schemas[_SHARED_URN].fields] == [
         "Gross Sales Amt",
-        "Net Sales Retail Amt",
+        "Net Sales Amt",
     ]
     shared = properties[_SHARED_URN]
     assert shared.description == "The report's own description"
@@ -4494,6 +4522,40 @@ def test_per_report_report_pass_drops_field_lineage_for_replaced_fields() -> Non
     assert set(downstream_paths) <= schema_paths
 
 
+class _UnmappedWarehouseClient(_SharedReportClient):
+    def _dataset(self) -> Dict[str, Any]:
+        dataset = super()._dataset()
+        dataset["sourceWarehouse"] = {
+            "id": "legacy-1",
+            "name": "Legacy DB",
+            "database": {"type": "unknown_db"},
+        }
+        return dataset
+
+
+def test_per_report_report_pass_does_not_borrow_project_warehouse_for_unmapped() -> (
+    None
+):
+    source = _per_report_source(
+        {
+            "extract_warehouse_lineage": True,
+            "extract_report_sql_lineage": True,
+            "extract_source_warehouses": True,
+            "extract_reports": True,
+            "extract_independent_reports": True,
+        }
+    )
+    client = _UnmappedWarehouseClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(source._process_project(_PROJECT))
+
+    # The project's warehouse may be another platform, so its URNs would be wrong.
+    assert client.report_instances == ["report-solo"]
+    lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
+    assert _SHARED_URN not in lineage
+
+
 class _EmptyReportDefinitionClient(_SharedReportClient):
     def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
         return {"result": {"definition": {"description": "Empty definition"}}}
@@ -4516,7 +4578,7 @@ def test_per_report_report_pass_without_a_schema_keeps_dossier_lineage() -> None
 
     assert client.report_instances == ["report-solo"]
     schema = _aspects_by_urn(workunits, SchemaMetadataClass)[_SHARED_URN]
-    assert [field.fieldPath for field in schema.fields] == ["Net Sales Retail Amt"]
+    assert [field.fieldPath for field in schema.fields] == ["Net Sales Amt"]
     lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
     assert [upstream.dataset for upstream in lineage[_SHARED_URN].upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
@@ -4588,6 +4650,102 @@ def test_per_report_document_reuses_lineage_a_dossier_settled() -> None:
     assert source.report.document_dataset_sql_views_reused == 1
     lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
     assert len(lineage[_SHARED_URN].upstreams) == 1
+
+
+class _FailingReportSearchClient(_SharedReportClient):
+    def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        yield self.get_object_info(project_id, "ds-shared", 3)
+        raise RuntimeError("report search failed")
+
+
+def test_per_report_report_pass_failure_still_emits_registered_datasets() -> None:
+    source = _per_report_source(
+        {"extract_reports": True, "extract_independent_reports": True}
+    )
+    source.client = _FailingReportSearchClient()  # type: ignore[assignment]
+    workunits: List[MetadataWorkUnit] = []
+
+    with pytest.raises(RuntimeError, match="report search failed"):
+        for workunit in source._process_project(_PROJECT):
+            workunits.append(workunit)
+
+    # Charts and dashboards already point at these datasets.
+    assert list(_aspects_by_urn(workunits, DatasetPropertiesClass)) == [_SHARED_URN]
+    assert source.report.report_datasets_emitted == 1
+
+
+def test_per_report_dashboard_pass_auth_failure_still_emits_registered_datasets() -> (
+    None
+):
+    source = _per_report_source()
+    client = _SharedReportClient()
+    source.client = client  # type: ignore[assignment]
+    first_dossier = client.get_dossier_definition
+
+    def fail_second_dashboard(project_id: str, dossier_id: str) -> Dict[str, Any]:
+        if dossier_id == "doc-1":
+            raise MicroStrategyAuthError("session lost")
+        return first_dossier(project_id, dossier_id)
+
+    client.get_dossier_definition = fail_second_dashboard  # type: ignore[method-assign]
+    workunits: List[MetadataWorkUnit] = []
+
+    with pytest.raises(MicroStrategyAuthError):
+        for workunit in source._process_project(_PROJECT):
+            workunits.append(workunit)
+
+    assert list(_aspects_by_urn(workunits, DatasetPropertiesClass)) == [_SHARED_URN]
+
+
+_SOLO_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.report-solo,PROD)"
+)
+
+
+def test_per_report_one_bad_dataset_does_not_drop_the_rest_or_register_usage() -> None:
+    source = _per_report_source(
+        {
+            "extract_reports": True,
+            "extract_independent_reports": True,
+            "extract_usage_statistics": True,
+        }
+    )
+    source.client = _SharedReportClient()  # type: ignore[assignment]
+
+    real = source.mapper.gen_report_dataset_workunits
+
+    def fail_for_shared(
+        project_id: str, dataset: DatasetObject, *args: Any, **kwargs: Any
+    ) -> Iterable[MetadataWorkUnit]:
+        if dataset.id == "ds-shared":
+            raise RuntimeError("bad report")
+        return real(project_id, dataset, *args, **kwargs)
+
+    with mock.patch.object(
+        source.mapper, "gen_report_dataset_workunits", side_effect=fail_for_shared
+    ):
+        workunits = list(source._process_project(_PROJECT))
+
+    assert list(_aspects_by_urn(workunits, DatasetPropertiesClass)) == [_SOLO_URN]
+    assert [warning.title for warning in source.report.warnings] == [
+        "Failed to Emit Report Dataset"
+    ]
+    assert "DS-SHARED" not in source._usage_targets
+    assert source._usage_targets["REPORT-SOLO"].urn == _SOLO_URN
+    assert source._usage_targets["REPORT-SOLO"].kind == UsageTargetKind.DATASET
+
+
+def test_reset_project_caches_clears_the_report_dataset_registry() -> None:
+    source = _per_report_source()
+    source._report_datasets[_report_dataset_key("project-1", "ds-shared")] = (
+        _ReportDatasetEntry(
+            dataset=DatasetObject.model_validate({"id": "ds-shared", "name": "R"})
+        )
+    )
+
+    source._reset_project_caches()
+
+    assert source._report_datasets == {}
 
 
 def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
@@ -4870,27 +5028,10 @@ def test_project_failure_still_closes_every_spill_cache() -> None:
     }
 
 
-def _mixed_warehouse_datasources() -> List[Datasource]:
-    return [
-        Datasource.model_validate(
-            {
-                "id": "AAA111",
-                "name": "oracle_ds",
-                "database": {"type": "oracle", "name": "ORA_DB", "schema": "ORA"},
-            }
-        ),
-        Datasource.model_validate(
-            {
-                "id": "BBB222",
-                "name": "snowflake_ds",
-                "database": {"type": "snow_flake", "name": "SNOW_DB", "schema": "SNOW"},
-            }
-        ),
-    ]
-
-
-def _model_table(name: str, fact_id: str, datasource_id: Optional[str]) -> dict:
-    table: dict = {
+def _model_table(
+    name: str, fact_id: str, datasource_id: Optional[str]
+) -> Dict[str, object]:
+    table: Dict[str, object] = {
         "information": {"objectId": f"logical-{fact_id}", "name": name},
         "physicalTable": {"tableName": name},
         "facts": [
@@ -4904,7 +5045,7 @@ def _model_table(name: str, fact_id: str, datasource_id: Optional[str]) -> dict:
 
 
 class _ModelTablesClient:
-    def __init__(self, tables: List[dict]) -> None:
+    def __init__(self, tables: List[Dict[str, object]]) -> None:
         self.tables = tables
         self.fields_requested: List[str] = []
 
@@ -4913,7 +5054,9 @@ class _ModelTablesClient:
         return ModelTablesResponse(tables=self.tables, total=len(self.tables))
 
 
-def test_mixed_warehouse_project_resolves_model_lineage_per_table() -> None:
+def test_mixed_warehouse_project_resolves_model_lineage_per_table(
+    mixed_datasources: List[Datasource],
+) -> None:
     source = _source({"extract_model_lineage": True})
     client = _ModelTablesClient(
         [
@@ -4924,9 +5067,7 @@ def test_mixed_warehouse_project_resolves_model_lineage_per_table() -> None:
         ]
     )
     source.client = client  # type: ignore[assignment]
-    lineage_context = _LazyProjectLineage(
-        source, "project-1", _mixed_warehouse_datasources()
-    )
+    lineage_context = _LazyProjectLineage(source, "project-1", mixed_datasources)
 
     index = lineage_context.model_lineage_index
 
@@ -4946,12 +5087,12 @@ def test_mixed_warehouse_project_resolves_model_lineage_per_table() -> None:
     assert source.report.model_tables_without_warehouse_context == 2
 
 
-def test_mixed_warehouse_project_warning_names_platforms_and_mapping() -> None:
+def test_mixed_warehouse_project_warning_names_platforms_and_mapping(
+    mixed_datasources: List[Datasource],
+) -> None:
     source = _source({"extract_model_lineage": True})
     source.client = _ModelTablesClient([])  # type: ignore[assignment]
-    lineage_context = _LazyProjectLineage(
-        source, "project-1", _mixed_warehouse_datasources()
-    )
+    lineage_context = _LazyProjectLineage(source, "project-1", mixed_datasources)
 
     assert lineage_context.warehouse_context is None
 
@@ -4965,13 +5106,70 @@ def test_mixed_warehouse_project_warning_names_platforms_and_mapping() -> None:
     assert "datasource_platform_mapping" in str(warning.message)
 
 
-def test_single_warehouse_project_keeps_project_level_context() -> None:
+@pytest.mark.parametrize(
+    "datasources, expected_title",
+    [
+        (
+            [{"id": "CCC333", "name": "legacy_ds", "database": {"type": "unknown_db"}}],
+            "MicroStrategy Project Has No Supported Source Warehouse",
+        ),
+        ([], "MicroStrategy Model Lineage Unavailable"),
+    ],
+)
+def test_project_without_warehouse_context_warns_once(
+    datasources: List[Dict[str, object]], expected_title: str
+) -> None:
+    source = _source({"extract_model_lineage": True})
+    source.client = _ModelTablesClient([])  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(
+        source,
+        "project-1",
+        [Datasource.model_validate(datasource) for datasource in datasources],
+    )
+
+    assert lineage_context.model_lineage_index is None
+    assert [str(w.title) for w in source.report.warnings] == [expected_title]
+
+
+def test_unmapped_second_datasource_resolves_model_lineage_per_table(
+    mixed_datasources: List[Datasource],
+) -> None:
+    source = _source({"extract_model_lineage": True})
+    client = _ModelTablesClient(
+        [
+            _model_table("ora_orders", "fact-1", "AAA111"),
+            _model_table("legacy_orders", "fact-2", "CCC333"),
+            _model_table("unlinked_orders", "fact-3", None),
+        ]
+    )
+    source.client = client  # type: ignore[assignment]
+    unmapped = Datasource.model_validate(
+        {"id": "CCC333", "name": "legacy_ds", "database": {"type": "unknown_db"}}
+    )
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", [mixed_datasources[0], unmapped]
+    )
+
+    index = lineage_context.model_lineage_index
+
+    assert index is not None
+    assert lineage_context.warehouse_context is None
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,"
+        "ora_db.ora.ora_orders,PROD),amount)"
+    ]
+    assert index.fact_field_urns(["fact-2", "fact-3"]) == []
+    assert source.report.model_tables_resolved_by_datasource == 1
+    assert source.report.model_tables_without_warehouse_context == 2
+
+
+def test_single_warehouse_project_keeps_project_level_context(
+    mixed_datasources: List[Datasource],
+) -> None:
     source = _source({"extract_model_lineage": True})
     client = _ModelTablesClient([_model_table("orders", "fact-1", None)])
     source.client = client  # type: ignore[assignment]
-    lineage_context = _LazyProjectLineage(
-        source, "project-1", _mixed_warehouse_datasources()[:1]
-    )
+    lineage_context = _LazyProjectLineage(source, "project-1", mixed_datasources[:1])
 
     index = lineage_context.model_lineage_index
 
@@ -4983,3 +5181,183 @@ def test_single_warehouse_project_keeps_project_level_context() -> None:
         "ora_db.ora.orders,PROD),amount)"
     ]
     assert source.report.model_tables_without_warehouse_context == 0
+
+
+class _ConnectionModelTablesClient(_ModelTablesClient):
+    def __init__(
+        self, tables: List[Dict[str, object]], fail_connection: bool = False
+    ) -> None:
+        super().__init__(tables)
+        self.fail_connection = fail_connection
+        self.connection_requests: List[str] = []
+
+    def get_datasource_connection(
+        self, connection_id: str, project_id: Optional[str] = None
+    ) -> DatasourceConnection:
+        self.connection_requests.append(connection_id)
+        if self.fail_connection:
+            raise MicroStrategyAPIError("connection lookup failed")
+        return DatasourceConnection.model_validate(
+            {
+                "id": connection_id,
+                "name": "oracle_connection",
+                "database": {"type": "oracle"},
+                "connectionString": "SCHEMA=CONN_SCHEMA",
+            }
+        )
+
+
+def _connected_oracle_warehouse(schema: Optional[str] = None) -> Dict[str, object]:
+    database: Dict[str, object] = {"type": "oracle", "name": "ORA_DB"}
+    if schema:
+        database["schema"] = schema
+    return {
+        "id": "AAA111",
+        "name": "oracle_ds",
+        "database": database,
+        "connection": {"id": "conn-ora", "name": "oracle_connection"},
+    }
+
+
+def _connected_oracle_datasources(
+    mixed_datasources: List[Datasource], schema: Optional[str] = None
+) -> List[Datasource]:
+    return [
+        Datasource.model_validate(_connected_oracle_warehouse(schema)),
+        *mixed_datasources[1:],
+    ]
+
+
+def _dashboard_with_fact_metric(schema: Optional[str] = None) -> DashboardDefinition:
+    dashboard = _dashboard(_connected_oracle_warehouse(schema))
+    dashboard.datasets[0].metric_enrichments["METRIC-1"] = MetricEnrichment(
+        fact_ids=["fact-1"]
+    )
+    return dashboard
+
+
+def test_dataset_sql_view_lineage_uses_connection_enriched_model_urns(
+    mixed_datasources: List[Datasource],
+) -> None:
+    source = _source({"extract_model_lineage": True})
+    client = _ConnectionModelTablesClient([_model_table("orders", "fact-1", "AAA111")])
+    source.client = client  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", _connected_oracle_datasources(mixed_datasources)
+    )
+    index = lineage_context.model_lineage_index
+    assert index is not None
+    model_table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,ora_db.conn_schema.orders,PROD)"
+    )
+    assert index.fact_field_urns(["fact-1"]) == [
+        f"urn:li:schemaField:({model_table_urn},amount)"
+    ]
+    dashboard = _dashboard_with_fact_metric()
+
+    source._attach_dataset_warehouse_upstreams(
+        [{"id": "ds-1", "sqlStatement": "select amount from orders"}],
+        dashboard,
+        lineage_context.warehouse_context,
+        project_id="project-1",
+    )
+    dataset = dashboard.datasets[0]
+    source.mapper.attach_dataset_model_lineage(dataset, index)
+
+    assert dataset.warehouse_upstream_urns == [model_table_urn]
+    assert f"urn:li:schemaField:({model_table_urn},amount)" in [
+        urn for urns in dataset.field_warehouse_upstreams.values() for urn in urns
+    ]
+    assert client.connection_requests == ["conn-ora"]
+
+
+class _ReportSqlModelTablesClient(_ConnectionModelTablesClient):
+    def create_report_instance(self, project_id: str, report_id: str) -> str:
+        return f"ri-{report_id}"
+
+    def get_report_sql_view(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> SqlView:
+        return SqlView(sql_statement="select amount from orders")
+
+    def delete_report_instance(self, *args: Any) -> bool:
+        return True
+
+
+def test_report_dataset_in_mixed_project_uses_its_own_warehouse_context(
+    mixed_datasources: List[Datasource],
+) -> None:
+    source = _per_report_source(
+        {
+            "extract_lineage": True,
+            "extract_report_sql_lineage": True,
+            "extract_model_lineage": True,
+            "extract_report_definitions": False,
+        }
+    )
+    source.client = _ReportSqlModelTablesClient(  # type: ignore[assignment]
+        [_model_table("orders", "fact-1", "AAA111")]
+    )
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", _connected_oracle_datasources(mixed_datasources)
+    )
+    dashboard_object = MicroStrategyObject.model_validate(
+        {"id": "dash-1", "name": "Sales Dashboard", "type": "55"}
+    )
+    dataset = source._bind_report_dataset(
+        "project-1", dashboard_object, _dashboard_with_fact_metric().datasets[0]
+    )
+    report_object = MicroStrategyObject.model_validate(
+        {"id": "ds-1", "name": "Sales Cube", "type": "3"}
+    )
+
+    source._process_report_as_dataset("project-1", report_object, lineage_context)
+
+    assert lineage_context.warehouse_context is None
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,ora_db.conn_schema.orders,PROD)"
+    )
+    assert dataset.warehouse_upstream_urns == [table_urn]
+    assert f"urn:li:schemaField:({table_urn},amount)" in [
+        urn for urns in dataset.field_warehouse_upstreams.values() for urn in urns
+    ]
+
+
+def test_failed_connection_lookup_keeps_unenriched_context_and_is_cached(
+    mixed_datasources: List[Datasource],
+) -> None:
+    source = _source({"extract_model_lineage": True})
+    client = _ConnectionModelTablesClient(
+        [_model_table("orders", "fact-1", "AAA111")], fail_connection=True
+    )
+    source.client = client  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", _connected_oracle_datasources(mixed_datasources, "ORA")
+    )
+    index = lineage_context.model_lineage_index
+    assert index is not None
+    dashboard = _dashboard_with_fact_metric(schema="ORA")
+
+    source._attach_dataset_warehouse_upstreams(
+        [{"id": "ds-1", "sqlStatement": "select amount from orders"}],
+        dashboard,
+        lineage_context.warehouse_context,
+        project_id="project-1",
+    )
+    dataset = dashboard.datasets[0]
+    source.mapper.attach_dataset_model_lineage(dataset, index)
+
+    table_urn = "urn:li:dataset:(urn:li:dataPlatform:oracle,ora_db.ora.orders,PROD)"
+    field_urn = f"urn:li:schemaField:({table_urn},amount)"
+    assert dataset.warehouse_upstream_urns == [table_urn]
+    assert index.fact_field_urns(["fact-1"]) == [field_urn]
+    assert field_urn in [
+        urn for urns in dataset.field_warehouse_upstreams.values() for urn in urns
+    ]
+    assert client.connection_requests == ["conn-ora"]
+    assert source.report.warehouse_lineage_api_failures == 1
+    assert [
+        w
+        for w in source.report.warnings
+        if w.title == "Failed to Fetch Datasource Connection"
+    ]
