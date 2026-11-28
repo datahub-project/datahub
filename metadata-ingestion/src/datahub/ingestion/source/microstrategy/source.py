@@ -196,6 +196,11 @@ _MODEL_DOCUMENT_PROJECT_WIDE_STATUSES = frozenset({403, 501})
 # Model tables answers that a second request will not change.
 _MODEL_TABLES_NON_RETRYABLE_STATUSES = frozenset({403, 501})
 
+# Enrichment failures a later read can recover from. Other 4xx and 500 repeat
+# on every read (the Modeling service answers 500 for a metric in another
+# project), so they must not keep an unchanged object from being skipped.
+_TRANSIENT_FAILURE_STATUSES = frozenset({429, 502, 503, 504})
+
 
 class _PredefinedFoldersUnavailable(Exception):
     """Predefined folders could not be resolved, so the project's dashboards
@@ -252,6 +257,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         self._model_document_unavailable_projects: Set[str] = set()
         self._model_tables_non_retryable_projects: Set[str] = set()
+        # object_cache_key of enrichment reads that failed transiently.
+        self._transient_failure_keys: Set[str] = set()
         self._project_datasources: List[Datasource] = []
         # The Modeling document of the dashboard in flight, so binding and
         # document derived metrics share one GET. Dashboards are processed one
@@ -1999,6 +2006,18 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             linked_report_ids.update(
                 report_id.upper() for report_id in report_dependency_ids
             )
+        if self._failed_transiently(
+            project_id,
+            [
+                dashboard.id,
+                *(
+                    object_id
+                    for dataset in dashboard.datasets
+                    for object_id in _enrichment_ids(dataset)
+                ),
+            ],
+        ):
+            _mark_incomplete(checkpoint)
         extra_chart_urns = self._dashboard_report_chart_urns(project, dashboard)
         usage_target = RecordedUsageTarget(
             object_id=dashboard_object.id,
@@ -2090,6 +2109,19 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if dataset_object is None:
                 self.report.report_dataset_object_lookup_failure()
         return dataset_object
+
+    def _note_failure(
+        self, project_id: str, object_id: str, *errors: Optional[Exception]
+    ) -> None:
+        if any(_is_transient_failure(error) for error in errors):
+            self._transient_failure_keys.add(object_cache_key(project_id, object_id))
+
+    def _failed_transiently(self, project_id: str, object_ids: Iterable[str]) -> bool:
+        # Membership checks only: other workers add keys concurrently.
+        return any(
+            object_cache_key(project_id, object_id) in self._transient_failure_keys
+            for object_id in object_ids
+        )
 
     def _enrich_report_derived_metrics(
         self,
@@ -2223,6 +2255,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         result: Optional[List[ReportDerivedMetric]] = definitions
         if model_error is not None and v2_error is not None:
             result = None
+            self._note_failure(project_id, report_id, model_error, v2_error)
             self.report.report_report_definition_failure()
             self.report.warning(
                 title="Report definition unavailable for derived metrics",
@@ -2631,6 +2664,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
             if definitions:
                 self.mapper.attach_report_derived_metrics(entry.dataset, definitions)
+        if self._failed_transiently(project_id, _enrichment_ids(entry.dataset)):
+            complete = False
         if not complete:
             entry.incomplete = True
 
@@ -2776,6 +2811,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         except MicroStrategyAuthError:
             raise
         except Exception as error:
+            self._note_failure(project_id, dashboard_id, error)
             self.report.report_document_model_definition_failure()
             # Missing privilege or an unsupported endpoint applies to the whole
             # project; other failures (the endpoint answers 500 for some
@@ -3074,6 +3110,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         try:
             model = self.client.get_metric_model(project_id, metric_id)
         except MicroStrategyAPIError as error:
+            self._note_failure(project_id, metric_id, error)
             self.report.report_metric_expression_api_failure()
             self.report.report_failed_metric_model(
                 f"{metric_id} (HTTP {getattr(error, 'status_code', None)})"
@@ -4180,6 +4217,24 @@ def _recording_urns(
 def _mark_incomplete(checkpoint: Optional[CheckpointDraft]) -> None:
     if checkpoint is not None:
         checkpoint.mark_incomplete()
+
+
+def _enrichment_ids(dataset: DatasetObject) -> List[str]:
+    # The dataset's report definition and its metrics' models.
+    return [
+        dataset.id,
+        *(
+            str(metric.get("id") or "")
+            for metric in _metric_items(dataset.available_objects)
+        ),
+    ]
+
+
+def _is_transient_failure(error: Optional[Exception]) -> bool:
+    # A timeout or dropped connection reaches callers without a status code.
+    return isinstance(error, MicroStrategyAPIError) and (
+        error.status_code is None or error.status_code in _TRANSIENT_FAILURE_STATUSES
+    )
 
 
 def _checkpoint_urns(workunit: MetadataWorkUnit) -> Iterable[str]:
