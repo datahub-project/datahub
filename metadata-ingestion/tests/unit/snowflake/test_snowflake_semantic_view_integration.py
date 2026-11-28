@@ -397,8 +397,11 @@ class TestSemanticViewLineageGeneration:
             "order_total": {},
             "customer_id": {},
         }
-        aggregator._schema_resolver = MagicMock()
-        aggregator._schema_resolver._resolve_schema_info.return_value = schema_info
+        aggregator.schema_resolver = MagicMock()
+        aggregator.schema_resolver.resolve_urn.side_effect = lambda urn: (
+            urn,
+            schema_info,
+        )
 
         gen = SnowflakeSchemaGenerator(
             config=config,
@@ -597,8 +600,8 @@ class TestSemanticViewOrchestrationFlow:
         )
 
         aggregator = MagicMock()
-        aggregator._schema_resolver = MagicMock()
-        aggregator._schema_resolver._resolve_schema_info.return_value = {}
+        aggregator.schema_resolver = MagicMock()
+        aggregator.schema_resolver.resolve_urn.side_effect = lambda urn: (urn, None)
 
         gen = SnowflakeSchemaGenerator(
             config=config,
@@ -907,8 +910,8 @@ class TestSemanticViewOrchestrationFlowLegacyDatasetMode:
         )
 
         aggregator = MagicMock()
-        aggregator._schema_resolver = MagicMock()
-        aggregator._schema_resolver._resolve_schema_info.return_value = {}
+        aggregator.schema_resolver = MagicMock()
+        aggregator.schema_resolver.resolve_urn.side_effect = lambda urn: (urn, None)
 
         gen = SnowflakeSchemaGenerator(
             config=config,
