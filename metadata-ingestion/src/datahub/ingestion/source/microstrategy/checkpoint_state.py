@@ -161,6 +161,11 @@ class MicroStrategyStateHandler(
     ) -> Optional[ObjectCheckpoint]:
         return self._previous(_reports, project_id, report_id)
 
+    def previous_report_dataset(
+        self, project_id: str, report_id: str
+    ) -> Optional[ReportDatasetCheckpoint]:
+        return self._previous(_report_datasets, project_id, report_id)
+
     def previous_dashboards(self, project_id: str) -> Dict[str, ObjectCheckpoint]:
         return self._previous_in_project(_dashboards, project_id)
 

@@ -129,6 +129,8 @@ FINGERPRINT_EXCLUDED_CONFIG_FIELDS: FrozenSet[str] = frozenset(
 
 class MicroStrategyReadOutcome(StrEnum):
     COMPLETE = "complete"
+    # Read, but an API failure left part of its lineage out.
+    INCOMPLETE = "incomplete"
     # Not read; its last read still stands.
     FAILED = "failed"
 

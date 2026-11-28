@@ -42,6 +42,7 @@ from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401
 
 PROJECT_ID = "project-1"
 DASH_1_URN = "urn:li:dashboard:(microstrategy,prod.project-1.dash-1)"
+REPORT_CHART_URN = "urn:li:chart:(microstrategy,prod.project-1.report-1)"
 REPORT_DATASET_2_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.ds-2,PROD)"
 )
@@ -193,6 +194,8 @@ class _MicroStrategy:
             )
         self.warehouses: List[Dict[str, object]] = [WAREHOUSE]
         self.failing_definitions: Set[str] = set()
+        self.failing_visualizations: Set[str] = set()
+        self.failing_sql_views = False
         self.definition_reads: List[str] = []
         self.dossier_instances = 0
         self.report_definition_reads: List[str] = []
@@ -331,6 +334,8 @@ class _MicroStrategy:
         chapter_key: str,
         visualization_key: str,
     ) -> Dict[str, object]:
+        if dossier_id in self.failing_visualizations:
+            raise MicroStrategyAPIError("visualization unavailable")
         if visualization_key == "viz-2":
             return COMPOUND_GRID
         return {"key": visualization_key}
@@ -353,6 +358,8 @@ class _MicroStrategy:
         instance_id: str,
     ) -> SqlView:
         self.report_sql_views += 1
+        if self.failing_sql_views:
+            raise MicroStrategyAPIError("sql view unavailable")
         return SqlView(sqlStatement="select revenue from SALES_DB.ORDERS.ORDERS")
 
     def _request(
@@ -655,6 +662,55 @@ def test_failed_dashboard_keeps_its_last_read(
     assert _soft_deleted_urns(second.workunits) == set()
     assert _stale_urns(second.source) == _stale_urns(first.source)
     first.server.failing_definitions.clear()
+    first.server.definition_reads.clear()
+
+    _run(mock_datahub_graph, first.server, "run-3")
+
+    assert first.server.definition_reads == ["dash-2"]
+
+
+@pytest.mark.parametrize("dataset_identity", ["per_dashboard", "per_report"])
+def test_report_read_without_its_sql_view_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    dataset_identity: str,
+) -> None:
+    server = _MicroStrategy()
+    server.failing_sql_views = True
+    datahub = _DataHub(mock_datahub_graph)
+    first = _run(
+        mock_datahub_graph, server, "run-1", dataset_identity=dataset_identity
+    )
+    datahub.write(first.workunits)
+    assert REPORT_CHART_URN not in _stamped_urns(first.workunits)
+    server.failing_sql_views = False
+    server.report_definition_reads.clear()
+    server.report_sql_views = 0
+
+    second = _run(
+        mock_datahub_graph, server, "run-2", dataset_identity=dataset_identity
+    )
+
+    assert server.report_definition_reads == ["report-1"]
+    assert server.report_sql_views == 1
+    assert second.source.report.reports_skipped_unchanged == 0
+    assert _soft_deleted_urns(second.workunits) == set()
+
+
+def test_dashboard_read_without_visualization_details_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    first = _first_run(mock_datahub_graph)
+    first.server.bump("dash-2")
+    first.server.failing_visualizations.add("dash-2")
+
+    second = _run(mock_datahub_graph, first.server, "run-2")
+    first.datahub.write(second.workunits)
+
+    assert first.server.definition_reads == ["dash-2"]
+    assert _stamped_urns(second.workunits) == []
+    assert _soft_deleted_urns(second.workunits) == set()
+    assert _stale_urns(second.source) == _stale_urns(first.source)
+    first.server.failing_visualizations.clear()
     first.server.definition_reads.clear()
 
     _run(mock_datahub_graph, first.server, "run-3")
