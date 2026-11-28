@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter.emit_mode import EmitMode
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -381,7 +382,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 cache.close()
             self.client.close()
 
-    def _spill_caches(self) -> List[SpillCache]:
+    def _spill_caches(self) -> List[Closeable]:
         return [
             self._metric_model_cache,
             self._report_object_cache,

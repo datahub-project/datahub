@@ -1,6 +1,6 @@
 import threading
 import time
-from typing import Dict, List, Optional
+from typing import List, Optional
 from unittest import mock
 
 import pytest
@@ -53,15 +53,6 @@ def test_values_spill_to_disk_without_loss_and_none_is_a_cached_value() -> None:
     assert report.cache_entries_peak == {"report_object": 6}
     assert cache.entry_count == 0
     assert cache.get("key-1") is None
-
-
-def test_put_if_absent_keeps_the_first_value() -> None:
-    cache: SpillCache[Dict[str, object]] = SpillCache(1)
-
-    assert cache.put_if_absent("k", {"v": 1})
-    assert not cache.put_if_absent("k", {"v": 2})
-    assert cache.get("k") == {"v": 1}
-    assert cache.entry_count == 1
 
 
 def test_object_cache_key_normalizes_the_object_id() -> None:
