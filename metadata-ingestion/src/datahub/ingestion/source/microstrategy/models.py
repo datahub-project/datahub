@@ -418,6 +418,23 @@ class DatasetObject(MicroStrategyBaseModel):
     # attached best-effort to the dataset; first match wins.
     column_groups_by_object_id: Dict[str, str] = Field(default_factory=dict)
 
+    @classmethod
+    def from_available_objects(
+        cls,
+        object_id: str,
+        name: str,
+        description: Optional[str],
+        available_objects: MicroStrategyDict,
+    ) -> "DatasetObject":
+        return cls.model_validate(
+            {
+                "id": object_id,
+                "name": name,
+                "description": description,
+                "availableObjects": available_objects,
+            }
+        )
+
     def normalized_object_ids(self) -> Set[str]:
         """Catalog object ids normalized for cross-API comparison."""
         return {normalize_object_id(object_id) for object_id in self.object_ids}

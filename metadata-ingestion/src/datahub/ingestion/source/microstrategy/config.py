@@ -10,6 +10,7 @@ from datahub.configuration.source_common import (
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
     MSTR_MODEL_API_MIN_TIMEOUT_SECONDS,
+    MicroStrategyDatasetIdentity,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -522,6 +523,15 @@ class MicroStrategyConfig(
             "column header is clicked."
         ),
     )
+    dataset_identity: MicroStrategyDatasetIdentity = Field(
+        default=MicroStrategyDatasetIdentity.PER_DASHBOARD,
+        description=(
+            "What one dataset entity represents. `per_dashboard` keys each dataset by the "
+            "dossier or document that embeds it. `per_report` keys one dataset per report "
+            "per project. Switching changes every dataset URN, so with stateful ingestion "
+            "the previous entities are soft-deleted on the next run."
+        ),
+    )
     datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
         default_factory=dict,
         description=(
@@ -586,6 +596,23 @@ class MicroStrategyConfig(
                 "emitted through the dashboard warehouse lineage path."
             )
         return self
+
+    @model_validator(mode="after")
+    def _per_report_requires_a_dataset_source(self) -> "MicroStrategyConfig":
+        has_dataset_source = (
+            self.extract_dashboards and self.extract_cubes
+        ) or self.extract_reports
+        if self.per_report and not has_dataset_source:
+            raise ValueError(
+                "dataset_identity: per_report requires extract_reports, or both "
+                "extract_dashboards and extract_cubes: without them no dataset "
+                "is emitted."
+            )
+        return self
+
+    @property
+    def per_report(self) -> bool:
+        return self.dataset_identity == MicroStrategyDatasetIdentity.PER_REPORT
 
     def resolve_model_api_timeout_seconds(self) -> int:
         # Metric search and /api/model/tables are slow on large projects, so a

@@ -3,6 +3,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
+    Callable,
     Dict,
     Iterable,
     Iterator,
@@ -12,8 +13,11 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    TypeVar,
     Union,
 )
+
+from typing_extensions import assert_never
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -29,18 +33,33 @@ from datahub.ingestion.source.microstrategy.constants import (
     DERIVED_TAG_URN,
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
+    MSTR_AVAILABLE_OBJECTS_ATTRIBUTES,
+    MSTR_AVAILABLE_OBJECTS_METRICS,
     MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES,
     MSTR_CUBE_SUBTYPES,
     MSTR_DEFINITION_ENDPOINT_MODEL,
     MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_DOT_COLLAPSE_RE,
     MSTR_OBJECT_TIMESTAMP_FORMATS,
+    MSTR_PROPERTY_DASHBOARD_COUNT,
+    MSTR_PROPERTY_DASHBOARD_ID,
+    MSTR_PROPERTY_DASHBOARD_IDS,
+    MSTR_PROPERTY_DATASET_ID,
+    MSTR_PROPERTY_MODEL_LINEAGE_FIELD_COUNT,
+    MSTR_PROPERTY_MODEL_LINEAGE_UPSTREAM_DATASET_COUNT,
+    MSTR_PROPERTY_MODEL_LINEAGE_UPSTREAM_FIELD_COUNT,
+    MSTR_PROPERTY_PROJECT_ID,
+    MSTR_PROPERTY_REPORT_HAS_FILTER,
+    MSTR_PROPERTY_REPORT_ID,
+    MSTR_PROPERTY_REPORT_PROMPT_COUNT,
+    MSTR_PROPERTY_REPORT_SOURCE_ID,
+    MSTR_PROPERTY_REPORT_SOURCE_NAME,
     MSTR_STRUCTURED_PROPERTY_CHAPTER,
     MSTR_STRUCTURED_PROPERTY_PAGE,
     MSTR_STRUCTURED_PROPERTY_PAGE_POSITION,
     MSTR_WHITESPACE_RE,
     TEMPORAL_TAG_URN,
-    USAGE_TARGET_DASHBOARD,
+    UsageTargetKind,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     ColumnSetBinding,
@@ -85,6 +104,8 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    DatasetUsageStatisticsClass,
+    DatasetUserUsageCountsClass,
     EdgeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
@@ -124,6 +145,8 @@ from datahub.metadata.urns import (
 )
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.urns.error import InvalidUrnError
+
+_UserCounts = TypeVar("_UserCounts")
 
 
 @dataclass
@@ -351,6 +374,25 @@ class MicroStrategyMapper:
     def dataset_field_paths(self, dataset: DatasetObject) -> List[str]:
         return [spec.field_path for spec in _iter_dataset_fields(dataset)]
 
+    def merge_dataset_fields(
+        self, primary: DatasetObject, secondary: DatasetObject
+    ) -> Dict[str, object]:
+        """Primary's available objects plus each secondary field whose path
+        primary lacks, so every path emitted from secondary keeps resolving."""
+        merged: Dict[str, object] = {
+            key: list(value) if isinstance(value, list) else value
+            for key, value in primary.available_objects.items()
+        }
+        known_paths = set(self.dataset_field_paths(primary))
+        for spec in _iter_dataset_fields(secondary):
+            if spec.kind == "derived_metric" or spec.field_path in known_paths:
+                continue
+            known_paths.add(spec.field_path)
+            category = _FIELD_KIND_CATEGORIES[spec.kind]
+            items = merged.get(category)
+            merged[category] = [*(items if isinstance(items, list) else []), spec.item]
+        return merged
+
     def gen_project_container(
         self,
         project: Project,
@@ -464,7 +506,7 @@ class MicroStrategyMapper:
     def dataset_external_url(
         self,
         project_id: str,
-        parent_id: str,
+        parent_id: Optional[str],
         dataset: DatasetObject,
         dataset_object: Optional[MicroStrategyObject],
     ) -> str:
@@ -472,8 +514,11 @@ class MicroStrategyMapper:
         Library renders dossiers, documents and reports by id, but has no viewer
         for intelligent/super cubes: a cube URL would land on an error page, so
         cubes (and datasets whose object info was unavailable) keep linking to
-        the parent dossier/report that embeds them."""
-        parent_url = f"{self.config.base_url}/app/{project_id}/{parent_id}"
+        the parent dossier/report that embeds them, or to the project when no
+        parent is known (a per-report dataset no dashboard uses)."""
+        parent_url = f"{self.config.base_url}/app/{project_id}"
+        if parent_id:
+            parent_url = f"{parent_url}/{parent_id}"
         if dataset_object is None or _is_cube_object(dataset_object):
             return parent_url
         return f"{self.config.base_url}/app/{project_id}/{dataset.id}"
@@ -515,8 +560,10 @@ class MicroStrategyMapper:
         if dataset_object is not None:
             custom_properties.update(self._dashboard_object_properties(dataset_object))
         yield from self._gen_dataset_entity_workunits(
-            project_id=project_id,
-            parent_id=dashboard.id,
+            dataset_urn=self.lineage.dataset_urn(project_id, dashboard.id, dataset),
+            qualified_name=self.lineage.dataset_qualified_name(
+                project_id, dashboard.id, dataset
+            ),
             dataset=dataset,
             parent_key=parent_key,
             custom_properties=custom_properties,
@@ -543,8 +590,10 @@ class MicroStrategyMapper:
         if dataset_object is not None:
             custom_properties.update(self._dashboard_object_properties(dataset_object))
         yield from self._gen_dataset_entity_workunits(
-            project_id=project_id,
-            parent_id=report_object.id,
+            dataset_urn=self.lineage.dataset_urn(project_id, report_object.id, dataset),
+            qualified_name=self.lineage.dataset_qualified_name(
+                project_id, report_object.id, dataset
+            ),
             dataset=dataset,
             parent_key=parent_key,
             custom_properties=custom_properties,
@@ -555,10 +604,47 @@ class MicroStrategyMapper:
             sub_type=self.dataset_sub_type(dataset_object),
         )
 
-    def _gen_dataset_entity_workunits(
+    def gen_report_dataset_workunits(
         self,
         project_id: str,
-        parent_id: str,
+        dataset: DatasetObject,
+        parent_key: ProjectKey,
+        dataset_object: Optional[MicroStrategyObject],
+        dashboard_ids: Sequence[str],
+        report_definition: Optional[ReportDefinition] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        first_dashboard_id = dashboard_ids[0] if dashboard_ids else None
+        custom_properties = self._report_dataset_custom_properties(
+            project_id=project_id,
+            dataset=dataset,
+            dashboard_ids=dashboard_ids,
+            report_definition=report_definition,
+        )
+        if dataset_object is not None:
+            custom_properties.update(self._dashboard_object_properties(dataset_object))
+        dataset_urn = self.lineage.report_dataset_urn(project_id, dataset)
+        yield from self._gen_dataset_entity_workunits(
+            dataset_urn=dataset_urn,
+            qualified_name=self.lineage.report_dataset_qualified_name(
+                project_id, dataset
+            ),
+            dataset=dataset,
+            parent_key=parent_key,
+            custom_properties=custom_properties,
+            include_coarse_lineage=self._report_dataset_lineage_enabled(),
+            external_url=self.dataset_external_url(
+                project_id, first_dashboard_id, dataset, dataset_object
+            ),
+            sub_type=self.dataset_sub_type(dataset_object),
+        )
+        # No `Report` chart carries the report's owner under per_report.
+        if self.config.ingest_owner and dataset_object and dataset_object.owner:
+            yield self._ownership_workunit(dataset_urn, dataset_object.owner)
+
+    def _gen_dataset_entity_workunits(
+        self,
+        dataset_urn: str,
+        qualified_name: str,
         dataset: DatasetObject,
         parent_key: ProjectKey,
         custom_properties: Dict[str, str],
@@ -567,7 +653,6 @@ class MicroStrategyMapper:
         sub_type: str,
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_dataset_scanned()
-        dataset_urn = self.lineage.dataset_urn(project_id, parent_id, dataset)
 
         yield self._platform_instance_workunit(dataset_urn)
         yield MetadataChangeProposalWrapper(
@@ -575,7 +660,7 @@ class MicroStrategyMapper:
             aspect=DatasetPropertiesClass(
                 name=dataset.name,
                 description=dataset.description,
-                qualifiedName=f"{project_id}.{parent_id}.{dataset.id}".lower(),
+                qualifiedName=qualified_name,
                 externalUrl=external_url,
                 customProperties=custom_properties,
             ),
@@ -826,8 +911,8 @@ class MicroStrategyMapper:
             + list(extra_chart_urns)
         )
         custom_properties = {
-            "microstrategyProjectId": project_id,
-            "microstrategyDashboardId": dashboard.id,
+            MSTR_PROPERTY_PROJECT_ID: project_id,
+            MSTR_PROPERTY_DASHBOARD_ID: dashboard.id,
             "datasetCount": str(len(dashboard.datasets)),
             "visualizationCount": str(len(dashboard.visualizations)),
         }
@@ -1315,44 +1400,60 @@ class MicroStrategyMapper:
 
     def gen_usage_workunits(
         self,
-        entity_kind: str,
+        entity_kind: UsageTargetKind,
         entity_urn: str,
         bucket: UsageBucket,
     ) -> Iterable[MetadataWorkUnit]:
-        """Daily usage bucket -> Dashboard/Chart usage statistics aspect."""
+        """Daily usage bucket -> Dashboard/Chart/Dataset usage statistics aspect."""
         granularity = TimeWindowSizeClass(unit=CalendarIntervalClass.DAY, multiple=1)
-        sorted_user_counts = sorted(bucket.user_counts.items())
-        aspect: Union[DashboardUsageStatisticsClass, ChartUsageStatisticsClass]
-        if entity_kind == USAGE_TARGET_DASHBOARD:
+        timestamp_ms = bucket.bucket_start_ms
+        unique_user_count = len(bucket.user_counts) or None
+        aspect: Union[
+            DashboardUsageStatisticsClass,
+            ChartUsageStatisticsClass,
+            DatasetUsageStatisticsClass,
+        ]
+        if entity_kind == UsageTargetKind.DATASET:
+            # Executions are not SQL queries, so totalSqlQueries stays unset.
+            aspect = DatasetUsageStatisticsClass(
+                timestampMillis=timestamp_ms,
+                eventGranularity=granularity,
+                uniqueUserCount=unique_user_count,
+                userCounts=_user_usage_counts(
+                    bucket,
+                    lambda user, count: DatasetUserUsageCountsClass(
+                        user=user, count=count
+                    ),
+                ),
+            )
+        elif entity_kind == UsageTargetKind.DASHBOARD:
             aspect = DashboardUsageStatisticsClass(
-                timestampMillis=bucket.bucket_start_ms,
+                timestampMillis=timestamp_ms,
                 eventGranularity=granularity,
                 viewsCount=bucket.view_count,
-                uniqueUserCount=len(bucket.user_counts) or None,
-                userCounts=[
-                    DashboardUserUsageCountsClass(
-                        user=builder.make_user_urn(user),
-                        viewsCount=count,
-                    )
-                    for user, count in sorted_user_counts
-                ]
-                or None,
+                uniqueUserCount=unique_user_count,
+                userCounts=_user_usage_counts(
+                    bucket,
+                    lambda user, count: DashboardUserUsageCountsClass(
+                        user=user, viewsCount=count
+                    ),
+                ),
+            )
+        elif entity_kind == UsageTargetKind.CHART:
+            aspect = ChartUsageStatisticsClass(
+                timestampMillis=timestamp_ms,
+                eventGranularity=granularity,
+                viewsCount=bucket.view_count,
+                uniqueUserCount=unique_user_count,
+                userCounts=_user_usage_counts(
+                    bucket,
+                    lambda user, count: ChartUserUsageCountsClass(
+                        user=user, viewsCount=count
+                    ),
+                ),
             )
         else:
-            aspect = ChartUsageStatisticsClass(
-                timestampMillis=bucket.bucket_start_ms,
-                eventGranularity=granularity,
-                viewsCount=bucket.view_count,
-                uniqueUserCount=len(bucket.user_counts) or None,
-                userCounts=[
-                    ChartUserUsageCountsClass(
-                        user=builder.make_user_urn(user),
-                        viewsCount=count,
-                    )
-                    for user, count in sorted_user_counts
-                ]
-                or None,
-            )
+            assert_never(entity_kind)
         self.report.report_usage_bucket_emitted()
         yield MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
@@ -1551,38 +1652,66 @@ class MicroStrategyMapper:
         dataset: DatasetObject,
     ) -> Dict[str, str]:
         properties = {
-            "microstrategyProjectId": project_id,
-            "microstrategyDashboardId": dashboard.id,
-            "microstrategyDatasetId": dataset.id,
+            MSTR_PROPERTY_PROJECT_ID: project_id,
+            MSTR_PROPERTY_DASHBOARD_ID: dashboard.id,
+            MSTR_PROPERTY_DATASET_ID: dataset.id,
         }
-        properties.update(_dataset_semantic_count_properties(dataset))
         # Deliberately the FULL SQL-derived table set (audit trail), even when
         # the emitted upstreamLineage aspect is restricted to field-evidenced
         # tables.
-        if self.config.extract_warehouse_lineage and dataset.warehouse_upstream_urns:
+        properties.update(
+            self._dataset_lineage_properties(
+                dataset, self.config.extract_warehouse_lineage
+            )
+        )
+        return properties
+
+    def _report_dataset_custom_properties(
+        self,
+        project_id: str,
+        dataset: DatasetObject,
+        dashboard_ids: Sequence[str],
+        report_definition: Optional[ReportDefinition],
+    ) -> Dict[str, str]:
+        properties = {
+            MSTR_PROPERTY_PROJECT_ID: project_id,
+            MSTR_PROPERTY_REPORT_ID: dataset.id,
+            MSTR_PROPERTY_DASHBOARD_COUNT: str(len(dashboard_ids)),
+        }
+        if dashboard_ids:
+            properties[MSTR_PROPERTY_DASHBOARD_IDS] = ",".join(dashboard_ids)
+        if report_definition is not None:
+            properties.update(_report_definition_properties(report_definition))
+            if report_definition.source_id:
+                properties[MSTR_PROPERTY_REPORT_SOURCE_ID] = report_definition.source_id
+            if report_definition.source_name:
+                properties[MSTR_PROPERTY_REPORT_SOURCE_NAME] = (
+                    report_definition.source_name
+                )
+        properties.update(
+            self._dataset_lineage_properties(
+                dataset, self._report_dataset_lineage_enabled()
+            )
+        )
+        return properties
+
+    def _dataset_lineage_properties(
+        self, dataset: DatasetObject, include_warehouse_upstreams: bool
+    ) -> Dict[str, str]:
+        properties = _dataset_semantic_count_properties(dataset)
+        if include_warehouse_upstreams and dataset.warehouse_upstream_urns:
             properties.update(
                 _warehouse_upstream_properties(dataset.warehouse_upstream_urns)
             )
-        if dataset.field_warehouse_upstreams:
-            upstream_field_urns = {
-                field_urn
-                for upstreams in dataset.field_warehouse_upstreams.values()
-                for field_urn in upstreams
-            }
-            upstream_dataset_urns = _upstream_dataset_urns(
-                dataset.field_warehouse_upstreams
-            )
-            properties["microstrategyModelLineageFieldCount"] = str(
-                len(dataset.field_warehouse_upstreams)
-            )
-            properties["microstrategyModelLineageUpstreamFieldCount"] = str(
-                len(upstream_field_urns)
-            )
-            properties["microstrategyModelLineageUpstreamDatasetCount"] = str(
-                len(upstream_dataset_urns)
-            )
+        properties.update(_model_lineage_properties(dataset))
         properties.update(self._source_warehouse_properties(dataset.source_warehouse))
         return properties
+
+    def _report_dataset_lineage_enabled(self) -> bool:
+        return (
+            self.config.extract_warehouse_lineage
+            or self.config.extract_report_sql_lineage
+        )
 
     def _report_source_dataset_custom_properties(
         self,
@@ -1591,9 +1720,9 @@ class MicroStrategyMapper:
         dataset: DatasetObject,
     ) -> Dict[str, str]:
         properties = {
-            "microstrategyProjectId": project_id,
-            "microstrategyReportId": report_object.id,
-            "microstrategyReportSourceId": dataset.id,
+            MSTR_PROPERTY_PROJECT_ID: project_id,
+            MSTR_PROPERTY_REPORT_ID: report_object.id,
+            MSTR_PROPERTY_REPORT_SOURCE_ID: dataset.id,
         }
         properties.update(_dataset_semantic_count_properties(dataset))
         if self.config.extract_report_sql_lineage and dataset.warehouse_upstream_urns:
@@ -1611,26 +1740,17 @@ class MicroStrategyMapper:
         source_dataset: Optional[DatasetObject],
     ) -> Dict[str, str]:
         properties: Dict[str, str] = {
-            "microstrategyProjectId": project_id,
-            "microstrategyReportId": report_object.id,
+            MSTR_PROPERTY_PROJECT_ID: project_id,
+            MSTR_PROPERTY_REPORT_ID: report_object.id,
         }
         properties.update(self._dashboard_object_properties(report_object))
         if report_definition:
-            properties.update(
-                {
-                    "microstrategyReportPromptCount": str(
-                        report_definition.prompt_count
-                    ),
-                    "microstrategyReportHasFilter": str(
-                        report_definition.has_filter
-                    ).lower(),
-                }
-            )
+            properties.update(_report_definition_properties(report_definition))
         if source_dataset:
             properties.update(
                 {
-                    "microstrategyReportSourceId": source_dataset.id,
-                    "microstrategyReportSourceName": source_dataset.name,
+                    MSTR_PROPERTY_REPORT_SOURCE_ID: source_dataset.id,
+                    MSTR_PROPERTY_REPORT_SOURCE_NAME: source_dataset.name,
                 }
             )
             properties.update(_dataset_semantic_count_properties(source_dataset))
@@ -2199,6 +2319,13 @@ class _FieldSpec:
     derived: Optional[DerivedMetricSpec] = None
 
 
+# Derived metrics are not available objects; they live on the dataset itself.
+_FIELD_KIND_CATEGORIES: Dict[Literal["metric", "attribute"], str] = {
+    "metric": MSTR_AVAILABLE_OBJECTS_METRICS,
+    "attribute": MSTR_AVAILABLE_OBJECTS_ATTRIBUTES,
+}
+
+
 # Strategy's Datasets panel lists a report's objects in two alphabetical runs:
 # the attributes first, then the metrics, with report-derived metrics sorted in
 # among the catalog ones under the name the report displays.
@@ -2214,7 +2341,7 @@ def _iter_dataset_fields(dataset: DatasetObject) -> Iterator[_FieldSpec]:
     seen: Set[str] = set()
     available_objects = dataset.available_objects or {}
 
-    for metric in _coerce_list(available_objects.get("metrics")):
+    for metric in _coerce_list(available_objects.get(MSTR_AVAILABLE_OBJECTS_METRICS)):
         if not isinstance(metric, dict):
             continue
         yield _FieldSpec(
@@ -2223,7 +2350,9 @@ def _iter_dataset_fields(dataset: DatasetObject) -> Iterator[_FieldSpec]:
             item=metric,
         )
 
-    for attribute in _coerce_list(available_objects.get("attributes")):
+    for attribute in _coerce_list(
+        available_objects.get(MSTR_AVAILABLE_OBJECTS_ATTRIBUTES)
+    ):
         if not isinstance(attribute, dict):
             continue
         forms = _coerce_list(attribute.get("forms"))
@@ -2285,12 +2414,14 @@ def _dataset_semantic_count_properties(dataset: DatasetObject) -> Dict[str, str]
     available_objects = dataset.available_objects or {}
     metrics = [
         item
-        for item in _coerce_list(available_objects.get("metrics"))
+        for item in _coerce_list(available_objects.get(MSTR_AVAILABLE_OBJECTS_METRICS))
         if isinstance(item, dict)
     ]
     attributes = [
         item
-        for item in _coerce_list(available_objects.get("attributes"))
+        for item in _coerce_list(
+            available_objects.get(MSTR_AVAILABLE_OBJECTS_ATTRIBUTES)
+        )
         if isinstance(item, dict)
     ]
     attribute_form_count = 0
@@ -2313,6 +2444,44 @@ def _dataset_semantic_count_properties(dataset: DatasetObject) -> Dict[str, str]
         ),
         "microstrategyObjectIdCount": str(len(dataset.object_ids)),
     }
+
+
+def _report_definition_properties(
+    report_definition: ReportDefinition,
+) -> Dict[str, str]:
+    return {
+        MSTR_PROPERTY_REPORT_PROMPT_COUNT: str(report_definition.prompt_count),
+        MSTR_PROPERTY_REPORT_HAS_FILTER: str(report_definition.has_filter).lower(),
+    }
+
+
+def _model_lineage_properties(dataset: DatasetObject) -> Dict[str, str]:
+    if not dataset.field_warehouse_upstreams:
+        return {}
+    upstream_field_urns = {
+        field_urn
+        for upstreams in dataset.field_warehouse_upstreams.values()
+        for field_urn in upstreams
+    }
+    upstream_dataset_urns = _upstream_dataset_urns(dataset.field_warehouse_upstreams)
+    return {
+        MSTR_PROPERTY_MODEL_LINEAGE_FIELD_COUNT: str(
+            len(dataset.field_warehouse_upstreams)
+        ),
+        MSTR_PROPERTY_MODEL_LINEAGE_UPSTREAM_FIELD_COUNT: str(len(upstream_field_urns)),
+        MSTR_PROPERTY_MODEL_LINEAGE_UPSTREAM_DATASET_COUNT: str(
+            len(upstream_dataset_urns)
+        ),
+    }
+
+
+def _user_usage_counts(
+    bucket: UsageBucket, build: Callable[[str, int], _UserCounts]
+) -> Optional[List[_UserCounts]]:
+    return [
+        build(builder.make_user_urn(user), count)
+        for user, count in sorted(bucket.user_counts.items())
+    ] or None
 
 
 def _warehouse_upstream_properties(upstream_urns: Sequence[str]) -> Dict[str, str]:

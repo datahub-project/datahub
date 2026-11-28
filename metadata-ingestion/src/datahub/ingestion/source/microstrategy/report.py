@@ -148,6 +148,8 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     document_dataset_sql_view_failures: int = 0
     document_datasets_skipped_not_grid_report: int = 0
     reports_skipped_not_dashboard_linked: int = 0
+    reports_deduplicated: int = 0
+    report_datasets_emitted: int = 0
     failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)
     metrics_kept_after_model_failure: int = 0
     metrics_skipped_after_model_failure: int = 0
@@ -421,6 +423,12 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_reports_skipped_not_dashboard_linked(self) -> None:
         self.reports_skipped_not_dashboard_linked += 1
+
+    def report_report_deduplicated(self) -> None:
+        self.reports_deduplicated += 1
+
+    def report_report_dataset_emitted(self) -> None:
+        self.report_datasets_emitted += 1
 
     def report_failed_metric_model(self, metric_id: str) -> None:
         self.failed_metric_model_ids.append(metric_id)

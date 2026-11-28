@@ -106,10 +106,26 @@ DIMENSION_TAG_URN = "urn:li:tag:Dimension"
 TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
 DERIVED_TAG_URN = "urn:li:tag:Derived"
 
-# Entity kinds usage buckets can attach to (dashboards get
-# DashboardUsageStatistics, report charts get ChartUsageStatistics).
-USAGE_TARGET_DASHBOARD = "dashboard"
-USAGE_TARGET_CHART = "chart"
+MSTR_PROPERTY_PROJECT_ID = "microstrategyProjectId"
+MSTR_PROPERTY_DASHBOARD_ID = "microstrategyDashboardId"
+MSTR_PROPERTY_DATASET_ID = "microstrategyDatasetId"
+MSTR_PROPERTY_REPORT_ID = "microstrategyReportId"
+MSTR_PROPERTY_DASHBOARD_COUNT = "microstrategyDashboardCount"
+MSTR_PROPERTY_DASHBOARD_IDS = "microstrategyDashboardIds"
+MSTR_PROPERTY_REPORT_PROMPT_COUNT = "microstrategyReportPromptCount"
+MSTR_PROPERTY_REPORT_HAS_FILTER = "microstrategyReportHasFilter"
+MSTR_PROPERTY_REPORT_SOURCE_ID = "microstrategyReportSourceId"
+MSTR_PROPERTY_REPORT_SOURCE_NAME = "microstrategyReportSourceName"
+MSTR_PROPERTY_MODEL_LINEAGE_FIELD_COUNT = "microstrategyModelLineageFieldCount"
+MSTR_PROPERTY_MODEL_LINEAGE_UPSTREAM_FIELD_COUNT = (
+    "microstrategyModelLineageUpstreamFieldCount"
+)
+MSTR_PROPERTY_MODEL_LINEAGE_UPSTREAM_DATASET_COUNT = (
+    "microstrategyModelLineageUpstreamDatasetCount"
+)
+
+MSTR_AVAILABLE_OBJECTS_METRICS = "metrics"
+MSTR_AVAILABLE_OBJECTS_ATTRIBUTES = "attributes"
 
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.
@@ -524,6 +540,17 @@ MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] =
         "1-based position of the visualization's page within its chapter.",
     ),
 )
+
+
+class UsageTargetKind(StrEnum):
+    DASHBOARD = "dashboard"
+    CHART = "chart"
+    DATASET = "dataset"
+
+
+class MicroStrategyDatasetIdentity(StrEnum):
+    PER_DASHBOARD = "per_dashboard"
+    PER_REPORT = "per_report"
 
 
 class MetricPresence(StrEnum):
