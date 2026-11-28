@@ -884,6 +884,35 @@ def test_a_successful_metric_model_resets_the_consecutive_failure_count() -> Non
     assert not mapper.report.failures
 
 
+def test_cached_models_between_live_failures_do_not_reset_the_failure_count() -> None:
+    limit = MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
+    ids = [f"M{index}" for index in range(4 * limit)]
+    cached_ids = {metric_id for index, metric_id in enumerate(ids) if index % 2}
+    client = FakeSemanticModelClient(
+        metrics=[_metric_object(metric_id, metric_id) for metric_id in ids],
+        metric_models_fail=True,
+    )
+    config = _config()
+    report = MicroStrategyReport()
+    mapper = MicroStrategySemanticModelMapper(
+        config=config,
+        report=report,
+        client=client,  # type: ignore[arg-type]
+        lineage=MicroStrategyLineageExtractor(config, report, SpillConnection()),
+        cached_metric_model=lambda _project, metric_id: (
+            {} if metric_id in cached_ids else None
+        ),
+        graph=_graph_with_exists(True),
+    )
+
+    _emit_metrics(mapper)
+
+    assert len(client.metric_model_calls) == limit
+    assert [failure.title for failure in report.failures] == [
+        "MicroStrategy Metric Models Unavailable"
+    ]
+
+
 @pytest.mark.parametrize("exists", [True, False])
 def test_consecutive_failures_stop_the_loop_for_known_metrics(exists: bool) -> None:
     limit = MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT
@@ -1036,3 +1065,46 @@ def test_table_context_resolver_sets_each_dataset_upstream_from_its_own_warehous
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snow_db.snow.snow_sales,PROD)"
     ]
     assert upstreams("UNLINKED_SALES") == []
+
+
+@pytest.mark.parametrize(
+    "database, expected_upstreams",
+    [
+        (
+            "sales_db",
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+                "sales_db.public.orders,PROD)"
+            ],
+        ),
+        (None, []),
+    ],
+)
+def test_warehouse_upstream_only_when_the_table_name_resolves_to_a_database(
+    database: Optional[str], expected_upstreams: List[str]
+) -> None:
+    mapper = _mapper(FakeSemanticModelClient())
+    context = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database=database, schema="public"
+    )
+
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                project_id="project-1",
+                project_name="Project One",
+                model_tables=[_table("ORDERS", [_attribute("ATTR1", "Region")], [])],
+                project_container_key=_project_container_key(),
+                table_context_resolver=lambda table: context,
+            )
+        )
+    )
+
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.ORDERS,PROD)"
+    )
+    lineage = aspects[dataset_urn].get("UpstreamLineageClass")
+    assert lineage is None or isinstance(lineage, UpstreamLineageClass)
+    assert ([u.dataset for u in lineage.upstreams] if lineage else []) == (
+        expected_upstreams
+    )
