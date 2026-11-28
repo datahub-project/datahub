@@ -179,6 +179,7 @@ export const SEARCHABLE_ENTITY_TYPES = [
     EntityType.Role,
     EntityType.Application,
     EntityType.Api,
+    EntityType.Document,
 ];
 
 export const APPLIES_TO_ENTITIES = [
@@ -201,6 +202,7 @@ export const APPLIES_TO_ENTITIES = [
     EntityType.DataContract,
     EntityType.Application,
     EntityType.Api,
+    EntityType.Document,
 ];
 
 export const getEntityTypeUrn = (entityRegistry: EntityRegistry, entityType: EntityType) => {
