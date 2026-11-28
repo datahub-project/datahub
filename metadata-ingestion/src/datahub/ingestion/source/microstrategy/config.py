@@ -99,10 +99,7 @@ class MicroStrategyConfig(
         default=120,
         gt=0,
         description=(
-            "HTTP timeout in seconds for the project-wide metric search and the "
-            "model tables API (`/api/model/tables`). Both answer slowly on large "
-            "projects, and losing either one skips every semantic-model metric "
-            "or the semantic model itself for that project."
+            "HTTP timeout in seconds for the project metric search and the model tables API."
         ),
     )
     max_retries: int = Field(
@@ -119,37 +116,24 @@ class MicroStrategyConfig(
         default=2000,
         gt=0,
         description=(
-            "Entries the large per-project caches (report SQL text and parsed "
-            "SQL lineage) keep in memory. Older entries spill to a temporary "
-            "local SQLite file instead of being dropped, so memory stays "
-            "bounded on large projects without re-fetching or re-parsing "
-            "anything; the caches are discarded when each project finishes."
+            "Entries kept in memory by each per-project cache of report SQL and parsed SQL lineage. "
+            "Older entries spill to a temporary local file."
         ),
     )
     progress_log_interval_dashboards: int = Field(
         default=25,
         gt=0,
-        description=(
-            "Log a whole-run progress line (rates, API and SQL parse time, "
-            "cache hits, peak memory) after this many dashboards."
-        ),
+        description="Log a whole-run progress line every N dashboards.",
     )
     progress_log_interval_metrics: int = Field(
         default=1000,
         gt=0,
-        description=(
-            "Log a semantic-model progress line (metrics fetched and failed, "
-            "peak memory) after this many metrics."
-        ),
+        description="Log a semantic-model progress line every N metrics.",
     )
     progress_log_interval_seconds: int = Field(
         default=300,
         gt=0,
-        description=(
-            "Also log the dashboard and semantic-model progress lines when this "
-            "many seconds have passed since the last one, so slow dashboards or "
-            "metrics never leave the log silent."
-        ),
+        description="Also log a progress line when this many seconds pass without one.",
     )
 
     project_pattern: AllowDenyPattern = Field(
@@ -568,29 +552,10 @@ class MicroStrategyConfig(
     dataset_identity: MicroStrategyDatasetIdentity = Field(
         default=MicroStrategyDatasetIdentity.PER_DASHBOARD,
         description=(
-            "What one DataHub dataset entity stands for. `per_dashboard` (the "
-            "default, the historical behaviour) keys each dataset by the "
-            "dossier or document that embeds it (`<project>.<dashboard>."
-            "<dataset>`), so a report used by N dashboards is N identically "
-            "named entities, and with `extract_reports` the same report is "
-            "also a chart plus a report-scoped dataset. `per_report` keys the "
-            "dataset by the MicroStrategy report object itself "
-            "(`<project>.<report>`): one entity per report (grid report or "
-            "cube) per project, filed under the report's own folder, with its "
-            "schema from its own definition when `extract_reports` fetched "
-            "one (else the first dashboard that embeds it), warehouse lineage "
-            "attached once a SQL view parses to upstream tables, and every "
-            "visualization (and, with `emit_document_dataset_edges`, every "
-            "document) that uses the report linking to that single entity; "
-            "with `extract_reports` "
-            "the `Report` chart is not emitted and report usage statistics "
-            "attach to the dataset. Switching schemes changes every dataset "
-            "URN: with stateful ingestion the previous scheme's entities are "
-            "soft-deleted as stale on the next run, so raise "
-            "`stateful_ingestion.fail_safe_threshold` for that run when more "
-            "than the default percentage of entities would change. The design "
-            "note is metadata-ingestion/src/datahub/ingestion/source/"
-            "microstrategy/dataset_identity.md in the DataHub repository."
+            "What one dataset entity represents. `per_dashboard` keys each dataset by the "
+            "dossier or document that embeds it. `per_report` keys one dataset per report "
+            "per project. Switching changes every dataset URN, so with stateful ingestion "
+            "the previous entities are soft-deleted on the next run."
         ),
     )
     datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
