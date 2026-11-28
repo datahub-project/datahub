@@ -136,6 +136,27 @@ _CLICKHOUSE_DICT_SOURCE_TABLE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# system.tables.create_table_query starts a materialized view with
+#   CREATE MATERIALIZED VIEW <name> [UUID '<uuid>'] [REFRESH ...]
+#       [TO <table> | TO INNER UUID '<uuid>']
+# and only then prints the column list, ENGINE and AS SELECT. Only this header
+# names the TO table: a column comment, a string literal or the query can hold
+# "to <word>" too, and a plain view can hold "MATERIALIZED VIEW" in a literal.
+# A REFRESH clause has no parenthesis, ENGINE or AS, so for a view that stores
+# its own rows the match stops before the column list, ENGINE or AS.
+_MATERIALIZED_VIEW_TO_TABLE_RE = re.compile(
+    r"""
+    \A\s*(?:CREATE(?:\s+OR\s+REPLACE)?|ATTACH)\s+MATERIALIZED\s+VIEW\s+
+    (?:IF\s+NOT\s+EXISTS\s+)?
+    (?:`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|[^\s(`"])+
+    (?:\s+UUID\s+'[^']*')?
+    (?:\s+ON\s+CLUSTER\s+\S+)?
+    (?:\s+REFRESH(?:\s+(?!(?:ENGINE|AS|TO)\b)[^\s(]+)*)?
+    \s+TO\s+(?!INNER\s+UUID\b)(\S+)
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
 # adding extra types not handled by clickhouse-sqlalchemy 0.1.8
 base.ischema_names["DateTime64(0)"] = DATETIME
 base.ischema_names["DateTime64(1)"] = DATETIME
@@ -886,11 +907,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         default_db: Optional[str],
     ) -> Optional[str]:
         """Extract the TO table URN from a ClickHouse materialized view definition."""
-        if "MATERIALIZED VIEW" not in view_definition.upper():
-            return None
-
-        # Extract target table from TO clause (case-insensitive)
-        match = re.search(r"\bTO\s+(\S+)", view_definition, re.IGNORECASE)
+        match = _MATERIALIZED_VIEW_TO_TABLE_RE.match(view_definition)
         if not match:
             return None
 
