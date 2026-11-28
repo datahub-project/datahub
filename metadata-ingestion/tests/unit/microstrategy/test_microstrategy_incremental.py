@@ -15,7 +15,10 @@ from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyClient,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
-from datahub.ingestion.source.microstrategy.constants import MSTR_PROP_FINGERPRINT
+from datahub.ingestion.source.microstrategy.constants import (
+    FINGERPRINT_EXCLUDED_CONFIG_FIELDS,
+    MSTR_PROP_FINGERPRINT,
+)
 from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     DatasourceConnection,
@@ -665,3 +668,7 @@ def test_default_run_does_not_stamp_or_checkpoint() -> None:
         "skip_unchanged_objects is ignored" in str(warning)
         for warning in source.report.warnings
     )
+
+
+def test_fingerprint_excluded_fields_are_config_fields() -> None:
+    assert set(MicroStrategyConfig.model_fields) >= FINGERPRINT_EXCLUDED_CONFIG_FIELDS

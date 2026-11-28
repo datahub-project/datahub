@@ -1,6 +1,7 @@
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, FrozenSet, List, Tuple
 
+from datahub.metadata.urns import GlossaryTermUrn, TagUrn
 from datahub.utilities.str_enum import StrEnum
 
 MICROSTRATEGY_PLATFORM = "microstrategy"
@@ -114,6 +115,20 @@ USAGE_TARGET_DATASET = "dataset"
 MSTR_PROP_FINGERPRINT = "microstrategyFingerprint"
 ENTITY_CHECK_BATCH_SIZE = 100
 MSTR_UNCHANGED_OBJECTS_JOB_ID = "microstrategy_unchanged_objects"
+# Config fields that change how a run reads, not what it emits.
+FINGERPRINT_EXCLUDED_CONFIG_FIELDS: FrozenSet[str] = frozenset(
+    {
+        "stateful_ingestion",
+        "skip_unchanged_objects",
+        "cache_memory_entries",
+        "progress_log_interval_dashboards",
+        "progress_log_interval_seconds",
+    }
+)
+# Shared references rather than an object's own entities.
+SHARED_REFERENCE_ENTITY_TYPES: FrozenSet[str] = frozenset(
+    {TagUrn.ENTITY_TYPE, GlossaryTermUrn.ENTITY_TYPE}
+)
 
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.

@@ -1,5 +1,5 @@
 import threading
-from typing import Callable, Dict, List, Optional, TypeVar
+from typing import Callable, Dict, List, Optional, TypeVar, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -46,6 +46,9 @@ class ReportDatasetCheckpoint(BaseModel):
     # Normalized ids of the dashboards whose definitions built the dataset.
     dashboard_ids: List[str] = Field(default_factory=list)
     from_report_pass: bool = False
+
+
+OptionalCheckpoint = Union[ObjectCheckpoint, ReportDatasetCheckpoint, None]
 
 
 class MicroStrategyCheckpointState(CheckpointStateBase):

@@ -42,6 +42,7 @@ from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.source.microstrategy.checkpoint_state import (
     MicroStrategyStateHandler,
     ObjectCheckpoint,
+    OptionalCheckpoint,
     RecordedUsageTarget,
     ReportDatasetCheckpoint,
 )
@@ -71,6 +72,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_PREDEFINED_FOLDER_LABELS,
     MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES,
     MSTR_SQLGLOT_LOGGER,
+    SHARED_REFERENCE_ENTITY_TYPES,
     USAGE_TARGET_CHART,
     USAGE_TARGET_DASHBOARD,
     USAGE_TARGET_DATASET,
@@ -79,10 +81,11 @@ from datahub.ingestion.source.microstrategy.constants import (
     MicroStrategyPhase,
 )
 from datahub.ingestion.source.microstrategy.incremental import (
-    SHARED_REFERENCE_ENTITY_TYPES,
     ChangeCheckResult,
     MicroStrategyChangeDetector,
     ReportDatasetPlan,
+    StampedAspect,
+    StampedUrnBuilder,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
@@ -162,6 +165,7 @@ from datahub.ingestion.source_report.ingestion_stage import METADATA_EXTRACTION
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
+from datahub.metadata.schema_classes import ChartInfoClass, DashboardInfoClass
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
 
@@ -328,9 +332,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if self.stale_entity_removal_handler.is_checkpointing_enabled()
             else None,
         )
-        self._change_detector = MicroStrategyChangeDetector(
-            self.config, self.mapper, self._object_state
-        )
+        self._change_detector = MicroStrategyChangeDetector(self.config)
         # Per-project skip_unchanged_objects state, keyed by normalized id.
         self._dashboard_candidates: Dict[str, MicroStrategyObject] = {}
         self._read_dashboards: Set[str] = set()
@@ -632,32 +634,25 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self.report.change_check_failures += 1
             self.report.change_check_failure_samples.append(failure)
 
-    def _evaluate_dashboard(
-        self, project: Project, dashboard_object: MicroStrategyObject
+    def _evaluate_object(
+        self,
+        project: Project,
+        mstr_object: MicroStrategyObject,
+        previous: Optional[ObjectCheckpoint],
+        stamped_urn: StampedUrnBuilder,
+        stamped_aspect: StampedAspect,
     ) -> ChangeCheckResult:
-        result = self._change_detector.evaluate_dashboard(
+        result = self._change_detector.evaluate_object(
             project.id,
-            dashboard_object,
+            mstr_object,
             self.mapper.folder_path(
-                project.name, dashboard_object, self._predefined_folders(project.id)
+                project.name, mstr_object, self._predefined_folders(project.id)
             ),
+            previous,
             self._dataset_object_info,
             self.ctx.graph,
-        )
-        self._note_change_check(result.failure)
-        return result
-
-    def _evaluate_report(
-        self, project: Project, report_object: MicroStrategyObject
-    ) -> ChangeCheckResult:
-        result = self._change_detector.evaluate_report(
-            project.id,
-            report_object,
-            self.mapper.folder_path(
-                project.name, report_object, self._predefined_folders(project.id)
-            ),
-            self._dataset_object_info,
-            self.ctx.graph,
+            stamped_urn,
+            stamped_aspect,
         )
         self._note_change_check(result.failure)
         return result
@@ -709,7 +704,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         mstr_object: MicroStrategyObject,
         predefined_folders: Optional[PredefinedFolderResolution],
-        checkpoint: Union[ObjectCheckpoint, ReportDatasetCheckpoint, None],
+        checkpoint: OptionalCheckpoint,
     ) -> Iterable[MetadataWorkUnit]:
         # A skipped object must keep its folders even if already emitted.
         if checkpoint is not None:
@@ -1113,8 +1108,20 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             normalize_object_id(dashboard_object.id): dashboard_object
             for dashboard_object in candidates
         }
+        previous_checkpoints = {
+            dashboard_id: self._object_state.previous_dashboard(
+                project.id, dashboard_object.id
+            )
+            for dashboard_id, dashboard_object in self._dashboard_candidates.items()
+        }
         decisions = {
-            dashboard_id: self._evaluate_dashboard(project, dashboard_object)
+            dashboard_id: self._evaluate_object(
+                project,
+                dashboard_object,
+                previous_checkpoints[dashboard_id],
+                self.mapper.dashboard_urn,
+                DashboardInfoClass,
+            )
             for dashboard_id, dashboard_object in self._dashboard_candidates.items()
         }
         to_read = {
@@ -1128,7 +1135,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
             to_read |= self._report_plan.dashboards_to_read()
         for dashboard_id, dashboard_object in self._dashboard_candidates.items():
-            previous = decisions[dashboard_id].previous
+            previous = previous_checkpoints[dashboard_id]
             if dashboard_id in to_read or previous is None:
                 yield from self._process_dashboard_with_boundary(
                     project, dashboard_object, lineage_context, linked_report_ids
@@ -2161,9 +2168,18 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 self.mapper.report_urn(project_id, report_object.id),
             )
             if self._skips_unchanged():
-                decision = self._evaluate_report(project, report_object)
-                if decision.unchanged and decision.previous is not None:
-                    self._keep_report(project_id, report_object.id, decision.previous)
+                previous = self._object_state.previous_report(
+                    project_id, report_object.id
+                )
+                decision = self._evaluate_object(
+                    project,
+                    report_object,
+                    previous,
+                    self.mapper.report_urn,
+                    ChartInfoClass,
+                )
+                if decision.unchanged and previous is not None:
+                    self._keep_report(project_id, report_object.id, previous)
                     self.report.reports_skipped_unchanged += 1
                     return
             if self._records_checkpoints():
@@ -3709,7 +3725,7 @@ def _unique_object_ids(object_ids: Iterable[str]) -> List[str]:
 
 def _recording_urns(
     workunits: Iterable[MetadataWorkUnit],
-    checkpoint: Union[ObjectCheckpoint, ReportDatasetCheckpoint, None],
+    checkpoint: OptionalCheckpoint,
 ) -> Iterable[MetadataWorkUnit]:
     for workunit in workunits:
         if checkpoint is not None and workunit.is_primary_source:
@@ -3718,7 +3734,7 @@ def _recording_urns(
 
 
 def _checkpoint_fingerprint(
-    checkpoint: Union[ObjectCheckpoint, ReportDatasetCheckpoint, None],
+    checkpoint: OptionalCheckpoint,
 ) -> Optional[str]:
     return checkpoint.fingerprint if checkpoint is not None else None
 
