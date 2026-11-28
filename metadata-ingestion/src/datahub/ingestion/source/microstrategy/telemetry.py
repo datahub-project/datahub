@@ -2,6 +2,7 @@ import functools
 import inspect
 import logging
 import time
+from collections.abc import Generator
 from typing import Callable, Iterable, Iterator, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict
@@ -12,10 +13,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MicroStrategyPhase,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-from datahub.ingestion.source.microstrategy.telemetry_helpers import (
-    IntervalGate,
-    peak_rss_mb,
-)
+from datahub.ingestion.source.microstrategy.telemetry_helpers import IntervalGate
 
 logger = logging.getLogger(__name__)
 
@@ -88,9 +86,8 @@ def timed_iter(
                     return
             yield item
     finally:
-        close = getattr(iterator, "close", None)
-        if close is not None:
-            close()
+        if isinstance(iterator, Generator):
+            iterator.close()
 
 
 class SqlglotWarningFilter(logging.Filter):
@@ -110,13 +107,25 @@ class SqlglotWarningFilter(logging.Filter):
 class TelemetrySnapshot(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    seconds: float
+    dashboard_seconds: float
     api_calls: int
     api_seconds: float
     sql_parses: int
     sql_parse_seconds: float
     sql_parse_cache_hits: int
     datasets: int
+
+    def since(self, before: "TelemetrySnapshot") -> "TelemetrySnapshot":
+        return TelemetrySnapshot(
+            dashboard_seconds=self.dashboard_seconds - before.dashboard_seconds,
+            api_calls=self.api_calls - before.api_calls,
+            api_seconds=self.api_seconds - before.api_seconds,
+            sql_parses=self.sql_parses - before.sql_parses,
+            sql_parse_seconds=self.sql_parse_seconds - before.sql_parse_seconds,
+            sql_parse_cache_hits=self.sql_parse_cache_hits
+            - before.sql_parse_cache_hits,
+            datasets=self.datasets - before.datasets,
+        )
 
 
 class RunProgress:
@@ -133,7 +142,9 @@ class RunProgress:
     def snapshot(self) -> TelemetrySnapshot:
         report = self._report
         return TelemetrySnapshot(
-            seconds=report.phase_seconds.get(MicroStrategyPhase.DASHBOARD, 0.0),
+            dashboard_seconds=report.phase_seconds.get(
+                MicroStrategyPhase.DASHBOARD, 0.0
+            ),
             api_calls=report.api_calls,
             api_seconds=report.api_call_seconds,
             sql_parses=report.sql_parses_executed,
@@ -149,24 +160,24 @@ class RunProgress:
         dashboard_id: str,
         before: TelemetrySnapshot,
     ) -> None:
-        after = self.snapshot()
-        seconds = after.seconds - before.seconds
-        datasets = after.datasets - before.datasets
+        delta = self.snapshot().since(before)
         self._report.report_dashboard_timing(
-            f"{project_name}/{dashboard_name} ({dashboard_id})", seconds, datasets
+            f"{project_name}/{dashboard_name} ({dashboard_id})",
+            delta.dashboard_seconds,
+            delta.datasets,
         )
         logger.info(
             "Dashboard %r (%s) took %.1fs: %d API calls %.1fs, %d SQL parses "
             "%.1fs, %d parse cache hits, %d datasets",
             dashboard_name,
             dashboard_id,
-            seconds,
-            after.api_calls - before.api_calls,
-            after.api_seconds - before.api_seconds,
-            after.sql_parses - before.sql_parses,
-            after.sql_parse_seconds - before.sql_parse_seconds,
-            after.sql_parse_cache_hits - before.sql_parse_cache_hits,
-            datasets,
+            delta.dashboard_seconds,
+            delta.api_calls,
+            delta.api_seconds,
+            delta.sql_parses,
+            delta.sql_parse_seconds,
+            delta.sql_parse_cache_hits,
+            delta.datasets,
         )
         if self._gate.due(self._report.dashboards_timed):
             self.log_progress()
@@ -175,7 +186,7 @@ class RunProgress:
         report = self._report
         processed = report.dashboards_timed
         self._gate.mark(processed)
-        report.peak_rss_mb = peak_rss_mb()
+        report.update_peak_rss()
         elapsed = time.perf_counter() - self._started
         top_phases = ", ".join(
             f"{name} {seconds:.0f}s"
