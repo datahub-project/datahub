@@ -34,6 +34,7 @@ from datahub.ingestion.source.microstrategy.client import (
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
+    ExecutionOutcome,
     ReportObjectLookupKind,
     UsageTargetKind,
 )
@@ -6615,8 +6616,13 @@ class _PromptedReportClient:
     """A report whose SQL view is refused with 406 until its prompts are
     answered."""
 
-    def __init__(self, prompts: List[ReportPrompt]) -> None:
+    def __init__(
+        self,
+        prompts: List[ReportPrompt],
+        answer_error: Optional[MicroStrategyAPIError] = None,
+    ) -> None:
         self.prompts = prompts
+        self.answer_error = answer_error
         self.answered: List[List[ReportPrompt]] = []
         self.deleted: List[str] = []
 
@@ -6628,6 +6634,8 @@ class _PromptedReportClient:
     ) -> SqlView:
         if not self.answered:
             raise MicroStrategyAPIError("406 Not Acceptable", status_code=406)
+        if self.answer_error is not None:
+            raise self.answer_error
         return SqlView.model_validate({"sqlStatement": "select a from t"})
 
     def get_report_instance_prompts(
@@ -6705,6 +6713,51 @@ def test_prompted_report_with_a_required_prompt_without_default_is_skipped() -> 
     assert client.answered == []
     assert client.deleted == ["instance-1"]
     assert source.report.prompted_reports_without_defaults == 1
+
+
+def test_optional_prompt_without_default_is_left_unanswered() -> None:
+    source = _source({"answer_report_prompts_with_defaults": True})
+    optional = ReportPrompt.model_validate(
+        {"key": "P2", "type": "VALUE", "required": False, "name": "Store"}
+    )
+    client = _PromptedReportClient([_DEFAULTED_PROMPT, optional])
+    source.client = client  # type: ignore[assignment]
+
+    outcome = source._report_sql_outcome("project-1", "report-1", "ctx")
+
+    assert outcome.sql == "select a from t"
+    assert client.answered == [[_DEFAULTED_PROMPT]]
+
+
+def _timed_out() -> MicroStrategyAPIError:
+    error = MicroStrategyAPIError("read timed out")
+    error.__cause__ = requests.Timeout()
+    return error
+
+
+@pytest.mark.parametrize(
+    "answer_error, execution, without_defaults",
+    [
+        (_timed_out(), ExecutionOutcome.TIMED_OUT, 0),
+        (MicroStrategyAPIError("still prompted", status_code=406), None, 1),
+    ],
+)
+def test_failed_prompt_answer_is_not_a_successful_execution(
+    answer_error: MicroStrategyAPIError,
+    execution: Optional[ExecutionOutcome],
+    without_defaults: int,
+) -> None:
+    source = _source({"answer_report_prompts_with_defaults": True})
+    client = _PromptedReportClient([_DEFAULTED_PROMPT], answer_error=answer_error)
+    source.client = client  # type: ignore[assignment]
+
+    outcome = source._report_sql_outcome("project-1", "report-1", "ctx")
+
+    assert outcome.sql is None
+    assert outcome.execution == execution
+    assert client.deleted == ["instance-1"]
+    assert source.report.prompted_reports_without_defaults == without_defaults
+    assert source.report.prompted_reports_answered == 0
 
 
 def test_answering_defaults_sends_use_default_per_prompt() -> None:

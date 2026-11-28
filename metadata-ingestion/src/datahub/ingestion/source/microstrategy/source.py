@@ -4227,8 +4227,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             sql_view = self._report_sql_view_answering_prompts(
                 project_id, report_id, instance_id, context
             )
-            if sql_view is None:
-                return _ReportSqlOutcome()
+            if isinstance(sql_view, _ReportSqlOutcome):
+                return sql_view
         except (MicroStrategyAPIError, ValidationError) as error:
             # ValidationError: a response body that does not fit SqlView.
             self.report.report_report_sql_view_api_failure()
@@ -4257,9 +4257,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_id: str,
         instance_id: str,
         context: str,
-    ) -> Optional[SqlView]:
-        """None when a prompted report is skipped (counted and warned here);
-        other failures raise."""
+    ) -> Union[SqlView, "_ReportSqlOutcome"]:
+        """An outcome without SQL when a prompted report is skipped or its
+        answers fail (counted and warned here); other failures raise."""
         try:
             return self.client.get_report_sql_view(
                 project_id=project_id,
@@ -4282,7 +4282,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 context=context,
                 exc=refused,
             )
-            return None
+            return _ReportSqlOutcome()
         prompts = self.client.get_report_instance_prompts(
             project_id, report_id, instance_id
         )
@@ -4291,27 +4291,52 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             for prompt in prompts
             if prompt.required and not prompt.has_default()
         ]
-        if not prompts or unanswerable:
-            self.report.report_prompted_report_without_defaults()
-            self.report.warning(
-                title="Prompted Report Has No Default Answers",
-                message=(
-                    "Skipping warehouse lineage for this report: its prompts "
-                    "cannot all be answered with defaults."
-                ),
-                context=f"{context}, prompts={unanswerable or 'none listed'}",
+        # Optional prompts without a default are closed by leaving them out.
+        defaulted = [prompt for prompt in prompts if prompt.has_default()]
+        if unanswerable or not defaulted:
+            return self._prompted_report_without_defaults(
+                context, unanswerable or "none with defaults"
             )
-            return None
-        self.client.answer_report_prompts_with_defaults(
-            project_id, report_id, instance_id, prompts
-        )
-        sql_view = self.client.get_report_sql_view(
-            project_id=project_id,
-            report_id=report_id,
-            instance_id=instance_id,
-        )
+        try:
+            self.client.answer_report_prompts_with_defaults(
+                project_id, report_id, instance_id, defaulted
+            )
+            sql_view = self.client.get_report_sql_view(
+                project_id=project_id,
+                report_id=report_id,
+                instance_id=instance_id,
+            )
+        except MicroStrategyAPIError as error:
+            if error.status_code == _PROMPTED_SQL_VIEW_STATUS:
+                return self._prompted_report_without_defaults(
+                    context, "still prompted after answering"
+                )
+            self.report.report_report_sql_view_api_failure()
+            self.report.warning(
+                title="Failed to Answer Report Prompts",
+                message="Skipping source warehouse lineage for this report.",
+                context=context,
+                exc=error,
+            )
+            # The instance stops at its prompts, so answering them is the
+            # call that executes the report.
+            return _ReportSqlOutcome(execution=_execution_outcome(error))
         self.report.report_prompted_report_answered()
         return sql_view
+
+    def _prompted_report_without_defaults(
+        self, context: str, prompts: Union[List[str], str]
+    ) -> "_ReportSqlOutcome":
+        self.report.report_prompted_report_without_defaults()
+        self.report.warning(
+            title="Prompted Report Has No Default Answers",
+            message=(
+                "Skipping warehouse lineage for this report: its prompts "
+                "cannot all be answered with defaults."
+            ),
+            context=f"{context}, prompts={prompts}",
+        )
+        return _ReportSqlOutcome()
 
     def _dashboard_instance(
         self,
