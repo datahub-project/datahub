@@ -1,0 +1,24 @@
+/// Import table read from the warehouse through its SQL analytics endpoint.
+table claims_by_state
+	lineageTag: 00000024-1111-4222-8333-000000000024
+
+	column state
+		dataType: string
+		lineageTag: 00000025-1111-4222-8333-000000000025
+		summarizeBy: none
+		sourceColumn: state
+
+	column claim_count
+		dataType: int64
+		lineageTag: 00000026-1111-4222-8333-000000000026
+		summarizeBy: sum
+		sourceColumn: claim_count
+
+	partition claims_by_state = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database("my-fabric-endpoint.datawarehouse.fabric.microsoft.com", "Claims_Warehouse"),
+				    dbo_claims_by_state = Source{[Schema="dbo",Item="claims_by_state"]}[Data]
+				in
+				    dbo_claims_by_state

@@ -71,6 +71,11 @@ class ReferencedTable:
 class DataPlatformTable:
     data_platform_pair: DataPlatformPair
     urn: str
+    # Set when the mapper swapped an mssql edge for the OneLake table behind
+    # a Fabric SQL analytics endpoint; such an edge is kept even when
+    # dataset_type_mapping was narrowed, like DirectLake lineage, so a
+    # narrowed mapping never turns an existing edge into none.
+    from_fabric_endpoint: bool = False
 
 
 @dataclass(frozen=True)
@@ -85,6 +90,23 @@ class DataflowReference:
     entity: str
 
 
+@dataclass(frozen=True)
+class FabricSqlEndpointReference:
+    """A ``Sql.Database`` navigation whose server is a Fabric SQL analytics
+    endpoint host. ``database`` is what the query named: the endpoint id (as
+    DirectLake's shared expression does) or the item's display name (as Power
+    BI Desktop writes it). Only the mapper, which knows the workspace's
+    Fabric items, can turn it into the OneLake table it reads; until then the
+    lineage carries the table under the generic MSSQL platform at
+    ``mssql_urn``."""
+
+    server: str
+    database: str
+    schema_name: Optional[str]
+    table_name: str
+    mssql_urn: str
+
+
 @dataclass
 class Lineage:
     upstreams: List[DataPlatformTable]
@@ -94,6 +116,9 @@ class Lineage:
     # lineage applies renames to the query's output names inside parse_custom_sql.
     downstream_names_are_powerbi_fields: bool = True
     dataflow_references: List[DataflowReference] = field(default_factory=list)
+    fabric_endpoint_references: List[FabricSqlEndpointReference] = field(
+        default_factory=list
+    )
 
     @staticmethod
     def empty() -> "Lineage":
