@@ -896,7 +896,7 @@ class NifiSource(StatefulIngestionSourceBase):
         logger.debug(f"Deleting provenance with uri: {provenance_uri}")
         delete_response = self.session.delete(provenance_uri)
         if not delete_response.ok:
-            logger.error("failed to delete provenance ", provenance_uri)
+            logger.error("failed to delete provenance %s", provenance_uri)
 
     def construct_workunits(self) -> Iterable[MetadataWorkUnit]:
         rootpg = self.nifi_flow.root_process_group
