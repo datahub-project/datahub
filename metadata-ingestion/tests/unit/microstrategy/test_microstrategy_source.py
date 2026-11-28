@@ -3596,24 +3596,34 @@ def test_grid_report_shared_by_documents_is_executed_once() -> None:
     assert source.report.warehouse_lineage_edges == 2
 
 
-def test_shared_report_sql_is_parsed_once_and_dashboards_are_timed() -> None:
+def test_shared_report_sql_is_parsed_once_and_progress_is_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     source = _document_source({"extract_document_dataset_sql_lineage": True})
     client = _DocumentClient(documents={"doc-1": ["rep-1"], "doc-2": ["rep-1"]})
     source.client = client  # type: ignore[assignment]
 
-    _run_dashboards(source)
+    with (
+        caplog.at_level(logging.INFO),
+        mock.patch(
+            "datahub.ingestion.source.microstrategy.source."
+            "MSTR_PROGRESS_LOG_INTERVAL_DASHBOARDS",
+            2,
+        ),
+    ):
+        _run_dashboards(source)
 
     report = source.report
     assert report.report_sql_fetched == 1
     assert report.sql_parses_executed == 1
     assert report.sql_parse_cache_hits == 1
-    assert report.dashboards_timed == 2
-    assert sum(report.dashboard_seconds_histogram.values()) == 2
-    assert {"dashboard", "dashboard_search", "report_sql_fetch", "sql_parse"} <= set(
-        report.phase_calls
-    )
-    assert report.phase_calls["dashboard"] == 2
-    assert report._phase_stack == []
+    progress_lines = [
+        record.getMessage()
+        for record in caplog.records
+        if record.getMessage().startswith("MicroStrategy progress:")
+    ]
+    assert len(progress_lines) == 1
+    assert progress_lines[0].startswith("MicroStrategy progress: 2 dashboards")
 
 
 def test_project_caches_are_dropped_at_the_project_boundary() -> None:
@@ -3628,8 +3638,6 @@ def test_project_caches_are_dropped_at_the_project_boundary() -> None:
     assert client.report_instances_created == ["rep-1", "rep-1"]
     assert source.report.sql_parses_executed == 2
     assert source.report.cache_project_resets == 1
-    assert source.report.cache_entries_peak["report_sql"] == 1
-    assert source.report.cache_entries_peak["sql_parse"] == 1
 
 
 def test_failed_shared_report_is_not_retried_for_the_next_document() -> None:
@@ -3939,4 +3947,3 @@ def test_run_installs_the_sqlglot_filter_only_while_running() -> None:
 
     assert seen_during_run == [len(filters_before) + 1]
     assert sqlglot_logger.filters == filters_before
-    assert source.report.peak_rss_mb is not None
