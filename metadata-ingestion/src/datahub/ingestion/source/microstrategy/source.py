@@ -1613,9 +1613,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self._register_recorded_target(usage_target)
             if checkpoint is not None:
                 checkpoint.usage_targets = [usage_target]
-                checkpoint.referenced_object_ids = sorted(
-                    dataset.normalized_object_ids()
-                )
                 checkpoint.fingerprint = (
                     self._change_detector.report_dataset_fingerprint(
                         project_id,
@@ -1738,13 +1735,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 {report_id.upper() for report_id in report_dependency_ids}
             )
             checkpoint.usage_targets = [usage_target]
-            checkpoint.referenced_object_ids = sorted(
-                {
-                    object_id
-                    for dataset in dashboard.datasets
-                    for object_id in dataset.normalized_object_ids()
-                }
-            )
             checkpoint.fingerprint = self._change_detector.object_fingerprint(
                 project_id,
                 dashboard_object,
@@ -2296,11 +2286,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     urn=self.mapper.report_urn(project_id, report_object.id),
                 )
             ]
-            checkpoint.referenced_object_ids = (
-                sorted(source_dataset.normalized_object_ids())
-                if source_dataset is not None
-                else []
-            )
             checkpoint.fingerprint = self._change_detector.object_fingerprint(
                 project_id,
                 report_object,

@@ -37,14 +37,12 @@ class ObjectCheckpoint(BaseModel):
     # Report ids a dashboard adds to the dashboard-linked report scope.
     linked_report_ids: List[str] = Field(default_factory=list)
     usage_targets: List[RecordedUsageTarget] = Field(default_factory=list)
-    referenced_object_ids: List[str] = Field(default_factory=list)
 
 
 class ReportDatasetCheckpoint(BaseModel):
     fingerprint: Optional[str] = None
     urns: List[str] = Field(default_factory=list)
     usage_targets: List[RecordedUsageTarget] = Field(default_factory=list)
-    referenced_object_ids: List[str] = Field(default_factory=list)
     # Normalized ids of the dashboards whose definitions built the dataset.
     dashboard_ids: List[str] = Field(default_factory=list)
     from_report_pass: bool = False
