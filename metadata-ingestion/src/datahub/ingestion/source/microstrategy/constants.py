@@ -107,6 +107,8 @@ TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
 DERIVED_TAG_URN = "urn:li:tag:Derived"
 
 MSTR_PROPERTY_PROJECT_ID = "microstrategyProjectId"
+MSTR_PROPERTY_DASHBOARD_ID = "microstrategyDashboardId"
+MSTR_PROPERTY_DATASET_ID = "microstrategyDatasetId"
 MSTR_PROPERTY_REPORT_ID = "microstrategyReportId"
 MSTR_PROPERTY_DASHBOARD_COUNT = "microstrategyDashboardCount"
 MSTR_PROPERTY_DASHBOARD_IDS = "microstrategyDashboardIds"
@@ -114,6 +116,16 @@ MSTR_PROPERTY_REPORT_PROMPT_COUNT = "microstrategyReportPromptCount"
 MSTR_PROPERTY_REPORT_HAS_FILTER = "microstrategyReportHasFilter"
 MSTR_PROPERTY_REPORT_SOURCE_ID = "microstrategyReportSourceId"
 MSTR_PROPERTY_REPORT_SOURCE_NAME = "microstrategyReportSourceName"
+MSTR_PROPERTY_MODEL_LINEAGE_FIELD_COUNT = "microstrategyModelLineageFieldCount"
+MSTR_PROPERTY_MODEL_LINEAGE_UPSTREAM_FIELD_COUNT = (
+    "microstrategyModelLineageUpstreamFieldCount"
+)
+MSTR_PROPERTY_MODEL_LINEAGE_UPSTREAM_DATASET_COUNT = (
+    "microstrategyModelLineageUpstreamDatasetCount"
+)
+
+MSTR_AVAILABLE_OBJECTS_METRICS = "metrics"
+MSTR_AVAILABLE_OBJECTS_ATTRIBUTES = "attributes"
 
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.
@@ -539,7 +551,6 @@ MSTR_DATASOURCE_MAPPING_HINT = (
 )
 
 
-# per_report attaches usage to the report's dataset; otherwise only dashboards and charts.
 class UsageTargetKind(StrEnum):
     DASHBOARD = "dashboard"
     CHART = "chart"
@@ -574,3 +585,14 @@ MSTR_CACHE_MEMORY_ENTRIES = 2000
 MSTR_SQLGLOT_LOGGER = "sqlglot"
 # One warning per generated statement; they fill the executor's bounded log.
 MSTR_SQLGLOT_SUPPRESSED_PREFIXES: Final[Sequence[str]] = ("Unsupported property",)
+
+MSTR_PARSE_LABEL_PREFIX = "sql "
+MSTR_PARSE_LABEL_HASH_CHARS = 12
+
+MSTR_MAX_EVICTION_BATCH = 150
+MSTR_EVICTION_BATCH_DIVISOR = 4
+
+MSTR_SQLGLOT_WARNINGS_TOP_K = 10
+
+MSTR_REASON_NO_GRAPH = "no DataHub connection"
+MSTR_REASON_PRESENCE_CHECK_FAILED = "DataHub lookup failed"
