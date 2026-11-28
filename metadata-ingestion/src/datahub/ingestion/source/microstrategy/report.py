@@ -2,11 +2,16 @@ import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional
 
+from pydantic import BaseModel, ConfigDict
+from typing_extensions import LiteralString
+
+from datahub.ingestion.api.source import StructuredLogCategory
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_TELEMETRY_ERROR_STATUS,
     MSTR_TELEMETRY_NO_PHASE,
+    MSTR_TEXT_ENCODING,
 )
 from datahub.ingestion.source.microstrategy.telemetry import (
     dashboard_seconds_bucket,
@@ -40,6 +45,20 @@ def _float_top_k(top_k: int = _TELEMETRY_TOP_K) -> "TopKDict[str, float]":
 
 def _int_top_k(top_k: int = _TELEMETRY_TOP_K) -> "TopKDict[str, int]":
     return TopKDict(int, top_k=top_k)
+
+
+class ThreadApiTotals(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    calls: int = 0
+    seconds: float = 0.0
+
+
+class _ThreadPhaseState(threading.local):
+    def __init__(self) -> None:
+        self.stack: List[str] = []
+        self.api_calls: int = 0
+        self.api_seconds: float = 0.0
 
 
 @dataclass
@@ -247,37 +266,79 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     peak_rss_mb: Optional[float] = None
 
     def __post_init__(self) -> None:
-        self._phase_local = threading.local()
+        self._phase_local = _ThreadPhaseState()
         self._telemetry_lock = threading.RLock()
         super().__post_init__()
 
     def _current_phase_stack(self) -> List[str]:
-        stack: Optional[List[str]] = getattr(self._phase_local, "stack", None)
-        if stack is None:
-            stack = []
-            self._phase_local.stack = stack
-        return stack
+        return self._phase_local.stack
 
     @property
     def _phase_stack(self) -> List[str]:
-        return self._current_phase_stack()
+        return self._phase_local.stack
 
-    def thread_api_totals(self) -> Tuple[int, float]:
-        calls: int = getattr(self._phase_local, "api_calls", 0)
-        seconds: float = getattr(self._phase_local, "api_seconds", 0.0)
-        return calls, seconds
+    def thread_api_totals(self) -> ThreadApiTotals:
+        return ThreadApiTotals(
+            calls=self._phase_local.api_calls,
+            seconds=self._phase_local.api_seconds,
+        )
 
-    def warning(self, *args: Any, **kwargs: Any) -> None:
+    def warning(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
+    ) -> None:
         with self._telemetry_lock:
-            super().warning(*args, **kwargs)
+            super().warning(
+                message=message,
+                context=context,
+                title=title,
+                exc=exc,
+                log=log,
+                log_category=log_category,
+            )
 
-    def failure(self, *args: Any, **kwargs: Any) -> None:
+    def failure(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
+    ) -> None:
         with self._telemetry_lock:
-            super().failure(*args, **kwargs)
+            super().failure(
+                message=message,
+                context=context,
+                title=title,
+                exc=exc,
+                log=log,
+                log_category=log_category,
+            )
 
-    def info(self, *args: Any, **kwargs: Any) -> None:
+    def info(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
+    ) -> None:
         with self._telemetry_lock:
-            super().info(*args, **kwargs)
+            super().info(
+                message=message,
+                context=context,
+                title=title,
+                exc=exc,
+                log=log,
+                log_category=log_category,
+            )
 
     def report_project_scanned(self) -> None:
         with self._telemetry_lock:
@@ -718,10 +779,8 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         endpoint = endpoint_template(method, path)
         stack = self._current_phase_stack()
         phase = stack[-1] if stack else MSTR_TELEMETRY_NO_PHASE
-        self._phase_local.api_calls = getattr(self._phase_local, "api_calls", 0) + 1
-        self._phase_local.api_seconds = (
-            getattr(self._phase_local, "api_seconds", 0.0) + seconds
-        )
+        self._phase_local.api_calls += 1
+        self._phase_local.api_seconds += seconds
         status_label = (
             str(status) if status is not None else MSTR_TELEMETRY_ERROR_STATUS
         )
@@ -773,7 +832,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
                 self.sql_parse_failure_cache_hits += 1
 
     def report_report_sql_fetched(self, sql: Optional[str]) -> None:
-        size = len(sql.encode("utf-8")) if sql else 0
+        size = len(sql.encode(MSTR_TEXT_ENCODING)) if sql else 0
         with self._telemetry_lock:
             self.report_sql_fetched += 1
             self.report_sql_bytes_total += size

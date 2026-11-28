@@ -16,6 +16,8 @@ from typing import (
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from datahub.ingestion.source.microstrategy.constants import MSTR_IO_THREAD_NAME_PREFIX
+
 _T = TypeVar("_T")
 _R = TypeVar("_R")
 _K = TypeVar("_K")
@@ -47,8 +49,6 @@ class OrderedParallelIterator(
     AbstractContextManager["OrderedParallelIterator[_T, _R]"],
     Generic[_T, _R],
 ):
-    """Bounded FIFO parallel map that yields outcomes in strict input order."""
-
     def __init__(
         self,
         fn: Callable[[_T], _R],
@@ -68,7 +68,7 @@ class OrderedParallelIterator(
         self._executor: Optional[ThreadPoolExecutor] = (
             ThreadPoolExecutor(
                 max_workers=max_workers,
-                thread_name_prefix="mstr-io",
+                thread_name_prefix=MSTR_IO_THREAD_NAME_PREFIX,
             )
             if max_workers > 1
             else None
@@ -96,9 +96,7 @@ class OrderedParallelIterator(
             next_item = next(self._iterator)
             try:
                 value = self._fn(next_item)
-            except BaseException as exc:
-                if isinstance(exc, (KeyboardInterrupt, SystemExit)):
-                    raise
+            except Exception as exc:
                 return TaskOutcome.model_construct(
                     item=next_item, value=None, error=exc
                 )
@@ -124,10 +122,7 @@ class OrderedParallelIterator(
             head = self._pending.popleft()
             try:
                 result = head.future.result()
-            except BaseException as exc:
-                if isinstance(exc, (KeyboardInterrupt, SystemExit)):
-                    self.close()
-                    raise
+            except Exception as exc:
                 return TaskOutcome.model_construct(
                     item=head.item, value=None, error=exc
                 )
@@ -161,6 +156,7 @@ def ordered_parallel_map(
     )
 
 
+# Mutable: leader writes the result before releasing waiting followers.
 class _InFlightCall(BaseModel, Generic[_V]):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -170,8 +166,6 @@ class _InFlightCall(BaseModel, Generic[_V]):
 
 
 class SingleFlight(Generic[_K, _V]):
-    """Coalesces concurrent calls for the same key so only one executes."""
-
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._calls: Dict[_K, _InFlightCall[_V]] = {}
@@ -203,3 +197,25 @@ class SingleFlight(Generic[_K, _V]):
                 self._calls.pop(key, None)
                 call.event.set()
         return cast(_V, call.value)
+
+    def get_or_load(
+        self,
+        key: _K,
+        cache: Dict[_K, _V],
+        lock: threading.RLock,
+        loader: Callable[[], _V],
+    ) -> _V:
+        with lock:
+            if key in cache:
+                return cache[key]
+
+        def fetch() -> _V:
+            with lock:
+                if key in cache:
+                    return cache[key]
+            value = loader()
+            with lock:
+                cache[key] = value
+            return value
+
+        return self.do(key, fetch)

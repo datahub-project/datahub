@@ -1890,7 +1890,7 @@ def test_model_definition_failure_is_counted_per_report_and_warned_once() -> Non
     assert len(warnings) == 1
     assert any(
         f"first_report_id={report_id}" in (warnings[0].context or [""])[0]
-        for report_id in ("ds-dash-1", "ds-dash-2")
+        for report_id in ["ds-dash-1", "ds-dash-2"]
     )
 
 

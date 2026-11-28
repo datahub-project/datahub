@@ -1,22 +1,32 @@
 import json
+import pathlib
 import threading
 import time
-from typing import Dict, Iterator, List, Optional, Set, Tuple
+from typing import Dict, Iterator, List, Optional, Set, Type
 from unittest import mock
 
 import pytest
 import requests
+import time_machine
+from pydantic import BaseModel, ConfigDict
 from requests.adapters import HTTPAdapter
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAuthError,
     MicroStrategyClient,
     ensure_session_pool_size,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_AUTH_TOKEN_HEADER,
+    MSTR_IO_THREAD_NAME_PREFIX,
+    MicroStrategyDatasetIdentity,
+)
 from datahub.ingestion.source.microstrategy.lineage import MicroStrategyLineageExtractor
 from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import (
     MicroStrategySemanticModelMapper,
@@ -35,21 +45,47 @@ from datahub.ingestion.source.microstrategy.parallel import (
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.source import MicroStrategySource
-from datahub.metadata.schema_classes import SchemaMetadataClass
+from datahub.metadata.schema_classes import (
+    SchemaMetadataClass,
+    StatusClass,
+    _Aspect,
+)
 from datahub.sql_parsing import sqlglot_lineage as sqlglot_lineage_module
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 
 class _ProjectKey(ContainerKey):
     project_id: str
 
 
+class _WorkunitSignature(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    payload: str
+
+
+class _MappedItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    item: int
+    value: int
+
+
+class _AspectKey(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    urn: str
+    aspect_name: str
+
+
 def _workunit_signatures(
     workunits: List[MetadataWorkUnit],
-) -> List[Tuple[str, str]]:
+) -> List[_WorkunitSignature]:
     return [
-        (
-            wu.id,
-            json.dumps(wu.metadata.to_obj(), sort_keys=True, default=str),
+        _WorkunitSignature(
+            id=wu.id,
+            payload=json.dumps(wu.metadata.to_obj(), sort_keys=True, default=str),
         )
         for wu in workunits
     ]
@@ -64,10 +100,14 @@ def test_ordered_parallel_map_preserves_order_and_inline_serial_mode() -> None:
         return x * 10
 
     serial_results = [
-        (outcome.item, outcome.unwrap())
+        _MappedItem(item=outcome.item, value=outcome.unwrap())
         for outcome in ordered_parallel_map(serial_fn, [1, 2, 3], max_workers=1)
     ]
-    assert serial_results == [(1, 10), (2, 20), (3, 30)]
+    assert serial_results == [
+        _MappedItem(item=1, value=10),
+        _MappedItem(item=2, value=20),
+        _MappedItem(item=3, value=30),
+    ]
     assert serial_threads == {caller_thread.ident}
 
     worker_threads: Set[str] = set()
@@ -81,20 +121,20 @@ def test_ordered_parallel_map_preserves_order_and_inline_serial_mode() -> None:
         return x * 100
 
     parallel_results = [
-        (outcome.item, outcome.unwrap())
+        _MappedItem(item=outcome.item, value=outcome.unwrap())
         for outcome in ordered_parallel_map(
             staggered_fn, [0, 1, 2, 3, 4, 5], max_workers=4
         )
     ]
     assert parallel_results == [
-        (0, 0),
-        (1, 100),
-        (2, 200),
-        (3, 300),
-        (4, 400),
-        (5, 500),
+        _MappedItem(item=0, value=0),
+        _MappedItem(item=1, value=100),
+        _MappedItem(item=2, value=200),
+        _MappedItem(item=3, value=300),
+        _MappedItem(item=4, value=400),
+        _MappedItem(item=5, value=500),
     ]
-    assert any(name.startswith("mstr-io") for name in worker_threads)
+    assert any(name.startswith(MSTR_IO_THREAD_NAME_PREFIX) for name in worker_threads)
 
 
 def test_ordered_parallel_map_caps_max_pending_and_cancels_on_abort() -> None:
@@ -123,7 +163,6 @@ def test_ordered_parallel_map_caps_max_pending_and_cancels_on_abort() -> None:
 
     iterator = ordered_parallel_map(work, range(20), max_workers=2, max_pending=3)
     try:
-        # First __next__ submits at most max_pending=3 items (0, 1, 2) and yields 0.
         first = next(iterator)
         assert first.unwrap() == 0
         assert wave_started.wait(timeout=2.0)
@@ -138,8 +177,6 @@ def test_ordered_parallel_map_caps_max_pending_and_cancels_on_abort() -> None:
     with lock:
         assert len(started_items) < 20
 
-    # Auth errors raised inside a worker propagate when unwrapped and shut down
-    # queued tasks cleanly when the consumer exits the loop.
     executed_after_auth: List[int] = []
 
     def auth_failing(item: int) -> int:
@@ -220,7 +257,6 @@ def test_single_flight_deduplicates_and_propagates_errors() -> None:
 
     assert err_calls == 1
     assert caught == ["boom"] * 3
-    # Subsequent call after failure is not stuck on the failed flight.
     assert flight.do("failing-key", lambda: "recovered") == "recovered"
 
 
@@ -252,7 +288,7 @@ def test_client_pool_size_and_coalesced_concurrent_401_reauthentication() -> Non
         finally:
             extra_session.close()
 
-        client.session.headers["X-MSTR-AuthToken"] = "stale-token"
+        client.session.headers[MSTR_AUTH_TOKEN_HEADER] = "stale-token"
 
         barrier = threading.Barrier(4)
         lock = threading.Lock()
@@ -281,12 +317,12 @@ def test_client_pool_size_and_coalesced_concurrent_401_reauthentication() -> Non
                     login_calls += 1
                     token_num = login_calls
                 resp = fake_response(204, {})
-                resp.headers["X-MSTR-AuthToken"] = f"fresh-token-{token_num}"
+                resp.headers[MSTR_AUTH_TOKEN_HEADER] = f"fresh-token-{token_num}"
                 return resp
             if url.endswith("/api/auth/logout"):
                 return fake_response(204, {})
 
-            sent = (headers or {}).get("X-MSTR-AuthToken")
+            sent = (headers or {}).get(MSTR_AUTH_TOKEN_HEADER)
             if sent == "stale-token":
                 barrier.wait(timeout=2.0)
                 return fake_response(401, {"message": "Auth token expired"})
@@ -356,18 +392,21 @@ def test_report_per_thread_phase_stack_isolates_concurrent_api_attribution() -> 
 
 
 class _ConcurrentFakeClient:
-    """Fake MicroStrategy client exercising parallel HTTP I/O across dossiers,
-    legacy documents, visualization details, shared reports, document derived
-    metrics, metric models, and SQL views."""
-
-    def __init__(self) -> None:
+    def __init__(self, modified_overrides: Optional[Dict[str, str]] = None) -> None:
         self._lock = threading.Lock()
+        self._modified_overrides: Dict[str, str] = dict(modified_overrides or {})
         self.http_thread_names: Set[str] = set()
         self._active_http = 0
         self.max_concurrent_http = 0
         self.dataset_lookup_calls: List[str] = []
         self.report_sql_calls: List[str] = []
         self.metric_model_calls: List[str] = []
+        self.definition_reads: List[str] = []
+
+    def _modified_at(self, object_id: str) -> str:
+        return self._modified_overrides.get(
+            object_id.lower(), "2026-01-01T00:00:00.000+0000"
+        )
 
     def _enter_http(self, delay: float = 0.015) -> None:
         with self._lock:
@@ -473,6 +512,7 @@ class _ConcurrentFakeClient:
                         "type": 55,
                         "subtype": "14081",
                         "viewMedia": 1,
+                        "dateModified": self._modified_at("doc-alpha"),
                         "ancestors": [
                             {"id": "folder-shared", "name": "Shared Reports"}
                         ],
@@ -485,6 +525,7 @@ class _ConcurrentFakeClient:
                         "type": 55,
                         "subtype": "14081",
                         "viewMedia": 1,
+                        "dateModified": self._modified_at("doc-beta"),
                         "ancestors": [
                             {"id": "folder-shared", "name": "Shared Reports"}
                         ],
@@ -497,6 +538,7 @@ class _ConcurrentFakeClient:
                         "type": 55,
                         "subtype": "14081",
                         "viewMedia": 1879072805,
+                        "dateModified": self._modified_at("dossier-gamma"),
                         "ancestors": [
                             {"id": "folder-shared", "name": "Shared Reports"}
                         ],
@@ -508,28 +550,8 @@ class _ConcurrentFakeClient:
     def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
         return iter(
             [
-                MicroStrategyObject.model_validate(
-                    {
-                        "id": "ds-shared-rpt",
-                        "name": "Shared Orders Report",
-                        "type": 3,
-                        "subtype": 768,
-                        "ancestors": [
-                            {"id": "folder-shared", "name": "Shared Reports"}
-                        ],
-                    }
-                ),
-                MicroStrategyObject.model_validate(
-                    {
-                        "id": "rpt-standalone",
-                        "name": "Standalone Margin Report",
-                        "type": 3,
-                        "subtype": 768,
-                        "ancestors": [
-                            {"id": "folder-shared", "name": "Shared Reports"}
-                        ],
-                    }
-                ),
+                self._build_report_object("ds-shared-rpt"),
+                self._build_report_object("rpt-standalone"),
             ]
         )
 
@@ -557,6 +579,8 @@ class _ConcurrentFakeClient:
         document_id: str,
     ) -> Dict[str, object]:
         self._enter_http(0.02)
+        with self._lock:
+            self.definition_reads.append(document_id)
         suffix = "ALPHA" if document_id == "doc-alpha" else "BETA"
         return {
             "id": document_id,
@@ -608,6 +632,8 @@ class _ConcurrentFakeClient:
         dossier_id: str,
     ) -> Dict[str, object]:
         self._enter_http(0.02)
+        with self._lock:
+            self.definition_reads.append(dossier_id)
         return {
             "result": {
                 "definition": {
@@ -702,9 +728,28 @@ class _ConcurrentFakeClient:
                     "name": "Shared Orders Report",
                     "type": 3,
                     "subtype": 768,
+                    "dateModified": self._modified_at("ds-shared-rpt"),
                 }
             )
         ]
+
+    def _build_report_object(self, report_id: str) -> MicroStrategyObject:
+        canonical_id = report_id.lower()
+        name = (
+            "Standalone Margin Report"
+            if canonical_id == "rpt-standalone"
+            else "Shared Orders Report"
+        )
+        return MicroStrategyObject.model_validate(
+            {
+                "id": canonical_id,
+                "name": name,
+                "type": 3,
+                "subtype": 768,
+                "dateModified": self._modified_at(canonical_id),
+                "ancestors": [{"id": "folder-shared", "name": "Shared Reports"}],
+            }
+        )
 
     def get_object_info(
         self, project_id: str, object_id: str, object_type: int
@@ -714,29 +759,13 @@ class _ConcurrentFakeClient:
             return None
         with self._lock:
             self.dataset_lookup_calls.append(object_id)
-        return MicroStrategyObject.model_validate(
-            {
-                "id": object_id,
-                "name": "Shared Orders Report",
-                "type": 3,
-                "subtype": 768,
-                "ancestors": [{"id": "folder-shared", "name": "Shared Reports"}],
-            }
-        )
+        return self._build_report_object(object_id)
 
     def get_report_object(
         self, project_id: str, report_id: str
     ) -> Optional[MicroStrategyObject]:
         self._enter_http(0.01)
-        return MicroStrategyObject.model_validate(
-            {
-                "id": report_id,
-                "name": "Shared Orders Report",
-                "type": 3,
-                "subtype": 768,
-                "ancestors": [{"id": "folder-shared", "name": "Shared Reports"}],
-            }
-        )
+        return self._build_report_object(report_id)
 
     def get_model_document(
         self,
@@ -744,8 +773,7 @@ class _ConcurrentFakeClient:
         document_id: str,
         instance_id: Optional[str] = None,
     ) -> Dict[str, object]:
-        # Distinct formulas per document verify concurrent workers never overwrite
-        # each other's in-flight model_document slot.
+        # Distinct formulas per document verify concurrent workers do not overwrite slots.
         self._enter_http(0.025)
         if document_id == "doc-alpha":
             metric_id = "1" * 32
@@ -838,7 +866,7 @@ class _ConcurrentFakeClient:
         self._enter_http(0.015)
         with self._lock:
             self.report_sql_calls.append(report_id)
-        if report_id == "rpt-standalone":
+        if report_id.lower() == "rpt-standalone":
             return SqlView.model_validate(
                 {
                     "sqlStatement": (
@@ -894,13 +922,25 @@ class _ConcurrentFakeClient:
         }
 
 
-@pytest.mark.parametrize("dataset_identity", ["per_dashboard", "per_report"])
+class _SourceRunResult(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
+
+    workunits: List[MetadataWorkUnit]
+    client: _ConcurrentFakeClient
+    sql_parse_threads: Set[Optional[int]]
+
+
+@pytest.mark.parametrize(
+    "dataset_identity",
+    [
+        MicroStrategyDatasetIdentity.PER_DASHBOARD,
+        MicroStrategyDatasetIdentity.PER_REPORT,
+    ],
+)
 def test_end_to_end_parallel_workers_keep_sqlglot_on_main_thread_and_match_serial(
     dataset_identity: str,
 ) -> None:
-    def run_source(
-        max_workers: int,
-    ) -> Tuple[List[MetadataWorkUnit], _ConcurrentFakeClient, Set[Optional[int]]]:
+    def run_source(max_workers: int) -> _SourceRunResult:
         config = MicroStrategyConfig.model_validate(
             {
                 "base_url": "https://mstr.example.com/MicroStrategyLibrary",
@@ -934,35 +974,39 @@ def test_end_to_end_parallel_workers_keep_sqlglot_on_main_thread_and_match_seria
         ):
             workunits = list(source.get_workunits_internal())
         assert source._model_documents_in_flight == {}
-        return workunits, fake_client, sql_parse_threads
+        return _SourceRunResult(
+            workunits=workunits,
+            client=fake_client,
+            sql_parse_threads=sql_parse_threads,
+        )
 
     main_ident = threading.current_thread().ident
-    serial_wus, _, serial_sql_threads = run_source(max_workers=1)
-    parallel_wus, parallel_client, parallel_sql_threads = run_source(max_workers=4)
+    serial_run = run_source(max_workers=1)
+    parallel_run = run_source(max_workers=4)
 
-    # HTTP ran concurrently on worker threads while sqlglot ran strictly on main.
-    assert any(name.startswith("mstr-io") for name in parallel_client.http_thread_names)
-    assert parallel_client.max_concurrent_http >= 2
-    assert serial_sql_threads == {main_ident}
-    assert parallel_sql_threads == {main_ident}
+    assert any(
+        name.startswith(MSTR_IO_THREAD_NAME_PREFIX)
+        for name in parallel_run.client.http_thread_names
+    )
+    assert parallel_run.client.max_concurrent_http >= 2
+    assert serial_run.sql_parse_threads == {main_ident}
+    assert parallel_run.sql_parse_threads == {main_ident}
 
-    # SingleFlight + cache coalesce shared dataset object info, report SQL, and metric model.
-    assert parallel_client.dataset_lookup_calls == ["ds-shared-rpt"]
-    assert parallel_client.metric_model_calls == ["MET-REV"]
-    assert parallel_client.report_sql_calls.count("ds-shared-rpt") == 1
+    assert parallel_run.client.dataset_lookup_calls == ["ds-shared-rpt"]
+    assert parallel_run.client.metric_model_calls == ["MET-REV"]
+    assert parallel_run.client.report_sql_calls.count("ds-shared-rpt") == 1
 
-    # Output workunits are byte-for-byte identical in strict deterministic order.
-    assert _workunit_signatures(parallel_wus) == _workunit_signatures(serial_wus)
+    assert _workunit_signatures(parallel_run.workunits) == _workunit_signatures(
+        serial_run.workunits
+    )
 
-    # Verify concurrent document model_document slots did not cross-contaminate
-    # Alpha Margin vs Beta Margin formulas.
     schemas_by_urn: Dict[str, SchemaMetadataClass] = {}
-    for wu in parallel_wus:
+    for wu in parallel_run.workunits:
         schema = wu.get_aspect_of_type(SchemaMetadataClass)
         if schema is not None:
             schemas_by_urn[wu.get_urn()] = schema
 
-    if dataset_identity == "per_dashboard":
+    if dataset_identity == MicroStrategyDatasetIdentity.PER_DASHBOARD:
         alpha_ds = next(u for u in schemas_by_urn if "doc-alpha.ds-shared-rpt" in u)
         beta_ds = next(u for u in schemas_by_urn if "doc-beta.ds-shared-rpt" in u)
         alpha_fields = {
@@ -982,6 +1026,206 @@ def test_end_to_end_parallel_workers_keep_sqlglot_on_main_thread_and_match_seria
         }
         assert "0.25" in shared_fields["Alpha Margin"]
         assert "0.40" in shared_fields["Beta Margin"]
+
+
+class _InMemoryGraphStore:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._aspects: Dict[_AspectKey, _Aspect] = {}
+        self.session = requests.Session()
+
+    def close(self) -> None:
+        self.session.close()
+
+    def build_graph(self) -> mock.MagicMock:
+        graph = mock.MagicMock(spec=DataHubGraph)
+        graph._session = self.session
+        graph.get_aspect.side_effect = self.get_aspect
+        graph.get_entities.side_effect = self.get_entities
+        graph._make_schema_resolver.side_effect = (
+            lambda platform, platform_instance, env, **_: SchemaResolver(
+                platform=platform, platform_instance=platform_instance, env=env
+            )
+        )
+        return graph
+
+    def get_aspect(self, urn: str, aspect_type: Type[_Aspect]) -> Optional[_Aspect]:
+        with self._lock:
+            return self._aspects.get(
+                _AspectKey(urn=urn, aspect_name=aspect_type.ASPECT_NAME)
+            )
+
+    def get_entities(
+        self,
+        entity_name: str,
+        urns: List[str],
+        aspects: List[str],
+        with_system_metadata: bool = True,
+    ) -> Dict[str, object]:
+        if aspects != [StatusClass.ASPECT_NAME]:
+            return {}
+        found: Dict[str, object] = {}
+        with self._lock:
+            for urn in urns:
+                status = self._aspects.get(
+                    _AspectKey(urn=urn, aspect_name=StatusClass.ASPECT_NAME)
+                )
+                if isinstance(status, StatusClass):
+                    found[urn] = {
+                        StatusClass.ASPECT_NAME: (
+                            StatusClass(removed=status.removed),
+                            None,
+                        )
+                    }
+        return found
+
+    def write(self, workunits: List[MetadataWorkUnit]) -> None:
+        with self._lock:
+            for wu in workunits:
+                if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+                    assert wu.metadata.entityUrn and wu.metadata.aspect
+                    self._aspects[
+                        _AspectKey(
+                            urn=wu.metadata.entityUrn,
+                            aspect_name=wu.metadata.aspect.ASPECT_NAME,
+                        )
+                    ] = wu.metadata.aspect
+
+
+class _IncrementalPassResult(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
+
+    workunits: List[MetadataWorkUnit]
+    report: MicroStrategyReport
+    client: _ConcurrentFakeClient
+
+
+@pytest.mark.parametrize(
+    "dataset_identity",
+    [
+        MicroStrategyDatasetIdentity.PER_DASHBOARD,
+        MicroStrategyDatasetIdentity.PER_REPORT,
+    ],
+)
+def test_incremental_skip_unchanged_parallel_matches_serial(
+    tmp_path: pathlib.Path,
+    dataset_identity: str,
+) -> None:
+    def execute_series(max_workers: int) -> List[_IncrementalPassResult]:
+        state_file = tmp_path / f"state-{dataset_identity}-{max_workers}.json"
+        store = _InMemoryGraphStore()
+        try:
+            graph = store.build_graph()
+            schedules: List[Dict[str, str]] = [
+                {},
+                {"doc-beta": "2026-02-01T00:00:00.000+0000"},
+                {
+                    "doc-beta": "2026-02-01T00:00:00.000+0000",
+                    "rpt-standalone": "2026-03-01T00:00:00.000+0000",
+                },
+                {
+                    "doc-beta": "2026-02-01T00:00:00.000+0000",
+                    "rpt-standalone": "2026-03-01T00:00:00.000+0000",
+                },
+            ]
+            passes: List[_IncrementalPassResult] = []
+            for idx, modified_overrides in enumerate(schedules, start=1):
+                with time_machine.travel(f"2026-06-0{idx}T00:00:00Z", tick=False):
+                    config = MicroStrategyConfig.model_validate(
+                        {
+                            "base_url": "https://mstr.example.com/MicroStrategyLibrary",
+                            "extract_lineage": True,
+                            "extract_warehouse_lineage": True,
+                            "extract_document_dataset_sql_lineage": True,
+                            "extract_report_sql_lineage": True,
+                            "extract_reports": True,
+                            "extract_independent_reports": True,
+                            "extract_derived_metrics": True,
+                            "resolve_report_metrics_via_instance": True,
+                            "dataset_identity": dataset_identity,
+                            "skip_unchanged_objects": True,
+                            "max_workers": max_workers,
+                            "stateful_ingestion": {
+                                "enabled": True,
+                                "remove_stale_metadata": True,
+                                "state_provider": {
+                                    "type": "file",
+                                    "config": {"filename": str(state_file)},
+                                },
+                            },
+                        }
+                    )
+                    ctx = PipelineContext(
+                        run_id=f"inc-{idx}",
+                        pipeline_name=f"mstr-inc-{dataset_identity}",
+                        graph=graph,
+                    )
+                    source = MicroStrategySource(config, ctx)
+                    fake_client = _ConcurrentFakeClient(
+                        modified_overrides=modified_overrides
+                    )
+                    source.client.close()
+                    source.client = fake_client  # type: ignore[assignment]
+                    workunits = list(source.get_workunits())
+                    source.close()
+                    for _, committable in ctx.get_committables():
+                        committable.commit()
+                    store.write(workunits)
+                    passes.append(
+                        _IncrementalPassResult(
+                            workunits=workunits,
+                            report=source.report,
+                            client=fake_client,
+                        )
+                    )
+            return passes
+        finally:
+            store.close()
+
+    serial_passes = execute_series(max_workers=1)
+    parallel_passes = execute_series(max_workers=4)
+
+    for serial_pass, parallel_pass in zip(serial_passes, parallel_passes, strict=True):
+        assert _workunit_signatures(parallel_pass.workunits) == _workunit_signatures(
+            serial_pass.workunits
+        )
+        assert (
+            parallel_pass.report.dashboards_skipped_unchanged
+            == serial_pass.report.dashboards_skipped_unchanged
+        )
+        assert (
+            parallel_pass.report.reports_skipped_unchanged
+            == serial_pass.report.reports_skipped_unchanged
+        )
+        assert (
+            parallel_pass.report.report_datasets_skipped_unchanged
+            == serial_pass.report.report_datasets_skipped_unchanged
+        )
+        assert {
+            wu.get_urn()
+            for wu in parallel_pass.workunits
+            if wu.id.startswith("soft-delete-")
+        } == set()
+
+    if dataset_identity == MicroStrategyDatasetIdentity.PER_DASHBOARD:
+        assert parallel_passes[1].report.dashboards_skipped_unchanged == 2
+        assert parallel_passes[1].report.reports_skipped_unchanged == 2
+        assert parallel_passes[1].client.definition_reads == ["doc-beta"]
+        assert parallel_passes[2].report.dashboards_skipped_unchanged == 3
+        assert parallel_passes[2].report.reports_skipped_unchanged == 1
+        assert parallel_passes[2].client.definition_reads == []
+        assert parallel_passes[3].report.dashboards_skipped_unchanged == 3
+        assert parallel_passes[3].report.reports_skipped_unchanged == 2
+        assert parallel_passes[3].client.definition_reads == []
+    else:
+        assert parallel_passes[1].report.dashboards_skipped_unchanged == 0
+        assert parallel_passes[1].report.report_datasets_skipped_unchanged == 1
+        assert parallel_passes[2].report.dashboards_skipped_unchanged == 3
+        assert parallel_passes[2].report.report_datasets_skipped_unchanged == 1
+        assert parallel_passes[2].client.definition_reads == []
+        assert parallel_passes[3].report.dashboards_skipped_unchanged == 3
+        assert parallel_passes[3].report.report_datasets_skipped_unchanged == 2
+        assert parallel_passes[3].client.definition_reads == []
 
 
 class _ParallelSemanticClient:
@@ -1076,6 +1320,13 @@ class _ParallelSemanticClient:
         }
 
 
+class _SemanticEmitResult(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
+
+    workunits: List[MetadataWorkUnit]
+    client: _ParallelSemanticClient
+
+
 def test_semantic_model_parallel_emit_matches_serial_and_coalesces_consolidations() -> (
     None
 ):
@@ -1104,9 +1355,7 @@ def test_semantic_model_parallel_emit_matches_serial_and_coalesces_consolidation
         },
     ]
 
-    def run_emit(
-        max_workers: int,
-    ) -> Tuple[List[MetadataWorkUnit], _ParallelSemanticClient]:
+    def run_emit(max_workers: int) -> _SemanticEmitResult:
         config = MicroStrategyConfig.model_validate(
             {
                 "base_url": "https://mstr.example.com/MicroStrategyLibrary",
@@ -1136,12 +1385,17 @@ def test_semantic_model_parallel_emit_matches_serial_and_coalesces_consolidation
                 ),
             )
         )
-        return wus, client
+        return _SemanticEmitResult(workunits=wus, client=client)
 
-    serial_wus, _ = run_emit(max_workers=1)
-    parallel_wus, parallel_client = run_emit(max_workers=4)
+    serial_emit = run_emit(max_workers=1)
+    parallel_emit = run_emit(max_workers=4)
 
-    assert any(name.startswith("mstr-io") for name in parallel_client.metric_threads)
-    assert parallel_client.max_concurrent >= 2
-    assert parallel_client.consolidation_calls == ["CONSOL-SHARED"]
-    assert _workunit_signatures(parallel_wus) == _workunit_signatures(serial_wus)
+    assert any(
+        name.startswith(MSTR_IO_THREAD_NAME_PREFIX)
+        for name in parallel_emit.client.metric_threads
+    )
+    assert parallel_emit.client.max_concurrent >= 2
+    assert parallel_emit.client.consolidation_calls == ["CONSOL-SHARED"]
+    assert _workunit_signatures(parallel_emit.workunits) == _workunit_signatures(
+        serial_emit.workunits
+    )

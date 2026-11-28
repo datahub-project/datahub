@@ -134,6 +134,13 @@ class _FetchedMetricModel(BaseModel):
     consolidation_attributes: Dict[str, List[str]]
 
 
+class _AttributeRelationshipPair(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    parent_attribute_id: str
+    child_attribute_id: str
+
+
 @dataclass
 class _TableInfo:
     alias: str
@@ -521,7 +528,7 @@ class MicroStrategySemanticModelMapper:
         )
 
         relationships: List[SemanticModelRelationshipInput] = []
-        seen_pairs: Set[Tuple[str, str]] = set()
+        seen_pairs: Set[_AttributeRelationshipPair] = set()
         with ordered_parallel_map(
             lambda attr_id: self.client.get_attribute_relationships(
                 project_id, attr_id
@@ -547,9 +554,9 @@ class MicroStrategySemanticModelMapper:
                     continue
 
                 for relationship in parse_attribute_relationships(response):
-                    pair = (
-                        relationship.parent_attribute_id,
-                        relationship.child_attribute_id,
+                    pair = _AttributeRelationshipPair(
+                        parent_attribute_id=relationship.parent_attribute_id,
+                        child_attribute_id=relationship.child_attribute_id,
                     )
                     if pair in seen_pairs:
                         continue
@@ -808,22 +815,12 @@ class MicroStrategySemanticModelMapper:
         lock: threading.RLock,
         flight: SingleFlight[str, List[str]],
     ) -> List[str]:
-        with lock:
-            if consolidation_id in cache:
-                return cache[consolidation_id]
-
-        def fetch() -> List[str]:
-            with lock:
-                if consolidation_id in cache:
-                    return cache[consolidation_id]
-            attributes = self._fetch_consolidation_attributes(
-                project_id, consolidation_id
-            )
-            with lock:
-                cache[consolidation_id] = attributes
-            return attributes
-
-        return flight.do(consolidation_id, fetch)
+        return flight.get_or_load(
+            consolidation_id,
+            cache,
+            lock,
+            lambda: self._fetch_consolidation_attributes(project_id, consolidation_id),
+        )
 
     def _fetch_consolidation_attributes(
         self,
@@ -845,15 +842,3 @@ class MicroStrategySemanticModelMapper:
             )
             return []
         return consolidation_attribute_ids(model)
-
-    def _resolve_consolidation(
-        self,
-        project_id: str,
-        consolidation_id: str,
-        cache: Dict[str, List[str]],
-    ) -> List[str]:
-        if consolidation_id in cache:
-            return cache[consolidation_id]
-        attributes = self._fetch_consolidation_attributes(project_id, consolidation_id)
-        cache[consolidation_id] = attributes
-        return attributes

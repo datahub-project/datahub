@@ -12,6 +12,17 @@ MICROSTRATEGY_PLATFORM = "microstrategy"
 # executed instance is the vendor's suggested route to metric expressions that
 # the static definition omits.
 MSTR_MS_INSTANCE_HEADER = "X-MSTR-MS-Instance"
+MSTR_AUTH_TOKEN_HEADER = "X-MSTR-AuthToken"
+MSTR_PROJECT_ID_HEADER = "X-MSTR-ProjectID"
+MSTR_HEADER_ACCEPT = "Accept"
+MSTR_HEADER_CONTENT_TYPE = "Content-Type"
+MSTR_CONTENT_TYPE_JSON = "application/json"
+MSTR_HTTP_SCHEME_HTTPS = "https://"
+MSTR_HTTP_SCHEME_HTTP = "http://"
+MSTR_TEXT_ENCODING = "utf-8"
+MSTR_IO_THREAD_NAME_PREFIX = "mstr-io"
+MSTR_UNRESOLVED_FOLDER_LABEL = "unresolved"
+DATAHUB_GRAPH_SESSION_ATTR = "_session"
 
 MSTR_API_AUTH_PREFIX = "/api/auth/"
 MSTR_API_AUTH_LOGIN = "/api/auth/login"
@@ -582,6 +593,12 @@ class MicroStrategyCache(StrEnum):
     REPORT_DERIVED_METRIC = "report_derived_metric"
     METRIC_MODEL = "metric_model"
     REPORT_DEFINITION = "report_definition"
+
+
+class MicroStrategyLineageLookup(StrEnum):
+    WAREHOUSE_CONTEXT = "warehouse_context"
+    MODEL_TABLES = "model_tables"
+    MODEL_LINEAGE_INDEX = "model_lineage_index"
 
 
 MSTR_TELEMETRY_NO_PHASE = "(no phase)"

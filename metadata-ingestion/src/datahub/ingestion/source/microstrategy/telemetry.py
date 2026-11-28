@@ -260,11 +260,11 @@ class RunProgress:
                 sql_parse_seconds = report.sql_parse_seconds
                 sql_parse_cache_hits = report.sql_parse_cache_hits
                 schema_resolution_seconds = report.schema_resolution_seconds
-                phase_items = list(report.phase_seconds.items())
+                phase_seconds = dict(report.phase_seconds)
             top_phases = ", ".join(
-                f"{name} {seconds:.0f}s"
-                for name, seconds in sorted(
-                    phase_items, key=lambda item: item[1], reverse=True
+                f"{name} {phase_seconds[name]:.0f}s"
+                for name in sorted(
+                    phase_seconds, key=lambda key: phase_seconds[key], reverse=True
                 )[:6]
             )
             logger.info(
