@@ -27,6 +27,7 @@ from datahub.ingestion.source.microstrategy.telemetry_helpers import (
     dashboard_seconds_bucket,
     endpoint_template,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.file_backed_collections import FileBackedDict
 
 _OBJECT_ID = "0123456789ABCDEF0123456789ABCDEF"
@@ -270,6 +271,27 @@ def test_column_lineage_request_is_part_of_the_cache_key() -> None:
     assert extractor.report.sql_parse_cache_hits == 0
 
 
+def test_warehouse_context_is_part_of_the_cache_key() -> None:
+    extractor = _extractor()
+    other_context = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database="OTHER_DB", schema="SALES"
+    )
+
+    sales = extractor.warehouse_lineage_from_sql(
+        "select region from fact_sales", _CONTEXT, []
+    )
+    other = extractor.warehouse_lineage_from_sql(
+        "select region from fact_sales", other_context, []
+    )
+
+    assert sales.upstream_urns == [_FACT_SALES]
+    assert other.upstream_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.sales.fact_sales,PROD)"
+    ]
+    assert extractor.report.sql_parses_executed == 2
+    assert extractor.report.sql_parse_cache_hits == 0
+
+
 def test_failed_parse_is_reported_once_and_served_from_the_cache() -> None:
     extractor = _extractor()
 
@@ -364,14 +386,19 @@ def test_schema_resolution_is_timed_through_the_shared_resolver() -> None:
     graph = mock.MagicMock()
     graph.get_entities.return_value = {}
 
-    extractor.warehouse_lineage_from_sql(
-        "select region from fact_sales", _CONTEXT, [], graph=graph
-    )
+    with mock.patch.object(
+        SchemaResolver, "close", autospec=True, side_effect=SchemaResolver.close
+    ) as close:
+        extractor.warehouse_lineage_from_sql(
+            "select region from fact_sales", _CONTEXT, [], graph=graph
+        )
+        assert close.call_count == 0
+        extractor.close()
 
     report = extractor.report
-    assert report.schema_resolution_calls >= 1
-    assert report.schema_resolver.num_schema_cache_misses >= 1
-    extractor.close()
+    assert report.schema_resolution_calls == 1
+    assert report.schema_resolver.num_schema_cache_misses == 1
+    assert close.call_count == 1
 
 
 def test_run_progress_logs_each_dashboard_and_periodic_progress(

@@ -54,6 +54,7 @@ from datahub.ingestion.source.microstrategy.models import (
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.spill_cache import SpillCache
+from datahub.ingestion.source.microstrategy.telemetry import timed_phase
 from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
@@ -64,6 +65,9 @@ from datahub.sql_parsing.schema_resolver import (
 logger = logging.getLogger(__name__)
 
 LineageKey = TypeVar("LineageKey")
+
+_PARSE_LABEL_PREFIX = "sql "
+_PARSE_LABEL_HASH_CHARS = 12
 
 
 @dataclass(frozen=True)
@@ -90,6 +94,9 @@ class SqlViewLineage:
     field_upstreams: Dict[str, List[str]]
 
 
+_EMPTY_LINEAGE = SqlViewLineage([], {})
+
+
 class _ParsedSqlView(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -108,6 +115,7 @@ class _WarehouseKey(BaseModel):
 
 
 _NO_STATEMENTS = _ParsedSqlView(has_statements=False)
+_PARSE_FAILED = _ParsedSqlView(has_statements=True, failed=True)
 
 
 class _TimedSchemaResolver(SchemaResolver):
@@ -365,16 +373,16 @@ class MicroStrategyLineageExtractor:
         """
         field_path_by_name = {path.lower(): path for path in dataset_field_paths}
         if not sql.strip():
-            return SqlViewLineage([], {})
+            return _EMPTY_LINEAGE
 
         parsed = self._parse_sql_view_cached(
             sql, context, bool(field_path_by_name), graph, label
         )
         if not parsed.has_statements:
-            return SqlViewLineage([], {})
+            return _EMPTY_LINEAGE
         self.report.report_sql_view_parsed()
         if parsed.failed:
-            return SqlViewLineage([], {})
+            return _EMPTY_LINEAGE
 
         field_upstreams: Dict[str, List[str]] = {}
         for column, upstream_urns in (parsed.column_upstreams or {}).items():
@@ -409,25 +417,30 @@ class MicroStrategyLineageExtractor:
             if cached.has_statements:
                 self.report.report_sql_parse_cache_hit(failed=cached.failed)
             return cached
-        parsed = self._parse_sql_view(sql, context, want_field_columns, graph, label)
+        parsed = self._parse_sql_view(
+            sql,
+            context,
+            want_field_columns,
+            graph,
+            label or _PARSE_LABEL_PREFIX + cache_key[:_PARSE_LABEL_HASH_CHARS],
+        )
         self._parse_cache.put(cache_key, parsed)
         return parsed
 
+    @timed_phase(MicroStrategyPhase.SQL_PARSE)
     def _parse_sql_view(
         self,
         sql: str,
         context: WarehouseLineageContext,
         want_field_columns: bool,
         graph: Optional[DataHubGraph],
-        label: Optional[str],
+        label: str,
     ) -> _ParsedSqlView:
         # Deferred import: sqlglot_lineage pulls in the full sqlglot parser,
         # which is expensive to import and only needed for opt-in SQL lineage.
         # A missing module here is an installation problem, never a
         # per-statement parse failure, so it must surface as one.
         try:
-            from datahub.sql_parsing.split_statements import split_statements
-            from datahub.sql_parsing.sql_parsing_common import get_dialect_str
             from datahub.sql_parsing.sqlglot_lineage import (
                 create_lineage_from_sql_statements,
             )
@@ -435,72 +448,66 @@ class MicroStrategyLineageExtractor:
             raise _sql_lineage_dependency_error(error) from error
 
         started = time.perf_counter()
-        with self.report.phase(MicroStrategyPhase.SQL_PARSE):
-            dialect = get_dialect_str(context.platform)
-            statements = [
-                statement
-                for statement in split_statements(sql, dialect=dialect)
-                if statement.strip() and not _is_lineage_irrelevant_statement(statement)
-            ]
-            if not statements:
-                return _NO_STATEMENTS
+        statements = _sql_statements(sql, context)
+        if not statements:
+            return _NO_STATEMENTS
 
-            created_tables = _created_table_leaf_names(statements)
-            # Column lineage needs the final SELECT wrapped as a sentinel CTAS.
-            want_columns = want_field_columns and bool(
-                MSTR_SELECT_STATEMENT_RE.match(statements[-1])
+        created_tables = _created_table_leaf_names(statements)
+        # Column lineage needs the final SELECT wrapped as a sentinel CTAS.
+        want_columns = want_field_columns and bool(
+            MSTR_SELECT_STATEMENT_RE.match(statements[-1])
+        )
+        queries = list(statements)
+        if want_columns:
+            queries[-1] = (
+                f"CREATE TABLE {MSTR_SQL_VIEW_OUTPUT_SENTINEL} AS\n{queries[-1]}"
             )
-            queries = list(statements)
-            if want_columns:
-                queries[-1] = (
-                    f"CREATE TABLE {MSTR_SQL_VIEW_OUTPUT_SENTINEL} AS\n{queries[-1]}"
-                )
 
-            try:
-                result = create_lineage_from_sql_statements(
-                    queries=queries,
-                    default_db=context.database,
-                    default_schema=context.schema,
-                    platform=context.platform,
-                    platform_instance=context.platform_instance,
-                    env=context.env,
-                    graph=graph,
-                    is_temp_table=lambda name: _leaf_identifier(name) in created_tables,
-                    schema_resolver=(
-                        self._schema_resolver(context, graph) if graph else None
-                    ),
-                )
-            except ImportError as error:
-                # A lazy import failure would hit every statement.
-                raise _sql_lineage_dependency_error(error) from error
-            except Exception as error:
-                self._report_sql_parse_failure(sql, context, error)
-                return _ParsedSqlView(has_statements=True, failed=True)
-            finally:
-                self.report.report_sql_parse_executed(
-                    _parse_label(label, sql, len(statements)),
-                    time.perf_counter() - started,
-                    len(statements),
-                )
-            if result.debug_info.error is not None:
-                self._report_sql_parse_failure(sql, context, result.debug_info.error)
-                return _ParsedSqlView(has_statements=True, failed=True)
-
-            column_upstreams: Optional[Dict[str, List[str]]] = None
-            if want_columns:
-                column_upstreams = {}
-                for column_lineage in result.column_lineage or []:
-                    upstream_urns = column_lineage.upstream_schema_field_urns()
-                    if upstream_urns:
-                        column_upstreams.setdefault(
-                            column_lineage.downstream.column.lower(), []
-                        ).extend(upstream_urns)
-
-            return _ParsedSqlView(
-                has_statements=True,
-                upstream_urns=_dedupe_sorted(result.in_tables),
-                column_upstreams=column_upstreams,
+        try:
+            result = create_lineage_from_sql_statements(
+                queries=queries,
+                default_db=context.database,
+                default_schema=context.schema,
+                platform=context.platform,
+                platform_instance=context.platform_instance,
+                env=context.env,
+                graph=graph,
+                is_temp_table=lambda name: _leaf_identifier(name) in created_tables,
+                schema_resolver=(
+                    self._schema_resolver(context, graph) if graph else None
+                ),
             )
+        except ImportError as error:
+            # A lazy import failure would hit every statement.
+            raise _sql_lineage_dependency_error(error) from error
+        except Exception as error:
+            self._report_sql_parse_failure(sql, context, error)
+            return _PARSE_FAILED
+        finally:
+            self.report.report_sql_parse_executed(
+                f"{label} ({len(statements)} statements, {len(sql)} chars)",
+                time.perf_counter() - started,
+                len(statements),
+            )
+        if result.debug_info.error is not None:
+            self._report_sql_parse_failure(sql, context, result.debug_info.error)
+            return _PARSE_FAILED
+
+        column_upstreams: Optional[Dict[str, List[str]]] = None
+        if want_columns:
+            column_upstreams = {}
+            for column_lineage in result.column_lineage or []:
+                upstream_urns = column_lineage.upstream_schema_field_urns()
+                if upstream_urns:
+                    column_upstreams.setdefault(
+                        column_lineage.downstream.column.lower(), []
+                    ).extend(upstream_urns)
+
+        return _ParsedSqlView(
+            has_statements=True,
+            upstream_urns=_dedupe_sorted(result.in_tables),
+            column_upstreams=column_upstreams,
+        )
 
     def _report_sql_parse_failure(
         self,
@@ -721,17 +728,21 @@ class MicroStrategyLineageExtractor:
         return unique_inputs
 
 
-_PARSE_LABEL_PREFIX = "sql "
-_PARSE_LABEL_HASH_CHARS = 12
+def _sql_statements(sql: str, context: WarehouseLineageContext) -> List[str]:
+    # Deferred for the same reason as sqlglot_lineage in _parse_sql_view.
+    try:
+        from datahub.sql_parsing.split_statements import split_statements
+        from datahub.sql_parsing.sql_parsing_common import get_dialect_str
+    except ImportError as error:
+        raise _sql_lineage_dependency_error(error) from error
 
-
-def _parse_label(label: Optional[str], sql: str, statements: int) -> str:
-    name = (
-        label
-        or _PARSE_LABEL_PREFIX
-        + (hashlib.sha256(sql.encode("utf-8")).hexdigest()[:_PARSE_LABEL_HASH_CHARS])
-    )
-    return f"{name} ({statements} statements, {len(sql)} chars)"
+    return [
+        statement
+        for statement in split_statements(
+            sql, dialect=get_dialect_str(context.platform)
+        )
+        if statement.strip() and not _is_lineage_irrelevant_statement(statement)
+    ]
 
 
 def ensure_sql_lineage_dependencies() -> None:
