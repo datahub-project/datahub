@@ -1,6 +1,6 @@
 import threading
 import time
-from typing import List, Optional
+from typing import Callable, List, Optional
 from unittest import mock
 
 import pytest
@@ -142,11 +142,11 @@ def test_loader_error_propagates_and_the_key_stays_loadable() -> None:
 
 
 def test_close_releases_the_sqlite_file_and_reset_reopens_lazily() -> None:
-    created: List[FileBackedDict] = []
-    real_factory = FileBackedDict
+    created: List[FileBackedDict[object]] = []
+    real_factory: Callable[..., FileBackedDict[object]] = FileBackedDict
 
-    def recording_factory(*args: object, **kwargs: object) -> FileBackedDict:
-        store: FileBackedDict = real_factory(*args, **kwargs)  # type: ignore[arg-type]
+    def recording_factory(**kwargs: object) -> FileBackedDict[object]:
+        store = real_factory(**kwargs)
         created.append(store)
         return store
 
