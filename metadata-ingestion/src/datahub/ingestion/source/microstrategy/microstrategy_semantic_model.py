@@ -27,7 +27,6 @@ from datahub.ingestion.source.microstrategy.lineage import (
     AttributeRelationship,
     MicroStrategyLineageExtractor,
     TableContextResolver,
-    WarehouseLineageContext,
     coerce_dicts,
     consolidation_attribute_ids,
     metric_attribute_ids_from_model,
@@ -98,6 +97,13 @@ _METRIC_MODEL_FAILURE_MESSAGES: Dict[MetricPresence, str] = {
 }
 
 logger = logging.getLogger(__name__)
+
+
+class _MetricModelRead(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    model: Dict[str, object]
+    live: bool
 
 
 class _AttributeRelationshipPair(BaseModel):
@@ -277,7 +283,12 @@ class MicroStrategySemanticModelMapper:
             if not isinstance(physical_table, dict):
                 continue
             table_context = table_context_resolver(table)
-            physical_alias = self._table_alias(physical_table, table_context)
+            warehouse_name = (
+                physical_table_name(physical_table, table_context)
+                if table_context is not None
+                else None
+            )
+            physical_alias = warehouse_name or self._table_alias(physical_table)
             if not physical_alias:
                 continue
             # The logical table (this `table` entry's own "information" block,
@@ -293,9 +304,11 @@ class MicroStrategySemanticModelMapper:
                 else None
             )
             alias = self._dataset_alias(logical_information, physical_alias)
+            # The fallback alias is only a logical identity; a warehouse URN
+            # built from it would be a guess that never joins.
             warehouse_urn = (
-                self.lineage.warehouse_dataset_urn(table_context, physical_alias)
-                if table_context is not None
+                self.lineage.warehouse_dataset_urn(table_context, warehouse_name)
+                if table_context is not None and warehouse_name
                 else None
             )
 
@@ -342,17 +355,9 @@ class MicroStrategySemanticModelMapper:
         return tables, fact_table_aliases, attribute_table_aliases
 
     @staticmethod
-    def _table_alias(
-        physical_table: Dict[str, object],
-        warehouse_context: Optional[WarehouseLineageContext],
-    ) -> Optional[str]:
-        if warehouse_context is not None:
-            qualified = physical_table_name(physical_table, warehouse_context)
-            if qualified:
-                return qualified
-        # No warehouse context (or it couldn't resolve a name) -- fall back to
-        # MicroStrategy's own logical table identity so tables still get a
-        # stable, reasonably-unique alias.
+    def _table_alias(physical_table: Dict[str, object]) -> Optional[str]:
+        # Used when no warehouse name resolved: MicroStrategy's own logical
+        # table identity still gives the table a stable, reasonably-unique alias.
         raw = physical_table.get("tableName")
         if not isinstance(raw, str) or not raw:
             information = physical_table.get("information")
@@ -636,8 +641,16 @@ class MicroStrategySemanticModelMapper:
         # request or retry wait instead of holding up the pool's shutdown.
         stopped = threading.Event()
 
-        def fetch_metric(metric_object: MicroStrategyObject) -> Dict[str, object]:
-            return self._metric_model(project_id, metric_object.id, stopped)
+        def fetch_metric(metric_object: MicroStrategyObject) -> _MetricModelRead:
+            cached = self._cached_model(project_id, metric_object.id)
+            if cached is not None:
+                return _MetricModelRead(model=cached, live=False)
+            return _MetricModelRead(
+                model=self.client.get_metric_model(
+                    project_id, metric_object.id, stop=stopped
+                ),
+                live=True,
+            )
 
         consecutive_failures = 0
         failed = 0
@@ -659,8 +672,12 @@ class MicroStrategySemanticModelMapper:
                         project_id,
                     )
                 try:
-                    model = outcome.unwrap()
-                    consecutive_failures = 0
+                    model_read = outcome.unwrap()
+                    model = model_read.model
+                    # Cache hits must not reset the streak, or live failures
+                    # interleaved with them would never trip the stop.
+                    if model_read.live:
+                        consecutive_failures = 0
                 except MicroStrategyAPIError as error:
                     failed += 1
                     consecutive_failures += 1
@@ -827,15 +844,13 @@ class MicroStrategySemanticModelMapper:
             ],
         )
 
-    def _metric_model(
-        self, project_id: str, metric_id: str, stop: threading.Event
-    ) -> Dict[str, object]:
-        # Last pass to need a model, so a fetch here is not written back.
-        if self.cached_metric_model is not None:
-            cached = self.cached_metric_model(project_id, metric_id)
-            if cached is not None:
-                return cached
-        return self.client.get_metric_model(project_id, metric_id, stop=stop)
+    def _cached_model(
+        self, project_id: str, metric_id: str
+    ) -> Optional[Dict[str, object]]:
+        # Last pass to need a model, so a live fetch is not written back.
+        if self.cached_metric_model is None:
+            return None
+        return self.cached_metric_model(project_id, metric_id)
 
     def _unknown_presence_reason(self) -> str:
         return (

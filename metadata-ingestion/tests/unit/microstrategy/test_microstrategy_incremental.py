@@ -1,5 +1,5 @@
 from contextlib import AbstractContextManager, ExitStack
-from typing import Callable, Dict, List, Optional, Set, Tuple, Type
+from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -45,6 +45,7 @@ from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStat
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stateful_ingestion_base import StateProviderWrapper
 from datahub.metadata.schema_classes import (
+    ChartInfoClass,
     DashboardInfoClass,
     DatasetPropertiesClass,
     SchemaMetadataClass,
@@ -1085,6 +1086,57 @@ def test_failed_read_keeps_its_last_read_and_is_retried(
     else:
         assert "report-1" in first.server.report_definition_reads
     assert _stale_urns(third.source) == _stale_urns(full.source)
+
+
+def _fail_after_emitting(method: str) -> AbstractContextManager[object]:
+    original = getattr(MicroStrategySource, method)
+
+    def failing(*args: object, **kwargs: object) -> Iterator[MetadataWorkUnit]:
+        yield from original(*args, **kwargs)
+        raise RuntimeError("failed after the stamp was written")
+
+    return patch.object(MicroStrategySource, method, failing)
+
+
+@pytest.mark.parametrize("max_workers", [1, 4])
+@pytest.mark.parametrize(
+    "method, urn, aspect_type, reads",
+    [
+        ("_process_dashboard", DASH_1_URN, DashboardInfoClass, "definition_reads"),
+        (
+            "_emit_prefetched_report_object",
+            REPORT_CHART_URN,
+            ChartInfoClass,
+            "report_definition_reads",
+        ),
+    ],
+)
+def test_object_whose_read_failed_after_writing_its_stamp_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    method: str,
+    urn: str,
+    aspect_type: Type[_Aspect],
+    reads: str,
+    max_workers: int,
+) -> None:
+    first = _first_run(mock_datahub_graph)
+    del first.datahub.aspects[(urn, aspect_type.ASPECT_NAME)]
+
+    with _fail_after_emitting(method):
+        second = _run(
+            mock_datahub_graph, first.server, "run-2", max_workers=max_workers
+        )
+    first.datahub.write(second.workunits)
+
+    assert _soft_deleted_urns(second.workunits) == set()
+    assert _stale_urns(second.source) == _stale_urns(first.source)
+    getattr(first.server, reads).clear()
+
+    third = _run(mock_datahub_graph, first.server, "run-3", max_workers=max_workers)
+
+    assert getattr(first.server, reads)
+    assert not third.source.report.failures
+    assert _stale_urns(third.source) == _stale_urns(first.source)
 
 
 def test_per_report_failed_only_embedder_keeps_the_dataset(
