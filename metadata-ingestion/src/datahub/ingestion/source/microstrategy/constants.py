@@ -542,47 +542,6 @@ class MicroStrategyDatasetIdentity(StrEnum):
     PER_REPORT = "per_report"
 
 
-class MicroStrategyPhase(StrEnum):
-    DASHBOARD = "dashboard"
-    DASHBOARD_SEARCH = "dashboard_search"
-    SQL_PARSE = "sql_parse"
-    WAREHOUSE_FIELD_LOOKUP = "warehouse_field_lookup"
-    USAGE = "usage"
-    SEMANTIC_MODEL = "semantic_model"
-    SOURCE_WAREHOUSES = "source_warehouses"
-    FOLDER_RESOLUTION = "folder_resolution"
-    DATASET_OBJECT_LOOKUP = "dataset_object_lookup"
-    REPORT_DERIVED_METRICS = "report_derived_metrics"
-    DOCUMENT_DERIVED_METRICS = "document_derived_metrics"
-    REPORT_DERIVED_METRIC_DEFINITIONS = "report_derived_metric_definitions"
-    REPORT_MODEL_INSTANCE = "report_model_instance"
-    REPORTS = "reports"
-    DASHBOARD_DEFINITION = "dashboard_definition"
-    MODEL_DOCUMENT = "model_document"
-    VISUALIZATION_BINDINGS = "visualization_bindings"
-    REPORT_DEFINITION = "report_definition"
-    MODEL_TABLES = "model_tables"
-    MODEL_LINEAGE_INDEX = "model_lineage_index"
-    DASHBOARD_DEPENDENCIES = "dashboard_dependencies"
-    METRIC_EXPRESSIONS = "metric_expressions"
-    METRIC_MODEL_FETCH = "metric_model_fetch"
-    VISUALIZATION_DETAILS = "visualization_details"
-    WAREHOUSE_LINEAGE = "warehouse_lineage"
-    DOCUMENT_WAREHOUSE_LINEAGE = "document_warehouse_lineage"
-    REPORT_SQL_FETCH = "report_sql_fetch"
-    DASHBOARD_INSTANCE = "dashboard_instance"
-    INSTANCE_CLEANUP = "instance_cleanup"
-
-
-class MicroStrategyCache(StrEnum):
-    SQL_PARSE = "sql_parse"
-    REPORT_SQL = "report_sql"
-    DATASET_OBJECT = "dataset_object"
-    REPORT_DERIVED_METRIC = "report_derived_metric"
-    METRIC_MODEL = "metric_model"
-    REPORT_OBJECT = "report_object"
-
-
 class MetricPresence(StrEnum):
     PRESENT = "present"
     ABSENT = "absent"
@@ -596,32 +555,13 @@ MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT = 20
 # Metric search and /api/model/tables are slow on large projects.
 MSTR_MODEL_API_MIN_TIMEOUT_SECONDS = 120
 
-MSTR_TELEMETRY_NO_PHASE = "(no phase)"
-MSTR_TELEMETRY_ERROR_STATUS = "error"
+MSTR_PROGRESS_LOG_INTERVAL_DASHBOARDS = 25
+MSTR_PROGRESS_LOG_INTERVAL_METRICS = 1000
 
-MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS: Final[Sequence[int]] = (
-    10,
-    30,
-    60,
-    120,
-    300,
-    600,
-    1800,
-)
+# Per-project report SQL and parsed SQL lineage entries kept in memory before
+# older ones spill to a temporary local file.
+MSTR_CACHE_MEMORY_ENTRIES = 2000
 
 MSTR_SQLGLOT_LOGGER = "sqlglot"
 # One warning per generated statement; they fill the executor's bounded log.
 MSTR_SQLGLOT_SUPPRESSED_PREFIXES: Final[Sequence[str]] = ("Unsupported property",)
-
-MSTR_ENDPOINT_ID_PLACEHOLDER = "/{id}"
-# 32-hex object ids and UUIDs, so one endpoint is one row.
-MSTR_ENDPOINT_OBJECT_ID_SEGMENT_RE = re.compile(r"/[0-9A-Fa-f]{32}(?=/|$)")
-MSTR_ENDPOINT_UUID_SEGMENT_RE = re.compile(
-    r"/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?=/|$)"
-)
-# Not 32-hex object ids, so a literal match would make one row per visualization.
-# The replacement keeps group 1, the segment kind.
-MSTR_ENDPOINT_DOSSIER_KEY_SEGMENT_RE = re.compile(
-    r"/(chapters|pages|visualizations)/[^/]+"
-)
-MSTR_ENDPOINT_KEY_REPLACEMENT = r"/\1/{key}"
