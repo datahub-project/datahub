@@ -45,12 +45,12 @@ def test_values_spill_to_disk_without_loss_and_none_is_a_cached_value() -> None:
         missing = cache.get_entry("missing")
         assert "failed" in cache
         report = MicroStrategyReport()
-        cache.reset(report, MicroStrategyCache.DATASET_OBJECT)
+        cache.reset(report, MicroStrategyCache.REPORT_OBJECT)
 
     assert failed.found and failed.value is None
     assert not missing.found and "missing" not in cache
     # A key written twice is one entry.
-    assert report.cache_entries_peak == {"dataset_object": 6}
+    assert report.cache_entries_peak == {"report_object": 6}
     assert cache.entry_count == 0
     assert cache.get("key-1") is None
 

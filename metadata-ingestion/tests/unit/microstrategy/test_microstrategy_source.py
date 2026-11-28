@@ -4720,6 +4720,64 @@ def test_report_object_lookups_are_shared_across_datasets_links_and_search() -> 
     assert source.report.dataset_object_lookups == 1
 
 
+class _FailsFirstObjectInfoClient(_ObjectInfoClient):
+    def __init__(self, failures: int) -> None:
+        super().__init__()
+        self.failures_left = failures
+
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> MicroStrategyObject:
+        if self.failures_left > 0:
+            self.failures_left -= 1
+            self.object_info_calls.append(object_id)
+            raise RuntimeError("lookup failed")
+        return super().get_object_info(project_id, object_id, object_type)
+
+
+def test_failed_dataset_lookup_does_not_hide_a_linked_report() -> None:
+    source = _report_scope_source({"extract_independent_reports": True})
+    client = _FailsFirstObjectInfoClient(failures=1)
+    source.client = client  # type: ignore[assignment]
+
+    assert source._dataset_object_info("project-1", "report-9") is None
+    linked_object = source._linked_report_object("project-1", "REPORT-9")
+
+    assert client.object_info_calls == ["report-9", "REPORT-9"]
+    assert linked_object is not None and linked_object.id == "REPORT-9"
+    assert source.report.dataset_object_lookup_failures == 1
+
+
+def test_failed_linked_report_lookup_does_not_hide_a_dataset() -> None:
+    source = _report_scope_source({"extract_independent_reports": True})
+    client = _FailsFirstObjectInfoClient(failures=1)
+    source.client = client  # type: ignore[assignment]
+
+    assert source._linked_report_object("project-1", "report-9") is None
+    dataset_object = source._dataset_object_info("project-1", "REPORT-9")
+
+    assert client.object_info_calls == ["report-9", "REPORT-9"]
+    assert dataset_object is not None and dataset_object.id == "REPORT-9"
+    assert "Failed to Fetch Linked Report" in {
+        warning.title for warning in source.report.warnings
+    }
+
+
+def test_linked_report_lookup_warns_after_a_failed_dataset_lookup() -> None:
+    source = _report_scope_source({"extract_independent_reports": True})
+    client = _FailsFirstObjectInfoClient(failures=2)
+    source.client = client  # type: ignore[assignment]
+
+    assert source._dataset_object_info("project-1", "report-9") is None
+    assert source._linked_report_object("project-1", "report-9") is None
+    assert source._linked_report_object("project-1", "report-9") is None
+
+    assert client.object_info_calls == ["report-9", "report-9"]
+    assert [warning.title for warning in source.report.warnings].count(
+        "Failed to Fetch Linked Report"
+    ) == 1
+
+
 def test_report_v2_definition_is_fetched_once_for_derived_metrics_and_reports() -> None:
     source = _source(
         {
@@ -4794,7 +4852,7 @@ def test_project_failure_still_closes_every_spill_cache() -> None:
     assert source.report.cache_project_resets == 1
     assert source.report.cache_entries_peak == {
         "report_sql": 1,
-        "dataset_object": 1,
+        "report_object": 1,
         "report_derived_metric": 1,
         "report_definition": 1,
         "sql_parse": 1,

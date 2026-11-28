@@ -573,7 +573,7 @@ class MicroStrategyPhase(StrEnum):
 class MicroStrategyCache(StrEnum):
     SQL_PARSE = "sql_parse"
     REPORT_SQL = "report_sql"
-    DATASET_OBJECT = "dataset_object"
+    REPORT_OBJECT = "report_object"
     REPORT_DERIVED_METRIC = "report_derived_metric"
     METRIC_MODEL = "metric_model"
     REPORT_DEFINITION = "report_definition"
