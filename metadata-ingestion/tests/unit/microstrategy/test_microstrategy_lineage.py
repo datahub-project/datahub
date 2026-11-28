@@ -897,20 +897,32 @@ def test_convert_urns_to_lowercase_false_preserves_warehouse_case() -> None:
     ]
 
 
-def test_warehouse_schema_lookup_failure_is_reported_and_falls_back() -> None:
+def test_warehouse_schema_lookup_failure_is_reported_and_retried() -> None:
     extractor = _extractor()
+    urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.tbl,PROD)"
     graph = mock.Mock()
     graph.get_schema_metadata.side_effect = RuntimeError("gms unavailable")
 
-    assert (
-        extractor._warehouse_field_map(
-            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.tbl,PROD)", graph
-        )
-        is None
-    )
+    assert extractor._warehouse_field_map(urn, graph) is None
+    assert extractor._warehouse_field_map(urn, graph) is None
+
+    assert graph.get_schema_metadata.call_count == 2
     assert [w.title for w in extractor.report.warnings] == [
         "Failed to fetch warehouse schema from DataHub"
     ]
+
+
+def test_warehouse_without_schema_is_looked_up_once() -> None:
+    extractor = _extractor()
+    urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.tbl,PROD)"
+    graph = mock.Mock()
+    graph.get_schema_metadata.return_value = None
+
+    assert extractor._warehouse_field_map(urn, graph) is None
+    assert extractor._warehouse_field_map(urn, graph) is None
+
+    assert graph.get_schema_metadata.call_count == 1
+    assert not extractor.report.warnings
 
 
 def test_model_lineage_anchors_columns_to_graph_field_casing() -> None:

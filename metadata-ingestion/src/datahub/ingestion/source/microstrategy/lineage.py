@@ -736,16 +736,18 @@ class MicroStrategyLineageExtractor:
             with self.report.phase(MicroStrategyPhase.WAREHOUSE_FIELD_LOOKUP):
                 schema = graph.get_schema_metadata(upstream_dataset_urn)
         except Exception as error:
+            # Not cached, so the next use of this table retries the lookup.
             self.report.warning(
                 title="Failed to fetch warehouse schema from DataHub",
                 message=(
                     "Column lineage for this upstream table uses the casing "
-                    "heuristic for the rest of the run."
+                    "heuristic."
                 ),
                 context=upstream_dataset_urn,
                 exc=error,
+                log=False,
             )
-            schema = None
+            return None
         if schema is not None:
             # Later fields win on case-insensitive collisions, which is rare and
             # harmless since either casing anchors to the same column.
