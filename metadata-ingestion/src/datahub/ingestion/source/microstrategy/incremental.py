@@ -208,8 +208,15 @@ class MicroStrategyChangeDetector:
                 "config": self.config.model_dump(
                     mode="json", exclude=set(FINGERPRINT_EXCLUDED_CONFIG_FIELDS)
                 ),
+                # Declared fields only: extra="allow" keeps raw API fields too.
                 "warehouses": [
-                    warehouse.model_dump(mode="json") for warehouse in source_warehouses
+                    warehouse.model_dump(
+                        mode="json", include=set(Datasource.model_fields)
+                    )
+                    for warehouse in sorted(
+                        source_warehouses,
+                        key=lambda warehouse: normalize_object_id(warehouse.id),
+                    )
                 ],
                 "folder_labels": sorted(predefined_folders.labels.items()),
                 "hidden_folders": sorted(predefined_folders.hidden_ids),

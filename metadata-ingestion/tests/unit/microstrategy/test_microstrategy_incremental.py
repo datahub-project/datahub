@@ -190,6 +190,7 @@ class _MicroStrategy:
                 version=f"{object_id.upper()}-V1",
                 ancestors=[{"id": "folder-2", "name": "Data"}],
             )
+        self.warehouses: List[Dict[str, object]] = [WAREHOUSE]
         self.failing_definitions: Set[str] = set()
         self.definition_reads: List[str] = []
         self.dossier_instances = 0
@@ -217,7 +218,10 @@ class _MicroStrategy:
             fixed("login", None),
             fixed("close", None),
             fixed("list_projects", [Project(id=PROJECT_ID, name="Sales Analytics")]),
-            fixed("list_project_datasources", [Datasource.model_validate(WAREHOUSE)]),
+            fixed(
+                "list_project_datasources",
+                [Datasource.model_validate(warehouse) for warehouse in self.warehouses],
+            ),
             fixed(
                 "get_datasource_connection",
                 DatasourceConnection.model_validate(
@@ -577,6 +581,23 @@ def test_dashboard_is_read_again_when_datahub_disagrees(
     _run(mock_datahub_graph, first.server, "run-2")
 
     assert first.server.definition_reads == ["dash-1"]
+
+
+def test_warehouse_order_does_not_change_the_fingerprint(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    other_warehouse = {**WAREHOUSE, "id": "source-2", "name": "Other Warehouse"}
+    server = _MicroStrategy()
+    server.warehouses = [WAREHOUSE, other_warehouse]
+    datahub = _DataHub(mock_datahub_graph)
+    datahub.write(_run(mock_datahub_graph, server, "run-1").workunits)
+    server.definition_reads.clear()
+    server.warehouses = [other_warehouse, WAREHOUSE]
+
+    second = _run(mock_datahub_graph, server, "run-2")
+
+    assert server.definition_reads == []
+    assert second.source.report.dashboards_skipped_unchanged == 2
 
 
 def test_recipe_change_reads_everything(
