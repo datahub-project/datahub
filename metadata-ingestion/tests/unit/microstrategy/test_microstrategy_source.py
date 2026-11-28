@@ -2,7 +2,7 @@ import builtins
 import json
 import logging
 import sys
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple
 from unittest import mock
 
 import pytest
@@ -17,6 +17,7 @@ from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAuthError,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.constants import USAGE_TARGET_DATASET
 from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
     WarehouseLineageContext,
@@ -4619,6 +4620,44 @@ def test_per_report_dashboard_pass_auth_failure_still_emits_registered_datasets(
             workunits.append(workunit)
 
     assert list(_aspects_by_urn(workunits, DatasetPropertiesClass)) == [_SHARED_URN]
+
+
+_SOLO_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.report-solo,PROD)"
+)
+
+
+def test_per_report_one_bad_dataset_does_not_drop_the_rest_or_register_usage() -> None:
+    source = _per_report_source(
+        {
+            "extract_reports": True,
+            "extract_independent_reports": True,
+            "extract_usage_statistics": True,
+        }
+    )
+    source.client = _SharedReportClient()  # type: ignore[assignment]
+
+    real = source.mapper.gen_report_dataset_workunits
+
+    def fail_for_shared(
+        project_id: str, dataset: DatasetObject, *args: Any, **kwargs: Any
+    ) -> Iterable[MetadataWorkUnit]:
+        if dataset.id == "ds-shared":
+            raise RuntimeError("bad report")
+        return real(project_id, dataset, *args, **kwargs)
+
+    with mock.patch.object(
+        source.mapper, "gen_report_dataset_workunits", side_effect=fail_for_shared
+    ):
+        workunits = list(source._process_project(_PROJECT))
+
+    assert list(_aspects_by_urn(workunits, DatasetPropertiesClass)) == [_SOLO_URN]
+    assert [warning.title for warning in source.report.warnings] == [
+        "Failed to Emit Report Dataset"
+    ]
+    assert "DS-SHARED" not in source._usage_targets
+    assert source._usage_targets["REPORT-SOLO"].urn == _SOLO_URN
+    assert source._usage_targets["REPORT-SOLO"].kind == USAGE_TARGET_DATASET
 
 
 def test_reset_project_caches_clears_the_report_dataset_registry() -> None:

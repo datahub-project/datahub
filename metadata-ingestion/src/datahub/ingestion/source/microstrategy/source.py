@@ -1093,37 +1093,66 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 or (entry.dashboard_ids and self.config.extract_cubes)
             ):
                 continue
-            dataset = entry.dataset
-            dataset_object = entry.report_object or self._dataset_object_info(
-                project_id, dataset.id
-            )
-            folder_object = self._folder_object(project_id, dataset_object)
-            if folder_object is not None:
-                yield from self.mapper.gen_folder_containers(
-                    project_id, folder_object, predefined_folders
+            try:
+                # Built whole so a failure part-way emits nothing for this report.
+                workunits = list(
+                    self._report_dataset_entry_workunits(
+                        project_id, entry, predefined_folders
+                    )
                 )
-            fallback_key = (
-                self.mapper.folder_container_for_dashboard(
-                    project_id, entry.first_dashboard_object, predefined_folders
+            except Exception as error:
+                self.report.warning(
+                    title="Failed to Emit Report Dataset",
+                    message=(
+                        "Skipping this report dataset after an unexpected error; "
+                        "other report datasets will still be emitted."
+                    ),
+                    context=(
+                        f"project_id={project_id}, report_id={entry.dataset.id}, "
+                        f"report_name={entry.dataset.name}"
+                    ),
+                    exc=error,
                 )
-                if entry.first_dashboard_object is not None
-                else self.mapper.project_key(project_id)
-            )
+                continue
             self._register_usage_target(
-                dataset.id,
+                entry.dataset.id,
                 USAGE_TARGET_DATASET,
-                self.lineage.dataset_urn(project_id, None, dataset),
+                self.lineage.dataset_urn(project_id, None, entry.dataset),
             )
-            yield from self.mapper.gen_report_dataset_workunits(
-                project_id,
-                dataset,
-                self.mapper.dataset_folder_parent_key(
-                    project_id, folder_object, fallback_key, predefined_folders
-                ),
-                dataset_object=dataset_object,
-                dashboard_ids=entry.dashboard_ids,
-                report_definition=entry.report_definition,
+            yield from workunits
+
+    def _report_dataset_entry_workunits(
+        self,
+        project_id: str,
+        entry: "_ReportDatasetEntry",
+        predefined_folders: PredefinedFolderResolution,
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset = entry.dataset
+        dataset_object = entry.report_object or self._dataset_object_info(
+            project_id, dataset.id
+        )
+        folder_object = self._folder_object(project_id, dataset_object)
+        if folder_object is not None:
+            yield from self.mapper.gen_folder_containers(
+                project_id, folder_object, predefined_folders
             )
+        fallback_key = (
+            self.mapper.folder_container_for_dashboard(
+                project_id, entry.first_dashboard_object, predefined_folders
+            )
+            if entry.first_dashboard_object is not None
+            else self.mapper.project_key(project_id)
+        )
+        yield from self.mapper.gen_report_dataset_workunits(
+            project_id,
+            dataset,
+            self.mapper.dataset_folder_parent_key(
+                project_id, folder_object, fallback_key, predefined_folders
+            ),
+            dataset_object=dataset_object,
+            dashboard_ids=entry.dashboard_ids,
+            report_definition=entry.report_definition,
+        )
 
     def _folder_object(
         self, project_id: str, dataset_object: Optional[MicroStrategyObject]
