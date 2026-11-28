@@ -27,7 +27,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
 )
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-from datahub.ingestion.source.microstrategy.telemetry import peak_rss_mb
+from datahub.ingestion.source.microstrategy.telemetry_helpers import peak_rss_mb
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,

@@ -9,7 +9,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MicroStrategyCache,
     MicroStrategyPhase,
 )
-from datahub.ingestion.source.microstrategy.telemetry import (
+from datahub.ingestion.source.microstrategy.telemetry_helpers import (
     dashboard_seconds_bucket,
     endpoint_template,
     peak_rss_mb,

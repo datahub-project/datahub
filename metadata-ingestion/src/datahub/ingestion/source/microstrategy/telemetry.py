@@ -1,38 +1,18 @@
 import functools
 import inspect
 import logging
-import re
-import sys
 import time
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Iterable,
-    Iterator,
-    Optional,
-    Protocol,
-    TypeVar,
-    cast,
-)
+from typing import Callable, Iterable, Iterator, Protocol, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import ParamSpec
 
 from datahub.ingestion.source.microstrategy.constants import (
-    MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS,
-    MSTR_ENDPOINT_ID_PLACEHOLDER,
-    MSTR_ENDPOINT_KEY_REPLACEMENT,
     MSTR_SQLGLOT_SUPPRESSED_PREFIXES,
     MicroStrategyPhase,
 )
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-
-try:
-    import resource
-except ImportError:  # pragma: no cover - not available on Windows
-    resource = None  # type: ignore[assignment]
+from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.telemetry_helpers import peak_rss_mb
 
 logger = logging.getLogger(__name__)
 
@@ -40,43 +20,9 @@ P = ParamSpec("P")
 R = TypeVar("R")
 T = TypeVar("T")
 
-# 32-hex object ids and UUIDs, so one endpoint is one row.
-_OBJECT_ID_SEGMENT_RE = re.compile(r"/[0-9A-Fa-f]{32}(?=/|$)")
-_UUID_SEGMENT_RE = re.compile(
-    r"/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}(?=/|$)"
-)
-# Not 32-hex object ids, so a literal match would make one row per visualization.
-_DOSSIER_KEY_SEGMENT_RE = re.compile(r"/(chapters|pages|visualizations)/[^/]+")
-
 
 class _HasReport(Protocol):
-    report: "MicroStrategyReport"
-
-
-def endpoint_template(method: str, path: str) -> str:
-    path = path.split("?", 1)[0]
-    path = _OBJECT_ID_SEGMENT_RE.sub(MSTR_ENDPOINT_ID_PLACEHOLDER, path)
-    path = _UUID_SEGMENT_RE.sub(MSTR_ENDPOINT_ID_PLACEHOLDER, path)
-    path = _DOSSIER_KEY_SEGMENT_RE.sub(MSTR_ENDPOINT_KEY_REPLACEMENT, path)
-    return f"{method.upper()} {path}"
-
-
-def peak_rss_mb() -> Optional[float]:
-    if resource is None:
-        return None
-    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    # ru_maxrss is in bytes on macOS and kilobytes on Linux.
-    divisor = 1024 * 1024 if sys.platform == "darwin" else 1024
-    return round(peak / divisor, 1)
-
-
-def dashboard_seconds_bucket(seconds: float) -> str:
-    lower = 0
-    for upper in MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS:
-        if seconds < upper:
-            return f"{lower}-{upper}s"
-        lower = upper
-    return f">={lower}s"
+    report: MicroStrategyReport
 
 
 def timed_phase(name: MicroStrategyPhase) -> Callable[[Callable[P, R]], Callable[P, R]]:
@@ -112,7 +58,7 @@ def timed_generator_phase(
 
 
 def timed_iter(
-    report: "MicroStrategyReport", name: MicroStrategyPhase, iterable: Iterable[T]
+    report: MicroStrategyReport, name: MicroStrategyPhase, iterable: Iterable[T]
 ) -> Iterator[T]:
     # Step by step, so sink writes between yields are not charged to the phase.
     iterator = iter(iterable)
@@ -133,7 +79,7 @@ def timed_iter(
 
 
 class SqlglotWarningFilter(logging.Filter):
-    def __init__(self, report: "MicroStrategyReport") -> None:
+    def __init__(self, report: MicroStrategyReport) -> None:
         super().__init__()
         self._report = report
 
@@ -161,7 +107,7 @@ class TelemetrySnapshot(BaseModel):
 class RunProgress:
     def __init__(
         self,
-        report: "MicroStrategyReport",
+        report: MicroStrategyReport,
         every_dashboards: int,
         every_seconds: float,
     ) -> None:

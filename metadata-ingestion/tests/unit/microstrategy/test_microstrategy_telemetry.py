@@ -19,11 +19,13 @@ from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.telemetry import (
     RunProgress,
     SqlglotWarningFilter,
-    dashboard_seconds_bucket,
-    endpoint_template,
     timed_generator_phase,
     timed_iter,
     timed_phase,
+)
+from datahub.ingestion.source.microstrategy.telemetry_helpers import (
+    dashboard_seconds_bucket,
+    endpoint_template,
 )
 from datahub.utilities.file_backed_collections import FileBackedDict
 
