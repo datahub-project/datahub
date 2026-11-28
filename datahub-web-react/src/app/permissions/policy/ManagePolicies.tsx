@@ -31,6 +31,7 @@ import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '@app/onboarding/config/PoliciesOnboardingConfig';
 import PolicyBuilderModal from '@app/permissions/policy/PolicyBuilderModal';
 import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
+import { PolicyStatePill, PolicyTypePill } from '@app/permissions/policy/PolicyPills';
 import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import { DEFAULT_PAGE_SIZE, EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
 import { usePolicy } from '@app/permissions/policy/usePolicy';
@@ -276,19 +277,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
             title: t('column.type'),
             key: 'type',
             width: '10%',
-            render: (record: any) => {
-                const policyType = record?.type?.charAt(0)?.toUpperCase() + record?.type?.slice(1)?.toLowerCase();
-                const isPlatform = record?.type?.toUpperCase() === 'PLATFORM';
-                return (
-                    <Pill
-                        label={policyType}
-                        color={isPlatform ? 'blue' : 'violet'}
-                        variant="filled"
-                        size="sm"
-                        clickable={false}
-                    />
-                );
-            },
+            render: (record: any) => <PolicyTypePill type={record?.type} />,
         },
         {
             title: t('column.description'),
@@ -356,17 +345,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
             title: t('column.state'),
             key: 'state',
             width: '10%',
-            render: (record: any) => {
-                const isActive = record?.state === PolicyState.Active;
-                return (
-                    <Pill
-                        label={record?.state?.charAt(0) + record?.state?.slice(1)?.toLowerCase()}
-                        color={isActive ? 'green' : 'red'}
-                        size="sm"
-                        clickable={false}
-                    />
-                );
-            },
+            render: (record: any) => <PolicyStatePill state={record?.state} />,
         },
         {
             title: '',

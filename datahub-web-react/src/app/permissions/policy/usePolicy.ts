@@ -3,26 +3,20 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
+import getPolicyPrivilegeNames from '@app/permissions/policy/getPolicyPrivilegeNames';
 import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 
 import { useCreatePolicyMutation, useDeletePolicyMutation, useUpdatePolicyMutation } from '@graphql/policy.generated';
 import {
     EntityType,
-    Maybe,
     Policy,
     PolicyMatchCriterionInput,
     PolicyMatchFilter,
     PolicyMatchFilterInput,
     PolicyState,
-    PolicyType,
     PolicyUpdateInput,
     ResourceFilterInput,
 } from '@types';
-
-type PrivilegeOptionType = {
-    type?: string;
-    name?: Maybe<string>;
-};
 
 export function usePolicy(
     policyPrivileges: PolicyPrivilegesConfig | undefined,
@@ -33,10 +27,6 @@ export function usePolicy(
     onClosePolicyBuilder,
 ) {
     const { t } = useTranslation('settings.permissions');
-
-    // Construct privileges
-    const platformPrivileges = policyPrivileges?.platformPrivileges || [];
-    const resourcePrivileges = policyPrivileges?.resourcePrivileges || [];
 
     // Any time a policy is removed, edited, or created, refetch the list.
     const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation();
@@ -107,27 +97,7 @@ export function usePolicy(
         return policyInput;
     };
 
-    const getPrivilegeNames = (policy: Omit<Policy, 'urn'>) => {
-        let privileges: PrivilegeOptionType[] = [];
-        if (policy?.type === PolicyType.Platform) {
-            privileges = platformPrivileges
-                .filter((platformPrivilege) => policy.privileges.includes(platformPrivilege.type))
-                .map((platformPrivilege) => {
-                    return { type: platformPrivilege.type, name: platformPrivilege.displayName };
-                });
-        } else {
-            const allResourcePriviliges = resourcePrivileges.find(
-                (resourcePrivilege) => resourcePrivilege.resourceType === 'all',
-            );
-            privileges =
-                allResourcePriviliges?.privileges
-                    .filter((resourcePrivilege) => policy.privileges.includes(resourcePrivilege.type))
-                    .map((b) => {
-                        return { type: b.type, name: b.displayName };
-                    }) || [];
-        }
-        return privileges;
-    };
+    const getPrivilegeNames = (policy: Omit<Policy, 'urn'>) => getPolicyPrivilegeNames(policy, policyPrivileges);
 
     // On Delete Policy handler
     const onRemovePolicy = (policy: Policy) => {

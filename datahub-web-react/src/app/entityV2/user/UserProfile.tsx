@@ -20,6 +20,8 @@ import { UserAssets } from '@app/entityV2/user/UserAssets';
 import UserGroups from '@app/entityV2/user/UserGroups';
 import UserSideBar from '@app/entityV2/user/UserSidebar';
 import useGetUserGroupUrns from '@app/entityV2/user/useGetUserGroupUrns';
+import UserPoliciesTab from '@app/permissions/policy/actorPolicies/UserPoliciesTab';
+import useActorPoliciesVisibility from '@app/permissions/policy/actorPolicies/useActorPoliciesVisibility';
 import { AlchemyRoutedTabs } from '@app/sharedV2/AlchemyRoutedTabs';
 import CompactContext from '@app/sharedV2/CompactContext';
 import { EntityHead } from '@app/sharedV2/EntityHead';
@@ -41,9 +43,11 @@ enum TabType {
     Assets = 'Owner Of',
     /* untranslated-text -- enum doubles as route path + identity key */
     Groups = 'Groups',
+    /* untranslated-text -- enum doubles as route path + identity key */
+    Policies = 'Policies',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups, TabType.Policies];
 
 const GROUP_PAGE_SIZE = 20;
 
@@ -102,6 +106,7 @@ export default function UserProfile({ urn }: Props) {
     const isCompact = React.useContext(CompactContext);
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
 
+    const { showUserPolicies } = useActorPoliciesVisibility();
     const { error, data, loading, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
     const corpUser = data?.corpUser;
@@ -141,6 +146,18 @@ export default function UserProfile({ urn }: Props) {
                     enabled: () => userGroups?.length > 0,
                 },
             },
+            ...(showUserPolicies
+                ? [
+                      {
+                          name: t('user.tab.policies'),
+                          path: TabType.Policies.toLocaleLowerCase(),
+                          content: <UserPoliciesTab urn={urn} />,
+                          display: {
+                              enabled: () => true,
+                          },
+                      },
+                  ]
+                : []),
         ].filter((tab) => ENABLED_TAB_TYPES.some((tabType) => tabType.toLocaleLowerCase() === tab.path));
     };
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';

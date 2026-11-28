@@ -1,0 +1,86 @@
+import {
+    ActorPolicyRow,
+    ListedPolicy,
+    PolicyReason,
+    PolicyStateFilter,
+} from '@app/permissions/policy/actorPolicies/actorPolicies.types';
+
+import { Maybe, PlatformPrivileges } from '@types';
+
+// ponytail: one page per query, no pagination. Raise it, or paginate, if an actor ever matches more policies.
+export const ACTOR_POLICIES_PAGE_SIZE = 1000;
+
+export type PolicyFieldMatch = { field: string; values: string[] };
+
+/** listPolicies variables for policies matching any of `matches`; each match is its own OR branch. */
+export function listPoliciesMatchingAny(matches: PolicyFieldMatch[]) {
+    return {
+        input: {
+            start: 0,
+            count: ACTOR_POLICIES_PAGE_SIZE,
+            orFilters: matches.map((match) => ({ and: [match] })),
+        },
+    };
+}
+
+/** True when a listPolicies result holds fewer policies than its total, i.e. the page cut the list off. */
+export function isTruncated(result: { total: number; policies: unknown[] } | null | undefined): boolean {
+    return !!result && result.total > result.policies.length;
+}
+
+export type ActorPolicyContext = {
+    actorType: 'user' | 'group';
+    actorUrn: string;
+    /** Groups the user is in. Empty for a group page. */
+    groupUrns: string[];
+    /** Roles of the actor, including roles a user gets through its groups. */
+    roleUrns: string[];
+};
+
+function getPolicyReasons(actors: ListedPolicy['actors'], context: ActorPolicyContext): PolicyReason[] {
+    const isUser = context.actorType === 'user';
+    const reasons: PolicyReason[] = [];
+    const named = isUser ? actors.users : actors.groups;
+    if (named?.includes(context.actorUrn)) reasons.push({ type: 'direct' });
+    if (isUser) {
+        actors.groups
+            ?.filter((urn) => context.groupUrns.includes(urn))
+            .forEach((urn) => reasons.push({ type: 'group', urn }));
+    }
+    actors.roles?.filter((urn) => context.roleUrns.includes(urn)).forEach((urn) => reasons.push({ type: 'role', urn }));
+    if (isUser && actors.allUsers) reasons.push({ type: 'everyone' });
+    // Enforcement only matches "all groups" for an actor that is in at least one group.
+    if (actors.allGroups && (!isUser || context.groupUrns.length > 0)) reasons.push({ type: 'allGroups' });
+    return reasons;
+}
+
+/**
+ * Pairs each policy with the reasons it applies to the actor, deduped by urn. A user policy that matched only
+ * through "all groups" while the user is in no group is dropped, since it does not apply to them.
+ */
+export function buildActorPolicyRows(policies: ListedPolicy[], context: ActorPolicyContext): ActorPolicyRow[] {
+    const seen = new Set<string>();
+    return policies.flatMap((policy) => {
+        if (seen.has(policy.urn)) return [];
+        seen.add(policy.urn);
+        const reasons = getPolicyReasons(policy.actors, context);
+        const notApplicable =
+            context.actorType === 'user' &&
+            policy.actors.allGroups &&
+            context.groupUrns.length === 0 &&
+            reasons.length === 0;
+        return notApplicable ? [] : [{ urn: policy.urn, policy, reasons }];
+    });
+}
+
+export function filterRowsByState(rows: ActorPolicyRow[], status: PolicyStateFilter): ActorPolicyRow[] {
+    return status === 'ALL' ? rows : rows.filter((row) => row.policy.state === status);
+}
+
+export function getActorPoliciesVisibility(
+    privileges: Maybe<Pick<PlatformPrivileges, 'managePolicies' | 'manageIdentities'>> | undefined,
+) {
+    // listPolicies needs Manage Policies; debugAccess (user tab) also needs Manage Users & Groups.
+    const showGroupPolicies = !!privileges?.managePolicies;
+    return { showGroupPolicies, showUserPolicies: showGroupPolicies && !!privileges?.manageIdentities };
+}
