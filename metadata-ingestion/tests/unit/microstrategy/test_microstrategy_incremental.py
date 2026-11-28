@@ -44,8 +44,14 @@ from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401
 PROJECT_ID = "project-1"
 DASH_1_URN = "urn:li:dashboard:(microstrategy,prod.project-1.dash-1)"
 REPORT_CHART_URN = "urn:li:chart:(microstrategy,prod.project-1.report-1)"
+REPORT_DATASET_1_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.ds-1,PROD)"
+)
 REPORT_DATASET_2_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.ds-2,PROD)"
+)
+REPORT_1_DATASET_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.report-1,PROD)"
 )
 WAREHOUSE = {
     "id": "source-1",
@@ -193,6 +199,14 @@ class _MicroStrategy:
                 version=f"{object_id.upper()}-V1",
                 ancestors=[{"id": "folder-2", "name": "Data"}],
             )
+        self.dashboard_datasets = {
+            dashboard_id: list(dataset_ids)
+            for dashboard_id, dataset_ids in DASHBOARD_DATASETS.items()
+        }
+        self.dashboard_visualizations = dict(DASHBOARD_VISUALIZATIONS)
+        self.dependencies: Dict[str, List[str]] = {"dash-1": ["report-1"]}
+        self.failing_search = False
+        self.failing_report_definitions: Set[str] = set()
         self.warehouses: List[Dict[str, object]] = [WAREHOUSE]
         self.model_tables: List[Dict[str, object]] = [
             {"id": "table-1", "physicalTable": {"tableName": "ORDERS"}}
@@ -250,6 +264,7 @@ class _MicroStrategy:
             fixed("create_document_instance", "i-1"),
             fixed("delete_document_instance", True),
             faked("search_dashboards"),
+            faked("search_reports"),
             faked("get_object_info"),
             faked("get_object_dependencies"),
             faked("get_dossier_definition"),
@@ -272,9 +287,16 @@ class _MicroStrategy:
     def search_dashboards(
         self, _client: MicroStrategyClient, project_id: str
     ) -> List[MicroStrategyObject]:
+        if self.failing_search:
+            raise MicroStrategyAPIError("search unavailable")
         return [
             MicroStrategyObject.model_validate(obj) for obj in self.dashboards.values()
         ]
+
+    def search_reports(
+        self, _client: MicroStrategyClient, project_id: str
+    ) -> List[MicroStrategyObject]:
+        return [MicroStrategyObject.model_validate(self.objects["report-1"])]
 
     def get_object_info(
         self,
@@ -293,9 +315,10 @@ class _MicroStrategy:
         object_id: str,
         object_type: str,
     ) -> List[MicroStrategyObject]:
-        if object_id != "dash-1":
-            return []
-        return [MicroStrategyObject.model_validate(self.objects["report-1"])]
+        return [
+            MicroStrategyObject.model_validate(self.objects[dependency_id])
+            for dependency_id in self.dependencies.get(object_id, [])
+        ]
 
     def get_dossier_definition(
         self, _client: MicroStrategyClient, project_id: str, dossier_id: str
@@ -306,7 +329,9 @@ class _MicroStrategy:
         return {
             "result": {
                 "definition": {
-                    "datasets": [DATASETS[ds] for ds in DASHBOARD_DATASETS[dossier_id]],
+                    "datasets": [
+                        DATASETS[ds] for ds in self.dashboard_datasets[dossier_id]
+                    ],
                     "chapters": [
                         {
                             "key": "chapter-1",
@@ -314,7 +339,7 @@ class _MicroStrategy:
                                 {
                                     "key": "page-1",
                                     "name": "SUMMARY",
-                                    "visualizations": DASHBOARD_VISUALIZATIONS[
+                                    "visualizations": self.dashboard_visualizations[
                                         dossier_id
                                     ],
                                 }
@@ -350,6 +375,8 @@ class _MicroStrategy:
         self, _client: MicroStrategyClient, project_id: str, report_id: str
     ) -> Dict[str, object]:
         self.report_definition_reads.append(report_id)
+        if report_id in self.failing_report_definitions:
+            raise RuntimeError("unexpected report definition")
         return {
             "id": report_id,
             "name": "Orders Report",
@@ -793,6 +820,112 @@ def test_per_report_shared_report_keeps_every_dashboard(
     assert "Cost Pct" in {field.fieldPath for field in schema.fields}
     assert _soft_deleted_urns(changed.workunits) == set()
     assert _stale_urns(changed.source) == _stale_urns(first.source)
+
+
+def test_per_report_dataset_gaining_a_dashboard_reads_its_other_dashboards(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    server = _MicroStrategy()
+    server.dashboard_datasets["dash-1"] = ["ds-1"]
+    server.dashboard_visualizations["dash-1"] = DASHBOARD_VISUALIZATIONS["dash-1"][:1]
+    datahub = _DataHub(mock_datahub_graph)
+    first = _run(mock_datahub_graph, server, "run-1", dataset_identity="per_report")
+    datahub.write(first.workunits)
+    server.definition_reads.clear()
+    server.bump("dash-2")
+    server.dashboard_datasets["dash-2"] = ["ds-2", "ds-1"]
+
+    second = _run(mock_datahub_graph, server, "run-2", dataset_identity="per_report")
+
+    # ds-1 only turns out to change once dash-2 is read.
+    assert server.definition_reads == ["dash-2", "dash-1"]
+    assert second.source.report.dashboards_skipped_unchanged == 0
+    (properties,) = _aspects(
+        second.workunits, REPORT_DATASET_1_URN, DatasetPropertiesClass
+    )
+    assert isinstance(properties, DatasetPropertiesClass)
+    dashboard_ids = properties.customProperties["microstrategyDashboardIds"]
+    assert sorted(dashboard_ids.split(",")) == ["dash-1", "dash-2"]
+    assert _soft_deleted_urns(second.workunits) == set()
+
+
+def test_per_report_report_leaving_the_report_pass_is_dropped(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    first = _first_run(mock_datahub_graph, dataset_identity="per_report")
+    assert REPORT_1_DATASET_URN in _stale_urns(first.source)
+    first.server.bump("dash-1")
+    first.server.dependencies = {}
+
+    second = _run(
+        mock_datahub_graph, first.server, "run-2", dataset_identity="per_report"
+    )
+    full = _run(
+        mock_datahub_graph,
+        first.server,
+        "run-3",
+        dataset_identity="per_report",
+        skip_unchanged_objects=False,
+    )
+
+    assert REPORT_1_DATASET_URN not in _stale_urns(second.source)
+    assert _stale_urns(second.source) == _stale_urns(full.source)
+
+
+def test_per_report_without_dashboards_skips_unchanged_reports(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    options: Dict[str, object] = {
+        "dataset_identity": "per_report",
+        "extract_dashboards": False,
+    }
+    first = _first_run(mock_datahub_graph, **options)
+
+    unchanged = _run(mock_datahub_graph, first.server, "run-2", **options)
+    assert first.server.report_definition_reads == []
+    assert unchanged.source.report.report_datasets_skipped_unchanged == 1
+    assert _stale_urns(unchanged.source) == _stale_urns(first.source)
+
+    first.server.bump("report-1")
+    _run(mock_datahub_graph, first.server, "run-3", **options)
+    assert first.server.report_definition_reads == ["report-1"]
+
+
+def test_failed_report_keeps_its_last_read(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    first = _first_run(mock_datahub_graph)
+    first.server.bump("report-1")
+    first.server.failing_report_definitions.add("report-1")
+
+    second = _run(mock_datahub_graph, first.server, "run-2")
+    first.datahub.write(second.workunits)
+
+    assert _soft_deleted_urns(second.workunits) == set()
+    assert _stale_urns(second.source) == _stale_urns(first.source)
+    first.server.failing_report_definitions.clear()
+    first.server.report_definition_reads.clear()
+
+    _run(mock_datahub_graph, first.server, "run-3")
+
+    assert first.server.report_definition_reads == ["report-1"]
+
+
+def test_failed_run_keeps_objects_it_did_not_reach(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    first = _first_run(mock_datahub_graph)
+    first.server.failing_search = True
+
+    second = _run(mock_datahub_graph, first.server, "run-2")
+    assert second.source.report.failures
+    first.server.failing_search = False
+
+    third = _run(mock_datahub_graph, first.server, "run-3")
+
+    assert first.server.definition_reads == []
+    assert third.source.report.dashboards_skipped_unchanged == 2
+    assert _stale_urns(third.source) == _stale_urns(first.source)
 
 
 def test_default_run_does_not_stamp_or_checkpoint() -> None:
