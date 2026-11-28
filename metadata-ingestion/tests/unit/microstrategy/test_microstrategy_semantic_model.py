@@ -12,7 +12,10 @@ from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT,
 )
-from datahub.ingestion.source.microstrategy.lineage import MicroStrategyLineageExtractor
+from datahub.ingestion.source.microstrategy.lineage import (
+    MicroStrategyLineageExtractor,
+    WarehouseLineageContext,
+)
 from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import (
     MicroStrategySemanticModelMapper,
 )
@@ -31,6 +34,7 @@ from datahub.metadata.schema_classes import (
     SemanticFieldTypeClass,
     SemanticModelInfoClass,
     SemanticModelPropertiesClass,
+    UpstreamLineageClass,
 )
 from datahub.metadata.urns import SchemaFieldUrn
 
@@ -194,7 +198,7 @@ def test_table_becomes_semantic_model_dataset_with_dimension_and_measure_fields(
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -255,7 +259,7 @@ def test_semantic_model_gets_browse_path_under_project_and_no_container_aspect()
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=project_key,
             )
         )
@@ -294,7 +298,7 @@ def test_semantic_model_browse_path_leads_with_platform_instance_when_configured
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=project_key,
             )
         )
@@ -329,7 +333,7 @@ def test_table_with_no_usable_fields_is_skipped_with_warning() -> None:
             project_id="project-1",
             project_name="Project One",
             model_tables=model_tables,
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         )
     )
@@ -370,7 +374,7 @@ def test_role_playing_logical_tables_get_distinct_dataset_identities() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -434,7 +438,7 @@ def test_relationship_emitted_for_attribute_shared_across_two_tables() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -469,7 +473,7 @@ def test_attribute_on_single_table_never_triggers_relationship_fetch() -> None:
             project_id="project-1",
             project_name="Project One",
             model_tables=model_tables,
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         )
     )
@@ -490,7 +494,7 @@ def test_relationship_fetch_failure_warns_and_is_skipped() -> None:
             project_id="project-1",
             project_name="Project One",
             model_tables=model_tables,
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         )
     )
@@ -533,7 +537,7 @@ def test_unrecognized_relationship_type_warns_but_still_emits_relationship() -> 
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -574,7 +578,7 @@ def test_base_metric_gets_upstream_datasets_and_no_derived_from() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -625,7 +629,7 @@ def test_derived_metric_gets_derived_from_referenced_metric() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -689,7 +693,7 @@ def test_consolidated_metric_resolves_upstream_through_consolidation_attributes(
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -717,7 +721,7 @@ def _emit_metrics(mapper: MicroStrategySemanticModelMapper) -> List[MetadataWork
             model_tables=[
                 _table("SALES", attributes=[], facts=[_fact("FACT1", "Revenue")])
             ],
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         )
     )
@@ -917,7 +921,7 @@ def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
                 project_id="project-1",
                 project_name="Project One",
                 model_tables=model_tables,
-                warehouse_context=None,
+                table_context_resolver=lambda _: None,
                 project_container_key=_project_container_key(),
             )
         )
@@ -967,7 +971,7 @@ def test_metrics_are_emitted_as_they_are_fetched(
             project_id="project-1",
             project_name="Project One",
             model_tables=model_tables,
-            warehouse_context=None,
+            table_context_resolver=lambda _: None,
             project_container_key=_project_container_key(),
         ):
             if fetched_at_first_metric is None and wu.get_urn().startswith(
@@ -979,3 +983,98 @@ def test_metrics_are_emitted_as_they_are_fetched(
     assert fetched == ["METRIC1", "METRIC2"]
     assert mapper.report.semantic_model_metrics_emitted == 2
     assert "Semantic model metrics: 1/2 read, 0 failed" in caplog.text
+
+
+def test_table_context_resolver_sets_each_dataset_upstream_from_its_own_warehouse() -> (
+    None
+):
+    mapper = _mapper(FakeSemanticModelClient())
+    contexts = {
+        "ORA_SALES": WarehouseLineageContext(
+            platform="oracle", env="PROD", database="ora_db", schema="ora"
+        ),
+        "SNOW_SALES": WarehouseLineageContext(
+            platform="snowflake", env="PROD", database="snow_db", schema="snow"
+        ),
+    }
+
+    def resolver(table: Dict[str, Any]) -> Optional[WarehouseLineageContext]:
+        return contexts.get(table["physicalTable"]["tableName"])
+
+    model_tables = [
+        _table("ORA_SALES", [_attribute("ATTR1", "Region")], []),
+        _table("SNOW_SALES", [_attribute("ATTR2", "Country")], []),
+        _table("UNLINKED_SALES", [_attribute("ATTR3", "City")], []),
+    ]
+
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                project_id="project-1",
+                project_name="Project One",
+                model_tables=model_tables,
+                project_container_key=_project_container_key(),
+                table_context_resolver=resolver,
+            )
+        )
+    )
+
+    def upstreams(table_name: str) -> List[str]:
+        dataset_urn = (
+            f"urn:li:dataset:(urn:li:dataPlatform:microstrategy,"
+            f"project-1.{table_name},PROD)"
+        )
+        lineage = aspects[dataset_urn].get("UpstreamLineageClass")
+        assert lineage is None or isinstance(lineage, UpstreamLineageClass)
+        return [u.dataset for u in lineage.upstreams] if lineage else []
+
+    assert upstreams("ORA_SALES") == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,ora_db.ora.ora_sales,PROD)"
+    ]
+    assert upstreams("SNOW_SALES") == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snow_db.snow.snow_sales,PROD)"
+    ]
+    assert upstreams("UNLINKED_SALES") == []
+
+
+@pytest.mark.parametrize(
+    "database, expected_upstreams",
+    [
+        (
+            "sales_db",
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+                "sales_db.public.orders,PROD)"
+            ],
+        ),
+        (None, []),
+    ],
+)
+def test_warehouse_upstream_only_when_the_table_name_resolves_to_a_database(
+    database: Optional[str], expected_upstreams: List[str]
+) -> None:
+    mapper = _mapper(FakeSemanticModelClient())
+    context = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database=database, schema="public"
+    )
+
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                project_id="project-1",
+                project_name="Project One",
+                model_tables=[_table("ORDERS", [_attribute("ATTR1", "Region")], [])],
+                project_container_key=_project_container_key(),
+                table_context_resolver=lambda table: context,
+            )
+        )
+    )
+
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.ORDERS,PROD)"
+    )
+    lineage = aspects[dataset_urn].get("UpstreamLineageClass")
+    assert lineage is None or isinstance(lineage, UpstreamLineageClass)
+    assert ([u.dataset for u in lineage.upstreams] if lineage else []) == (
+        expected_upstreams
+    )

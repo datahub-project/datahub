@@ -24,7 +24,7 @@ from datahub.ingestion.source.microstrategy.constants import (
 from datahub.ingestion.source.microstrategy.lineage import (
     AttributeRelationship,
     MicroStrategyLineageExtractor,
-    WarehouseLineageContext,
+    TableContextResolver,
     coerce_dicts,
     consolidation_attribute_ids,
     metric_attribute_ids_from_model,
@@ -150,7 +150,7 @@ class MicroStrategySemanticModelMapper:
         project_id: str,
         project_name: str,
         model_tables: List[Dict[str, object]],
-        warehouse_context: Optional[WarehouseLineageContext],
+        table_context_resolver: TableContextResolver,
         project_container_key: ContainerKey,
     ) -> Iterable[MetadataWorkUnit]:
         model_urn = str(
@@ -162,7 +162,7 @@ class MicroStrategySemanticModelMapper:
         )
 
         tables, fact_table_aliases, attribute_table_aliases = self._build_table_index(
-            model_tables, warehouse_context
+            model_tables, table_context_resolver
         )
         if not tables:
             self.report.warning(
@@ -249,7 +249,7 @@ class MicroStrategySemanticModelMapper:
     def _build_table_index(
         self,
         model_tables: List[Dict[str, object]],
-        warehouse_context: Optional[WarehouseLineageContext],
+        table_context_resolver: TableContextResolver,
     ) -> Tuple[List[_TableInfo], Dict[str, Set[str]], Dict[str, Set[str]]]:
         tables: List[_TableInfo] = []
         fact_table_aliases: Dict[str, Set[str]] = {}
@@ -259,7 +259,13 @@ class MicroStrategySemanticModelMapper:
             physical_table = table.get("physicalTable")
             if not isinstance(physical_table, dict):
                 continue
-            physical_alias = self._table_alias(physical_table, warehouse_context)
+            table_context = table_context_resolver(table)
+            warehouse_name = (
+                physical_table_name(physical_table, table_context)
+                if table_context is not None
+                else None
+            )
+            physical_alias = warehouse_name or self._table_alias(physical_table)
             if not physical_alias:
                 continue
             # The logical table (this `table` entry's own "information" block,
@@ -275,9 +281,11 @@ class MicroStrategySemanticModelMapper:
                 else None
             )
             alias = self._dataset_alias(logical_information, physical_alias)
+            # The fallback alias is only a logical identity; a warehouse URN
+            # built from it would be a guess that never joins.
             warehouse_urn = (
-                self.lineage.warehouse_dataset_urn(warehouse_context, physical_alias)
-                if warehouse_context is not None
+                self.lineage.warehouse_dataset_urn(table_context, warehouse_name)
+                if table_context is not None and warehouse_name
                 else None
             )
 
@@ -324,17 +332,9 @@ class MicroStrategySemanticModelMapper:
         return tables, fact_table_aliases, attribute_table_aliases
 
     @staticmethod
-    def _table_alias(
-        physical_table: Dict[str, object],
-        warehouse_context: Optional[WarehouseLineageContext],
-    ) -> Optional[str]:
-        if warehouse_context is not None:
-            qualified = physical_table_name(physical_table, warehouse_context)
-            if qualified:
-                return qualified
-        # No warehouse context (or it couldn't resolve a name) -- fall back to
-        # MicroStrategy's own logical table identity so tables still get a
-        # stable, reasonably-unique alias.
+    def _table_alias(physical_table: Dict[str, object]) -> Optional[str]:
+        # Used when no warehouse name resolved: MicroStrategy's own logical
+        # table identity still gives the table a stable, reasonably-unique alias.
         raw = physical_table.get("tableName")
         if not isinstance(raw, str) or not raw:
             information = physical_table.get("information")

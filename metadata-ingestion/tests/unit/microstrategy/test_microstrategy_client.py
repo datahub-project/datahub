@@ -1222,3 +1222,71 @@ def test_other_searches_keep_the_configured_timeout(
     list(client.search_reports("project-1"))
 
     assert timeouts == [None, None]
+
+
+def test_get_dossier_visualization_requests_no_result_rows(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, _ = _make_client()
+    captured: Dict[str, Any] = {}
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        captured.update(path=path, project_id=project_id, params=params)
+        return {"definition": {}}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    client.get_dossier_visualization("project-1", "dossier-1", "inst-1", "K1", "K2")
+
+    assert captured["path"] == (
+        "/api/v2/dossiers/dossier-1/instances/inst-1/chapters/K1/visualizations/K2"
+    )
+    assert captured["params"] == {"limit": 0}
+
+
+def _visualization_client(
+    monkeypatch: MonkeyPatch, failure: Optional[Exception]
+) -> List[Optional[Dict[str, Any]]]:
+    client, _ = _make_client()
+    seen: List[Optional[Dict[str, Any]]] = []
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        seen.append(params)
+        if params and failure:
+            raise failure
+        return {"definition": {}}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+    try:
+        client.get_dossier_visualization("project-1", "dossier-1", "inst-1", "K1", "K2")
+    except MicroStrategyAPIError:
+        pass
+    return seen
+
+
+def test_get_dossier_visualization_retries_without_limit_on_bad_request(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    seen = _visualization_client(
+        monkeypatch, MicroStrategyAPIError("bad limit", status_code=400)
+    )
+
+    assert seen == [{"limit": 0}, None]
+
+
+def test_get_dossier_visualization_does_not_retry_other_errors(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    seen = _visualization_client(
+        monkeypatch, MicroStrategyAPIError("denied", status_code=403)
+    )
+
+    assert seen == [{"limit": 0}]

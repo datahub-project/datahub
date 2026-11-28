@@ -991,7 +991,7 @@ def test_dataset_workunits_include_model_fine_grained_lineage() -> None:
                 ],
             }
         ],
-        WarehouseLineageContext(
+        lambda _: WarehouseLineageContext(
             platform="snowflake",
             env="PROD",
             database="SALES_DB",
@@ -1060,7 +1060,7 @@ def test_dataset_workunits_skip_model_lineage_without_dataset_sql_context() -> N
                 ],
             }
         ],
-        WarehouseLineageContext(
+        lambda _: WarehouseLineageContext(
             platform="snowflake",
             env="PROD",
             database="SALES_DB",
