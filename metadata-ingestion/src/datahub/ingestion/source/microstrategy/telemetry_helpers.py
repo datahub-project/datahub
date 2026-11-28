@@ -24,9 +24,7 @@ def endpoint_template(method: str, path: str) -> str:
     path = path.split("?", 1)[0]
     path = MSTR_ENDPOINT_OBJECT_ID_SEGMENT_RE.sub(MSTR_ENDPOINT_ID_PLACEHOLDER, path)
     path = MSTR_ENDPOINT_UUID_SEGMENT_RE.sub(MSTR_ENDPOINT_ID_PLACEHOLDER, path)
-    path = MSTR_ENDPOINT_DOSSIER_KEY_SEGMENT_RE.sub(
-        MSTR_ENDPOINT_KEY_REPLACEMENT, path
-    )
+    path = MSTR_ENDPOINT_DOSSIER_KEY_SEGMENT_RE.sub(MSTR_ENDPOINT_KEY_REPLACEMENT, path)
     return f"{method.upper()} {path}"
 
 

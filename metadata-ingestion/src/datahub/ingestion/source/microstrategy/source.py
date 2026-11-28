@@ -356,7 +356,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         for name, cache in (
             (MicroStrategyCache.DATASET_OBJECT, self._dataset_object_cache),
-            (MicroStrategyCache.REPORT_DERIVED_METRIC, self._report_derived_metric_cache),
+            (
+                MicroStrategyCache.REPORT_DERIVED_METRIC,
+                self._report_derived_metric_cache,
+            ),
             (MicroStrategyCache.METRIC_MODEL, self._metric_model_cache),
             (MicroStrategyCache.REPORT_OBJECT, self._report_objects),
         ):
