@@ -24,6 +24,8 @@ from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
     Datasource,
+    DatasourceConnection,
+    MetricEnrichment,
     MicroStrategyObject,
     ModelTablesResponse,
     PredefinedFolder,
@@ -108,9 +110,13 @@ def test_unmapped_dataset_warehouse_does_not_borrow_project_context() -> None:
     ).datasets[0]
     project_context = WarehouseLineageContext(platform="snowflake", env="PROD")
 
-    assert source._dataset_warehouse_context(dataset, project_context) is None
     assert (
-        source._dataset_warehouse_context(_dashboard().datasets[0], project_context)
+        source._dataset_warehouse_context("project-1", dataset, project_context) is None
+    )
+    assert (
+        source._dataset_warehouse_context(
+            "project-1", _dashboard().datasets[0], project_context
+        )
         == project_context
     )
 
@@ -138,6 +144,7 @@ def test_attach_dataset_warehouse_upstreams_uses_dataset_source_warehouse() -> N
         ],
         dashboard,
         context=None,
+        project_id="project-1",
     )
 
     assert dashboard.datasets[0].warehouse_upstream_urns == [
@@ -158,6 +165,7 @@ def test_attach_dataset_warehouse_upstreams_skips_without_context() -> None:
         ],
         dashboard,
         context=None,
+        project_id="project-1",
     )
 
     assert dashboard.datasets[0].warehouse_upstream_urns == []
@@ -2255,6 +2263,7 @@ def test_import_error_during_parse_is_not_a_parse_failure(
             [{"id": "ds-1", "sqlStatement": "select 1 from t"}],
             _warehouse_dashboard(),
             None,
+            project_id="project-1",
         )
     assert source.report.sql_parse_failure_count == 0
     assert list(source.report.sql_parse_failures) == []
@@ -2309,6 +2318,7 @@ def test_every_sql_view_failing_raises_one_loud_warning(
         ],
         _warehouse_dashboard(),
         None,
+        project_id="project-1",
     )
     assert source.report.sql_views_parsed == 2
     assert source.report.sql_parse_failure_count == 2
@@ -2337,6 +2347,7 @@ def test_all_failed_warning_counts_reused_failed_sql_views(
             [{"id": "ds-1", "sqlStatement": "select a from DB.S.T"}],
             _warehouse_dashboard(),
             None,
+            project_id="project-1",
         )
     assert source.report.sql_views_parsed == 2
     assert source.report.sql_parse_failure_count == 1
@@ -2363,6 +2374,7 @@ def test_all_failed_warning_is_silent_when_any_sql_view_parses(
         ],
         _warehouse_dashboard(),
         None,
+        project_id="project-1",
     )
     assert source.report.sql_views_parsed == 2
     assert source.report.sql_parse_failure_count == 1
@@ -4710,3 +4722,87 @@ def test_single_warehouse_project_keeps_project_level_context() -> None:
         "ora_db.ora.orders,PROD),amount)"
     ]
     assert source.report.model_tables_without_warehouse_context == 0
+
+
+class _ConnectionModelTablesClient(_ModelTablesClient):
+    def __init__(self, tables: List[dict], fail_connection: bool = False) -> None:
+        super().__init__(tables)
+        self.fail_connection = fail_connection
+        self.connection_requests: List[str] = []
+
+    def get_datasource_connection(
+        self, connection_id: str, project_id: Optional[str] = None
+    ) -> DatasourceConnection:
+        self.connection_requests.append(connection_id)
+        if self.fail_connection:
+            raise MicroStrategyAPIError("connection lookup failed")
+        return DatasourceConnection.model_validate(
+            {
+                "id": connection_id,
+                "name": "oracle_connection",
+                "database": {"type": "oracle"},
+                "connectionString": "SCHEMA=CONN_SCHEMA",
+            }
+        )
+
+
+_SCHEMALESS_ORACLE_WAREHOUSE: Dict[str, object] = {
+    "id": "AAA111",
+    "name": "oracle_ds",
+    "database": {"type": "oracle", "name": "ORA_DB"},
+    "connection": {"id": "conn-ora", "name": "oracle_connection"},
+}
+
+
+def _schemaless_oracle_datasources() -> List[Datasource]:
+    return [
+        Datasource.model_validate(_SCHEMALESS_ORACLE_WAREHOUSE),
+        Datasource.model_validate(
+            {
+                "id": "BBB222",
+                "name": "snowflake_ds",
+                "database": {"type": "snow_flake", "name": "SNOW_DB", "schema": "SNOW"},
+            }
+        ),
+    ]
+
+
+def _dashboard_with_fact_metric() -> DashboardDefinition:
+    dashboard = _dashboard(_SCHEMALESS_ORACLE_WAREHOUSE)
+    dashboard.datasets[0].metric_enrichments["METRIC-1"] = MetricEnrichment(
+        fact_ids=["fact-1"]
+    )
+    return dashboard
+
+
+def test_dataset_sql_view_lineage_uses_connection_enriched_model_urns() -> None:
+    source = _source({"extract_model_lineage": True})
+    client = _ConnectionModelTablesClient([_model_table("orders", "fact-1", "AAA111")])
+    source.client = client  # type: ignore[assignment]
+    lineage_context = _LazyProjectLineage(
+        source, "project-1", _schemaless_oracle_datasources()
+    )
+    index = lineage_context.model_lineage_index
+    assert index is not None
+    model_table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,ora_db.conn_schema.orders,PROD)"
+    )
+    assert index.fact_field_urns(["fact-1"]) == [
+        f"urn:li:schemaField:({model_table_urn},amount)"
+    ]
+    dashboard = _dashboard_with_fact_metric()
+
+    source._attach_dataset_warehouse_upstreams(
+        [{"id": "ds-1", "sqlStatement": "select amount from orders"}],
+        dashboard,
+        lineage_context.warehouse_context,
+        project_id="project-1",
+    )
+    dataset = dashboard.datasets[0]
+    source.mapper.attach_dataset_model_lineage(dataset, index)
+
+    assert dataset.warehouse_upstream_urns == [model_table_urn]
+    assert f"urn:li:schemaField:({model_table_urn},amount)" in [
+        urn for urns in dataset.field_warehouse_upstreams.values() for urn in urns
+    ]
+    assert client.connection_requests == ["conn-ora"]

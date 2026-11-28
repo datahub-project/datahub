@@ -96,6 +96,8 @@ from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
     Datasource,
+    DatasourceConnection,
+    DatasourceReference,
     MetricEnrichment,
     MicroStrategyDict,
     MicroStrategyObject,
@@ -262,6 +264,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # Object GUID (upper) -> usage target for entities ingested this run;
         # usage buckets only attach to these.
         self._usage_targets: Dict[str, UsageTarget] = {}
+        # Normalized connection id -> connection, or None once a fetch failed.
+        # Connections are environment-level objects, so this spans projects.
+        self._datasource_connections: Dict[str, Optional[DatasourceConnection]] = {}
         self._progress = RunProgress(
             self.report,
             every_dashboards=self.config.progress_log_interval_dashboards,
@@ -713,17 +718,49 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             context = self._context_with_connection(project_id, context, datasource)
         return context
 
+    def _datasource_warehouse_context(
+        self,
+        project_id: str,
+        datasource: DatasourceReference,
+    ) -> Optional[WarehouseLineageContext]:
+        # Shared by SQL-view and model-table lineage: both must build the same
+        # table URNs or model field edges are filtered out of SQL upstreams.
+        context = warehouse_context_from_datasource(
+            datasource,
+            self.config.env,
+            self.config.datasource_platform_mapping,
+        )
+        if context is None:
+            return None
+        return self._context_with_connection(project_id, context, datasource)
+
     def _context_with_connection(
         self,
         project_id: str,
         context: WarehouseLineageContext,
-        datasource: Datasource,
+        datasource: DatasourceReference,
     ) -> WarehouseLineageContext:
         if not datasource.connection_id:
             return context
+        connection = self._datasource_connection(project_id, datasource.connection_id)
+        if connection is None:
+            return context
+        return warehouse_context_with_connection(
+            context,
+            connection,
+            self.config.datasource_platform_mapping,
+        )
+
+    def _datasource_connection(
+        self, project_id: str, connection_id: str
+    ) -> Optional[DatasourceConnection]:
+        key = normalize_object_id(connection_id)
+        if key in self._datasource_connections:
+            return self._datasource_connections[key]
+        connection: Optional[DatasourceConnection] = None
         try:
             connection = self.client.get_datasource_connection(
-                datasource.connection_id,
+                connection_id,
                 project_id=project_id,
             )
         except MicroStrategyAPIError as error:
@@ -734,17 +771,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     "Continuing without connection-level database/schema "
                     "context; warehouse lineage may be less precise."
                 ),
-                context=(
-                    f"project_id={project_id}, connection_id={datasource.connection_id}"
-                ),
+                context=f"project_id={project_id}, connection_id={connection_id}",
                 exc=error,
             )
-            return context
-        return warehouse_context_with_connection(
-            context,
-            connection,
-            self.config.datasource_platform_mapping,
-        )
+        self._datasource_connections[key] = connection
+        return connection
 
     def _process_project_dashboards(
         self,
@@ -2351,7 +2382,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     dashboard.id,
                 )
                 continue
-            dataset_context = self._dataset_warehouse_context(dataset, context)
+            dataset_context = self._dataset_warehouse_context(
+                project_id, dataset, context
+            )
             if dataset_context is None:
                 self.report.report_sql_view_row_without_context()
                 continue
@@ -2393,6 +2426,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def _dataset_warehouse_context(
         self,
+        project_id: str,
         dataset: DatasetObject,
         context: Optional[WarehouseLineageContext],
     ) -> Optional[WarehouseLineageContext]:
@@ -2401,10 +2435,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         to a platform gives None: the project's warehouse may be a different
         platform and database, and its URNs would not be this dataset's."""
         if dataset.source_warehouse:
-            return warehouse_context_from_datasource(
-                dataset.source_warehouse,
-                self.config.env,
-                self.config.datasource_platform_mapping,
+            return self._datasource_warehouse_context(
+                project_id, dataset.source_warehouse
             )
         return context
 
@@ -2413,7 +2445,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         sql_view_rows: List[Dict[str, object]],
         dashboard: DashboardDefinition,
         context: Optional[WarehouseLineageContext],
-        project_id: Optional[str] = None,
+        project_id: str,
     ) -> None:
         dataset_by_id = {
             normalize_object_id(dataset.id): dataset for dataset in dashboard.datasets
@@ -2440,7 +2472,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-            dataset_context = self._dataset_warehouse_context(dataset, context)
+            dataset_context = self._dataset_warehouse_context(
+                project_id, dataset, context
+            )
             if dataset_context is None:
                 self.report.report_sql_view_row_without_context()
                 continue
@@ -2918,7 +2952,6 @@ class _LazyProjectLineage:
         self._model_tables_resolved = False
         self._table_context_resolver: Optional[TableContextResolver] = None
         self._table_context_resolver_resolved = False
-        self._datasource_contexts: Dict[str, Optional[WarehouseLineageContext]] = {}
         # Object identity: the cached table list is shared by both passes.
         self._counted_tables: Set[int] = set()
 
@@ -2973,7 +3006,11 @@ class _LazyProjectLineage:
         self, table: Dict[str, object]
     ) -> Optional[WarehouseLineageContext]:
         datasource = datasource_for_model_table(table, self._source_warehouses)
-        context = self._datasource_context(datasource) if datasource else None
+        context = (
+            self._source._datasource_warehouse_context(self._project_id, datasource)
+            if datasource
+            else None
+        )
         if id(table) not in self._counted_tables:
             self._counted_tables.add(id(table))
             if context is not None:
@@ -2996,25 +3033,6 @@ class _LazyProjectLineage:
                 context=f"project_id={self._project_id}",
             )
         self._source.report.report_model_table_without_warehouse_context()
-
-    def _datasource_context(
-        self, datasource: Datasource
-    ) -> Optional[WarehouseLineageContext]:
-        key = normalize_object_id(datasource.id)
-        if key not in self._datasource_contexts:
-            context = warehouse_context_from_datasource(
-                datasource,
-                self._source.config.env,
-                self._source.config.datasource_platform_mapping,
-            )
-            self._datasource_contexts[key] = (
-                self._source._context_with_connection(
-                    self._project_id, context, datasource
-                )
-                if context
-                else None
-            )
-        return self._datasource_contexts[key]
 
     @property
     def model_tables(self) -> Optional[List[Dict[str, object]]]:
