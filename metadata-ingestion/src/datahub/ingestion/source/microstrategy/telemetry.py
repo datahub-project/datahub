@@ -2,10 +2,10 @@ import functools
 import inspect
 import logging
 import time
-from typing import Callable, Iterable, Iterator, Protocol, TypeVar, cast
+from typing import Callable, Iterable, Iterator, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict
-from typing_extensions import ParamSpec
+from typing_extensions import Concatenate, ParamSpec
 
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_SQLGLOT_SUPPRESSED_PREFIXES,
@@ -22,21 +22,28 @@ T = TypeVar("T")
 
 
 class _HasReport(Protocol):
-    report: MicroStrategyReport
+    @property
+    def report(self) -> MicroStrategyReport: ...
 
 
-def timed_phase(name: MicroStrategyPhase) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    def decorate(method: Callable[P, R]) -> Callable[P, R]:
+S = TypeVar("S", bound=_HasReport)
+
+
+def timed_phase(
+    name: MicroStrategyPhase,
+) -> Callable[[Callable[Concatenate[S, P], R]], Callable[Concatenate[S, P], R]]:
+    def decorate(
+        method: Callable[Concatenate[S, P], R],
+    ) -> Callable[Concatenate[S, P], R]:
         if inspect.isgeneratorfunction(method):
             raise TypeError(
                 f"{method.__qualname__} is a generator; use timed_generator_phase"
             )
 
         @functools.wraps(method)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            owner = cast(_HasReport, args[0])
-            with owner.report.phase(name):
-                return method(*args, **kwargs)
+        def wrapper(self: S, *args: P.args, **kwargs: P.kwargs) -> R:
+            with self.report.phase(name):
+                return method(self, *args, **kwargs)
 
         return wrapper
 
@@ -45,12 +52,15 @@ def timed_phase(name: MicroStrategyPhase) -> Callable[[Callable[P, R]], Callable
 
 def timed_generator_phase(
     name: MicroStrategyPhase,
-) -> Callable[[Callable[P, Iterable[T]]], Callable[P, Iterator[T]]]:
-    def decorate(method: Callable[P, Iterable[T]]) -> Callable[P, Iterator[T]]:
+) -> Callable[
+    [Callable[Concatenate[S, P], Iterable[T]]], Callable[Concatenate[S, P], Iterator[T]]
+]:
+    def decorate(
+        method: Callable[Concatenate[S, P], Iterable[T]],
+    ) -> Callable[Concatenate[S, P], Iterator[T]]:
         @functools.wraps(method)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[T]:
-            owner = cast(_HasReport, args[0])
-            return timed_iter(owner.report, name, method(*args, **kwargs))
+        def wrapper(self: S, *args: P.args, **kwargs: P.kwargs) -> Iterator[T]:
+            return timed_iter(self.report, name, method(self, *args, **kwargs))
 
         return wrapper
 
