@@ -22,6 +22,11 @@ from datahub.cli._profile_store import (
     profile_path_in as _profile_path_in,
     write_profile_text,
 )
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    EnvVarTier,
+    env_var,
+)
 from datahub.configuration.env_vars import (
     get_gms_host,
     get_gms_port,
@@ -159,6 +164,18 @@ def available_profile_message() -> str:
     )
 
 
+@env_var(
+    name="DATAHUB_PROFILE",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    tier=EnvVarTier.BASIC,
+    description=(
+        "Selects a named connection profile for this shell or session, instead of the saved "
+        "machine default. An explicit --profile takes precedence over it. With "
+        "DATAHUB_SKIP_CONFIG set this is ignored rather than rejected -- only an explicit "
+        "--profile is an error in that combination."
+    ),
+)
 def env_profile() -> Optional[str]:
     """DATAHUB_PROFILE, treating an empty value (e.g. `export DATAHUB_PROFILE=`) as unset."""
     return os.environ.get("DATAHUB_PROFILE", "").strip() or None

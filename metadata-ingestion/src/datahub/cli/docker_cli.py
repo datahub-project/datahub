@@ -42,11 +42,71 @@ from datahub.cli.docker_check import (
 from datahub.cli.quickstart_versioning import (
     QuickstartVersionMappingConfig,
 )
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    declare_env_var,
+)
 from datahub.configuration.env_vars import get_docker_compose_base
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.perf_timer import PerfTimer
+
+# Consumed by the quickstart compose stack rather than by Python, so the registry's read
+# scanner cannot find them. Declared here, next to the command that launches that stack,
+# because they are variables a user sets when running quickstart.
+declare_env_var(
+    name="DATAHUB_REPO",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    default="acryldata",
+    description=(
+        "Docker registry namespace the compose profiles pull images from. Read by the "
+        "docker/profiles stack used for development, not by `datahub docker quickstart`."
+    ),
+)
+declare_env_var(
+    name="DATAHUB_ACTIONS_IMAGE",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    default="acryldata/datahub-actions",
+    description=(
+        "Image for the actions container in the docker/profiles development stack, overriding "
+        "the DATAHUB_REPO default. Not read by `datahub docker quickstart`."
+    ),
+)
+declare_env_var(
+    name="DATAHUB_ACTIONS_VERSION",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    description=(
+        "Tag for the actions image in the docker/profiles development stack. Defaults to "
+        "DATAHUB_VERSION with a -slim suffix, which omits the pyspark and deequ features. Not "
+        "read by `datahub docker quickstart`."
+    ),
+)
+
+# Quickstart generates these on first run and persists them so tokens survive a restart.
+declare_env_var(
+    name="DATAHUB_TOKEN_SERVICE_SIGNING_KEY",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    secret=True,
+    description=(
+        "Signing key the quickstart GMS uses for access tokens. Generated and persisted on first "
+        "run; set it only to pin a known value across quickstart instances."
+    ),
+)
+declare_env_var(
+    name="DATAHUB_TOKEN_SERVICE_SALT",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    secret=True,
+    description=(
+        "Salt paired with DATAHUB_TOKEN_SERVICE_SIGNING_KEY. Generated and persisted on first "
+        "quickstart run."
+    ),
+)
 
 logger = logging.getLogger(__name__)
 
@@ -258,6 +318,29 @@ def _set_environment_variables(
         )
 
     os.environ["UI_INGESTION_DEFAULT_CLI_VERSION"] = cliVersion
+
+
+declare_env_var(
+    name="DATAHUB_SEARCH_TAG",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    risky=True,
+    description=(
+        "Image tag for the quickstart search container. Pinned to an OpenSearch 2.x tag "
+        "automatically when the install already holds 2.x indices, which 3.x cannot read."
+    ),
+)
+declare_env_var(
+    name="DATAHUB_SEARCH_VOLUME",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    risky=True,
+    description=(
+        "Docker volume holding the quickstart search data, pinned alongside DATAHUB_SEARCH_TAG. "
+        "Pointing it at a volume written by a different OpenSearch major leaves the indices "
+        "unreadable."
+    ),
+)
 
 
 # OpenSearch 2.x indices are not readable on 3.x, so an install that already has 2.x data stays on 2.x.

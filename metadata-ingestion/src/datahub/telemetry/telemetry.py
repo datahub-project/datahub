@@ -19,6 +19,11 @@ from datahub._version import __version__, nice_version_name
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    EnvVarTier,
+    declare_env_var,
+)
 from datahub.configuration.env_vars import (
     get_sentry_dsn,
     get_sentry_environment,
@@ -29,6 +34,21 @@ from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import _custom_package_path
 from datahub.utilities.caller_context import identify_caller
 from datahub.utilities.perf_timer import PerfTimer
+
+declare_env_var(
+    name="DATAHUB_TELEMETRY_ENABLED",
+    type=bool,
+    group=EnvVarGroup.TELEMETRY,
+    default=True,
+    tier=EnvVarTier.BASIC,
+    choices=["true", "1", "false", "0"],
+    description=(
+        "Whether the CLI may send anonymous usage telemetry. Set to false on hosts with no "
+        "outbound internet access. It is combined with the telemetry config file rather than "
+        "overriding it, so either can disable telemetry but neither re-enables it alone. The "
+        "presence of any common CI variable also disables it."
+    ),
+)
 
 if TYPE_CHECKING:
     from sentry_sdk.types import Event, Hint

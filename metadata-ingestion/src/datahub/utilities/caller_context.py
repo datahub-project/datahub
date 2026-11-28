@@ -18,6 +18,22 @@ import re
 import subprocess
 from typing import Dict, List, Optional
 
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    declare_env_var,
+)
+
+declare_env_var(
+    name="DATAHUB_CALLER",
+    type=str,
+    group=EnvVarGroup.MISC,
+    description=(
+        "Overrides the caller label sent in the User-Agent header to GMS. The CLI auto-detects "
+        "common callers such as coding agents and CI systems; set this for custom tools, or to "
+        "tell environments apart (for example airflow-prod-etl)."
+    ),
+)
+
 logger = logging.getLogger(__name__)
 
 # Env vars that reliably indicate a specific caller.

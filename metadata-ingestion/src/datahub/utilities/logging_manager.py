@@ -23,8 +23,27 @@ from typing import Deque, Iterator, Optional
 
 import click
 
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    declare_env_var,
+)
 from datahub.configuration.env_vars import get_no_color, get_suppress_logging_manager
 from datahub.utilities.tee_io import TeeIO
+
+declare_env_var(
+    name="DATAHUB_LOG_CONFIG_FILE",
+    type=str,
+    group=EnvVarGroup.LOGGING,
+    risky=True,
+    description=(
+        "Path to a Python logging fileConfig ini. When set, it replaces DataHub's own logging "
+        "setup entirely -- the escape hatch for fitting CLI output to an existing log pipeline. "
+        "Secret masking only covers some configurations: StreamHandler, FileHandler and the "
+        "standard rotating file handlers, with logging.Formatter or python-json-logger. "
+        "Handlers that send records over a socket, HTTP or to a third-party service are not "
+        "covered, so secrets may reach them unmasked."
+    ),
+)
 
 BASE_LOGGING_FORMAT = (
     "[%(asctime)s] %(levelname)-8s {%(name)s:%(lineno)d} - %(message)s"

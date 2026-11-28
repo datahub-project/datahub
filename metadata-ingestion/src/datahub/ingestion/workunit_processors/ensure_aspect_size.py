@@ -5,6 +5,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional
 
+from datahub.configuration.env_var_registry import (
+    EnvVarGroup,
+    declare_env_var,
+)
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -32,6 +36,17 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
+)
+
+declare_env_var(
+    name="QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES",
+    type=int,
+    group=EnvVarGroup.SQL,
+    default=5 * 1024 * 1024,
+    description=(
+        "Longest SQL statement kept on a query properties aspect, in bytes. Statements above this "
+        "are truncated so the aspect stays under the GMS payload limit. Read once at import."
+    ),
 )
 
 logger = logging.getLogger(__name__)

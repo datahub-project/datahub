@@ -5,6 +5,15 @@ import logging
 import os
 from typing import Optional
 
+from datahub.configuration.env_var_registry import (
+    EnvVarAudience,
+    EnvVarGroup,
+    EnvVarSpec,
+    EnvVarTier,
+    env_var,
+    register_env_var,
+)
+
 logger = logging.getLogger(__name__)
 
 # Sink types that a no-sink recipe can default to. These match the YAML `sink:`
@@ -17,58 +26,152 @@ DEFAULT_SINK_KAFKA = "datahub-kafka"
 # ============================================================================
 
 
+@env_var(
+    name="DATAHUB_GMS_URL",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    tier=EnvVarTier.BASIC,
+    description=(
+        "Full URL of the GMS instance, including scheme and any port. `DATAHUB_GMS_PORT` wins "
+        "over this: when it is set, the URL is rebuilt from `DATAHUB_GMS_HOST`, "
+        "`DATAHUB_GMS_PORT` and `DATAHUB_GMS_PROTOCOL` and this value is ignored. Leave those "
+        "unset when using this one."
+    ),
+)
 def get_gms_url() -> Optional[str]:
-    """Complete GMS URL (takes precedence over separate host/port)."""
     return os.getenv("DATAHUB_GMS_URL")
 
 
+@env_var(
+    name="DATAHUB_GMS_HOST",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    tier=EnvVarTier.BASIC,
+    deprecated=True,
+    replaced_by="DATAHUB_GMS_URL",
+    description=(
+        "Host name of the GMS instance, combined with DATAHUB_GMS_PORT and "
+        "DATAHUB_GMS_PROTOCOL."
+    ),
+)
 def get_gms_host() -> Optional[str]:
-    """GMS host (fallback for URL, deprecated)."""
     return os.getenv("DATAHUB_GMS_HOST")
 
 
+@env_var(
+    name="DATAHUB_GMS_PORT",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    tier=EnvVarTier.BASIC,
+    description=(
+        "Port of the GMS instance, used with DATAHUB_GMS_HOST. Setting it overrides "
+        "DATAHUB_GMS_URL entirely, which is rarely what you want."
+    ),
+)
 def get_gms_port() -> Optional[str]:
-    """GMS port number."""
     return os.getenv("DATAHUB_GMS_PORT")
 
 
+@env_var(
+    name="DATAHUB_GMS_PROTOCOL",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    default="http",
+    tier=EnvVarTier.BASIC,
+    choices=["http", "https"],
+    description="Scheme used with DATAHUB_GMS_HOST and DATAHUB_GMS_PORT.",
+)
 def get_gms_protocol() -> str:
-    """Protocol for GMS connection (http/https)."""
     return os.getenv("DATAHUB_GMS_PROTOCOL", "http")
 
 
+@env_var(
+    name="DATAHUB_GMS_TOKEN",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    tier=EnvVarTier.BASIC,
+    secret=True,
+    description="Authentication token for GMS.",
+)
 def get_gms_token() -> Optional[str]:
-    """Authentication token for GMS."""
     return os.getenv("DATAHUB_GMS_TOKEN")
 
 
+@env_var(
+    name="DATAHUB_USERNAME",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    tier=EnvVarTier.BASIC,
+    description="Username for generating access tokens.",
+)
 def get_username() -> Optional[str]:
-    """Username for generating access tokens."""
     return os.getenv("DATAHUB_USERNAME")
 
 
+@env_var(
+    name="DATAHUB_PASSWORD",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    tier=EnvVarTier.BASIC,
+    secret=True,
+    description="Password for generating access tokens.",
+)
 def get_password() -> Optional[str]:
-    """Password for generating access tokens."""
     return os.getenv("DATAHUB_PASSWORD")
 
 
+@env_var(
+    name="DATAHUB_SYSTEM_CLIENT_ID",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    description="System client id, for service-to-service authentication against GMS.",
+)
 def get_system_client_id() -> Optional[str]:
-    """System client ID for OAuth/auth."""
     return os.getenv("DATAHUB_SYSTEM_CLIENT_ID")
 
 
+@env_var(
+    name="DATAHUB_SYSTEM_CLIENT_SECRET",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    secret=True,
+    description="System client secret paired with DATAHUB_SYSTEM_CLIENT_ID.",
+)
 def get_system_client_secret() -> Optional[str]:
-    """System client secret for OAuth/auth."""
     return os.getenv("DATAHUB_SYSTEM_CLIENT_SECRET")
 
 
+@env_var(
+    name="DATAHUB_SKIP_CONFIG",
+    risky=True,
+    type=bool,
+    group=EnvVarGroup.CONNECTION,
+    default=False,
+    tier=EnvVarTier.BASIC,
+    choices=["true", "false"],
+    description=(
+        "Skip loading saved connection files, so connection settings come from the "
+        "environment only. Cannot be combined with `--profile`, and `DATAHUB_PROFILE` "
+        "is ignored when it is set."
+    ),
+)
 def get_skip_config() -> bool:
-    """Skip loading config file (forces env variables)."""
     return os.getenv("DATAHUB_SKIP_CONFIG", "").lower() == "true"
 
 
+@env_var(
+    name="DATAHUB_GMS_BASE_PATH",
+    type=str,
+    group=EnvVarGroup.CONNECTION,
+    default="",
+    description=(
+        "Path prefix inserted into the derived Kafka schema registry URL, for deployments "
+        "served from a sub-path. Its one consumer builds that URL against localhost:8080, not "
+        "the configured GMS address, and it does not prefix GMS API calls at all -- set "
+        "DATAHUB_GMS_URL to the full path for those."
+    ),
+)
 def get_gms_base_path() -> str:
-    """Base path for GMS API endpoints."""
     return os.getenv("DATAHUB_GMS_BASE_PATH", "")
 
 
@@ -77,14 +180,22 @@ def get_gms_base_path() -> str:
 # ============================================================================
 
 
+@env_var(
+    name="DATAHUB_INGESTION_DEFAULT_SINK",
+    type=str,
+    group=EnvVarGroup.SINK,
+    default=DEFAULT_SINK_REST,
+    tier=EnvVarTier.BASIC,
+    choices=["datahub-rest", "datahub-kafka"],
+    description=(
+        "Sink type for a recipe that does not specify one. Returns one of "
+        "``datahub-rest`` (the default) or ``datahub-kafka``. An unset, blank, or "
+        "unrecognized ``DATAHUB_INGESTION_DEFAULT_SINK`` resolves to ``datahub-rest`` "
+        "-- unrecognized values also log a warning -- so the historical REST behavior "
+        "is always the safe fallback."
+    ),
+)
 def get_ingestion_default_sink() -> str:
-    """Sink type for a recipe that does not specify one.
-
-    Returns one of ``datahub-rest`` (the default) or ``datahub-kafka``. An
-    unset, blank, or unrecognized ``DATAHUB_INGESTION_DEFAULT_SINK`` resolves to
-    ``datahub-rest`` -- unrecognized values also log a warning -- so the historical
-    REST behavior is always the safe fallback.
-    """
     raw = os.getenv("DATAHUB_INGESTION_DEFAULT_SINK", DEFAULT_SINK_REST).strip().lower()
     if raw not in (DEFAULT_SINK_REST, DEFAULT_SINK_KAFKA):
         logger.warning(
@@ -99,13 +210,18 @@ def get_ingestion_default_sink() -> str:
     return raw
 
 
+@env_var(
+    name="KAFKA_BOOTSTRAP_SERVER",
+    type=str,
+    group=EnvVarGroup.SINK,
+    description=(
+        "Kafka bootstrap servers for the default Kafka ingestion sink. Reuses the "
+        "DataHub-wide KAFKA_BOOTSTRAP_SERVER convention (same broker GMS / consumers "
+        "use) rather than a sink-specific var, so ingestion targets the same cluster "
+        "as the rest of the platform."
+    ),
+)
 def get_kafka_sink_bootstrap() -> Optional[str]:
-    """Kafka bootstrap servers for the default Kafka ingestion sink.
-
-    Reuses the DataHub-wide KAFKA_BOOTSTRAP_SERVER convention (same broker GMS /
-    consumers use) rather than a sink-specific var, so ingestion targets the
-    same cluster as the rest of the platform.
-    """
     return os.getenv("KAFKA_BOOTSTRAP_SERVER")
 
 
@@ -126,47 +242,83 @@ def _get_int_env(var: str, default: int) -> int:
         ) from None
 
 
+@env_var(
+    name="DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES",
+    type=int,
+    group=EnvVarGroup.SINK,
+    default=131072,
+    description=(
+        "Per-producer local queue size cap (KiB) for the default Kafka ingestion "
+        "sink. Bounds producer buffer memory so backpressure engages before OOM. Peak "
+        "buffer memory ~= num_producers * this value. Default 128 MiB."
+    ),
+)
 def get_kafka_sink_queue_max_kbytes() -> int:
-    """Per-producer local queue size cap (KiB) for the default Kafka ingestion sink.
-
-    Bounds producer buffer memory so backpressure engages before OOM. Peak
-    buffer memory ~= num_producers * this value. Default 128 MiB.
-    """
     return _get_int_env("DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES", 131072)
 
 
+@env_var(
+    name="DATAHUB_KAFKA_SINK_QUEUE_MAX_MESSAGES",
+    type=int,
+    group=EnvVarGroup.SINK,
+    default=20000,
+    description=(
+        "Per-producer local queue size cap (msg count) for the default Kafka "
+        "ingestion sink."
+    ),
+)
 def get_kafka_sink_queue_max_messages() -> int:
-    """Per-producer local queue size cap (msg count) for the default Kafka ingestion sink."""
     return _get_int_env("DATAHUB_KAFKA_SINK_QUEUE_MAX_MESSAGES", 20000)
 
 
+@env_var(
+    name="DATAHUB_KAFKA_SINK_LINGER_MS",
+    type=int,
+    group=EnvVarGroup.SINK,
+    default=100,
+    description=(
+        "Producer linger.ms (send batching window) for the default Kafka ingestion "
+        "sink."
+    ),
+)
 def get_kafka_sink_linger_ms() -> int:
-    """Producer linger.ms (send batching window) for the default Kafka ingestion sink."""
     return _get_int_env("DATAHUB_KAFKA_SINK_LINGER_MS", 100)
 
 
+@env_var(
+    name="DATAHUB_KAFKA_SINK_MAX_MESSAGE_BYTES",
+    type=int,
+    group=EnvVarGroup.SINK,
+    default=5242880,
+    description=(
+        "Max serialized message size (bytes) the default Kafka ingestion sink will "
+        "send. librdkafka's own default is ~1 MiB -- stricter than GMS's aspect "
+        "limit, so without this an aspect REST would accept could be rejected over "
+        "Kafka. Defaults to 5 MiB to match DataHub's default MCP topic "
+        "``max.message.bytes``. Must be <= the broker/topic ``max.message.bytes`` or "
+        "the broker rejects the produce. An oversized aspect degrades to the sink's "
+        "REST fallback when one is configured (parity with the REST sink's ~16 MiB "
+        "cap); with no fallback it fails the record (reported), never silent."
+    ),
+)
 def get_kafka_sink_max_message_bytes() -> int:
-    """Max serialized message size (bytes) the default Kafka ingestion sink will send.
-
-    librdkafka's own default is ~1 MiB -- stricter than GMS's aspect limit, so
-    without this an aspect REST would accept could be rejected over Kafka.
-    Defaults to 5 MiB to match DataHub's default MCP topic ``max.message.bytes``.
-    Must be <= the broker/topic ``max.message.bytes`` or the broker rejects the
-    produce. An oversized aspect degrades to the sink's REST fallback when one is
-    configured (parity with the REST sink's ~16 MiB cap); with no fallback it
-    fails the record (reported), never silent.
-    """
     return _get_int_env("DATAHUB_KAFKA_SINK_MAX_MESSAGE_BYTES", 5242880)
 
 
+@env_var(
+    name="DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT",
+    type=int,
+    group=EnvVarGroup.SINK,
+    default=10,
+    description=(
+        "Per-check timeout (seconds) for the Kafka ingestion sink's init reachability "
+        "probe. The probe runs whenever the Kafka default sink is selected "
+        "(DATAHUB_INGESTION_DEFAULT_SINK=datahub-kafka) -- no separate on/off flag. Bounds "
+        "both the broker metadata fetch and the schema-registry request so a "
+        "misconfigured endpoint dies in seconds at startup. Default 10s."
+    ),
+)
 def get_kafka_sink_init_probe_timeout() -> int:
-    """Per-check timeout (seconds) for the Kafka ingestion sink's init reachability probe.
-
-    The probe runs whenever the Kafka default sink is selected
-    (DATAHUB_INGESTION_DEFAULT_SINK=kafka) -- no separate on/off flag. Bounds
-    both the broker metadata fetch and the schema-registry request so a
-    misconfigured endpoint dies in seconds at startup. Default 10s.
-    """
     return _get_int_env("DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT", 10)
 
 
@@ -175,58 +327,119 @@ def get_kafka_sink_init_probe_timeout() -> int:
 # ============================================================================
 
 
+@env_var(
+    name="DATAHUB_AUTH_TYPE",
+    type=str,
+    group=EnvVarGroup.OAUTH,
+    choices=["k8s_oidc", "azure_entra", "oidc_client_credentials"],
+    description=(
+        "Env-configured OAuth provider type (k8s_oidc / azure_entra / "
+        "oidc_client_credentials)."
+    ),
+)
 def get_auth_type() -> Optional[str]:
-    """Env-configured OAuth provider type (k8s_oidc / azure_entra / oidc_client_credentials)."""
     return os.getenv("DATAHUB_AUTH_TYPE")
 
 
+@env_var(
+    name="DATAHUB_AUTH_TOKEN_FILE",
+    type=str,
+    group=EnvVarGroup.OAUTH,
+    description="Path to the projected service-account token file (k8s_oidc).",
+)
 def get_auth_token_file() -> Optional[str]:
-    """Path to the projected service-account token file (k8s_oidc)."""
     return os.getenv("DATAHUB_AUTH_TOKEN_FILE")
 
 
+@env_var(
+    name="DATAHUB_AUTH_AUDIENCE",
+    type=str,
+    group=EnvVarGroup.OAUTH,
+    description="Expected token audience (k8s_oidc, oidc_client_credentials).",
+)
 def get_auth_audience() -> Optional[str]:
-    """Expected token audience (k8s_oidc, oidc_client_credentials)."""
     return os.getenv("DATAHUB_AUTH_AUDIENCE")
 
 
+@env_var(
+    name="DATAHUB_AUTH_SCOPE",
+    type=str,
+    group=EnvVarGroup.OAUTH,
+    description="OAuth scope (oidc_client_credentials).",
+)
 def get_auth_scope() -> Optional[str]:
-    """OAuth scope (oidc_client_credentials)."""
     return os.getenv("DATAHUB_AUTH_SCOPE")
 
 
+@env_var(
+    name="DATAHUB_AUTH_TOKEN_ENDPOINT",
+    type=str,
+    group=EnvVarGroup.OAUTH,
+    description="IdP token endpoint URL (oidc_client_credentials).",
+)
 def get_auth_token_endpoint() -> Optional[str]:
-    """IdP token endpoint URL (oidc_client_credentials)."""
     return os.getenv("DATAHUB_AUTH_TOKEN_ENDPOINT")
 
 
+@env_var(
+    name="DATAHUB_AUTH_CLIENT_ID",
+    type=str,
+    group=EnvVarGroup.OAUTH,
+    description="OAuth client id (oidc_client_credentials).",
+)
 def get_auth_client_id() -> Optional[str]:
-    """OAuth client id (oidc_client_credentials)."""
     return os.getenv("DATAHUB_AUTH_CLIENT_ID")
 
 
+@env_var(
+    name="DATAHUB_AUTH_CLIENT_SECRET",
+    type=str,
+    group=EnvVarGroup.OAUTH,
+    secret=True,
+    description="OAuth client secret (oidc_client_credentials).",
+)
 def get_auth_client_secret() -> Optional[str]:
-    """OAuth client secret (oidc_client_credentials)."""
     return os.getenv("DATAHUB_AUTH_CLIENT_SECRET")
 
 
+@env_var(
+    name="DATAHUB_AUTH_AZURE_TENANT_ID",
+    type=str,
+    group=EnvVarGroup.OAUTH,
+    description="Azure Entra tenant id (azure_entra).",
+)
 def get_auth_azure_tenant_id() -> Optional[str]:
-    """Azure Entra tenant id (azure_entra)."""
     return os.getenv("DATAHUB_AUTH_AZURE_TENANT_ID")
 
 
+@env_var(
+    name="DATAHUB_AUTH_AZURE_CLIENT_ID",
+    type=str,
+    group=EnvVarGroup.OAUTH,
+    description="Azure Entra client id (azure_entra).",
+)
 def get_auth_azure_client_id() -> Optional[str]:
-    """Azure Entra client id (azure_entra)."""
     return os.getenv("DATAHUB_AUTH_AZURE_CLIENT_ID")
 
 
+@env_var(
+    name="DATAHUB_AUTH_AZURE_SCOPE",
+    type=str,
+    group=EnvVarGroup.OAUTH,
+    description="Azure Entra token scope (azure_entra).",
+)
 def get_auth_azure_scope() -> Optional[str]:
-    """Azure Entra token scope (azure_entra)."""
     return os.getenv("DATAHUB_AUTH_AZURE_SCOPE")
 
 
+@env_var(
+    name="DATAHUB_AUTH_AZURE_CLIENT_SECRET",
+    type=str,
+    group=EnvVarGroup.OAUTH,
+    secret=True,
+    description="Azure Entra client secret; omit for workload identity (azure_entra).",
+)
 def get_auth_azure_client_secret() -> Optional[str]:
-    """Azure Entra client secret; omit for workload identity (azure_entra)."""
     return os.getenv("DATAHUB_AUTH_AZURE_CLIENT_SECRET")
 
 
@@ -235,53 +448,120 @@ def get_auth_azure_client_secret() -> Optional[str]:
 # ============================================================================
 
 
+@env_var(
+    name="DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES",
+    type=str,
+    type_label="integer",
+    group=EnvVarGroup.EMITTER,
+    default="4",
+    description="Times a failed request to GMS is retried before the emit fails.",
+)
 def get_rest_emitter_default_retry_max_times() -> str:
-    """Max retry attempts for failed requests."""
     return os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
 
 
+@env_var(
+    name="DATAHUB_REST_EMITTER_429_RETRY_MULTIPLIER",
+    type=int,
+    group=EnvVarGroup.EMITTER,
+    default=2,
+    description=(
+        "Multiplier applied to the retry budget when GMS replies 429 (rate limited). "
+        "Effective retries are this value multiplied by "
+        "DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES."
+    ),
+)
 def get_rest_emitter_429_retry_multiplier() -> int:
-    """Multiplier for 429 retry backoff.
-
-    Number of retries will effectively be this value * get_rest_emitter_default_retry_max_times().
-    """
     return int(os.getenv("DATAHUB_REST_EMITTER_429_RETRY_MULTIPLIER", "2")) or 1
 
 
+@env_var(
+    name="DATAHUB_REST_EMITTER_DEFAULT_POOL_CONNECTIONS",
+    type=int,
+    group=EnvVarGroup.EMITTER,
+    default=100,
+    description="Max number of different hosts to cache connection pools for.",
+)
 def get_rest_emitter_default_pool_connections() -> int:
-    """Max number of different hosts to cache connection pools for."""
     return int(os.getenv("DATAHUB_REST_EMITTER_DEFAULT_POOL_CONNECTIONS", "100"))
 
 
+@env_var(
+    name="DATAHUB_REST_EMITTER_DEFAULT_POOL_MAXSIZE",
+    type=int,
+    group=EnvVarGroup.EMITTER,
+    default=100,
+    description="Max connections per host in each connection pool.",
+)
 def get_rest_emitter_default_pool_maxsize() -> int:
-    """Max connections per host in each connection pool."""
     return int(os.getenv("DATAHUB_REST_EMITTER_DEFAULT_POOL_MAXSIZE", "100"))
 
 
+@env_var(
+    name="DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_BYTES",
+    type=int,
+    group=EnvVarGroup.EMITTER,
+    default=15 * 1024 * 1024,
+    description="Maximum payload size in bytes for batch operations.",
+)
 def get_rest_emitter_batch_max_payload_bytes() -> int:
-    """Maximum payload size in bytes for batch operations."""
     return int(
         os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_BYTES", str(15 * 1024 * 1024))
     )
 
 
+@env_var(
+    name="DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH",
+    type=int,
+    group=EnvVarGroup.EMITTER,
+    default=200,
+    description="Maximum number of MCPs per batch.",
+)
 def get_rest_emitter_batch_max_payload_length() -> int:
-    """Maximum number of MCPs per batch."""
     return int(os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", "200"))
 
 
+@env_var(
+    name="DATAHUB_EMIT_MODE",
+    type=str,
+    group=EnvVarGroup.EMITTER,
+    choices=["SYNC_PRIMARY", "SYNC_WAIT", "ASYNC", "ASYNC_WAIT"],
+    description=(
+        "How the emitter waits for a write to be durable. Unset means SYNC_PRIMARY, which "
+        "returns once the primary store has the change but updates search asynchronously. "
+        "SYNC_WAIT also waits for search. ASYNC queues the change and returns immediately, so "
+        "a read straight afterwards may not see it; ASYNC_WAIT queues it but still blocks "
+        "until it is persisted."
+    ),
+)
 def get_emit_mode() -> Optional[str]:
-    """Emission mode (SYNC_PRIMARY, SYNC_WAIT, ASYNC, ASYNC_WAIT)."""
     return os.getenv("DATAHUB_EMIT_MODE")
 
 
+@env_var(
+    name="DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT",
+    type=str,
+    group=EnvVarGroup.EMITTER,
+    choices=["RESTLI", "OPENAPI"],
+    description=(
+        "Which REST API the emitter targets. Unset does not simply mean RESTLI: an SDK client "
+        "negotiates, using OpenAPI when the server advertises support for it and RESTLI "
+        "otherwise. Setting this pins the choice and disables that negotiation."
+    ),
+)
 def get_rest_emitter_default_endpoint() -> Optional[str]:
-    """REST endpoint type (RESTLI or OPENAPI)."""
     return os.getenv("DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT")
 
 
+@env_var(
+    name="DATAHUB_EMITTER_TRACE",
+    type=bool,
+    group=EnvVarGroup.EMITTER,
+    default=False,
+    choices=["true"],
+    description="Enable detailed emitter tracing.",
+)
 def get_emitter_trace() -> bool:
-    """Enable detailed emitter tracing."""
     return os.getenv("DATAHUB_EMITTER_TRACE", "").lower() == "true"
 
 
@@ -290,18 +570,46 @@ def get_emitter_trace() -> bool:
 # ============================================================================
 
 
+@env_var(
+    name="DATAHUB_REST_SINK_DEFAULT_MAX_THREADS",
+    type=int,
+    group=EnvVarGroup.REST_SINK,
+    default=15,
+    recipe_field="sink.config.max_threads",
+    description=(
+        "Threads the REST sink uses to emit in parallel. Raise for throughput, lower "
+        "to ease load on GMS."
+    ),
+)
 def get_rest_sink_default_max_threads() -> int:
-    """Max thread pool size for async operations."""
     return int(os.getenv("DATAHUB_REST_SINK_DEFAULT_MAX_THREADS", "15"))
 
 
+@env_var(
+    name="DATAHUB_REST_SINK_DEFAULT_MODE",
+    type=str,
+    group=EnvVarGroup.REST_SINK,
+    choices=["SYNC", "ASYNC", "ASYNC_BATCH"],
+    recipe_field="sink.config.mode",
+    description=(
+        "How the REST sink submits records. Unset means ASYNC_BATCH. Any recipe `mode` takes "
+        "precedence over this."
+    ),
+)
 def get_rest_sink_default_mode() -> Optional[str]:
-    """Sink mode (SYNC, ASYNC, ASYNC_BATCH)."""
     return os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE")
 
 
+@env_var(
+    name="DATAHUB_REST_SINK_DEFAULT_TCP_KEEPALIVE",
+    type=bool,
+    group=EnvVarGroup.REST_SINK,
+    default=False,
+    choices=["true"],
+    recipe_field="sink.config.tcp_keepalive",
+    description="Default value for tcp_keepalive on the REST sink / DataHub client",
+)
 def get_rest_sink_default_tcp_keepalive() -> bool:
-    """Default value for tcp_keepalive on the REST sink / DataHub client"""
     return os.getenv("DATAHUB_REST_SINK_DEFAULT_TCP_KEEPALIVE", "").lower() == "true"
 
 
@@ -310,18 +618,40 @@ def get_rest_sink_default_tcp_keepalive() -> bool:
 # ============================================================================
 
 
+@env_var(
+    name="DATAHUB_TELEMETRY_TIMEOUT",
+    type=str,
+    type_label="integer",
+    group=EnvVarGroup.TELEMETRY,
+    default="10",
+    tier=EnvVarTier.BASIC,
+    description=(
+        "Seconds to wait when sending anonymous usage telemetry before giving up."
+    ),
+)
 def get_telemetry_timeout() -> str:
-    """Telemetry timeout in seconds."""
     return os.getenv("DATAHUB_TELEMETRY_TIMEOUT", "10")
 
 
+@env_var(
+    name="SENTRY_DSN",
+    type=str,
+    group=EnvVarGroup.TELEMETRY,
+    secret=True,
+    description="Sentry error tracking DSN.",
+)
 def get_sentry_dsn() -> Optional[str]:
-    """Sentry error tracking DSN."""
     return os.getenv("SENTRY_DSN")
 
 
+@env_var(
+    name="SENTRY_ENVIRONMENT",
+    type=str,
+    group=EnvVarGroup.TELEMETRY,
+    default="dev",
+    description="Sentry environment (dev/prod).",
+)
 def get_sentry_environment() -> str:
-    """Sentry environment (dev/prod)."""
     return os.getenv("SENTRY_ENVIRONMENT", "dev")
 
 
@@ -330,33 +660,75 @@ def get_sentry_environment() -> str:
 # ============================================================================
 
 
+@env_var(
+    name="DATAHUB_REPORT_FAILURE_SAMPLE_SIZE",
+    type=int,
+    group=EnvVarGroup.REPORTING,
+    default=10,
+    recipe_field="flags.report_failure_sample_size",
+    description="Maximum number of failure entries to include in the report.",
+)
 def get_report_failure_sample_size() -> int:
-    """Maximum number of failure entries to include in the report."""
     return int(os.getenv("DATAHUB_REPORT_FAILURE_SAMPLE_SIZE", "10"))
 
 
+@env_var(
+    name="DATAHUB_REPORT_WARNING_SAMPLE_SIZE",
+    type=int,
+    group=EnvVarGroup.REPORTING,
+    default=10,
+    recipe_field="flags.report_warning_sample_size",
+    description="Maximum number of warning entries to include in the report.",
+)
 def get_report_warning_sample_size() -> int:
-    """Maximum number of warning entries to include in the report."""
     return int(os.getenv("DATAHUB_REPORT_WARNING_SAMPLE_SIZE", "10"))
 
 
+@env_var(
+    name="DATAHUB_REPORT_INFO_SAMPLE_SIZE",
+    type=int,
+    group=EnvVarGroup.REPORTING,
+    default=10,
+    recipe_field="flags.report_info_sample_size",
+    description="Maximum number of info entries to include in the report.",
+)
 def get_report_info_sample_size() -> int:
-    """Maximum number of info entries to include in the report."""
     return int(os.getenv("DATAHUB_REPORT_INFO_SAMPLE_SIZE", "10"))
 
 
+@env_var(
+    name="DATAHUB_PROGRESS_REPORT_MAX_FAILURES",
+    type=int,
+    group=EnvVarGroup.REPORTING,
+    default=10,
+    recipe_field="flags.progress_report_max_failures",
+    description="Maximum number of failure entries in intermediate progress reports.",
+)
 def get_progress_report_max_failures() -> int:
-    """Maximum number of failure entries in intermediate progress reports."""
     return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_FAILURES", "10"))
 
 
+@env_var(
+    name="DATAHUB_PROGRESS_REPORT_MAX_WARNINGS",
+    type=int,
+    group=EnvVarGroup.REPORTING,
+    default=10,
+    recipe_field="flags.progress_report_max_warnings",
+    description="Maximum number of warning entries in intermediate progress reports.",
+)
 def get_progress_report_max_warnings() -> int:
-    """Maximum number of warning entries in intermediate progress reports."""
     return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_WARNINGS", "10"))
 
 
+@env_var(
+    name="DATAHUB_PROGRESS_REPORT_MAX_INFOS",
+    type=int,
+    group=EnvVarGroup.REPORTING,
+    default=10,
+    recipe_field="flags.progress_report_max_infos",
+    description="Maximum number of info entries in intermediate progress reports.",
+)
 def get_progress_report_max_infos() -> int:
-    """Maximum number of info entries in intermediate progress reports."""
     return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_INFOS", "10"))
 
 
@@ -365,111 +737,138 @@ def get_progress_report_max_infos() -> int:
 # ============================================================================
 
 
+@env_var(
+    name="DATAHUB_SUPPRESS_LOGGING_MANAGER",
+    type=str,
+    group=EnvVarGroup.LOGGING,
+    audience=EnvVarAudience.INTERNAL,
+    description="Suppress DataHub logging manager initialization.",
+)
 def get_suppress_logging_manager() -> Optional[str]:
-    """Suppress DataHub logging manager initialization."""
     return os.getenv("DATAHUB_SUPPRESS_LOGGING_MANAGER")
 
 
+@env_var(
+    name="NO_COLOR",
+    type=bool,
+    group=EnvVarGroup.LOGGING,
+    default=False,
+    tier=EnvVarTier.BASIC,
+    choices=["true"],
+    description=(
+        "Disable ANSI colour in CLI output. DataHub reads it as a strict boolean and accepts "
+        "only `true`, unlike the no-color.org convention where any non-empty value disables "
+        "colour."
+    ),
+)
 def get_no_color() -> bool:
-    """Disable colored logging output."""
     return os.getenv("NO_COLOR", "").lower() == "true"
 
 
+@env_var(
+    name="DATAHUB_TEST_MODE",
+    type=str,
+    group=EnvVarGroup.LOGGING,
+    audience=EnvVarAudience.INTERNAL,
+    description="Indicates running in test context.",
+)
 def get_test_mode() -> Optional[str]:
-    """Indicates running in test context."""
     return os.getenv("DATAHUB_TEST_MODE")
 
 
+@env_var(
+    name="DATAHUB_DEBUG",
+    type=bool,
+    group=EnvVarGroup.LOGGING,
+    default=False,
+    tier=EnvVarTier.BASIC,
+    choices=["true", "1"],
+    risky=True,
+    description=(
+        "Enable debug logging, the same as passing `--debug`. Debug logs expose "
+        "sensitive information. Avoid it on production instances, especially with UI "
+        "ingestion, where run logs are readable by anyone who can see the run."
+    ),
+)
 def get_debug() -> bool:
-    """Enable debug mode."""
     return os.getenv("DATAHUB_DEBUG", "").lower() in ("true", "1")
 
 
+@env_var(
+    name="DATAHUB_DISABLE_SECRET_MASKING",
+    risky=True,
+    type=bool,
+    group=EnvVarGroup.LOGGING,
+    default=False,
+    choices=["true", "1"],
+    description=(
+        "Disable secret masking in logs, for debugging. Credentials then appear in run output, "
+        "which is visible to anyone who can see the ingestion run. Development only."
+    ),
+)
 def get_disable_secret_masking() -> bool:
-    """
-    Disable secret masking for debugging purposes.
-
-    WARNING: Only use this in development/debugging scenarios.
-    Disabling secret masking will expose sensitive information in logs.
-    """
     return os.getenv("DATAHUB_DISABLE_SECRET_MASKING", "").lower() in ("true", "1")
 
 
+@env_var(
+    name="DATAHUB_PROBE_DISABLE_RAW_ACCESS",
+    type=bool,
+    group=EnvVarGroup.LOGGING,
+    default=False,
+    choices=["true", "1"],
+    description=(
+        "Refuse the probe's raw passthrough commands, `sql` and `api`, so an agent cannot run "
+        "its own queries or API calls against a source. Typed listings keep working on most "
+        "connectors, so recipe diagnosis still functions -- but not everywhere: Snowflake "
+        "exposes `sql` as its only probe command, so this withholds its probe entirely, while "
+        "BigQuery keeps `projects` and is merely narrowed. Set it on the ingestion executor, "
+        "not in the recipe: an agent writes the recipe, so a field there would let it grant "
+        "itself the access."
+    ),
+)
 def get_disable_agent_probe_raw_access() -> bool:
-    """
-    Refuse the recipe probe's raw passthrough commands (`sql`, `api`).
-
-    For an operator who does not want an agent issuing its own queries or API
-    calls against a source at all. It withholds only the commands that take a
-    caller-supplied query or path.
-
-    On most connectors the typed listings keep working, so recipe diagnosis
-    still functions -- this said so unconditionally and was wrong about the
-    two that matter most. Snowflake exposes `sql` as its ONLY probe command, so
-    setting this withholds its probe entirely. BigQuery also declares
-    `projects`, which takes no caller-supplied query or path, so its probe is
-    narrowed rather than withheld: `projects` still authenticates and lists
-    what the recipe would consider. The
-    refusal message names what is left for the connector in hand rather than
-    promising something in general.
-
-    An environment variable rather than a recipe field because the agent authors
-    the recipe: a field there would let it grant itself the access. Set it where
-    the probe runs (the ingestion executor).
-    """
     return os.getenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "").lower() in ("true", "1")
 
 
+@env_var(
+    name="DATAHUB_PROBE_DISABLED",
+    type=bool,
+    group=EnvVarGroup.LOGGING,
+    default=False,
+    choices=["true", "1"],
+    description=(
+        "Refuse every `datahub probe run` command, so the probe never opens a connection to "
+        "the source. Wider than `DATAHUB_PROBE_DISABLE_RAW_ACCESS`, which blocks only the "
+        "caller-supplied `sql` and `api` passthroughs and leaves the typed listings live. "
+        "Note what is not covered: `recipe test-connection` is NOT gated -- it opens a "
+        "connection and authenticates, but it verifies credentials rather than reading "
+        "metadata. Commands "
+        "that need no connection (`recipe describe`, `scaffold`, `validate`, `probe methods`, "
+        "`probe filter`) keep working. Set it where the probe runs, the ingestion executor, "
+        "not in the recipe: an agent writes the recipe, so a field there would let it grant "
+        "itself the access."
+    ),
+)
 def get_probe_disabled() -> bool:
-    """Whether the probe may open a connection to the source at all.
-
-    The wider switch. DATAHUB_PROBE_DISABLE_RAW_ACCESS withholds the
-    caller-supplied `sql` and `api` passthroughs and leaves every typed
-    listing live -- which is the right granularity for "no arbitrary
-    queries" and the wrong one for "this agent does not touch my source".
-    Those listings still authenticate and still return metadata.
-
-    This refuses every `probe run <command>`, typed listing as much as
-    passthrough. Enforced in run_probe_method, the one function every probe
-    command funnels through, so it covers commands that do not exist yet.
-
-    SCOPE, stated precisely because a security control that promises more
-    than it delivers is worse than none: `recipe test-connection` is NOT
-    gated. It opens a connection and authenticates, but it is not a probe
-    command -- it predates the probe group and verifying that a recipe's
-    credentials work is a different act from reading the source's metadata.
-    An earlier version of this docstring listed it as covered, which was
-    left behind when the gate on it was removed. If the requirement is
-    "this process must not reach the source at all", this switch alone does
-    not give you that.
-
-    Deliberately not everything. `recipe describe`, `recipe scaffold`,
-    `recipe validate`, `probe methods` and `probe filter` need no
-    connection -- they read the connector's own declarations and judge names
-    the caller already has. Disabling those too would stop an agent learning
-    what a recipe needs or checking one it has written, which is work that
-    never reaches the source. The line is the connection, not the feature.
-
-    An environment variable rather than a recipe field, for the same reason
-    as the switch above: the agent authors the recipe, so a field there
-    would let it grant itself the access. Set it where the probe runs (the
-    ingestion executor).
-    """
     return os.getenv("DATAHUB_PROBE_DISABLED", "").lower() in ("true", "1")
 
 
+@env_var(
+    name="DATAHUB_PROBE_VERBOSE_LOGS",
+    type=bool,
+    group=EnvVarGroup.LOGGING,
+    default=False,
+    choices=["true", "1"],
+    description=(
+        "Pass through logs and error text that a probe normally withholds, for debugging a "
+        "connector locally. By default a probe scrubs log records the framework did not write "
+        "and names untrusted errors by class and code only, because both can quote connection "
+        "strings and request URLs. With this on, those logs pass through and each withheld "
+        "error text is appended to its label, still scrubbed. For a person debugging, not for "
+        "an agent."
+    ),
+)
 def get_probe_verbose_logs() -> bool:
-    """The local-debugging switch for probes: reused code's logs as logged,
-    and the withheld text of its errors.
-
-    Off by default: during a probe, every log record the framework did not
-    write is scrubbed and loses its traceback, and a provider's silenced
-    loggers are dropped (see agent.log_guard); an error the framework does
-    not trust is named by class and code only (see agent.error_policy),
-    because both quote connection strings and request URLs. When on, logs
-    pass through and each withheld error text is appended to its label,
-    still scrubbed. For a person debugging a connector, not for an agent.
-    """
     return os.getenv("DATAHUB_PROBE_VERBOSE_LOGS", "").lower() in ("true", "1")
 
 
@@ -478,6 +877,22 @@ def get_probe_verbose_logs() -> bool:
 # ============================================================================
 
 
+@env_var(
+    name="DATAHUB_DISABLE_EXECUTOR_TASK_SECRET_SCOPE",
+    type=bool,
+    group=EnvVarGroup.EXECUTOR,
+    default=False,
+    choices=["true", "1"],
+    risky=True,
+    description=(
+        "Turn off per-task secret scopes in the executor, which are on by default. An "
+        "operational rollback, not a tuning knob: with scopes off, every task's secrets go to "
+        "one process-global registry as they did before scopes existed, so masking over-masks "
+        "across tasks -- a later task's output redacted against an earlier task's secret, with "
+        "that task's variable name in the marker -- but never under-masks. Read per task, so a "
+        "restart with it set is enough to switch."
+    ),
+)
 def get_disable_executor_task_secret_scope() -> bool:
     """Turn off per-task secret scopes in the executor (on by default).
 
@@ -494,24 +909,49 @@ def get_disable_executor_task_secret_scope() -> bool:
     )
 
 
+@env_var(
+    name="DATAHUB_SQL_AGG_QUERY_LOG",
+    type=str,
+    group=EnvVarGroup.SQL,
+    default="DISABLED",
+    choices=["DISABLED", "STORE_ALL", "STORE_FAILED"],
+    description=(
+        "Whether the SQL aggregator keeps the queries it parses, for debugging lineage. "
+        "STORE_ALL keeps every query, STORE_FAILED only those that failed to parse. The "
+        "value is looked up in QueryLogSetting at import, so anything else fails the run."
+    ),
+)
 def get_sql_agg_query_log() -> str:
-    """SQL aggregator query logging level."""
     return os.getenv("DATAHUB_SQL_AGG_QUERY_LOG", "DISABLED")
 
 
+@env_var(
+    name="DATAHUB_SQL_AGG_SKIP_JOINS",
+    type=bool,
+    group=EnvVarGroup.SQL,
+    default=False,
+    choices=["true"],
+    description="Skip join processing in SQL aggregator (default: False).",
+)
 def get_sql_agg_skip_joins() -> bool:
-    """Skip join processing in SQL aggregator (default: False)."""
     return os.getenv("DATAHUB_SQL_AGG_SKIP_JOINS", "").lower() == "true"
 
 
+@env_var(
+    name="DATAHUB_SQL_AGG_MAX_QUERIES_PER_DOWNSTREAM",
+    risky=True,
+    type=int,
+    group=EnvVarGroup.SQL,
+    default=0,
+    description=(
+        "Optional cap on the queries considered for one downstream table's lineage. 0 "
+        "(the default) means no cap: every query is considered, most recent first. "
+        "Setting it keeps only the newest N parsed queries per downstream, which can "
+        "drop an upstream that only an older query references; use it as a safety "
+        "valve for runtime, not as the default."
+    ),
+)
 def get_sql_agg_max_queries_per_downstream() -> int:
-    """Optional cap on the queries considered for one downstream table's lineage.
-
-    0 (the default) means no cap: every query is considered, most recent first.
-    Setting it keeps only the newest N parsed queries per downstream, which can drop
-    an upstream that only an older query references; use it as a safety valve for
-    runtime, not as the default.
-    """
     var = "DATAHUB_SQL_AGG_MAX_QUERIES_PER_DOWNSTREAM"
     limit = _get_int_env(var, 0)
     if limit < 0:
@@ -521,23 +961,49 @@ def get_sql_agg_max_queries_per_downstream() -> int:
     return limit
 
 
+@env_var(
+    name="DATAHUB_SQL_PARSE_CACHE_SIZE",
+    type=int,
+    group=EnvVarGroup.SQL,
+    default=1000,
+    description="SQL parse result cache size (number of entries).",
+)
 def get_sql_parse_cache_size() -> int:
-    """SQL parse result cache size (number of entries)."""
     return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))
 
 
+@env_var(
+    name="SQL_LINEAGE_TIMEOUT_SECONDS",
+    type=int,
+    group=EnvVarGroup.SQL,
+    default=10,
+    description=(
+        "Budget for generating column-level lineage for one query, in seconds. "
+        "Measured on the wall clock, so a host that stalls under load spends the "
+        "budget without the parser doing any work. Raise it where lineage is being "
+        "dropped on queries that are merely slow to parse rather than pathological."
+    ),
+)
 def get_sql_lineage_timeout_seconds() -> int:
-    """Budget for generating column-level lineage for one query, in seconds.
-
-    Measured on the wall clock, so a host that stalls under load spends the budget
-    without the parser doing any work. Raise it where lineage is being dropped on
-    queries that are merely slow to parse rather than pathological.
-    """
     return _get_int_env("SQL_LINEAGE_TIMEOUT_SECONDS", 10)
 
 
+@env_var(
+    name="DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH",
+    type=int,
+    group=EnvVarGroup.SQL,
+    risky=True,
+    description=(
+        "Truncate `transformOperation` in fine-grained lineage to N characters, for "
+        "the rare case where column-level lineage aspects grow too large. Set it to "
+        "at least 1; a value is kept unchanged when it is at most N + 3 characters, "
+        "since truncating would not make it shorter. Unset means no truncation. With "
+        "`incremental_lineage`, changing this leaves entries already stored under the "
+        "old value in place -- they are only rewritten by a run with "
+        "`incremental_lineage: false`."
+    ),
+)
 def get_max_transform_operation_length() -> Optional[int]:
-    """Characters of transformOperation kept before "..." in fine-grained lineage; None when unset."""
     var = "DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH"
     if not os.getenv(var, "").strip():
         return None
@@ -547,8 +1013,19 @@ def get_max_transform_operation_length() -> Optional[int]:
     return length
 
 
+@env_var(
+    name="DATAHUB_DATASET_URN_TO_LOWER",
+    risky=True,
+    type=str,
+    group=EnvVarGroup.SQL,
+    default="false",
+    choices=["true", "false"],
+    description=(
+        "Lowercase dataset names when building URNs. Changing this on an existing "
+        "deployment creates duplicate entities."
+    ),
+)
 def get_dataset_urn_to_lower() -> str:
-    """Convert dataset URNs to lowercase."""
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")
 
 
@@ -557,55 +1034,115 @@ def get_dataset_urn_to_lower() -> str:
 # ============================================================================
 
 
+@env_var(
+    name="KAFKA_SCHEMAREGISTRY_URL",
+    type=str,
+    group=EnvVarGroup.CONNECTORS,
+    description=(
+        "Schema registry the Kafka connector and Kafka sink use when none is set in "
+        "the recipe."
+    ),
+)
 def get_kafka_schema_registry_url() -> Optional[str]:
-    """Kafka schema registry URL."""
     return os.getenv("KAFKA_SCHEMAREGISTRY_URL")
 
 
+@env_var(
+    name="DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS",
+    risky=True,
+    type=bool,
+    group=EnvVarGroup.CONNECTORS,
+    default=True,
+    choices=["true", "false"],
+    description=(
+        "Auto-register MCE/MCP schemas with the Kafka Schema Registry (default: "
+        'True). Set to "false" when the ingestion user only has read access to the '
+        "Schema Registry; the schemas must then be pre-registered."
+    ),
+)
 def get_kafka_auto_register_schemas() -> bool:
-    """Auto-register MCE/MCP schemas with the Kafka Schema Registry (default: True).
-
-    Set to "false" when the ingestion user only has read access to the Schema
-    Registry; the schemas must then be pre-registered.
-    """
     return os.getenv("DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS", "true").lower() == "true"
 
 
+@env_var(
+    name="SPARK_VERSION",
+    type=str,
+    group=EnvVarGroup.CONNECTORS,
+    description="Spark version (for S3 source).",
+)
 def get_spark_version() -> Optional[str]:
-    """Spark version (for S3 source)."""
     return os.getenv("SPARK_VERSION")
 
 
+@env_var(
+    name="DATAHUB_VERTEXAI_DISABLE_PARALLELISM",
+    type=bool,
+    group=EnvVarGroup.CONNECTORS,
+    default=False,
+    choices=["true", "1"],
+    description="Disable parallel resource fetching in Vertex AI connector.",
+)
 def get_vertexai_disable_parallelism() -> bool:
-    """Disable parallel resource fetching in Vertex AI connector."""
     return os.getenv("DATAHUB_VERTEXAI_DISABLE_PARALLELISM", "").lower() in (
         "1",
         "true",
     )
 
 
+@env_var(
+    name="DATAHUB_BIGQUERY_SCHEMA_PARALLELISM",
+    type=int,
+    group=EnvVarGroup.CONNECTORS,
+    default=20,
+    description="Parallelism level for BigQuery schema extraction.",
+)
 def get_bigquery_schema_parallelism() -> int:
-    """Parallelism level for BigQuery schema extraction."""
     return int(os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", "20"))
 
 
+@env_var(
+    name="DATAHUB_SNOWFLAKE_SCHEMA_PARALLELISM",
+    type=int,
+    group=EnvVarGroup.CONNECTORS,
+    default=20,
+    description="Parallelism level for Snowflake schema extraction.",
+)
 def get_snowflake_schema_parallelism() -> int:
-    """Parallelism level for Snowflake schema extraction."""
     return int(os.getenv("DATAHUB_SNOWFLAKE_SCHEMA_PARALLELISM", "20"))
 
 
+@env_var(
+    name="DATAHUB_POWERBI_M_QUERY_PARSE_TIMEOUT",
+    type=int,
+    group=EnvVarGroup.CONNECTORS,
+    default=60,
+    description="Timeout for PowerBI M query parsing.",
+)
 def get_powerbi_m_query_parse_timeout() -> int:
-    """Timeout for PowerBI M query parsing."""
     return int(os.getenv("DATAHUB_POWERBI_M_QUERY_PARSE_TIMEOUT", "60"))
 
 
+@env_var(
+    name="DATAHUB_TRACE_POWERBI_MQUERY_PARSER",
+    type=bool,
+    group=EnvVarGroup.CONNECTORS,
+    default=False,
+    choices=["true"],
+    description="Enable PowerBI M query parser tracing.",
+)
 def get_trace_powerbi_mquery_parser() -> bool:
-    """Enable PowerBI M query parser tracing."""
     return os.getenv("DATAHUB_TRACE_POWERBI_MQUERY_PARSER", "").lower() == "true"
 
 
+@env_var(
+    name="DATAHUB_LOOKML_GIT_TEST_SSH_KEY",
+    type=str,
+    group=EnvVarGroup.CONNECTORS,
+    audience=EnvVarAudience.INTERNAL,
+    secret=True,
+    description="SSH key for LookML Git tests.",
+)
 def get_lookml_git_test_ssh_key() -> Optional[str]:
-    """SSH key for LookML Git tests."""
     return os.getenv("DATAHUB_LOOKML_GIT_TEST_SSH_KEY")
 
 
@@ -614,43 +1151,91 @@ def get_lookml_git_test_ssh_key() -> Optional[str]:
 # ============================================================================
 
 
+@env_var(
+    name="AWS_LAMBDA_FUNCTION_NAME",
+    type=str,
+    group=EnvVarGroup.CLOUD,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description="Indicates running in AWS Lambda.",
+)
 def get_aws_lambda_function_name() -> Optional[str]:
-    """Indicates running in AWS Lambda."""
     return os.getenv("AWS_LAMBDA_FUNCTION_NAME")
 
 
+@env_var(
+    name="AWS_EXECUTION_ENV",
+    type=str,
+    group=EnvVarGroup.CLOUD,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description="AWS execution environment.",
+)
 def get_aws_execution_env() -> Optional[str]:
-    """AWS execution environment."""
     return os.getenv("AWS_EXECUTION_ENV")
 
 
+@env_var(
+    name="AWS_WEB_IDENTITY_TOKEN_FILE",
+    type=str,
+    group=EnvVarGroup.CLOUD,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description="OIDC token file path.",
+)
 def get_aws_web_identity_token_file() -> Optional[str]:
-    """OIDC token file path."""
     return os.getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
 
 
+@env_var(
+    name="AWS_ROLE_ARN",
+    type=str,
+    group=EnvVarGroup.CLOUD,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description="AWS role ARN for OIDC.",
+)
 def get_aws_role_arn() -> Optional[str]:
-    """AWS role ARN for OIDC."""
     return os.getenv("AWS_ROLE_ARN")
 
 
+@env_var(
+    name="AWS_APP_RUNNER_SERVICE_ID",
+    type=str,
+    group=EnvVarGroup.CLOUD,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description="AWS App Runner service ID.",
+)
 def get_aws_app_runner_service_id() -> Optional[str]:
-    """AWS App Runner service ID."""
     return os.getenv("AWS_APP_RUNNER_SERVICE_ID")
 
 
+@env_var(
+    name="ECS_CONTAINER_METADATA_URI_V4",
+    type=str,
+    group=EnvVarGroup.CLOUD,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description="ECS metadata endpoint v4.",
+)
 def get_ecs_container_metadata_uri_v4() -> Optional[str]:
-    """ECS metadata endpoint v4."""
     return os.getenv("ECS_CONTAINER_METADATA_URI_V4")
 
 
+@env_var(
+    name="ECS_CONTAINER_METADATA_URI",
+    type=str,
+    group=EnvVarGroup.CLOUD,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description="ECS metadata endpoint v3.",
+)
 def get_ecs_container_metadata_uri() -> Optional[str]:
-    """ECS metadata endpoint v3."""
     return os.getenv("ECS_CONTAINER_METADATA_URI")
 
 
+@env_var(
+    name="ELASTIC_BEANSTALK_ENVIRONMENT_NAME",
+    type=str,
+    group=EnvVarGroup.CLOUD,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description="Elastic Beanstalk environment.",
+)
 def get_elastic_beanstalk_environment_name() -> Optional[str]:
-    """Elastic Beanstalk environment."""
     return os.getenv("ELASTIC_BEANSTALK_ENVIRONMENT_NAME")
 
 
@@ -659,43 +1244,98 @@ def get_elastic_beanstalk_environment_name() -> Optional[str]:
 # ============================================================================
 
 
+@env_var(
+    name="DATAHUB_COMPOSE_PROJECT_NAME",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    default="datahub",
+    description="Docker Compose project name.",
+)
 def get_compose_project_name() -> str:
-    """Docker Compose project name."""
     return os.getenv("DATAHUB_COMPOSE_PROJECT_NAME", "datahub")
 
 
+@env_var(
+    name="DOCKER_COMPOSE_BASE",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    description="Base path for Docker Compose files.",
+)
 def get_docker_compose_base() -> Optional[str]:
-    """Base path for Docker Compose files."""
     return os.getenv("DOCKER_COMPOSE_BASE")
 
 
+@env_var(
+    name="DATAHUB_VERSION",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    description=(
+        "Docker image tag quickstart runs: `quickstart`, a release `v*`, or a commit pin "
+        "`sha-<short_sha>`. Unset here; `datahub docker quickstart` resolves it to `quickstart` "
+        "and exports it for the compose stack."
+    ),
+)
 def get_datahub_version() -> Optional[str]:
-    """DataHub version (set during docker init)."""
     return os.getenv("DATAHUB_VERSION")
 
 
+@env_var(
+    name="DATAHUB_MAPPED_MYSQL_PORT",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description="MySQL port mapping (set during docker init).",
+)
 def get_mapped_mysql_port() -> Optional[str]:
-    """MySQL port mapping (set during docker init)."""
     return os.getenv("DATAHUB_MAPPED_MYSQL_PORT")
 
 
+@env_var(
+    name="DATAHUB_MAPPED_KAFKA_BROKER_PORT",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description="Kafka broker port mapping (set during docker init).",
+)
 def get_mapped_kafka_broker_port() -> Optional[str]:
-    """Kafka broker port mapping (set during docker init)."""
     return os.getenv("DATAHUB_MAPPED_KAFKA_BROKER_PORT")
 
 
+@env_var(
+    name="DATAHUB_MAPPED_ELASTIC_PORT",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description="Elasticsearch port mapping (set during docker init).",
+)
 def get_mapped_elastic_port() -> Optional[str]:
-    """Elasticsearch port mapping (set during docker init)."""
     return os.getenv("DATAHUB_MAPPED_ELASTIC_PORT")
 
 
+@env_var(
+    name="METADATA_SERVICE_AUTH_ENABLED",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    default="false",
+    choices=["true", "false"],
+    description=(
+        "Whether the Metadata Service requires authentication. `datahub docker quickstart` "
+        "overwrites it with false on every run, so setting it has no effect there -- it "
+        "matters only for a compose stack you drive yourself."
+    ),
+)
 def get_metadata_service_auth_enabled() -> str:
-    """Enable/disable auth in Docker."""
     return os.getenv("METADATA_SERVICE_AUTH_ENABLED", "false")
 
 
+@env_var(
+    name="UI_INGESTION_DEFAULT_CLI_VERSION",
+    type=str,
+    group=EnvVarGroup.DOCKER,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description="CLI version for UI ingestion (set during init).",
+)
 def get_ui_ingestion_default_cli_version() -> Optional[str]:
-    """CLI version for UI ingestion (set during init)."""
     return os.getenv("UI_INGESTION_DEFAULT_CLI_VERSION")
 
 
@@ -704,33 +1344,111 @@ def get_ui_ingestion_default_cli_version() -> Optional[str]:
 # ============================================================================
 
 
+@env_var(
+    name="DATAHUB_COMPONENT",
+    type=str,
+    group=EnvVarGroup.MISC,
+    default="datahub",
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description=(
+        "Component label reported in the User-Agent header, identifying which DataHub "
+        "component made the call."
+    ),
+)
 def get_datahub_component() -> str:
-    """Component name for user agent tracking."""
     return os.getenv("DATAHUB_COMPONENT", "datahub")
 
 
+@env_var(
+    name="FORCE_LOCAL_QUICKSTART_MAPPING",
+    type=str,
+    group=EnvVarGroup.MISC,
+    default="",
+    audience=EnvVarAudience.INTERNAL,
+    description="Force local quickstart mapping file.",
+)
 def get_force_local_quickstart_mapping() -> str:
-    """Force local quickstart mapping file."""
     return os.getenv("FORCE_LOCAL_QUICKSTART_MAPPING", "")
 
 
+@env_var(
+    name="DATAHUB_DATAPRODUCT_EXTERNAL_URL",
+    type=str,
+    group=EnvVarGroup.MISC,
+    description="External URL for data products.",
+)
 def get_dataproduct_external_url() -> Optional[str]:
-    """External URL for data products."""
     return os.getenv("DATAHUB_DATAPRODUCT_EXTERNAL_URL")
 
 
+@env_var(
+    name="OVERRIDE_SQLITE_VERSION_REQ",
+    type=str,
+    group=EnvVarGroup.MISC,
+    default="",
+    audience=EnvVarAudience.INTERNAL,
+    description="Override SQLite version requirement.",
+)
 def get_override_sqlite_version_req() -> str:
-    """Override SQLite version requirement."""
     return os.getenv("OVERRIDE_SQLITE_VERSION_REQ", "")
 
 
+@env_var(
+    name="UPDATE_ENTITY_REGISTRY",
+    type=str,
+    group=EnvVarGroup.MISC,
+    default="false",
+    audience=EnvVarAudience.INTERNAL,
+    description="Update entity registry during tests.",
+)
 def get_update_entity_registry() -> str:
-    """Update entity registry during tests."""
     return os.getenv("UPDATE_ENTITY_REGISTRY", "false")
 
 
+# Declared here rather than at its read site: _force_pure_python_sqlglot runs at
+# interpreter startup from a .pth file, before this package (and pydantic) can be
+# imported. See _force_pure_python_sqlglot._sqlglot_c_disabled.
+register_env_var(
+    EnvVarSpec(
+        name="DATAHUB_SQLGLOT_DISABLE_C",
+        type=bool,
+        group=EnvVarGroup.SQL,
+        default=False,
+        choices=("true", "1", "yes", "false", "0", "no"),
+        description=(
+            "Force the pure-Python sqlglot tokenizer instead of the compiled extension. "
+            "A workaround for platforms where the native tokenizer segfaults or is "
+            "unavailable; SQL parsing gets slower."
+        ),
+    )
+)
+
+
+# Read by is_ci() below, which has no accessor of its own for it.
+register_env_var(
+    EnvVarSpec(
+        name="GITHUB_ACTIONS",
+        type=str,
+        group=EnvVarGroup.MISC,
+        audience=EnvVarAudience.AUTO_DETECTED,
+        description=(
+            "Set to `true` by GitHub Actions. Read as a fallback for CI detection on custom "
+            "runners that do not set `CI`."
+        ),
+    )
+)
+
+
+@env_var(
+    name="CI",
+    type=str,
+    group=EnvVarGroup.MISC,
+    audience=EnvVarAudience.AUTO_DETECTED,
+    description=(
+        "Set by most CI systems. Read to adjust output and to disable telemetry."
+    ),
+)
 def get_ci() -> Optional[str]:
-    """Indicates running in CI environment."""
     return os.getenv("CI")
 
 
