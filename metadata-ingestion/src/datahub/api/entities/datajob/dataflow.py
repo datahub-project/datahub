@@ -95,7 +95,9 @@ class DataFlow:
                         # url=dag.filepath,
                     ),
                 )
-                for urn in (owners or [])
+                # Sorted so the aspect is identical across processes; set order
+                # depends on the per-process string hash seed.
+                for urn in sorted(owners)
             ],
             lastModified=AuditStampClass(
                 time=0, actor=builder.make_user_urn(self.orchestrator)
