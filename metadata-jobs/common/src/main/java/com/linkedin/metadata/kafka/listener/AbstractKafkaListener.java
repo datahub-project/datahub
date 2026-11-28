@@ -3,12 +3,16 @@ package com.linkedin.metadata.kafka.listener;
 import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
 import com.linkedin.metadata.kafka.context.inbound.InboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
+import com.linkedin.metadata.service.RetryableIndexingException;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -203,6 +207,10 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
                     currentSpan.recordException(e);
                     currentSpan.setStatus(StatusCode.ERROR, e.getMessage());
                     currentSpan.setAttribute(MetricUtils.ERROR_TYPE, e.getClass().getName());
+
+                    if (isRetryableHookFailure(e)) {
+                      throw propagateAsRuntime(e);
+                    }
                   }
                 },
                 Stream.concat(
@@ -229,6 +237,30 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
                     MetricUtils.DROPWIZARD_NAME, MetricUtils.name(this.getClass(), "consume")),
                 loggingAttributes.stream())
             .toArray(String[]::new));
+  }
+
+  /**
+   * Walks the exception cause chain to decide whether a hook failure must propagate to the
+   * transport so offsets or queue leases remain uncommitted for redelivery.
+   */
+  public static boolean isRetryableHookFailure(@Nonnull Throwable failure) {
+    Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+    Throwable current = failure;
+    while (current != null && visited.add(current)) {
+      if (current instanceof RetryableIndexingException
+          || current instanceof BulkTransferException) {
+        return true;
+      }
+      current = current.getCause();
+    }
+    return false;
+  }
+
+  /** Returns {@code e} as a {@link RuntimeException}, wrapping checked exceptions if needed. */
+  public static RuntimeException propagateAsRuntime(@Nonnull Exception e) {
+    return e instanceof RuntimeException runtimeException
+        ? runtimeException
+        : new RuntimeException(e);
   }
 
   /**

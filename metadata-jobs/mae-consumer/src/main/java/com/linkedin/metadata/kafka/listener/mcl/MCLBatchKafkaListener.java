@@ -256,6 +256,10 @@ public class MCLBatchKafkaListener
                     currentSpan.recordException(e);
                     currentSpan.setStatus(StatusCode.ERROR, e.getMessage());
                     currentSpan.setAttribute(MetricUtils.ERROR_TYPE, e.getClass().getName());
+
+                    if (isRetryableHookFailure(e)) {
+                      throw propagateAsRuntime(e);
+                    }
                   }
                 },
                 MetricUtils.DROPWIZARD_NAME,

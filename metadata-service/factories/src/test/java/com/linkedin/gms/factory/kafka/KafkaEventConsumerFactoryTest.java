@@ -1,26 +1,50 @@
 package com.linkedin.gms.factory.kafka;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.ConsumerConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ListenerConfiguration;
+import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchClusterSettings;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
+import com.linkedin.metadata.service.RetryableIndexingException;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClientConfig;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.CommonErrorHandler;
+import org.springframework.kafka.listener.MessageListenerContainer;
+import org.springframework.util.backoff.BackOffExecution;
+import org.springframework.util.backoff.ExponentialBackOff;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -69,10 +93,15 @@ public class KafkaEventConsumerFactoryTest {
     // Initialize the config-driven instance fields that are normally set by createConsumerFactory.
     // We skip createConsumerFactory because it requires full serde setup.
     try {
-      Field field =
+      Field retryField =
           KafkaEventConsumerFactory.class.getDeclaredField("authExceptionRetryIntervalSeconds");
-      field.setAccessible(true);
-      field.setInt(factory, consumerConfig.getAuthExceptionRetryIntervalSeconds());
+      retryField.setAccessible(true);
+      retryField.setInt(factory, consumerConfig.getAuthExceptionRetryIntervalSeconds());
+
+      Field concurrencyField =
+          KafkaEventConsumerFactory.class.getDeclaredField("kafkaEventConsumerConcurrency");
+      concurrencyField.setAccessible(true);
+      concurrencyField.setInt(factory, listenerConfig.getConcurrency());
     } catch (ReflectiveOperationException e) {
       throw new RuntimeException(e);
     }
@@ -117,6 +146,138 @@ public class KafkaEventConsumerFactoryTest {
     assertTrue(
         listenerFactory.isBatchListener() == null || !listenerFactory.isBatchListener(),
         "Standard MCL event consumer must not have batch listener enabled");
+    assertNull(
+        listenerFactory
+            .getConsumerFactory()
+            .getConfigurationProperties()
+            .get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG));
+  }
+
+  @Test
+  void testMclAckAfterTransferDisablesAutoCommitAndConfiguresErrorHandler() {
+    BulkProcessorConfiguration bulkProcessor = new BulkProcessorConfiguration();
+    bulkProcessor.setAckAfterTransfer(true);
+    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
+    esConfig.setBulkProcessor(bulkProcessor);
+    when(configProvider.getElasticSearch()).thenReturn(esConfig);
+    configProvider.getKafka().getConsumer().setStopOnDeserializationError(false);
+
+    var singleFactory =
+        (ConcurrentKafkaListenerContainerFactory<?, ?>)
+            factory.mclEventConsumer(kafkaConsumerFactory, configProvider);
+    var batchFactory =
+        (ConcurrentKafkaListenerContainerFactory<?, ?>)
+            factory.mclBatchEventConsumer(kafkaConsumerFactory, configProvider);
+    var defaultFactory =
+        (ConcurrentKafkaListenerContainerFactory<?, ?>)
+            factory.kafkaEventConsumer(kafkaConsumerFactory, configProvider);
+
+    assertEquals(
+        singleFactory
+            .getConsumerFactory()
+            .getConfigurationProperties()
+            .get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG),
+        Boolean.FALSE);
+    assertEquals(
+        batchFactory
+            .getConsumerFactory()
+            .getConfigurationProperties()
+            .get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG),
+        Boolean.FALSE);
+    assertNull(
+        defaultFactory
+            .getConsumerFactory()
+            .getConfigurationProperties()
+            .get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG));
+
+    assertNotNull(singleFactory.createContainer("MetadataChangeLog_v1").getCommonErrorHandler());
+    assertNotNull(batchFactory.createContainer("MetadataChangeLog_v1").getCommonErrorHandler());
+  }
+
+  @Test
+  void testMclClusterAckAfterTransferOverlayEnablesOffsetHold() {
+    BulkProcessorConfiguration globalBulk = new BulkProcessorConfiguration();
+    globalBulk.setAckAfterTransfer(false);
+
+    SearchClusterSettings secondary = new SearchClusterSettings();
+    secondary.setBulkProcessor(Map.of("ackAfterTransfer", true));
+
+    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
+    esConfig.setBulkProcessor(globalBulk);
+    esConfig.setClusters(Map.of("secondary", secondary));
+    when(configProvider.getElasticSearch()).thenReturn(esConfig);
+
+    var batchFactory =
+        (ConcurrentKafkaListenerContainerFactory<?, ?>)
+            factory.mclBatchEventConsumer(kafkaConsumerFactory, configProvider);
+
+    assertTrue(KafkaEventConsumerFactory.isAckAfterTransferEnabled(configProvider));
+    assertEquals(
+        batchFactory
+            .getConsumerFactory()
+            .getConfigurationProperties()
+            .get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG),
+        Boolean.FALSE);
+  }
+
+  @Test
+  void testMclBackOffMatchesAckAfterTransferSetting() {
+    ExponentialBackOff unbounded =
+        (ExponentialBackOff) KafkaEventConsumerFactory.createMclBackOff(true);
+    assertEquals(unbounded.getMaxAttempts(), Long.MAX_VALUE);
+    BackOffExecution unboundedExec = unbounded.start();
+    for (int i = 0; i < 20; i++) {
+      assertNotEquals(unboundedExec.nextBackOff(), BackOffExecution.STOP);
+    }
+
+    ExponentialBackOff bounded =
+        (ExponentialBackOff) KafkaEventConsumerFactory.createMclBackOff(false);
+    assertEquals(bounded.getMaxAttempts(), 5L);
+    BackOffExecution boundedExec = bounded.start();
+    for (int i = 0; i < 5; i++) {
+      assertNotEquals(boundedExec.nextBackOff(), BackOffExecution.STOP);
+    }
+    assertEquals(boundedExec.nextBackOff(), BackOffExecution.STOP);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void testMclErrorHandlerHoldsOffsetBeyondDefaultRetryLimit() {
+    ExponentialBackOff zeroDelayUnbounded = new ExponentialBackOff(0L, 1.0);
+    CommonErrorHandler errorHandler =
+        KafkaEventConsumerFactory.buildMclErrorHandler(false, zeroDelayUnbounded);
+
+    TopicPartition tp = new TopicPartition("MetadataChangeLog_v1", 0);
+    ConsumerRecord<String, GenericRecord> record =
+        new ConsumerRecord<>("MetadataChangeLog_v1", 0, 42L, "k", mock(GenericRecord.class));
+    Consumer<String, GenericRecord> consumer = mock(Consumer.class);
+    MessageListenerContainer container = mock(MessageListenerContainer.class);
+    when(container.isRunning()).thenReturn(true);
+
+    RetryableIndexingException retryable =
+        new RetryableIndexingException("bulk failed", new BulkTransferException(1, "403"));
+    for (int i = 0; i < 12; i++) {
+      expectThrows(
+          RuntimeException.class,
+          () -> errorHandler.handleRemaining(retryable, List.of(record), consumer, container));
+    }
+    verify(consumer, times(12)).seek(tp, 42L);
+
+    ConsumerRecords<String, GenericRecord> records =
+        new ConsumerRecords<>(Map.of(tp, List.of(record)));
+    AtomicInteger batchAttempts = new AtomicInteger();
+    errorHandler.handleBatch(
+        retryable,
+        records,
+        consumer,
+        container,
+        () -> {
+          if (batchAttempts.incrementAndGet() < 12) {
+            throw retryable;
+          }
+        });
+    assertEquals(batchAttempts.get(), 12);
+    verify(consumer, atLeastOnce()).pause(any());
   }
 
   @Test

@@ -6,12 +6,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.service.RetryableIndexingException;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -88,12 +91,13 @@ public class UpdateIndicesServiceAckAfterTransferTest {
     ESBulkProcessor bulkProcessor = mock(ESBulkProcessor.class);
     when(bulkProcessor.isAckAfterTransfer()).thenReturn(true);
     when(bulkProcessor.getAckAfterTransferTimeoutSeconds()).thenReturn(10);
-    doThrow(new BulkTransferException(2, "failed"))
-        .when(bulkProcessor)
-        .flushAndWait(Duration.ofSeconds(10));
+    BulkTransferException cause = new BulkTransferException(2, "failed");
+    doThrow(cause).when(bulkProcessor).flushAndWait(Duration.ofSeconds(10));
 
     UpdateIndicesService service = serviceWith(bulkProcessor);
-    expectThrows(RuntimeException.class, service::flushAndWaitIfConfigured);
+    RetryableIndexingException thrown =
+        expectThrows(RetryableIndexingException.class, service::flushAndWaitIfConfigured);
+    assertSame(thrown.getCause(), cause);
   }
 
   @Test
@@ -101,12 +105,32 @@ public class UpdateIndicesServiceAckAfterTransferTest {
     ESBulkProcessor bulkProcessor = mock(ESBulkProcessor.class);
     when(bulkProcessor.isAckAfterTransfer()).thenReturn(true);
     when(bulkProcessor.getAckAfterTransferTimeoutSeconds()).thenReturn(10);
-    doThrow(new TimeoutException("timeout"))
-        .when(bulkProcessor)
-        .flushAndWait(Duration.ofSeconds(10));
+    TimeoutException cause = new TimeoutException("timeout");
+    doThrow(cause).when(bulkProcessor).flushAndWait(Duration.ofSeconds(10));
 
     UpdateIndicesService service = serviceWith(bulkProcessor);
-    expectThrows(RuntimeException.class, service::flushAndWaitIfConfigured);
+    RetryableIndexingException thrown =
+        expectThrows(RetryableIndexingException.class, service::flushAndWaitIfConfigured);
+    assertSame(thrown.getCause(), cause);
+  }
+
+  @Test
+  public void testFlushAndWaitPropagatesInterruptedWithFlagPreserved() throws Exception {
+    ESBulkProcessor bulkProcessor = mock(ESBulkProcessor.class);
+    when(bulkProcessor.isAckAfterTransfer()).thenReturn(true);
+    when(bulkProcessor.getAckAfterTransferTimeoutSeconds()).thenReturn(10);
+    InterruptedException cause = new InterruptedException("interrupted");
+    doThrow(cause).when(bulkProcessor).flushAndWait(Duration.ofSeconds(10));
+
+    UpdateIndicesService service = serviceWith(bulkProcessor);
+    try {
+      RetryableIndexingException thrown =
+          expectThrows(RetryableIndexingException.class, service::flushAndWaitIfConfigured);
+      assertSame(thrown.getCause(), cause);
+      assertTrue(Thread.currentThread().isInterrupted());
+    } finally {
+      Thread.interrupted();
+    }
   }
 
   @Test
