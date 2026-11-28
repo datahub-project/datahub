@@ -3,13 +3,19 @@ from typing import Optional
 import pytest
 
 from datahub.ingestion.source.confluence.storage_format import (
+    JiraIssueRef,
+    ResolvedUser,
     UserRef,
     storage_to_markdown,
 )
 
 
-def _names(ref: UserRef) -> Optional[str]:
-    return {"557058:aaaa": "Alex Doe"}.get(ref.account_id or "")
+def _names(ref: UserRef) -> Optional[ResolvedUser]:
+    if ref.account_id == "557058:aaaa":
+        return ResolvedUser(name="Alex Doe")
+    if ref.account_id == "557058:dh":
+        return ResolvedUser(name="Sam Roe", urn="urn:li:corpuser:sam@example.com")
+    return None
 
 
 def test_preserves_headings_lists_tables_and_links() -> None:
@@ -45,6 +51,35 @@ def test_mention_resolves_to_display_name(mention: str) -> None:
     html = f"<p>VP: <ac:link>{mention}</ac:link> (Director)</p>"
 
     assert storage_to_markdown(html, _names) == "VP: @Alex Doe (Director)"
+
+
+def test_mention_of_a_datahub_user_uses_the_datahub_mention_format() -> None:
+    html = '<p>Owner: <ac:link><ri:user ri:account-id="557058:dh"/></ac:link></p>'
+
+    assert (
+        storage_to_markdown(html, _names)
+        == "Owner: [@Sam Roe](urn:li:corpuser:sam@example.com)"
+    )
+
+
+def test_jira_macro_links_to_the_issue_when_the_server_is_known() -> None:
+    html = (
+        '<p>See <ac:structured-macro ac:name="jira">'
+        '<ac:parameter ac:name="serverId">abc-123</ac:parameter>'
+        '<ac:parameter ac:name="key">ABC-1</ac:parameter></ac:structured-macro> '
+        'and <ac:structured-macro ac:name="jira">'
+        '<ac:parameter ac:name="key">XYZ-2</ac:parameter></ac:structured-macro></p>'
+    )
+    servers = {"abc-123": "https://jira.example.com"}
+
+    def jira(ref: JiraIssueRef) -> Optional[str]:
+        base = servers.get(ref.server_id or "")
+        return f"{base}/browse/{ref.key}" if base else None
+
+    assert (
+        storage_to_markdown(html, jira_resolver=jira)
+        == "See [ABC-1](https://jira.example.com/browse/ABC-1) and XYZ-2"
+    )
 
 
 def test_unresolved_mention_keeps_a_placeholder() -> None:
@@ -195,3 +230,25 @@ def test_formatting_macro_keeps_body_and_navigation_macro_is_dropped() -> None:
     )
 
     assert storage_to_markdown(html, _names) == "Owned by @Alex Doe\n\nNested detail"
+
+
+def test_emoticons_become_emoji() -> None:
+    html = (
+        '<p><ac:emoticon ac:name="smile" /> '
+        '<ac:emoticon ac:name="blue-star" ac:emoji-id="1f44d" /> '
+        '<ac:emoticon ac:name="custom" ac:emoji-id="a1b2c3d4-not-hex" /></p>'
+    )
+
+    assert storage_to_markdown(html) == "\U0001f642 \U0001f44d :custom:"
+
+
+def test_cloud_emoticons_with_shortname_fallbacks_become_emoji() -> None:
+    html = (
+        '<p><ac:emoticon ac:name="cross" ac:emoji-shortname=":cross_mark:" '
+        'ac:emoji-id="atlassian-cross_mark" ac:emoji-fallback=":cross_mark:" /> '
+        '<ac:emoticon ac:name="blue-star" ac:emoji-id="1f600" ac:emoji-fallback="\U0001f600" /> '
+        '<ac:emoticon ac:name="blue-star" ac:emoji-id="custom-123" '
+        'ac:emoji-fallback=":party_parrot:" /></p>'
+    )
+
+    assert storage_to_markdown(html) == "❌ \U0001f600 ⭐"

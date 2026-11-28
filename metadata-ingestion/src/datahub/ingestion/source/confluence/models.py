@@ -17,6 +17,10 @@ class ConfluenceUser(BaseModel):
     display_name: Optional[str] = Field(default=None, alias="displayName")
     # Cloud returns publicName for users whose display name is hidden.
     public_name: Optional[str] = Field(default=None, alias="publicName")
+    # Cloud only returns the email when the user's profile allows it.
+    email: Optional[str] = None
+    # Data Center and Server only.
+    username: Optional[str] = None
 
     @property
     def name(self) -> Optional[str]:
@@ -118,6 +122,25 @@ class ConfluencePage(BaseModel):
     @property
     def parent_id(self) -> Optional[str]:
         return self.ancestors[-1].id if self.ancestors else None
+
+
+class JiraServer(BaseModel):
+    """A Jira server linked to Confluence through an application link."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: str
+    name: str = ""
+    url: str
+    # The server new Jira macros use when no server is picked.
+    selected: bool = False
+
+
+class JiraServerList(BaseModel):
+    servers: List[JiraServer]
+    # Servers Confluence listed, including any that could not be parsed, so a
+    # skipped server is not mistaken for the site having a single Jira.
+    listed: int
 
 
 class PageBatch(BaseModel):

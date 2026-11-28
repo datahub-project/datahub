@@ -188,6 +188,19 @@ class ConfluenceSourceConfig(
         description="Optional parent document URN for top-level imported pages.",
     )
 
+    link_mentions_to_datahub_users: bool = Field(
+        default=True,
+        description=(
+            "Write @mentions as DataHub user mentions when the mentioned "
+            "Confluence user matches an existing DataHub user, by email or by "
+            "username. Needs a DataHub connection (the datahub-rest sink or "
+            "datahub_api). Mentions that do not match stay as plain @Name text. "
+            "A linked mention includes the DataHub user urn in the document text, "
+            "which is often the person's email, so that urn is sent along with "
+            "the text to the embedding provider."
+        ),
+    )
+
     ingest_folders: bool = Field(
         default=True,
         description=(

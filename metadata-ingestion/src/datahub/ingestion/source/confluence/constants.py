@@ -44,6 +44,7 @@ class StorageAttr(StrEnum):
     TITLE = "ac:title"
     ANCHOR = "ac:anchor"
     EMOJI_FALLBACK = "ac:emoji-fallback"
+    EMOJI_ID = "ac:emoji-id"
 
     ACCOUNT_ID = "ri:account-id"
     USERKEY = "ri:userkey"
@@ -67,6 +68,8 @@ class MacroParam(StrEnum):
     LANGUAGE = "language"
     TITLE = "title"
     KEY = "key"
+    SERVER = "server"
+    SERVER_ID = "serverId"
 
 
 TASK_STATUS_COMPLETE = "complete"
@@ -161,4 +164,41 @@ FOLDER_CONTENT_TYPE = "folder"
 # Bump when page text extraction changes (conversion, macro handling,
 # normalization) so every page is re-extracted and re-embedded on the next run
 # even if its Confluence body is unchanged.
-EXTRACTION_ALGO_VERSION = "3"
+EXTRACTION_ALGO_VERSION = "4"
+
+# The rendered page, which Confluence produces with Jira macros already turned
+# into links on the right Jira server.
+VIEW_EXPAND = "body.view"
+JIRA_BROWSE_PATH = "/browse/"
+# The Jira servers linked to this Confluence, as listed for the Jira macro.
+JIRA_SERVERS_PATH = "rest/jiraanywhere/1.0/servers"
+JIRA_ISSUE_KEY_PATTERN = r"/browse/([A-Za-z][A-Za-z0-9_]*-\d+)"
+
+# Searchable field of CorpUserInfo used to match Confluence users to DataHub users.
+CORPUSER_EMAIL_FIELD = "email"
+
+# Confluence's built-in emoticons, which older content stores by name only.
+EMOTICON_NAMES = {
+    "smile": "\U0001f642",
+    "sad": "\u2639\ufe0f",
+    "cheeky": "\U0001f61b",
+    "laugh": "\U0001f603",
+    "wink": "\U0001f609",
+    "thumbs-up": "\U0001f44d",
+    "thumbs-down": "\U0001f44e",
+    "information": "\u2139\ufe0f",
+    "tick": "\u2705",
+    "cross": "\u274c",
+    "warning": "\u26a0\ufe0f",
+    "plus": "\u2795",
+    "minus": "\u2796",
+    "question": "\u2753",
+    "light-on": "\U0001f4a1",
+    "light-off": "\U0001f4a1",
+    "yellow-star": "\u2b50",
+    "red-star": "\u2b50",
+    "green-star": "\u2b50",
+    "blue-star": "\u2b50",
+    "heart": "\u2764\ufe0f",
+    "broken-heart": "\U0001f494",
+}
