@@ -473,7 +473,10 @@ class MicroStrategyLineageExtractor:
                 self.report.report_sql_parse_cache_hit(failed=failed)
             if failed:
                 self._warn_sql_parse_failure(
-                    f"{label} (cached failure)", sql, context, log=False
+                    label=f"{label} (cached failure)",
+                    sql=sql,
+                    context=context,
+                    log=False,
                 )
             return cached
         parsed = self._parse_sql_view(sql, context, want_field_columns, graph, label)
@@ -535,7 +538,9 @@ class MicroStrategyLineageExtractor:
             # A lazy import failure would hit every statement.
             raise _sql_lineage_dependency_error(error) from error
         except Exception as error:
-            self._report_sql_parse_failure(sql, context, error, label)
+            self._report_sql_parse_failure(
+                sql=sql, context=context, error=error, label=label
+            )
             return _PARSE_FAILED
         finally:
             self.report.report_sql_parse_executed(
@@ -549,7 +554,7 @@ class MicroStrategyLineageExtractor:
             self._report_schema_lookup_failures(failed_lookups, label)
         if result.debug_info.error is not None:
             self._report_sql_parse_failure(
-                sql, context, result.debug_info.error, label
+                sql=sql, context=context, error=result.debug_info.error, label=label
             )
             return _PARSE_FAILED
 
@@ -597,7 +602,7 @@ class MicroStrategyLineageExtractor:
             f"error={type(error).__name__}: {str(error)[:160]}, "
             f"sql_prefix={sql.strip()[:80]!r}"
         )
-        self._warn_sql_parse_failure(label, sql, context, log=True)
+        self._warn_sql_parse_failure(label=label, sql=sql, context=context, log=True)
         logger.debug(
             "Failed to parse MicroStrategy SQL view (%s): %s",
             error,

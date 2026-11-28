@@ -1102,7 +1102,10 @@ class MicroStrategyClient:
             return response
         finally:
             self.report.report_api_call(
-                method, path, status, time.perf_counter() - started
+                method=method,
+                path=path,
+                status=status,
+                seconds=time.perf_counter() - started,
             )
 
     def _sleep_before_retry(self, delay: float) -> None:

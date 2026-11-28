@@ -702,7 +702,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 )
             finally:
                 self._progress.dashboard_done(
-                    project.name, dashboard_object.name, dashboard_object.id, before
+                    project_name=project.name,
+                    dashboard_name=dashboard_object.name,
+                    dashboard_id=dashboard_object.id,
+                    before=before,
                 )
 
     def _resolve_project_folders(self, project: Project) -> bool:
