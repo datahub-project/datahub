@@ -1,3 +1,4 @@
+import contextlib
 import json
 import logging
 import pathlib
@@ -15,8 +16,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.source.microstrategy import lineage as lineage_module
+from datahub.ingestion.source.microstrategy.checkpoint_state import (
+    ObjectCheckpoint,
+    ReportDatasetCheckpoint,
+)
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
     MicroStrategyAuthError,
@@ -32,6 +37,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT,
     MicroStrategyDatasetIdentity,
 )
+from datahub.ingestion.source.microstrategy.incremental import ReportDatasetPlan
 from datahub.ingestion.source.microstrategy.lineage import MicroStrategyLineageExtractor
 from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import (
     MicroStrategySemanticModelMapper,
@@ -40,6 +46,8 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasourceConnection,
     MicroStrategyObject,
     PredefinedFolder,
+    PredefinedFolderResolution,
+    Project,
 )
 from datahub.ingestion.source.microstrategy.parallel import (
     TaskFailure,
@@ -49,6 +57,7 @@ from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.source import MicroStrategySource
 from datahub.ingestion.source.microstrategy.spill_cache import SpillConnection
 from datahub.metadata.schema_classes import (
+    DashboardInfoClass,
     SchemaMetadataClass,
     StatusClass,
     _Aspect,
@@ -271,6 +280,182 @@ def test_source_leaves_the_datahub_graph_session_alone() -> None:
         assert graph_session.get_adapter("https://") is adapter
     finally:
         graph_session.close()
+
+
+def test_worker_unchanged_checks_use_isolated_graph_sessions() -> None:
+    graph = DataHubGraph(
+        DatahubClientConfig(server="http://gms.example.com:8080", token="gms-token")
+    )
+    lock = threading.Lock()
+    barriers = [threading.Barrier(4)]
+    created_sessions: List[requests.Session] = []
+    closed_session_ids: List[int] = []
+    active_session_ids: Set[int] = set()
+    owner_session_calls = 0
+    owner_closed = False
+    max_concurrent = 0
+    orig_create_session = graph.create_session
+    orig_owner_close = graph.session.close
+
+    def owner_request(
+        method: str, url: str, *args: object, **kwargs: object
+    ) -> requests.Response:
+        nonlocal owner_session_calls
+        assert not threading.current_thread().name.startswith(
+            MSTR_IO_THREAD_NAME_PREFIX
+        )
+        owner_session_calls += 1
+        if url.endswith("/config"):
+            return _response(
+                200, payload={"noCode": "true", "statefulIngestionCapable": True}
+            )
+        return _response(404)
+
+    def record_owner_close() -> None:
+        nonlocal owner_closed
+        owner_closed = True
+        orig_owner_close()
+
+    with contextlib.ExitStack() as patches:
+
+        def build_worker_session() -> requests.Session:
+            worker_session = orig_create_session()
+            orig_worker_close = worker_session.close
+            session_id = id(worker_session)
+
+            def worker_request(*args: object, **kwargs: object) -> requests.Response:
+                nonlocal max_concurrent
+                assert threading.current_thread().name.startswith(
+                    MSTR_IO_THREAD_NAME_PREFIX
+                )
+                with lock:
+                    assert session_id not in active_session_ids
+                    active_session_ids.add(session_id)
+                    max_concurrent = max(max_concurrent, len(active_session_ids))
+                try:
+                    barriers[0].wait(timeout=_WAIT_SECONDS)
+                    return _response(404)
+                finally:
+                    with lock:
+                        active_session_ids.remove(session_id)
+
+            def close_worker_session() -> None:
+                with lock:
+                    closed_session_ids.append(session_id)
+                orig_worker_close()
+
+            patches.enter_context(
+                mock.patch.object(worker_session, "request", side_effect=worker_request)
+            )
+            patches.enter_context(
+                mock.patch.object(
+                    worker_session, "close", side_effect=close_worker_session
+                )
+            )
+            with lock:
+                created_sessions.append(worker_session)
+            return worker_session
+
+        patches.enter_context(
+            mock.patch.object(graph.session, "request", side_effect=owner_request)
+        )
+        patches.enter_context(
+            mock.patch.object(graph.session, "close", side_effect=record_owner_close)
+        )
+        patches.enter_context(
+            mock.patch.object(graph, "create_session", side_effect=build_worker_session)
+        )
+
+        config = MicroStrategyConfig.model_validate(
+            {
+                "base_url": _BASE_URL,
+                "max_workers": 4,
+                "skip_unchanged_objects": True,
+                "stateful_ingestion": {"enabled": False},
+            }
+        )
+        source = MicroStrategySource(
+            config, PipelineContext(run_id="worker-graph", graph=graph)
+        )
+        source.client.close()
+        install_client(source, ConcurrentFakeClient())
+        owner_session_calls = 0
+        try:
+            project = Project.model_validate({"id": "proj-1", "name": "Retail"})
+            fingerprinter = source._change_detector.init_project(
+                project.id, [], PredefinedFolderResolution.empty(), None
+            )
+            source._changes.fingerprinter = fingerprinter
+
+            dashboards = [
+                MicroStrategyObject.model_validate(
+                    {"id": f"doc-{idx}", "name": f"Doc {idx}", "type": 55}
+                )
+                for idx in range(4)
+            ]
+            dashboard_checkpoints = {
+                obj.id: ObjectCheckpoint(
+                    fingerprint=fingerprinter.object_fingerprint(
+                        obj, None, [], source._dataset_object_info
+                    ),
+                    urns=[source.mapper.dashboard_urn(project.id, obj.id)],
+                )
+                for obj in dashboards
+            }
+            with ordered_parallel_map(
+                lambda obj: source._evaluate_object(
+                    project,
+                    obj,
+                    dashboard_checkpoints[obj.id],
+                    source.mapper.dashboard_urn,
+                    DashboardInfoClass,
+                ),
+                dashboards,
+                max_workers=4,
+            ) as dashboard_outcomes:
+                assert [outcome.unwrap() for outcome in dashboard_outcomes] == [
+                    False
+                ] * 4
+
+            barriers[0] = threading.Barrier(4)
+            report_ids = [f"rpt-{idx}" for idx in range(4)]
+            previous_reports = {
+                report_id: ReportDatasetCheckpoint(
+                    fingerprint=fingerprinter.report_dataset_fingerprint(
+                        None, {}, False
+                    ),
+                    urns=[
+                        f"urn:li:dataset:(urn:li:dataPlatform:microstrategy,proj-1.{report_id},PROD)"
+                    ],
+                )
+                for report_id in report_ids
+            }
+            plan = ReportDatasetPlan(
+                previous_dashboards={},
+                previous_reports=previous_reports,
+                candidates=[],
+                unchanged=set(),
+            )
+            with ordered_parallel_map(
+                lambda report_id: source._report_dataset_unchanged(
+                    plan, fingerprinter, report_id
+                ),
+                report_ids,
+                max_workers=4,
+            ) as report_outcomes:
+                assert [outcome.unwrap() for outcome in report_outcomes] == [False] * 4
+
+            assert owner_session_calls == 0
+            assert max_concurrent == 4
+            assert len(created_sessions) == 4
+            assert source.report.change_check_failures == 0
+
+            source.close()
+            assert set(closed_session_ids) == {id(s) for s in created_sessions}
+            assert not owner_closed
+        finally:
+            source.client.close()
+    orig_owner_close()
 
 
 def test_concurrent_401s_relogin_once() -> None:

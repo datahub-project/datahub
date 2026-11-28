@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import logging
 import threading
 from collections import Counter
@@ -46,6 +47,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessor
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.microstrategy.checkpoint_state import (
     CheckpointDraft,
     CheckpointRecord,
@@ -414,6 +416,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._connection_lock = threading.Lock()
         self._connection_fetches: Dict[Tuple[str, str], threading.Event] = {}
         self._failed_connection_keys: Set[Tuple[str, str]] = set()
+        self._owner_thread = threading.current_thread()
+        self._worker_graphs_lock = threading.Lock()
+        self._idle_worker_graphs: List[DataHubGraph] = []
+        self._worker_graphs_closed = False
         self._dashboards_processed = 0
         # Owned here so entities of objects skipped as unchanged stay in state.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
@@ -495,6 +501,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         return test_report
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self._owner_thread = threading.current_thread()
+        with self._worker_graphs_lock:
+            self._worker_graphs_closed = False
         self.client.login()
         try:
             with suppress_sqlglot_warnings(self.report):
@@ -557,15 +566,67 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if self.config.extract_usage_statistics and not auth_lost:
             yield from self._process_usage_statistics(projects)
 
+    def close(self) -> None:
+        self._close_worker_graphs()
+        super().close()
+
     def _cleanup(self) -> None:
         # Callbacks run last-registered first, each even if an earlier one raises.
         with contextlib.ExitStack() as cleanup:
+            cleanup.callback(self._close_worker_graphs)
             cleanup.callback(self.client.close)
             for cache in self._spill_caches():
                 cleanup.callback(cache.close)
             cleanup.callback(self.lineage.close)
             cleanup.callback(self._warn_if_every_sql_view_failed)
             cleanup.callback(self._finish_checkpoint)
+
+    def _new_worker_graph(self, graph: DataHubGraph) -> DataHubGraph:
+        worker_graph = copy.copy(graph)
+        worker_graph._session = graph.create_session()
+        worker_graph._graphql_input_fields_cache = dict(
+            graph._graphql_input_fields_cache
+        )
+        return worker_graph
+
+    @contextlib.contextmanager
+    def _borrow_graph(self) -> Iterator[Optional[DataHubGraph]]:
+        graph = self.ctx.graph
+        if (
+            graph is None
+            or threading.current_thread() is self._owner_thread
+            or type(graph) is not DataHubGraph
+            or not hasattr(graph, "_session_config")
+        ):
+            yield graph
+            return
+        # Give each concurrent worker its own requests.Session rather than sharing ctx.graph._session.
+        with self._worker_graphs_lock:
+            worker_graph = (
+                self._idle_worker_graphs.pop()
+                if self._idle_worker_graphs
+                else self._new_worker_graph(graph)
+            )
+        try:
+            yield worker_graph
+        finally:
+            close_now = False
+            with self._worker_graphs_lock:
+                if self._worker_graphs_closed:
+                    close_now = True
+                else:
+                    self._idle_worker_graphs.append(worker_graph)
+            if close_now:
+                worker_graph.session.close()
+
+    def _close_worker_graphs(self) -> None:
+        with self._worker_graphs_lock:
+            self._worker_graphs_closed = True
+            worker_graphs = list(self._idle_worker_graphs)
+            self._idle_worker_graphs.clear()
+        with contextlib.ExitStack() as stack:
+            for worker_graph in worker_graphs:
+                stack.callback(worker_graph.session.close)
 
     def _spill_caches(self) -> List[Closeable]:
         return [
@@ -774,16 +835,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         fingerprinter = self._changes.fingerprinter
         if fingerprinter is None:
             return False
-        return self._change_detector.evaluate_object(
-            fingerprinter,
-            mstr_object,
-            self._folder_path_of(project, mstr_object),
-            previous,
-            self._dataset_object_info,
-            self.ctx.graph,
-            stamped_urn,
-            stamped_aspect,
-        )
+        with self._borrow_graph() as graph:
+            return self._change_detector.evaluate_object(
+                fingerprinter,
+                mstr_object,
+                self._folder_path_of(project, mstr_object),
+                previous,
+                self._dataset_object_info,
+                graph,
+                stamped_urn,
+                stamped_aspect,
+            )
 
     def _new_draft(self) -> Optional[CheckpointDraft]:
         return (
@@ -929,14 +991,15 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             dashboard_fingerprints[dashboard_id] = (
                 dashboard.fingerprint if dashboard is not None else None
             )
-        return self._change_detector.evaluate_report_dataset(
-            fingerprinter,
-            report_id,
-            previous,
-            dashboard_fingerprints,
-            self._dataset_object_info,
-            self.ctx.graph,
-        )
+        with self._borrow_graph() as graph:
+            return self._change_detector.evaluate_report_dataset(
+                fingerprinter,
+                report_id,
+                previous,
+                dashboard_fingerprints,
+                self._dataset_object_info,
+                graph,
+            )
 
     def _mark_bound_reports_changed(self, project_id: str) -> None:
         # Re-emit report datasets a changed dashboard built or the last run missed.
@@ -3487,11 +3550,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         model_tables = lineage_context.model_tables
         if not model_tables:
             return None
-        return self.lineage.model_lineage_index_from_tables(
-            model_tables,
-            lineage_context.table_context_resolver,
-            graph=self.ctx.graph,
-        )
+        with self._borrow_graph() as graph:
+            return self.lineage.model_lineage_index_from_tables(
+                model_tables,
+                lineage_context.table_context_resolver,
+                graph=graph,
+            )
 
     def _enrich_dashboard_dependencies(
         self,
