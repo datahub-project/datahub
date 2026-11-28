@@ -1036,3 +1036,46 @@ def test_table_context_resolver_sets_each_dataset_upstream_from_its_own_warehous
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snow_db.snow.snow_sales,PROD)"
     ]
     assert upstreams("UNLINKED_SALES") == []
+
+
+@pytest.mark.parametrize(
+    "database, expected_upstreams",
+    [
+        (
+            "sales_db",
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+                "sales_db.public.orders,PROD)"
+            ],
+        ),
+        (None, []),
+    ],
+)
+def test_warehouse_upstream_only_when_the_table_name_resolves_to_a_database(
+    database: Optional[str], expected_upstreams: List[str]
+) -> None:
+    mapper = _mapper(FakeSemanticModelClient())
+    context = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database=database, schema="public"
+    )
+
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                project_id="project-1",
+                project_name="Project One",
+                model_tables=[_table("ORDERS", [_attribute("ATTR1", "Region")], [])],
+                project_container_key=_project_container_key(),
+                table_context_resolver=lambda table: context,
+            )
+        )
+    )
+
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.ORDERS,PROD)"
+    )
+    lineage = aspects[dataset_urn].get("UpstreamLineageClass")
+    assert lineage is None or isinstance(lineage, UpstreamLineageClass)
+    assert ([u.dataset for u in lineage.upstreams] if lineage else []) == (
+        expected_upstreams
+    )
