@@ -386,6 +386,16 @@ public class AuthorizationUtils {
     return true;
   }
 
+  /**
+   * Resolves the public getter for a field. Unlike {@link MethodUtils#getMatchingMethod}, which can
+   * return a covariant bridge method (e.g. {@code EntityProperties getProperties()} on a type that
+   * implements {@code HasProperties}) depending on JVM method order, this always picks the most
+   * specific return type.
+   */
+  static Method findGetter(Class<?> clazz, String fieldName) {
+    return MethodUtils.getAccessibleMethod(clazz, "get" + StringUtils.capitalise(fieldName));
+  }
+
   public static <T> T restrictEntity(@Nonnull Object entity, Class<T> clazz) {
     List<Field> allFields = FieldUtils.getAllFieldsList(entity.getClass());
     try {
@@ -413,19 +423,13 @@ public class AuthorizationUtils {
                           case "id":
                           case "jobId":
                           case "flowId":
-                            Method fieldGetter =
-                                MethodUtils.getMatchingMethod(
-                                    entity.getClass(),
-                                    "get" + StringUtils.capitalise(field.getName()));
+                            Method fieldGetter = findGetter(entity.getClass(), field.getName());
                             return fieldGetter.invoke(entity, (Object[]) null);
                           default:
                             switch (field.getType().getSimpleName()) {
                               case "boolean":
                               case "Boolean":
-                                Method boolGetter =
-                                    MethodUtils.getMatchingMethod(
-                                        entity.getClass(),
-                                        "get" + StringUtils.capitalise(field.getName()));
+                                Method boolGetter = findGetter(entity.getClass(), field.getName());
                                 return Boolean.TRUE.equals(
                                     boolGetter.invoke(entity, (Object[]) null));
                               // mask these fields in the restricted entity
@@ -452,9 +456,7 @@ public class AuthorizationUtils {
                                 if (Enum.class.isAssignableFrom(field.getType())) {
                                   // pass through enum
                                   Method enumGetter =
-                                      MethodUtils.getMatchingMethod(
-                                          entity.getClass(),
-                                          "get" + StringUtils.capitalise(field.getName()));
+                                      findGetter(entity.getClass(), field.getName());
                                   return enumGetter.invoke(entity, (Object[]) null);
                                 } else if (entity
                                     .getClass()
@@ -462,10 +464,7 @@ public class AuthorizationUtils {
                                     .getName()
                                     .contains(GRAPHQL_GENERATED_PACKAGE)) {
                                   // handle nested fields recursively
-                                  Method getter =
-                                      MethodUtils.getMatchingMethod(
-                                          entity.getClass(),
-                                          "get" + StringUtils.capitalise(field.getName()));
+                                  Method getter = findGetter(entity.getClass(), field.getName());
                                   Object nestedEntity = getter.invoke(entity, (Object[]) null);
                                   if (nestedEntity == null) {
                                     return null;

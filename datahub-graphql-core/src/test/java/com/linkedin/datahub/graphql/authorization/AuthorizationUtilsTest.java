@@ -20,6 +20,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.Container;
+import com.linkedin.datahub.graphql.generated.ContainerProperties;
 import com.linkedin.datahub.graphql.generated.ViewProperties;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -53,6 +55,23 @@ public class AuthorizationUtilsTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
   private static final Urn TEST_STRUCTURED_PROPERTY_URN =
       UrnUtils.getUrn("urn:li:structuredProperty:test.property");
+
+  // Container implements HasProperties, so the generated class carries a covariant bridge
+  // getProperties() returning EntityProperties next to the concrete one. Which of the two a
+  // reflective lookup returns depends on JVM method order, so assert the lookup contract directly
+  // and also exercise restrictEntity end to end.
+  @Test
+  public void testRestrictEntityResolvesConcreteGetterNotBridge() throws Exception {
+    assertEquals(
+        AuthorizationUtils.findGetter(Container.class, "properties").getReturnType(),
+        ContainerProperties.class);
+
+    Container container = new Container();
+    container.setUrn("urn:li:container:abc");
+    container.setProperties(new ContainerProperties());
+    Container restricted = AuthorizationUtils.restrictEntity(container, Container.class);
+    assertEquals(restricted.getUrn(), "urn:li:container:abc");
+  }
 
   @Test
   public void testRestrictedViewProperties() {
