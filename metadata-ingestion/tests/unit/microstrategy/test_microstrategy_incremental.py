@@ -261,6 +261,7 @@ class _MicroStrategy:
         # Fields only the search result carries, e.g. a date the object endpoint disagrees with.
         self.search_report_fields: Dict[str, object] = {}
         self.failing_connection = False
+        self.failing_metric_models: Dict[str, int] = {}
         self.definition_reads: List[str] = []
         self.dossier_instances = 0
         self.report_definition_reads: List[str] = []
@@ -311,6 +312,7 @@ class _MicroStrategy:
             fixed("get_model_report", {}),
             faked("get_report_sql_view"),
             faked("list_model_tables"),
+            faked("get_metric_model"),
             patch.object(
                 MicroStrategyClient,
                 "get_document_definition",
@@ -465,6 +467,14 @@ class _MicroStrategy:
         return ModelTablesResponse(
             tables=self.model_tables, total=len(self.model_tables)
         )
+
+    def get_metric_model(
+        self, _client: MicroStrategyClient, project_id: str, metric_id: str
+    ) -> Dict[str, object]:
+        status = self.failing_metric_models.get(metric_id)
+        if status is not None:
+            raise MicroStrategyAPIError("metric model unavailable", status_code=status)
+        return {"id": metric_id}
 
     def _request(
         self, _client: MicroStrategyClient, method: str, path: str, **_: object
@@ -873,6 +883,28 @@ def test_dashboard_read_without_visualization_details_is_read_again(
     _run(mock_datahub_graph, first.server, "run-3")
 
     assert first.server.definition_reads == ["dash-2"]
+
+
+@pytest.mark.parametrize("status, read_again", [(503, True), (500, False)])
+def test_dashboard_with_a_transient_metric_model_failure_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    status: int,
+    read_again: bool,
+) -> None:
+    first = _first_run(mock_datahub_graph, extract_metric_expressions=True)
+    first.server.bump("dash-2")
+    first.server.failing_metric_models["metric-2"] = status
+
+    second = _run(
+        mock_datahub_graph, first.server, "run-2", extract_metric_expressions=True
+    )
+    first.datahub.write(second.workunits)
+    first.server.failing_metric_models.clear()
+    first.server.definition_reads.clear()
+
+    _run(mock_datahub_graph, first.server, "run-3", extract_metric_expressions=True)
+
+    assert first.server.definition_reads == (["dash-2"] if read_again else [])
 
 
 def test_per_report_shared_report_keeps_every_dashboard(

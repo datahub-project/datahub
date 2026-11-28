@@ -6227,6 +6227,32 @@ def test_dataset_sql_view_lineage_uses_connection_enriched_model_urns(
     assert client.connection_requests == ["conn-ora"]
 
 
+def test_dataset_warehouse_reference_resolves_through_the_project_datasource(
+    mixed_datasources: List[Datasource],
+) -> None:
+    source = _source({"extract_model_lineage": True})
+    client = ConnectionModelTablesClient([model_table("orders", "fact-1", "AAA111")])
+    install_client(source, client)
+    datasources = _connected_oracle_datasources(mixed_datasources)
+    source._project_datasources = datasources
+    lineage_context = _LazyProjectLineage(source, "project-1", datasources)
+    warehouse = _connected_oracle_warehouse()
+    del warehouse["connection"]
+    dashboard = _dashboard(warehouse)
+
+    source._attach_dataset_warehouse_upstreams(
+        [{"id": "ds-1", "sqlStatement": "select amount from orders"}],
+        dashboard,
+        lineage_context.warehouse_context,
+        project_id="project-1",
+        entries={},
+    )
+
+    assert dashboard.datasets[0].warehouse_upstream_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,ora_db.conn_schema.orders,PROD)"
+    ]
+
+
 def test_report_dataset_in_mixed_project_uses_its_own_warehouse_context(
     mixed_datasources: List[Datasource],
 ) -> None:
