@@ -48,6 +48,11 @@ export function isAnonymousMode({ args = {}, cfg = {} } = {}) {
     return args['no-auth'] === 'true' || auth.mode === 'anonymous';
 }
 
+export function isStubSessionMode({ args = {}, cfg = {} } = {}) {
+    if (args['no-auth'] === 'true') return false;
+    return cfg.auth?.mode === 'stub';
+}
+
 export function resolveAccessToken({ args = {}, cfg = {}, env = process.env } = {}) {
     if (args.token) {
         throw new Error('Refusing --token because process arguments are observable. Use --token-env or DATAHUB_GMS_TOKEN.');
@@ -95,6 +100,21 @@ export function isAuthRejection(error) {
     return status === 401 || status === 403;
 }
 
+// A signed-in route that ends on /login measured the login page, not the route.
+// Returns the landing path in that case so the run can be failed, else null.
+export function bouncedToLogin(routePath, finalUrl) {
+    if (!finalUrl) return null;
+    let landed;
+    try {
+        landed = new URL(finalUrl).pathname;
+    } catch {
+        return null;
+    }
+    const requested = new URL(routePath, 'http://localhost').pathname;
+    const isLogin = (p) => p.toLowerCase() === '/login';
+    return isLogin(landed) && !isLogin(requested) ? landed : null;
+}
+
 export function isSameOrigin(requestUrl, pageOrigin) {
     try {
         return new URL(requestUrl).origin === new URL(pageOrigin).origin;
@@ -120,6 +140,20 @@ export function sessionBootstrapSource(actorUrn) {
             }
         } catch (e) {}
     `;
+}
+
+// The signed-in shell defaults these flags from localStorage before appConfig
+// returns. Pin them so the lab home route does not flip shells mid-load.
+export function stubSessionBootstrapSource(actorUrn) {
+    return (
+        sessionBootstrapSource(actorUrn) +
+        `
+        try {
+            localStorage.setItem('showHomePageRedesign', 'true');
+            localStorage.setItem('isNavBarRedesignEnabled', 'true');
+        } catch (e) {}
+    `
+    );
 }
 
 export function toPuppeteerCookie(c, fallbackDomain = 'localhost') {
