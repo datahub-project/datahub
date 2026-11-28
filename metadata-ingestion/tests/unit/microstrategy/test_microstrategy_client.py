@@ -898,6 +898,28 @@ def test_metadata_search_paginates_until_total_items(
     assert requested_offsets == [0, 2, 4]
 
 
+def test_metadata_search_empty_page_before_total_items_raises(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, _report = _make_client({"page_size": 1000})
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        assert params is not None
+        offset = params["offset"]
+        items = [] if offset == 2000 else [{"id": f"d{offset + i}"} for i in range(1000)]
+        return {"result": items, "totalItems": 5000}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    with pytest.raises(MicroStrategyAPIError):
+        list(client._metadata_search(project_id="project-1"))
+
+
 def test_login_without_auth_token_header_raises(monkeypatch: MonkeyPatch) -> None:
     client, _report = _make_client()
     monkeypatch.setattr(

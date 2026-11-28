@@ -1223,6 +1223,26 @@ def test_fetch_project_model_tables_unrecognized_payload_is_a_failed_fetch() -> 
     ]
 
 
+def test_fetch_project_model_tables_empty_page_before_total_is_a_failure() -> None:
+    source = _source({"extract_model_lineage": True, "page_size": 1000})
+
+    class FakeClient:
+        def list_model_tables(
+            self, project_id: str, limit: int, offset: int, fields: str
+        ) -> ModelTablesResponse:
+            tables: List[Dict[str, object]] = (
+                [] if offset == 2000 else [{"id": f"t{offset + i}"} for i in range(limit)]
+            )
+            return ModelTablesResponse(tables=tables, total=5000)
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._fetch_project_model_tables("project-1") is None
+    assert [f.title for f in source.report.failures] == [
+        "MicroStrategy Model Tables Truncated"
+    ]
+
+
 def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:
     source = _source(
         {

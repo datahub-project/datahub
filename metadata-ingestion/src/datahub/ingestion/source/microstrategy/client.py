@@ -800,6 +800,12 @@ class MicroStrategyClient:
             if total is None:
                 total = self._extract_total(result)
             if not items:
+                if total is not None and offset < total:
+                    # Ending here would silently truncate the object list.
+                    raise MicroStrategyAPIError(
+                        f"MicroStrategy search returned an empty page at offset "
+                        f"{offset} of {total} (type={type_filter}, project={project_id})"
+                    )
                 if offset == 0:
                     self._warn_if_unrecognized_shape(result, MSTR_API_SEARCHES)
                 break

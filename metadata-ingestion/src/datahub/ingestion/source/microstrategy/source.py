@@ -1721,11 +1721,24 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     context=f"project_id={project_id}, offset={offset}",
                 )
                 return None
-            model_tables.extend(table for table in tables if isinstance(table, dict))
             total = response.total
-            offset += len(tables)
             if not tables:
+                if isinstance(total, int) and offset < total:
+                    # A partial list would drop the missing tables' lineage
+                    # and let stale removal soft-delete their semantic model.
+                    self.report.failure(
+                        title="MicroStrategy Model Tables Truncated",
+                        message=(
+                            "The model tables API returned an empty page before "
+                            "the reported total; model lineage and the semantic "
+                            "model are skipped for this project."
+                        ),
+                        context=f"project_id={project_id}, offset={offset}, total={total}",
+                    )
+                    return None
                 break
+            model_tables.extend(table for table in tables if isinstance(table, dict))
+            offset += len(tables)
             # Large projects paginate thousands of model tables; log progress so
             # the lineage-index build does not look hung.
             logger.info(
