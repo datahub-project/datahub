@@ -9,9 +9,11 @@ import requests
 import time_machine
 
 import datahub.metadata.schema_classes as models
+from datahub.configuration.common import PipelineExecutionError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.datahub_rest import (
     DatahubRestSink,
     DatahubRestSinkConfig,
@@ -512,3 +514,42 @@ def test_rest_sink_config_accepts_client_config_dump():
     client = DatahubClientConfig(server="http://localhost:8080")
     cfg = DatahubRestSinkConfig(**client.model_dump())
     assert cfg.server == "http://localhost:8080"
+
+
+@pytest.mark.parametrize("mode", [RestSinkMode.SYNC, RestSinkMode.ASYNC_BATCH])
+def test_rejected_write_fails_pipeline(requests_mock, tmp_path, mode):
+    """A write GMS rejects must count as a sink failure in every mode."""
+    requests_mock.get(f"{MOCK_GMS_ENDPOINT}/config", json={"noCode": "true"})
+    requests_mock.post(
+        f"{MOCK_GMS_ENDPOINT}/aspects?action=ingestProposal",
+        status_code=500,
+        json={"message": "rejected"},
+    )
+    mcp_file = tmp_path / "mcps.json"
+    mcp_file.write_text(
+        json.dumps(
+            [
+                MetadataChangeProposalWrapper(
+                    entityUrn="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+                    aspect=models.StatusClass(removed=False),
+                )
+                .make_mcp()
+                .to_obj()
+            ]
+        )
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "source": {"type": "file", "config": {"filename": str(mcp_file)}},
+            "sink": {
+                "type": "datahub-rest",
+                "config": {"server": MOCK_GMS_ENDPOINT, "mode": mode.name},
+            },
+        }
+    )
+    pipeline.run()
+
+    assert pipeline.sink.get_report().failures
+    with pytest.raises(PipelineExecutionError):
+        pipeline.raise_from_status()
