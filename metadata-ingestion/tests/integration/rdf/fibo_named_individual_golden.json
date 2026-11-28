@@ -43,5 +43,37 @@
         "runId": "rdf-test-fibo-named-individual",
         "lastRunId": "no-run-id-provided"
     }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1789694561251,
+        "runId": "rdf-test-fibo-named-individual",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.ClassTerm",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1789694561251,
+        "runId": "rdf-test-fibo-named-individual",
+        "lastRunId": "no-run-id-provided"
+    }
 }
 ]
