@@ -63,6 +63,7 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverReport,
 )
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -100,13 +101,18 @@ class SqlViewLineage:
 _EMPTY_LINEAGE = SqlViewLineage([], {})
 
 
+class _SqlViewParseStatus(StrEnum):
+    NO_STATEMENTS = "no_statements"
+    FAILED = "failed"
+    PARSED = "parsed"
+
+
 class _ParsedSqlView(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    has_statements: bool
-    failed: bool = False
+    status: _SqlViewParseStatus
     upstream_urns: List[str] = Field(default_factory=list)
-    column_upstreams: Optional[Dict[str, List[str]]] = None
+    column_upstreams: Dict[str, List[str]] = Field(default_factory=dict)
     schema_lookup_failed: bool = False
 
 
@@ -118,8 +124,8 @@ class _WarehouseKey(BaseModel):
     env: str
 
 
-_NO_STATEMENTS = _ParsedSqlView(has_statements=False)
-_PARSE_FAILED = _ParsedSqlView(has_statements=True, failed=True)
+_NO_STATEMENTS = _ParsedSqlView(status=_SqlViewParseStatus.NO_STATEMENTS)
+_PARSE_FAILED = _ParsedSqlView(status=_SqlViewParseStatus.FAILED)
 
 
 class _FailureRecordingGraph:
@@ -425,14 +431,14 @@ class MicroStrategyLineageExtractor:
         parsed = self._parse_sql_view_cached(
             sql, context, bool(field_path_by_name), graph, label
         )
-        if not parsed.has_statements:
+        if parsed.status == _SqlViewParseStatus.NO_STATEMENTS:
             return _EMPTY_LINEAGE
         self.report.report_sql_view_parsed()
-        if parsed.failed:
+        if parsed.status == _SqlViewParseStatus.FAILED:
             return _EMPTY_LINEAGE
 
         field_upstreams: Dict[str, List[str]] = {}
-        for column, upstream_urns in (parsed.column_upstreams or {}).items():
+        for column, upstream_urns in parsed.column_upstreams.items():
             field_path = field_path_by_name.get(column)
             if field_path is None:
                 continue
@@ -462,9 +468,10 @@ class MicroStrategyLineageExtractor:
         label = label or _PARSE_LABEL_PREFIX + cache_key[:_PARSE_LABEL_HASH_CHARS]
         cached = self._parse_cache.get(cache_key)
         if cached is not None:
-            if cached.has_statements:
-                self.report.report_sql_parse_cache_hit(failed=cached.failed)
-            if cached.failed:
+            failed = cached.status == _SqlViewParseStatus.FAILED
+            if cached.status != _SqlViewParseStatus.NO_STATEMENTS:
+                self.report.report_sql_parse_cache_hit(failed=failed)
+            if failed:
                 self._warn_sql_parse_failure(
                     f"{label} (cached failure)", sql, context, log=False
                 )
@@ -546,9 +553,8 @@ class MicroStrategyLineageExtractor:
             )
             return _PARSE_FAILED
 
-        column_upstreams: Optional[Dict[str, List[str]]] = None
+        column_upstreams: Dict[str, List[str]] = {}
         if want_columns:
-            column_upstreams = {}
             for column_lineage in result.column_lineage or []:
                 upstream_urns = column_lineage.upstream_schema_field_urns()
                 if upstream_urns:
@@ -557,7 +563,7 @@ class MicroStrategyLineageExtractor:
                     ).extend(upstream_urns)
 
         return _ParsedSqlView(
-            has_statements=True,
+            status=_SqlViewParseStatus.PARSED,
             upstream_urns=_dedupe_sorted(result.in_tables),
             column_upstreams=column_upstreams,
             schema_lookup_failed=bool(failed_lookups),
