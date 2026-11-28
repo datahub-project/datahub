@@ -176,7 +176,7 @@ The flag is tri-state — unset means "follow the server" (enabled on recent Dat
 
 **Limitations to know about:**
 
-- **dbt Cloud has no top-level `metrics:` block.** Only measure-level metrics (`create_metric: true`) are ingested from dbt Cloud. Use the dbt Core source if you depend on the `metrics:` block.
+- **dbt Cloud reads the top-level `metrics:` block** from the environment's definition, alongside measures with `create_metric: true`.
 - **Metric type, filters, and cumulative windows don't have dedicated fields on `metricInfo`.** The type is captured as a subtype; filters are folded into the expression as a `FILTER (WHERE ...)` clause (or left as a trailing SQL comment where the expression can't carry one — ratios, author-written `expr` cases); cumulative windows become a trailing comment such as `/* cumulative over 7 day */`.
 - **Time-dimension granularity** is recorded as "this is a time dimension" without the grain itself.
 

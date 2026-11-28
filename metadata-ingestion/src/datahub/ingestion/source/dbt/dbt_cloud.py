@@ -1,4 +1,5 @@
 import logging
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
@@ -36,6 +37,7 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
 from datahub.ingestion.source.dbt.dbt_common import (
     DBT_EXPOSURE_MATURITY,
     DBT_EXPOSURE_TYPES,
+    METRIC_TYPE_SIMPLE,
     DBTColumn,
     DBTCommonConfig,
     DBTConstraint,
@@ -49,7 +51,9 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceBase,
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
+    extract_dbt_metrics,
     parse_dbt_constraint,
+    parse_dbt_metric_filter,
     parse_dbt_timestamp,
     parse_semantic_model,
 )
@@ -349,42 +353,18 @@ _DBT_FIELDS_BY_TYPE = {
     compiledCode
 """,
     "exposures": f"""
-    {_DBT_GRAPHQL_COMMON_FIELDS}
-    packageName
-    exposureType
-    url
-    maturity
-    ownerName
-    ownerEmail
-    dependsOn
-""",
-    "semanticModels": f"""
-    {_DBT_GRAPHQL_COMMON_FIELDS}
-    packageName
-    dependsOn
-    entities {{
-      name
-      type
-      description
-      expr
-    }}
-    dimensions {{
-      name
-      type
-      description
-      expr
-      typeParams
-    }}
-    measures {{
-      name
-      agg
-      description
-      expr
-      createMetric
-    }}
-""",
-    # Currently unsupported dbt node types:
-    # - metrics
+        {_DBT_GRAPHQL_COMMON_FIELDS}
+        packageName
+        exposureType
+        url
+        maturity
+        ownerName
+        ownerEmail
+        dependsOn
+    """,
+    # semanticModels and metrics are not fields on JobNode. They are loaded
+    # from environment.definition.semanticModels and .metrics. See
+    # _DBT_DISCOVERY_SEMANTIC_MODELS_QUERY and _DBT_DISCOVERY_METRICS_QUERY.
 }
 
 _DBT_GRAPHQL_QUERY = """
@@ -403,6 +383,106 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 # live on ``environment.applied.models``. See
 # https://docs.getdbt.com/docs/dbt-cloud-apis/discovery-schema-environment-applied-models
 _DBT_DISCOVERY_CONTRACT_PAGE_SIZE = 500
+_DBT_DISCOVERY_SEMANTIC_MODEL_PAGE_SIZE = 100
+# JobNode has no semanticModels field. Semantic models live on the
+# environment's logical definition: environment.definition.semanticModels.
+# SemanticModelDefinitionNode has no dependsOn; its upstream models are on
+# `parents`. Entities and dimensions have no expr; typeParams is a scalar
+# there. Verified against dbt Cloud.
+_DBT_DISCOVERY_SEMANTIC_MODELS_QUERY = """
+query DatahubDiscoverySemanticModels(
+  $environmentId: BigInt!,
+  $first: Int!,
+  $after: String
+) {
+  environment(id: $environmentId) {
+    definition {
+      semanticModels(first: $first, after: $after) {
+        edges {
+          node {
+            uniqueId
+            name
+            description
+            resourceType
+            packageName
+            meta
+            tags
+            parents {
+              uniqueId
+              resourceType
+            }
+            entities {
+              name
+              type
+              description
+            }
+            dimensions {
+              name
+              type
+              description
+              typeParams
+            }
+            measures {
+              name
+              agg
+              description
+              expr
+              createMetric
+            }
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+}
+"""
+# Documented definition.metrics fields. create_metric measures stay on the
+# semantic model query; this is the metrics: block the job query does not have.
+# https://docs.getdbt.com/docs/dbt-apis/discovery-use-cases-and-examples
+# A plain identifier, such as a measure name.
+_BARE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+_DBT_DISCOVERY_METRICS_QUERY = """
+query DatahubDiscoveryMetrics(
+  $environmentId: BigInt!,
+  $first: Int!,
+  $after: String
+) {
+  environment(id: $environmentId) {
+    definition {
+      metrics(first: $first, after: $after) {
+        edges {
+          node {
+            uniqueId
+            name
+            packageName
+            label
+            description
+            type
+            typeParams
+            formula
+            filter
+            meta
+            tags
+            parents {
+              name
+              resourceType
+            }
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+}
+"""
 _DBT_DISCOVERY_CONTRACT_QUERY = """
 query DatahubDiscoveryContractQuery(
   $environmentId: BigInt!,
@@ -471,6 +551,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         # fetched-and-failed (see _get_discovery_contract_data).
         self._discovery_contract_data: Dict[int, Dict[str, _DiscoveryContractData]] = {}
         self._reported_environment_mismatches: Set[int] = set()
+        # Production environment from auto-discovery. Explicit mode reads
+        # environmentId off the job nodes instead.
+        self._auto_discovery_environment_id: Optional[int] = None
+        self._cloud_metrics = DBTMetricsParse()
 
     def _contract_environment_for_node(self, node: Dict) -> Optional[int]:
         """The environment whose applied state holds this node's contract.
@@ -725,6 +809,399 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         return results
 
     @staticmethod
+    def _fetch_discovery_semantic_models(
+        metadata_endpoint: str,
+        token: str,
+        environment_id: int,
+    ) -> List[Dict]:
+        """Fetch semantic models from environment.definition.
+
+        dbt Cloud's job query does not expose ``semanticModels`` on
+        ``JobNode``. The definition connection is the logical manifest for
+        the environment, which is where semantic models are published.
+        """
+        results: List[Dict] = []
+        cursor: Optional[str] = None
+        while True:
+            data = DBTCloudSource._send_graphql_query(
+                metadata_endpoint=metadata_endpoint,
+                token=token,
+                query=_DBT_DISCOVERY_SEMANTIC_MODELS_QUERY,
+                variables={
+                    "environmentId": environment_id,
+                    "first": _DBT_DISCOVERY_SEMANTIC_MODEL_PAGE_SIZE,
+                    "after": cursor,
+                },
+            )
+            try:
+                connection = data["environment"]["definition"]["semanticModels"]
+            except (KeyError, TypeError) as e:
+                raise ValueError(
+                    "Unexpected Discovery API response shape: "
+                    f"{e}. Expected environment.definition.semanticModels."
+                ) from e
+
+            for edge in connection.get("edges") or []:
+                node = edge.get("node") or {}
+                normalized = DBTCloudSource._normalize_semantic_model_node(node)
+                if normalized is not None:
+                    results.append(normalized)
+
+            page_info = connection.get("pageInfo") or {}
+            if not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+            if not cursor:
+                raise ValueError(
+                    "Discovery API returned hasNextPage=true with no endCursor"
+                )
+
+        return results
+
+    @staticmethod
+    def _normalize_semantic_model_node(node: Dict) -> Optional[Dict]:
+        """Shape a definition node so the job-node parser can read it."""
+        name = node.get("name")
+        if not name:
+            return None
+        depends_on = [
+            parent["uniqueId"]
+            for parent in node.get("parents") or []
+            if isinstance(parent, dict)
+            and isinstance(parent.get("uniqueId"), str)
+            and parent["uniqueId"]
+        ]
+        unique_id = node.get("uniqueId")
+        if not unique_id:
+            package_name = node.get("packageName") or "unknown"
+            unique_id = f"semantic_model.{package_name}.{name}"
+        return {
+            **node,
+            "uniqueId": unique_id,
+            "name": name,
+            "resourceType": "semantic_model",
+            "description": node.get("description") or "",
+            "meta": node.get("meta") or {},
+            "tags": node.get("tags") or [],
+            "dependsOn": depends_on,
+        }
+
+    def _semantic_model_environment_id(self, raw_nodes: List[Dict]) -> Optional[int]:
+        """The one environment whose definition holds the semantic layer.
+
+        One environment, not every environment the jobs ran in: staging and
+        production can hold different versions of the same semantic model, and
+        the project has a single semanticModel entity, so merging them would
+        make its content depend on job order. In order of preference: the
+        configured environment_id, the production environment auto-discovery
+        found, then the environment most of the ingested job nodes ran in.
+
+        Unlike the contract path (_contract_environment_for_node), no
+        run-environment mismatch check is needed: environment.definition is the
+        environment's logical state, not a run's applied state, so there is no
+        run whose nodes it could disagree with.
+        """
+        if self.config.environment_id is not None:
+            return self.config.environment_id
+        if self._auto_discovery_environment_id is not None:
+            return self._auto_discovery_environment_id
+        node_counts: Dict[int, int] = {}
+        for node in raw_nodes:
+            environment_id = node.get("environmentId")
+            if isinstance(environment_id, str) and environment_id.isdigit():
+                environment_id = int(environment_id)
+            if isinstance(environment_id, int):
+                node_counts[environment_id] = node_counts.get(environment_id, 0) + 1
+        if not node_counts:
+            return None
+        # Most nodes first, then the lowest id, so a tie resolves the same way
+        # on every run.
+        chosen = min(node_counts, key=lambda env: (-node_counts[env], env))
+        if len(node_counts) > 1:
+            self.report.warning(
+                title="dbt Cloud semantic layer read from one environment",
+                message="The ingested jobs ran in several environments. "
+                "Semantic models and metrics are read from one of them only. Set "
+                "environment_id to choose which.",
+                context=f"used environment {chosen} of {sorted(node_counts)}",
+            )
+        return chosen
+
+    def _fetch_semantic_model_nodes(
+        self, raw_nodes: List[Dict]
+    ) -> Optional[List[Dict]]:
+        """Semantic models from the chosen environment, or None if the fetch failed."""
+        environment_id = self._semantic_model_environment_id(raw_nodes)
+        if environment_id is None:
+            self.report.warning(
+                title="dbt Cloud semantic models were not fetched",
+                message="Semantic models are read from the environment "
+                "definition, which needs an environment id. Set "
+                "environment_id, or ingest a job whose nodes include "
+                "environmentId.",
+            )
+            return []
+
+        logger.info(
+            f"Fetching dbt Cloud semantic models for environment {environment_id}"
+        )
+        try:
+            return self._fetch_discovery_semantic_models(
+                metadata_endpoint=self.config.metadata_endpoint,
+                token=self.config.token.get_secret_value(),
+                environment_id=environment_id,
+            )
+        except Exception as e:
+            # A failure, not a warning: a run that emits no semantic models
+            # would have stateful ingestion soft-delete every one emitted
+            # before. Same reasoning as _get_discovery_contract_data.
+            self.report.failure(
+                title="Failed to fetch dbt Cloud semantic models",
+                message="No semantic models were ingested. Other node types were "
+                "still ingested.",
+                context=f"environment_id={environment_id}",
+                exc=e,
+            )
+            return None
+
+    def _fetch_metric_definitions(self, raw_nodes: List[Dict]) -> DBTMetricsParse:
+        """Read the metrics: block from environment.definition.metrics."""
+        environment_id = self._semantic_model_environment_id(raw_nodes)
+        if environment_id is None:
+            return DBTMetricsParse()
+
+        semantic_models = [
+            node
+            for node in raw_nodes
+            if node.get("resourceType") == "semantic_model"
+            and node.get("name")
+            and node.get("uniqueId")
+        ]
+        semantic_model_ids = {
+            node["name"].casefold(): node["uniqueId"] for node in semantic_models
+        }
+        create_metric_measures = {
+            node["name"].casefold(): {
+                measure["name"].casefold()
+                for measure in node.get("measures") or []
+                if isinstance(measure, dict)
+                and measure.get("createMetric")
+                and isinstance(measure.get("name"), str)
+            }
+            for node in semantic_models
+        }
+        logger.info(f"Fetching dbt Cloud metrics for environment {environment_id}")
+        try:
+            nodes = self._fetch_discovery_metrics(
+                metadata_endpoint=self.config.metadata_endpoint,
+                token=self.config.token.get_secret_value(),
+                environment_id=environment_id,
+            )
+        except Exception as e:
+            # A failure for the same reason as the semantic models fetch.
+            self.report.failure(
+                title="Failed to fetch dbt Cloud metrics",
+                message="No metrics from the metrics: block were ingested. "
+                "Measures with create_metric are still ingested from the "
+                "semantic models.",
+                context=f"environment_id={environment_id}",
+                exc=e,
+            )
+            return DBTMetricsParse()
+        metric_ids = {
+            node["name"].casefold(): self._metric_unique_id(node)
+            for node in nodes
+            if isinstance(node.get("name"), str)
+        }
+        manifest_metrics: Dict[str, Dict] = {}
+        for node in nodes:
+            manifest_node = self._manifest_metric_node(
+                node, semantic_model_ids, metric_ids, create_metric_measures
+            )
+            if manifest_node is not None:
+                manifest_metrics.setdefault(self._metric_unique_id(node), manifest_node)
+        return extract_dbt_metrics(
+            manifest_metrics=manifest_metrics, tag_prefix=self.config.tag_prefix
+        )
+
+    @staticmethod
+    def _fetch_discovery_metrics(
+        metadata_endpoint: str,
+        token: str,
+        environment_id: int,
+    ) -> List[Dict]:
+        results: List[Dict] = []
+        cursor: Optional[str] = None
+        while True:
+            data = DBTCloudSource._send_graphql_query(
+                metadata_endpoint=metadata_endpoint,
+                token=token,
+                query=_DBT_DISCOVERY_METRICS_QUERY,
+                variables={
+                    "environmentId": environment_id,
+                    "first": _DBT_DISCOVERY_SEMANTIC_MODEL_PAGE_SIZE,
+                    "after": cursor,
+                },
+            )
+            try:
+                connection = data["environment"]["definition"]["metrics"]
+            except (KeyError, TypeError) as e:
+                raise ValueError(
+                    "Unexpected Discovery API response shape: "
+                    f"{e}. Expected environment.definition.metrics."
+                ) from e
+
+            for edge in connection.get("edges") or []:
+                node = edge.get("node") or {}
+                if node.get("name"):
+                    results.append(node)
+
+            page_info = connection.get("pageInfo") or {}
+            if not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+            if not cursor:
+                raise ValueError(
+                    "Discovery API returned hasNextPage=true with no endCursor"
+                )
+        return results
+
+    @staticmethod
+    def _metric_unique_id(node: Dict) -> str:
+        unique_id = node.get("uniqueId")
+        if isinstance(unique_id, str) and unique_id:
+            return unique_id
+        package_name = node.get("packageName")
+        prefix = f"metric.{package_name}." if package_name else "metric."
+        return f"{prefix}{node.get('name')}"
+
+    def _manifest_metric_node(
+        self,
+        node: Dict,
+        semantic_model_ids: Dict[str, str],
+        metric_ids: Dict[str, str],
+        create_metric_measures: Optional[Dict[str, Set[str]]] = None,
+    ) -> Optional[Dict]:
+        """Shape a Discovery metric as a manifest `metrics` entry.
+
+        `typeParams` is the manifest's own `type_params` object, so the dbt Core
+        parser reads measures, ratio inputs, `expr`, windows and the rest of it
+        directly.
+
+        `create_metric_measures` maps a semantic model name to the names of its
+        measures with `create_metric: true`, all casefolded.
+        """
+        name = node.get("name")
+        if not isinstance(name, str) or not name:
+            return None
+        raw_filter = node.get("filter")
+        has_no_filters = (
+            isinstance(raw_filter, dict) and raw_filter.get("where_filters") == []
+        )
+        if (
+            raw_filter
+            and not has_no_filters
+            and parse_dbt_metric_filter(raw_filter) is None
+        ):
+            self.report.warning(
+                title="Could not read a dbt Cloud metric filter",
+                message="The metric's filter is in a shape this connector does not "
+                "read, so the metric is emitted without it and its expression "
+                "covers more rows than dbt's definition.",
+                context=f"{name}: {raw_filter!r}",
+            )
+        raw_type = node.get("type")
+        metric_type = raw_type.lower() if isinstance(raw_type, str) else None
+        is_simple = metric_type in (None, METRIC_TYPE_SIMPLE)
+        type_params = node.get("typeParams")
+        formula = node.get("formula")
+        if type_params is None and isinstance(formula, str):
+            # An environment that does not return typeParams still has the
+            # rendered formula. A simple metric's formula is normally its
+            # measure's name, so a bare name is pointed at the measure to run
+            # the aggregation path. Anything else is already an expression.
+            type_params = (
+                {"measure": {"name": formula}}
+                if is_simple and _BARE_NAME.fullmatch(formula)
+                else {"expr": formula}
+            )
+            self.report.warning(
+                title="dbt Cloud metric has no typeParams",
+                message="The metric's definition was rebuilt from its rendered "
+                "formula, so its expression may be less precise than dbt's "
+                "definition.",
+                context=f"{name}: {formula!r}",
+            )
+        depends_on: List[str] = []
+        semantic_model_parents: List[str] = []
+        for parent in node.get("parents") or []:
+            if not isinstance(parent, dict):
+                continue
+            parent_name = parent.get("name")
+            if not isinstance(parent_name, str) or not parent_name:
+                continue
+            resource_type = str(parent.get("resourceType") or "").lower()
+            if resource_type in {"semantic_model", "semanticmodel"}:
+                semantic_model_parents.append(parent_name.casefold())
+                parent_id = semantic_model_ids.get(parent_name.casefold())
+            elif resource_type == "metric":
+                parent_id = metric_ids.get(parent_name.casefold())
+            else:
+                self.report.warning(
+                    title="dbt Cloud metric parent has an unexpected type",
+                    message="Only semantic model and metric parents are linked, so "
+                    "this metric has no lineage edge to this parent.",
+                    context=f"{name} -> {parent_name} ({resource_type or 'no type'})",
+                )
+                continue
+            if parent_id:
+                depends_on.append(parent_id)
+            else:
+                self.report.warning(
+                    title="dbt Cloud metric parent not found",
+                    message="The metric names a parent that was not among the "
+                    "ingested semantic models or metrics, so it has no lineage "
+                    "edge to it. Either the parent failed to load, or its name "
+                    "does not match.",
+                    context=f"{name} -> {parent_name} ({resource_type})",
+                )
+        if (
+            is_simple
+            and isinstance(type_params, dict)
+            and not type_params.get("measure")
+            and any(
+                name.casefold() in (create_metric_measures or {}).get(parent, set())
+                for parent in semantic_model_parents
+            )
+        ):
+            # dbt's own copy of a `create_metric: true` measure. Current dbt
+            # versions return it with `measure: null` and the aggregation in
+            # `metric_aggregation_params`, so point it at the same-named measure:
+            # that renders the measure's aggregation rather than its bare
+            # column, and marks it as dbt's echo rather than a shadowing metric.
+            # The measure carries the expression, so any copy here is dropped.
+            type_params = {
+                key: value
+                for key, value in type_params.items()
+                if key not in ("expr", "metric_aggregation_params")
+            }
+            type_params["measure"] = {"name": name}
+        return {
+            "name": name,
+            "label": node.get("label"),
+            "description": node.get("description"),
+            "type": metric_type,
+            "type_params": type_params,
+            "filter": raw_filter,
+            "tags": [tag for tag in node.get("tags") or [] if isinstance(tag, str)]
+            if isinstance(node.get("tags"), list)
+            else [],
+            "meta": node.get("meta") or {},
+            "package_name": node.get("packageName"),
+            "depends_on": {"nodes": depends_on},
+        }
+
+    @staticmethod
     def _get_jobs_for_project(
         access_url: str,
         token: str,
@@ -899,6 +1376,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         logger.info(
             f"Found production environment {production_env.id} for project {self.config.project_id}"
         )
+        self._auto_discovery_environment_id = production_env.id
 
         # Fetch and filter jobs
         try:
@@ -1015,12 +1493,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             self.report.processed_jobs_list.append(job_id)
             self.report.total_jobs_processed += 1
             for node_type, fields in _DBT_FIELDS_BY_TYPE.items():
-                # Skip semantic models if not enabled
-                if (
-                    node_type == "semanticModels"
-                    and not self.config.entities_enabled.can_emit_semantic_models
-                ):
-                    continue
                 if node_type == "models" and self.config.ingest_contracts:
                     fields += _DBT_GRAPHQL_MODEL_TIMING_FIELDS
 
@@ -1055,6 +1527,15 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                         exc=e,
                     )
                     continue
+
+        if self.config.entities_enabled.can_emit_semantic_models:
+            semantic_model_nodes = self._fetch_semantic_model_nodes(raw_nodes)
+            # Metrics link to the semantic models, so without them every metric
+            # would be emitted with no lineage, replacing the lineage an earlier
+            # run wrote. The failure is already reported; emit no metrics.
+            if semantic_model_nodes is not None:
+                raw_nodes.extend(semantic_model_nodes)
+                self._cloud_metrics = self._fetch_metric_definitions(raw_nodes)
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
 
@@ -1096,9 +1577,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         yield DBTProject(
             nodes=nodes,
             exposures=exposures,
-            # dbt Cloud's Discovery API exposes no top-level metrics block;
-            # see report_metric_source_limitations.
-            metrics=DBTMetricsParse(),
+            metrics=self._cloud_metrics,
             platform_instance=self.config.platform_instance,
             # No manifest metadata; the semantic-model path infers the project
             # name from the nodes' packageName.
@@ -1184,28 +1663,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 },
             )
         return test_info, test_result
-
-    def report_metric_source_limitations(self) -> None:
-        """dbt Cloud cannot supply top-level `metrics:` definitions.
-
-        The Discovery API does not expose the semantic graph - `metrics` is
-        listed in `_DBT_FIELDS_BY_TYPE` as an unsupported node type. Metric
-        definitions with their expressions and derivations live in the separate
-        Semantic Layer GraphQL API, which needs its own endpoint and a token
-        carrying the "Semantic Layer Only" permission set. Metrics from
-        `create_metric` measures are unaffected - those come from the
-        semanticModels query, which already selects `createMetric`.
-        """
-        # Only reached from behind the resolved gate, and only once the caller
-        # knows semantic-model entities will be emitted, so no config check
-        # here: checking the raw value would also fire when the gate refused.
-        self.report.info(
-            title="dbt Cloud does not ingest top-level metric definitions",
-            message="Metrics declared in a `metrics:` block are not ingested "
-            "from dbt Cloud, because the Discovery API does not expose them. "
-            "Metrics from measures with `create_metric: true` are ingested as "
-            "normal. Use the dbt Core source if you need the `metrics:` block.",
-        )
 
     def _extract_model_performance(self, node: Dict) -> List[DBTModelPerformance]:
         """Map job-scoped model status/error onto DBTModelPerformance.

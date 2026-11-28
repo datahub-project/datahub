@@ -24,6 +24,7 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
     DBTCloudEnvironment,
     DBTCloudJob,
 )
+from datahub.ingestion.source.dbt.dbt_semantic_model import DbtSemanticModelMapper
 
 
 @pytest.fixture
@@ -53,6 +54,7 @@ def mock_graphql_response() -> Dict[str, Any]:
                     "error": None,
                     "skip": False,
                     "dependsOn": [],
+                    "environmentId": 1,
                 }
             ],
             "sources": [],
@@ -60,45 +62,130 @@ def mock_graphql_response() -> Dict[str, Any]:
             "snapshots": [],
             "tests": [],
             "exposures": [],
-            "semanticModels": [
-                {
-                    "uniqueId": "semantic_model.test_project.test_metrics",
-                    "name": "test_metrics",
-                    "description": "Test semantic model",
-                    "resourceType": "semantic_model",
-                    "packageName": "test_project",
-                    "meta": {},
-                    "tags": [],
-                    "dependsOn": ["model.test_project.test_model"],
-                    "entities": [
+        },
+        "environment": {
+            "definition": {
+                "semanticModels": {
+                    "edges": [
                         {
-                            "name": "id",
-                            "type": "primary",
-                            "description": "",
-                            "expr": "id",
+                            "node": {
+                                "uniqueId": "semantic_model.test_project.test_metrics",
+                                "name": "test_metrics",
+                                "description": "Test semantic model",
+                                "packageName": "test_project",
+                                "meta": {},
+                                "tags": [],
+                                "parents": [
+                                    {
+                                        "uniqueId": "model.test_project.test_model",
+                                        "resourceType": "model",
+                                    }
+                                ],
+                                "entities": [
+                                    {
+                                        "name": "id",
+                                        "type": "primary",
+                                        "description": "",
+                                        "expr": "id",
+                                    }
+                                ],
+                                "dimensions": [
+                                    {
+                                        "name": "created_at",
+                                        "type": "time",
+                                        "description": "",
+                                        "expr": "created_at",
+                                        "typeParams": {"timeGranularity": "day"},
+                                    }
+                                ],
+                                "measures": [
+                                    {
+                                        "name": "count",
+                                        "agg": "count",
+                                        "description": "",
+                                        "expr": "*",
+                                        "createMetric": False,
+                                    },
+                                    {
+                                        "name": "order_count",
+                                        "agg": "count",
+                                        "description": "",
+                                        "expr": "id",
+                                        "createMetric": True,
+                                    },
+                                ],
+                            }
                         }
                     ],
-                    "dimensions": [
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                },
+                "metrics": {
+                    "edges": [
                         {
-                            "name": "created_at",
-                            "type": "time",
-                            "description": "",
-                            "expr": "created_at",
-                            "typeParams": {},
-                        }
-                    ],
-                    "measures": [
+                            "node": {
+                                "uniqueId": "metric.test_project.revenue",
+                                "name": "revenue",
+                                "packageName": "test_project",
+                                "label": "Revenue (Booked)",
+                                "description": "Revenue",
+                                "type": "SIMPLE",
+                                "typeParams": {
+                                    "measure": {"name": "revenue"},
+                                    "expr": "sum(revenue)",
+                                },
+                                "formula": "sum(revenue)",
+                                "filter": {
+                                    "where_filters": [
+                                        {"where_sql_template": "amount > 0"}
+                                    ]
+                                },
+                                "meta": {},
+                                "tags": ["finance"],
+                                "parents": [
+                                    {
+                                        "name": "test_metrics",
+                                        "resourceType": "semantic_model",
+                                    }
+                                ],
+                            }
+                        },
                         {
-                            "name": "count",
-                            "agg": "count",
-                            "description": "",
-                            "expr": "*",
-                            "createMetric": False,
-                        }
+                            # dbt's echo of the create_metric measure, as current
+                            # dbt versions return it: no measure, no formula, and
+                            # the aggregation in metric_aggregation_params.
+                            "node": {
+                                "uniqueId": "metric.test_project.order_count",
+                                "name": "order_count",
+                                "packageName": "test_project",
+                                "label": "order_count",
+                                "description": "",
+                                "type": "SIMPLE",
+                                "typeParams": {
+                                    "measure": None,
+                                    "expr": "id",
+                                    "metric_aggregation_params": {
+                                        "semantic_model": "test_metrics",
+                                        "agg": "count",
+                                        "expr": "id",
+                                    },
+                                },
+                                "formula": None,
+                                "filter": None,
+                                "meta": {},
+                                "tags": [],
+                                "parents": [
+                                    {
+                                        "name": "test_metrics",
+                                        "resourceType": "semantic_model",
+                                    }
+                                ],
+                            }
+                        },
                     ],
-                }
-            ],
-        }
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                },
+            }
+        },
     }
 
 
@@ -219,27 +306,67 @@ class TestAutoDiscoveryEndToEnd:
         nodes = project.nodes
 
         # Assertions
-        # Should have called GraphQL for both jobs (models, sources, seeds, snapshots, tests, exposures, semanticModels = 7 calls per job)
-        assert mock_graphql.call_count == 14  # 2 jobs * 7 node types
+        # Job queries no longer include semanticModels (6 types x 2 jobs).
+        # Semantic models are one environment.definition query.
+        job_calls = [
+            call
+            for call in mock_graphql.call_args_list
+            if "jobId" in call[1]["variables"]
+        ]
+        assert len(job_calls) == 12
 
         # Verify both job IDs were queried
-        job_ids_queried = {
-            call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
-        }
+        job_ids_queried = {call[1]["variables"]["jobId"] for call in job_calls}
         assert job_ids_queried == {100, 200}
 
         # Verify run_id is None (always use latest in auto-discovery)
-        for call in mock_graphql.call_args_list:
+        for call in job_calls:
             assert call[1]["variables"]["runId"] is None
 
-        # Verify nodes were collected (2 models + 2 semantic models from 2 jobs)
-        assert len(nodes) == 4
+        environment_calls = [
+            call
+            for call in mock_graphql.call_args_list
+            if "environmentId" in call[1]["variables"]
+        ]
+        assert len(environment_calls) == 2
+        assert {
+            call[1]["variables"]["environmentId"] for call in environment_calls
+        } == {1}
+
+        # One model per job, plus the environment's semantic model once.
+        assert len(nodes) == 3
 
         # Verify semantic models were parsed correctly
         semantic_models = [n for n in nodes if n.node_type == "semantic_model"]
-        assert len(semantic_models) == 2
+        assert len(semantic_models) == 1
+        assert [m.name for m in project.metrics.metrics] == [
+            "revenue",
+            "order_count",
+        ]
+        assert project.metrics.metrics[0].name == "revenue"
+        assert project.metrics.metrics[0].label == "Revenue (Booked)"
+        assert project.metrics.metrics[0].type == "simple"
+        assert project.metrics.metrics[0].expr == "sum(revenue)"
+        assert project.metrics.metrics[0].unique_id == "metric.test_project.revenue"
+        assert project.metrics.metrics[0].filter == "amount > 0"
+        assert [m.name for m in project.metrics.metrics[0].measures] == ["revenue"]
+        assert project.metrics.metrics[0].depends_on == [
+            "semantic_model.test_project.test_metrics"
+        ]
+        # The create_metric echo is pointed at its measure, so it renders the
+        # measure's aggregation and is not reported as shadowing the measure.
+        echo = project.metrics.metrics[1]
+        assert [m.name for m in echo.measures] == ["order_count"]
+        assert echo.expr is None
+        assert DbtSemanticModelMapper._is_dbt_generated_measure_metric(echo)
+        assert not [
+            warning
+            for warning in source.report.warnings
+            if warning.title and "metric" in warning.title.lower()
+        ]
 
         for sm in semantic_models:
+            assert sm.upstream_nodes == ["model.test_project.test_model"]
             assert len(sm.columns) > 0
             column_types = {c.data_type for c in sm.columns}
             assert (
@@ -274,6 +401,8 @@ class TestAutoDiscoveryEndToEnd:
 
         # Job 200 fails, others succeed
         def graphql_side_effect(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+            if "environmentId" in kwargs["variables"]:
+                return mock_graphql_response
             job_id = kwargs["variables"]["jobId"]
             if job_id == 200:
                 raise ValueError("GraphQL error for job 200")
@@ -295,8 +424,8 @@ class TestAutoDiscoveryEndToEnd:
         # Execute
         nodes = next(source.load_projects()).nodes
 
-        # Should have nodes from jobs 100 and 300 only (2 models + 2 semantic models)
-        assert len(nodes) == 4
+        # Models from jobs 100 and 300, plus the environment semantic model once.
+        assert len(nodes) == 3
 
         # Verify warning was logged for job 200 failure
         # (This is implicit - the source continues without raising)
@@ -335,13 +464,15 @@ class TestAutoDiscoveryEndToEnd:
         project = next(source.load_projects())
         nodes = project.nodes
 
-        # mock_graphql_response fixture returns 1 model + 1 semantic model per job
+        # One model from the job, plus the environment's semantic model.
         assert len(nodes) == 2
         assert {n.node_type for n in nodes} == {"model", "semantic_model"}
         assert project.artifact_props["account_id"] == "123456"
 
         job_ids_queried = {
-            call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
+            call[1]["variables"]["jobId"]
+            for call in mock_graphql.call_args_list
+            if "jobId" in call[1]["variables"]
         }
         assert 100 in job_ids_queried
 
@@ -410,8 +541,14 @@ class TestExplicitModeComparison:
         # Execute
         next(source.load_projects())
 
-        # Verify run_id=999 was used in all GraphQL calls
-        for call in mock_graphql.call_args_list:
+        # Verify run_id=999 was used in the job GraphQL calls.
+        job_calls = [
+            call
+            for call in mock_graphql.call_args_list
+            if "jobId" in call[1]["variables"]
+        ]
+        assert job_calls
+        for call in job_calls:
             assert call[1]["variables"]["runId"] == 999
 
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
@@ -448,8 +585,14 @@ class TestExplicitModeComparison:
         # Execute
         next(source.load_projects())
 
-        # Verify run_id=None was used (latest run)
-        for call in mock_graphql.call_args_list:
+        # Verify run_id=None was used on job queries (latest run).
+        job_calls = [
+            call
+            for call in mock_graphql.call_args_list
+            if "jobId" in call[1]["variables"]
+        ]
+        assert job_calls
+        for call in job_calls:
             assert call[1]["variables"]["runId"] is None
 
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
@@ -639,7 +782,9 @@ class TestAutoDiscoveryWithPatterns:
 
         # Should only query jobs 1001 and 1002
         job_ids_queried = {
-            call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
+            call[1]["variables"]["jobId"]
+            for call in mock_graphql.call_args_list
+            if "jobId" in call[1]["variables"]
         }
         assert 1001 in job_ids_queried
         assert 1002 in job_ids_queried
@@ -687,7 +832,9 @@ class TestAutoDiscoveryWithPatterns:
 
         # Should query jobs 100 and 300, but not 200
         job_ids_queried = {
-            call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
+            call[1]["variables"]["jobId"]
+            for call in mock_graphql.call_args_list
+            if "jobId" in call[1]["variables"]
         }
         assert 100 in job_ids_queried
         assert 300 in job_ids_queried
