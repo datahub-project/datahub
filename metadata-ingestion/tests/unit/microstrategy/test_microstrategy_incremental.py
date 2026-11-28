@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import BaseModel, ConfigDict
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -395,12 +396,27 @@ class _DataHub:
                 ] = wu.metadata.aspect
 
 
+class _Run(BaseModel):
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+    source: MicroStrategySource
+    workunits: List[MetadataWorkUnit]
+
+
+class _FirstRun(BaseModel):
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+    server: _MicroStrategy
+    datahub: _DataHub
+    source: MicroStrategySource
+
+
 def _run(
     graph: Optional[MagicMock],
     server: _MicroStrategy,
     run_id: str,
     **overrides: object,
-) -> Tuple[MicroStrategySource, List[MetadataWorkUnit]]:
+) -> _Run:
     with ExitStack() as stack:
         for context in server.patches():
             stack.enter_context(context)
@@ -415,7 +431,7 @@ def _run(
         for _, committable in ctx.get_committables():
             committable.commit()
     assert server.unexpected_requests == []
-    return source, workunits
+    return _Run(source=source, workunits=workunits)
 
 
 def _stale_urns(source: MicroStrategySource) -> Set[str]:
@@ -444,16 +460,24 @@ def _aspects(
     ]
 
 
-def _first_run(
-    graph: MagicMock, **overrides: object
-) -> Tuple[_MicroStrategy, _DataHub, MicroStrategySource]:
+def _stamped_urns(workunits: List[MetadataWorkUnit]) -> List[str]:
+    return [
+        wu.get_urn()
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and MSTR_PROP_FINGERPRINT
+        in (getattr(wu.metadata.aspect, "customProperties", None) or {})
+    ]
+
+
+def _first_run(graph: MagicMock, **overrides: object) -> _FirstRun:
     server = _MicroStrategy()
     datahub = _DataHub(graph)
-    source, workunits = _run(graph, server, "run-1", **overrides)
-    datahub.write(workunits)
+    first = _run(graph, server, "run-1", **overrides)
+    datahub.write(first.workunits)
     server.definition_reads.clear()
     server.report_definition_reads.clear()
-    return server, datahub, source
+    return _FirstRun(server=server, datahub=datahub, source=first.source)
 
 
 def test_unchanged_objects_are_skipped_and_kept(
@@ -462,36 +486,36 @@ def test_unchanged_objects_are_skipped_and_kept(
     server = _MicroStrategy()
     datahub = _DataHub(mock_datahub_graph)
 
-    first, first_wus = _run(mock_datahub_graph, server, "run-1")
-    datahub.write(first_wus)
+    first = _run(mock_datahub_graph, server, "run-1")
+    datahub.write(first.workunits)
     assert server.definition_reads == ["dash-1", "dash-2"]
     assert server.report_definition_reads == ["report-1"]
     assert server.report_sql_views == 1
-    (dashboard_info,) = _aspects(first_wus, DASH_1_URN, DashboardInfoClass)
+    (dashboard_info,) = _aspects(first.workunits, DASH_1_URN, DashboardInfoClass)
     assert isinstance(dashboard_info, DashboardInfoClass)
     assert dashboard_info.customProperties[MSTR_PROP_FINGERPRINT]
     instances = server.dossier_instances
 
-    second, second_wus = _run(mock_datahub_graph, server, "run-2")
+    second = _run(mock_datahub_graph, server, "run-2")
 
     assert server.definition_reads == ["dash-1", "dash-2"]
     assert server.dossier_instances == instances
     assert server.report_definition_reads == ["report-1"]
     assert server.report_sql_views == 1
-    assert second.report.dashboards_skipped_unchanged == 2
-    assert second.report.reports_skipped_unchanged == 1
-    assert _soft_deleted_urns(second_wus) == set()
-    assert _stale_urns(second) == _stale_urns(first)
+    assert second.source.report.dashboards_skipped_unchanged == 2
+    assert second.source.report.reports_skipped_unchanged == 1
+    assert _soft_deleted_urns(second.workunits) == set()
+    assert _stale_urns(second.source) == _stale_urns(first.source)
     assert (
-        set(second._usage_targets)
-        == set(first._usage_targets)
+        set(second.source._usage_targets)
+        == set(first.source._usage_targets)
         == {
             "DASH-1",
             "DASH-2",
             "REPORT-1",
         }
     )
-    assert second._usage_targets == first._usage_targets
+    assert second.source._usage_targets == first.source._usage_targets
 
 
 @pytest.mark.parametrize("field", ["version", "dateModified"])
@@ -499,39 +523,39 @@ def test_changed_dashboard_alone_is_read_again(
     mock_datahub_graph: MagicMock,  # noqa: F811
     field: str,
 ) -> None:
-    server, _, first = _first_run(mock_datahub_graph)
-    server.bump("dash-2", field)
+    first = _first_run(mock_datahub_graph)
+    first.server.bump("dash-2", field)
 
-    second, second_wus = _run(mock_datahub_graph, server, "run-2")
+    second = _run(mock_datahub_graph, first.server, "run-2")
 
-    assert server.definition_reads == ["dash-2"]
-    assert second.report.dashboards_skipped_unchanged == 1
-    assert _soft_deleted_urns(second_wus) == set()
-    assert _stale_urns(second) == _stale_urns(first)
+    assert first.server.definition_reads == ["dash-2"]
+    assert second.source.report.dashboards_skipped_unchanged == 1
+    assert _soft_deleted_urns(second.workunits) == set()
+    assert _stale_urns(second.source) == _stale_urns(first.source)
 
 
 def test_changed_report_reads_the_dashboard_using_it(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
-    server, _, _ = _first_run(mock_datahub_graph)
-    server.bump("report-1")
+    first = _first_run(mock_datahub_graph)
+    first.server.bump("report-1")
 
-    second, _ = _run(mock_datahub_graph, server, "run-2")
+    second = _run(mock_datahub_graph, first.server, "run-2")
 
-    assert server.definition_reads == ["dash-1"]
-    assert server.report_definition_reads == ["report-1"]
-    assert second.report.reports_skipped_unchanged == 0
+    assert first.server.definition_reads == ["dash-1"]
+    assert first.server.report_definition_reads == ["report-1"]
+    assert second.source.report.reports_skipped_unchanged == 0
 
 
 def test_changed_dataset_reads_only_the_dashboards_using_it(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
-    server, _, _ = _first_run(mock_datahub_graph)
-    server.bump("ds-1")
+    first = _first_run(mock_datahub_graph)
+    first.server.bump("ds-1")
 
-    _run(mock_datahub_graph, server, "run-2")
+    _run(mock_datahub_graph, first.server, "run-2")
 
-    assert server.definition_reads == ["dash-1"]
+    assert first.server.definition_reads == ["dash-1"]
 
 
 @pytest.mark.parametrize("change", ["soft_deleted", "restamped", "missing"])
@@ -539,134 +563,124 @@ def test_dashboard_is_read_again_when_datahub_disagrees(
     mock_datahub_graph: MagicMock,  # noqa: F811
     change: str,
 ) -> None:
-    server, datahub, _ = _first_run(mock_datahub_graph)
+    first = _first_run(mock_datahub_graph)
     info_key = (DASH_1_URN, DashboardInfoClass.ASPECT_NAME)
     if change == "soft_deleted":
-        datahub.soft_deleted.add(DASH_1_URN)
+        first.datahub.soft_deleted.add(DASH_1_URN)
     elif change == "restamped":
-        info = datahub.aspects[info_key]
+        info = first.datahub.aspects[info_key]
         assert isinstance(info, DashboardInfoClass)
         info.customProperties[MSTR_PROP_FINGERPRINT] = "another-run"
     else:
-        del datahub.aspects[info_key]
+        del first.datahub.aspects[info_key]
 
-    _run(mock_datahub_graph, server, "run-2")
+    _run(mock_datahub_graph, first.server, "run-2")
 
-    assert server.definition_reads == ["dash-1"]
+    assert first.server.definition_reads == ["dash-1"]
 
 
 def test_recipe_change_reads_everything(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
-    server, _, _ = _first_run(mock_datahub_graph)
+    first = _first_run(mock_datahub_graph)
 
-    second, _ = _run(mock_datahub_graph, server, "run-2", ingest_owner=False)
+    second = _run(mock_datahub_graph, first.server, "run-2", ingest_owner=False)
 
-    assert server.definition_reads == ["dash-1", "dash-2"]
-    assert server.report_definition_reads == ["report-1"]
-    assert second.report.dashboards_skipped_unchanged == 0
+    assert first.server.definition_reads == ["dash-1", "dash-2"]
+    assert first.server.report_definition_reads == ["report-1"]
+    assert second.source.report.dashboards_skipped_unchanged == 0
 
 
 def test_runtime_only_option_change_still_skips(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
-    server, _, _ = _first_run(mock_datahub_graph)
+    first = _first_run(mock_datahub_graph)
 
-    _run(mock_datahub_graph, server, "run-2", progress_log_interval_dashboards=7)
+    _run(mock_datahub_graph, first.server, "run-2", progress_log_interval_dashboards=7)
 
-    assert server.definition_reads == []
+    assert first.server.definition_reads == []
 
 
 def test_untrusted_checkpoint_reads_everything(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
-    server, datahub, _ = _first_run(mock_datahub_graph)
+    first = _first_run(mock_datahub_graph)
     # Run 2 commits stale-entity state but no object checkpoint, so run 1's
     # object checkpoint no longer describes what DataHub holds.
     with patch.object(
         MicroStrategyStateHandler, "create_checkpoint", return_value=None
     ):
-        _, second_wus = _run(mock_datahub_graph, server, "run-2")
-    datahub.write(second_wus)
-    server.definition_reads.clear()
+        second = _run(mock_datahub_graph, first.server, "run-2")
+    first.datahub.write(second.workunits)
+    first.server.definition_reads.clear()
 
-    third, _ = _run(mock_datahub_graph, server, "run-3")
+    third = _run(mock_datahub_graph, first.server, "run-3")
 
-    assert server.definition_reads == ["dash-1", "dash-2"]
-    assert third.report.dashboards_skipped_unchanged == 0
+    assert first.server.definition_reads == ["dash-1", "dash-2"]
+    assert third.source.report.dashboards_skipped_unchanged == 0
 
 
 def test_failed_dashboard_keeps_its_last_read(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
-    server, datahub, first = _first_run(mock_datahub_graph)
-    server.bump("dash-2")
-    server.failing_definitions.add("dash-2")
+    first = _first_run(mock_datahub_graph)
+    first.server.bump("dash-2")
+    first.server.failing_definitions.add("dash-2")
 
-    second, second_wus = _run(mock_datahub_graph, server, "run-2")
-    datahub.write(second_wus)
+    second = _run(mock_datahub_graph, first.server, "run-2")
+    first.datahub.write(second.workunits)
 
-    assert _soft_deleted_urns(second_wus) == set()
-    assert _stale_urns(second) == _stale_urns(first)
-    server.failing_definitions.clear()
-    server.definition_reads.clear()
+    assert _soft_deleted_urns(second.workunits) == set()
+    assert _stale_urns(second.source) == _stale_urns(first.source)
+    first.server.failing_definitions.clear()
+    first.server.definition_reads.clear()
 
-    _run(mock_datahub_graph, server, "run-3")
+    _run(mock_datahub_graph, first.server, "run-3")
 
-    assert server.definition_reads == ["dash-2"]
+    assert first.server.definition_reads == ["dash-2"]
 
 
 def test_per_report_shared_report_keeps_every_dashboard(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
-    server, _, first = _first_run(mock_datahub_graph, dataset_identity="per_report")
+    first = _first_run(mock_datahub_graph, dataset_identity="per_report")
+    server = first.server
 
-    unchanged, _ = _run(
-        mock_datahub_graph, server, "run-2", dataset_identity="per_report"
-    )
+    unchanged = _run(mock_datahub_graph, server, "run-2", dataset_identity="per_report")
     assert server.definition_reads == []
-    assert unchanged.report.report_datasets_skipped_unchanged == 3
-    assert _stale_urns(unchanged) == _stale_urns(first)
+    assert unchanged.source.report.report_datasets_skipped_unchanged == 3
+    assert _stale_urns(unchanged.source) == _stale_urns(first.source)
 
     server.bump("dash-2")
-    changed, changed_wus = _run(
-        mock_datahub_graph, server, "run-3", dataset_identity="per_report"
-    )
+    changed = _run(mock_datahub_graph, server, "run-3", dataset_identity="per_report")
 
     # ds-2 is re-emitted from dash-2, so dash-1 is read too for its share.
     assert server.definition_reads == ["dash-1", "dash-2"]
-    assert changed.report.dashboards_skipped_unchanged == 0
-    assert changed.report.report_datasets_skipped_unchanged == 2
-    (properties,) = _aspects(changed_wus, REPORT_DATASET_2_URN, DatasetPropertiesClass)
+    assert changed.source.report.dashboards_skipped_unchanged == 0
+    assert changed.source.report.report_datasets_skipped_unchanged == 2
+    (properties,) = _aspects(
+        changed.workunits, REPORT_DATASET_2_URN, DatasetPropertiesClass
+    )
     assert isinstance(properties, DatasetPropertiesClass)
     dashboard_ids = properties.customProperties["microstrategyDashboardIds"]
     assert sorted(dashboard_ids.split(",")) == ["dash-1", "dash-2"]
-    (schema,) = _aspects(changed_wus, REPORT_DATASET_2_URN, SchemaMetadataClass)
+    (schema,) = _aspects(changed.workunits, REPORT_DATASET_2_URN, SchemaMetadataClass)
     assert isinstance(schema, SchemaMetadataClass)
     assert "Cost Pct" in {field.fieldPath for field in schema.fields}
-    assert _soft_deleted_urns(changed_wus) == set()
-    assert _stale_urns(changed) == _stale_urns(first)
+    assert _soft_deleted_urns(changed.workunits) == set()
+    assert _stale_urns(changed.source) == _stale_urns(first.source)
 
 
 def test_default_run_does_not_stamp_or_checkpoint() -> None:
     server = _MicroStrategy()
 
-    source, workunits = _run(
-        None, server, "run-1", stateful_ingestion={"enabled": False}
-    )
+    run = _run(None, server, "run-1", stateful_ingestion={"enabled": False})
 
-    stamped = [
-        wu.get_urn()
-        for wu in workunits
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and MSTR_PROP_FINGERPRINT
-        in (getattr(wu.metadata.aspect, "customProperties", None) or {})
-    ]
-    assert stamped == []
-    assert source.report.dashboards_skipped_unchanged == 0
+    assert _stamped_urns(run.workunits) == []
+    assert run.source.report.dashboards_skipped_unchanged == 0
     assert any(
         "skip_unchanged_objects is ignored" in str(warning)
-        for warning in source.report.warnings
+        for warning in run.source.report.warnings
     )
 
 
