@@ -389,6 +389,39 @@ def test_localstack_endpoint_defaults_region_for_console_links() -> None:
     assert "region=us-east-1" in url
 
 
+def test_emulator_host_gets_region_and_console_link_consistently() -> None:
+    """A LocalStack hostname is classified once: us-east-1 region and a console link."""
+    source = make_s3_source(
+        {"include": "s3://bkt/data/*.csv"},
+        aws_config={
+            **AWS_CONFIG,
+            "aws_endpoint_url": "http://localstack.internal:4566",
+        },
+    )
+    url = source.get_external_url(make_table_data("s3://bkt/data/a.csv"))
+    assert url is not None
+    assert "region=us-east-1" in url
+
+
+@pytest.mark.parametrize(
+    "endpoint_url, has_console_link",
+    [
+        ("https://s3.example-region.example.com", False),
+        ("https://s3.us-west-2.amazonaws.com", True),
+    ],
+)
+def test_console_link_only_for_aws_endpoints(
+    endpoint_url: str, has_console_link: bool
+) -> None:
+    """Non-AWS S3-compatible endpoints have no AWS console, so no externalUrl."""
+    source = make_s3_source(
+        {"include": "s3://bkt/data/*.csv"},
+        aws_config={**AWS_CONFIG, "aws_endpoint_url": endpoint_url},
+    )
+    url = source.get_external_url(make_table_data("s3://bkt/data/a.csv"))
+    assert (url is not None) == has_console_link
+
+
 # --------------------------------------------------------------------------- #
 # Templated paths
 # --------------------------------------------------------------------------- #

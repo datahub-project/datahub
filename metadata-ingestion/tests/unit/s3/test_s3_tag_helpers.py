@@ -1,12 +1,17 @@
+from unittest.mock import patch
+
 import boto3
 import pytest
 from botocore.exceptions import ClientError
 from moto import mock_aws
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_boto_utils import (
+    S3TagReadState,
     get_bucket_tag_set,
     get_object_tag_set,
+    get_s3_tags,
 )
 
 
@@ -41,3 +46,68 @@ def test_an_untagged_bucket_raises_like_the_resource_does() -> None:
     boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="my-bucket")
     with pytest.raises(ClientError):
         get_bucket_tag_set("my-bucket", _aws())
+
+
+def test_object_tagging_not_implemented_is_skipped() -> None:
+    not_implemented = ClientError(
+        {"Error": {"Code": "NotImplemented", "Message": "not supported"}},
+        "GetObjectTagging",
+    )
+    with patch(
+        "datahub.ingestion.source.aws.s3_boto_utils.get_object_tag_set",
+        side_effect=not_implemented,
+    ):
+        tags = get_s3_tags(
+            "my-bucket",
+            "raw/a.csv",
+            "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/raw,PROD)",
+            _aws(),
+            PipelineContext(run_id="test"),
+            use_s3_object_tags=True,
+        )
+    assert tags is None
+
+
+def test_a_denied_object_tag_read_still_fails() -> None:
+    denied = ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "denied"}}, "GetObjectTagging"
+    )
+    with (
+        patch(
+            "datahub.ingestion.source.aws.s3_boto_utils.get_object_tag_set",
+            side_effect=denied,
+        ),
+        pytest.raises(ClientError),
+    ):
+        get_s3_tags(
+            "my-bucket",
+            "raw/a.csv",
+            "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/raw,PROD)",
+            _aws(),
+            PipelineContext(run_id="test"),
+            use_s3_object_tags=True,
+        )
+
+
+def test_unsupported_object_tagging_is_not_retried() -> None:
+    not_implemented = ClientError(
+        {"Error": {"Code": "NotImplemented", "Message": "not supported"}},
+        "GetObjectTagging",
+    )
+    state = S3TagReadState()
+    with patch(
+        "datahub.ingestion.source.aws.s3_boto_utils.get_object_tag_set",
+        side_effect=not_implemented,
+    ) as tag_read:
+        for key in ("raw/a.csv", "raw/b.csv"):
+            get_s3_tags(
+                "my-bucket",
+                key,
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/raw,PROD)",
+                _aws(),
+                PipelineContext(run_id="test"),
+                use_s3_object_tags=True,
+                tag_read_state=state,
+            )
+    assert not state.object_tagging_supported
+    assert tag_read.call_count == 1

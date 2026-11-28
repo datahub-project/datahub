@@ -8,6 +8,7 @@ import posixpath
 import re
 import time
 from datetime import datetime
+from enum import Enum
 from pathlib import PurePath
 from typing import (
     IO,
@@ -20,6 +21,7 @@ from typing import (
     Optional,
     Tuple,
 )
+from urllib.parse import urlparse
 
 import smart_open.compression as so_compression
 from botocore.exceptions import BotoCoreError, ClientError
@@ -43,6 +45,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import (
+    S3TagReadState,
     get_s3_tags,
     list_folders_path,
     list_objects_recursive_path,
@@ -210,6 +213,27 @@ class TableData:
     content_type: Optional[str] = None
 
 
+class S3EndpointKind(Enum):
+    AWS = "aws"
+    GCS = "gcs"
+    EMULATOR = "emulator"
+    OTHER = "other"
+
+
+def classify_s3_endpoint(endpoint_url: Optional[str]) -> S3EndpointKind:
+    """Classify aws_endpoint_url once, by hostname, for region, adapter and console-link choices."""
+    if not endpoint_url:
+        return S3EndpointKind.AWS
+    host = (urlparse(endpoint_url).hostname or "").lower()
+    if host.endswith("storage.googleapis.com"):
+        return S3EndpointKind.GCS
+    if "localstack" in host or host in ("localhost", "127.0.0.1"):
+        return S3EndpointKind.EMULATOR
+    if host.endswith(".amazonaws.com"):
+        return S3EndpointKind.AWS
+    return S3EndpointKind.OTHER
+
+
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.GA)
@@ -248,34 +272,31 @@ class S3Source(StatefulIngestionSourceBase):
         self.profiling_times_taken = []
         self.container_WU_creator = self._new_container_wu_creator()
 
+        self.tag_read_state = S3TagReadState()
+        self.endpoint_kind = classify_s3_endpoint(
+            self.source_config.aws_config.aws_endpoint_url
+            if self.source_config.aws_config
+            else None
+        )
+
         # Create an object store adapter for handling external URLs and paths
         if self.is_s3_platform():
-            # Get the AWS region from config, if available
             aws_region = None
             if self.source_config.aws_config:
                 aws_region = self.source_config.aws_config.aws_region
-
-                # For backward compatibility with tests: if we're using a test endpoint, use us-east-1
-                if self.source_config.aws_config.aws_endpoint_url and (
-                    "localstack"
-                    in self.source_config.aws_config.aws_endpoint_url.lower()
-                    or "storage.googleapis.com"
-                    in self.source_config.aws_config.aws_endpoint_url.lower()
+                # Emulator and GCS console links use the us-east-1 default region.
+                if self.endpoint_kind in (
+                    S3EndpointKind.EMULATOR,
+                    S3EndpointKind.GCS,
                 ):
                     aws_region = "us-east-1"
 
-            # Create an S3 adapter with the configured region
             self.object_store_adapter = create_object_store_adapter(
                 "s3", aws_region=aws_region
             )
 
             # Special handling for GCS via S3 (via boto compatibility layer)
-            if (
-                self.source_config.aws_config
-                and self.source_config.aws_config.aws_endpoint_url
-                and "storage.googleapis.com"
-                in self.source_config.aws_config.aws_endpoint_url.lower()
-            ):
+            if self.endpoint_kind == S3EndpointKind.GCS:
                 # We need to preserve the S3-style paths but use GCS external URL generation
                 self.object_store_adapter = create_object_store_adapter("gcs")
                 # Override create_s3_path to maintain S3 compatibility
@@ -532,6 +553,8 @@ class S3Source(StatefulIngestionSourceBase):
         Returns:
             An external URL or None if not applicable
         """
+        if self.endpoint_kind == S3EndpointKind.OTHER:
+            return None
         # The adapter handles all the URL generation with proper region handling
         return self.object_store_adapter.get_external_url(table_data)
 
@@ -664,6 +687,7 @@ class S3Source(StatefulIngestionSourceBase):
                 else None
             )
             self.report.tables_tagged += 1
+            object_tagging_supported = self.tag_read_state.object_tagging_supported
             s3_tags = get_s3_tags(
                 bucket,
                 key_prefix,
@@ -673,7 +697,17 @@ class S3Source(StatefulIngestionSourceBase):
                 self.source_config.use_s3_bucket_tags,
                 self.source_config.use_s3_object_tags,
                 self.source_config.verify_ssl,
+                tag_read_state=self.tag_read_state,
             )
+            if (
+                object_tagging_supported
+                and not self.tag_read_state.object_tagging_supported
+            ):
+                self.report.warning(
+                    message="Object storage does not support object tagging; skipping object tags for the rest of this run",
+                    context=bucket,
+                    log=False,
+                )
             if s3_tags:
                 aspects.append(s3_tags)
 
