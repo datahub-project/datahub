@@ -5,6 +5,10 @@ from typing import Dict, Final, Iterable, List, Optional, Tuple
 
 from sqlalchemy.engine.url import URL, make_url
 
+from datahub.ingestion.source.common.jdbc import (
+    normalize_jdbc_url,
+    validate_jdbc_url,
+)
 from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
     BaseConnector,
@@ -14,8 +18,6 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceReport,
     get_dataset_name,
     has_three_level_hierarchy,
-    normalize_jdbc_url,
-    validate_jdbc_url,
 )
 from datahub.ingestion.source.kafka_connect.config_constants import (
     S3_SENSITIVE_CONFIG_KEYS,
