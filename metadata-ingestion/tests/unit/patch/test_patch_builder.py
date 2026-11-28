@@ -23,9 +23,13 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GenericAspectClass,
+    InstitutionalMemoryMetadataClass,
     MetadataChangeProposalClass,
     TagAssociationClass,
     UpstreamClass,
+)
+from datahub.specific.aspect_helpers.institutional_memory import (
+    HasInstitutionalMemoryPatch,
 )
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
@@ -101,6 +105,32 @@ def test_add_tag_uses_source_first_path():
         assert "/tags//" in path or path.startswith("/tags//"), (
             f"Expected source-first path (source component before tag), got '{path}'"
         )
+
+
+def test_institutional_memory_by_url_and_label():
+    url = "https://github.com/org/repo/blob/main/a.lkml"
+    patcher = (
+        HasInstitutionalMemoryPatch(
+            make_dataset_urn(platform="hive", name="t", env="PROD")
+        )
+        .remove_institutional_memory_by_url_and_label("https://old", "View in Git")
+        .add_institutional_memory_by_url_and_label(
+            InstitutionalMemoryMetadataClass(
+                url=url,
+                description="View in Git",
+                createStamp=AuditStampClass(time=0, actor="urn:li:corpuser:a"),
+            )
+        )
+    )
+
+    mcps = patcher.build()
+    assert len(mcps) == 1
+    payload = json.loads(mcps[0].aspect.value)  # type: ignore[union-attr]
+    assert payload["arrayPrimaryKeys"] == {"elements": ["url", "description"]}
+    assert [(op["op"], op["path"]) for op in payload["patch"]] == [
+        ("remove", "/elements/https:~1~1old/View in Git"),
+        ("add", f"/elements/{url.replace('/', '~1')}/View in Git"),
+    ]
 
 
 def test_complex_dataset_patch(

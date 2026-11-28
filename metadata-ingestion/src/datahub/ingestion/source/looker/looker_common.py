@@ -20,6 +20,7 @@ from typing import (
     Union,
     cast,
 )
+from urllib.parse import unquote, urlsplit
 
 import lkml
 from looker_sdk.error import SDKError
@@ -51,7 +52,12 @@ from datahub.ingestion.source.looker.looker_config import (
     NamingPatternMapping,
     ViewNamingPatternMapping,
 )
-from datahub.ingestion.source.looker.looker_constant import IMPORTED_PROJECTS_PREFIX
+from datahub.ingestion.source.looker.looker_constant import (
+    GIT_HOST_ALIASES,
+    GIT_SCP_REMOTE_PATTERN,
+    IMPORTED_PROJECTS_PREFIX,
+    LOOKML_LINK_PATH_PATTERN,
+)
 from datahub.ingestion.source.looker.looker_dataclasses import ProjectInclude
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
@@ -202,6 +208,34 @@ def extract_project_from_imported_file_path(
     if file_path is None or not file_path.startswith(IMPORTED_PROJECTS_PREFIX):
         return None
     return file_path.split("/")[1] or None
+
+
+def lookml_file_path_from_link(lookml_link: Optional[str]) -> Optional[str]:
+    """Repo-relative path from a LookML IDE link like "/projects/p/files/views%2Fa.view.lkml?line=3"."""
+    if not lookml_link:
+        return None
+    # Anchored on the link layout, so a project named "files" is not mistaken for the marker.
+    match = LOOKML_LINK_PATH_PATTERN.match(urlsplit(lookml_link).path)
+    return unquote(match[1]) if match else None
+
+
+def https_repo_url_from_git_remote(remote: str) -> Optional[str]:
+    """https URL of a scheme:// or [user@]host:path Git remote, without credentials or port; None if malformed."""
+    try:
+        if "://" in remote:
+            parts = urlsplit(remote)
+            host, path = parts.hostname, parts.path
+        else:
+            scp_match = GIT_SCP_REMOTE_PATTERN.match(remote)
+            if not scp_match:
+                return None
+            host, path = scp_match[1].lower(), scp_match[2]
+    except ValueError:
+        return None
+    repo_path = path.strip("/").removesuffix(".git")
+    if not host or "/" not in repo_path:
+        return None
+    return f"https://{GIT_HOST_ALIASES.get(host, host)}/{repo_path}"
 
 
 @dataclass
@@ -1064,6 +1098,8 @@ class LookerExplore:
     join_definitions: Optional[List[LookerExploreJoin]] = None
     fields: Optional[List[ViewField]] = None  # the fields exposed in this explore
     source_file: Optional[str] = None
+    # Repo-relative path of the defining file; the API's source_file is only the file name.
+    lookml_file_path: Optional[str] = None
     tags: List[str] = dataclasses_field(default_factory=list)
     hidden: Optional[bool] = None
 
@@ -1410,6 +1446,7 @@ class LookerExplore:
                 ),
                 upstream_views_file_path=upstream_views_file_path,
                 source_file=explore.source_file,
+                lookml_file_path=lookml_file_path_from_link(explore.lookml_link),
                 tags=list(explore.tags) if explore.tags is not None else [],
                 hidden=explore.hidden,
                 join_definitions=join_definitions or None,

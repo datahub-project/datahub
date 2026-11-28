@@ -31,6 +31,7 @@ from looker_sdk.sdk.api40.models import (
     LookmlModel,
     LookmlModelExplore,
     LookWithQuery,
+    Project,
     Query,
     User,
     WriteQuery,
@@ -120,6 +121,7 @@ class LookerAPIStats(BaseModel):
     search_dashboards_calls: int = 0
     all_user_calls: int = 0
     generate_sql_query_calls: int = 0
+    project_calls: int = 0
 
 
 class _DataHubLookerApiSettings(looker_api_settings.ApiSettings):
@@ -313,6 +315,16 @@ class LookerAPI:
             model,
             explore_name,
             fields=self.__fields_mapper(fields) if fields else None,
+            transport_options=self.transport_options,
+        )
+
+    def project(self, project_id: str) -> Project:
+        self.client_stats.project_calls += 1
+        return self.client.project(
+            project_id,
+            fields=self.__fields_mapper(
+                ["git_remote_url", "git_production_branch_name"]
+            ),
             transport_options=self.transport_options,
         )
 
