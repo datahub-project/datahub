@@ -3,6 +3,7 @@ import { useInView } from 'react-intersection-observer';
 
 import useMetricsSidebarPagination from '@app/metrics/hooks/useMetricsSidebarPagination';
 import { MetricEntity } from '@app/metrics/metricsTypes';
+import { ROOT_METRICS_FILTER } from '@app/metrics/utils/metricsSidebarFilters';
 import {
     advanceMetricsSidebarPagination,
     mergeMetricsSidebarPaginationPage,
@@ -58,10 +59,7 @@ function buildScrollInput(
                 ...baseInput,
                 orFilters: [
                     {
-                        and: [
-                            { field: 'semanticModel', values: [modeKey] },
-                            { field: 'hasParentMetric', values: ['false'] },
-                        ],
+                        and: [{ field: 'semanticModel', values: [modeKey] }, ROOT_METRICS_FILTER],
                     },
                 ],
             },

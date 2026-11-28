@@ -162,7 +162,8 @@ public class GetRootMetricsResolverTest {
                 buildCriterion(
                     GetRootMetricsResolver.HAS_PARENT_METRIC_FIELD_NAME,
                     Condition.EQUAL,
-                    "false")));
+                    true,
+                    "true")));
     final Filter filter = new Filter();
     filter.setOr(
         new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(array))));

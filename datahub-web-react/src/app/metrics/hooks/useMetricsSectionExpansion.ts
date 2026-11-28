@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
 import { MetricEntity } from '@app/metrics/metricsTypes';
 import { METRIC_CHILDREN_COUNT } from '@app/metrics/useMetricChildren';
+import { ROOT_METRICS_FILTER } from '@app/metrics/utils/metricsSidebarFilters';
 import {
     DEFAULT_METRICS_SIDEBAR_SORT,
     MetricsSidebarSortValue,
@@ -46,10 +47,7 @@ export default function useMetricsSectionExpansion(sort: MetricsSidebarSortValue
                 parent.kind === 'model'
                     ? [
                           {
-                              and: [
-                                  { field: 'semanticModel', values: [parent.urn] },
-                                  { field: 'hasParentMetric', values: ['false'] },
-                              ],
+                              and: [{ field: 'semanticModel', values: [parent.urn] }, ROOT_METRICS_FILTER],
                           },
                       ]
                     : [{ and: [{ field: 'parentMetric', values: [parent.urn] }] }];
