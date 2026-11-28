@@ -1,0 +1,16 @@
+# Document bodies by URN, for grep_documents.
+
+query documentContent($urns: [String!]!) {
+  entities(urns: $urns) {
+    urn
+    ... on Document {
+      subType
+      info {
+        title
+        contents {
+          text
+        }
+      }
+    }
+  }
+}

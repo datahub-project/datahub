@@ -6,6 +6,7 @@ from pydantic import JsonValue
 
 from datahub_core_mcp_tools.graphql_helpers import with_datahub_client
 from datahub_core_mcp_tools.mcp_server import ToolType, register_tool
+from datahub_core_mcp_tools.openapi_client import RawVersionedBatch, VersionedAspectPair
 from datahub_core_mcp_tools.read_backend import (
     GraphQLReadBackend,
     ReadBackendBinding,
@@ -156,6 +157,47 @@ def test_a_bound_backend_replaces_graphql_reads() -> None:
 
         def aspects(self, urn: str) -> dict | None:
             return None
+
+        def entity(self, urn: str, *, include_contract: bool = False) -> None:
+            return None
+
+        def related_documents(self, urn: str, start: int, count: int) -> dict:
+            return {}
+
+        def search_entities(self, variables: dict) -> dict:
+            return {"total": 0}
+
+        def search_documents(self, variables: dict, *, semantic: bool) -> dict:
+            return {"total": 0}
+
+        def document_contents(self, urns: list[str]) -> list:
+            return []
+
+        def dataset_usage(self, urn: str, time_range: str) -> None:
+            return None
+
+        def aspect_versions(
+            self, pairs: list[VersionedAspectPair]
+        ) -> RawVersionedBatch:
+            return RawVersionedBatch(aspects={}, errors={}, http_calls=0)
+
+        def glossary_term_version(self, urn: str) -> dict | None:
+            return None
+
+        def version_set_history(self, urn: str, start: int, count: int) -> dict | None:
+            return None
+
+        def glossary_terms(self, urns: list[str]) -> list:
+            return []
+
+        def list_queries(self, variables: dict) -> dict:
+            return {}
+
+        def lineage_paths(self, variables: dict) -> dict:
+            return {}
+
+        def search_lineage(self, variables: dict) -> dict:
+            return {}
 
     workspace = Workspace()
     client = MagicMock()

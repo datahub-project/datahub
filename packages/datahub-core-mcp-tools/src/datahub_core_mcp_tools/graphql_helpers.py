@@ -12,19 +12,23 @@ import contextvars
 import functools
 import os
 import pathlib
+import re
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, Optional, TypeVar
 
 import requests
 from datahub.configuration.common import GraphError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
+from datahub.sdk.search_filters import Filter
 from fastmcp.exceptions import ToolError
 from loguru import logger
 
 from .gms_server_info import GmsServerInfo
 from .gql_compiler import MARKER_TEXT, compile_gql
+from .search_filter_parser import parse_filter_string
+from .token_estimator import estimate_dict_tokens
 from .tool_context import ToolContext
 
 GQL_DIR = pathlib.Path(__file__).parent / "gql"
@@ -61,6 +65,24 @@ DOCUMENT_CONTENT_CHAR_LIMIT = _env_limit("DOCUMENT_CONTENT_CHAR_LIMIT", 8000)
 # Every piece of per-column text (description, edited description, deprecation
 # note), so a column reads the same length whichever aspect its text came from.
 SCHEMA_FIELD_TEXT_LENGTH_LIMIT = _env_limit("FIELD_DESCRIPTION_LENGTH_LIMIT", 120)
+# Each string value of a column's structured property, and the values per property:
+# some carry long-form guidance written for agents.
+FIELD_STRUCTURED_PROPERTY_CHAR_LIMIT = _env_limit(
+    "FIELD_STRUCTURED_PROPERTY_CHAR_LIMIT", 1000
+)
+FIELD_STRUCTURED_PROPERTY_MAX_VALUES = _env_limit(
+    "FIELD_STRUCTURED_PROPERTY_MAX_VALUES", 25
+)
+# An assertion's source-defined key/value lists (run nativeResults and error
+# properties, nativeParameters, customProperties) have no size limit (compiled SQL,
+# sampled rows), so both the key count and each value are capped.
+MAX_ASSERTION_KEY_VALUE_ENTRIES = _env_limit("MAX_ASSERTION_KEY_VALUE_ENTRIES", 10)
+MAX_ASSERTION_KEY_VALUE_CHARS = _env_limit("MAX_ASSERTION_KEY_VALUE_CHARS", 200)
+# Data quality members per data contract: each carries its latest run, and a
+# contract can group hundreds of assertions.
+MAX_CONTRACT_DATA_QUALITY_ASSERTIONS = _env_limit(
+    "MAX_CONTRACT_DATA_QUALITY_ASSERTIONS", 25
+)
 # One response, kept under common MCP client output limits (about 25K tokens).
 MCP_CLIENT_OUTPUT_CHAR_BUDGET = 60000
 # All grep excerpts in one call: one match has no natural size limit.
@@ -70,6 +92,40 @@ GREP_OUTPUT_CHAR_BUDGET = _env_limit(
 TOOL_RESPONSE_TOKEN_LIMIT = _env_limit("TOOL_RESPONSE_TOKEN_LIMIT", 80000)
 # Schema fields per entity: about five entities share TOOL_RESPONSE_TOKEN_LIMIT.
 ENTITY_SCHEMA_TOKEN_BUDGET = _env_limit("ENTITY_SCHEMA_TOKEN_BUDGET", 16000)
+
+
+_T = TypeVar("_T")
+
+
+def select_results_within_budget(
+    results: Iterable[_T],
+    fetch_entity: Callable[[_T], dict],
+    max_results: int = 10,
+    token_budget: Optional[int] = None,
+) -> Iterator[_T]:
+    """The leading results whose entities fit the token budget, at most ``max_results``.
+
+    ``fetch_entity`` returns the part of a result to measure and may clean it in
+    place first, so the budget counts what is actually returned. The first result
+    is always yielded, even when it alone is over budget. The budget defaults to
+    90% of TOOL_RESPONSE_TOKEN_LIMIT: estimates are approximate and the response
+    wrapper adds to them.
+    """
+    if token_budget is None:
+        token_budget = int(TOOL_RESPONSE_TOKEN_LIMIT * 0.9)
+    total_tokens = 0
+    for index, result in enumerate(results):
+        if index >= max_results:
+            break
+        tokens = estimate_dict_tokens(fetch_entity(result))
+        if index > 0 and total_tokens + tokens > token_budget:
+            logger.info(
+                f"Stopping at {index} results: the next would exceed the "
+                f"{token_budget:,}-token budget"
+            )
+            break
+        total_tokens += tokens
+        yield result
 
 
 def truncate_with_ellipsis(
@@ -111,6 +167,58 @@ def truncate_with_ellipsis(
         if space >= budget * 0.6:
             cut = cut[:space].rstrip()
     return cut + suffix
+
+
+def parse_filter_input(filter_str: Optional[str]) -> Optional[Filter]:
+    """A tool's SQL-like ``filter`` argument as a Filter; None when it is blank."""
+    stripped = (filter_str or "").strip()
+    return parse_filter_string(stripped) if stripped else None
+
+
+def parenthesized_filter(filter_str: Optional[str]) -> Optional[str]:
+    """Wrap a caller's filter so clauses can be ANDed onto all of it.
+
+    Returns None for None or blank input. A filter such as ``a) OR (b`` parses only
+    once wrapped, and the added clauses would then constrain only its last branch,
+    so the filter must parse on its own first.
+    """
+    stripped = (filter_str or "").strip()
+    if not stripped:
+        return None
+    parse_filter_string(stripped)
+    return f"({stripped})"
+
+
+_BASE64_IMAGE = re.compile(r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+")
+_BASE64_MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\(data:image/[^)]+\)")
+
+
+def clean_gql_response(response: Any) -> Any:
+    """A GraphQL response without the noise a model doesn't need.
+
+    Recursively drops ``__typename``, None values, and lists and dicts that are
+    empty (after cleaning), and replaces base64-encoded images in descriptions,
+    which can run to megabytes, with ``[image removed]``.
+    """
+    if isinstance(response, dict):
+        cleaned_response = {}
+        for k, v in response.items():
+            if k == "__typename" or v is None or v == []:
+                continue
+            cleaned_v = clean_gql_response(v)
+            if (
+                k == "description"
+                and isinstance(cleaned_v, str)
+                and "base64" in cleaned_v
+            ):
+                cleaned_v = _BASE64_IMAGE.sub("[image removed]", cleaned_v)
+                cleaned_v = _BASE64_MARKDOWN_IMAGE.sub("[image removed]", cleaned_v)
+            if cleaned_v is not None and cleaned_v != {}:
+                cleaned_response[k] = cleaned_v
+        return cleaned_response
+    elif isinstance(response, list):
+        return [clean_gql_response(item) for item in response]
+    return response
 
 
 @functools.lru_cache(maxsize=None)

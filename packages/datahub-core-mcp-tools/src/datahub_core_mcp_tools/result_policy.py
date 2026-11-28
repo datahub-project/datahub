@@ -7,6 +7,7 @@ the sole exclusion: they are settings for the tools, never knowledge offered to
 an agent.
 """
 
+import json
 from dataclasses import dataclass
 from typing import Callable, Mapping, Protocol, Sequence
 
@@ -60,6 +61,23 @@ class ResultPolicy(Protocol):
 class ResultPolicyBinding:
     policy: ResultPolicy
     reserved_urns: tuple[str, ...] = ()
+
+
+def exclude_configuration(filter: str | None) -> str:
+    """``filter`` with configuration documents excluded, for searches that agents read."""
+    wrapped = graphql_helpers.parenthesized_filter(filter)
+    clauses = [wrapped] if wrapped else []
+    clauses.append(f"subtype != {json.dumps(POLICY_DOCUMENT_SUBTYPE)}")
+    try:
+        binding = graphql_helpers.get_mcp_context().tool_context.get(
+            ResultPolicyBinding
+        )
+    except LookupError:
+        binding = None
+    reserved = binding.reserved_urns if isinstance(binding, ResultPolicyBinding) else ()
+    for urn in dict.fromkeys((DEFAULT_POLICY_DOCUMENT_URN, *reserved)):
+        clauses.append(f"urn != {json.dumps(urn)}")
+    return " AND ".join(clauses)
 
 
 def current_decisions(urns: Sequence[str | None]) -> ResultDecisions | None:

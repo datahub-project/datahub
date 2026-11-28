@@ -1,0 +1,2100 @@
+fragment platformFields on DataPlatform {
+    urn
+    name
+    __typename
+}
+
+fragment globalTagsFields on GlobalTags {
+    tags {
+        tag {
+            urn
+            properties {
+                name
+                description
+                __typename
+            }
+            __typename
+        }
+        __typename
+    }
+    __typename
+}
+
+fragment ownershipFields on Ownership {
+    owners {
+        owner {
+            ... on CorpUser {
+                urn
+                properties {
+                    active
+                    displayName
+                    title
+                    email
+                    __typename
+                }
+                editableProperties {
+                    displayName
+                    title
+                    email
+                    __typename
+                }
+                __typename
+            }
+            ... on CorpGroup {
+                urn
+                name
+                properties {
+                    displayName
+                    email
+                    __typename
+                }
+                info {
+                    displayName
+                    email
+                    admins {
+                        urn
+                        info {
+                            active
+                            displayName
+                            title
+                            email
+                            __typename
+                        }
+                        editableInfo {
+                            teams
+                            skills
+                            __typename
+                        }
+                        __typename
+                    }
+                    members {
+                        urn
+                        properties {
+                            active
+                            displayName
+                            title
+                            email
+                            __typename
+                        }
+                        editableInfo {
+                            teams
+                            skills
+                            __typename
+                        }
+                        __typename
+                    }
+                    groups
+                    __typename
+                }
+                __typename
+            }
+            __typename
+        }
+        type
+        ownershipType {
+            urn
+            type
+            info {
+                name
+                description
+                __typename
+            }
+            status {
+                removed
+                __typename
+            }
+            __typename
+        }
+        __typename
+    }
+    __typename
+}
+fragment nonRecursiveDataFlowFields on DataFlow {
+    urn
+    orchestrator
+    flowId
+    cluster
+    properties {
+        name
+        description
+        project
+        externalUrl
+        customProperties {
+            key
+            value
+            __typename
+        }
+        __typename
+    }
+    editableProperties {
+        description
+        __typename
+    }
+    documentation { #[since cloud=0.3.4]
+        ...documentationFields
+        __typename
+    }
+    ownership {
+        ...ownershipFields
+        __typename
+    }
+    platform {
+        ...platformFields
+        __typename
+    }
+    domain {
+        ...entityDomain
+        __typename
+    }
+    ...entityDataProduct
+    deprecation {
+        ...deprecationFields
+        __typename
+    }
+    __typename
+}
+
+fragment parentNodesFields on ParentNodesResult {
+    count
+    nodes {
+        urn
+        properties {
+            name
+            __typename
+        }
+        displayProperties {
+            ...displayPropertiesFields
+            __typename
+        }
+        __typename
+    }
+    __typename
+}
+fragment glossaryTerm on GlossaryTerm {
+    urn
+    hierarchicalName
+    properties {
+        name
+        description
+        termSource
+        customProperties {
+            key
+            value
+            __typename
+        }
+        __typename
+    }
+    ownership {
+        ...ownershipFields
+        __typename
+    }
+    parentNodes {
+        ...parentNodesFields
+        __typename
+    }
+    versionProperties { #[since cloud=0.3.9]
+        versionSet { urn __typename }
+        version { versionTag __typename }
+        isLatest
+        comment
+        created { time __typename }
+        __typename
+    }
+    __typename
+}
+
+# Note: This fragment references ownershipFields and parentNodesFields fragments
+fragment glossaryTerms on GlossaryTerms {
+    terms {
+        term {
+            ...glossaryTerm
+            __typename
+        }
+        actor {
+            urn
+            __typename
+        }
+        context
+        __typename
+    }
+    __typename
+}
+fragment displayPropertiesFields on DisplayProperties {
+    icon {
+        name
+        style
+        iconLibrary
+        __typename
+    }
+    __typename
+}
+
+fragment entityDomain on DomainAssociation {
+    domain {
+        urn
+        properties {
+            name
+            description
+            __typename
+        }
+        parentDomains {
+            ...parentDomainsFields
+            __typename
+        }
+        ...domainEntitiesFields
+        displayProperties {
+            ...displayPropertiesFields
+            __typename
+        }
+        __typename
+    }
+    __typename
+}
+
+# The domain's identity only. entityDomain also pulls domainEntitiesFields: two
+# entity searches and a relationship count per entity, unbatched. Branches that
+# can come back many at a time (glossary walks, lineage) use this one instead.
+fragment entityDomainSummary on DomainAssociation {
+    domain {
+        urn
+        properties {
+            name
+        }
+    }
+}
+
+fragment entityDataProduct on Entity {
+    dataProduct: relationships(
+        input: {
+            types: ["DataProductContains"]
+            direction: INCOMING
+            start: 0
+            count: 1
+        }
+    ) {
+        relationships {
+            type
+            entity {
+                urn
+                type
+                ... on DataProduct {
+                    properties {
+                        name
+                        description
+                        __typename
+                    }
+                    domain {
+                        ...entityDomain
+                        __typename
+                    }
+                    __typename
+                }
+                __typename
+            }
+            __typename
+        }
+        __typename
+    }
+    __typename
+}
+fragment deprecationFields on Deprecation {
+    actor
+    deprecated
+    note
+    decommissionTime
+    actorEntity {
+        urn
+        type
+        ...entityDisplayNameFields
+        __typename
+    }
+    __typename
+}
+
+fragment entityDisplayNameFields on Entity {
+    urn
+    ... on Dataset {
+        properties {
+            name
+            qualifiedName
+            __typename
+        }
+        __typename
+    }
+    ... on CorpUser {
+        properties {
+            displayName
+            title
+            email
+            __typename
+        }
+        __typename
+    }
+    ... on CorpGroup {
+        properties {
+            displayName
+            __typename
+        }
+        __typename
+    }
+    ... on Dashboard {
+        properties {
+            name
+            __typename
+        }
+        __typename
+    }
+    ... on Chart {
+        properties {
+            name
+            __typename
+        }
+        __typename
+    }
+    ... on DataFlow {
+        properties {
+            name
+            __typename
+        }
+        __typename
+    }
+    ... on DataJob {
+        properties {
+            name
+            __typename
+        }
+        __typename
+    }
+    ... on GlossaryTerm {
+        hierarchicalName
+        properties {
+            name
+            __typename
+        }
+        __typename
+    }
+    ... on GlossaryNode {
+        properties {
+            name
+            description
+            __typename
+        }
+        __typename
+    }
+    ... on Domain {
+        properties {
+            name
+            __typename
+        }
+        __typename
+    }
+    ... on Container {
+        properties {
+            name
+            __typename
+        }
+        __typename
+    }
+    ... on MLFeatureTable {
+        name
+        __typename
+    }
+    ... on MLFeature {
+        name
+        __typename
+    }
+    ... on MLPrimaryKey {
+        name
+        __typename
+    }
+    ... on MLModel {
+        name
+        __typename
+    }
+    ... on MLModelGroup {
+        name
+        __typename
+    }
+    ... on Tag {
+        properties {
+            name
+            __typename
+        }
+        __typename
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+        __typename
+    }
+    ... on DataProduct {
+        properties {
+            name
+            __typename
+        }
+        __typename
+    }
+    ... on DataPlatformInstance {
+        instanceId
+        __typename
+    }
+    ... on Document {
+        info {
+            title
+            __typename
+        }
+        __typename
+    }
+    ... on Metric {
+        info {
+            name
+            __typename
+        }
+        __typename
+    }
+    ... on SemanticModel {
+        info {
+            name
+            __typename
+        }
+        __typename
+    }
+    __typename
+}
+
+fragment nonConflictingPlatformFields on DataPlatform {
+    urn
+    name
+    properties {
+        displayName
+        datasetNameDelimiter
+        __typename
+    }
+    __typename
+}
+
+fragment entityHealth on Health {
+    type
+    status
+    message
+    causes
+    __typename
+}
+
+fragment domainEntitiesFields on Domain {
+    entities(
+        input: {
+            start: 0
+            count: 0
+            filters: [
+                {
+                    field: "_entityType"
+                    negated: true
+                    values: ["DATA_PRODUCT", "DOMAIN"]
+                }
+            ]
+        }
+    ) {
+        total
+        __typename
+    }
+    dataProducts: entities(
+        input: {
+            start: 0
+            count: 0
+            filters: [{ field: "_entityType", values: ["DATA_PRODUCT"] }]
+        }
+    ) {
+        total
+        __typename
+    }
+    children: relationships(
+        input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }
+    ) {
+        total
+        __typename
+    }
+    __typename
+}
+
+fragment parentDomainsFields on ParentDomainsResult {
+    count
+    domains {
+        urn
+        type
+        ... on Domain {
+            displayProperties {
+                ...displayPropertiesFields
+                __typename
+            }
+            properties {
+                name
+                description
+                __typename
+            }
+            __typename
+        }
+        __typename
+    }
+    __typename
+}
+
+fragment entityPreview on Entity {
+    urn
+    ... on Dataset {
+        name
+        platform {
+            ...platformFields
+        }
+        editableProperties {
+            name
+            description
+        }
+        properties {
+            name
+            description
+            # The source's own link, e.g. a dbt model's file at its commit.
+            externalUrl
+            customProperties {
+                key
+                value
+            }
+            # Returned as a date (see freshness.py); GMS reports an unknown time as 0.
+            lastModified {
+                time
+            }
+        }
+        # The third source of a table description, after the two above: this is where
+        # propagation and AI generation write. Selected here rather than on
+        # `entityDetails` so every query that can return a description can return
+        # this too. `Dataset.documentation` is Cloud-only: OSS has `documentation`
+        # on SchemaFieldEntity alone, so the per-column selection needs no marker.
+        documentation { #[since cloud=0.3.4]
+            ...documentationFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        subTypes {
+            typeNames
+        }
+        # Membership of a Semantic Model Dataset: the alias inside the model and
+        # the model itself. Null on every other dataset.
+        semanticModelProperties {
+            alias
+            semanticModel {
+                urn
+                info {
+                    name
+                }
+            }
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        health {
+            ...entityHealth
+        }
+        statsSummary {
+            queryCountLast30Days
+            queryCountPercentileLast30Days #[since cloud=0.3.2]
+            queryCountRankLast30Days #[since cloud=0.3.2]
+            uniqueUserCountLast30Days
+            uniqueUserPercentileLast30Days #[since cloud=0.3.2]
+            uniqueUserRankLast30Days #[since cloud=0.3.2]
+            updateCountLast30Days #[since cloud=0.3.2]
+            updateCountPercentileLast30Days #[since cloud=0.3.2]
+            rowCount #[since cloud=0.3.2]
+            rowCountPercentile #[since cloud=0.3.2]
+            sizeInBytes #[since cloud=0.3.2]
+            sizeInBytesPercentile #[since cloud=0.3.2]
+            topUsersLast30Days {
+                urn
+                properties {
+                    active
+                    displayName
+                    email
+                    title
+                }
+                editableProperties {
+                    displayName
+                    title
+                }
+            }
+        }
+    }
+    ... on CorpUser {
+        properties {
+            active
+            displayName
+            email
+            title
+            customProperties {
+                key
+                value
+            }
+        }
+        editableProperties {
+            displayName
+            title
+        }
+        tags {
+            ...globalTagsFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on CorpGroup {
+        name
+        properties {
+            displayName
+            description
+        }
+        editableProperties {
+            description
+            email
+            slack
+        }
+        memberCount: relationships(
+            input: {
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                direction: INCOMING
+                start: 0
+                count: 1
+            }
+        ) {
+            total
+        }
+        ownership {
+            ...ownershipFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on Dashboard {
+        urn
+        type
+        tool
+        dashboardId
+        properties {
+            name
+            description
+            externalUrl
+            access
+            lastModified {
+                time
+            }
+            customProperties {
+                key
+                value
+            }
+        }
+        documentation { #[since cloud=0.3.4]
+            ...documentationFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on Chart {
+        urn
+        type
+        tool
+        chartId
+        properties {
+            name
+            description
+            externalUrl
+            type
+            access
+            lastModified {
+                time
+            }
+            customProperties {
+                key
+                value
+            }
+        }
+        documentation { #[since cloud=0.3.4]
+            ...documentationFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on DataFlow {
+        urn
+        type
+        orchestrator
+        flowId
+        cluster
+        properties {
+            name
+            description
+            project
+            customProperties {
+                key
+                value
+            }
+        }
+        documentation { #[since cloud=0.3.4]
+            ...documentationFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on DataJob {
+        urn
+        type
+        dataFlow {
+            ...nonRecursiveDataFlowFields
+        }
+        jobId
+        # The datasets the job declares it reads and writes, which lineage alone
+        # does not always show.
+        inputOutput {
+            inputDatasets {
+                urn
+                type
+                properties {
+                    name
+                }
+            }
+            outputDatasets {
+                urn
+                type
+                properties {
+                    name
+                }
+            }
+        }
+        documentation { #[since cloud=0.3.4]
+            ...documentationFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        properties {
+            name
+            description
+            customProperties {
+                key
+                value
+            }
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        editableProperties {
+            description
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on GlossaryTerm {
+        hierarchicalName
+        properties {
+            name
+            description
+            termSource
+            sourceRef
+            sourceUrl
+            rawSchema
+            customProperties {
+                key
+                value
+            }
+        }
+        deprecation {
+            ...deprecationFields
+        }
+            versionProperties { #[since cloud=0.3.9]
+            versionSet { urn }
+            version { versionTag }
+            isLatest
+            comment
+            created { time }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        domain {
+            ...entityDomainSummary
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on GlossaryNode {
+        properties {
+            name
+            description
+            customProperties {
+                key
+                value
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        domain {
+            ...entityDomainSummary
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on MLFeatureTable {
+        name
+        properties {
+            customProperties {
+                key
+                value
+            }
+        }
+        description
+        featureTableProperties {
+            description
+            mlFeatures {
+                urn
+            }
+            mlPrimaryKeys {
+                urn
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        domain {
+            ...entityDomainSummary
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLModel {
+        name
+        properties {
+            customProperties {
+                key
+                value
+            }
+        }
+        description
+        origin
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        domain {
+            ...entityDomainSummary
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLFeature {
+        name
+        properties {
+            customProperties {
+                key
+                value
+            }
+        }
+        description
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        domain {
+            ...entityDomainSummary
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLModelGroup {
+        name
+        properties {
+            customProperties {
+                key
+                value
+            }
+        }
+        origin
+        description
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        domain {
+            ...entityDomainSummary
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on Tag {
+        properties {
+            name
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+    }
+    ... on StructuredPropertyEntity {
+        definition {
+            displayName
+            description
+        }
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
+    ... on Domain {
+        urn
+        properties {
+            name
+            description
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        displayProperties {
+            ...displayPropertiesFields
+        }
+        ...domainEntitiesFields
+    }
+    ... on DataProduct {
+        urn
+        properties {
+            name
+            description
+            customProperties {
+                key
+                value
+            }
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomainSummary
+        }
+        entities(input: { start: 0, count: 20, query: "*" }) {
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                    ... on Dataset {
+                        properties {
+                            name
+                            description
+                        }
+                        platform {
+                            urn
+                            name
+                        }
+                    }
+                    ... on Dashboard {
+                        properties {
+                            name
+                            description
+                        }
+                    }
+                    ... on Chart {
+                        properties {
+                            name
+                            description
+                        }
+                    }
+                    ... on DataFlow {
+                        properties {
+                            name
+                            description
+                        }
+                    }
+                    ... on DataJob {
+                        properties {
+                            name
+                            description
+                        }
+                    }
+                    ... on Container {
+                        properties {
+                            name
+                        }
+                        platform {
+                            urn
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ... on Container {
+        ...entityDisplayNameFields
+        properties {
+            customProperties {
+                key
+                value
+            }
+        }
+        subTypes {
+            typeNames
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        domain {
+            ...entityDomainSummary
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        browsePathV2 {
+            path {
+                entity {
+                    ...entityDisplayNameFields
+                }
+            }
+        }
+    }
+    # A contract is a status plus the assertions it groups, so the arm selects each
+    # member assertion's latest completed run. `result` is Cloud-only. Never pass
+    # `refresh: true` to it: that re-runs the contract's native assertions.
+    ... on DataContract {
+        urn
+        type
+        status {
+            state
+        }
+        properties {
+            entityUrn
+            freshness {
+                assertion {
+                    ...dataContractAssertionSummary
+                }
+            }
+            schema {
+                assertion {
+                    ...dataContractAssertionSummary
+                }
+            }
+            dataQuality {
+                assertion {
+                    ...dataContractAssertionSummary
+                }
+            }
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        # Cloud's rolled-up result, not the verdict the contract tab shows: it reads
+        # PASSING when no counted member's latest result is a FAILURE, including an
+        # empty contract or one whose members only errored or never ran.
+        result { #[since cloud=0.3.4]
+            type
+            assertionResults {
+                passingCount
+                failingCount
+                errorCount
+            }
+        }
+    }
+    ... on Incident {
+        urn
+        type
+        incidentType
+        customType
+        title
+        description
+        priority
+        startedAt
+        created {
+            time
+            actor
+        }
+        incidentStatus {
+            state
+            stage
+            message
+            lastUpdated {
+                time
+                actor
+            }
+        }
+        assignees {
+            ... on CorpUser {
+                urn
+                username
+                properties {
+                    active
+                    displayName
+                    email
+                    title
+                }
+                editableProperties {
+                    displayName
+                    title
+                }
+            }
+            ... on CorpGroup {
+                urn
+                name
+                properties {
+                    displayName
+                    email
+                }
+                info {
+                    displayName
+                    email
+                }
+            }
+        }
+        entity {
+            urn
+            type
+            ... on Dataset {
+                name
+                properties {
+                    name
+                    description
+                }
+            }
+            ... on Dashboard {
+                properties {
+                    name
+                    description
+                }
+            }
+            ... on Chart {
+                properties {
+                    name
+                    description
+                }
+            }
+            ... on DataJob {
+                properties {
+                    name
+                    description
+                }
+            }
+            ... on DataFlow {
+                properties {
+                    name
+                    description
+                }
+            }
+        }
+        source {
+            type
+            source {
+                urn
+                type
+                ... on Assertion {
+                    info {
+                        description
+                    }
+                }
+            }
+        }
+        tags {
+            tags {
+                tag {
+                    urn
+                    name
+                    properties {
+                        name
+                        description
+                    }
+                }
+            }
+        }
+    }
+    ... on Document {
+        urn
+        subType
+        platform {
+            ...platformFields
+        }
+        info {
+            title
+            contents {
+                text
+            }
+            source {
+                sourceType
+                externalUrl
+            }
+            created {
+                time
+                actor {
+                    urn
+                }
+            }
+            lastModified {
+                time
+                actor {
+                    urn
+                }
+            }
+            relatedAssets {
+                asset {
+                    urn
+                    type
+                }
+            }
+            relatedDocuments {
+                document {
+                    urn
+                }
+            }
+            parentDocument {
+                document {
+                    urn
+                }
+            }
+        }
+        settings {
+            showInGlobalContext
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on Metric {
+        urn
+        type
+        platform {
+            ...platformFields
+        }
+        info {
+            name
+            description
+            externalUrl
+            expression {
+                dialects {
+                    dialect
+                    expression
+                }
+            }
+        }
+        semanticModel {
+            urn
+            type
+            ...entityDisplayNameFields
+            platform {
+                ...platformFields
+            }
+        }
+        metricRelationships {
+            derivedFrom {
+                destination {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
+            relatedMetrics {
+                destination {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
+        }
+        metricUpstreams {
+            datasetUpstreams {
+                destination {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
+            fieldUpstreams {
+                destination {
+                    urn
+                    type
+                    ... on SchemaFieldEntity {
+                        fieldPath
+                    }
+                }
+            }
+        }
+        documentation {
+            ...documentationFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+    }
+    ... on SemanticModel {
+        urn
+        type
+        platform {
+            ...platformFields
+        }
+        info {
+            name
+            description
+            externalUrl
+            nativeDefinition
+            relationships {
+                name
+                from
+                fromColumns
+                to
+                toColumns
+                cardinality
+            }
+        }
+        documentation {
+            ...documentationFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+    }
+}
+
+fragment documentationFields on Documentation {
+    documentations {
+        documentation
+        attribution {
+            # time
+            # actor {
+            #   urn
+            #   type
+            #   ...entityDisplayNameFields
+            # }
+            # source {
+            #   urn
+            #   type
+            # }
+            sourceDetail {
+                key
+                value
+            }
+        }
+    }
+}
+
+fragment businessAttribute on BusinessAttributeAssociation {
+    businessAttribute {
+        urn
+        type
+        ownership {
+            ...ownershipFields
+        }
+        properties {
+            name
+            description
+            businessAttributeDataType: type
+            lastModified {
+                time
+            }
+            created {
+                time
+            }
+            tags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
+}
+
+fragment structuredPropertyFields on StructuredPropertyEntity {
+    urn
+    definition {
+        displayName
+        qualifiedName
+    }
+    __typename
+}
+
+fragment structuredPropertyDetailsFields on StructuredPropertyEntity {
+    urn
+    type
+    definition {
+        displayName
+        qualifiedName
+        description
+        cardinality
+        immutable
+        valueType {
+            urn
+            info {
+                displayName
+            }
+        }
+        entityTypes {
+            urn
+        }
+        cardinality
+        typeQualifier {
+            allowedTypes {
+                urn
+                type
+                info {
+                    type
+                    displayName
+                }
+            }
+        }
+        allowedValues {
+            value {
+                ... on StringValue {
+                    stringValue
+                }
+                ... on NumberValue {
+                    numberValue
+                }
+            }
+            description
+        }
+        created {
+            time
+            actor {
+                urn
+                editableProperties {
+                    displayName
+                }
+                ...entityDisplayNameFields
+            }
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                editableProperties {
+                    displayName
+                }
+                ...entityDisplayNameFields
+            }
+        }
+    }
+    settings {
+        isHidden
+        showInSearchFilters
+        showAsAssetBadge
+        showInAssetSummary
+        showInColumnsTable
+    }
+}
+
+fragment structuredPropertiesFields on StructuredPropertiesEntry {
+    structuredProperty {
+        ...structuredPropertyFields
+    }
+    values {
+        ... on StringValue {
+            stringValue
+        }
+        ... on NumberValue {
+            numberValue
+        }
+    }
+    valueEntities {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+}
+
+fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
+    # Identity fields are already included outside of this fragment.
+    # urn
+    # fieldPath
+    # type
+    deprecation {
+        ...deprecationFields
+    }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    businessAttributes {
+        businessAttribute {
+            ...businessAttribute
+        }
+    }
+    # Role and expression for a column of a Semantic Model Dataset. This fragment
+    # is the per-column selection and the direct schemaField lookup, so both
+    # return the same annotation.
+    semanticFieldAnnotation {
+        type
+        aggregationFunction
+        expression {
+            dialects {
+                dialect
+                expression
+            }
+        }
+        dimension {
+            isTime
+        }
+    }
+    documentation {
+        ...documentationFields
+    }
+}
+
+fragment entitySchemaFieldFields on SchemaField {
+    fieldPath
+    label
+    jsonPath
+    nullable
+    description
+    # type
+    nativeDataType
+    recursive
+    isPartOfKey
+    isPartitioningKey
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    schemaFieldEntity {
+        ...entitySchemaFieldEntityFields
+    }
+}
+
+fragment schemaMetadataFields on SchemaMetadata {
+    createdAt
+    datasetUrn
+    name
+    platformUrn
+    cluster
+    platformSchema {
+        ... on TableSchema {
+            schema
+        }
+        ... on KeyValueSchema {
+            keySchema
+            valueSchema
+        }
+    }
+    fields {
+        ...entitySchemaFieldFields
+    }
+    primaryKeys
+    foreignKeys {
+        name
+        sourceFields {
+            fieldPath
+        }
+        foreignFields {
+            fieldPath
+        }
+        foreignDataset {
+            urn
+            name
+            type
+            properties {
+                description
+            }
+            platform {
+                ...platformFields
+            }
+            ownership {
+                ...ownershipFields
+            }
+            tags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
+}
+
+fragment datasetSchema on Dataset {
+    schemaMetadata(version: 0) {
+        ...schemaMetadataFields
+    }
+    editableSchemaMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
+            tags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
+}
+
+fragment viewProperties on Dataset {
+    viewProperties {
+        materialized
+        logic
+        # formattedLogic
+        language
+    }
+}
+
+fragment dataContractAssertionSummary on Assertion {
+    urn
+    info {
+        type
+        description
+    }
+    # PASSING, FAILING, ERROR or INIT: the per-member status the contract tab counts.
+    assertionStatus #[since cloud=0.3.17]
+    runEvents(status: COMPLETE, limit: 1) {
+        runEvents {
+            timestampMillis
+            result {
+                type
+                actualAggValue
+            }
+        }
+    }
+}
+
+fragment entityDetails on Entity {
+    ... on Dataset {
+        ...datasetSchema
+        ...viewProperties
+        # Non-null only when the dataset has siblings, so GetEntitySiblings below is
+        # sent for those datasets alone.
+        siblings {
+            isPrimary
+        }
+        # Sent only when get_entities names `contract`: the lookup walks the graph, and
+        # a failure there would fail the whole dataset read. Null when the dataset has
+        # no contract, or when the contract's graph link to the dataset is missing.
+        contract @include(if: $includeContract) {
+            urn
+            status {
+                state
+            }
+        }
+    }
+    ... on StructuredPropertyEntity {
+        ...structuredPropertyFields
+        ...structuredPropertyDetailsFields
+    }
+    ... on Container {
+        properties {
+            description
+            __typename
+        }
+        editableProperties {
+            description
+            __typename
+        }
+    }
+    ... on SchemaFieldEntity {
+        fieldPath
+        parent {
+            urn
+            type
+        }
+        ...entitySchemaFieldEntityFields
+    }
+}
+
+query GetEntity(
+    $urn: String!
+    $includeContract: Boolean = false
+) {
+    entity(urn: $urn) {
+        urn
+        ...entityPreview
+        ...entityDetails
+    }
+}
+
+# The documentation-bearing parts of a dataset's siblings, which sibling_merge.py folds
+# into the dataset. A separate operation so that only datasets with siblings pay for
+# the sibling search. The search arguments are the UI dataset page's, so the agent sees
+# the siblings a user sees.
+query GetEntitySiblings($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        ... on Dataset {
+            siblingsSearch(input: { query: "*", count: 5 }) {
+                searchResults {
+                    entity {
+                        urn
+                        ... on Dataset {
+                            siblings {
+                                isPrimary
+                            }
+                            properties {
+                                description
+                            }
+                            editableProperties {
+                                description
+                            }
+                            documentation { #[since cloud=0.3.4]
+                                ...documentationFields
+                            }
+                            tags {
+                                ...globalTagsFields
+                            }
+                            glossaryTerms {
+                                ...glossaryTerms
+                            }
+                            schemaMetadata(version: 0) {
+                                fields {
+                                    fieldPath
+                                    description
+                                    tags {
+                                        ...globalTagsFields
+                                    }
+                                    glossaryTerms {
+                                        ...glossaryTerms
+                                    }
+                                    schemaFieldEntity {
+                                        documentation {
+                                            ...documentationFields
+                                        }
+                                    }
+                                }
+                            }
+                            editableSchemaMetadata {
+                                editableSchemaFieldInfo {
+                                    fieldPath
+                                    description
+                                    tags {
+                                        ...globalTagsFields
+                                    }
+                                    glossaryTerms {
+                                        ...glossaryTerms
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+# get_lineage: one direction of an entity's lineage, each node read with the same
+# preview get_entities returns. For column lineage (a schemaField input) the nodes
+# are datasets and `paths` holds the column chains that reach them.
+query GetEntityLineage($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        total
+        facets {
+            field
+            displayName
+            aggregations {
+                value
+                count
+                entity {
+                    urn
+                }
+            }
+        }
+        searchResults {
+            entity {
+                urn
+                type
+                ...entityPreview
+            }
+            paths {
+                path {
+                    urn
+                    type
+                    ... on SchemaFieldEntity {
+                        fieldPath
+                        parent {
+                            urn
+                            type
+                        }
+                    }
+                }
+            }
+            degree
+        }
+    }
+}

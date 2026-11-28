@@ -148,7 +148,20 @@ async def test_legacy_and_modern_clients(gms: FakeGms, protocol: str) -> None:
         tools = await client.list_tools()
         result = await client.call_tool("get_me")
 
-    assert [tool.name for tool in tools] == ["get_me"]
+    assert [tool.name for tool in tools] == [
+        "get_me",
+        "search",
+        "get_lineage",
+        "get_dataset_queries",
+        "get_dataset_usage_history",
+        "get_aspect_history",
+        "get_entities",
+        "list_schema_fields",
+        "get_lineage_paths_between",
+        "search_documents",
+        "grep_documents",
+        "grep_entities",
+    ]
     assert result.data["data"]["corpUser"]["urn"] == "urn:li:corpuser:bob"
 
 

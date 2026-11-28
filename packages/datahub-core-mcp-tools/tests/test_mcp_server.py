@@ -29,7 +29,20 @@ async def test_registration_is_per_instance() -> None:
 
     register_tools(registered, is_oss=True)
 
-    assert set(await _tools(registered)) == {"get_me"}
+    assert set(await _tools(registered)) == {
+        "get_me",
+        "search",
+        "get_lineage",
+        "get_dataset_queries",
+        "get_dataset_usage_history",
+        "get_aspect_history",
+        "get_entities",
+        "list_schema_fields",
+        "get_lineage_paths_between",
+        "search_documents",
+        "grep_documents",
+        "grep_entities",
+    }
     assert await _tools(untouched) == {}
 
 
@@ -38,7 +51,24 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
     register_tools(first, is_oss=True)
     register_tools(second, is_oss=False)
 
-    assert set(await _tools(first)) == set(await _tools(second)) == {"get_me"}
+    assert (
+        set(await _tools(first))
+        == set(await _tools(second))
+        == {
+            "get_me",
+            "search",
+            "get_lineage",
+            "get_dataset_queries",
+            "get_dataset_usage_history",
+            "get_aspect_history",
+            "get_entities",
+            "list_schema_fields",
+            "get_lineage_paths_between",
+            "search_documents",
+            "grep_documents",
+            "grep_entities",
+        }
+    )
 
 
 async def test_tools_carry_tags_and_explicit_annotations() -> None:
@@ -51,6 +81,11 @@ async def test_tools_carry_tags_and_explicit_annotations() -> None:
     assert get_me.annotations.destructive_hint is False
     assert get_me.annotations.open_world_hint is False
     assert get_me.meta["fastmcp"]["tags"] == ["user"]
+
+    search = (await _tools(mcp))["search"]
+    assert search.annotations.read_only_hint is True
+    assert search.annotations.destructive_hint is False
+    assert set(search.meta["fastmcp"]["tags"]) == {"search", "trust_labeled"}
 
 
 async def test_no_proposal_tools_or_modules() -> None:

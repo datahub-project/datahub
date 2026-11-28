@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Awaitable, Callable, Collection, Optional, ParamSpec, TypeVar
 
 from anyio.lowlevel import checkpoint_if_cancelled
+from datahub.cli.env_utils import get_boolean_env_variable
 from fastmcp import FastMCP
 from loguru import logger
 from mcp.server.lowlevel.server import NotificationOptions
@@ -20,8 +21,27 @@ from .background_execution import run_in_background
 from .graphql_helpers import get_mcp_context
 from .progress_heartbeat import with_progress_heartbeat
 from .result_policy import trust_label_tags
+from .schema_matching import SchemaFieldMatcher
 from .tool_context import BackgroundExecution
+from .tools.aspect_history import get_aspect_history
+from .tools.dataset_queries import get_dataset_queries
+from .tools.dataset_usage import get_dataset_usage_history
+from .tools.documents import grep_documents, search_documents
+from .tools.entities import (
+    SchemaFieldsTool,
+    get_entities,
+    get_entities_description,
+    list_schema_fields,
+)
 from .tools.get_me import get_me
+from .tools.glossary_versioning import (
+    compare_glossary_term_versions,
+    get_glossary_term_versions,
+    is_entity_versioning_enabled,
+)
+from .tools.grep_entities import grep_entities
+from .tools.lineage import get_lineage, get_lineage_paths_between
+from .tools.search import search, search_description
 from .version_requirements import tool_annotations
 
 _P = ParamSpec("_P")
@@ -133,6 +153,7 @@ def register_tools(
     *,
     is_oss: bool,
     groups: Optional[Collection[str]] = None,
+    schema_field_matcher: Optional[SchemaFieldMatcher] = None,
 ) -> list[str]:
     """Register every DataHub tool this deployment supports on ``mcp_instance``.
 
@@ -142,6 +163,8 @@ def register_tools(
             (False). Some tools describe themselves differently on each.
         groups: Register only these tool groups (see tool_groups), plus the
             system tools every server serves. None registers every group.
+        schema_field_matcher: How the schema tools rank columns against names
+            and keywords on this server; substring matching by default.
 
     Returns:
         The names of the tools registered.
@@ -152,12 +175,79 @@ def register_tools(
     logger.info(f"Registering DataHub MCP tools (is_oss={is_oss}, groups={groups})")
     registered: list[str] = []
 
-    def add(name: str, fn: Callable, tool_type: ToolType) -> None:
+    def add(
+        name: str,
+        fn: Callable,
+        tool_type: ToolType,
+        *,
+        description: Optional[str] = None,
+        slow: bool = False,
+    ) -> None:
         if groups is not None and name not in SYSTEM_TOOL_IDS:
             if not set(groups_for_tags({tool_type.value})) & set(groups):
                 return
-        register_tool(mcp_instance, name, fn, tool_type=tool_type)
+        register_tool(
+            mcp_instance,
+            name,
+            fn,
+            tool_type=tool_type,
+            description=description,
+            slow=slow,
+        )
         registered.append(name)
 
     add("get_me", get_me, ToolType.USER)
+    add(
+        "search",
+        search,
+        ToolType.SEARCH,
+        description=search_description(is_oss=is_oss),
+    )
+    # A multi-hop walk over a large graph can take a while.
+    add("get_lineage", get_lineage, ToolType.SEARCH, slow=True)
+    add("get_dataset_queries", get_dataset_queries, ToolType.SEARCH)
+    add("get_dataset_usage_history", get_dataset_usage_history, ToolType.SEARCH)
+    # Up to ~30 rounds of batchGet, one per version stepped through.
+    add("get_aspect_history", get_aspect_history, ToolType.SEARCH, slow=True)
+    schema_tools = (
+        SchemaFieldsTool(matcher=schema_field_matcher)
+        if schema_field_matcher is not None
+        else None
+    )
+    add(
+        "get_entities",
+        schema_tools.get_entities if schema_tools else get_entities,
+        ToolType.SEARCH,
+        description=get_entities_description(is_oss=is_oss),
+    )
+    if get_boolean_env_variable("LIST_SCHEMA_FIELDS_ENABLED", default=True):
+        add(
+            "list_schema_fields",
+            schema_tools.list_schema_fields if schema_tools else list_schema_fields,
+            ToolType.SEARCH,
+        )
+    # Up to two full-depth upstream searches when the direction is not given.
+    add(
+        "get_lineage_paths_between",
+        get_lineage_paths_between,
+        ToolType.SEARCH,
+        slow=True,
+    )
+    add("search_documents", search_documents, ToolType.SEARCH)
+    # Regex over whole document bodies: many large documents can take a while.
+    add("grep_documents", grep_documents, ToolType.SEARCH, slow=True)
+    if get_boolean_env_variable("GREP_ENTITIES_ENABLED", default=True):
+        add("grep_entities", grep_entities, ToolType.SEARCH, slow=True)
+    if is_entity_versioning_enabled():
+        add("get_glossary_term_versions", get_glossary_term_versions, ToolType.SEARCH)
+        add(
+            "compare_glossary_term_versions",
+            compare_glossary_term_versions,
+            ToolType.SEARCH,
+        )
+    else:
+        logger.info(
+            "Glossary term versioning tools not registered "
+            "(ENTITY_VERSIONING_ENABLED is not set or false)"
+        )
     return registered
