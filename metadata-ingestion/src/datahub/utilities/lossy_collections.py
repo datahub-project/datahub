@@ -41,11 +41,12 @@ class LossyList(List[T], Generic[T]):
         try:
             if self.total_elements >= self.max_elements:
                 i = random.choice(range(0, self.total_elements + 1))
+                # Past max_elements the list is sampled whether or not this
+                # element replaces a kept one.
+                self.sampled = True
                 if i < self.max_elements:
-                    self.sampled = True
                     return super().__setitem__(i, (self.total_elements, __object))  # type: ignore
-                else:
-                    return
+                return
 
             return super().append((self.total_elements, __object))  # type: ignore
         finally:

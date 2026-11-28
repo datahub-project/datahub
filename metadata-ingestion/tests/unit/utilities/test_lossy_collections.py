@@ -25,6 +25,20 @@ def test_lossylist_sampling(length, sampling):
     assert sorted(list_version) == list_version
 
 
+def test_lossylist_marks_sampled_when_new_element_is_dropped(monkeypatch):
+    lossy_list: LossyList[int] = LossyList(max_elements=2)
+    lossy_list.append(0)
+    lossy_list.append(1)
+    # Reservoir sampling picks an index past the kept range, so 2 is dropped.
+    monkeypatch.setattr(random, "choice", lambda seq: seq[-1])
+    lossy_list.append(2)
+
+    assert list(lossy_list) == [0, 1]
+    assert len(lossy_list) == 3
+    assert lossy_list.sampled
+    assert "... sampled of 3 total elements" in str(lossy_list)
+
+
 @pytest.mark.parametrize("length, sampling", [(10, False), (100, True)])
 def test_lossyset_sampling(length, sampling):
     lossy_set: LossySet[str] = LossySet()
