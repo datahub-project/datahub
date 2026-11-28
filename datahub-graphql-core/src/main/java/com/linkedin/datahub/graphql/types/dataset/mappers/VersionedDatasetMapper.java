@@ -25,6 +25,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -144,7 +145,7 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
   private void mapDatasetKey(@Nonnull VersionedDataset dataset, @Nonnull DataMap dataMap) {
     final DatasetKey gmsKey = new DatasetKey(dataMap);
     dataset.setName(gmsKey.getName());
-    dataset.setOrigin(FabricType.valueOf(gmsKey.getOrigin().toString()));
+    dataset.setOrigin(UnknownEnumValues.map(FabricType.class, gmsKey.getOrigin(), FabricType.PROD));
     dataset.setPlatform(
         DataPlatform.builder()
             .setType(EntityType.DATA_PLATFORM)

@@ -47,6 +47,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.UpstreamLineagesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -243,7 +244,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
   private void mapDatasetKey(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
     final DatasetKey gmsKey = new DatasetKey(dataMap);
     dataset.setName(gmsKey.getName());
-    dataset.setOrigin(FabricType.valueOf(gmsKey.getOrigin().toString()));
+    dataset.setOrigin(UnknownEnumValues.map(FabricType.class, gmsKey.getOrigin(), FabricType.PROD));
     dataset.setPlatform(
         DataPlatform.builder()
             .setType(EntityType.DATA_PLATFORM)

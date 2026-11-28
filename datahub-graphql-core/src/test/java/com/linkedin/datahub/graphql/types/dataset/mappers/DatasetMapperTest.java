@@ -14,15 +14,19 @@ import com.linkedin.common.Edge;
 import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetProperties;
+import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
@@ -43,6 +47,33 @@ public class DatasetMapperTest {
       Urn.createFromTuple(Constants.DATASET_ENTITY_NAME, "parent");
   private static final Urn TEST_ACTOR_URN =
       Urn.createFromTuple(Constants.CORP_USER_ENTITY_NAME, "actor");
+
+  @Test
+  public void testDatasetKeyWithOriginFromNewerVersion() {
+    final DataMap key = new DataMap();
+    key.put("platform", "urn:li:dataPlatform:hive");
+    key.put("name", "my_db.my_table");
+    key.put("origin", "ENV_FROM_NEWER_VERSION");
+    final EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.DATASET_ENTITY_NAME)
+            .setUrn(TEST_DATASET_URN)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    Map.of(
+                        Constants.DATASET_KEY_ASPECT_NAME,
+                        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(key)))));
+
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+    try {
+      final Dataset actual = DatasetMapper.map(null, response);
+
+      Assert.assertEquals(actual.getName(), "my_db.my_table");
+      Assert.assertEquals(actual.getOrigin(), FabricType.PROD);
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
+  }
 
   @Test
   public void testEditablePrimaryKeysMapped() {

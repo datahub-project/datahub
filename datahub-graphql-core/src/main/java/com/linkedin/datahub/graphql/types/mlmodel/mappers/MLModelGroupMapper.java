@@ -27,6 +27,7 @@ import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapp
 import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -136,7 +137,8 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
   private static void mapToMLModelGroupKey(MLModelGroup mlModelGroup, DataMap dataMap) {
     MLModelGroupKey mlModelGroupKey = new MLModelGroupKey(dataMap);
     mlModelGroup.setName(mlModelGroupKey.getName());
-    mlModelGroup.setOrigin(FabricType.valueOf(mlModelGroupKey.getOrigin().toString()));
+    mlModelGroup.setOrigin(
+        UnknownEnumValues.map(FabricType.class, mlModelGroupKey.getOrigin(), FabricType.PROD));
     DataPlatform partialPlatform = new DataPlatform();
     partialPlatform.setUrn(mlModelGroupKey.getPlatform().toString());
     mlModelGroup.setPlatform(partialPlatform);
