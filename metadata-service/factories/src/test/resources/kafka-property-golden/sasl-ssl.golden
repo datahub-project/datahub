@@ -87,7 +87,6 @@ ssl.truststore.password=golden-test-secret
 value.deserializer=org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
 
 [consumer.kafkaConsumerPoolConsumerFactory]
-auto.commit.interval.ms=10000 (Integer)
 bootstrap.servers=[broker.example.com:9093] (List)
 enable.auto.commit=false (Boolean)
 isolation.level=read_uncommitted

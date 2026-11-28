@@ -88,7 +88,6 @@ spring.deserializer.value.delegate.class=io.confluent.kafka.serializers.KafkaAvr
 value.deserializer=org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
 
 [consumer.kafkaConsumerPoolConsumerFactory]
-auto.commit.interval.ms=10000 (Integer)
 basic.auth.credentials.source=USER_INFO
 basic.auth.user.info=registry-user:golden-test-secret
 bootstrap.servers=[http://localhost:9092] (List)
