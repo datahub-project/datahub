@@ -13,8 +13,6 @@ class SpillCache(Generic[_VT]):
         self._memory_entries = memory_entries
         self._compress = compress
         self._store = self._new_store()
-        # Counted on insert: FileBackedDict.__len__ binds one SQL variable per key.
-        self._count = 0
 
     def _new_store(self) -> FileBackedDict[_VT]:
         return FileBackedDict(
@@ -36,14 +34,10 @@ class SpillCache(Generic[_VT]):
 
     def put(self, key: str, value: _VT) -> None:
         self._store[key] = value
-        self._count += 1
 
-    def reset(self) -> int:
-        count = self._count
+    def reset(self) -> None:
         self._store.close()
         self._store = self._new_store()
-        self._count = 0
-        return count
 
     def close(self) -> None:
         self._store.close()
