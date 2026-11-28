@@ -367,6 +367,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             queries_character_limit=self.config.usage.queries_character_limit,
             region_qualifiers=self.config.region_qualifiers,
             region_qualifiers_auto_discovery=self.config.region_qualifiers_auto_discovery,
+            temp_table_dataset_prefix=self.config.temp_table_dataset_prefix,
         )
 
     def _project_in_last_state(self, project_id: str) -> bool:
