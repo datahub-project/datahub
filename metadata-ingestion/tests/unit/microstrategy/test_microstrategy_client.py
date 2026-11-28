@@ -1130,14 +1130,13 @@ def test_close_without_login_does_not_log_out(monkeypatch: MonkeyPatch) -> None:
 
 
 @pytest.mark.parametrize(
-    ("configured", "expected"),
-    [(30, 120), (300, 300)],
+    ("overrides", "expected"),
+    [({"timeout_seconds": 30}, 120), ({"model_api_timeout_seconds": 300}, 300)],
 )
-def test_model_tables_timeout_has_a_floor_above_the_default(
-    monkeypatch: MonkeyPatch, configured: int, expected: int
+def test_model_tables_use_the_model_api_timeout(
+    monkeypatch: MonkeyPatch, overrides: Dict[str, int], expected: int
 ) -> None:
-    # Four missed 30s timeouts here dropped the whole semantic model.
-    client, _ = _make_client({"timeout_seconds": configured})
+    client, _ = _make_client(overrides)
     timeouts: list[Optional[int]] = []
 
     def fake_get_json(path: str, **kwargs: Any) -> Dict[str, Any]:
@@ -1152,14 +1151,13 @@ def test_model_tables_timeout_has_a_floor_above_the_default(
 
 
 @pytest.mark.parametrize(
-    ("configured", "expected"),
-    [(30, 120), (300, 300)],
+    ("overrides", "expected"),
+    [({"timeout_seconds": 30}, 120), ({"model_api_timeout_seconds": 300}, 300)],
 )
-def test_metric_search_timeout_has_a_floor_above_the_default(
-    monkeypatch: MonkeyPatch, configured: int, expected: int
+def test_metric_search_uses_the_model_api_timeout(
+    monkeypatch: MonkeyPatch, overrides: Dict[str, int], expected: int
 ) -> None:
-    # A large project's metric search missed every 30s attempt and dropped every metric.
-    client, _ = _make_client({"timeout_seconds": configured})
+    client, _ = _make_client(overrides)
     timeouts: list[Optional[int]] = []
 
     def fake_get_json(path: str, **kwargs: Any) -> Dict[str, Any]:

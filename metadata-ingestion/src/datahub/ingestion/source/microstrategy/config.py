@@ -92,6 +92,16 @@ class MicroStrategyConfig(
         gt=0,
         description="HTTP request timeout in seconds.",
     )
+    model_api_timeout_seconds: int = Field(
+        default=120,
+        gt=0,
+        description=(
+            "HTTP timeout in seconds for the project-wide metric search and the "
+            "model tables API (`/api/model/tables`). Both answer slowly on large "
+            "projects, and losing either one skips every semantic-model metric "
+            "or the semantic model itself for that project."
+        ),
+    )
     max_retries: int = Field(
         default=3,
         ge=0,
