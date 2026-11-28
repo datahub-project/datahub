@@ -3853,7 +3853,10 @@ def _recording_urns(
 
 
 def _mark_incomplete(checkpoint: Optional[ObjectCheckpoint]) -> None:
-    if checkpoint is not None and checkpoint.outcome == MicroStrategyReadOutcome.COMPLETE:
+    if (
+        checkpoint is not None
+        and checkpoint.outcome == MicroStrategyReadOutcome.COMPLETE
+    ):
         checkpoint.outcome = MicroStrategyReadOutcome.INCOMPLETE
 
 

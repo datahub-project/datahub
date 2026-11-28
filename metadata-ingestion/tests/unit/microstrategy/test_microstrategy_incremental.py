@@ -53,7 +53,7 @@ REPORT_DATASET_2_URN = (
 REPORT_1_DATASET_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.report-1,PROD)"
 )
-WAREHOUSE = {
+WAREHOUSE: Dict[str, object] = {
     "id": "source-1",
     "name": "Sales Warehouse",
     "database": {
@@ -654,9 +654,7 @@ def test_model_table_change_reads_everything(
     first = _first_run(mock_datahub_graph, extract_model_lineage=True)
     first.server.model_tables[0]["physicalTable"] = {"tableName": "ORDERS_V2"}
 
-    second = _run(
-        mock_datahub_graph, first.server, "run-2", extract_model_lineage=True
-    )
+    second = _run(mock_datahub_graph, first.server, "run-2", extract_model_lineage=True)
 
     assert first.server.definition_reads == ["dash-1", "dash-2"]
     assert second.source.report.dashboards_skipped_unchanged == 0
@@ -750,9 +748,7 @@ def test_report_read_without_its_sql_view_is_read_again(
     server = _MicroStrategy()
     server.failing_sql_views = True
     datahub = _DataHub(mock_datahub_graph)
-    first = _run(
-        mock_datahub_graph, server, "run-1", dataset_identity=dataset_identity
-    )
+    first = _run(mock_datahub_graph, server, "run-1", dataset_identity=dataset_identity)
     datahub.write(first.workunits)
     assert REPORT_CHART_URN not in _stamped_urns(first.workunits)
     server.failing_sql_views = False
