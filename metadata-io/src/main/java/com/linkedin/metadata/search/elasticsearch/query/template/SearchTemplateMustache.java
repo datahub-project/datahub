@@ -187,6 +187,7 @@ public final class SearchTemplateMustache {
         Collections.nCopies(SearchTemplateNormalizationPolicy.MAX_SYNONYM_CAP, "production");
     context.put(SearchTemplateContextVariables.SYNONYM_QUERIES, synonyms);
     context.put(SearchTemplateContextVariables.SYNONYMS, synonymElements(synonyms));
+    context.put(SearchTemplateContextVariables.EXACT_SYNONYMS, synonymElements(synonyms));
     context.put(SearchTemplateContextVariables.SYNONYM_PRIORITY, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.MULTI_WORD, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.LONG_QUERY, Boolean.TRUE);

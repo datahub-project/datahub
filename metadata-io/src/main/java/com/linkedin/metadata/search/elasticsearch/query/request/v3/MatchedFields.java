@@ -5,6 +5,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Legac
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchHitMatches;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSynonyms;
 import com.linkedin.metadata.search.utils.ESUtils;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -15,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -36,9 +38,12 @@ import org.tartarus.snowball.ext.EnglishStemmer;
  * would cost every write. A field matches when one of its words stems to the same word as a word of
  * the query, as the shared fields' {@code stemmed} subfields do, or starts with the last word of
  * the query, as their phrase prefix does; an identifier such as {@code customer_id} also matches by
- * its parts, as the analyzers index them. This is best effort: synonyms are not applied, words are
- * split on what is not a letter, a digit or an underscore even when a main tokenizer is configured,
- * and as on V2 only the first matching value of a field is reported.
+ * its parts, as the analyzers index them. A one-word synonym of the query or of one of its words,
+ * from the equivalence lines of the synonym files, matches a word with the same stem, but a field
+ * reports it only when no typed word matched that field. This is best effort: multi-word synonyms
+ * and explicit synonym rules are not applied, words are split on what is not a letter, a digit or
+ * an underscore even when a main tokenizer is configured, and as on V2 only the first matching
+ * value of a field is reported.
  *
  * <p>One instance serves one query, for the hits of one response, from one thread.
  */
@@ -59,6 +64,8 @@ public final class MatchedFields {
   private final int minWordLength;
   private final EnglishStemmer stemmer = new EnglishStemmer();
   private final Set<String> queryStems;
+  // Stems of one-word synonyms of the query or of its words, matched after the typed words
+  private final Set<String> synonymStems;
   // The forms of the query's last word, which match as a prefix
   private final List<String> lastQueryForms;
   private final List<String> queryTokens;
@@ -73,8 +80,12 @@ public final class MatchedFields {
     this.minWordLength = minWordLength;
     final List<List<String>> queryWords = new ArrayList<>();
     final List<String> tokens = new ArrayList<>();
+    // The analyzers fold each word and expand its synonyms before they drop short words, so the
+    // lookup reads every folded word, without quotes or punctuation
+    final List<String> foldedWords = new ArrayList<>();
     final Matcher matcher = WORD.matcher(query);
     while (matcher.find()) {
+      foldedWords.add(fold(matcher.group()));
       final List<String> wordForms = forms(matcher.group());
       if (!wordForms.isEmpty()) {
         queryWords.add(wordForms);
@@ -83,6 +94,22 @@ public final class MatchedFields {
     }
     this.queryStems =
         queryWords.stream().flatMap(List::stream).map(this::stem).collect(Collectors.toSet());
+    // The analyzers expand synonyms, so a document that holds a synonym matched the query. A
+    // multi-word synonym matches only as a phrase, which this word scan cannot check, so it is left
+    // out rather than matching each of its words alone.
+    final Set<String> synonymStems = new HashSet<>();
+    for (String synonym : SearchTemplateSynonyms.expansions(String.join(" ", foldedWords))) {
+      final Matcher synonymWords = WORD.matcher(synonym);
+      final List<String> words = new ArrayList<>();
+      while (synonymWords.find()) {
+        words.add(synonymWords.group());
+      }
+      if (words.size() == 1) {
+        forms(words.get(0)).forEach(form -> synonymStems.add(stem(form)));
+      }
+    }
+    synonymStems.removeAll(queryStems);
+    this.synonymStems = Set.copyOf(synonymStems);
     this.lastQueryForms = queryWords.isEmpty() ? List.of() : queryWords.get(queryWords.size() - 1);
     this.queryWordForms = List.copyOf(queryWords);
     this.queryTokens = List.copyOf(tokens);
@@ -96,8 +123,9 @@ public final class MatchedFields {
   }
 
   /**
-   * One pass over the fetched values. Each field stops at its first match. The explanation is
-   * filled only when {@code includeExplain} is set, from that same match.
+   * Each fetched path stops at its first match, reported under {@code names}. A path whose value
+   * holds only a synonym is left out when another path of the same name holds a typed word. The
+   * explanation is filled only when {@code includeExplain} is set, from the same matches.
    */
   @Nonnull
   public SearchHitMatches matches(
@@ -105,27 +133,91 @@ public final class MatchedFields {
       @Nonnull final Collection<String> fields,
       @Nonnull final Map<String, String> names,
       final boolean includeExplain) {
-    if (lastQueryForms.isEmpty()) {
+    final List<Map.Entry<String, List<String>>> groups = new ArrayList<>();
+    for (String field : fields) {
+      groups.add(Map.entry(names.getOrDefault(field, field), List.of(field)));
+    }
+    return scan(source, groups, includeExplain);
+  }
+
+  /**
+   * One value per name, from the paths listed for it in order: the first value that holds a typed
+   * word, else the first that holds only a synonym. A path can be listed under more than one name.
+   */
+  @Nonnull
+  public SearchHitMatches firstPerName(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final Map<String, List<String>> pathsByName,
+      final boolean includeExplain) {
+    return scan(source, List.copyOf(pathsByName.entrySet()), includeExplain);
+  }
+
+  /**
+   * Typed words first, across every group of a name, then synonyms for the names that no typed word
+   * matched. Typed matches are reported ahead of synonym-only ones, so a caller that reads the
+   * first value of several names gets a typed one when there is one.
+   */
+  @Nonnull
+  private SearchHitMatches scan(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final List<Map.Entry<String, List<String>>> groups,
+      final boolean includeExplain) {
+    if (!hasQueryWords()) {
       return SearchHitMatches.EMPTY;
+    }
+    final List<ValueMatch> found = new ArrayList<>();
+    final Set<String> typed = new HashSet<>();
+    for (Map.Entry<String, List<String>> group : groups) {
+      final ValueMatch match = firstValue(source, group.getValue(), false);
+      found.add(match);
+      if (match != null) {
+        typed.add(group.getKey());
+      }
     }
     final List<MatchedField> matchedFields = new ArrayList<>();
     final List<MatchEvidence> evidence = new ArrayList<>();
-    for (String field : fields) {
-      final String reported = names.getOrDefault(field, field);
-      for (Object value : values(at(source, field))) {
-        final String text = String.valueOf(value);
-        final int match = firstMatch(text);
-        if (match >= 0) {
-          matchedFields.add(new MatchedField().setName(reported).setValue(fragment(text, match)));
-          if (includeExplain) {
-            evidence.add(evidence(reported, text, match));
-          }
-          break;
+    final List<MatchedField> synonymFields = new ArrayList<>();
+    final List<MatchEvidence> synonymEvidence = new ArrayList<>();
+    for (int i = 0; i < groups.size(); i++) {
+      final String name = groups.get(i).getKey();
+      ValueMatch match = found.get(i);
+      final boolean synonymOnly = match == null && !synonymStems.isEmpty() && !typed.contains(name);
+      if (synonymOnly) {
+        match = firstValue(source, groups.get(i).getValue(), true);
+      }
+      if (match != null) {
+        (synonymOnly ? synonymFields : matchedFields)
+            .add(new MatchedField().setName(name).setValue(fragment(match.text(), match.start())));
+        if (includeExplain) {
+          (synonymOnly ? synonymEvidence : evidence)
+              .add(evidence(name, match.text(), match.start()));
         }
       }
     }
+    matchedFields.addAll(synonymFields);
+    evidence.addAll(synonymEvidence);
     return new SearchHitMatches(matchedFields, evidence);
   }
+
+  /** The first value along {@code paths} that holds a typed word, or a synonym when asked. */
+  @Nullable
+  private ValueMatch firstValue(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final List<String> paths,
+      final boolean synonyms) {
+    for (String path : paths) {
+      for (Object value : values(at(source, path))) {
+        final String text = String.valueOf(value);
+        final int start = synonyms ? firstSynonymMatch(text) : firstMatch(text);
+        if (start >= 0) {
+          return new ValueMatch(text, start);
+        }
+      }
+    }
+    return null;
+  }
+
+  private record ValueMatch(@Nonnull String text, int start) {}
 
   /**
    * {@code names} reports a fetched path under another name. A nulled URN label is fetched from the
@@ -173,7 +265,10 @@ public final class MatchedFields {
     return MatchEvidence.WORD.equals(mode) ? field + V3SearchFields.STEMMED_SUFFIX : field;
   }
 
-  /** The query token whose stem or prefix matched, or the whole query when none is found. */
+  /**
+   * The query token whose stem or prefix matched, or the whole query when none is found, as for a
+   * synonym.
+   */
   @Nonnull
   private String queryWord(@Nonnull final String text) {
     final Matcher matcher = WORD.matcher(text);
@@ -223,9 +318,9 @@ public final class MatchedFields {
     return current;
   }
 
-  /** Whether the query has a word a field could match. */
+  /** Whether the query has a word, or a synonym of one, that a field could match. */
   public boolean hasQueryWords() {
-    return !lastQueryForms.isEmpty();
+    return !lastQueryForms.isEmpty() || !synonymStems.isEmpty();
   }
 
   /**
@@ -237,6 +332,19 @@ public final class MatchedFields {
     while (matcher.find()) {
       for (String form : forms(matcher.group())) {
         if (lastQueryForms.stream().anyMatch(form::startsWith) || queryStems.contains(stem(form))) {
+          return matcher.start();
+        }
+      }
+    }
+    return -1;
+  }
+
+  /** Where the first word that is a synonym of a query word starts, or -1. */
+  private int firstSynonymMatch(@Nonnull final String text) {
+    final Matcher matcher = WORD.matcher(text);
+    while (matcher.find()) {
+      for (String form : forms(matcher.group())) {
+        if (synonymStems.contains(stem(form))) {
           return matcher.start();
         }
       }

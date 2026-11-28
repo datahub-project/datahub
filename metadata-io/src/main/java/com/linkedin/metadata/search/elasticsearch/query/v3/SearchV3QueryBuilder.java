@@ -817,6 +817,15 @@ public class SearchV3QueryBuilder {
           SearchTemplateContextVariables.SYNONYMS,
           SearchTemplateMustache.synonymElements(synonyms));
     }
+    List<String> exactSynonyms = shape.exactSynonyms;
+    if (synonymCap < exactSynonyms.size()) {
+      exactSynonyms = synonymCap <= 0 ? List.of() : exactSynonyms.subList(0, synonymCap);
+    }
+    if (!exactSynonyms.isEmpty()) {
+      context.put(
+          SearchTemplateContextVariables.EXACT_SYNONYMS,
+          SearchTemplateMustache.synonymElements(exactSynonyms));
+    }
     if (shape.wildcardTerm != null) {
       context.put(SearchTemplateContextVariables.WILDCARD_TERM, shape.wildcardTerm);
     }

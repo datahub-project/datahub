@@ -5,7 +5,9 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.search.MatchedField;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.testng.annotations.Test;
@@ -81,6 +83,114 @@ public class MatchedFieldsTest {
     assertTrue(new MatchedFields("dbs", 0).find(Map.of("name", "db"), List.of("name")).isEmpty());
     assertTrue(
         new MatchedFields("card", 0).find(Map.of("name", "car rental"), List.of("name")).isEmpty());
+  }
+
+  /** A synonym from the analyzers' synonym files matches a field, as it matched the document. */
+  @Test
+  public void testSynonymsOfTheQueryMatch() {
+    Map<String, Object> source = Map.of("name", "stg_orders");
+    // stg and staging are one equivalence line in the synonym file; neither is a prefix or stem
+    // of the other
+    assertEquals(
+        names(new MatchedFields("staging", 0).find(source, List.of("name"))), List.of("name"));
+    assertEquals(
+        names(new MatchedFields("staging events", 0).find(source, List.of("name"))),
+        List.of("name"));
+    assertTrue(new MatchedFields("development", 0).find(source, List.of("name")).isEmpty());
+  }
+
+  /**
+   * Synonyms are looked up on the folded words of the query, before short words are dropped, as the
+   * analyzers expand them. A synonym match is a word match on the stemmed subfield.
+   */
+  @Test
+  public void testSynonymsOfShortAndQuotedWordsMatch() {
+    // s3 and s_3 are one equivalence line; s3 is shorter than the minimum word length
+    MatchedFields shortWord = new MatchedFields("s3", 3);
+    assertTrue(shortWord.hasQueryWords());
+    assertEquals(names(shortWord.find(Map.of("name", "s_3"), List.of("name"))), List.of("name"));
+    MatchedFields quoted = new MatchedFields("\"STG\"", 0);
+    List<MatchEvidence> evidence =
+        quoted.explain(Map.of("name", "staging"), List.of("name"), Map.of());
+    assertEquals(evidence.size(), 1);
+    assertEquals(evidence.get(0).mode(), MatchEvidence.WORD);
+    assertEquals(evidence.get(0).subfield(), "name" + V3SearchFields.STEMMED_SUFFIX);
+  }
+
+  /** A multi-word synonym matches only as a phrase, so its words alone do not report a field. */
+  @Test
+  public void testMultiWordSynonymWordsDoNotMatchAlone() {
+    // "dataplatform" and "data platform" are one equivalence line in the synonym file
+    assertTrue(
+        new MatchedFields("dataplatform", 3)
+            .find(Map.of("name", "customer_data"), List.of("name"))
+            .isEmpty());
+  }
+
+  /**
+   * Across the paths that report one name, a typed match is reported ahead of a synonym-only one.
+   * Typed matches on several paths of a name are all kept.
+   */
+  @Test
+  public void testTypedWordsWinAcrossThePathsOfOneName() {
+    Map<String, Object> source = new HashMap<>();
+    source.put("name", "stg_orders");
+    source.put("editedName", "Staging Orders");
+    List<String> paths = List.of("name", "editedName");
+    Map<String, String> names = Map.of("editedName", "name");
+    List<MatchedField> perPath = new MatchedFields("staging", 0).find(source, paths, names);
+    assertEquals(perPath.size(), 1);
+    assertEquals(perPath.get(0).getValue(), "Staging Orders");
+    List<MatchedField> perName =
+        new MatchedFields("staging", 0)
+            .firstPerName(source, Map.of("name", paths), false)
+            .matched();
+    assertEquals(perName.size(), 1);
+    assertEquals(perName.get(0).getName(), "name");
+    assertEquals(perName.get(0).getValue(), "Staging Orders");
+    source.put("name", "staging_orders");
+    assertEquals(new MatchedFields("staging", 0).find(source, paths, names).size(), 2);
+  }
+
+  /**
+   * Values that hold a typed word are reported ahead of synonym-only ones, so the first of several
+   * names is a typed match when there is one.
+   */
+  @Test
+  public void testTypedMatchesAreReportedBeforeSynonymOnlyOnes() {
+    // prod and production are one equivalence line; the key holds only the synonym
+    Map<String, Object> source = new HashMap<>();
+    source.put("name", "prod-oncall");
+    source.put("displayName", "Production Support");
+    assertEquals(
+        names(
+            new MatchedFields("production support", 0)
+                .find(source, List.of("name", "displayName"))),
+        List.of("displayName", "name"));
+  }
+
+  /** A path listed under two names reports both. */
+  @Test
+  public void testAPathListedUnderTwoNamesReportsBoth() {
+    Map<String, List<String>> pathsByName = new LinkedHashMap<>();
+    pathsByName.put("name", List.of("name", "alias"));
+    pathsByName.put("alias", List.of("alias"));
+    List<MatchedField> matched =
+        new MatchedFields("orders", 0)
+            .firstPerName(Map.of("name", "unrelated", "alias", "orders_term"), pathsByName, false)
+            .matched();
+    assertEquals(names(matched), List.of("name", "alias"));
+    assertEquals(matched.get(0).getValue(), "orders_term");
+  }
+
+  /** A value holding a typed word is reported ahead of one that holds only a synonym. */
+  @Test
+  public void testTypedWordsWinOverSynonyms() {
+    List<MatchedField> tags =
+        new MatchedFields("staging", 0)
+            .find(Map.of("tags", List.of("stg", "staging")), List.of("tags"));
+    assertEquals(tags.size(), 1);
+    assertEquals(tags.get(0).getValue(), "staging");
   }
 
   /**

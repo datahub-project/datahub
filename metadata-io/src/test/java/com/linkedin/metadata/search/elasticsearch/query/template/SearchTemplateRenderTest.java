@@ -48,6 +48,7 @@ import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateLadder;
 import com.linkedin.search.template.SearchTemplateLadderStop;
 import com.linkedin.search.template.SearchTemplateLadderStopArray;
+import com.linkedin.search.template.SearchTemplateNormalization;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRanking;
 import com.linkedin.search.template.SearchTemplateRetrieval;
@@ -193,6 +194,31 @@ public class SearchTemplateRenderTest {
     assertTrue(bool.get("filter").toString().contains("\"removed\""));
     assertTrue(should.contains(harness.property("certification.status").fieldPath()));
     assertFalse(should.contains(harness.property("certification.status").fieldPath() + ".keyword"));
+  }
+
+  /** exactSynonyms holds the whole query's synonyms and leaves out each word's. */
+  @Test
+  public void testExactSynonymsLeaveOutWordSynonyms() {
+    SearchTemplateProperties properties =
+        template(
+            "ExactSynonyms",
+            "{ \"bool\": { \"should\": [ { \"term\": { \"urn\": \"{{unquoted}}\" } }"
+                + " {{#exactSynonyms}}, { \"term\": { \"urn\": \"{{synonym}}\" } }{{/exactSynonyms}} ] } }");
+    harness.store("urn:li:searchTemplate:exactSynonyms", properties);
+    assertTrue(render("urn:li:searchTemplate:exactSynonyms", "prod", true).contains("production"));
+    assertFalse(
+        render("urn:li:searchTemplate:exactSynonyms", "prod orders", true).contains("production"));
+    SearchTemplateProperties capped =
+        template(
+            "ExactSynonymsCapped",
+            "{ \"bool\": { \"should\": [ { \"term\": { \"urn\": \"{{unquoted}}\" } }"
+                + " {{#exactSynonyms}}, { \"term\": { \"urn\": \"{{synonym}}\" } }{{/exactSynonyms}} ] } }");
+    SearchTemplateNormalization noSynonyms = new SearchTemplateNormalization();
+    noSynonyms.setSynonymCap(0);
+    capped.setNormalization(noSynonyms);
+    harness.store("urn:li:searchTemplate:exactSynonymsCapped", capped);
+    assertFalse(
+        render("urn:li:searchTemplate:exactSynonymsCapped", "prod", true).contains("production"));
   }
 
   @Test

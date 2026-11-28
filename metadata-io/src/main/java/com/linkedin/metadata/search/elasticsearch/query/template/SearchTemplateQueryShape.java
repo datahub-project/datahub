@@ -48,6 +48,9 @@ public final class SearchTemplateQueryShape {
   public final String fqnQuery;
   public final List<String> synonyms;
 
+  /** Synonyms of the whole query only, without each word's. */
+  public final List<String> exactSynonyms;
+
   /**
    * A dotted query with no whitespace, at least two non-empty segments, and not a URN or storage
    * path. Cranfield sentences that end in a period are not this shape.
@@ -83,6 +86,7 @@ public final class SearchTemplateQueryShape {
       String letterDigitQuery,
       String fqnQuery,
       List<String> synonyms,
+      List<String> exactSynonyms,
       boolean spacelessDotted,
       String terminalSegment,
       List<String> qualifierSegments) {
@@ -108,6 +112,7 @@ public final class SearchTemplateQueryShape {
     this.letterDigitQuery = letterDigitQuery;
     this.fqnQuery = fqnQuery;
     this.synonyms = synonyms;
+    this.exactSynonyms = exactSynonyms;
     this.spacelessDotted = spacelessDotted;
     this.terminalSegment = terminalSegment;
     this.qualifierSegments = qualifierSegments;
@@ -170,6 +175,7 @@ public final class SearchTemplateQueryShape {
         letterDigit ? normalized : null,
         fqnQuery,
         SearchTemplateSynonyms.expansions(raw),
+        SearchTemplateSynonyms.wholeQuery(raw),
         spacelessDotted,
         spacelessDotted ? dottedSegments.get(dottedSegments.size() - 1) : null,
         spacelessDotted
