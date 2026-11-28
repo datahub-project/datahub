@@ -78,7 +78,6 @@ com.linkedin.gms.factory.search.CachingEvictionServiceFactory
 com.linkedin.gms.factory.search.ClusterMigrationMirrorLiveMarkerFactory
 com.linkedin.gms.factory.search.EntitySearchServiceFactory
 com.linkedin.gms.factory.search.LineageSearchServiceFactory
-com.linkedin.gms.factory.search.SearchClusterRegistryFactory
 com.linkedin.gms.factory.search.SearchDocumentTransformerFactory
 com.linkedin.gms.factory.search.SearchServiceFactory
 com.linkedin.gms.factory.search.SemanticSearchServiceFactory

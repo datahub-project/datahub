@@ -199,6 +199,11 @@ public class MirroredESBulkProcessor extends ESBulkProcessor {
   }
 
   @Override
+  public void close(@Nonnull Duration budget) {
+    flush();
+  }
+
+  @Override
   public boolean isAckAfterTransfer() {
     return serving.isAckAfterTransfer() || target.isAckAfterTransfer();
   }

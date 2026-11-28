@@ -57,7 +57,19 @@ public class BulkItemRequeueSupport {
         request.id(),
         attempt,
         maxAttempts);
-    requeueCallback.accept(request);
+    try {
+      requeueCallback.accept(request);
+    } catch (RuntimeException e) {
+      // Typically the processor closed during shutdown. Bulk callbacks must not throw, so the
+      // caller records the item as terminal instead.
+      attemptsByKey.remove(key);
+      log.warn(
+          "Bulk item requeue failed for index [{}] id [{}]: {}",
+          request.index(),
+          request.id(),
+          e.toString());
+      return false;
+    }
     return true;
   }
 

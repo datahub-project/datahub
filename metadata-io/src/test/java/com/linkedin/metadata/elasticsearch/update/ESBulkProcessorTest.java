@@ -10,8 +10,11 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeoutException;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.bulk.BulkResponse;
@@ -406,6 +409,49 @@ public class ESBulkProcessorTest {
     ESBulkProcessor processor = ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).build();
     processor.close();
     // Verify close doesn't throw exception
+  }
+
+  @Test
+  public void testCloseWaitsForPendingWritesBeforeClosingProcessors() throws Exception {
+    when(mockSearchClient.claimBulkProcessorClose()).thenReturn(true);
+    ESBulkProcessor processor =
+        ESBulkProcessor.builder(mockSearchClient, mockMetricUtils)
+            .closeTimeout(java.time.Duration.ofSeconds(7))
+            .build();
+
+    processor.close();
+
+    InOrder order = inOrder(mockSearchClient);
+    order.verify(mockSearchClient).claimBulkProcessorClose();
+    order.verify(mockSearchClient).closeBulkProcessorWithin(7000L);
+    order.verify(mockSearchClient).drainBulkTransferFailures();
+  }
+
+  @Test
+  public void testCloseTimeoutLogsUnconfirmedItemsAndStillDrainsFailures() throws Exception {
+    when(mockSearchClient.claimBulkProcessorClose()).thenReturn(true);
+    doThrow(new TimeoutException("pending"))
+        .when(mockSearchClient)
+        .closeBulkProcessorWithin(anyLong());
+    when(mockSearchClient.pendingBulkItems()).thenReturn(List.of("my_index/doc-1"));
+    ESBulkProcessor processor = ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).build();
+
+    processor.close(java.time.Duration.ofMillis(10));
+
+    verify(mockSearchClient).pendingBulkItems();
+    verify(mockSearchClient).drainBulkTransferFailures();
+  }
+
+  @Test
+  public void testCloseIsNoOpWhenAnotherProcessorAlreadyClaimedTheClient() throws Exception {
+    when(mockSearchClient.claimBulkProcessorClose()).thenReturn(false);
+    ESBulkProcessor processor = ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).build();
+
+    processor.close();
+
+    verify(mockSearchClient, never()).closeBulkProcessorWithin(anyLong());
+    verify(mockSearchClient, never()).flushBulkProcessor();
+    verify(mockSearchClient, never()).closeBulkProcessor();
   }
 
   @Test

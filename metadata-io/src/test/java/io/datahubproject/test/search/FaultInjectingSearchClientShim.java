@@ -537,6 +537,33 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   }
 
   @Override
+  public void closeBulkProcessorWithin(long timeoutMillis)
+      throws InterruptedException, java.util.concurrent.TimeoutException {
+    delegate.closeBulkProcessorWithin(timeoutMillis);
+  }
+
+  @Override
+  public boolean claimBulkProcessorClose() {
+    return delegate.claimBulkProcessorClose();
+  }
+
+  @Override
+  public boolean hasReceivedBulkWrites() {
+    return delegate.hasReceivedBulkWrites();
+  }
+
+  @Override
+  public int pendingBulkWriteCount() {
+    return delegate.pendingBulkWriteCount();
+  }
+
+  @Override
+  @Nonnull
+  public java.util.List<String> pendingBulkItems() {
+    return delegate.pendingBulkItems();
+  }
+
+  @Override
   @Nonnull
   public Object getNativeClient() {
     return delegate.getNativeClient();

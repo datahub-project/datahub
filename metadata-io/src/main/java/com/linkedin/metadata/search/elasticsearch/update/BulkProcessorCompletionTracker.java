@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.update;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import com.linkedin.metadata.service.SearchIndexFailureClassifier;
 import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -642,6 +643,26 @@ public final class BulkProcessorCompletionTracker {
 
   private static long remainingNanos(long startNanos, long timeoutNanos) {
     return Math.max(0, timeoutNanos - (System.nanoTime() - startNanos));
+  }
+
+  /**
+   * {@code index/id} of writes still awaiting a bulk outcome. Writes a timed-out drain already gave
+   * up on are no longer tracked here, so this can be a subset of what is still pending overall.
+   */
+  @Nonnull
+  public List<String> pendingItemKeys() {
+    lock.lock();
+    try {
+      List<String> keys = new ArrayList<>(submissions.size());
+      for (Submission submission : submissions.values()) {
+        if (submission.outcome == Outcome.PENDING) {
+          keys.add(submission.request.index() + "/" + submission.request.id());
+        }
+      }
+      return keys;
+    } finally {
+      lock.unlock();
+    }
   }
 
   int outstandingOperations() {

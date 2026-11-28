@@ -36,6 +36,12 @@ public class BulkProcessorConfiguration {
   private int ackAfterTransferTimeoutSeconds;
 
   /**
+   * Upper bound at shutdown for waiting on in-flight bulks before the client closes. Keep it below
+   * the pod termination grace period. Zero or negative uses the built-in default of 30 seconds.
+   */
+  private int closeTimeoutSeconds;
+
+  /**
    * Socket timeout in seconds for OpenSearch {@code RequestOptions} on by-query class operations
    * (delete/update-by-query, etc.). Same value for GMS and MAE processes; MAE-only tuning applies
    * to RestClient ({@code maeConsumer.elasticsearch.*}), not this setting. Not used for
