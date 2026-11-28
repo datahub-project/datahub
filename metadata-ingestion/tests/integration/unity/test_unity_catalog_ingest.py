@@ -1801,3 +1801,61 @@ def test_include_tables_false_skips_tables(pytestconfig, tmp_path, requests_mock
     urns = _run_view_filter_pipeline(tmp_path, requests_mock, {"include_tables": False})
     assert not any("my_table" in urn for urn in urns)
     assert any("my_view" in urn for urn in urns)
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_metric_view_ingestion_semantic_model(pytestconfig, tmp_path, requests_mock):
+    from databricks.sdk.service.catalog import TableType
+
+    if not hasattr(TableType, "METRIC_VIEW"):
+        pytest.skip("Installed databricks-sdk lacks TableType.METRIC_VIEW")
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+    register_mock_api(request_mock=requests_mock)
+    output_file_name = "unity_catalog_metric_view_semantic_model_mcps.json"
+
+    with patch(
+        "datahub.ingestion.source.unity.connection.WorkspaceClient"
+    ) as mock_client:
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_metric_view_mock_data(workspace_client)
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-metric-view-sm-test",
+            "pipeline_name": "unity-catalog-metric-view-sm-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_metric_views": True,
+                    # No graph in this pipeline, so emission must be requested.
+                    "emit_semantic_model_entities": True,
+                    "include_hive_metastore": False,
+                    "include_ownership": False,
+                    "include_notebooks": False,
+                    "include_usage_statistics": False,
+                    "include_tags": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"/{tmp_path}/{output_file_name}",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/metric_view_semantic_model_mces_golden.json",
+        )
