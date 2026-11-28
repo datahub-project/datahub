@@ -568,30 +568,10 @@ class MicroStrategyConfig(
     skip_unchanged_objects: bool = Field(
         default=False,
         description=(
-            "Skip re-reading dashboards (dossiers and documents) and standalone "
-            "reports that have not changed since the last successful run. An "
-            "object is skipped only when its version, last-modified time, "
-            "name, owner, description, certification and folder path, the "
-            "same properties of every report and cube it depends on, the "
-            "project's warehouse datasources (and its logical tables when "
-            "`extract_model_lineage` is on), the recipe and the connector "
-            "version all match the previous run, and every entity it emitted "
-            "is still present in DataHub with the same change fingerprint. "
-            "The fingerprint is written to the `microstrategyFingerprint` "
-            "custom property of each dashboard, report chart and report "
-            "dataset, only while this option is on. "
-            "Under `dataset_identity: per_report`, a shared report dataset is "
-            "re-emitted together with every dashboard that uses it whenever "
-            "any of them changes. Skipped entities are kept during stale "
-            "entity removal and keep receiving usage statistics. Requires "
+            "Skip re-reading dashboards and standalone reports that have not "
+            "changed since the last run, keeping what they emitted. Requires "
             "stateful ingestion and a DataHub graph connection; otherwise a "
-            "warning is reported and everything is read. Changes that leave "
-            "these properties untouched are not detected: for example a "
-            "warehouse table's columns changing in DataHub, or new connector "
-            "code in a development build, which always reports the same "
-            "version. To force a full "
-            "re-read, run once with `stateful_ingestion.ignore_old_state: "
-            "true` or with this option off."
+            "warning is reported and everything is read."
         ),
     )
 

@@ -163,7 +163,6 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     reports_skipped_unchanged: int = 0
     report_datasets_skipped_unchanged: int = 0
     change_check_failures: int = 0
-    change_check_failure_samples: LossyList[str] = field(default_factory=LossyList)
     failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)
     metrics_kept_after_model_failure: int = 0
     metrics_skipped_after_model_failure: int = 0
