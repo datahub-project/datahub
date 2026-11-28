@@ -15,6 +15,8 @@ import com.linkedin.datahub.graphql.generated.QuickFilter;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.SearchQuickFiltersConfiguration;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValue;
@@ -28,27 +30,70 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RequiredArgsConstructor
 public class GetQuickFiltersResolver
     implements DataFetcher<CompletableFuture<GetQuickFiltersResult>> {
 
   private final EntityClient _entityClient;
   private final ViewService _viewService;
+  private final int _platformCount;
+  private final int _sourceEntityCount;
+  private final int _datahubEntityCount;
 
   private static final String PLATFORM = "platform";
-  private static final int PLATFORM_COUNT = 5;
-  private static final int SOURCE_ENTITY_COUNT = 3;
-  private static final int DATAHUB_ENTITY_COUNT = 2;
+  static final int DEFAULT_PLATFORM_COUNT = 5;
+  static final int DEFAULT_SOURCE_ENTITY_COUNT = 3;
+  static final int DEFAULT_DATAHUB_ENTITY_COUNT = 2;
+
+  public GetQuickFiltersResolver(
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final ViewService viewService,
+      @Nullable final SearchQuickFiltersConfiguration config) {
+    _entityClient = entityClient;
+    _viewService = viewService;
+    _platformCount =
+        resolveCount(
+            "platformCount",
+            config != null ? config.getPlatformCount() : null,
+            DEFAULT_PLATFORM_COUNT);
+    _sourceEntityCount =
+        resolveCount(
+            "sourceEntityCount",
+            config != null ? config.getSourceEntityCount() : null,
+            DEFAULT_SOURCE_ENTITY_COUNT);
+    _datahubEntityCount =
+        resolveCount(
+            "datahubEntityCount",
+            config != null ? config.getDatahubEntityCount() : null,
+            DEFAULT_DATAHUB_ENTITY_COUNT);
+  }
+
+  /** Unset or negative counts fall back to the default. Zero hides that group of quick filters. */
+  private static int resolveCount(
+      @Nonnull final String name, @Nullable final Integer configured, final int defaultCount) {
+    if (configured == null) {
+      return defaultCount;
+    }
+    if (configured < 0) {
+      log.warn(
+          "Ignoring negative searchQuickFilters.{}={}; using default {}",
+          name,
+          configured,
+          defaultCount);
+      return defaultCount;
+    }
+    return configured;
+  }
 
   public CompletableFuture<GetQuickFiltersResult> get(final DataFetchingEnvironment environment)
       throws Exception {
@@ -64,6 +109,10 @@ public class GetQuickFiltersResolver
           try {
             final SearchResult searchResult =
                 getSearchResults(context.getOperationContext(), input);
+            if (searchResult == null) {
+              result.setQuickFilters(quickFilters);
+              return result;
+            }
             final AggregationMetadataArray aggregations =
                 searchResult.getMetadata().getAggregations();
 
@@ -82,9 +131,14 @@ public class GetQuickFiltersResolver
   }
 
   /**
-   * Do a star search with view filter applied to get info about all data in this instance. Include
-   * aggregations.
+   * Do a star search with view filter applied to get info about all data in this instance. Only the
+   * platform and entity type aggregations are requested, with enough buckets that every searched
+   * entity type and the top platforms are returned, and never fewer than the search flag default.
+   * The search layer still caps buckets at elasticsearch.search.maxTermBucketSize. Returns null
+   * when there are no entity types to search, matching searchAcrossEntities, since an empty list
+   * would search every index.
    */
+  @Nullable
   private SearchResult getSearchResults(
       @Nonnull final OperationContext opContext, @Nonnull final GetQuickFiltersInput input)
       throws Exception {
@@ -92,26 +146,39 @@ public class GetQuickFiltersResolver
         (input.getViewUrn() != null)
             ? resolveView(opContext, _viewService, UrnUtils.getUrn(input.getViewUrn()))
             : null;
-    final List<String> entityNames = getSearchEntityNames(opContext);
-
-    return _entityClient.searchAcrossEntities(
-        opContext.withSearchFlags(flags -> flags.setSkipAggregates(false)),
+    final List<String> defaultEntityNames = getSearchEntityNames(opContext);
+    final List<String> entityNames =
         maybeResolvedView != null
             ? SearchUtils.intersectEntityTypes(
-                entityNames, maybeResolvedView.getDefinition().getEntityTypes())
-            : entityNames,
+                defaultEntityNames, maybeResolvedView.getDefinition().getEntityTypes())
+            : defaultEntityNames;
+    if (entityNames.isEmpty()) {
+      return null;
+    }
+    final int maxAggValues =
+        Math.max(new SearchFlags().getMaxAggValues(), Math.max(entityNames.size(), _platformCount));
+
+    return _entityClient.searchAcrossEntities(
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setSkipAggregates(false)
+                    .setIncludeDefaultFacets(false)
+                    .setMaxAggValues(maxAggValues)),
+        entityNames,
         "*",
         maybeResolvedView != null
             ? FilterUtils.combineFilters(null, maybeResolvedView.getDefinition().getFilter())
             : null,
         0,
         0,
-        Collections.emptyList());
+        Collections.emptyList(),
+        List.of(PLATFORM, ENTITY_FILTER_NAME));
   }
 
   /**
    * Get platforms and their count from an aggregations array, sorts by entity count, and map the
-   * top 5 to quick filters
+   * top platformCount to quick filters
    */
   private List<QuickFilter> getPlatformQuickFilters(
       @Nullable QueryContext context, @Nonnull final AggregationMetadataArray aggregations) {
@@ -125,7 +192,7 @@ public class GetQuickFiltersResolver
               .collect(Collectors.toList());
       sortedPlatforms.forEach(
           platformFilter -> {
-            if (platforms.size() < PLATFORM_COUNT && platformFilter.getFacetCount() > 0) {
+            if (platforms.size() < _platformCount && platformFilter.getFacetCount() > 0) {
               platforms.add(mapQuickFilter(context, PLATFORM, platformFilter));
             }
           });
@@ -139,7 +206,8 @@ public class GetQuickFiltersResolver
 
   /**
    * Gets entity type quick filters from search aggregations. First, get source entity type quick
-   * filters from a prioritized list. Do the same for datathub entity types.
+   * filters from a prioritized list. Do the same for datathub entity types, skipping any type
+   * already added as a source entity type.
    */
   private List<QuickFilter> getEntityTypeQuickFilters(
       @Nullable QueryContext context, @Nonnull final AggregationMetadataArray aggregations) {
@@ -148,13 +216,15 @@ public class GetQuickFiltersResolver
         aggregations.stream().filter(agg -> agg.getName().equals(ENTITY_FILTER_NAME)).findFirst();
 
     if (entityAggregations.isPresent()) {
+      final Set<String> addedEntityTypes = new HashSet<>();
       final List<QuickFilter> sourceEntityTypeFilters =
           getQuickFiltersFromList(
               context,
               SearchUtils.getPrioritizedSourceEntityTypes(
                   context != null ? context.getOperationContext() : null),
-              SOURCE_ENTITY_COUNT,
-              entityAggregations.get());
+              _sourceEntityCount,
+              entityAggregations.get(),
+              addedEntityTypes);
       entityTypes.addAll(sourceEntityTypeFilters);
 
       final List<QuickFilter> dataHubEntityTypeFilters =
@@ -162,8 +232,9 @@ public class GetQuickFiltersResolver
               context,
               SearchUtils.getPrioritizedDatahubEntityTypes(
                   context != null ? context.getOperationContext() : null),
-              DATAHUB_ENTITY_COUNT,
-              entityAggregations.get());
+              _datahubEntityCount,
+              entityAggregations.get(),
+              addedEntityTypes);
       entityTypes.addAll(dataHubEntityTypeFilters);
     }
     return entityTypes;
@@ -171,13 +242,15 @@ public class GetQuickFiltersResolver
 
   /**
    * Create a quick filters list by looping over prioritized list and adding filters that exist
-   * until we reach the maxListSize defined
+   * until we reach the maxListSize defined. Types in addedEntityTypes are skipped, and the types
+   * added here are recorded in it.
    */
   private List<QuickFilter> getQuickFiltersFromList(
       @Nullable QueryContext context,
       @Nonnull final List<String> prioritizedList,
       final int maxListSize,
-      @Nonnull final AggregationMetadata entityAggregations) {
+      @Nonnull final AggregationMetadata entityAggregations,
+      @Nonnull final Set<String> addedEntityTypes) {
     final List<QuickFilter> entityTypes = new ArrayList<>();
     prioritizedList.forEach(
         entityType -> {
@@ -186,7 +259,9 @@ public class GetQuickFiltersResolver
                 entityAggregations.getFilterValues().stream()
                     .filter(val -> val.getValue().equalsIgnoreCase(entityType))
                     .findFirst();
-            if (entityFilter.isPresent() && entityFilter.get().getFacetCount() > 0) {
+            if (entityFilter.isPresent()
+                && entityFilter.get().getFacetCount() > 0
+                && addedEntityTypes.add(entityFilter.get().getValue())) {
               entityTypes.add(mapQuickFilter(context, ENTITY_FILTER_NAME, entityFilter.get()));
             }
           }
