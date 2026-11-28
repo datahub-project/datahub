@@ -1,0 +1,283 @@
+# Past PRs that replay_prs.py replays through the current classifier. The SaaS
+# fork replays its own golden_prs.saas.yaml instead of this file.
+#
+# why:    what the PR changed.
+# expect: the pytest selection it should plan now. selection is one name or a
+#         list of acceptable ones (canary, plumbing, smart, p0); features-any
+#         needs at least one of those feature tags; change-type needs at least
+#         those change-type tags.
+# then:   what smart testing did when the PR ran, from its smart-testing comment,
+#         when it has one.
+# base, head, files: from `replay_prs.py fetch <number>`.
+#
+# To add a PR, run `python .github/smart-testing/replay_prs.py fetch <number>`,
+# paste the entry under prs, and fill in why and expect.
+repository: datahub-project/datahub
+prs:
+  - number: 21240
+    why: Bumps the action that checks PR titles in a workflow. CI only.
+    expect:
+      selection: canary
+      change-type:
+        - ci
+    base: 02f7136a92d956c8e522bc2767003a8110c4ee1f
+    head: e25f500e7b4c6a73fedddc9c83c2089397df5133
+    files:
+      - .github/workflows/pr-title-check.yml
+  - number: 20926
+    why: Skips cache saves on exact uv and yarn cache hits in CI. CI only.
+    expect:
+      selection: canary
+      change-type:
+        - ci
+    base: 655ec5df12a58dd4fffe3b299e072bac9057da6c
+    head: d995346cc9a16fbc97becc7877a4ece8ceec6728
+    files:
+      - .github/actions/restore-dependency-caches/action.yml
+      - .github/workflows/docker-unified-nightly.yml
+      - .github/workflows/docker-unified.yml
+  - number: 21216
+    why: "Moves CI to Claude workload identity tokens instead of a static API key: an action, a CI script and workflows. CI only."
+    expect:
+      selection: canary
+      change-type:
+        - ci
+    base: e9b5306ce2be1a200de7b27da626576b0d9818da
+    head: 441e3f34a92883a5320970b7897798a58dc70a15
+    files:
+      - .github/actions/claude-identity-token/action.yml
+      - .github/scripts/claude_route.py
+      - .github/workflows/pr-docs-impact-check.yml
+      - .github/workflows/pr-to-linear-routing-test.yml
+      - .github/workflows/pr-to-linear.yml
+  - number: 21072
+    why: DataHub Cloud release notes. Docs only.
+    expect:
+      selection: canary
+      change-type:
+        - docs
+    base: cd265e7e5e85f97c038e6b97c5cbbac97729f0cb
+    head: b7e5cd4304ac8fb550de6ac402da09bb7d79e6d0
+    files:
+      - docs/managed-datahub/release-notes/v_2_4_0.md
+  - number: 20968
+    why: Installs the toolchain in 37 workflows through one setup-toolchain action. CI only, but 15 or more files and no product feature, so the p0 fail-safe.
+    expect:
+      selection: p0
+    base: 52cdc701b037c9922283ef7db2292882da7ff2de
+    head: 51f28f2d6fdca722fa4338f3509f38e28020f769
+    files:
+      - .github/actions/setup-toolchain/action.yml
+      - .github/dependabot.yml
+      - .github/workflows/actions.yml
+      - .github/workflows/agent-context.yml
+      - .github/workflows/airflow-plugin.yml
+      - .github/workflows/build-and-test.yml
+      - .github/workflows/check-datahub-jars.yml
+      - .github/workflows/check-python-deps.yml
+      - .github/workflows/ci-cache-warmup.yml
+      - .github/workflows/dagster-plugin.yml
+      - .github/workflows/docker-unified-nightly.yml
+      - .github/workflows/docker-unified.yml
+      - .github/workflows/documentation.yml
+      - .github/workflows/gx-plugin.yml
+      - .github/workflows/lint-jobs.yml
+      - .github/workflows/metadata-ingestion.yml
+      - .github/workflows/metadata-io.yml
+      - .github/workflows/metadata-model.yml
+      - .github/workflows/metadata-models-custom-ci.yml
+      - .github/workflows/notify-slack-status.yml
+      - .github/workflows/oauth-smoke.yml
+      - .github/workflows/pdl-change-report.yml
+      - .github/workflows/post-workflow-actions.yml
+      - .github/workflows/prefect-plugin.yml
+      - .github/workflows/publish-datahub-jars.yml
+      - .github/workflows/publish-datahub-postgres.yml
+      - .github/workflows/python-build-pages.yml
+      - .github/workflows/quickstart-test.yml
+      - .github/workflows/react-cloudflare-pages.yml
+      - .github/workflows/release-process-cut-branch.yml
+      - .github/workflows/resusable-playwright-tests.yml
+      - .github/workflows/reusable-playwright-report.yml
+      - .github/workflows/rollback-analysis.yml
+      - .github/workflows/spark-smoke-test.yml
+      - .github/workflows/test-github-scripts.yml
+      - .github/workflows/update-test-weights.yml
+      - .github/workflows/zdu-e2e-daily.yml
+  - number: 21265
+    why: Moves a page in the docs-website sidebar. No product code.
+    expect:
+      selection: canary
+    base: c1283a3b3a5a76e4e4f55bd820ae8f0e0fb93b01
+    head: eabf8700248acd79d0e3c3e8c8638c7a8e4ae452
+    files:
+      - docs-website/sidebars.js
+  - number: 21284
+    why: "Runs actionlint in pre-commit without Docker: the pre-commit config and CI scripts. No product code."
+    expect:
+      selection: canary
+      change-type:
+        - ci
+    base: 2ddcacb8ef00387d3959c15feab1b4194fb5d661
+    head: a73bf74c0877a35a874ca1278bc790eaf052be6e
+    files:
+      - .github/scripts/pre-commit/pre-commit-override.yaml
+      - .github/scripts/pre-commit/run_actionlint.sh
+      - .pre-commit-config.yaml
+  - number: 21245
+    why: Keeps the datahub-dev script's shell env and smoke tests on the worktree's instance. Dev tooling, no product code.
+    expect:
+      selection: canary
+    base: 02f7136a92d956c8e522bc2767003a8110c4ee1f
+    head: 9f4324f97ccdc025bfadbb3ceb04b51076d992ad
+    files:
+      - scripts/dev/datahub_dev.py
+      - scripts/dev/tests/test_datahub_dev.py
+  - number: 21290
+    why: Daily test-weights update for CI, Playwright, ingestion and pytest. No product code; the pytest weight files are pytest plumbing.
+    expect:
+      selection: plumbing
+      change-type:
+        - pytest-plumbing
+    base: 48e3e32eaf61d5f0e40059a64fc56a856d0af856
+    head: 4cff4b59348e079345f24dbd42a03a10f2d34cd8
+    files:
+      - .github/backend_test_weights.json
+      - e2e-test/ui/playwright/playwright_test_weights.json
+      - metadata-ingestion/tests/integration_test_weights.json
+      - smoke-test/pytest_test_weights.json
+      - smoke-test/pytest_test_weights_meta.json
+  - number: 21212
+    why: The Glue source keeps brackets and dots in column names, for column-level lineage.
+    expect:
+      selection: smart
+      features-any:
+        - ingestion
+        - ingestion:connector
+        - lineage
+        - sql-lineage
+    base: ce86e3161b54bd6118a96901022a6e90f3fe4654
+    head: 83da7f43dbf18cfb2c704b92fce5f5eec665964d
+    files:
+      - metadata-ingestion/src/datahub/ingestion/source/aws/glue.py
+      - metadata-ingestion/tests/unit/glue/test_glue_source.py
+  - number: 20820
+    why: Search reuses the point-in-time across sliced scroll pages.
+    expect:
+      selection: smart
+      features-any:
+        - search
+        - search-indexing
+    base: dea1c4c9636b6391b79dcdf3f7b60d670aaadd55
+    head: aba661c0ea5dea9ee697752e7db761271999d994
+    files:
+      - metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/query/request/SearchRequestHandler.java
+      - metadata-io/src/test/java/com/linkedin/metadata/search/query/request/SearchRequestHandlerTest.java
+  - number: 20831
+    why: "reportAssertionResult accepts numeric result values: the GraphQL resolver, its schema and docs."
+    expect:
+      selection: smart
+      features-any:
+        - assertions
+    base: e86c271e97ce2dbbd274edf8067def04cc3f9616
+    head: e3d38fb8eb977286a45ff514b54ec9be6fe2c0ca
+    files:
+      - datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/assertion/ReportAssertionResultResolver.java
+      - datahub-graphql-core/src/main/resources/assertions.graphql
+      - datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/assertion/ReportAssertionResultResolverTest.java
+      - docs/api/tutorials/custom-assertions.md
+  - number: 20754
+    why: The timeline service batch-fetches aspects for an entity's change history.
+    expect:
+      selection: smart
+      features-any:
+        - change-history
+    base: 1ac4f7289f49461bb361d1f297de4835ff47e395
+    head: 860106fd88f5fb26cde2a8060ea8bb6b70f42d7a
+    files:
+      - metadata-io/src/main/java/com/linkedin/metadata/timeline/TimelineServiceImpl.java
+      - metadata-io/src/test/java/com/linkedin/metadata/timeline/TimelineServiceTest.java
+  - number: 20939
+    why: Scheduling an ingestion source requires the execute permission.
+    expect:
+      selection: smart
+      features-any:
+        - ingestion
+        - authorization
+    base: 0fe5e6ac560ef7aba4ad3440eca72971704ed2b3
+    head: 829c14e9b4de22256b67ecf2e11044f25528e234
+    files:
+      - docs/how/breaking-changes.md
+      - metadata-io/src/main/java/com/linkedin/metadata/ingestion/validation/ModifyIngestionSourceAuthValidator.java
+      - metadata-io/src/test/java/com/linkedin/metadata/ingestion/validators/ModifyIngestionSourceAuthValidatorTest.java
+  - number: 21226
+    why: The authentication filters return 503, not 401, when the token store can't be read. 19 files.
+    expect:
+      selection: smart
+      features-any:
+        - authentication
+        - authorization
+    base: d50ea4e5544188a09177e1f50cce92b01acbe898
+    head: c1d3fb10d56691216273647d2888946a43716372
+    files:
+      - docs/deploy/environment-vars.md
+      - metadata-auth/auth-api/src/main/java/com/datahub/authentication/AuthenticationUnavailableException.java
+      - metadata-io/src/test/java/com/linkedin/metadata/system_info/collectors/PropertiesCollectorConfigurationTest.java
+      - metadata-service/auth-config/src/main/java/com/datahub/authentication/AuthenticationConfiguration.java
+      - metadata-service/auth-filter/src/main/java/com/datahub/auth/authentication/filter/AuthenticationEnforcementFilter.java
+      - metadata-service/auth-filter/src/main/java/com/datahub/auth/authentication/filter/AuthenticationExtractionFilter.java
+      - metadata-service/auth-filter/src/test/java/com/datahub/auth/authentication/AuthenticationEnforcementFilterTest.java
+      - metadata-service/auth-filter/src/test/java/com/datahub/auth/authentication/AuthenticationExtractionFilterTest.java
+      - metadata-service/auth-impl/src/main/java/com/datahub/authentication/authenticator/AuthenticatorChain.java
+      - metadata-service/auth-impl/src/main/java/com/datahub/authentication/authenticator/DataHubTokenAuthenticator.java
+      - metadata-service/auth-impl/src/main/java/com/datahub/authentication/token/StatefulTokenService.java
+      - metadata-service/auth-impl/src/main/java/com/datahub/authentication/token/StatelessTokenService.java
+      - metadata-service/auth-impl/src/main/java/com/datahub/authentication/token/TokenStoreFailures.java
+      - metadata-service/auth-impl/src/main/java/com/datahub/authentication/token/TokenStoreUnavailableException.java
+      - metadata-service/auth-impl/src/test/java/com/datahub/authentication/authenticator/AuthenticatorChainTest.java
+      - metadata-service/auth-impl/src/test/java/com/datahub/authentication/authenticator/DataHubTokenAuthenticatorTest.java
+      - metadata-service/auth-impl/src/test/java/com/datahub/authentication/token/StatefulTokenServiceTest.java
+      - metadata-service/auth-impl/src/test/java/com/datahub/authentication/token/TokenStoreFailuresTest.java
+      - metadata-service/configuration/src/main/resources/application.yaml
+  - number: 20773
+    why: Search indexing nulls removed structured properties when an entity is restated.
+    expect:
+      selection: smart
+      features-any:
+        - structured-properties
+        - search-indexing
+    base: 30f43662991aae069caacabb10c0d1b21b63e2ab
+    head: ae1e83e1d692e83167ffa5362578a4c0a6519f33
+    files:
+      - metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/ElasticSearchService.java
+      - metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/index/StructuredPropertyMappingCache.java
+      - metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/index/entity/v3/UpdateIndicesV3Strategy.java
+      - metadata-io/src/main/java/com/linkedin/metadata/service/UpdateIndicesV2Strategy.java
+      - metadata-io/src/test/java/com/linkedin/metadata/search/elasticsearch/index/StructuredPropertyMappingCacheTest.java
+      - metadata-io/src/test/java/com/linkedin/metadata/search/elasticsearch/index/entity/v3/UpdateIndicesV3StrategyTest.java
+      - metadata-io/src/test/java/com/linkedin/metadata/service/UpdateIndicesV2StrategyTest.java
+      - metadata-io/src/test/java/com/linkedin/metadata/system_info/collectors/PropertiesCollectorConfigurationTest.java
+      - metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/IndexConfiguration.java
+      - metadata-service/configuration/src/main/resources/application.yaml
+      - metadata-service/factories/src/main/java/com/linkedin/gms/factory/entity/update/indices/UpdateIndicesStrategyFactory.java
+  - number: 19521
+    why: The term propagation action sends column-level glossary terms to downstream datasets, with a new smoke test.
+    expect:
+      selection: smart
+      features-any:
+        - propagation:terms
+        - glossary
+    base: 1ac4f7289f49461bb361d1f297de4835ff47e395
+    head: 227a40be641f1debcbf2828dc8f3b8371d34bf08
+    files:
+      - datahub-actions/src/datahub_actions/api/action_graph.py
+      - datahub-actions/src/datahub_actions/plugin/action/term/README.md
+      - datahub-actions/src/datahub_actions/plugin/action/term/term_propagation_action.py
+      - datahub-actions/tests/unit/plugin/action/term/__init__.py
+      - datahub-actions/tests/unit/plugin/action/term/test_term_propagation.py
+      - docker/datahub-actions/config-postgres-pgqueue/term_propagation_action.yaml
+      - docker/datahub-actions/config/term_propagation_action.yaml
+      - docs/how/updating-datahub.md
+      - smoke-test/test_resources/actions/actions.env
+      - smoke-test/tests/e2e/actions/term_propagation/__init__.py
+      - smoke-test/tests/e2e/actions/term_propagation/test_term_propagation.py
