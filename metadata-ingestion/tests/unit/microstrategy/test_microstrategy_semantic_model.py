@@ -1119,3 +1119,102 @@ def test_warehouse_upstream_only_when_the_table_name_resolves_to_a_database(
     assert ([u.dataset for u in lineage.upstreams] if lineage else []) == (
         expected_upstreams
     )
+
+
+_ORDERS_JOIN_CUSTOMERS = (
+    "select o.region, c.name from sales.orders o join customers c "
+    "on o.customer_id = c.id"
+)
+
+
+@pytest.mark.parametrize(
+    "sql, schema, expected_upstreams, unqualified",
+    [
+        (
+            _ORDERS_JOIN_CUSTOMERS,
+            "public",
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+                "sales_db.public.customers,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+                "sales_db.sales.orders,PROD)",
+            ],
+            0,
+        ),
+        (
+            _ORDERS_JOIN_CUSTOMERS,
+            None,
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+                "sales_db.sales.orders,PROD)"
+            ],
+            1,
+        ),
+        ("select 'Open' as status from dual", "public", [], 0),
+        (None, "public", [], 0),
+    ],
+)
+def test_logical_view_upstreams_come_from_its_sql_not_its_name(
+    sql: Optional[str],
+    schema: Optional[str],
+    expected_upstreams: List[str],
+    unqualified: int,
+) -> None:
+    mapper = _mapper(FakeSemanticModelClient())
+    context = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database="sales_db", schema=schema
+    )
+    view = _table("Regional Orders", [_attribute("ATTR1", "Region")], [])
+    view["physicalTable"] = {
+        "type": "sql",
+        "sqlStatement": sql,
+        "information": {"objectId": "TBL-VIEW", "name": "Regional Orders"},
+    }
+
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                project_id="project-1",
+                project_name="Project One",
+                model_tables=[view],
+                project_container_key=_project_container_key(),
+                table_context_resolver=lambda table: context,
+            )
+        )
+    )
+
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,"
+        "project-1.Regional Orders,PROD)"
+    )
+    lineage = aspects[dataset_urn].get("UpstreamLineageClass")
+    assert lineage is None or isinstance(lineage, UpstreamLineageClass)
+    assert (sorted(u.dataset for u in lineage.upstreams) if lineage else []) == (
+        expected_upstreams
+    )
+    assert mapper.report.sql_upstreams_skipped_unqualified == unqualified
+
+
+def test_table_without_a_schema_gets_no_bare_warehouse_upstream() -> None:
+    mapper = _mapper(FakeSemanticModelClient())
+    context = WarehouseLineageContext(
+        platform="mssql", env="PROD", database="sales_db", schema=None
+    )
+
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                project_id="project-1",
+                project_name="Project One",
+                model_tables=[_table("ORDERS", [_attribute("ATTR1", "Region")], [])],
+                project_container_key=_project_container_key(),
+                table_context_resolver=lambda table: context,
+            )
+        )
+    )
+
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.ORDERS,PROD)"
+    )
+    assert aspects[dataset_urn].get("UpstreamLineageClass") is None
+    assert mapper.report.semantic_model_tables_without_warehouse_name == 1

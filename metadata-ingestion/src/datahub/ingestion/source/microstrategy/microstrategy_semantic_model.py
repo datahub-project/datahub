@@ -17,6 +17,7 @@ from datahub.ingestion.source.microstrategy.client import (
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
+    MSTR_LOGICAL_VIEW_TABLE_TYPE,
     MSTR_METRIC_MODEL_CONSECUTIVE_FAILURE_LIMIT,
     MSTR_PROGRESS_LOG_INTERVAL_METRICS,
     MSTR_REASON_NO_GRAPH,
@@ -27,6 +28,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
     AttributeRelationship,
     MicroStrategyLineageExtractor,
     TableContextResolver,
+    WarehouseLineageContext,
     coerce_dicts,
     consolidation_attribute_ids,
     metric_attribute_ids_from_model,
@@ -117,7 +119,7 @@ class _AttributeRelationshipPair(BaseModel):
 class _TableInfo:
     alias: str
     logical_table_id: Optional[str]
-    warehouse_urn: Optional[str]
+    warehouse_urns: List[str]
     fields: Dict[str, SemanticFieldInput]  # normalized object id -> field
 
 
@@ -304,12 +306,8 @@ class MicroStrategySemanticModelMapper:
                 else None
             )
             alias = self._dataset_alias(logical_information, physical_alias)
-            # The fallback alias is only a logical identity; a warehouse URN
-            # built from it would be a guess that never joins.
-            warehouse_urn = (
-                self.lineage.warehouse_dataset_urn(table_context, warehouse_name)
-                if table_context is not None and warehouse_name
-                else None
+            warehouse_urns = self._warehouse_urns(
+                physical_table, table_context, warehouse_name, alias
             )
 
             fields: Dict[str, SemanticFieldInput] = {}
@@ -347,7 +345,7 @@ class MicroStrategySemanticModelMapper:
                         if logical_table_id
                         else None
                     ),
-                    warehouse_urn=warehouse_urn,
+                    warehouse_urns=warehouse_urns,
                     fields=fields,
                 )
             )
@@ -367,6 +365,29 @@ class MicroStrategySemanticModelMapper:
             return None
         namespace = physical_table.get("namespace")
         return f"{namespace}.{raw}" if isinstance(namespace, str) and namespace else raw
+
+    def _warehouse_urns(
+        self,
+        physical_table: Dict[str, object],
+        table_context: Optional[WarehouseLineageContext],
+        warehouse_name: Optional[str],
+        alias: str,
+    ) -> List[str]:
+        if table_context is None:
+            return []
+        if warehouse_name:
+            return [self.lineage.warehouse_dataset_urn(table_context, warehouse_name)]
+        # The fallback alias is only a logical identity; a warehouse URN built
+        # from it would be a guess that never joins.
+        if physical_table.get("type") != MSTR_LOGICAL_VIEW_TABLE_TYPE:
+            self.report.report_semantic_model_table_without_warehouse_name()
+            return []
+        sql = physical_table.get("sqlStatement")
+        if not isinstance(sql, str):
+            return []
+        return self.lineage.warehouse_lineage_from_sql(
+            sql, table_context, [], self.graph, label=f"logical view {alias}"
+        ).upstream_urns
 
     @staticmethod
     def _dataset_alias(
@@ -462,8 +483,8 @@ class MicroStrategySemanticModelMapper:
                 env=self.config.env,
                 extra_aspects=self._container_aspects(project_container_key),
             )
-            if table_info.warehouse_urn:
-                dataset.set_upstreams([table_info.warehouse_urn])
+            if table_info.warehouse_urns:
+                dataset.set_upstreams([*table_info.warehouse_urns])
             datasets.append(dataset)
             alias_to_dataset[table_info.alias] = dataset
         return datasets, alias_to_dataset
