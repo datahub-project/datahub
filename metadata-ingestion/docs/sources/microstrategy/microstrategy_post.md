@@ -35,6 +35,8 @@ Dashboard/Dossier -> Report -> MicroStrategy Report Source Dataset
 
 Set `extract_report_sql_lineage: true` only when you also want optional coarse report source dataset -> warehouse table lineage from the report SQL-view API. This setting is disabled by default and does not emit direct warehouse edges to reports or dashboards.
 
+A prompted report's SQL view is refused with HTTP 406 until its prompts are answered, so by default such a report gets no warehouse lineage and the run warns "Prompted Report Skipped for Warehouse Lineage". Set `answer_report_prompts_with_defaults: true` to answer each prompt with its default (`PUT /api/reports/{id}/instances/{instance}/prompts/answers` with `useDefault`) and read the SQL view again. A report with a required prompt that has no default is still skipped. Strategy does not document whether answering the last prompt starts the report's execution against the warehouse, so treat it like report instance creation: `warehouse_lineage_sql_timeout_seconds` and `max_consecutive_execution_timeouts` apply. The ingestion report counts `prompted_report_sql_views`, `prompted_reports_answered` and `prompted_reports_without_defaults`.
+
 #### Dataset Identity
 
 By default (`dataset_identity: per_dashboard`) a dataset is keyed by the dossier or document that embeds it, so a report used by several dashboards appears once per dashboard. Set `dataset_identity: per_report` to get one dataset per report per project, keyed `<project>.<report>`, which every visualization that uses the report links to. Independent reports under `per_report` need both `extract_reports` and `extract_independent_reports`. Under `per_report`:

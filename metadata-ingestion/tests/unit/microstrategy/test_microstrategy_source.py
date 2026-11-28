@@ -30,6 +30,7 @@ from datahub.ingestion.source.microstrategy import spill_cache
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
     MicroStrategyAuthError,
+    MicroStrategyClient,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
@@ -52,9 +53,11 @@ from datahub.ingestion.source.microstrategy.models import (
     PredefinedFolderResolution,
     Project,
     ReportDefinition,
+    ReportPrompt,
     SqlView,
     object_cache_key,
 )
+from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.source import (
     MicroStrategySource,
     _LazyProjectLineage,
@@ -6580,3 +6583,122 @@ def test_failed_connection_lookup_without_a_database_skips_the_datasource() -> N
 
     assert source.datasource_warehouse_context("project-1", datasource) is None
     assert source.report.datasources_skipped_without_database == 1
+
+
+class _PromptedReportClient:
+    """A report whose SQL view is refused with 406 until its prompts are
+    answered."""
+
+    def __init__(self, prompts: List[ReportPrompt]) -> None:
+        self.prompts = prompts
+        self.answered: List[List[ReportPrompt]] = []
+        self.deleted: List[str] = []
+
+    def create_report_instance(self, project_id: str, report_id: str) -> str:
+        return "instance-1"
+
+    def get_report_sql_view(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> SqlView:
+        if not self.answered:
+            raise MicroStrategyAPIError("406 Not Acceptable", status_code=406)
+        return SqlView.model_validate({"sqlStatement": "select a from t"})
+
+    def get_report_instance_prompts(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> List[ReportPrompt]:
+        return self.prompts
+
+    def answer_report_prompts_with_defaults(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+        prompts: List[ReportPrompt],
+    ) -> None:
+        self.answered.append(prompts)
+
+    def delete_report_instance(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> bool:
+        self.deleted.append(instance_id)
+        return True
+
+
+_DEFAULTED_PROMPT = ReportPrompt.model_validate(
+    {
+        "key": "P1",
+        "id": "prompt-1",
+        "type": "ELEMENTS",
+        "required": True,
+        "defaultAnswer": [{"id": "h1;elem", "name": "Elem"}],
+    }
+)
+
+
+def test_prompted_report_is_skipped_without_the_flag() -> None:
+    source = _source()
+    client = _PromptedReportClient([_DEFAULTED_PROMPT])
+    source.client = client  # type: ignore[assignment]
+
+    outcome = source._report_sql_outcome("project-1", "report-1", "ctx")
+
+    assert outcome.sql is None
+    assert outcome.execution is None
+    assert client.answered == []
+    assert client.deleted == ["instance-1"]
+    assert source.report.prompted_report_sql_views == 1
+    assert source.report.prompted_reports_answered == 0
+
+
+def test_prompted_report_is_read_after_answering_its_defaults() -> None:
+    source = _source({"answer_report_prompts_with_defaults": True})
+    client = _PromptedReportClient([_DEFAULTED_PROMPT])
+    source.client = client  # type: ignore[assignment]
+
+    outcome = source._report_sql_outcome("project-1", "report-1", "ctx")
+
+    assert outcome.sql == "select a from t"
+    assert client.answered == [[_DEFAULTED_PROMPT]]
+    assert client.deleted == ["instance-1"]
+    assert source.report.prompted_reports_answered == 1
+
+
+def test_prompted_report_with_a_required_prompt_without_default_is_skipped() -> None:
+    source = _source({"answer_report_prompts_with_defaults": True})
+    client = _PromptedReportClient(
+        [
+            ReportPrompt.model_validate(
+                {"key": "P1", "type": "VALUE", "required": True, "name": "Region"}
+            )
+        ]
+    )
+    source.client = client  # type: ignore[assignment]
+
+    assert source._report_sql_outcome("project-1", "report-1", "ctx").sql is None
+    assert client.answered == []
+    assert client.deleted == ["instance-1"]
+    assert source.report.prompted_reports_without_defaults == 1
+
+
+def test_answering_defaults_sends_use_default_per_prompt() -> None:
+    client = MicroStrategyClient(
+        MicroStrategyConfig.model_validate(
+            {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+        ),
+        MicroStrategyReport(),
+    )
+    with mock.patch.object(client, "_request") as request:
+        client.answer_report_prompts_with_defaults(
+            "project-1", "report-1", "instance-1", [_DEFAULTED_PROMPT]
+        )
+    method, path = request.call_args.args[:2]
+    assert (method, path) == (
+        "PUT",
+        "/api/reports/report-1/instances/instance-1/prompts/answers",
+    )
+    assert request.call_args.kwargs["json"] == {
+        "prompts": [
+            {"useDefault": True, "key": "P1", "id": "prompt-1", "type": "ELEMENTS"}
+        ]
+    }

@@ -147,6 +147,12 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     sql_view_rows_unmatched: int = 0
     sql_view_rows_without_context: int = 0
     sql_views_without_statement: int = 0
+    # Report SQL views refused (406) because the report's prompts were
+    # unanswered; of those, answered with defaults and read, or skipped
+    # because a required prompt had no default.
+    prompted_report_sql_views: int = 0
+    prompted_reports_answered: int = 0
+    prompted_reports_without_defaults: int = 0
     # Report Services document datasets read through report instances
     # (extract_document_dataset_sql_lineage): datasets given a SQL view, those
     # whose view parsed into at least one warehouse upstream, datasets served
@@ -575,6 +581,18 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_sql_view_without_statement(self) -> None:
         with self._lock:
             self.sql_views_without_statement += 1
+
+    def report_prompted_report_sql_view(self) -> None:
+        with self._lock:
+            self.prompted_report_sql_views += 1
+
+    def report_prompted_report_answered(self) -> None:
+        with self._lock:
+            self.prompted_reports_answered += 1
+
+    def report_prompted_report_without_defaults(self) -> None:
+        with self._lock:
+            self.prompted_reports_without_defaults += 1
 
     def report_document_dataset_sql_view_scanned(self) -> None:
         with self._lock:
