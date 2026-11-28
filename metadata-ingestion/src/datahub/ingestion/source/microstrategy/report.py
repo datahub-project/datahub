@@ -1,9 +1,10 @@
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Dict, Iterator, List, Optional
+from typing import Iterator, List, Optional
 
 from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS,
     MSTR_TELEMETRY_ERROR_STATUS,
     MSTR_TELEMETRY_NO_PHASE,
     MicroStrategyCache,
@@ -33,6 +34,14 @@ def _float_top_k(top_k: int = _TELEMETRY_TOP_K) -> "TopKDict[str, float]":
 
 def _int_top_k(top_k: int = _TELEMETRY_TOP_K) -> "TopKDict[str, int]":
     return TopKDict(int, top_k=top_k)
+
+
+def _dashboard_seconds_histogram() -> "TopKDict[str, int]":
+    # Seeded in bound order: TopKDict prints insertion order while under top_k.
+    histogram = _int_top_k()
+    for lower in (0, *MSTR_DASHBOARD_SECONDS_BUCKET_BOUNDS):
+        histogram[dashboard_seconds_bucket(lower)] = 0
+    return histogram
 
 
 def _round_floats(value: object) -> object:
@@ -210,11 +219,12 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     # Source time only: sink writes between yields are excluded.
     dashboards_timed: int = 0
     dashboard_seconds_total: float = 0.0
-    dashboard_seconds_histogram: TopKDict[str, int] = field(default_factory=_int_top_k)
+    dashboard_seconds_histogram: TopKDict[str, int] = field(
+        default_factory=_dashboard_seconds_histogram
+    )
     slowest_dashboards: TopKDict[str, float] = field(
         default_factory=lambda: _float_top_k(_SLOWEST_TOP_K)
     )
-    datasets_by_slow_dashboard: Dict[str, int] = field(default_factory=dict)
     sql_parses_executed: int = 0
     sql_parse_seconds: float = 0.0
     sql_parse_max_seconds: float = 0.0
@@ -554,13 +564,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
         self.dashboards_timed += 1
         self.dashboard_seconds_total += seconds
         self.dashboard_seconds_histogram[dashboard_seconds_bucket(seconds)] += 1
-        self._keep_slowest(self.slowest_dashboards, key, seconds)
-        if key in self.slowest_dashboards:
-            self.datasets_by_slow_dashboard[key] = datasets
-        for stale in set(self.datasets_by_slow_dashboard) - set(
-            self.slowest_dashboards
-        ):
-            del self.datasets_by_slow_dashboard[stale]
+        self._keep_slowest(
+            self.slowest_dashboards, f"{key} [{datasets} datasets]", seconds
+        )
 
     def report_sql_parse_executed(
         self, key: str, seconds: float, statements: int

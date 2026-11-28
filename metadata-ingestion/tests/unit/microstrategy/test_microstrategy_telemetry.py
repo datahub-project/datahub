@@ -439,10 +439,19 @@ def test_run_progress_logs_each_dashboard_and_periodic_progress(
             progress.dashboard_done("my_project", f"Doc {index}", f"id-{index}", before)
 
     assert report.dashboards_timed == 2
-    assert report.dashboard_seconds_histogram == {"10-30s": 2}
-    assert report.datasets_by_slow_dashboard == {
-        "my_project/Doc 0 (id-0)": 3,
-        "my_project/Doc 1 (id-1)": 3,
+    assert list(report.as_obj()["dashboard_seconds_histogram"].items()) == [
+        ("0-10s", 0),
+        ("10-30s", 2),
+        ("30-60s", 0),
+        ("60-120s", 0),
+        ("120-300s", 0),
+        ("300-600s", 0),
+        ("600-1800s", 0),
+        (">=1800s", 0),
+    ]
+    assert set(report.slowest_dashboards) == {
+        "my_project/Doc 0 (id-0) [3 datasets]",
+        "my_project/Doc 1 (id-1) [3 datasets]",
     }
     messages = [record.getMessage() for record in caplog.records]
     assert sum("took 12.0s" in message for message in messages) == 2
@@ -473,7 +482,6 @@ def test_slowest_tables_keep_only_the_top_rows() -> None:
 
     assert len(report.slowest_dashboards) == 25
     assert min(report.slowest_dashboards.values()) == 15.0
-    assert set(report.datasets_by_slow_dashboard) == set(report.slowest_dashboards)
 
 
 def test_report_serializes_telemetry_rounded() -> None:
