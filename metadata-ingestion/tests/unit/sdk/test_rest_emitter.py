@@ -3078,3 +3078,142 @@ class TestAsyncUnlessSyncMarker:
             restli_emitter.emit_mcps([plain], emit_mode=EmitMode.ASYNC)
             payload = json.loads(mock_emit.call_args[0][1])
             assert payload.get("async") == "true"
+
+
+class TestRestliRejectedProposals:
+    """GMS answers a Rest.li batch written without some of its proposals with
+    "success; skipped N invalid proposal(s): <urn> <aspect>: <reason>; ...".
+    Older servers always answer "success"."""
+
+    GOOD_URN = "urn:li:dataset:(urn:li:dataPlatform:hive,db.good,PROD)"
+    BAD_URN = "urn:li:dataset:(urn:li:dataPlatform:hive,db.bad,NOT_A_FABRIC)"
+    BATCH_URL = f"{MOCK_GMS_ENDPOINT}/aspects?action=ingestProposalBatch"
+
+    def _mcps(self) -> list:
+        return [
+            MetadataChangeProposalWrapper(entityUrn=urn, aspect=Status(removed=False))
+            for urn in (self.GOOD_URN, self.BAD_URN)
+        ]
+
+    def _skipped_value(self) -> str:
+        return (
+            f"success; skipped 1 invalid proposal(s): {self.BAD_URN} status: "
+            "Invalid urn: NOT_A_FABRIC is not an enum symbol; see the log"
+        )
+
+    def test_parse_names_each_skipped_proposal(self):
+        from datahub.emitter.response_helper import (
+            RejectedProposal,
+            parse_rejected_proposals,
+        )
+
+        assert parse_rejected_proposals(self._skipped_value(), self._mcps()) == [
+            RejectedProposal(
+                urn=self.BAD_URN,
+                aspect_name="status",
+                reason="Invalid urn: NOT_A_FABRIC is not an enum symbol; see the log",
+            )
+        ]
+
+    @pytest.mark.parametrize("value", ["success", None, {"unexpected": "shape"}])
+    def test_parse_plain_success_rejects_nothing(self, value):
+        from datahub.emitter.response_helper import parse_rejected_proposals
+
+        assert parse_rejected_proposals(value, self._mcps()) == []
+
+    def test_parse_malformed_suffix_is_reported_unattributed(self):
+        from datahub.emitter.response_helper import (
+            RejectedProposal,
+            parse_rejected_proposals,
+        )
+
+        value = "success; skipped something we cannot read"
+        assert parse_rejected_proposals(value, self._mcps()) == [
+            RejectedProposal(urn=None, aspect_name=None, reason=value)
+        ]
+
+    def test_parse_counts_proposals_the_server_did_not_name(self):
+        from datahub.emitter.response_helper import parse_rejected_proposals
+
+        value = (
+            f"success; skipped 12 invalid proposal(s): {self.BAD_URN} status: bad"
+            "; and 11 more"
+        )
+        rejected = parse_rejected_proposals(value, self._mcps())
+        assert [(r.urn, r.reason) for r in rejected] == [
+            (self.BAD_URN, "bad"),
+            (None, "11 more proposal(s) were rejected; see the GMS log"),
+        ]
+
+    def test_plain_success_unchanged(self, requests_mock, caplog):
+        requests_mock.post(self.BATCH_URL, json={"value": "success"})
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        with caplog.at_level("WARNING"):
+            emitter.emit_mcps(self._mcps(), emit_mode=EmitMode.SYNC_PRIMARY)
+        assert "rejected" not in caplog.text
+
+    def test_skipped_proposals_warn_by_default(
+        self, requests_mock, caplog, monkeypatch
+    ):
+        monkeypatch.delenv(
+            "DATAHUB_REST_EMITTER_FAIL_ON_REJECTED_PROPOSALS", raising=False
+        )
+        requests_mock.post(self.BATCH_URL, json={"value": self._skipped_value()})
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        with caplog.at_level("WARNING"):
+            emitter.emit_mcps(self._mcps(), emit_mode=EmitMode.SYNC_PRIMARY)
+        assert "rejected 1 proposal(s)" in caplog.text
+        assert self.BAD_URN in caplog.text
+
+    def test_skipped_proposals_raise_when_switched_on(self, requests_mock, monkeypatch):
+        from datahub.emitter.rest_emitter import RejectedProposalsError
+
+        monkeypatch.setenv("DATAHUB_REST_EMITTER_FAIL_ON_REJECTED_PROPOSALS", "true")
+        requests_mock.post(
+            self.BATCH_URL,
+            [
+                {"json": {"value": self._skipped_value()}},
+                {"json": {"value": "success"}},
+            ],
+        )
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        with (
+            patch.object(rest_emitter, "BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2),
+            pytest.raises(RejectedProposalsError) as exc_info,
+        ):
+            emitter.emit_mcps(self._mcps() * 2, emit_mode=EmitMode.SYNC_PRIMARY)
+
+        # Every chunk is still sent before the error is raised.
+        assert requests_mock.call_count == 2
+        assert [(r.urn, r.aspect_name) for r in exc_info.value.rejected] == [
+            (self.BAD_URN, "status")
+        ]
+        assert isinstance(exc_info.value, OperationalError)
+
+    def test_constructor_overrides_env(self, requests_mock, monkeypatch):
+        from datahub.emitter.rest_emitter import RejectedProposalsError
+
+        monkeypatch.delenv(
+            "DATAHUB_REST_EMITTER_FAIL_ON_REJECTED_PROPOSALS", raising=False
+        )
+        requests_mock.post(self.BATCH_URL, json={"value": self._skipped_value()})
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            openapi_ingestion=False,
+            fail_on_rejected_proposals=True,
+        )
+        with pytest.raises(RejectedProposalsError):
+            emitter.emit_mcps(self._mcps(), emit_mode=EmitMode.SYNC_PRIMARY)
+
+    def test_all_rejected_400_raises(self, requests_mock):
+        requests_mock.post(
+            self.BATCH_URL,
+            status_code=400,
+            json={
+                "status": 400,
+                "message": f"Every proposal was rejected: {self.BAD_URN} status: bad",
+            },
+        )
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        with pytest.raises(OperationalError, match="Every proposal was rejected"):
+            emitter.emit_mcps(self._mcps()[1:], emit_mode=EmitMode.SYNC_PRIMARY)

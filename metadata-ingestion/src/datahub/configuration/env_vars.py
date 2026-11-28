@@ -270,6 +270,14 @@ def get_rest_emitter_batch_max_payload_length() -> int:
     return int(os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", "200"))
 
 
+def get_rest_emitter_fail_on_rejected_proposals() -> bool:
+    """Raise, rather than warn, when GMS writes a Rest.li batch without some of its proposals."""
+    return (
+        os.getenv("DATAHUB_REST_EMITTER_FAIL_ON_REJECTED_PROPOSALS", "").lower()
+        == "true"
+    )
+
+
 def get_emit_mode() -> Optional[str]:
     """Emission mode (SYNC_PRIMARY, SYNC_WAIT, ASYNC, ASYNC_WAIT)."""
     return os.getenv("DATAHUB_EMIT_MODE")

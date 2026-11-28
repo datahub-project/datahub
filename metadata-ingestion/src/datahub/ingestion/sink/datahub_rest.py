@@ -23,16 +23,19 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.env_vars import (
     get_emit_mode,
+    get_rest_emitter_fail_on_rejected_proposals,
     get_rest_sink_default_max_threads,
     get_rest_sink_default_mode,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.emitter.response_helper import RejectedProposal
 from datahub.emitter.rest_emitter import (
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     DEFAULT_REST_EMITTER_ENDPOINT,
     DataHubRestEmitter,
     EmitMode,
+    RejectedProposalsError,
     RestSinkEndpoint,
 )
 from datahub.emitter.token_provider import TokenProviderAuth
@@ -132,6 +135,20 @@ def _get_urn(record_envelope: RecordEnvelope) -> Optional[str]:
     return None
 
 
+def _rejected_for_record(
+    record_envelope: RecordEnvelope, rejected: List[RejectedProposal]
+) -> List[RejectedProposal]:
+    record = record_envelope.record
+    urn = _get_urn(record_envelope)
+    # An MCE is sent as one proposal per aspect, so any of its aspects counts.
+    aspect_name = getattr(record, "aspectName", None)
+    return [
+        r
+        for r in rejected
+        if r.urn == urn and (aspect_name is None or r.aspect_name == aspect_name)
+    ]
+
+
 def _get_partition_key(record_envelope: RecordEnvelope) -> str:
     urn = _get_urn(record_envelope)
     if urn:
@@ -194,6 +211,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         self._gms_emit_mode = _resolve_gms_emit_mode(
             self.config.mode, _configured_gms_emit_mode()
         )
+        self._fail_on_rejected_proposals = get_rest_emitter_fail_on_rejected_proposals()
 
         try:
             gms_config = self.emitter.server_config
@@ -302,6 +320,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         cls,
         config: DatahubRestSinkConfig,
         auth: Optional[requests.auth.AuthBase] = None,
+        fail_on_rejected_proposals: Optional[bool] = None,
     ) -> DataHubRestEmitter:
         return DataHubRestEmitter(
             config.server,
@@ -326,6 +345,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
             tcp_keepalive=config.tcp_keepalive,
+            fail_on_rejected_proposals=fail_on_rejected_proposals,
         )
 
     @property
@@ -337,8 +357,12 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         thread_local = self._emitter_thread_local
         if not hasattr(thread_local, "emitter"):
             self.config.client_mode = ClientMode.INGESTION
+            # The sink reports rejected proposals per record itself, as warnings or
+            # failures, so it always has the emitter raise them.
             thread_local.emitter = DatahubRestSink._make_emitter(
-                self.config, auth=self._resolved_auth
+                self.config,
+                auth=self._resolved_auth,
+                fail_on_rejected_proposals=True,
             )
         return thread_local.emitter
 
@@ -366,37 +390,61 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             )
         elif future.done():
             e = future.exception()
-            if not e:
+            # _emit_batch_wrapper returns the proposals GMS left out of the batch.
+            rejected = (
+                _rejected_for_record(record_envelope, future.result() or [])
+                if not e
+                else []
+            )
+            if not e and not rejected:
                 self.report.report_record_written(record_envelope)
                 write_callback.on_success(record_envelope, {})
+            elif not e:
+                self._report_failed_record(
+                    record_envelope,
+                    write_callback,
+                    RejectedProposalsError(
+                        f"GMS rejected {len(rejected)} proposal(s) of this record",
+                        rejected,
+                        [],
+                    ),
+                    as_warning=not self._fail_on_rejected_proposals,
+                )
             elif isinstance(e, OperationalError):
-                # only OperationalErrors should be ignored
-                # trim exception stacktraces in all cases when reporting
-                if "stackTrace" in e.info:
-                    with contextlib.suppress(Exception):
-                        e.info["stackTrace"] = "\n".join(
-                            e.info["stackTrace"].split("\n")[:3]
-                        )
-                        e.info["message"] = e.info.get("message", "").split("\n")[0][
-                            :200
-                        ]
-
-                # Include information about the entity that failed.
-                record_urn = _get_urn(record_envelope)
-                if record_urn:
-                    e.info["urn"] = record_urn
-                if workunit_id := record_envelope.metadata.get("workunit_id"):
-                    e.info["workunit_id"] = workunit_id
-
-                if not self.treat_errors_as_warnings:
-                    self.report.report_failure({"error": e.message, "info": e.info})
-                else:
-                    self.report.report_warning({"warning": e.message, "info": e.info})
-                write_callback.on_failure(record_envelope, e, e.info)
+                self._report_failed_record(
+                    record_envelope, write_callback, e, as_warning=False
+                )
             else:
                 logger.exception(f"Failure: {e}", exc_info=e)
                 self.report.report_failure({"e": e})
                 write_callback.on_failure(record_envelope, Exception(e), {})
+
+    def _report_failed_record(
+        self,
+        record_envelope: RecordEnvelope,
+        write_callback: WriteCallback,
+        e: OperationalError,
+        as_warning: bool,
+    ) -> None:
+        # only OperationalErrors should be ignored
+        # trim exception stacktraces in all cases when reporting
+        if "stackTrace" in e.info:
+            with contextlib.suppress(Exception):
+                e.info["stackTrace"] = "\n".join(e.info["stackTrace"].split("\n")[:3])
+                e.info["message"] = e.info.get("message", "").split("\n")[0][:200]
+
+        # Include information about the entity that failed.
+        record_urn = _get_urn(record_envelope)
+        if record_urn:
+            e.info["urn"] = record_urn
+        if workunit_id := record_envelope.metadata.get("workunit_id"):
+            e.info["workunit_id"] = workunit_id
+
+        if as_warning or self.treat_errors_as_warnings:
+            self.report.report_warning({"warning": e.message, "info": e.info})
+        else:
+            self.report.report_failure({"error": e.message, "info": e.info})
+        write_callback.on_failure(record_envelope, e, e.info)
 
     def _emit_wrapper(
         self,
@@ -421,7 +469,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 ],
             ]
         ],
-    ) -> None:
+    ) -> List[RejectedProposal]:
         events: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]] = []
 
         for record in records:
@@ -434,7 +482,18 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             else:
                 events.append(event)
 
-        trace_data = self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+        rejected: List[RejectedProposal] = []
+        try:
+            trace_data = self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+        except RejectedProposalsError as e:
+            trace_data, rejected = e.trace_data, e.rejected
+        # Proposals the server did not name can't be tied to a record; report them once.
+        for unnamed in (r for r in rejected if r.urn is None):
+            info = {"message": str(unnamed)}
+            if self._fail_on_rejected_proposals:
+                self.report.report_failure({"error": str(unnamed), "info": info})
+            else:
+                self.report.report_warning({"warning": str(unnamed), "info": info})
         num_chunks = len(trace_data)
         self.report.async_batches_prepared += 1
         if num_chunks > 1:
@@ -443,6 +502,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 f"In async_batch mode, the payload was split into {num_chunks} batches. "
                 "If there's many of these issues, consider decreasing `max_per_batch`."
             )
+        return rejected
 
     def write_record_async(
         self,

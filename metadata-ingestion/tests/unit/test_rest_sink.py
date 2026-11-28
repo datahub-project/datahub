@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import requests
+import requests_mock as requests_mock_module
 import time_machine
 
 import datahub.metadata.schema_classes as models
@@ -15,6 +16,7 @@ from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.datahub_rest import (
     DatahubRestSink,
     DatahubRestSinkConfig,
+    DataHubRestSinkReport,
     RestSinkMode,
 )
 
@@ -512,3 +514,95 @@ def test_rest_sink_config_accepts_client_config_dump():
     client = DatahubClientConfig(server="http://localhost:8080")
     cfg = DatahubRestSinkConfig(**client.model_dump())
     assert cfg.server == "http://localhost:8080"
+
+
+class TestRestSinkRejectedProposals:
+    """A Rest.li batch that GMS writes without some of its proposals answers
+    "success; skipped N invalid proposal(s): ...". The sink must report those
+    records against their workunits instead of counting them as written."""
+
+    GOOD_URN = "urn:li:dataset:(urn:li:dataPlatform:hive,db.good,PROD)"
+    BAD_URN = "urn:li:dataset:(urn:li:dataPlatform:hive,db.bad,NOT_A_FABRIC)"
+
+    def _run_batch(
+        self,
+        requests_mock: requests_mock_module.Mocker,
+        monkeypatch: pytest.MonkeyPatch,
+        fail_on_rejected: bool,
+    ) -> DataHubRestSinkReport:
+        from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+
+        if fail_on_rejected:
+            monkeypatch.setenv(
+                "DATAHUB_REST_EMITTER_FAIL_ON_REJECTED_PROPOSALS", "true"
+            )
+        else:
+            monkeypatch.delenv(
+                "DATAHUB_REST_EMITTER_FAIL_ON_REJECTED_PROPOSALS", raising=False
+            )
+        requests_mock.get(
+            f"{MOCK_GMS_ENDPOINT}/config",
+            json={
+                "noCode": "true",
+                "versions": {"acryldata/datahub": {"version": "v1.3.0"}},
+            },
+        )
+        requests_mock.post(
+            f"{MOCK_GMS_ENDPOINT}/aspects?action=ingestProposalBatch",
+            json={
+                "value": f"success; skipped 1 invalid proposal(s): {self.BAD_URN} "
+                "status: Invalid urn: NOT_A_FABRIC is not an enum symbol"
+            },
+        )
+
+        sink = DatahubRestSink.create(
+            {
+                "server": MOCK_GMS_ENDPOINT,
+                "mode": "ASYNC_BATCH",
+                "max_per_batch": 2,
+                "max_threads": 1,
+            },
+            PipelineContext(run_id="rejected-proposals-test"),
+        )
+        callback = MagicMock()
+        for urn in (self.GOOD_URN, self.BAD_URN):
+            sink.write_record_async(
+                RecordEnvelope(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=urn, aspect=models.StatusClass(removed=False)
+                    ),
+                    metadata={"workunit_id": f"wu-{urn}"},
+                ),
+                callback,
+            )
+        sink.close()
+
+        # One request: both records went out in the same batch.
+        assert requests_mock.call_count == 2
+        assert sink.report.total_records_written == 1
+        callback.on_success.assert_called_once()
+        callback.on_failure.assert_called_once()
+        assert callback.on_failure.call_args[0][0].record.entityUrn == self.BAD_URN
+        return sink.report
+
+    @staticmethod
+    def _only_entry(entries: list) -> dict:
+        assert len(entries) == 1
+        return entries[0]
+
+    def test_rejected_record_is_a_warning_by_default(self, requests_mock, monkeypatch):
+        report = self._run_batch(requests_mock, monkeypatch, fail_on_rejected=False)
+        assert len(report.failures) == 0
+        info = self._only_entry(report.warnings)["info"]
+        assert info["urn"] == self.BAD_URN
+        assert info["workunit_id"] == f"wu-{self.BAD_URN}"
+        assert "NOT_A_FABRIC is not an enum symbol" in str(info["rejected"])
+
+    def test_rejected_record_is_a_failure_when_switched_on(
+        self, requests_mock, monkeypatch
+    ):
+        report = self._run_batch(requests_mock, monkeypatch, fail_on_rejected=True)
+        assert len(report.warnings) == 0
+        info = self._only_entry(report.failures)["info"]
+        assert info["urn"] == self.BAD_URN
+        assert info["workunit_id"] == f"wu-{self.BAD_URN}"

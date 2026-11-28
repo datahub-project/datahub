@@ -4,7 +4,7 @@ import re
 import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from requests import Response
 
@@ -240,3 +240,81 @@ def extract_trace_data_from_mcps(
     except AttributeError as e:
         logger.error(f"Error processing MCPs: {e}")
         return None
+
+
+_RESTLI_SUCCESS = "success"
+_RESTLI_SKIPPED = re.compile(
+    r"success; skipped (\d+) invalid proposal\(s\): (.*)", re.DOTALL
+)
+_RESTLI_SKIPPED_MORE = re.compile(r"; and \d+ more$")
+
+
+@dataclass(frozen=True)
+class RejectedProposal:
+    """A proposal GMS left out of a write that it otherwise accepted."""
+
+    # None when the server did not name the proposal (it names at most ten).
+    urn: Optional[str]
+    aspect_name: Optional[str]
+    reason: str
+
+    def __str__(self) -> str:
+        if self.urn is None:
+            return self.reason
+        return f"{self.urn} {self.aspect_name}: {self.reason}"
+
+
+def parse_rejected_proposals(
+    value: object,
+    mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+) -> List[RejectedProposal]:
+    """Read the value of a Rest.li ingestProposal / ingestProposalBatch response.
+
+    GMS answers "success" when it wrote every proposal; servers that predate
+    rejected-proposal reporting always do. When it wrote the batch without some
+    proposals it answers "success; skipped N invalid proposal(s): <urn> <aspect>:
+    <reason>; ...", naming at most ten and ending with "; and K more". Reasons are
+    free text that may contain "; ", so each named proposal is located by the urn
+    and aspect of the proposals that were sent rather than by splitting.
+    """
+    if not isinstance(value, str) or value == _RESTLI_SUCCESS:
+        return []
+    match = _RESTLI_SKIPPED.fullmatch(value)
+    if not match:
+        return [RejectedProposal(urn=None, aspect_name=None, reason=value)]
+
+    count = int(match.group(1))
+    described = _RESTLI_SKIPPED_MORE.sub("", match.group(2))
+    hits: List[Tuple[int, int, str, str]] = []
+    for urn, aspect_name in {(mcp.entityUrn, mcp.aspectName) for mcp in mcps}:
+        if urn is None or aspect_name is None:
+            continue
+        marker = re.compile(r"(?:^|(?<=; ))" + re.escape(f"{urn} {aspect_name}: "))
+        hits.extend(
+            (found.start(), found.end(), urn, aspect_name)
+            for found in marker.finditer(described)
+        )
+    hits.sort()
+
+    rejected = [
+        RejectedProposal(
+            urn=urn,
+            aspect_name=aspect_name,
+            reason=described[
+                end : hits[i + 1][0] - len("; ") if i + 1 < len(hits) else None
+            ],
+        )
+        for i, (_, end, urn, aspect_name) in enumerate(hits)
+    ]
+    unnamed = count - len(rejected)
+    if unnamed > 0:
+        rejected.append(
+            RejectedProposal(
+                urn=None,
+                aspect_name=None,
+                reason=f"{unnamed} more proposal(s) were rejected; see the GMS log"
+                if rejected
+                else value,
+            )
+        )
+    return rejected
